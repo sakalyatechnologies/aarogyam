@@ -5,7 +5,9 @@
 pub(crate) mod analytics;
 pub(crate) mod appointments;
 pub(crate) mod auth;
+pub(crate) mod avatars;
 pub(crate) mod billing;
+pub(crate) mod campaigns;
 pub(crate) mod chart;
 pub(crate) mod chat;
 pub(crate) mod check_in;
@@ -16,8 +18,10 @@ pub(crate) mod console;
 pub(crate) mod console_support;
 pub(crate) mod dental_terms;
 pub(crate) mod duplicates;
+pub(crate) mod events;
 pub(crate) mod expenses;
 pub(crate) mod facts;
+pub(crate) mod family;
 pub(crate) mod files;
 pub(crate) mod health;
 pub(crate) mod imports;
@@ -32,6 +36,7 @@ pub(crate) mod legal_hold;
 pub(crate) mod letterhead;
 pub(crate) mod me;
 pub(crate) mod message_feedback;
+pub(crate) mod message_templates;
 pub(crate) mod messages;
 pub(crate) mod meta;
 pub(crate) mod notices;
@@ -49,6 +54,7 @@ pub(crate) mod quality;
 pub(crate) mod queue;
 pub(crate) mod quick_picks;
 pub(crate) mod recalls;
+pub(crate) mod record_shares;
 pub(crate) mod registrations;
 pub(crate) mod reports;
 pub(crate) mod roles;
@@ -60,10 +66,12 @@ pub(crate) mod staff;
 pub(crate) mod support_grants;
 pub(crate) mod today;
 pub(crate) mod treatment;
+pub(crate) mod visit_shares;
 pub(crate) mod visits;
 pub(crate) mod vitals;
 pub(crate) mod walk_ins;
 pub(crate) mod website;
+pub(crate) mod whatsapp_webhook;
 
 use axum::Json;
 use axum::Router;
@@ -102,6 +110,13 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/me/sessions", get(me::sessions))
         .route("/me/sessions/{id}/revoke", post(me::revoke_session))
         .route("/session", get(me::session))
+        .route(
+            "/me/avatar",
+            put(avatars::put_avatar)
+                .delete(avatars::delete_avatar)
+                .layer(DefaultBodyLimit::max(avatars::MAX_UPLOAD_BODY)),
+        )
+        .route("/avatars/{id}/content", get(avatars::photo_content))
         // The patient app: a signed-in patient's own records, at the clinics that linked them
         // (tests/patient_app.rs). Reads on the app host; booking, cancelling and files on the
         // clinic's host, which must have linked the account.
@@ -115,6 +130,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/me/patient/appointments", get(patient_app::appointments))
         .route("/me/patient/prescriptions", get(patient_app::prescriptions))
         .route("/me/patient/bills", get(patient_app::bills))
+        .route("/me/patient/visits", get(visit_shares::mine))
+        .route("/me/patient/visits/{id}", get(visit_shares::mine_one))
         .route("/me/patient/files", get(patient_app::files))
         .route("/me/patient/links", post(patient_app::redeem))
         .route("/me/patient/links/{id}/revoke", post(patient_app::revoke))
@@ -134,6 +151,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/auth/handoff/redeem", post(auth::redeem))
         .route("/invitations/accept", post(invitations::accept))
         .route("/patients", get(patients::recent).post(patients::register))
+        .route("/patients/{id}/family", get(family::list).post(family::add))
+        .route("/patients/{id}/family/{link_id}", delete(family::remove))
         .route("/patients/search", post(patients::search))
         .route("/patients/lookup", post(patients::lookup))
         .route("/patients/{id}", get(patients::open).patch(patients::edit))
@@ -198,9 +217,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/appointments/{id}", patch(appointments::change))
         .route("/appointments/{id}/status", post(appointments::set_status))
         .route("/appointments/{id}/check-in", post(check_in::check_in))
+        .route("/events", get(events::stream))
         .route("/queue", get(queue::list).post(queue::walk_in))
         .route("/queue/{id}/status", post(queue::set_status))
         .route("/queue/{id}/start-visit", post(queue::start_visit))
+        .route("/queue/{id}/call", post(queue::call))
         .route("/walk-ins", post(walk_ins::register))
         .route("/quick-picks", get(quick_picks::get))
         .route("/today", get(today::today))
@@ -234,6 +255,40 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             post(message_feedback::resend_webhook)
                 .layer(DefaultBodyLimit::max(message_feedback::MAX_WEBHOOK_BODY)),
         )
+        // Meta's WhatsApp webhook: the handshake (verify token) and signed events (HMAC).
+        .route(
+            "/webhooks/whatsapp",
+            get(whatsapp_webhook::handshake)
+                .post(whatsapp_webhook::receive)
+                .layer(DefaultBodyLimit::max(whatsapp_webhook::MAX_BODY)),
+        )
+        // The clinic's message templates (settings.manage).
+        .route(
+            "/templates",
+            get(message_templates::list).post(message_templates::create),
+        )
+        .route("/templates/{id}", patch(message_templates::update))
+        .route("/templates/{id}/submit", post(message_templates::submit))
+        // Audiences and campaigns (campaigns.manage: owners).
+        .route(
+            "/audiences",
+            get(campaigns::list_audiences).post(campaigns::create_audience),
+        )
+        .route("/audiences/preview", post(campaigns::preview))
+        .route(
+            "/audiences/{id}",
+            get(campaigns::get_audience)
+                .patch(campaigns::update_audience)
+                .delete(campaigns::delete_audience),
+        )
+        .route("/campaigns", get(campaigns::list).post(campaigns::create))
+        .route(
+            "/campaigns/{id}",
+            get(campaigns::get).patch(campaigns::update),
+        )
+        .route("/campaigns/{id}/schedule", post(campaigns::schedule))
+        .route("/campaigns/{id}/cancel", post(campaigns::cancel))
+        .route("/campaigns/{id}/test-send", post(campaigns::test_send))
         .route("/patients/{id}/legal-hold", put(legal_hold::set))
         .route(
             "/support-grants",
@@ -453,6 +508,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/invoices/{id}",
             get(billing::get_invoice).patch(billing::edit_invoice),
         )
+        .route("/invoices/{id}/upi-link", get(billing::get_upi_link))
         .route("/invoices/{id}/issue", post(billing::issue_invoice))
         .route("/invoices/{id}/void", post(billing::void_invoice))
         .route(
@@ -579,6 +635,17 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         // Public, no sign-in: on the clinic's host, limited by the link's token and PIN.
         .route("/shared/{token}", get(prescriptions::shared_preview))
         .route("/shared/{token}/open", post(prescriptions::shared_open))
+        .route("/shared/{token}/records", post(record_shares::open))
+        .route("/shared/{token}/visit", post(visit_shares::open))
+        .route("/visits/{id}/share", post(visit_shares::create))
+        .route(
+            "/shared/{token}/records/xrays/{id}",
+            get(record_shares::xray_content),
+        )
+        .route(
+            "/patients/{id}/record-shares",
+            get(record_shares::list).post(record_shares::create),
+        )
         .route(
             "/verify/prescriptions/{verify_token}",
             get(prescriptions::verify),

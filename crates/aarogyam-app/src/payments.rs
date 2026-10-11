@@ -7,8 +7,10 @@ use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::billing::{
     FinancialYear, InvoiceStatus, PaymentMethod, PaymentStatus, RECEIPT_PREFIX, serial_number,
 };
+use aarogyam_domain::clinical::AttachmentKind;
 use aarogyam_domain::ids::{InvoiceId, PatientId, PaymentId};
 use aarogyam_domain::permission::Permission;
+use aarogyam_domain::schedule::QueueStatus;
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::Paise;
 use time::{Date, OffsetDateTime};
@@ -35,6 +37,8 @@ pub struct RecordPayment {
     pub reference: Option<String>,
     /// Which bills it pays, and how much of each.
     pub allocations: Vec<(InvoiceId, i64)>,
+    /// Proof of payment: a `payment_proof` file of the same patient.
+    pub attachment_id: Option<Uuid>,
 }
 
 /// Part of a payment going to a bill.
@@ -75,10 +79,12 @@ pub struct PaymentView {
     pub unallocated: Paise,
     /// The allocations.
     pub allocations: Vec<AllocationView>,
+    /// Proof of payment.
+    pub attachment_id: Option<Uuid>,
 }
 
 /// Valid keys: 8 to 100 of letters, digits, `_`, `-`, `.` and `:` (a UUID works).
-fn check_key(key: &str) -> Result<String, AppError> {
+pub(crate) fn check_key(key: &str) -> Result<String, AppError> {
     let key = key.trim();
     let ok = (8..=100).contains(&key.len())
         && key
@@ -103,12 +109,16 @@ fn request_hash(input: &RecordPayment, method: PaymentMethod, reference: Option<
         .collect();
     allocations.sort();
     hash_token(&format!(
-        "{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}",
         input.patient_id.uuid(),
         method.as_str(),
         input.amount_paise,
         reference.unwrap_or_default(),
-        allocations.join(",")
+        allocations.join(","),
+        input
+            .attachment_id
+            .map(|id| id.to_string())
+            .unwrap_or_default()
     ))
 }
 
@@ -148,6 +158,7 @@ async fn load_many(
                 allocated: Paise::new(row.allocated_paise),
                 unallocated: Paise::new((row.amount_paise - row.allocated_paise).max(0)),
                 allocations: mine,
+                attachment_id: row.attachment_id,
             };
             (view, row.request_hash)
         })
@@ -269,6 +280,26 @@ pub async fn record(
             patients::get(tx.conn(), input.patient_id.uuid(), None)
                 .await?
                 .ok_or(AppError::NotFound("patient"))?;
+            if let Some(proof) = input.attachment_id {
+                let file = aarogyam_dal::attachments::get(tx.conn(), proof, None)
+                    .await?
+                    .ok_or(AppError::invalid(
+                        "attachment_id",
+                        "is not a file of this clinic",
+                    ))?;
+                if file.patient_id != input.patient_id.uuid() {
+                    return Err(AppError::invalid(
+                        "attachment_id",
+                        "must be a file of the same patient",
+                    ));
+                }
+                if file.kind != AttachmentKind::PaymentProof.as_str() {
+                    return Err(AppError::invalid(
+                        "attachment_id",
+                        "must be a file of kind payment_proof",
+                    ));
+                }
+            }
             let ids: Vec<Uuid> = input.allocations.iter().map(|(id, _)| id.uuid()).collect();
             let bills = dal::lock_invoices(tx.conn(), &ids).await?;
             // Validate bills and compute the total balance due.
@@ -329,6 +360,7 @@ pub async fn record(
                     received_by: actor.membership_id.uuid(),
                     idempotency_key: &key,
                     request_hash: &hash,
+                    attachment_id: input.attachment_id,
                 },
             )
             .await?;
@@ -341,6 +373,20 @@ pub async fn record(
                     *amount,
                 )
                 .await?;
+            }
+            // A payment that clears a visit's balance finishes its token at the desk.
+            if !ids.is_empty() {
+                for token in aarogyam_dal::queue::settled_by_invoices(tx.conn(), &ids).await? {
+                    crate::queue::move_token(
+                        tx,
+                        &actor.timezone,
+                        &token,
+                        QueueStatus::Done,
+                        actor.membership_id,
+                        now,
+                    )
+                    .await?;
+                }
             }
             Ok((load_one(tx, id).await?, true))
         })
@@ -462,6 +508,7 @@ mod tests {
             method: "upi".into(),
             amount_paise: 500,
             reference: None,
+            attachment_id: None,
             allocations: vec![(invoice, 200), (other, 300)],
         };
         let mut reordered = input.clone();

@@ -34,14 +34,14 @@ pub(crate) struct PatientMail<'a> {
 
 /// The clinic's offset: India's (no daylight saving); other zones are shown in UTC until a
 /// time-zone database is added, as elsewhere (`aarogyam_app::clock::clinic_offset`).
-fn clinic_offset(timezone: &str) -> UtcOffset {
+pub(crate) fn clinic_offset(timezone: &str) -> UtcOffset {
     match timezone {
         "Asia/Kolkata" | "Asia/Calcutta" => UtcOffset::from_hms(5, 30, 0).unwrap_or(UtcOffset::UTC),
         _ => UtcOffset::UTC,
     }
 }
 
-fn when_text(at: OffsetDateTime) -> String {
+pub(crate) fn when_text(at: OffsetDateTime) -> String {
     format!(
         "{} {} {}, {:02}:{:02}",
         at.day(),

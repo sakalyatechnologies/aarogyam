@@ -3,10 +3,11 @@
 
 use aarogyam_app::intake::{DeskConsent, Intake};
 use aarogyam_app::patients::RegisterPatient;
-use aarogyam_app::walk_ins::{self as app, NewWalkIn, WalkInPatient, WalkInView};
+use aarogyam_app::walk_ins::{self as app, FamilyOf, NewWalkIn, WalkInPatient, WalkInView};
 use aarogyam_domain::consent::{Method, Purpose};
 use aarogyam_domain::event::Event;
-use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId};
+use aarogyam_domain::family::Relation;
+use aarogyam_domain::ids::{BranchId, PatientId, PatientRelationId, PractitionerId};
 use aarogyam_domain::permission::require::IntakeWrite;
 use axum::Json;
 use axum::extract::State;
@@ -30,6 +31,16 @@ pub struct DeskConsentFields {
     pub purpose: String,
     /// `verbal` (the usual at the desk), `paper` or `app`.
     pub method: String,
+}
+
+/// Puts the walk-in in an existing patient's family.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct FamilyOfFields {
+    /// The existing patient (a patient of this clinic).
+    pub patient_id: String,
+    /// What the walk-in is to that patient: `guardian`, `child`, `spouse`, `parent`, `sibling`
+    /// or `other`. `child` means the walk-in is that patient's child.
+    pub relation: String,
 }
 
 /// A walk-in: a new patient (`patient`) or a registered one (`patient_id`), exactly one of the
@@ -61,6 +72,8 @@ pub struct WalkInRequest {
     pub notice_id: Option<String>,
     /// A notice label, for a notice that isn't published here (prefer `notice_id`).
     pub notice_version: Option<String>,
+    /// Add the walk-in to an existing patient's family (the link is written both ways).
+    pub family_of: Option<FamilyOfFields>,
 }
 
 /// What a walk-in did.
@@ -76,6 +89,9 @@ pub struct WalkIn {
     pub allergies_recorded: u64,
     /// The purposes whose consent was recorded.
     pub consents_recorded: Vec<String>,
+    /// The family link made, from the existing patient's side; absent without `family_of`.
+    #[schema(value_type = Option<String>)]
+    pub family_link_id: Option<uuid::Uuid>,
 }
 
 impl From<WalkInView> for WalkIn {
@@ -90,6 +106,7 @@ impl From<WalkInView> for WalkIn {
                 .iter()
                 .map(|p| p.as_str().to_owned())
                 .collect(),
+            family_link_id: view.family_link_id.map(PatientRelationId::uuid),
         }
     }
 }
@@ -115,7 +132,18 @@ fn input(body: WalkInRequest) -> Result<NewWalkIn, ApiFailure> {
         _ => return Err(bad("patient", "give either patient or patient_id").into()),
     };
     let consents = desk_consents(&body.consents)?;
+    let family_of = body
+        .family_of
+        .map(|of| {
+            Ok::<_, ApiFailure>(FamilyOf {
+                patient_id: PatientId::from_uuid(parse_id("family_of.patient_id", &of.patient_id)?),
+                relation: Relation::parse(&of.relation)
+                    .map_err(|_| bad("family_of.relation", "unknown value"))?,
+            })
+        })
+        .transpose()?;
     Ok(NewWalkIn {
+        family_of,
         patient,
         practitioner_id: body
             .practitioner_id

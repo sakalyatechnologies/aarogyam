@@ -53,6 +53,32 @@ pub async fn insert(
     Ok(())
 }
 
+/// Plans a follow-up that comes from closing a visit.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn insert_from_visit(
+    conn: &mut PgConnection,
+    id: Uuid,
+    patient_id: Uuid,
+    reason: &str,
+    due_on: Date,
+    encounter_id: Uuid,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        "insert into aarogyam.recalls (id, patient_id, kind, reason, due_on, source_encounter_id)
+         values ($1, $2, 'follow_up', $3, $4, $5)",
+        id,
+        patient_id,
+        reason,
+        due_on,
+        encounter_id
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
 /// Open follow-ups (due or notified) falling due before `due_before`, or one follow-up.
 ///
 /// # Errors
@@ -99,4 +125,21 @@ pub async fn done(conn: &mut PgConnection, id: Uuid, at: OffsetDateTime) -> Resu
     .execute(conn)
     .await?;
     Ok(result.rows_affected() > 0)
+}
+
+/// The follow-up planned when a visit closed, if any.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn of_visit(
+    conn: &mut PgConnection,
+    encounter_id: Uuid,
+) -> Result<Option<Uuid>, DbError> {
+    let id = sqlx::query_scalar!(
+        "select id from aarogyam.recalls where source_encounter_id = $1 order by created_at limit 1",
+        encounter_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(id)
 }

@@ -1965,9 +1965,15 @@ export const analytics = z.object({
   buckets: z.array(analyticsBucketRow),
   patients: z.object({
     age_bands: z.array(keyCount),
+    sex: z.array(keyCount).default([]),
     visit_kinds: z.array(keyCount),
     referral_sources: z.array(keyCount),
   }) satisfies z.ZodType<C.PatientBreakdown>,
+  procedures_by_category: z.array(keyCount).default([]),
+  chair_time: z
+    .object({ treatment: count, consult: count, admin: count })
+    .default({ treatment: 0, consult: 0, admin: 0 }) satisfies z.ZodType<C.ChairTimeSplit>,
+  visit_sources: z.object({ booked: count, walk_in: count }).default({ booked: 0, walk_in: 0 }) satisfies z.ZodType<C.VisitSources>,
   busy_hours: z.array(
     z.object({ weekday: z.number().int().min(1).max(7), hour: z.number().int().min(0).max(23), visits: count }) satisfies z.ZodType<C.BusyHour>,
   ),

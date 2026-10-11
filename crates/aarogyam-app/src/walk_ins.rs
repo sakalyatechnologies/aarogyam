@@ -5,7 +5,8 @@
 
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::consent::Purpose;
-use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId};
+use aarogyam_domain::family::Relation;
+use aarogyam_domain::ids::{BranchId, PatientId, PatientRelationId, PractitionerId};
 use aarogyam_domain::permission::Permission;
 use sakalya_db::Db;
 use time::OffsetDateTime;
@@ -13,6 +14,7 @@ use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
+use crate::family::{self, NewRelation};
 use crate::intake::{self, Intake};
 use crate::patients::{PatientView, RegisterPatient, existing, insert_new, validate};
 use crate::queue::{TokenView, check_doctor, issue_token, view as token_view};
@@ -28,6 +30,15 @@ pub enum WalkInPatient {
     Existing(PatientId),
 }
 
+/// Adds the walk-in to an existing patient's family.
+#[derive(Debug, Clone, Copy)]
+pub struct FamilyOf {
+    /// The existing patient.
+    pub patient_id: PatientId,
+    /// What the walk-in is to that patient (`child`: the walk-in is their child).
+    pub relation: Relation,
+}
+
 /// A walk-in as received.
 #[derive(Debug, Clone)]
 pub struct NewWalkIn {
@@ -39,6 +50,8 @@ pub struct NewWalkIn {
     pub branch_id: Option<BranchId>,
     /// Allergies or "No known allergies", and desk consents.
     pub intake: Intake,
+    /// Link the walk-in to an existing patient's family.
+    pub family_of: Option<FamilyOf>,
 }
 
 /// What a walk-in did.
@@ -54,6 +67,8 @@ pub struct WalkInView {
     pub allergies_recorded: u64,
     /// The purposes whose consent was recorded (ones already in force are left as they are).
     pub consents_recorded: Vec<Purpose>,
+    /// The family link made (the existing patient's side), when `family_of` was given.
+    pub family_link_id: Option<PatientRelationId>,
 }
 
 /// Registers (or takes) the patient, records allergies or "No known allergies" and the desk
@@ -95,6 +110,22 @@ pub async fn register(
         let patient_id = patient.id.uuid();
         let (allergies_recorded, consents_recorded) =
             intake::record(tx, patient_id, &intake, actor.membership_id.uuid()).await?;
+        let family_link_id = match input.family_of {
+            Some(of) => Some(
+                family::link_in(
+                    tx,
+                    actor,
+                    of.patient_id,
+                    NewRelation {
+                        related_patient_id: patient.id,
+                        relation: of.relation,
+                        is_primary_contact: false,
+                    },
+                )
+                .await?,
+            ),
+            None => None,
+        };
         let branch_id = resolve_branch(tx, input.branch_id).await?;
         let token_id = issue_token(
             tx,
@@ -113,6 +144,7 @@ pub async fn register(
             token,
             allergies_recorded,
             consents_recorded,
+            family_link_id,
         })
     })
     .await
@@ -130,6 +162,7 @@ mod tests {
             practitioner_id: None,
             branch_id: None,
             intake,
+            family_of: None,
         }
     }
 

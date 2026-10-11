@@ -33,6 +33,7 @@ mod dev;
 pub mod error_report;
 mod extract;
 mod failure;
+mod live;
 pub mod metrics;
 mod openapi;
 mod revalidate;

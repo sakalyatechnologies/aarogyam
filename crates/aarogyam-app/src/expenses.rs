@@ -14,7 +14,9 @@ use uuid::Uuid;
 use crate::billing::void_reason;
 use crate::clock::clinic_today;
 use crate::error::AppError;
+use crate::payments::check_key;
 use crate::scope::staff_scope as scope;
+use crate::tokens::hash_token;
 
 /// Most expenses one list returns.
 pub const MAX_LIST: i64 = 500;
@@ -76,44 +78,83 @@ pub struct NewExpenseInput {
     pub amount: Paise,
     /// A note, up to 300 characters.
     pub note: Option<String>,
+    /// The client's `Idempotency-Key`, if it sent one; a retry sends the same key.
+    pub idempotency_key: Option<String>,
 }
 
-/// Records an expense.
+/// Records an expense once. With an idempotency key, a retry with the same key and request
+/// returns the first expense; returns whether this call recorded it.
 ///
 /// # Errors
 /// [`AppError::Denied`] without `expenses.write`; [`AppError::Invalid`] for an amount that
-/// isn't above zero, a long note or a day after today.
+/// isn't above zero, a long note, a day after today or a malformed key;
+/// [`AppError::Conflict`] for a key reused with a different expense.
 pub async fn record(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     input: NewExpenseInput,
     now: OffsetDateTime,
-) -> Result<ExpenseView, AppError> {
+) -> Result<(ExpenseView, bool), AppError> {
     actor.require(Permission::ExpensesWrite)?;
     let amount = check_amount(input.amount).map_err(|e| AppError::invalid("amount_paise", e))?;
     let note = check_note(input.note.as_deref()).map_err(|e| AppError::invalid("note", e))?;
     if input.spent_on > clinic_today(&actor.timezone, now) {
         return Err(AppError::invalid("spent_on", "must not be after today"));
     }
-    db.scoped(&scope(actor, request_id), async |tx| {
-        let row = dal::insert(
-            tx.conn(),
-            &NewExpense {
-                id: ExpenseId::new_v7().uuid(),
-                category_key: input.category.as_str(),
-                spent_on: input.spent_on,
-                amount_paise: amount.get(),
-                note: note.as_deref(),
-                recorded_by: actor.membership_id.uuid(),
-            },
-        )
-        .await?
-        // Every clinic has the system categories (migration 0300); a missing one is a bug.
-        .ok_or(AppError::Internal("expense category missing"))?;
-        Ok(view(row))
-    })
-    .await
+    let key = input
+        .idempotency_key
+        .as_deref()
+        .map(check_key)
+        .transpose()?;
+    let hash = key.as_ref().map(|_| {
+        hash_token(&format!(
+            "{}|{}|{}|{}",
+            input.category.as_str(),
+            input.spent_on,
+            amount.get(),
+            note.as_deref().unwrap_or_default()
+        ))
+    });
+    let attempt = async || {
+        db.scoped(&scope(actor, request_id), async |tx| {
+            if let (Some(key), Some(hash)) = (&key, &hash)
+                && let Some((row, stored)) = dal::by_key(tx.conn(), key).await?
+            {
+                if &stored == hash {
+                    return Ok((view(row), false));
+                }
+                return Err(AppError::Conflict(
+                    "this Idempotency-Key was used for a different expense",
+                ));
+            }
+            let row = dal::insert(
+                tx.conn(),
+                &NewExpense {
+                    id: ExpenseId::new_v7().uuid(),
+                    category_key: input.category.as_str(),
+                    spent_on: input.spent_on,
+                    amount_paise: amount.get(),
+                    note: note.as_deref(),
+                    recorded_by: actor.membership_id.uuid(),
+                    idempotency_key: key.as_deref(),
+                    request_hash: hash.as_deref(),
+                },
+            )
+            .await?
+            // Every clinic has the system categories (migration 0300); a missing one is a bug.
+            .ok_or(AppError::Internal("expense category missing"))?;
+            Ok((view(row), true))
+        })
+        .await
+    };
+    match attempt().await {
+        // Two requests with the same key at once: the loser finds the winner's expense.
+        Err(AppError::Db(error)) if error.constraint() == Some("expenses_idempotency") => {
+            attempt().await
+        }
+        other => other,
+    }
 }
 
 /// Expenses spent on clinic days `from` to `to` (both included), voided ones too, newest day

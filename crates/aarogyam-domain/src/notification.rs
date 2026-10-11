@@ -55,8 +55,44 @@ stored_enum!(
         BookingConfirmedAuto => "booking_confirmed_auto",
         /// A patient cancelled an appointment themselves.
         BookingCancelledByPatient => "booking_cancelled_by_patient",
+        /// Lab work is past its due date and still at the lab.
+        LabOverdue => "lab_overdue",
+        /// A patient is waiting for their doctor (check-in or walk-in).
+        PatientWaiting => "patient_waiting",
+        /// The doctor called a patient in; the front desk sends them through.
+        SendIn => "send_in",
+        /// The visit's chair work is done; the front desk collects payment.
+        CollectPayment => "collect_payment",
     }
 );
+
+stored_enum!(
+    /// Who a queue notification is for, decided when it is read.
+    QueueAudience {
+        /// The token's doctor.
+        Doctor => "doctor",
+        /// Members who handle appointments (`appointments.write`).
+        FrontDesk => "front_desk",
+        /// Members who take payments or see finance (`billing.write`, `finance.view`).
+        Billing => "billing",
+    }
+);
+
+impl NotificationKind {
+    /// The audience of a queue notification; `None` for booking and lab ones.
+    #[must_use]
+    pub const fn queue_audience(self) -> Option<QueueAudience> {
+        match self {
+            Self::PatientWaiting => Some(QueueAudience::Doctor),
+            Self::SendIn => Some(QueueAudience::FrontDesk),
+            Self::CollectPayment => Some(QueueAudience::Billing),
+            Self::BookingRequested
+            | Self::BookingConfirmedAuto
+            | Self::BookingCancelledByPatient
+            | Self::LabOverdue => None,
+        }
+    }
+}
 
 stored_enum!(
     /// What an inbox message is.
@@ -289,6 +325,11 @@ mod tests {
             assert_eq!(InboxKind::parse(kind.as_str()), Ok(*kind));
         }
         assert_eq!(NotificationKind::parse("booking"), Err(UnknownValue));
+        assert_eq!(
+            NotificationKind::SendIn.queue_audience(),
+            Some(QueueAudience::FrontDesk)
+        );
+        assert_eq!(NotificationKind::LabOverdue.queue_audience(), None);
         assert_eq!(
             ReminderStep::Escalate.inbox_kind().audience(),
             Audience::Owners

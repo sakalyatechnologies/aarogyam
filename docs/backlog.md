@@ -57,10 +57,11 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - From a patient (web and mobile): **Call** (phone dialler) and **WhatsApp** (opens a chat with the patient's number), logged on the patient's timeline without message content.
 - **Templates:** appointment reminder, follow-up, birthday, festivals and new year, plus **custom** text; placeholders (name, clinic, date) filled safely.
 - **Campaigns:** choose all, active, or filtered patients (last visit, treatment, age, birthday month) and send an offer, camp or greeting; opt-out honoured, quiet hours, preview and count before sending, delivery report.
+  **Status (10 Oct): built, backend only** (decisions.md, "Campaigns"): audiences (all active, last visit, birthday month, age band, sex, tag; no balance or treatment filters), a count-only preview with a count token, scheduling, batched fan-out, per-patient and per-clinic caps, a kill switch, counts by skip reason, test-send, owner-only `campaigns.manage`. Still to build: the portal composer and audience builder, cost shown before sending, a settings screen for the caps, tag management, a keyed token, WhatsApp campaigns once Meta approves a `promo.offer` template.
 - **Design notes:** WhatsApp Business API (Meta-approved templates for outbound) and SMS via the notification service and outbox (AGENTS.md rule 10, never direct from handlers); consent and opt-out stored per patient (DPDP); campaigns need a permission, rate limits and an audit; costs per message shown before sending.
 
 ## Staff chat (8 Oct 2026)
-**Status (9 Oct): backend built, UI pending.** One-to-one and group chat between staff, plain text, optional patient reference, polled with cursors; `GET /me/badges` for the minute poll (docs/decisions.md, "Staff chat"). Waiting: portal, console and phone screens; push for new messages; archiving and renaming a group (columns exist, no endpoint); replies, Markdown, editing and an automatic clinic channel (cut from the first cut). The support-grant exclusion test for chat and the retention purge come with T6.
+**Status (9 Oct): backend built, UI pending.** One-to-one and group chat between staff, plain text, optional patient reference, polled with cursors; `GET /me/badges` for the minute poll (docs/decisions.md, "Staff chat"). Waiting: portal, console and phone screens; push for new messages; archiving and renaming a group (columns exist, no endpoint); replies, Markdown, editing and an automatic clinic channel (cut from the first cut). The retention purge of old chat messages is still to do (the support-grant exclusion test and the erasure step are built).
 
 ## Clinic notifications for online bookings (8 Oct 2026, important)
 **Status (8 Oct): backend built, UI pending.** Notifications written with the booking or patient cancellation, per-person read state and "handled by", scopes, the feed, count, read and inbox API, reminder then owner escalation in the outbox job, and `reminder_minutes` next to `auto_confirm` (docs/decisions.md, "Clinic notifications, reminders and escalation"). Waiting: the portal bell and list, Today's unhandled list, the staff app list, push (credentials), and real clinic opening hours for the job.
@@ -103,7 +104,7 @@ Founder testing: a patient booked online from the clinic website and the booking
 
 ## Labs (8 Oct 2026) - backend built on feat/labs
 - Built: labs and contacts, lab orders with items, status and stage, reminders to the lab by email, payments that record a lab expense, a lab's balance, and lab turnaround in Analytics (see `decisions.md`, "Labs").
-- Still to do: portal, console and phone screens; editing an order's items; STL scans over 10 MB (files are capped at 10 MB); WhatsApp to labs once the messaging service exists; the overdue staff alert (T6); payment method on lab payments; pathology and radiology requisitions, printed or shared, never in a reminder.
+- Still to do: portal, console and phone screens; editing an order's items; STL scans over 10 MB (files are capped at 10 MB); WhatsApp to labs once the messaging service exists; payment method on lab payments; pathology and radiology requisitions, printed or shared, never in a reminder.
 
 ## Sign-in from the public website: one smooth step (8 Oct 2026)
 - **Problem:** after signing in on the public Aarogyam website, several different screens flash by while it redirects to the clinic portal, and it takes a while. Today the path goes from the website's sign-in, through the handoff, then the portal's own loading screens ("Loading your clinics", "Opening the clinic"), then the setup gate, then the page.
@@ -234,3 +235,13 @@ The staff apps build these screens fully but show "Preview: needs server support
 - **BK-17** Queue summary (average wait, no-shows) if `/queue` and `/today` can't provide it.
 - **BK-18** In-app support chat with Sakalya.
 - **BK-19** Analytics: booked vs walk-in split.
+
+## Left over from the backend plan (10 Oct 2026)
+- Messaging extras: promo codes, two-person approval for campaigns, "has balance" and treatment filters for marketing audiences.
+- Admin chair time: add an admin appointment kind; until then `chair_time.admin` is always 0.
+- After each deploy: send an email to a synthetic patient on the demo clinic and a lab reminder to a test contact.
+- Credentials still to set: WhatsApp (Meta account, `ARO_WHATSAPP__*`), the Resend webhook secret, Firebase/APNs for push.
+- Owner invitation from the console: show delivery status and the failure reason, add "Resend invite"; check the Resend sender domain is verified.
+
+## Portal v2 from the Lovable mockup (10 Oct 2026, planning)
+Port the look of `aarogyam-st` (Lovable) into the portal behind a "New look" switch; keep our data layer, routes and permission checks. Order: shell with expandable icon rail, Today (studio widgets, date picker that loads that day's queue and completed list), Settings (adopt its tabs; keep our website designer and letterhead; add its site templates), then the other tabs. Backend asks: per-user studio layout, edit own name and phone, booking auto-confirm and default visit length, notification switches, chair-occupancy heatmap, chair room and paused flag, GST on price items, chat clinic channel and attachments.

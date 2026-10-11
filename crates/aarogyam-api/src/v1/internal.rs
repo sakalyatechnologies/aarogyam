@@ -59,6 +59,10 @@ pub struct DrainReport {
     pub messages_retrying: usize,
     /// Patient messages that failed for the last time.
     pub messages_failed: usize,
+    /// Campaign messages queued by this run's fan-out.
+    pub campaign_messages_queued: i64,
+    /// Campaign recipients skipped by the weekly promotional cap.
+    pub campaign_recipients_capped: i64,
     /// Reminders queued to labs about work due.
     pub lab_reminders_queued: usize,
     /// Reminders due to labs with no email address.
@@ -115,6 +119,8 @@ pub(crate) async fn drain_outbox(
         messages_deferred: report.messages.deferred,
         messages_retrying: report.messages.retrying,
         messages_failed: report.messages.failed,
+        campaign_messages_queued: report.messages.campaign_queued,
+        campaign_recipients_capped: report.messages.campaign_capped,
         lab_reminders_queued: labs.reminded,
         lab_reminders_skipped: labs.skipped,
         lab_orders_overdue: labs.overdue,

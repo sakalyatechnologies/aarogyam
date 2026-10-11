@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.message_templates\n            set body = $2, category = $3, provider_template_ref = $4, status = $5,\n                sender_header = $6, dlt_template_id = $7,\n                submitted_at = case when $8 then now() else submitted_at end,\n                reviewed_at = case when $5 in ('approved', 'rejected', 'paused') and $8\n                                   then now() else reviewed_at end\n          where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "feacec659b32699daaec34cfd1c2a57c002cd1660124c275a52241b5fee2639b"
+}

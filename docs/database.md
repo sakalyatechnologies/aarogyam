@@ -38,7 +38,7 @@ flowchart LR
   web["Websites<br/>8 tables"]
   trust["Trust and audit<br/>11 tables"]
   onboarding["Onboarding<br/>6 tables"]
-  billing -->|2| clinical
+  billing -->|3| clinical
   billing -->|3| people
   billing -->|9| tenancy
   clinical -->|1| ops
@@ -47,10 +47,11 @@ flowchart LR
   clinical -->|18| tenancy
   iam -->|1| people
   notify -->|1| billing
-  notify -->|1| clinical
+  notify -->|2| clinical
   notify -->|1| iam
+  notify -->|1| ops
   notify -->|5| people
-  notify -->|3| scheduling
+  notify -->|4| scheduling
   notify -->|4| tenancy
   onboarding -->|2| people
   ops -->|3| billing
@@ -61,10 +62,10 @@ flowchart LR
   platform -->|3| iam
   platform -->|2| tenancy
   scheduling -->|4| people
-  scheduling -->|3| tenancy
+  scheduling -->|4| tenancy
   tenancy -->|3| iam
   trust -->|1| billing
-  trust -->|1| clinical
+  trust -->|2| clinical
   trust -->|7| people
   trust -->|4| tenancy
   web -->|1| people
@@ -636,7 +637,7 @@ Chairs, rooms and labs that appointments can be booked into.
 | `active` | `bool` |  |
 | `sort_order` | `smallint` |  |
 
-Referenced by: `appointments.room_id`
+Referenced by: `appointments.room_id`, `queue_tokens.room_id`
 
 ### `org_modules`
 
@@ -784,8 +785,11 @@ A user's place in a clinic: role, branches, status. The link between users and c
 | `status` | `membership_status` | invited, active, suspended, left |
 | `pin_hash` | `text?` | quick switch on shared PCs |
 | `joined_at` | `timestamptz?` |  |
+| `avatar_preset` | `text?` | the staff avatar as a preset id the apps ship (migration 0386) |
+| `avatar_file_id` | `uuid?` | or the member's own PNG or JPEG photo in file storage under the clinic's folder, read through signed links |
+| `avatar_mime` | `text?` | image/png or image/jpeg, set with avatar_file_id |
 
-Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().
+Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize(). At most one of avatar_preset and avatar_file_id; the member sets their own with PUT /me/avatar, and app.my_clinics returns both for the clinic switcher.
 
 Referenced by: `allergies.verified_by`, `chat_messages.author_membership_id`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `consent_notices.published_by`, `conversation_members.membership_id`, `daily_closings.closed_by`, `dental_terms.added_by`, `dental_terms.retired_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `lab_order_events.actor_id`, `lab_orders.doctor_id`, `lab_orders.last_contacted_by`, `lab_payments.recorded_by`, `lab_payments.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_duplicates.resolved_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `staff_notification_reads.membership_id`, `staff_notifications.handled_by`, `support_grants.granted_by`, `support_grants.revoked_by`, `treatment_plans.clinician_id`
 
@@ -843,8 +847,8 @@ erDiagram
   patients |o--o{ patients : "referred_by_patient_id"
   patients |o--o{ patients : "merged_into_id"
   patients ||--o{ patient_identifiers : "patient_id"
-  patients ||--o{ family_links : "patient_id"
-  patients ||--o{ family_links : "related_patient_id"
+  patients ||--o{ patient_relations : "patient_id"
+  patients ||--o{ patient_relations : "related_patient_id"
   patients ||--o{ medical_history_items : "patient_id"
   patients ||--o{ patient_links : "patient_id"
   patient_accounts ||--o{ patient_links : "account_id"
@@ -892,7 +896,7 @@ A clinic's own record of a patient. Two clinics never share this row.
 
 A phone number is contact information, never identity: families share numbers and numbers change. A merge only sets merged_into_id; records stay on the original patient and reads resolve to the canonical one, so a wrong merge can be undone. Number, phone and name-prefix search use plain indexes; fuzzy name search goes through app.search_patients(), because trigram matching can't use an index under row-level security. Same-phone registrations get a duplicate warning, never an automatic merge.
 
-Referenced by: `allergies.patient_id`, `appointments.patient_id`, `attachments.patient_id`, `care_episodes.patient_id`, `chat_messages.patient_id`, `clinical_notes.patient_id`, `conditions.patient_id`, `consent_forms.patient_id`, `contact_preferences.patient_id`, `data_requests.patient_id`, `document_extractions.patient_id`, `encounters.patient_id`, `family_links.patient_id`, `family_links.related_patient_id`, `import_rows.patient_id`, `invoices.patient_id`, `lab_orders.patient_id`, `medical_history_items.patient_id`, `messages.patient_id`, `observations.patient_id`, `patient_consents.patient_id`, `patient_duplicates.candidate_id`, `patient_duplicates.patient_id`, `patient_gaps.patient_id`, `patient_identifiers.patient_id`, `patient_link_codes.patient_id`, `patient_links.patient_id`, `patient_notes.patient_id`, `patients.merged_into_id`, `patients.referred_by_patient_id`, `payment_allocations.patient_id`, `payments.patient_id`, `prescriptions.patient_id`, `procedures.patient_id`, `promo_redemptions.patient_id`, `queue_tokens.patient_id`, `recalls.patient_id`, `share_links.patient_id`, `specialty_records.patient_id`, `treatment_plan_items.patient_id`, `treatment_plans.patient_id`
+Referenced by: `allergies.patient_id`, `appointments.patient_id`, `attachments.patient_id`, `care_episodes.patient_id`, `chat_messages.patient_id`, `clinical_notes.patient_id`, `conditions.patient_id`, `consent_forms.patient_id`, `contact_preferences.patient_id`, `data_requests.patient_id`, `document_extractions.patient_id`, `encounters.patient_id`, `import_rows.patient_id`, `invoices.patient_id`, `lab_orders.patient_id`, `medical_history_items.patient_id`, `messages.patient_id`, `observations.patient_id`, `patient_consents.patient_id`, `patient_duplicates.candidate_id`, `patient_duplicates.patient_id`, `patient_gaps.patient_id`, `patient_identifiers.patient_id`, `patient_link_codes.patient_id`, `patient_links.patient_id`, `patient_notes.patient_id`, `patient_relations.patient_id`, `patient_relations.related_patient_id`, `patients.merged_into_id`, `patients.referred_by_patient_id`, `payment_allocations.patient_id`, `payments.patient_id`, `prescriptions.patient_id`, `procedures.patient_id`, `promo_redemptions.patient_id`, `queue_tokens.patient_id`, `recalls.patient_id`, `share_links.patient_id`, `specialty_records.patient_id`, `treatment_plan_items.patient_id`, `treatment_plans.patient_id`
 
 ### `patient_identifiers` (★ foundation)
 
@@ -908,18 +912,20 @@ Extra IDs for a patient: the clinic's file number, smart card, ABHA, legacy impo
 
 Unique (org_id, kind, value).
 
-### `family_links`
+### `patient_relations`
 
-Relationships between patients in the same clinic: parent, child, spouse, guardian.
+Family under one mobile number: how two patients of a clinic are related. Each link has an inverse row written and removed with it.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: ephemeral*
 
 | Column | Type | Notes |
 |---|---|---|
 | `patient_id` | `uuid` | → `patients` |
 | `related_patient_id` | `uuid` | → `patients` |
-| `relation` | `relation_kind` | parent, child, spouse, guardian, other |
-| `can_manage` | `bool` | guardian may act for this patient |
+| `relation` | `text` | guardian, child, spouse, parent, sibling, other (what the related patient is to patient_id) |
+| `is_primary_contact` | `bool` | the contact person for patient_id |
+
+Unique (org_id, patient_id, related_patient_id); a patient is never related to themselves. Erasure deletes both directions.
 
 ### `referral_sources` (★ foundation)
 
@@ -1144,14 +1150,15 @@ Walk-in tokens shown on the waiting-room screen.
 | `patient_id` | `uuid` | → `patients` |
 | `appointment_id` | `uuid?` | → `appointments`. null for a walk-in |
 | `practitioner_id` | `uuid?` | → `practitioners` |
-| `status` | `token_status` | waiting, in_chair, done, left |
+| `status` | `token_status` | waiting, called, in_chair, ready_to_bill, done, left (called and ready_to_bill: migration 0420) |
 | `issued_at` | `timestamptz` |  |
 | `called_at` | `timestamptz?` |  |
 | `done_at` | `timestamptz?` |  |
+| `room_id` | `uuid?` | → `rooms`. the chair chosen when seated; a room of the token's branch (migration 0384) |
 
-Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done.
+Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done. Moves: waiting to called to in_chair, called back to waiting, in_chair to ready_to_bill to done, left from any open state; waiting may still go straight to in_chair or done.
 
-Referenced by: `encounters.queue_token_id`
+Referenced by: `encounters.queue_token_id`, `staff_notifications.queue_token_id`
 
 ### `teleconsult_sessions`
 
@@ -1263,7 +1270,7 @@ One visit. Visit-level clinical data (complaint, vitals, notes, procedures, file
 
 Unique (org_id, id, patient_id): every child row carries patient_id and a composite foreign key (org_id, encounter_id, patient_id), so a visit's notes, vitals, procedures and files can't belong to another patient. Patient-level facts (allergies, active conditions, history) live on the patient and may be updated during a visit; they do not require one. Opening a visit writes access_log.
 
-Referenced by: `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `invoices.encounter_id`, `lab_orders.encounter_id`, `observations.encounter_id`, `prescriptions.encounter_id`, `procedures.encounter_id`, `specialty_records.encounter_id`, `treatment_plans.encounter_id`, `voice_notes.encounter_id`
+Referenced by: `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `invoices.encounter_id`, `lab_orders.encounter_id`, `observations.encounter_id`, `prescriptions.encounter_id`, `procedures.encounter_id`, `recalls.source_encounter_id`, `share_links.encounter_id`, `specialty_records.encounter_id`, `treatment_plans.encounter_id`, `voice_notes.encounter_id`
 
 ### `clinical_notes` (★ foundation)
 
@@ -1545,7 +1552,7 @@ Patient files: photos, X-rays, reports, documents, audio, signed consent.
 |---|---|---|
 | `patient_id` | `uuid` | → `patients` |
 | `encounter_id` | `uuid?` | → `encounters` |
-| `kind` | `attachment_kind` | photo, xray, report, document, audio, consent |
+| `kind` | `attachment_kind` | photo, xray, report, document, audio, consent, payment_proof |
 | `storage_key` | `text` | <org_id>/<id>, never from a file name |
 | `mime_type` | `text` | from the content: JPEG, PNG, PDF, DICOM, or WebM, MP4, Ogg audio |
 | `size_bytes` | `bigint` | at most 10 MB |
@@ -1564,7 +1571,7 @@ Patient files: photos, X-rays, reports, documents, audio, signed consent.
 
 A trigger refuses a recording on a signed note unless it carries an addendum. Served only through short-lived signed links (HMAC, 5 minutes) issued after a permission check; each download writes access_log. Local disk in development, object storage later, behind one Storage trait.
 
-Referenced by: `consent_forms.pdf_attachment_id`, `consent_forms.signature_attachment_id`, `document_extractions.attachment_id`, `voice_notes.attachment_id`
+Referenced by: `consent_forms.pdf_attachment_id`, `consent_forms.signature_attachment_id`, `document_extractions.attachment_id`, `payments.attachment_id`, `voice_notes.attachment_id`
 
 ### `voice_notes`
 
@@ -1823,7 +1830,7 @@ Work sent to a lab for a patient, its due date and where it is.
 
 Built (migration 0361). Status moves forward only (draft -> sent/cancelled; sent -> in_progress/received/cancelled; in_progress -> received/cancelled; received -> fitted/returned_for_rework). The outbox job emails the lab two days before and on the due date, and flags overdue work, each once per due date (app.run_lab_reminders, migration 0363). Reminders never name the patient. Retention class lab_work (8 years).
 
-Referenced by: `attachments.lab_order_id`, `lab_order_events.lab_order_id`, `lab_order_items.lab_order_id`, `lab_orders.rework_of_id`, `lab_payments.lab_order_id`
+Referenced by: `attachments.lab_order_id`, `lab_order_events.lab_order_id`, `lab_order_items.lab_order_id`, `lab_orders.rework_of_id`, `lab_payments.lab_order_id`, `staff_notifications.lab_order_id`
 
 ### `lab_order_items`
 
@@ -2205,6 +2212,7 @@ Money received from a patient, by any method.
 | `void_reason` | `text?` |  |
 | `voided_at` | `timestamptz?` |  |
 | `voided_by` | `uuid?` | → `memberships` |
+| `attachment_id` | `uuid?` | → `attachments`. proof of payment: a UPI screenshot or cheque photo |
 
 Referenced by: `payment_allocations.payment_id`, `refunds.payment_id`
 
@@ -2270,6 +2278,8 @@ Money the clinic spends.
 | `void_reason` | `text?` |  |
 | `voided_at` | `timestamptz?` |  |
 | `voided_by` | `uuid?` | → `memberships` |
+| `idempotency_key` | `text?` | the client's Idempotency-Key; unique per clinic (migration 0385) |
+| `request_hash` | `text?` | SHA-256 of the request sent with the key |
 
 Built (migration 0300). Recording needs expenses.write; listing and voiding need finance.view. Never edited: a mistake is voided with a reason (trigger). Stock deliveries are not copied in; the Analytics report counts stock_batches at cost as material. Not built yet: branch, payment method, vendor, receipt file.
 
@@ -2304,6 +2314,7 @@ erDiagram
   audiences ||--o{ campaigns : "audience_id"
   message_templates ||--o{ campaigns : "template_id"
   promo_codes ||--o{ promo_redemptions : "promo_code_id"
+  campaigns |o--o{ messages : "campaign_id"
   messages ||--o{ message_events : "message_id"
   contact_preferences {
     uuid id
@@ -2324,21 +2335,25 @@ erDiagram
 
 ### `message_templates`
 
-Message text per channel and language. Clinic rows override platform defaults.
+What each patient message says, per clinic, channel and language; WhatsApp ones with their Meta review state.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: read-only on devices*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: read-only on devices · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `key` | `text` | appointment_reminder, birthday, recall_cleaning ... |
-| `channel` | `channel` | whatsapp, sms, email, push |
-| `language` | `text` |  |
-| `body` | `text` |  |
-| `category` | `message_category` | transactional, promotional |
-| `provider_template_id` | `text?` | Meta or DLT template id |
-| `approval` | `approval_status` | draft, pending, approved, rejected |
+| `key` | `text` | care.note, reminder.follow_up, promo.offer, appointment.reminder, booking.*, prescription.shared, patient_app.invited |
+| `channel` | `text` | email, whatsapp, sms |
+| `language` | `text` | en-IN, hi-IN, mr-IN |
+| `body` | `text` | with allow-listed {{variables}}; for WhatsApp, the order of Meta's parameters |
+| `category` | `text` | marketing, utility, authentication (as Meta returns it) |
+| `provider_template_ref` | `text?` | the template's name at Meta |
+| `status` | `text` | draft, submitted, approved, rejected, paused |
+| `submitted_at` | `timestamptz?` |  |
+| `reviewed_at` | `timestamptz?` |  |
+| `sender_header` | `text?` | SMS DLT sender, later |
+| `dlt_template_id` | `text?` | SMS DLT template, later |
 
-org_id is null for platform defaults; this table allows that.
+Built (migration 0375). Unique per clinic, key, channel and language. Each clinic gets copies of app.message_template_defaults() when it is created (trigger on organizations); never a row without a clinic. Email rows start approved (wording still in code), WhatsApp ones as drafts. Meta's review webhook updates submitted copies by name and language (app.whatsapp_template_reviewed). No patient data; retention class message_templates.
 
 Referenced by: `campaigns.template_id`
 
@@ -2378,20 +2393,24 @@ Built (migration 0370). Unique (org_id, patient_id, channel, category). Consent 
 
 ### `staff_notifications`
 
-Something clinic staff are told about: an online booking waiting for an answer, one confirmed automatically, or one the patient cancelled.
+Something clinic staff are told about: an online booking waiting for an answer, one confirmed automatically, one the patient cancelled, or lab work past its due date; or a queue event: a patient waiting for the doctor, the doctor calling one in, one ready to pay.
 
 *Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
-| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient |
-| `appointment_id` | `uuid` | → `appointments` |
+| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue, patient_waiting, send_in, collect_payment |
+| `appointment_id` | `uuid?` | → `appointments`. booking kinds |
+| `lab_order_id` | `uuid?` | → `lab_orders`. lab_overdue; exactly one of the three subjects is set |
+| `queue_token_id` | `uuid?` | → `queue_tokens`. patient_waiting, send_in, collect_payment (migration 0421) |
+| `audience` | `text?` | doctor, front_desk or billing; set with queue_token_id |
+| `lab_due_on` | `date?` | the due date the order was overdue on; one alert per order and due date |
 | `handled_at` | `timestamptz?` | set when the appointment is confirmed, declined or cancelled |
 | `handled_by` | `uuid?` | → `memberships`. null when the patient cancelled |
 | `reminded_at` | `timestamptz?` | the reminder job reminded everyone |
 | `escalated_at` | `timestamptz?` | the reminder job told the owners |
 
-Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor.
+Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor. Since migration 0395 also lab_overdue, written by a trigger when the reminder job flags an order overdue (overdue_flagged_on) and handled when the work comes back, is cancelled or gets a new due date; seen by members with labs.read whose scope reaches the order (app.clinical_in_reach). Since migration 0421 the queue kinds, written in the transaction that moves the token (check-in or walk-in: patient_waiting for the token's doctor; call: send_in for the front desk; ready_to_bill: collect_payment for the front desk and finance); IDs only, the clinic number comes from the token's patient.
 
 Referenced by: `staff_inbox_messages.notification_id`, `staff_notification_reads.notification_id`
 
@@ -2457,7 +2476,7 @@ Who is in a conversation, their role, and how far they have read.
 | `muted` | `boolean` | left out of the badge |
 | `last_read_message_id` | `uuid?` | → `chat_messages`. unread counts start after it |
 
-Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history.
+Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history. A trigger (0396) caps a group at 100 active members.
 
 ### `chat_messages`
 
@@ -2493,35 +2512,48 @@ Follow-ups that are due: cleaning in six months, BP review, vaccine.
 | `status` | `recall_status` | due, notified, booked, done, dismissed |
 | `done_at` | `timestamptz?` |  |
 | `source_procedure_id` | `uuid?` | → `procedures` |
+| `source_encounter_id` | `uuid?` | → `encounters`. the visit whose closing planned it |
 
 ### `audiences`
 
-Saved patient filters for campaigns: age, sex, treatment, doctor, fees, history.
+Saved patient filters for campaigns: all active, last visit, birthday month, age band, sex, tag.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: ephemeral*
 
 | Column | Type | Notes |
 |---|---|---|
 | `name` | `text` |  |
-| `filter` | `jsonb` |  |
-| `estimated_count` | `int?` |  |
+| `filter` | `jsonb` | one typed filter by kind: all_active, last_visit, birthday_month, age_band, sex, tag |
+
+Built (migration 0380). No balance, treatment or visit-kind filters (purpose limitation). Evaluated when a campaign sends (app.audience_patients, 0382). Holds no patient, so no erasure step; support never reads it.
 
 Referenced by: `campaigns.audience_id`
 
 ### `campaigns`
 
-A one-off or scheduled send to an audience: health tips, offers.
+A one-off promotional send of a clinic's template to an audience.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
+*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only · lifecycle: mutable*
 
 | Column | Type | Notes |
 |---|---|---|
 | `name` | `text` |  |
 | `audience_id` | `uuid` | → `audiences` |
 | `template_id` | `uuid` | → `message_templates` |
+| `channel` | `text` | email, whatsapp |
+| `offer_text` | `text` | the allow-listed {{offer_text}}, and the email body |
 | `scheduled_at` | `timestamptz?` |  |
-| `status` | `campaign_status` | draft, scheduled, sending, sent, cancelled |
-| `cost_estimate_paise` | `bigint?` |  |
+| `status` | `text` | draft, scheduled, sending, sent, cancelled |
+| `scheduled_count` | `int?` | the audience size the owner saw (count_token) |
+| `fan_out_cursor` | `uuid?` | last patient expanded |
+| `fan_out_started_at` | `timestamptz?` |  |
+| `fan_out_done_at` | `timestamptz?` |  |
+| `last_batch_at` | `timestamptz?` |  |
+| `cancelled_at` | `timestamptz?` |  |
+
+Built (migrations 0381, 0383). Messages name their campaign (messages.campaign_id) under dedupe key campaign:<id>:<patient>; counts are group by status, skip_reason over them, never stored. app.campaigns_fan_out_next expands 500 patients a call, resumable and idempotent. Holds no patient; retention class campaigns.
+
+Referenced by: `messages.campaign_id`
 
 ### `promo_codes`
 
@@ -2596,23 +2628,24 @@ The queue of messages to patients: one row per recipient and channel, addressed 
 | `body` | `text?` | staff free text, email only |
 | `secret` | `text?` | a one-time link secret, cleared once processed |
 | `appointment_id` | `uuid?` | → `appointments` |
+| `campaign_id` | `uuid?` | → `campaigns`. promotional only |
 | `status` | `text` | queued, sending, sent, failed, skipped |
-| `skip_reason` | `text?` | no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed... |
+| `skip_reason` | `text?` | no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed, channel_disabled, no_opt_in, template_unavailable, template_paused, marketing_limit, undeliverable, frequency_cap, campaign_cancelled... |
 | `dedupe_key` | `text?` | unique per clinic, e.g. reminder:appt:<id>:24h |
 | `scheduled_for` | `timestamptz` |  |
 | `lease_until` | `timestamptz?` | while sending |
 | `attempts` | `int` |  |
 | `last_error` | `text?` |  |
-| `provider` | `text?` | log, resend |
+| `provider` | `text?` | log, resend, meta |
 | `provider_message_id` | `text?` | unique per clinic and provider |
-| `cost_paise` | `bigint?` |  |
+| `cost_paise` | `bigint?` | WhatsApp: the configured price of the template's category |
 | `unsubscribe_hash` | `text?` | SHA-256 of the email's unsubscribe token |
-| `delivery` | `text?` | latest provider report |
+| `delivery` | `text?` | latest provider report (WhatsApp: the furthest of sent, delivered, read; failed) |
 | `delivery_at` | `timestamptz?` |  |
 | `sent_at` | `timestamptz?` |  |
 | `processed_at` | `timestamptz?` |  |
 
-Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing.
+Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing. Support never reads it (0397: a restrictive no_support policy, also on message_events and contact_preferences).
 
 Referenced by: `message_events.message_id`
 
@@ -2627,10 +2660,10 @@ What providers reported about a sent message: delivered, bounced, complained.
 | `message_id` | `uuid` | → `messages` |
 | `provider` | `text` |  |
 | `provider_event_id` | `text` | svix-id; unique per clinic and provider |
-| `kind` | `text` | sent, delivered, delayed, bounced, complained, failed, opened, clicked |
+| `kind` | `text` | sent, delivered, read, delayed, bounced, complained, failed, opened, clicked |
 | `occurred_at` | `timestamptz` |  |
 
-Built (migration 0370). Metadata only, never the payload; written by the Resend webhook through app.message_provider_event, once per event whatever the order.
+Built (migration 0370). Metadata only, never the payload; written by the Resend webhook through app.message_provider_event, and by Meta's through app.whatsapp_status (event id <wamid>:<status>, 0377), once per event whatever the order.
 
 ### `notifications`
 
@@ -2931,19 +2964,21 @@ Expiring links that let a patient open a prescription, bill or report on the cli
 |---|---|---|
 | `token_hash` | `text` | the link holds a 256-bit token; only its hash is stored |
 | `pin_hash` | `text` | SHA-256 of token and the six-digit PIN printed on the paper |
-| `resource` | `share_resource` | prescription, invoice, report, upload_request |
+| `resource` | `share_resource` | prescription, invoice, report, upload_request, records, visit |
+| `record_types` | `text[]?` | for resource records: a subset of chart, xrays, bills (migration 0387) |
+| `encounter_id` | `uuid?` | → `encounters`. for resource visit (migration 0425) |
 | `prescription_id` | `uuid?` | → `prescriptions` |
 | `invoice_id` | `uuid?` | → `invoices` |
 | `patient_id` | `uuid` | → `patients` |
 | `channel` | `channel` | whatsapp, sms, email, print |
 | `failed_attempts` | `int` | five wrong PINs lock the link |
 | `locked_at` | `timestamptz?` |  |
-| `expires_at` | `timestamptz` | seven days |
+| `expires_at` | `timestamptz` | seven days; for records the clinic picks 1 hour, 24 hours or 7 days |
 | `opened_at` | `timestamptz?` |  |
 | `open_count` | `int` |  |
 | `revoked_at` | `timestamptz?` |  |
 
-Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self.
+Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self. A records link (POST /patients/{id}/record-shares) has no document column: it shows the patient's own chart, X-rays and issued bills as chosen, and writes access_log for the share, each open and each X-ray download. A visit link (POST /visits/{id}/share) shows one visit: treatments done, the Plan section of signed notes as advice, the next follow-up and the last five visits.
 
 ### `access_log` (★ foundation, partitioned)
 

@@ -2,7 +2,8 @@
 //! or week, in one request.
 
 use aarogyam_app::analytics::{self as app, Period};
-use aarogyam_domain::analytics::{AgeBand, Bucket, ReferralKind};
+use aarogyam_domain::analytics::{AgeBand, Bucket, ChairTime, ReferralKind};
+use aarogyam_domain::patient::Sex;
 use aarogyam_domain::permission::require::AnalyticsView;
 use aarogyam_domain::schedule::AppointmentKind;
 use axum::Json;
@@ -126,6 +127,8 @@ pub struct PatientBreakdown {
     /// Patients seen, by age on the last day: `0_12`, `13_17`, `18_34`, `35_49`, `50_64`,
     /// `65_plus`, `unknown`. Every band listed.
     pub age_bands: Vec<KeyCount>,
+    /// Patients seen, by recorded sex: `female`, `male`, `other`, `unknown`. Every value listed.
+    pub sex: Vec<KeyCount>,
     /// Visits by appointment kind: `new`, `follow_up`, `procedure`, `emergency`. Every kind
     /// listed.
     pub visit_kinds: Vec<KeyCount>,
@@ -165,10 +168,37 @@ pub struct Analytics {
     pub buckets: Vec<AnalyticsBucketRow>,
     /// Who the patients are.
     pub patients: PatientBreakdown,
+    /// Procedures done in the range by the category of the bill line that charged them
+    /// (`uncategorised` when not billed or without a category), most first. Counts only.
+    pub procedures_by_category: Vec<KeyCount>,
+    /// Booked chair minutes by what they were spent on, from the appointment kind.
+    pub chair_time: ChairTimeSplit,
+    /// Booked appointments against walk-ins.
+    pub visit_sources: VisitSources,
     /// Visits by weekday and hour; only non-zero cells.
     pub busy_hours: Vec<BusyHour>,
     /// Lab work received back in the range.
     pub lab_turnaround: LabTurnaround,
+}
+
+/// Booked chair minutes (no-shows included) by what they were spent on.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChairTimeSplit {
+    /// Minutes on procedures and emergencies.
+    pub treatment: i64,
+    /// Minutes on new and follow-up consultations.
+    pub consult: i64,
+    /// Reserved: no appointment kind maps to it yet, so it is `0` minutes.
+    pub admin: i64,
+}
+
+/// Visits in the range by how they came.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct VisitSources {
+    /// Visits that were booked appointments (not cancelled, no-show or unconfirmed requests).
+    pub booked: i64,
+    /// Walk-in tokens issued in the range, not counting those who left unseen.
+    pub walk_in: i64,
 }
 
 /// How long labs take: orders received back in the range, and their average days from sent to
@@ -307,8 +337,32 @@ pub(crate) async fn analytics(
         buckets: report.periods.into_iter().map(bucket_row).collect(),
         patients: PatientBreakdown {
             age_bands: counts(report.age_bands, AgeBand::as_str),
+            sex: counts(report.sexes, Sex::as_str),
             visit_kinds: counts(report.visit_kinds, AppointmentKind::as_str),
             referral_sources: counts(report.referral_sources, ReferralKind::as_str),
+        },
+        procedures_by_category: report
+            .procedures
+            .into_iter()
+            .map(|(key, count)| KeyCount { key, count })
+            .collect(),
+        chair_time: {
+            let minutes = |class: ChairTime| {
+                report
+                    .chair_time
+                    .iter()
+                    .find(|(c, _)| *c == class)
+                    .map_or(0, |(_, m)| *m)
+            };
+            ChairTimeSplit {
+                treatment: minutes(ChairTime::Treatment),
+                consult: minutes(ChairTime::Consult),
+                admin: minutes(ChairTime::Admin),
+            }
+        },
+        visit_sources: VisitSources {
+            booked: report.booked_visits,
+            walk_in: report.walk_ins,
         },
         busy_hours: report
             .busy_hours

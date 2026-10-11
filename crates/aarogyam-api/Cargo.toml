@@ -26,6 +26,8 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 time.workspace = true
+tokio = { workspace = true, features = ["rt", "sync", "time"] }
+tokio-stream = { version = "0.1.19", default-features = false }
 tracing.workspace = true
 utoipa.workspace = true
 uuid.workspace = true
@@ -35,6 +37,7 @@ sakalya-testkit.workspace = true
 sqlx.workspace = true
 tokio = { workspace = true, features = ["macros", "net"] }
 tower = { workspace = true, features = ["util"] }
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std"] }
 
 [lints]
 workspace = true

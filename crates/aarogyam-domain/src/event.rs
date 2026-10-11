@@ -102,6 +102,10 @@ pub enum Event {
     NoteAmended,
     /// A patient's summary note was saved.
     PatientNoteSaved,
+    /// Two patients were linked as family.
+    FamilyLinked,
+    /// A family link was removed.
+    FamilyUnlinked,
     /// A patient's consent was recorded.
     ConsentRecorded,
     /// A patient withdrew a consent.
@@ -182,6 +186,12 @@ pub enum Event {
     LabPaymentRecorded,
     /// A payment to a lab was voided.
     LabPaymentVoided,
+    /// An owner scheduled a campaign.
+    CampaignScheduled,
+    /// An owner cancelled a campaign.
+    CampaignCancelled,
+    /// The job expanded a batch of a campaign's recipients into messages.
+    CampaignFanOut,
 }
 
 impl Event {
@@ -238,6 +248,8 @@ impl Event {
             Self::NoteSigned => "note.signed",
             Self::NoteAmended => "note.amended",
             Self::PatientNoteSaved => "patient_note.saved",
+            Self::FamilyLinked => "family.linked",
+            Self::FamilyUnlinked => "family.unlinked",
             Self::ConsentRecorded => "consent.recorded",
             Self::ConsentWithdrawn => "consent.withdrawn",
             Self::RecordRetracted => "record.retracted",
@@ -278,6 +290,9 @@ impl Event {
             Self::LabOrderContacted => "lab_order.contacted",
             Self::LabPaymentRecorded => "lab_payment.recorded",
             Self::LabPaymentVoided => "lab_payment.voided",
+            Self::CampaignScheduled => "campaign.scheduled",
+            Self::CampaignCancelled => "campaign.cancelled",
+            Self::CampaignFanOut => "campaign.fan_out",
         }
     }
 }

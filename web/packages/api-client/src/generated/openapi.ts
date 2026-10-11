@@ -148,6 +148,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audiences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's saved audiences. */
+        get: operations["listAudiences"];
+        put?: never;
+        /** Saves an audience. */
+        post: operations["createAudience"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audiences/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Counts an audience without naming anyone. */
+        post: operations["previewAudience"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audiences/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One audience. */
+        get: operations["getAudience"];
+        put?: never;
+        post?: never;
+        /** Deletes an audience no campaign uses. */
+        delete: operations["deleteAudience"];
+        options?: never;
+        head?: never;
+        /** Renames an audience or changes its filter. */
+        patch: operations["updateAudience"];
+        trace?: never;
+    };
     "/api/v1/auth/handoff": {
         parameters: {
             query?: never;
@@ -179,6 +233,117 @@ export interface paths {
          *     codes all get `404`, and the first attempt uses a code up. Throttled per IP.
          */
         post: operations["redeemHandoff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avatars/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Streams an avatar photo through its signed link, which works on the clinic's own host for an
+         *     hour and is the proof of access (an `<img>` can use it).
+         */
+        get: operations["getAvatarContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's campaigns with counts. */
+        get: operations["listCampaigns"];
+        put?: never;
+        /** Saves a draft campaign. */
+        post: operations["createCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One campaign with counts. */
+        get: operations["getCampaign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes a draft campaign. */
+        patch: operations["updateCampaign"];
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancels a campaign that hasn't finished; its queued messages are skipped. */
+        post: operations["cancelCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Schedules a draft. The token must be a preview of the audience as it is now and unexpired. */
+        post: operations["scheduleCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/test-send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Emails the campaign to the caller's own address (the verified email of their sign-in, never
+         *     one from the request), through the staff outbox: no patient is involved and nothing is
+         *     counted.
+         */
+        post: operations["testSendCampaign"];
         delete?: never;
         options?: never;
         head?: never;
@@ -751,7 +916,10 @@ export interface paths {
         /** Expenses spent on clinic days `from` to `to`, newest day first, voided ones included. */
         get: operations["listExpenses"];
         put?: never;
-        /** Records an expense. */
+        /**
+         * Records an expense. Send an `Idempotency-Key` header (a UUID per form) so a retry returns
+         *     the first expense (`200`) instead of recording another.
+         */
         post: operations["recordExpense"];
         delete?: never;
         options?: never;
@@ -1077,6 +1245,23 @@ export interface paths {
          *     rupee, a number in the clinic's financial year, and the printed facts captured. Final.
          */
         post: operations["issueInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{id}/upi-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The UPI payment link and QR text for what is left on an issued bill. Records nothing. */
+        get: operations["getInvoiceUpiLink"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1439,6 +1624,28 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Sets the caller's own avatar for this clinic as `multipart/form-data` with either a `preset`
+         *     id or a `file` (PNG or JPEG, up to 2 MB, checked by content). Replaces the previous one. Any
+         *     member may do this; it changes only their own.
+         */
+        put: operations["putMyAvatar"];
+        post?: never;
+        /** Removes the caller's avatar. */
+        delete: operations["deleteMyAvatar"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1938,8 +2145,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The caller's notifications about appointments within their scope, newest first, with their
-         *     own read state and who handled each one. The portal checks every minute.
+         * The caller's notifications, newest first: bookings within their `appointments.read` scope
+         *     and overdue lab work within their `labs.read` scope, with their own read state and who
+         *     handled each one. The portal checks every minute.
          */
         get: operations["listNotifications"];
         put?: never;
@@ -2411,7 +2619,8 @@ export interface paths {
         put?: never;
         /**
          * Records findings. Each supersedes the current entry for its tooth and surface (a crown,
-         *     implant or missing tooth also supersedes the tooth's surface entries); the history keeps
+         *     implant or missing tooth also supersedes the tooth's surface entries); an entry with
+         *     `supersedes_id` corrects that entry, even on another tooth or surface. The history keeps
          *     everything. Returns the updated chart.
          */
         post: operations["recordDentalChart"];
@@ -2612,6 +2821,27 @@ export interface paths {
         put?: never;
         /** Plans a follow-up for a patient. */
         post: operations["createRecall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/record-shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's links to records, newest first, with whether each can still be opened. */
+        get: operations["listRecordShares"];
+        put?: never;
+        /**
+         * Makes a link for the patient to see chosen records, with a lifetime of 1 hour, 24 hours or
+         *     7 days. Writes the access record (`share`, one entry per kind).
+         */
+        post: operations["createRecordShare"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3139,7 +3369,7 @@ export interface paths {
         /**
          * Moves a token along. A token with an appointment moves the appointment too. Asking for the
          *     status the token already has changes nothing and returns it, so a retry after a lost answer
-         *     is safe.
+         *     is safe. With `room_id` the patient is seated in that chair.
          */
         post: operations["setQueueTokenStatus"];
         delete?: never;
@@ -3577,6 +3807,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shared/{token}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Public, no sign-in: opens a link to records with the PIN. Five wrong PINs lock the link.
+         *     Every open is written to the access record.
+         */
+        post: operations["openSharedRecords"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared/{token}/records/xrays/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public, no sign-in: streams an X-ray through the signed `url` an opened link returned. Works
+         *     while the link does and for ten minutes at most; each download is written to the access
+         *     record.
+         */
+        get: operations["getSharedXrayContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff": {
         parameters: {
             query?: never;
@@ -3851,6 +4122,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's message templates: its copies of the platform's defaults and any it added. */
+        get: operations["listMessageTemplates"];
+        put?: never;
+        /** Adds a template. Email ones are in use at once; `WhatsApp` ones start as drafts. */
+        post: operations["createMessageTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edits the clinic's copy. A `WhatsApp` template whose text, name or category changes goes
+         *     back to draft until it is submitted and approved again.
+         */
+        patch: operations["updateMessageTemplate"];
+        trace?: never;
+    };
+    "/api/v1/templates/{id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Records that the clinic's `WhatsApp` template was submitted to Meta for review (submission
+         *     itself is by hand for the pilot; docs/whatsapp.md). Meta's decision arrives by webhook.
+         */
+        post: operations["submitMessageTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/today": {
         parameters: {
             query?: never;
@@ -4080,6 +4409,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webhooks/whatsapp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Meta's subscription check: echoes `hub.challenge` when `hub.mode` is `subscribe` and
+         *     `hub.verify_token` is the configured one.
+         */
+        get: operations["whatsappWebhookHandshake"];
+        put?: never;
+        /**
+         * Meta's `WhatsApp` events, signed with the app secret (`X-Hub-Signature-256: sha256=<hex>`
+         *     over the raw body; 1 MB cap). Records statuses (sent, delivered, read, failed; each once, in
+         *     any order), template reviews, and STOP replies (the sender opts out of `WhatsApp`); every
+         *     other inbound message is dropped unread. Answers 200 for every authentic request.
+         */
+        post: operations["whatsappWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -4275,6 +4630,8 @@ export interface components {
             buckets: components["schemas"]["AnalyticsBucketRow"][];
             /** @description Visits by weekday and hour; only non-zero cells. */
             busy_hours: components["schemas"]["BusyHour"][];
+            /** @description Booked chair minutes by what they were spent on, from the appointment kind. */
+            chair_time: components["schemas"]["ChairTimeSplit"];
             /** @description Chairs: the active ones, and any other with bookings in the range, by name. */
             chairs: components["schemas"]["AnalyticsChair"][];
             /** @description First day, `YYYY-MM-DD`. */
@@ -4290,8 +4647,15 @@ export interface components {
             open_minutes_per_day: number;
             /** @description Who the patients are. */
             patients: components["schemas"]["PatientBreakdown"];
+            /**
+             * @description Procedures done in the range by the category of the bill line that charged them
+             *     (`uncategorised` when not billed or without a category), most first. Counts only.
+             */
+            procedures_by_category: components["schemas"]["KeyCount"][];
             /** @description Last day, included. */
             to: string;
+            /** @description Booked appointments against walk-ins. */
+            visit_sources: components["schemas"]["VisitSources"];
         };
         /**
          * @description How the report groups days.
@@ -4570,6 +4934,68 @@ export interface components {
             /** @description Readable number. */
             number: string;
         };
+        /** @description A saved audience. */
+        Audience: {
+            /** @description When it was made (RFC 3339). */
+            created_at: string;
+            /** @description Its filter, evaluated when a campaign sends. */
+            filter: components["schemas"]["AudienceFilterBody"];
+            /** @description Identifier. */
+            id: string;
+            /** @description Its name. */
+            name: string;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+        };
+        /** @description One audience filter: `kind` and the fields it takes, nothing else. */
+        AudienceFilterBody: {
+            /** @description `last_visit`: last visit on or after this date. A patient never seen matches neither. */
+            after?: string | null;
+            /** @description `last_visit`: last visit before this date (`YYYY-MM-DD`). */
+            before?: string | null;
+            /**
+             * @description `all_active`, `last_visit`, `birthday_month`, `age_band`, `sex` or `tag`. Balance,
+             *     treatment and visit-kind filters don't exist.
+             */
+            kind: string;
+            /**
+             * Format: int32
+             * @description `age_band`: oldest age in whole years.
+             */
+            max?: number | null;
+            /**
+             * Format: int32
+             * @description `age_band`: youngest age in whole years.
+             */
+            min?: number | null;
+            /**
+             * Format: int32
+             * @description `birthday_month`: 1 to 12.
+             */
+            month?: number | null;
+            /** @description `sex`: `female`, `male`, `other` or `unknown`. */
+            sex?: string | null;
+            /** @description `tag`: a patient tag. */
+            tag?: string | null;
+        };
+        /** @description How many patients a filter matches, and a token to schedule with. */
+        AudiencePreview: {
+            /**
+             * Format: int64
+             * @description Active patients matching now. Consent, opt-outs and quiet hours apply when each message
+             *     is sent, so fewer may be reached.
+             */
+            count: number;
+            /** @description Hand it back to `POST /campaigns/{id}/schedule`: it proves this filter and this count. */
+            count_token: string;
+            /** @description When the token stops working (RFC 3339). */
+            expires_at: string;
+        };
+        /** @description The clinic's audiences. */
+        Audiences: {
+            /** @description Newest first, up to 200. */
+            items: components["schemas"]["Audience"][];
+        };
         /** @description Free slots. */
         Availability: {
             /** @description The local day, `YYYY-MM-DD`. */
@@ -4583,6 +5009,25 @@ export interface components {
             slot_minutes: number;
             /** @description Start of each free slot, RFC 3339 in the clinic's time zone. */
             slots: string[];
+        };
+        /** @description A member's avatar: a preset the apps draw, or a photo to fetch. */
+        Avatar: {
+            /** @description When `photo_url` stops working (RFC 3339); load the list again for a new link. */
+            photo_expires_at?: string | null;
+            /** @description A signed path on the clinic's host for the photo (`GET /api/v1/avatars/{id}/content`). */
+            photo_url?: string | null;
+            /** @description The preset id, such as `tooth_3`; the apps ship the pictures. */
+            preset?: string | null;
+        };
+        /** @description The avatar form: exactly one of `file` and `preset`. */
+        AvatarForm: {
+            /**
+             * Format: binary
+             * @description A PNG or JPEG photo of at most 2 MB.
+             */
+            file?: string | null;
+            /** @description A preset id: 1 to 32 lower-case letters, digits or underscores, starting with a letter. */
+            preset?: string | null;
         };
         /** @description The numbers the apps poll every minute. */
         Badges: {
@@ -4679,6 +5124,49 @@ export interface components {
              */
             weekday: number;
         };
+        /** @description A campaign with the outcome of its messages. */
+        Campaign: {
+            /** @description Its audience. */
+            audience_id: string;
+            /** @description When it was cancelled (RFC 3339). */
+            cancelled_at?: string | null;
+            /** @description `email` or `whatsapp`. */
+            channel: string;
+            /** @description Its messages by status and skip reason, counted when asked. */
+            counts: components["schemas"]["MessageCount"][];
+            /** @description When it was made (RFC 3339). */
+            created_at: string;
+            /** @description Who made it. */
+            created_by?: string | null;
+            /** @description When the last recipient was queued (RFC 3339). */
+            fan_out_done_at?: string | null;
+            /** @description When recipients began to be queued (RFC 3339). */
+            fan_out_started_at?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description Its name; also the email subject. */
+            name: string;
+            /** @description The offer, filled into the template's `{{offer_text}}` and the email body. */
+            offer_text: string;
+            /** @description When it goes (RFC 3339). */
+            scheduled_at?: string | null;
+            /**
+             * Format: int32
+             * @description The audience size the owner saw when scheduling.
+             */
+            scheduled_count?: number | null;
+            /** @description `draft`, `scheduled`, `sending`, `sent` or `cancelled`. */
+            status: string;
+            /** @description Its `promo.offer` template. */
+            template_id: string;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+        };
+        /** @description The clinic's campaigns. */
+        Campaigns: {
+            /** @description Newest first, up to 100. */
+            items: components["schemas"]["Campaign"][];
+        };
         /** @description Cancelling a prescription. */
         CancelRequest: {
             /** @description Why, 3 to 500 characters. */
@@ -4740,6 +5228,24 @@ export interface components {
             room_id: string;
             /** @description `in_use` while a patient is in it, otherwise `free`. */
             status: string;
+        };
+        /** @description Booked chair minutes (no-shows included) by what they were spent on. */
+        ChairTimeSplit: {
+            /**
+             * Format: int64
+             * @description Reserved: no appointment kind maps to it yet, so it is `0` minutes.
+             */
+            admin: number;
+            /**
+             * Format: int64
+             * @description Minutes on new and follow-up consultations.
+             */
+            consult: number;
+            /**
+             * Format: int64
+             * @description Minutes on procedures and emergencies.
+             */
+            treatment: number;
         };
         /** @description One chair's use in a period. */
         ChairUtilization: {
@@ -5379,6 +5885,36 @@ export interface components {
             /** @description The conversation. */
             id: string;
         };
+        /** @description A draft campaign to save. */
+        CreateCampaign: {
+            /** @description A saved audience. */
+            audience_id: string;
+            /** @description `email` or `whatsapp`. */
+            channel: string;
+            /** @description One line of 1 to 120 characters; also the email subject. */
+            name: string;
+            /** @description One line of 1 to 300 characters. */
+            offer_text: string;
+            /** @description When to send (RFC 3339); needed before scheduling. */
+            scheduled_at?: string | null;
+            /** @description The clinic's `promo.offer` template for the channel. */
+            template_id: string;
+        };
+        /** @description A template to add: another language or channel for a known key. */
+        CreateMessageTemplate: {
+            /** @description The text; only the key's allow-listed `{{variables}}`. */
+            body: string;
+            /** @description `marketing`, `utility` or `authentication`. */
+            category: string;
+            /** @description `email` or `whatsapp`. */
+            channel: string;
+            /** @description A known key, such as `appointment.reminder`. */
+            key: string;
+            /** @description `en-IN`, `hi-IN`, `mr-IN`... */
+            language: string;
+            /** @description The template's name at Meta (lower case, digits and `_`). */
+            provider_template_ref?: string | null;
+        };
         /** @description A clinic just created. `invite_token` is shown once; only its hash is stored. */
         CreatedClinic: {
             /** @description The clinic. */
@@ -5500,6 +6036,16 @@ export interface components {
             booking_requests_open: number;
             /** @description Reminders written to the clinic inbox. */
             booking_requests_reminded: number;
+            /**
+             * Format: int64
+             * @description Campaign messages queued by this run's fan-out.
+             */
+            campaign_messages_queued: number;
+            /**
+             * Format: int64
+             * @description Campaign recipients skipped by the weekly promotional cap.
+             */
+            campaign_recipients_capped: number;
             /** @description Messages claimed. */
             claimed: number;
             /** @description `resend`, or `log` when no Resend key is configured. */
@@ -5700,7 +6246,10 @@ export interface components {
             /** @description True to show it in the patient's app. */
             shared_with_patient: boolean;
         };
-        /** @description Who handled a notification: confirmed, declined or cancelled its appointment. */
+        /**
+         * @description Who handled a notification: confirmed, declined or cancelled its appointment, or received,
+         *     cancelled or re-dated its lab work.
+         */
         HandledBy: {
             /** @description When (RFC 3339). */
             at: string;
@@ -6804,6 +7353,7 @@ export interface components {
         };
         /** @description A member of staff. */
         Member: {
+            avatar?: components["schemas"]["Avatar"] | null;
             /** @description Branches they work at; empty means every branch. */
             branches: components["schemas"]["MemberBranch"][];
             /** @description Their name. */
@@ -6869,6 +7419,18 @@ export interface components {
             /** @description The patient that remains. */
             patient_id: string;
         };
+        /** @description One group of a campaign's messages. */
+        MessageCount: {
+            /**
+             * Format: int64
+             * @description How many.
+             */
+            count: number;
+            /** @description Why they were skipped: `no_consent`, `consent_withdrawn`, `opted_out`, `frequency_cap`... */
+            skip_reason?: string | null;
+            /** @description `queued`, `sending`, `sent`, `failed` or `skipped`. */
+            status: string;
+        };
         /** @description A patient's messages, newest first. */
         MessageList: {
             /** @description Up to 100 messages. */
@@ -6903,6 +7465,40 @@ export interface components {
             status: string;
             /** @description Its template. */
             template_key: string;
+        };
+        /** @description One of the clinic's templates. */
+        MessageTemplate: {
+            /** @description The text, with allow-listed `{{variables}}`. */
+            body: string;
+            /** @description `marketing`, `utility` or `authentication`, as Meta categorises it. */
+            category: string;
+            /** @description `email` or `whatsapp`. */
+            channel: string;
+            /** @description SMS DLT template id, for later. */
+            dlt_template_id?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description `care.note`, `reminder.follow_up`, `promo.offer`, `appointment.reminder`, `booking.*`... */
+            key: string;
+            /** @description `en-IN`, `hi-IN`, `mr-IN`... */
+            language: string;
+            /** @description The template's name at Meta (`WhatsApp`). */
+            provider_template_ref?: string | null;
+            /** @description When Meta last reviewed it (RFC 3339). */
+            reviewed_at?: string | null;
+            /** @description SMS sender header (DLT), for later. */
+            sender_header?: string | null;
+            /** @description `draft`, `submitted`, `approved`, `rejected` or `paused`. Only approved ones are sent. */
+            status: string;
+            /** @description When it was last submitted (RFC 3339). */
+            submitted_at?: string | null;
+            /** @description When it last changed (RFC 3339). */
+            updated_at: string;
+        };
+        /** @description The clinic's templates. */
+        MessageTemplates: {
+            /** @description By key, channel and language. */
+            items: components["schemas"]["MessageTemplate"][];
         };
         /** @description What sending queued. */
         MessagesQueued: {
@@ -6978,6 +7574,7 @@ export interface components {
         };
         /** @description A clinic the person belongs to. */
         MyClinic: {
+            avatar?: components["schemas"]["Avatar"] | null;
             /** @description The clinic portal's host name. */
             host?: string | null;
             /** @description Its name. */
@@ -7071,6 +7668,12 @@ export interface components {
             note?: string | null;
             /** @description A procedure id from the chart's `terms`: seeded (`crown`) or the clinic's own. Not with `sound`. */
             procedure?: string | null;
+            /**
+             * @description Corrects this current entry of the patient, which may be on another tooth or surface:
+             *     it is superseded and the new entry links to it. Leave out to supersede the current entry
+             *     for the new entry's own tooth and surface.
+             */
+            supersedes_id?: string | null;
             /** @description `M`, `O`, `D`, `B` or `L`; leave out for the whole tooth (crown, missing, implant, root canal and bridge are whole-tooth only). */
             surface?: string | null;
             /**
@@ -7375,6 +7978,16 @@ export interface components {
             /** @description Why, 1 to 300 characters. */
             reason: string;
         };
+        /** @description What to share and for how long. */
+        NewRecordShare: {
+            /** @description How long the link works: `1h`, `24h` or `7d`. */
+            expires_in: string;
+            /**
+             * @description One to three different kinds: `chart`, `xrays`, `bills`. Each needs the matching
+             *     permission (`clinical.read` for chart and X-rays, `billing.read` for bills).
+             */
+            record_types: string[];
+        };
         /** @description A clinic asking to join. */
         NewRegistration: {
             /** @description Its city. */
@@ -7486,8 +8099,7 @@ export interface components {
         };
         /** @description A notification as the caller sees it. */
         Notification: {
-            /** @description The appointment. */
-            appointment: components["schemas"]["NotifiedAppointment"];
+            appointment?: components["schemas"]["NotifiedAppointment"] | null;
             /** @description When it happened (RFC 3339). */
             created_at: string;
             /** @description When the owners were told (RFC 3339). */
@@ -7495,8 +8107,12 @@ export interface components {
             handled?: components["schemas"]["HandledBy"] | null;
             /** @description Identifier; pass as `before` for the next page. */
             id: string;
-            /** @description `booking_requested`, `booking_confirmed_auto` or `booking_cancelled_by_patient`. */
+            /**
+             * @description `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient` or
+             *     `lab_overdue`.
+             */
             kind: string;
+            lab_order?: components["schemas"]["NotifiedLabOrder"] | null;
             /** @description Whether the caller has read it. */
             read: boolean;
             /** @description When the caller read it (RFC 3339). */
@@ -7523,6 +8139,17 @@ export interface components {
             starts_at: string;
             /** @description Its status now, such as `requested` or `confirmed`. */
             status: string;
+        };
+        /** @description The lab order an overdue alert is about. */
+        NotifiedLabOrder: {
+            /** @description Its due date now (`YYYY-MM-DD`). */
+            due_on?: string | null;
+            /** @description The order; open it at `/lab-orders/{id}`. */
+            id: string;
+            /** @description Its number, such as `LAB-12`. */
+            number: string;
+            /** @description Its lab's name. */
+            vendor_name: string;
         };
         /**
          * @description A measurement. Values never change: a correction is a new reading whose `supersedes_id`
@@ -7626,6 +8253,11 @@ export interface components {
             slot_minutes?: number | null;
         };
         /** @description The PIN. */
+        OpenRecords: {
+            /** @description The six digits the clinic gave. */
+            pin: string;
+        };
+        /** @description The PIN. */
         OpenRequest: {
             /** @description The six digits printed on the paper. */
             pin: string;
@@ -7679,6 +8311,27 @@ export interface components {
         OwnDentalTermList: {
             /** @description By list, then label; retired ones included. */
             items: components["schemas"]["OwnDentalTerm"][];
+        };
+        /** @description Changes to an audience; absent fields stay. */
+        PatchAudience: {
+            filter?: components["schemas"]["AudienceFilterBody"] | null;
+            /** @description New name. */
+            name?: string | null;
+        };
+        /** @description Changes to a draft; absent fields stay. */
+        PatchCampaign: {
+            /** @description New audience. */
+            audience_id?: string | null;
+            /** @description New channel. */
+            channel?: string | null;
+            /** @description New name. */
+            name?: string | null;
+            /** @description New offer text. */
+            offer_text?: string | null;
+            /** @description New time (RFC 3339); an empty string removes it. */
+            scheduled_at?: string | null;
+            /** @description New template. */
+            template_id?: string | null;
         };
         /** @description A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`. */
         Patient: {
@@ -7886,6 +8539,8 @@ export interface components {
              *     Every kind listed.
              */
             referral_sources: components["schemas"]["KeyCount"][];
+            /** @description Patients seen, by recorded sex: `female`, `male`, `other`, `unknown`. Every value listed. */
+            sex: components["schemas"]["KeyCount"][];
             /**
              * @description Visits by appointment kind: `new`, `follow_up`, `procedure`, `emergency`. Every kind
              *     listed.
@@ -8496,6 +9151,11 @@ export interface components {
             /** @description Newest first. */
             items: components["schemas"]["Prescription"][];
         };
+        /** @description A filter to count. */
+        PreviewAudience: {
+            /** @description The filter. */
+            filter: components["schemas"]["AudienceFilterBody"];
+        };
         /** @description A price list entry. */
         PriceItem: {
             /** @description Offered. */
@@ -8723,6 +9383,8 @@ export interface components {
             /** @description The patient. */
             patient: components["schemas"]["PatientBrief"];
             practitioner?: components["schemas"]["PractitionerBrief"] | null;
+            /** @description The chair the patient was seated in, when one was chosen. */
+            room_id?: string | null;
             /** @description `waiting`, `in_chair`, `done` or `left`. */
             status: string;
             /**
@@ -8873,6 +9535,44 @@ export interface components {
             notice_version?: string | null;
             /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
             purpose: string;
+        };
+        /** @description A new link to records. The token and PIN are shown once. */
+        RecordShare: {
+            /** @description When it stops working (RFC 3339). */
+            expires_at: string;
+            /** @description The link's id. */
+            id: string;
+            /** @description Six-digit PIN to tell the patient. */
+            pin: string;
+            /** @description What the link shows. */
+            record_types: string[];
+            /** @description Token for the link: `/shared/{token}` on the clinic's host. */
+            token: string;
+        };
+        /** @description A link to records as listed: never its token or PIN. */
+        RecordShareItem: {
+            /** @description When it was made. */
+            created_at: string;
+            /** @description When it stops working. */
+            expires_at: string;
+            /** @description The link's id. */
+            id: string;
+            /**
+             * Format: int32
+             * @description How many times it was opened.
+             */
+            open_count: number;
+            /** @description When it was first opened. */
+            opened_at?: string | null;
+            /** @description What it shows. */
+            record_types: string[];
+            /** @description `usable`, `expired` (past its expiry or revoked) or `locked` (too many wrong PINs). */
+            state: string;
+        };
+        /** @description The patient's links to records. */
+        RecordShares: {
+            /** @description Newest first. */
+            items: components["schemas"]["RecordShareItem"][];
         };
         /** @description A code to redeem on the host it was made for. */
         RedeemHandoff: {
@@ -9109,6 +9809,13 @@ export interface components {
             /** @description Language, such as `hi-IN`; the patient's by default. */
             language?: string | null;
         };
+        /** @description An audience to save. */
+        SaveAudience: {
+            /** @description The filter. */
+            filter: components["schemas"]["AudienceFilterBody"];
+            /** @description One line of 1 to 120 characters. */
+            name: string;
+        };
         /** @description An appointment after a booking or change. */
         SavedAppointment: {
             /** @description The appointment. */
@@ -9132,6 +9839,11 @@ export interface components {
             name: string;
             /** @description What it may do now, sorted by key. */
             permissions: components["schemas"]["RolePermission"][];
+        };
+        /** @description The proof that the owner saw this audience's size. */
+        ScheduleCampaign: {
+            /** @description From `POST /audiences/preview` for the campaign's audience filter. */
+            count_token: string;
         };
         /** @description What to search for. Sent in the body, never the URL: search terms are names and phone numbers. */
         SearchRequest: {
@@ -9221,6 +9933,7 @@ export interface components {
         };
         /** @description The signed-in member. */
         SessionUser: {
+            avatar?: components["schemas"]["Avatar"] | null;
             /** @description Their name. */
             display_name: string;
             /** @description The user. */
@@ -9288,16 +10001,94 @@ export interface components {
             /** @description Token for the link: `/shared/{token}` on the clinic's host. */
             token: string;
         };
+        /** @description An issued bill. */
+        SharedBill: {
+            /** @description The bill. */
+            id: string;
+            /** @description When it was issued. */
+            issued_at?: string | null;
+            /** @description Its number. */
+            number?: string | null;
+            /**
+             * Format: int64
+             * @description Paid so far, in paise.
+             */
+            paid_paise: number;
+            /**
+             * Format: int64
+             * @description Its total, in paise.
+             */
+            total_paise: number;
+        };
+        /** @description One tooth finding on the chart. */
+        SharedChartEntry: {
+            /** @description When the finding was made. */
+            effective_at: string;
+            /** @description The finding, such as `caries`. */
+            finding?: string | null;
+            /** @description The note. */
+            note?: string | null;
+            /** @description The surface, such as `O`. */
+            surface?: string | null;
+            /**
+             * Format: int32
+             * @description FDI tooth number.
+             */
+            tooth?: number | null;
+        };
         /** @description What a link shows before its PIN: no patient data. */
         SharedPreview: {
             /** @description The clinic's name. */
             clinic_name: string;
             /** @description When it stops working. */
             expires_at: string;
-            /** @description `prescription`. */
+            /**
+             * @description For a link to records, what it shows: `chart`, `xrays`, `bills`; open it with
+             *     `POST /shared/{token}/records`. Absent for a prescription.
+             */
+            record_types?: string[] | null;
+            /** @description `prescription` or `records`. */
             resource: string;
             /** @description `usable`, `expired` or `locked`. */
             state: string;
+        };
+        /** @description What an opened link shows; only the kinds the clinic chose are present. */
+        SharedRecords: {
+            /** @description Issued bills; absent unless `bills` was shared. */
+            bills?: components["schemas"]["SharedBill"][] | null;
+            /** @description The current chart; absent unless `chart` was shared. */
+            chart?: components["schemas"]["SharedChartEntry"][] | null;
+            /** @description When the link stops working. */
+            expires_at: string;
+            /** @description The patient's name. */
+            patient_name: string;
+            /** @description The kinds shown. */
+            record_types: string[];
+            /** @description X-rays, newest first; absent unless `xrays` was shared. */
+            xrays?: components["schemas"]["SharedXray"][] | null;
+        };
+        /** @description An X-ray. */
+        SharedXray: {
+            /** @description A caption. */
+            caption?: string | null;
+            /** @description The file. */
+            id: string;
+            /** @description Its label, such as `OPG`. */
+            label?: string | null;
+            /** @description Media type, such as `image/jpeg`. */
+            mime_type: string;
+            /** @description When it was taken, or else uploaded. */
+            taken_at: string;
+            /**
+             * Format: int32
+             * @description The tooth it shows.
+             */
+            tooth?: number | null;
+            /**
+             * @description Where to fetch it: a signed path on the clinic's host, good for ten minutes (never past
+             *     the link's own expiry). Open the link again for a new one.
+             */
+            url: string;
         };
         /** @description About the clinic. */
         SiteAbout: {
@@ -10115,6 +10906,12 @@ export interface components {
         };
         /** @description A token status change. */
         TokenStatusChange: {
+            /**
+             * @description With `in_chair` only: the chair (a room of the token's branch) to seat the patient in.
+             *     The token's appointment moves to it too. Sending it again with another chair while in
+             *     the chair moves the patient.
+             */
+            room_id?: string | null;
             /** @description `in_chair`, `done` or `left`. */
             status: string;
         };
@@ -10130,6 +10927,37 @@ export interface components {
         Unsubscribed: {
             /** @description Always true. */
             unsubscribed: boolean;
+        };
+        /** @description Changes to the clinic's copy; fields left out stay. */
+        UpdateMessageTemplate: {
+            /** @description New text; only the key's allow-listed `{{variables}}`. */
+            body?: string | null;
+            /** @description `marketing`, `utility` or `authentication`. */
+            category?: string | null;
+            /** @description SMS DLT template id. */
+            dlt_template_id?: string | null;
+            /** @description The template's name at Meta. */
+            provider_template_ref?: string | null;
+            /** @description SMS sender header (DLT). */
+            sender_header?: string | null;
+        };
+        /** @description How a patient pays an issued bill by UPI. */
+        UpiLink: {
+            /**
+             * Format: int64
+             * @description What is left to pay, in paise.
+             */
+            amount_paise: number;
+            /** @description The bill number sent as the payment note. */
+            invoice_number: string;
+            /** @description The payee name shown in the UPI app (the clinic's name). */
+            payee_name: string;
+            /** @description The same text, to encode in a QR code (no gateway; payments are recorded as usual). */
+            qr_data: string;
+            /** @description The clinic's UPI ID from settings. */
+            upi_id: string;
+            /** @description The `upi://pay` link to open in a UPI app. */
+            uri: string;
         };
         /** @description The form an upload sends (`multipart/form-data`). */
         UploadForm: {
@@ -10262,6 +11090,19 @@ export interface components {
             visit_id: string;
             /** @description The visit's number, such as `V-318`. */
             visit_number: string;
+        };
+        /** @description Visits in the range by how they came. */
+        VisitSources: {
+            /**
+             * Format: int64
+             * @description Visits that were booked appointments (not cancelled, no-show or unconfirmed requests).
+             */
+            booked: number;
+            /**
+             * Format: int64
+             * @description Walk-in tokens issued in the range, not counting those who left unseen.
+             */
+            walk_in: number;
         };
         /** @description What a walk-in did. */
         WalkIn: {
@@ -10920,6 +11761,280 @@ export interface operations {
             };
         };
     };
+    listAudiences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Audiences"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createAudience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveAudience"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Audience"];
+                };
+            };
+            /** @description A bad name or filter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    previewAudience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewAudience"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudiencePreview"];
+                };
+            };
+            /** @description A bad filter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAudience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The audience */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Audience"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such audience in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteAudience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The audience */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such audience in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A campaign uses it */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateAudience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The audience */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchAudience"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Audience"];
+                };
+            };
+            /** @description A bad name or filter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such audience in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A scheduled or sending campaign uses its filter */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     createHandoff: {
         parameters: {
             query?: never;
@@ -10994,6 +12109,392 @@ export interface operations {
             };
             /** @description Too many attempts */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAvatarContent: {
+        parameters: {
+            query: {
+                /** @description The signed token from the avatar's photo_url */
+                token: string;
+            };
+            header?: never;
+            path: {
+                /** @description The photo */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link has expired; load the list again */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a valid link for a photo of this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCampaigns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaigns"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCampaign"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description Bad text, channel, time or template */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The audience or template isn't this clinic's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The campaign */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such campaign in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The campaign */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchCampaign"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description Bad text, channel, time or template */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such campaign, audience or template in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description It isn't a draft */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cancelCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The campaign */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such campaign in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already sent or cancelled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    scheduleCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The campaign */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleCampaign"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            /** @description No time set, an unapproved template or a malformed token */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such campaign in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a draft, or the count token is expired, stale or another filter's */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    testSendCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The campaign */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued to the caller's own email */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The caller's sign-in has no verified email address */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks campaigns.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such campaign in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12674,7 +14175,10 @@ export interface operations {
     recordExpense: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Unique per expense, 8 to 100 letters, digits, '-', '_', '.' or ':'; a retry sends the same key */
+                "Idempotency-Key"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -12684,6 +14188,16 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Already recorded with this key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            /** @description Recorded */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -12692,7 +14206,7 @@ export interface operations {
                     "application/json": components["schemas"]["Expense"];
                 };
             };
-            /** @description Invalid input: amount, note, or a day after today */
+            /** @description Invalid input: amount, note, a day after today, or a malformed key */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -12708,6 +14222,13 @@ export interface operations {
             };
             /** @description The role lacks expenses.write */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The key was used for a different expense */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13745,6 +15266,56 @@ export interface operations {
                 content?: never;
             };
             /** @description Already issued or void */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getInvoiceUpiLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The bill */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpiLink"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such bill in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not issued, nothing left to pay, or no UPI ID in settings */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -15192,6 +16763,89 @@ export interface operations {
             };
         };
     };
+    putMyAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["AvatarForm"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Avatar"];
+                };
+            };
+            /** @description Not exactly one of preset and file, a bad preset, or not a PNG or JPEG */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 2 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteMyAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed (also when there was none) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getBadges: {
         parameters: {
             query?: never;
@@ -16427,7 +18081,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read */
+            /** @description The role lacks both appointments.read and labs.read */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -16460,7 +18114,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read */
+            /** @description The role lacks both appointments.read and labs.read */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -16493,7 +18147,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read */
+            /** @description The role lacks both appointments.read and labs.read */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -16528,14 +18182,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read */
+            /** @description The role lacks both appointments.read and labs.read */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description No such notification in this clinic, or its appointment is out of the role's reach */
+            /** @description No such notification in this clinic, or its appointment or lab order is out of the role's reach */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -17948,7 +19602,7 @@ export interface operations {
                     "application/json": components["schemas"]["DentalChart"];
                 };
             };
-            /** @description A bad tooth, surface, finding, procedure or material, or a visit of another patient */
+            /** @description A bad tooth, surface, finding, procedure or material, a visit of another patient, or a `supersedes_id` that isn't this patient's chart entry */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -17976,7 +19630,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The visit is closed, or the chart changed at the same moment */
+            /** @description The visit is closed, the corrected entry is no longer current, or the chart changed at the same moment */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -18599,6 +20253,103 @@ export interface operations {
                 content?: never;
             };
             /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listRecordShares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordShares"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createRecordShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewRecordShare"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordShare"];
+                };
+            };
+            /** @description Unknown or repeated record type, or a lifetime other than 1h, 24h, 7d */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read, or the permission for a chosen kind */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -20457,7 +22208,7 @@ export interface operations {
                     "application/json": components["schemas"]["QueueToken"];
                 };
             };
-            /** @description Unknown status */
+            /** @description Unknown status, or a `room_id` with another status or not a chair of the token's branch */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -20485,7 +22236,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description A move the table doesn't allow; `current` is the token as it is */
+            /** @description A move the table doesn't allow (`current` is the token as it is), or the appointment can't take that chair at its time */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -21899,6 +23650,100 @@ export interface operations {
             };
         };
     };
+    openSharedRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link's token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenRecords"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedRecords"];
+                };
+            };
+            /** @description Wrong PIN; the message says how many tries are left */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such link, or not a link to records */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Expired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Locked after too many wrong PINs */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getSharedXrayContent: {
+        parameters: {
+            query: {
+                /** @description The signed token from the X-ray's url */
+                sig: string;
+            };
+            header?: never;
+            path: {
+                /** @description The link's token */
+                token: string;
+                /** @description The X-ray */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The signed token or the link has expired; open the link again */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a valid link, token or X-ray of this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listStaff: {
         parameters: {
             query?: never;
@@ -22773,6 +24618,194 @@ export interface operations {
             };
         };
     };
+    listMessageTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplates"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createMessageTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMessageTemplate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplate"];
+                };
+            };
+            /** @description Unknown key, channel, category or language, or a variable not on the allow-list */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The clinic has this key, channel and language already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateMessageTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The template */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMessageTemplate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplate"];
+                };
+            };
+            /** @description A bad body, category or name */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such template in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    submitMessageTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The template */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageTemplate"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such template in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An email template, one without a name at Meta, or one approved already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getToday: {
         parameters: {
             query?: never;
@@ -23357,6 +25390,79 @@ export interface operations {
                 content?: never;
             };
             /** @description The signature is missing, wrong or too old */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The body is too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    whatsappWebhookHandshake: {
+        parameters: {
+            query: {
+                /** @description `subscribe` */
+                "hub.mode": string;
+                /** @description The configured verify token */
+                "hub.verify_token": string;
+                /** @description Echoed back */
+                "hub.challenge": string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The challenge, as plain text */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Wrong mode or token, or none configured */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    whatsappWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentic but not a WhatsApp event */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The signature is missing or wrong, or no app secret is configured */
             401: {
                 headers: {
                     [name: string]: unknown;

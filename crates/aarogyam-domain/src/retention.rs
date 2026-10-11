@@ -36,6 +36,10 @@ text_value! {
         LabWork => "lab_work",
         /// People at labs the clinic removed, who are named with their phone and email.
         LabContacts => "lab_contacts",
+        /// Message templates Meta rejected or paused and nobody has changed since.
+        MessageTemplates => "message_templates",
+        /// Campaigns that were sent or cancelled and nobody has changed since.
+        Campaigns => "campaigns",
     }
 }
 
@@ -73,9 +77,12 @@ impl Class {
             Self::Outbox => Period::Days(90),
             Self::ShareLinks | Self::ImportSessions => Period::Days(30),
             Self::AccessLog => Period::Years(3),
-            Self::Messages | Self::ClinicApplications | Self::ChatMessages | Self::LabContacts => {
-                Period::Days(365)
-            }
+            Self::Messages
+            | Self::ClinicApplications
+            | Self::ChatMessages
+            | Self::LabContacts
+            | Self::MessageTemplates
+            | Self::Campaigns => Period::Days(365),
         }
     }
 
@@ -96,6 +103,8 @@ impl Class {
             Self::ChatMessages => "when the message was posted",
             Self::LabWork => "when the order was recorded",
             Self::LabContacts => "when the contact was removed",
+            Self::MessageTemplates => "when the template last changed",
+            Self::Campaigns => "when the campaign last changed",
         }
     }
 
@@ -208,10 +217,22 @@ mod tests {
     #[test]
     fn the_documented_schedule_matches_the_code() {
         let decisions = include_str!("../../../docs/decisions.md");
+        // One table: the header, then rows up to the first line that isn't one, so a blank
+        // line splitting the table (which renders as two) fails here too.
+        let table: Vec<&str> = decisions
+            .lines()
+            .skip_while(|line| !line.starts_with("| Class |"))
+            .take_while(|line| line.starts_with('|'))
+            .collect();
+        assert_eq!(
+            table.len(),
+            Class::ALL.len() + 2,
+            "the schedule table has a row per class and nothing else"
+        );
         for class in Class::ALL {
             let key = format!("| `{}` |", class.as_str());
-            let row = decisions
-                .lines()
+            let row = table
+                .iter()
                 .find(|line| line.starts_with(&key))
                 .unwrap_or_else(|| panic!("no row for {class} in docs/decisions.md"));
             assert!(

@@ -261,6 +261,9 @@ pub struct EntryInput {
     pub material: Option<String>,
     /// A remark.
     pub note: Option<String>,
+    /// A current entry of this patient that this one corrects, on any tooth or surface. It is
+    /// superseded alongside the current entry for this entry's own tooth and surface.
+    pub supersedes_id: Option<Uuid>,
 }
 
 /// Entries recorded together, as received.
@@ -316,14 +319,31 @@ async fn check_own_terms(tx: &mut ScopedTx, entries: &[ChartEntry]) -> Result<()
     Ok(())
 }
 
+/// Supersedes the entry a correction names: it must be one of this patient's current dental
+/// entries. The audit trigger records the change of status.
+async fn correct(tx: &mut ScopedTx, patient_id: Uuid, id: Uuid) -> Result<(), AppError> {
+    let row = chart::entry_for_update(tx.conn(), patient_id, id)
+        .await?
+        .ok_or_else(|| AppError::invalid("supersedes_id", "not a chart entry of this patient"))?;
+    if row.status != "current" {
+        return Err(AppError::Conflict(
+            "the entry being corrected is no longer current; reload the chart",
+        ));
+    }
+    chart::supersede(tx.conn(), row.id).await?;
+    Ok(())
+}
+
 /// Records chart entries. Each supersedes the current entry for its tooth and surface; a
-/// crown, implant or missing tooth also supersedes the tooth's surface entries. Nothing is
-/// overwritten: the history keeps every entry.
+/// crown, implant or missing tooth also supersedes the tooth's surface entries. An entry with
+/// `supersedes_id` corrects that entry instead, even on another tooth or surface, and links to
+/// it. Nothing is overwritten: the history keeps every entry.
 ///
 /// # Errors
 /// [`AppError::Invalid`] for a bad tooth, surface or finding, or a visit of another patient;
 /// [`AppError::NotFound`] when the patient isn't in this clinic; [`AppError::Conflict`] when
-/// the visit is closed or another change to the same tooth happened at the same moment.
+/// the visit is closed, the corrected entry is no longer current, or another change to the
+/// same tooth happened at the same moment.
 pub async fn record(
     db: &Db,
     actor: &ClinicActor,
@@ -374,14 +394,18 @@ pub async fn record(
             }
         }
         check_own_terms(tx, &entries).await?;
-        for entry in &entries {
+        for (entry, given) in entries.iter().zip(&input.entries) {
             let tooth = i16::from(entry.tooth().number());
             let mut replaced = None;
+            if let Some(id) = given.supersedes_id {
+                correct(tx, patient.id, id).await?;
+                replaced = Some(id);
+            }
             for row in chart::current_for_tooth(tx.conn(), patient.id, tooth).await? {
                 let surface = stored_surface(&row)?;
                 if entry.replaces(surface) {
                     chart::supersede(tx.conn(), row.id).await?;
-                    if surface == entry.surface() {
+                    if surface == entry.surface() && given.supersedes_id.is_none() {
                         replaced = Some(row.id);
                     }
                 }

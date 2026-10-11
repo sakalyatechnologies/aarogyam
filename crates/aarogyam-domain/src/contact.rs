@@ -64,7 +64,8 @@ impl PatientMessage {
             // A lab contact is not a patient: no patient consent applies.
             MessageKind::StaffInvited
             | MessageKind::ClinicMessage
-            | MessageKind::LabOrderReminder => None,
+            | MessageKind::LabOrderReminder
+            | MessageKind::CampaignTest => None,
             MessageKind::AppointmentReminder => Some(Self::AppointmentReminder),
             MessageKind::PrescriptionShared => Some(Self::PrescriptionLink),
             MessageKind::BookingRequested

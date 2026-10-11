@@ -2896,6 +2896,56 @@
         ]
       }
     },
+    "/api/v1/events": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "A stream of change signals for the caller's clinic (`text/event-stream`).",
+        "description": "Events: `ready` (sent once when the stream is open; data `{}`), `queue.changed`,\n`visit.changed`, `notification.created` (data `{kind, id, branch_id}`: identifiers only, never\npatient data; refetch the list or record they name) and `resync` (signals may have been\nmissed; refetch everything). A `: hb` comment arrives every 25 seconds. Events are not stored:\nthere is no `Last-Event-ID` resume, so after a reconnect refetch before trusting the stream.\nPolling stays the fallback.",
+        "operationId": "streamEvents",
+        "parameters": [
+          {
+            "name": "branch_id",
+            "in": "query",
+            "description": "Only this branch",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The event stream; see the operation description for the events",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad branch id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "No such branch in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/expenses": {
       "get": {
         "tags": [
@@ -14256,9 +14306,6 @@
           },
           "404": {
             "description": "No such visit in this clinic"
-          },
-          "409": {
-            "description": "Already closed"
           }
         },
         "security": [
@@ -14449,7 +14496,52 @@
             "description": "No such visit in this clinic"
           },
           "409": {
-            "description": "The visit is closed, or the plan item isn't accepted or already has a procedure"
+            "description": "The visit is closed, or the plan item isn't accepted or already has a procedure, or `id_conflict`: the id belongs to a different procedure"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/share": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Makes a seven-day link for the patient to open the visit summary with a PIN. Writes the\naccess record.",
+        "operationId": "createVisitShare",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitShare"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
           }
         },
         "security": [
@@ -23647,6 +23739,13 @@
           {
             "type": "object",
             "properties": {
+              "id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out."
+              },
               "note": {
                 "type": [
                   "string",

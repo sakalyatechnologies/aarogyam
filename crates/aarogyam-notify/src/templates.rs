@@ -311,11 +311,26 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
             | MessageKind::BookingDeclined),
         ) => render_booking(kind, to, &message.payload, links),
         Some(MessageKind::LabOrderReminder) => crate::lab::render_reminder(to, &message.payload),
+        Some(MessageKind::CampaignTest) => render_campaign_test(to, &message.payload),
         // Rendered by the patient message step (`patient_templates`), never from the outbox.
         Some(MessageKind::AppointmentReminder | MessageKind::ClinicMessage) | None => {
             Err(Failure::permanent("unknown message kind"))
         }
     }
+}
+
+/// A campaign as its recipients will read it, sent to the staff member who asked for a test.
+fn render_campaign_test(to: String, payload: &Value) -> Result<Email, Failure> {
+    let name = field(payload, "campaign_name")?;
+    let offer = field(payload, "offer_text")?;
+    let note = "This is a test of your campaign. No patient was sent anything.";
+    Ok(Email {
+        to,
+        subject: format!("[Test] {name}"),
+        text: format!("{offer}\n\n{note}"),
+        html: format!("<p>{}</p><p><small>{note}</small></p>", escape(offer)),
+        list_unsubscribe: None,
+    })
 }
 
 #[cfg(test)]
@@ -457,5 +472,16 @@ mod tests {
         );
         assert!(PortalLinks::new("ftp://{host}").is_err());
         assert!(PortalLinks::new("https://portal.example").is_err());
+    }
+
+    #[test]
+    fn a_campaign_test_names_itself_and_escapes_the_offer() {
+        let payload = json!({ "campaign_name": "Diwali", "offer_text": "20% off <today>" });
+        let email = render_campaign_test("asha@alpha.test".into(), &payload).unwrap();
+        assert_eq!(email.subject, "[Test] Diwali");
+        assert!(email.text.contains("20% off <today>") && email.text.contains("No patient"));
+        assert!(email.html.contains("&lt;today&gt;"));
+        assert!(email.list_unsubscribe.is_none());
+        assert!(render_campaign_test("a@b.in".into(), &json!({})).is_err());
     }
 }

@@ -25,7 +25,7 @@ use aarogyam_domain::dental::Tooth;
 use aarogyam_domain::files::{FileType, MAX_BYTES, MAX_VOICE_SECONDS, VoiceLanguage};
 use aarogyam_domain::ids::{
     AttachmentId, ClinicId, ClinicalNoteId, EncounterId, MembershipId, NoteAddendumId, PatientId,
-    UserId,
+    ShareLinkId, UserId,
 };
 use aarogyam_domain::permission::Permission;
 use aws_lc_rs::{digest, hmac, rand};
@@ -274,12 +274,115 @@ impl LinkSigner {
 }
 
 impl LinkSigner {
-    fn image_message(clinic: ClinicId, image: AttachmentId, expires: i64) -> String {
-        format!(
-            "letterhead-image:v1|{}|{}|{expires}",
-            clinic.uuid(),
-            image.uuid()
+    fn image_message(kind: &str, clinic: ClinicId, image: AttachmentId, expires: i64) -> String {
+        format!("{kind}:v1|{}|{}|{expires}", clinic.uuid(), image.uuid())
+    }
+
+    fn sign_picture(
+        &self,
+        kind: &str,
+        clinic: ClinicId,
+        image: AttachmentId,
+        expires: OffsetDateTime,
+    ) -> String {
+        let expires = expires.unix_timestamp();
+        let tag = hmac::sign(
+            &self.key,
+            Self::image_message(kind, clinic, image, expires).as_bytes(),
+        );
+        format!("{expires}.{}", URL_SAFE_NO_PAD.encode(tag.as_ref()))
+    }
+
+    fn verify_picture(
+        &self,
+        kind: &str,
+        clinic: ClinicId,
+        image: AttachmentId,
+        token: &str,
+        now: OffsetDateTime,
+    ) -> Result<(), LinkRefusal> {
+        let (expires, tag) = token.trim().split_once('.').ok_or(LinkRefusal::Invalid)?;
+        let expires: i64 = expires.parse().map_err(|_| LinkRefusal::Invalid)?;
+        let tag = URL_SAFE_NO_PAD
+            .decode(tag)
+            .map_err(|_| LinkRefusal::Invalid)?;
+        hmac::verify(
+            &self.key,
+            Self::image_message(kind, clinic, image, expires).as_bytes(),
+            &tag,
         )
+        .map_err(|_| LinkRefusal::Invalid)?;
+        if now.unix_timestamp() > expires {
+            return Err(LinkRefusal::Expired);
+        }
+        Ok(())
+    }
+
+    /// A token for an X-ray of the patient behind share link `link`, shown on that link's page
+    /// until `expires`. It names no member: the link's PIN was the proof.
+    #[must_use]
+    pub fn sign_share_file(
+        &self,
+        clinic: ClinicId,
+        link: ShareLinkId,
+        file: AttachmentId,
+        expires: OffsetDateTime,
+    ) -> String {
+        self.sign_picture(
+            &format!("share-file-{}", link.uuid().simple()),
+            clinic,
+            file,
+            expires,
+        )
+    }
+
+    /// Checks a share-link file token at `now`.
+    ///
+    /// # Errors
+    /// [`LinkRefusal::Invalid`] unless signed by this server for this clinic, link and file;
+    /// [`LinkRefusal::Expired`] once past its expiry.
+    pub fn verify_share_file(
+        &self,
+        clinic: ClinicId,
+        link: ShareLinkId,
+        file: AttachmentId,
+        token: &str,
+        now: OffsetDateTime,
+    ) -> Result<(), LinkRefusal> {
+        self.verify_picture(
+            &format!("share-file-{}", link.uuid().simple()),
+            clinic,
+            file,
+            token,
+            now,
+        )
+    }
+
+    /// A token to show a staff member's avatar photo (not patient data, so it names no one)
+    /// until `expires`.
+    #[must_use]
+    pub fn sign_avatar(
+        &self,
+        clinic: ClinicId,
+        image: AttachmentId,
+        expires: OffsetDateTime,
+    ) -> String {
+        self.sign_picture("avatar-image", clinic, image, expires)
+    }
+
+    /// Checks an avatar photo token at `now`.
+    ///
+    /// # Errors
+    /// [`LinkRefusal::Invalid`] unless signed by this server for this clinic and photo;
+    /// [`LinkRefusal::Expired`] once past its expiry.
+    pub fn verify_avatar(
+        &self,
+        clinic: ClinicId,
+        image: AttachmentId,
+        token: &str,
+        now: OffsetDateTime,
+    ) -> Result<(), LinkRefusal> {
+        self.verify_picture("avatar-image", clinic, image, token, now)
     }
 
     /// A token to show a clinic's letterhead image (not patient data, so it names no member)
@@ -291,12 +394,7 @@ impl LinkSigner {
         image: AttachmentId,
         expires: OffsetDateTime,
     ) -> String {
-        let expires = expires.unix_timestamp();
-        let tag = hmac::sign(
-            &self.key,
-            Self::image_message(clinic, image, expires).as_bytes(),
-        );
-        format!("{expires}.{}", URL_SAFE_NO_PAD.encode(tag.as_ref()))
+        self.sign_picture("letterhead-image", clinic, image, expires)
     }
 
     /// Checks a letterhead image token at `now`.
@@ -311,21 +409,7 @@ impl LinkSigner {
         token: &str,
         now: OffsetDateTime,
     ) -> Result<(), LinkRefusal> {
-        let (expires, tag) = token.trim().split_once('.').ok_or(LinkRefusal::Invalid)?;
-        let expires: i64 = expires.parse().map_err(|_| LinkRefusal::Invalid)?;
-        let tag = URL_SAFE_NO_PAD
-            .decode(tag)
-            .map_err(|_| LinkRefusal::Invalid)?;
-        hmac::verify(
-            &self.key,
-            Self::image_message(clinic, image, expires).as_bytes(),
-            &tag,
-        )
-        .map_err(|_| LinkRefusal::Invalid)?;
-        if now.unix_timestamp() > expires {
-            return Err(LinkRefusal::Expired);
-        }
-        Ok(())
+        self.verify_picture("letterhead-image", clinic, image, token, now)
     }
 }
 
@@ -598,6 +682,27 @@ fn check_fields(input: &Upload) -> Result<Checked, AppError> {
     })
 }
 
+/// The permission an upload needs. A payment proof is the desk's, not clinical: whoever records
+/// payments may attach one, and may attach nothing else. Every other kind needs `clinical.write`.
+fn upload_permission(
+    actor: &ClinicActor,
+    checked: &Checked,
+    input: &Upload,
+) -> Result<Permission, AppError> {
+    if checked.kind != AttachmentKind::PaymentProof {
+        actor.require(Permission::ClinicalWrite)?;
+        return Ok(Permission::ClinicalWrite);
+    }
+    actor.require(Permission::BillingWrite)?;
+    if input.note_id.is_some() || input.visit_id.is_some() {
+        return Err(AppError::invalid(
+            "kind",
+            "a payment proof can't be linked to a visit or note",
+        ));
+    }
+    Ok(Permission::BillingWrite)
+}
+
 /// Stores a patient file. Its type comes from its content: JPEG, PNG, PDF, DICOM or a `WebM`,
 /// `MP4` or `Ogg` recording. A recording may be linked to a note of the same visit: a draft only by its
 /// author, a signed note only through one of the uploader's own addenda. A retry with the same
@@ -615,7 +720,8 @@ pub async fn upload(
     patient_id: PatientId,
     input: Upload,
 ) -> Result<AttachmentView, AppError> {
-    actor.require(Permission::ClinicalWrite)?;
+    let checked = check_fields(&input)?;
+    let needed = upload_permission(actor, &checked, &input)?;
     let Checked {
         file_type,
         kind,
@@ -623,7 +729,7 @@ pub async fn upload(
         caption,
         label,
         tooth,
-    } = check_fields(&input)?;
+    } = checked;
     let size = i64::try_from(input.bytes.len()).map_err(|_| AppError::Internal("file size"))?;
     let sha256 = sha256_hex(&input.bytes);
     let described = Described {
@@ -643,7 +749,7 @@ pub async fn upload(
     // Set once this attempt has stored the bytes, so a failure removes only what it wrote: with a
     // client-chosen id the key may already hold an earlier upload's file.
     let mut wrote = false;
-    let reach = actor.reach(Permission::ClinicalWrite);
+    let reach = actor.reach(needed);
     let stored = db
         .scoped(&scope(actor, request_id), async |tx| {
             let patient = require_patient(tx, patient_id, reach).await?;

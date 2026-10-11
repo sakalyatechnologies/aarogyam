@@ -60,6 +60,9 @@ pub struct Payment {
     pub unallocated_paise: i64,
     /// The bills it pays.
     pub allocations: Vec<Allocation>,
+    /// Proof of payment: a file of kind `payment_proof`.
+    #[schema(value_type = Option<String>)]
+    pub attachment_id: Option<Uuid>,
 }
 
 impl From<PaymentView> for Payment {
@@ -76,6 +79,7 @@ impl From<PaymentView> for Payment {
             void_reason: view.void_reason,
             allocated_paise: view.allocated.get(),
             unallocated_paise: view.unallocated.get(),
+            attachment_id: view.attachment_id,
             allocations: view
                 .allocations
                 .into_iter()
@@ -112,6 +116,10 @@ pub struct NewPayment {
     /// The bills it pays; what is left over stays as an advance.
     #[serde(default)]
     pub allocations: Vec<Allocation>,
+    /// Proof of payment: a `payment_proof` file of the same patient, uploaded first.
+    #[serde(default)]
+    #[schema(value_type = Option<String>)]
+    pub attachment_id: Option<Uuid>,
 }
 
 /// Records a payment against issued bills and issues a receipt number. Needs an
@@ -152,6 +160,7 @@ pub(crate) async fn record(
         method: body.method,
         amount_paise: body.amount_paise,
         reference: body.reference,
+        attachment_id: body.attachment_id,
         allocations: body
             .allocations
             .into_iter()

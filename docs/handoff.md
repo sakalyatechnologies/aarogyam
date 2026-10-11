@@ -2,6 +2,47 @@
 
 Where the work stands and exactly what to do next. Update this file at the end of every working session. Read it, `delivery-plan.md` and `decisions.md` before starting.
 
+## Status at 10 Oct 2026 (read this first)
+
+**Backend plan for 8–10 Oct is complete and on `main`.** Every task passed the full pre-commit hook, including the database tests.
+- notifications
+- appointments: clinic hours, duplicates, check-in, consent notices, `may_contact`
+- platform: support grants, dental terms, patient sessions, erasure
+- labs, plus the follow-up (item edits, contact log)
+- staff chat
+- messaging core
+- integration
+- WhatsApp: off until `ARO_WHATSAPP__*` is set; see `docs/whatsapp.md`
+- campaigns
+- T7, the mobile API asks
+
+**Deployed** on Cloud Run: `93fbe08`, migrations through 0392. **Not deployed yet:** 0364 onward from the later merges (0364, 0375–0377, 0380–0387, 0395–0397). Run `scripts/cloud-run-deploy.sh --yes` to apply them.
+
+**UI not built:** the founder paused UI and app work. Every feature above is API only. The native v7 mobile session (`wt-mobile-v7`) consumes it.
+
+**API for the mobile session (T7, paths under `/api/v1`):**
+- `supersedes_id` on a new chart entry
+- `room_id` on `POST /queue/{id}/status` with `in_chair`
+- an `Idempotency-Key` header on `POST /expenses`
+- `PUT` / `DELETE /me/avatar`, with `avatar` on `/session`, `/me` and `/staff`, and `GET /avatars/{id}/content?token=`
+- analytics `patients.sex`, `procedures_by_category`, `chair_time {treatment, consult, admin}` (admin is always 0 until there's an admin appointment kind), `visit_sources {booked, walk_in}`
+- `POST` / `GET /patients/{id}/record-shares`, plus the public `/shared/{token}/records`
+- `GET /invoices/{id}/upi-link`
+
+Exact schemas are in `docs/api/openapi.json`.
+
+**Config to set when ready:**
+- `ARO_EMAIL__RESEND_WEBHOOK_SECRET`: bounces and unsubscribes
+- `ARO_WHATSAPP__*`: WhatsApp
+- `ARO_CAMPAIGNS__ENABLED`: the kill switch, default true
+
+**Known follow-ups:**
+- the count token is a plain hash; key it later
+- record-share revoke
+- avatars on chat members and practitioners
+- the chat retention purge
+- clinical-content erasure
+
 ## Status at 8 Oct 2026, night (read this first)
 
 **Live** (Cloud Run `b4e1971`, Workers on the same `main`, Supabase migrated through 0310):

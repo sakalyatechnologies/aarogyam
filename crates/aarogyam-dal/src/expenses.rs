@@ -49,6 +49,10 @@ pub struct NewExpense<'a> {
     pub note: Option<&'a str>,
     /// The member recording it.
     pub recorded_by: Uuid,
+    /// The client's idempotency key, if it sent one.
+    pub idempotency_key: Option<&'a str>,
+    /// The hash of the request the key was sent with.
+    pub request_hash: Option<&'a str>,
 }
 
 /// Records an expense in the category with `category_key`, in one statement. `None` when the
@@ -65,8 +69,9 @@ pub async fn insert(
         r#"with c as (
              select id, key, name from aarogyam.expense_categories where key = $2
            ), e as (
-             insert into aarogyam.expenses (id, category_id, spent_on, amount_paise, note, recorded_by)
-             select $1, c.id, $3, $4, $5, $6 from c
+             insert into aarogyam.expenses (id, category_id, spent_on, amount_paise, note, recorded_by,
+                                            idempotency_key, request_hash)
+             select $1, c.id, $3, $4, $5, $6, $7, $8 from c
              returning id, category_id, spent_on, amount_paise, note, status, void_reason, voided_at,
                        recorded_by, created_at
            )
@@ -82,6 +87,8 @@ pub async fn insert(
         new.amount_paise,
         new.note,
         new.recorded_by,
+        new.idempotency_key,
+        new.request_hash,
     )
     .fetch_optional(conn)
     .await?;
@@ -170,4 +177,44 @@ pub async fn status(conn: &mut PgConnection, id: Uuid) -> Result<Option<String>,
         .fetch_optional(conn)
         .await?;
     Ok(status)
+}
+
+/// The expense recorded with an idempotency key, with the hash of its request.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn by_key(
+    conn: &mut PgConnection,
+    key: &str,
+) -> Result<Option<(ExpenseRow, String)>, DbError> {
+    let row = sqlx::query!(
+        r#"select e.id, e.category_id, c.key as category_key, c.name as category_name, e.spent_on,
+                  e.amount_paise, e.note, e.status, e.void_reason, e.voided_at, e.recorded_by,
+                  e.created_at, e.request_hash as "request_hash!"
+           from aarogyam.expenses e
+           join aarogyam.expense_categories c on c.org_id = e.org_id and c.id = e.category_id
+           where e.idempotency_key = $1"#,
+        key
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.map(|row| {
+        (
+            ExpenseRow {
+                id: row.id,
+                category_id: row.category_id,
+                category_key: row.category_key,
+                category_name: row.category_name,
+                spent_on: row.spent_on,
+                amount_paise: row.amount_paise,
+                note: row.note,
+                status: row.status,
+                void_reason: row.void_reason,
+                voided_at: row.voided_at,
+                recorded_by: row.recorded_by,
+                created_at: row.created_at,
+            },
+            row.request_hash,
+        )
+    }))
 }

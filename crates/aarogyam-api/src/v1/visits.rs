@@ -4,10 +4,11 @@
 use aarogyam_app::Moved;
 use aarogyam_app::record::{self, VisitDetail as DetailView};
 use aarogyam_app::visits::{
-    self as app, AddendumView, Member as MemberView, NoteInput, NoteView, StartVisit, VisitView,
+    self as app, AddendumView, CloseInput, Member as MemberView, NoteInput, NoteView, StartVisit,
+    VisitView,
 };
 use aarogyam_domain::event::Event;
-use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, PatientId};
+use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, InvoiceId, PatientId, RecallId};
 use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite};
 use axum::Json;
 use axum::extract::State;
@@ -24,7 +25,7 @@ use super::client_id;
 use super::files::Attachment;
 use super::treatment::Procedure;
 use super::vitals::Observation;
-use super::{WithEtag, rfc3339, with_etag};
+use super::{WithEtag, parse_day, rfc3339, with_etag};
 use crate::AppState;
 use crate::extract::{IfMatch, Require};
 use crate::failure::{ApiFailure, MoveRefused};
@@ -359,38 +360,92 @@ pub(crate) async fn open(
     Ok(Json(view.into()))
 }
 
+/// What to do while closing a visit. Every field is optional; an empty body just closes.
+#[derive(Debug, Default, Deserialize, ToSchema)]
+pub struct CloseVisit {
+    /// Plans a follow-up on this day (`YYYY-MM-DD`, not in the past).
+    #[schema(value_type = Option<String>, format = Date)]
+    pub follow_up_on: Option<String>,
+    /// Why the patient should return (at most 300 characters); "Follow-up" by default.
+    pub follow_up_reason: Option<String>,
+    /// Consultation fee in paise, more than zero. Starts a draft bill with a single line next
+    /// to any priced procedures of the visit. Needs `billing.write`.
+    pub fee_paise: Option<i64>,
+    /// Printed on the draft bill.
+    pub note: Option<String>,
+}
+
+/// A closed visit with the follow-up and the draft bill closing it made.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ClosedVisit {
+    /// The visit.
+    #[serde(flatten)]
+    pub visit: Visit,
+    /// The follow-up planned.
+    #[schema(value_type = Option<String>)]
+    pub recall_id: Option<Uuid>,
+    /// The draft bill (or the bill already linked to the visit).
+    #[schema(value_type = Option<String>)]
+    pub invoice_id: Option<Uuid>,
+}
+
 /// Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and
-/// procedures don't.
+/// procedures don't. The optional body plans a follow-up and starts a draft bill in the same
+/// transaction: a visit with a fee or priced procedures gets one bill, never two.
 #[utoipa::path(
     post,
     path = "/api/v1/visits/{id}/close",
     operation_id = "closeVisit",
     tag = "clinical",
     params(("id" = String, Path, description = "The visit")),
+    request_body(content = Option<CloseVisit>, description = "Optional follow-up and fee"),
     security(("bearer" = [])),
     responses(
-        (status = 200, body = Visit),
+        (status = 200, body = ClosedVisit),
+        (status = 400, description = "A past follow-up date, a long reason or a fee of zero"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks clinical.write"),
+        (status = 403, description = "The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee"),
         (status = 404, description = "No such visit in this clinic"),
-        (status = 409, description = "Already closed")
     )
 )]
 pub(crate) async fn close(
     State(state): State<AppState>,
     Require { request, .. }: Require<ClinicalWrite>,
     ApiPath(id): ApiPath<Uuid>,
-) -> Result<Json<Visit>, ApiFailure> {
-    let view = app::close(
+    body: axum::body::Bytes,
+) -> Result<Json<ClosedVisit>, ApiFailure> {
+    let body: CloseVisit = if body.iter().all(u8::is_ascii_whitespace) {
+        CloseVisit::default()
+    } else {
+        serde_json::from_slice(&body).map_err(|_| {
+            ApiError::bad_request("invalid_request", "body: send a JSON object or nothing")
+        })?
+    };
+    let follow_up_on = body
+        .follow_up_on
+        .as_deref()
+        .map(|day| parse_day("follow_up_on", day))
+        .transpose()?;
+    let closed = app::close(
         state.db(),
         &request.actor,
         request.request_id,
         EncounterId::from_uuid(id),
         OffsetDateTime::now_utc(),
+        CloseInput {
+            follow_up_on,
+            follow_up_reason: body.follow_up_reason,
+            fee_paise: body.fee_paise,
+            note: body.note,
+        },
     )
     .await?;
     tracing::info!(event = Event::VisitClosed.as_str(), visit_id = %id, "visit closed");
-    Ok(Json(view.into()))
+    Ok(Json(ClosedVisit {
+        visit: closed.visit.into(),
+        recall_id: closed.recall_id.map(RecallId::uuid),
+        invoice_id: closed.invoice_id.map(InvoiceId::uuid),
+    }))
 }
 
 /// A note's content. Sections are replaced as a whole when editing.

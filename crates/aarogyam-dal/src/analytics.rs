@@ -100,6 +100,15 @@ pub struct KeyCount {
     pub count: i64,
 }
 
+/// Booked chair minutes under an appointment kind.
+#[derive(Debug, Clone)]
+pub struct KindMinutes {
+    /// The appointment kind.
+    pub key: Option<String>,
+    /// Booked minutes on chairs, no-shows included.
+    pub minutes: i64,
+}
+
 /// Patients seen in the range by age in whole years on the last day.
 #[derive(Debug, Clone, Copy)]
 pub struct AgeCount {
@@ -147,6 +156,17 @@ pub struct AnalyticsRows {
     pub open_days: Vec<OpenDay>,
     /// Lab orders received back in the range, and their minutes from sent to received.
     pub lab_received: LabTurnaround,
+    /// Patients seen, by recorded sex.
+    pub sexes: Vec<KeyCount>,
+    /// Procedures done, by the category of the bill line that charged them (`None`: not billed
+    /// yet or no category).
+    pub procedures: Vec<KeyCount>,
+    /// Booked chair minutes by appointment kind.
+    pub chair_kinds: Vec<KindMinutes>,
+    /// Visits that were booked appointments, and walk-in tokens that were not.
+    pub booked_visits: i64,
+    /// Walk-in tokens in the range (not those who left without being seen).
+    pub walk_ins: i64,
 }
 
 /// Lab orders received back in a range.
@@ -255,6 +275,32 @@ pub async fn analytics(
            from visits v
            group by 5, 6
            union all
+           select 'sex', null, p.sex::text, null, count(*), 0, 0, null
+           from aarogyam.patients p
+           where p.id in (select patient_id from visits)
+           group by 3
+           union all
+           select 'procedure', null,
+                  (select nullif(btrim(ii.category), '') from aarogyam.invoice_items ii
+                    where ii.procedure_id = pr.id and ii.category is not null limit 1),
+                  null, count(*), 0, 0, null
+           from aarogyam.procedures pr
+           where pr.status = 'done' and pr.performed_at >= $5 and pr.performed_at < $6
+           group by 3
+           union all
+           select 'chair_kind', null, b.kind::text, null,
+                  sum(extract(epoch from b.ends_at - b.starts_at) / 60)::bigint, 0, 0, null
+           from booked b
+           join aarogyam.rooms r on r.id = b.room_id
+           where r.kind = 'chair'
+           group by 3
+           union all
+           select 'booked', null, null, null, count(*), 0, 0, null from visits
+           union all
+           select 'walk_in', null, null, null, count(*), 0, 0, null
+           from aarogyam.queue_tokens t
+           where t.appointment_id is null and t.status <> 'left' and t.day between $3 and $4
+           union all
            select 'hours', null, null, null, h.weekday::bigint,
                   sum(extract(epoch from h.ends - h.starts) / 60)::bigint, 0, h.branch_id
            from aarogyam.clinic_hours h
@@ -325,6 +371,20 @@ pub async fn analytics(
                 key: row.key,
                 count: a,
             }),
+            ("sex", _) => out.sexes.push(KeyCount {
+                key: row.key,
+                count: a,
+            }),
+            ("procedure", _) => out.procedures.push(KeyCount {
+                key: row.key,
+                count: a,
+            }),
+            ("chair_kind", _) => out.chair_kinds.push(KindMinutes {
+                key: row.key,
+                minutes: a,
+            }),
+            ("booked", _) => out.booked_visits = a,
+            ("walk_in", _) => out.walk_ins = a,
             ("lab", _) => {
                 out.lab_received = LabTurnaround {
                     orders: a,

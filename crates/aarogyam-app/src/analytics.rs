@@ -13,11 +13,12 @@
 use aarogyam_dal::analytics::{self as dal, AnalyticsQuery, AnalyticsRows};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::analytics::{
-    AgeBand, Bucket, MAX_DAYS, OPEN_MINUTES_PER_DAY, ReferralKind, default_from, open_minutes,
-    utilization_bps,
+    AgeBand, Bucket, ChairTime, MAX_DAYS, OPEN_MINUTES_PER_DAY, ReferralKind, default_from,
+    open_minutes, utilization_bps,
 };
 use aarogyam_domain::expense::ExpenseCategoryKey;
 use aarogyam_domain::ids::RoomId;
+use aarogyam_domain::patient::Sex;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::AppointmentKind;
 use sakalya_db::Db;
@@ -124,11 +125,25 @@ pub struct Analytics {
     pub referral_sources: Vec<(ReferralKind, i64)>,
     /// Visits by ISO weekday (1 Monday) and hour in clinic time; only non-zero cells.
     pub busy_hours: Vec<(u8, u8, i64)>,
+    /// Patients seen in the range, by recorded sex; every value listed.
+    pub sexes: Vec<(Sex, i64)>,
+    /// Procedures done in the range, by the category of the bill line that charged them; the
+    /// key is [`UNCATEGORISED`] for those not billed or without a category. Most first.
+    pub procedures: Vec<(String, i64)>,
+    /// Booked chair minutes by what they were spent on.
+    pub chair_time: Vec<(ChairTime, i64)>,
+    /// Visits that were booked appointments.
+    pub booked_visits: i64,
+    /// Walk-in tokens issued in the range.
+    pub walk_ins: i64,
     /// Lab orders received back in the range.
     pub lab_orders_received: i64,
     /// Their average days from sent to received, to one decimal; `None` when there were none.
     pub lab_turnaround_days: Option<f64>,
 }
+
+/// The category shown for procedures with none.
+pub const UNCATEGORISED: &str = "uncategorised";
 
 /// Average days at the lab, to one decimal.
 #[expect(
@@ -300,6 +315,10 @@ fn tally<K: Copy + PartialEq, R>(
         .collect()
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "one pass that turns the statement's rows into the report"
+)]
 fn build(from: Date, to: Date, bucket: Bucket, money: bool, rows: &AnalyticsRows) -> Analytics {
     let chairs = chairs_of(rows);
     let periods = bucket
@@ -354,6 +373,33 @@ fn build(from: Date, to: Date, bucket: Bucket, money: bool, rows: &AnalyticsRows
         });
         (kind, row.count)
     });
+    let sexes = tally(
+        &[Sex::Female, Sex::Male, Sex::Other, Sex::Unknown],
+        &rows.sexes,
+        |row| {
+            let sex = row.key.as_deref().and_then(|key| Sex::parse(key).ok());
+            (sex.unwrap_or(Sex::Unknown), row.count)
+        },
+    );
+    let mut procedures: Vec<(String, i64)> = Vec::new();
+    for row in &rows.procedures {
+        let key = row.key.as_deref().unwrap_or(UNCATEGORISED);
+        match procedures.iter_mut().find(|(k, _)| k == key) {
+            Some((_, count)) => *count += row.count,
+            None => procedures.push((key.to_owned(), row.count)),
+        }
+    }
+    procedures.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    let chair_time = tally(ChairTime::ALL, &rows.chair_kinds, |row| {
+        let kind = row
+            .key
+            .as_deref()
+            .and_then(|key| AppointmentKind::parse(key).ok());
+        (
+            ChairTime::of(kind.unwrap_or(AppointmentKind::FollowUp)),
+            row.minutes,
+        )
+    });
     let busy_hours = rows
         .busy_hours
         .iter()
@@ -377,6 +423,11 @@ fn build(from: Date, to: Date, bucket: Bucket, money: bool, rows: &AnalyticsRows
         visit_kinds,
         referral_sources,
         busy_hours,
+        sexes,
+        procedures,
+        chair_time,
+        booked_visits: rows.booked_visits,
+        walk_ins: rows.walk_ins,
         lab_orders_received: rows.lab_received.orders,
         lab_turnaround_days: average_days(
             rows.lab_received.orders,
@@ -454,6 +505,7 @@ mod tests {
                 orders: 2,
                 total_minutes: 4 * 1440 + 720,
             },
+            ..AnalyticsRows::default()
         };
         let report = build(
             date!(2026 - 09 - 21),

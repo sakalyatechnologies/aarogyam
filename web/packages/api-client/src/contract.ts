@@ -476,6 +476,8 @@ export type LabTurnaround = Schemas["LabTurnaround"];
 export type KeyCount = Schemas["KeyCount"];
 export type PatientMix = Schemas["PatientMix"];
 export type PatientBreakdown = Schemas["PatientBreakdown"];
+export type ChairTimeSplit = Schemas["ChairTimeSplit"];
+export type VisitSources = Schemas["VisitSources"];
 
 // Prescriptions (M5) ----------------------------------------------------------------------------
 

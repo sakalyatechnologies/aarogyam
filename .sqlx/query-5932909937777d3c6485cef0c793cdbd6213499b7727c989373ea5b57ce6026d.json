@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.campaigns set status = 'scheduled', scheduled_count = $2\n         where id = $1 and status = 'draft' and scheduled_at is not null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5932909937777d3c6485cef0c793cdbd6213499b7727c989373ea5b57ce6026d"
+}

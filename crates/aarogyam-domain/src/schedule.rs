@@ -290,8 +290,12 @@ text_enum!(
     QueueStatus {
         /// Waiting to be called.
         Waiting => "waiting",
+        /// Called in by the doctor; the front desk sends the patient in.
+        Called => "called",
         /// In the chair.
         InChair => "in_chair",
+        /// The chair work is done; the front desk collects payment.
+        ReadyToBill => "ready_to_bill",
         /// Seen.
         Done => "done",
         /// Left without being seen.
@@ -318,7 +322,7 @@ impl QueueStatus {
     #[must_use]
     pub const fn appointment_status(self) -> Option<AppointmentStatus> {
         match self {
-            Self::Waiting => None,
+            Self::Waiting | Self::Called | Self::ReadyToBill => None,
             Self::InChair => Some(AppointmentStatus::InChair),
             Self::Done => Some(AppointmentStatus::Completed),
             Self::Left => Some(AppointmentStatus::Cancelled),
@@ -330,7 +334,12 @@ impl QueueStatus {
     pub const fn can_become(self, to: Self) -> bool {
         matches!(
             (self, to),
-            (Self::Waiting, Self::InChair | Self::Done | Self::Left) | (Self::InChair, Self::Done)
+            (
+                Self::Waiting,
+                Self::Called | Self::InChair | Self::Done | Self::Left
+            ) | (Self::Called, Self::Waiting | Self::InChair | Self::Left)
+                | (Self::InChair, Self::ReadyToBill | Self::Done | Self::Left)
+                | (Self::ReadyToBill, Self::Done | Self::Left)
         )
     }
 
@@ -667,6 +676,41 @@ mod tests {
                 QueueStatus::Waiting
             ))
         );
+    }
+
+    #[test]
+    fn queue_visit_flow_moves() {
+        use QueueStatus::*;
+        let allowed = [
+            (Waiting, Called),
+            (Called, InChair),
+            (Called, Waiting),
+            (InChair, ReadyToBill),
+            (ReadyToBill, Done),
+            (Waiting, Left),
+            (Called, Left),
+            (InChair, Left),
+            (ReadyToBill, Left),
+        ];
+        for (from, to) in allowed {
+            assert!(from.can_become(to), "{from:?} to {to:?}");
+        }
+        let refused = [
+            (Called, Done),
+            (Called, ReadyToBill),
+            (ReadyToBill, InChair),
+            (ReadyToBill, Called),
+            (InChair, Called),
+            (InChair, Waiting),
+            (Done, Waiting),
+            (Done, Left),
+            (Left, Waiting),
+        ];
+        for (from, to) in refused {
+            assert!(!from.can_become(to), "{from:?} to {to:?}");
+        }
+        assert_eq!(Called.appointment_status(), None);
+        assert_eq!(ReadyToBill.appointment_status(), None);
     }
 
     #[test]

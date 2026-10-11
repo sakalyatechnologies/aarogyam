@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.campaigns (id, name, audience_id, template_id, channel, offer_text,\n                                         scheduled_at)\n         select $1, $2, a.id, t.id, $5, $6, $7\n         from aarogyam.audiences a, aarogyam.message_templates t\n         where a.id = $3 and t.id = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "48e82f619da044123af0795528901dcc88eab6bda7600a8e0bec58f83e058c9d"
+}

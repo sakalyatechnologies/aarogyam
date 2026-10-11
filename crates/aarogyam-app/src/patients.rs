@@ -621,6 +621,8 @@ pub struct Session {
     pub clinic: clinic::ClinicProfile,
     /// The member's display name.
     pub display_name: String,
+    /// The member's avatar at this clinic.
+    pub avatar: aarogyam_dal::avatars::AvatarRow,
 }
 
 /// Loads what the portal shows about the current clinic and member.
@@ -633,13 +635,14 @@ pub async fn session(
     request_id: Option<Uuid>,
 ) -> Result<Session, AppError> {
     db.scoped(&scope(actor, request_id), async |tx| {
-        let (clinic, display_name) = clinic::session(tx.conn(), actor.user_id.uuid())
+        let (clinic, display_name, avatar) = clinic::session(tx.conn(), actor.user_id.uuid())
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
         let display_name = display_name.unwrap_or_default();
         Ok(Session {
             clinic,
             display_name,
+            avatar,
         })
     })
     .await
@@ -826,6 +829,30 @@ pub struct PhoneMatch {
     pub age_years: Option<u16>,
 }
 
+/// A linked relative of a patient the lookup matched, who doesn't share the number.
+#[derive(Debug, Clone)]
+pub struct FamilyMember {
+    /// The matched patient they are linked to.
+    pub of_patient_id: PatientId,
+    /// The relative.
+    pub id: PatientId,
+    /// Readable number.
+    pub number: String,
+    /// Full name.
+    pub full_name: String,
+    /// What they are to the matched patient.
+    pub relation: String,
+}
+
+/// The matches of a phone lookup and the relatives linked to them.
+#[derive(Debug, Clone)]
+pub struct PhoneLookupResult {
+    /// Patients with the phone.
+    pub matches: Vec<PhoneMatch>,
+    /// Relatives of those, not already among them.
+    pub family_group: Vec<FamilyMember>,
+}
+
 /// Patients already registered with this phone (main or second number), so the desk can pick
 /// "this is them" before registering someone new. Families share numbers: there may be several.
 ///
@@ -837,7 +864,7 @@ pub async fn lookup_phone(
     request_id: Option<Uuid>,
     phone: &str,
     now: OffsetDateTime,
-) -> Result<Vec<PhoneMatch>, AppError> {
+) -> Result<PhoneLookupResult, AppError> {
     actor.require(Permission::PatientsRead)?;
     let phone = parse_phone(phone)?.ok_or(AppError::invalid("phone", "is required"))?;
     let today = clinic_today(&actor.timezone, now);
@@ -845,7 +872,8 @@ pub async fn lookup_phone(
     db.scoped(&scope(actor, request_id), async |tx| {
         let rows =
             patients::lookup_phone(tx.conn(), phone.as_e164(), MAX_PHONE_MATCHES, reach).await?;
-        Ok(rows
+        let ids: Vec<Uuid> = rows.iter().map(|row| row.id).collect();
+        let matches: Vec<PhoneMatch> = rows
             .into_iter()
             .map(|row| PhoneMatch {
                 id: PatientId::from_uuid(row.id),
@@ -854,7 +882,27 @@ pub async fn lookup_phone(
                 sex: row.sex,
                 age_years: age_on(row.date_of_birth, row.birth_date_estimated, today),
             })
-            .collect())
+            .collect();
+        let linked = if ids.is_empty() {
+            Vec::new()
+        } else {
+            aarogyam_dal::family::groups(tx.conn(), &ids, reach).await?
+        };
+        let family_group = linked
+            .into_iter()
+            .filter(|row| !ids.contains(&row.related_patient_id))
+            .map(|row| FamilyMember {
+                of_patient_id: PatientId::from_uuid(row.patient_id),
+                id: PatientId::from_uuid(row.related_patient_id),
+                number: row.number,
+                full_name: row.full_name,
+                relation: row.relation,
+            })
+            .collect();
+        Ok(PhoneLookupResult {
+            matches,
+            family_group,
+        })
     })
     .await
 }

@@ -431,6 +431,27 @@ pub struct PhoneMatch {
 pub struct PhoneMatches {
     /// Matches by name; at most 10. Families share numbers, so there may be several.
     pub items: Vec<PhoneMatch>,
+    /// Relatives linked to the matches (`/patients/{id}/family`) who are not themselves matches,
+    /// so the desk can offer the whole family. Empty when nothing is linked.
+    pub family_group: Vec<FamilyMember>,
+}
+
+/// A linked relative of a matched patient.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct FamilyMember {
+    /// The matched patient they are linked to.
+    #[schema(value_type = String)]
+    pub of_patient_id: Uuid,
+    /// The relative.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Readable number, such as `SD-1043`.
+    pub number: String,
+    /// Full name.
+    pub full_name: String,
+    /// What they are to the matched patient: `guardian`, `child`, `spouse`, `parent`,
+    /// `sibling` or `other`.
+    pub relation: String,
 }
 
 /// Patients already registered with this phone (main or second number), so the desk can pick
@@ -464,6 +485,7 @@ pub(crate) async fn lookup(
     .await?;
     Ok(Json(PhoneMatches {
         items: rows
+            .matches
             .into_iter()
             .map(|row| PhoneMatch {
                 id: row.id.uuid(),
@@ -471,6 +493,17 @@ pub(crate) async fn lookup(
                 full_name: row.full_name,
                 age_years: row.age_years,
                 sex: row.sex,
+            })
+            .collect(),
+        family_group: rows
+            .family_group
+            .into_iter()
+            .map(|row| FamilyMember {
+                of_patient_id: row.of_patient_id.uuid(),
+                id: row.id.uuid(),
+                number: row.number,
+                full_name: row.full_name,
+                relation: row.relation,
             })
             .collect(),
     }))

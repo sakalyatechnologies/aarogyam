@@ -18,7 +18,7 @@ pub struct TokenRow {
     pub day: Date,
     /// Number shown on the screen.
     pub token_number: i32,
-    /// `waiting`, `in_chair`, `done` or `left`.
+    /// `waiting`, `called`, `in_chair`, `ready_to_bill`, `done` or `left`.
     pub status: String,
     /// When it was issued.
     #[serde(with = "crate::json::timestamp")]
@@ -51,6 +51,9 @@ pub struct TokenRow {
     pub practitioner_id: Option<Uuid>,
     /// Their name.
     pub practitioner_name: Option<String>,
+    /// The chair they were seated in, when chosen.
+    #[serde(default)]
+    pub room_id: Option<Uuid>,
 }
 
 /// Issues the next token number of a branch's day (`app.next_number`, kind `queue_token`).
@@ -116,7 +119,7 @@ pub async fn insert(conn: &mut PgConnection, token: &NewToken) -> Result<(), DbE
     Ok(())
 }
 
-/// Tokens of one clinic day, optionally one branch, by number.
+/// Tokens of one clinic day, optionally one branch or one doctor, by number.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -125,6 +128,7 @@ pub async fn list(
     day: Date,
     branch_id: Option<Uuid>,
     member: Option<Uuid>,
+    practitioner_id: Option<Uuid>,
 ) -> Result<Vec<TokenRow>, DbError> {
     let rows = sqlx::query_as!(
         TokenRow,
@@ -134,16 +138,19 @@ pub async fn list(
                   p.birth_date_estimated as patient_birth_date_estimated,
                   ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
                     as "patient_registration_incomplete!",
-                  q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?"
+                  q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?",
+                  q.room_id
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
            where q.day = $1 and ($2::uuid is null or q.branch_id = $2)
              and app.practitioner_in_reach(q.practitioner_id, $3)
+             and ($4::uuid is null or q.practitioner_id = $4)
            order by q.branch_id, q.token_number"#,
         day,
         branch_id,
-        member
+        member,
+        practitioner_id
     )
     .fetch_all(conn)
     .await?;
@@ -239,6 +246,62 @@ pub async fn lock(conn: &mut PgConnection, id: Uuid) -> Result<Option<TokenState
     Ok(row)
 }
 
+/// Whether the visit has a bill (not void) that still has a balance.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn visit_has_balance(
+    conn: &mut PgConnection,
+    encounter_id: Uuid,
+) -> Result<bool, DbError> {
+    let found = sqlx::query_scalar!(
+        r#"select exists (
+             select 1 from aarogyam.invoices i
+             where i.encounter_id = $1 and i.status <> 'void'
+               and (case when i.status = 'draft' then (select coalesce(sum(it.quantity::bigint * it.unit_price_paise - it.discount_paise), 0) from aarogyam.invoice_items it where it.org_id = i.org_id and it.invoice_id = i.id) else i.total_paise end) > coalesce((select sum(a.amount_paise)
+                    from aarogyam.payment_allocations a
+                    join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id
+                    where a.org_id = i.org_id and a.invoice_id = i.id and m.status = 'received'), 0)
+           ) as "found!""#,
+        encounter_id
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(found)
+}
+
+/// The `ready_to_bill` tokens (locked) of the visits behind these bills whose visit has no bill
+/// with a balance left: the payment cleared what the desk was to collect.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn settled_by_invoices(
+    conn: &mut PgConnection,
+    invoice_ids: &[Uuid],
+) -> Result<Vec<TokenState>, DbError> {
+    let rows = sqlx::query_as!(
+        TokenState,
+        r#"select t.id, t.status, t.appointment_id from aarogyam.queue_tokens t
+           where t.status = 'ready_to_bill'
+             and exists (select 1 from aarogyam.encounters e
+                         join aarogyam.invoices i on i.org_id = e.org_id and i.encounter_id = e.id
+                         where e.queue_token_id = t.id and i.id = any($1))
+             and not exists (
+               select 1 from aarogyam.encounters e
+               join aarogyam.invoices i on i.org_id = e.org_id and i.encounter_id = e.id
+               where e.queue_token_id = t.id and i.status <> 'void'
+                 and (case when i.status = 'draft' then (select coalesce(sum(it.quantity::bigint * it.unit_price_paise - it.discount_paise), 0) from aarogyam.invoice_items it where it.org_id = i.org_id and it.invoice_id = i.id) else i.total_paise end) > coalesce((select sum(a.amount_paise)
+                      from aarogyam.payment_allocations a
+                      join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id
+                      where a.org_id = i.org_id and a.invoice_id = i.id and m.status = 'received'), 0))
+           for update of t"#,
+        invoice_ids
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
 /// The token of an appointment, locked until the transaction ends.
 ///
 /// # Errors
@@ -258,8 +321,8 @@ pub async fn for_appointment(
     Ok(row)
 }
 
-/// Sets a token's status, stamping the call time when it leaves `waiting` for the chair or
-/// done, and the end time when done or left.
+/// Sets a token's status, stamping the call time when it is called, seated or done (cleared
+/// when it goes back to `waiting`), and the end time when done or left.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -272,7 +335,9 @@ pub async fn set_status(
     sqlx::query!(
         r#"update aarogyam.queue_tokens
            set status = $2,
-               called_at = case when $2 in ('in_chair', 'done') then coalesce(called_at, $3) else called_at end,
+               called_at = case when $2 = 'waiting' then null
+                                when $2 in ('called', 'in_chair', 'ready_to_bill', 'done') then coalesce(called_at, $3)
+                                else called_at end,
                done_at = case when $2 in ('done', 'left') then coalesce(done_at, $3) else done_at end
            where id = $1"#,
         id,
@@ -301,13 +366,38 @@ pub async fn get(
                   p.birth_date_estimated as patient_birth_date_estimated,
                   ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
                     as "patient_registration_incomplete!",
-                  q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?"
+                  q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?",
+                  q.room_id
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
            where q.id = $1 and app.practitioner_in_reach(q.practitioner_id, $2)"#,
         id,
         member
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Seats a token in a room of its own branch (active, not deleted). Returns the token's
+/// appointment (`Some(None)` for a walk-in), or `None` when the room isn't in the branch.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn seat_in_room(
+    conn: &mut PgConnection,
+    id: Uuid,
+    room_id: Uuid,
+) -> Result<Option<Option<Uuid>>, DbError> {
+    let row = sqlx::query_scalar!(
+        r#"update aarogyam.queue_tokens q set room_id = r.id
+           from aarogyam.rooms r
+           where q.id = $1 and r.id = $2 and r.branch_id = q.branch_id
+             and r.active and r.deleted_at is null
+           returning q.appointment_id"#,
+        id,
+        room_id
     )
     .fetch_optional(conn)
     .await?;

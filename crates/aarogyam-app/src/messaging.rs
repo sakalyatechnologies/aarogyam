@@ -134,6 +134,24 @@ pub async fn send(
     let body = input.body.as_deref().map(str::trim);
     let queued = db
         .scoped(&scope(actor, request_id), async |tx| {
+            // The clinic's template for the channel must be in use (approved); email without a
+            // row keeps its wording from code.
+            let status = aarogyam_dal::message_templates::status_of(
+                tx.conn(),
+                input.template.as_str(),
+                input.channel.as_str(),
+            )
+            .await?;
+            let usable = match status.as_deref() {
+                Some(status) => status == "approved",
+                None => input.channel == Channel::Email,
+            };
+            if !usable {
+                return Err(AppError::invalid(
+                    "template_key",
+                    "the clinic has no approved template for this channel",
+                ));
+            }
             Ok::<_, AppError>(
                 dal::enqueue_batch(
                     tx.conn(),
@@ -268,4 +286,61 @@ pub use aarogyam_dal::message_worker::ProviderEvent;
 /// [`AppError::Db`] on database failures.
 pub async fn provider_event(db: &Db, event: &ProviderEvent<'_>) -> Result<String, AppError> {
     Ok(message_worker::provider_event(db.pool(), event).await?)
+}
+
+/// Records a `WhatsApp` status Meta reported for the message it knows by `wamid`: each status
+/// once, the furthest kept whatever the order. Returns `recorded`, `repeat` or `unknown`.
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub async fn whatsapp_status(
+    db: &Db,
+    wamid: &str,
+    status: &str,
+    occurred_at: time::OffsetDateTime,
+) -> Result<String, AppError> {
+    if wamid.is_empty() || wamid.len() > 180 {
+        return Ok("unknown".to_owned());
+    }
+    Ok(message_worker::whatsapp_status(db.pool(), wamid, status, occurred_at).await?)
+}
+
+/// A STOP reply from `wa_id` (Meta's digits-only number): every patient with that phone at the
+/// clinic the reply is for opts out of `WhatsApp` (migration 0377). The reply's text is never
+/// passed on. Returns how many clinics.
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub async fn whatsapp_stop(
+    db: &Db,
+    wa_id: &str,
+    context_wamid: Option<&str>,
+) -> Result<i32, AppError> {
+    let digits = wa_id.trim().trim_start_matches('+');
+    if !(8..=15).contains(&digits.len()) || !digits.chars().all(|c| c.is_ascii_digit()) {
+        return Ok(0);
+    }
+    let phone = format!("+{digits}");
+    let context = context_wamid.filter(|id| !id.is_empty() && id.len() <= 180);
+    Ok(message_worker::whatsapp_stop(db.pool(), &phone, context).await?)
+}
+
+/// Applies Meta's review of a template (name and language) to the clinic copies submitted for
+/// it. Returns how many changed.
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub async fn whatsapp_template_reviewed(
+    db: &Db,
+    name: &str,
+    language: &str,
+    status: aarogyam_domain::whatsapp::TemplateStatus,
+) -> Result<i32, AppError> {
+    if name.is_empty() || name.len() > 512 || language.is_empty() || language.len() > 20 {
+        return Ok(0);
+    }
+    Ok(
+        message_worker::whatsapp_template_reviewed(db.pool(), name, language, status.as_str())
+            .await?,
+    )
 }

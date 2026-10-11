@@ -27,8 +27,10 @@ dependencies = [
  "thiserror",
  "time",
  "tokio",
+ "tokio-stream",
  "tower",
  "tracing",
+ "tracing-subscriber",
  "utoipa",
  "uuid",
 ]

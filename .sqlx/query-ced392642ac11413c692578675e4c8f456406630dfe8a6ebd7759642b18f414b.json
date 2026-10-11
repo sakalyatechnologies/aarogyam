@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.recalls (id, patient_id, kind, reason, due_on, source_encounter_id)\n         values ($1, $2, 'follow_up', $3, $4, $5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Date",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ced392642ac11413c692578675e4c8f456406630dfe8a6ebd7759642b18f414b"
+}

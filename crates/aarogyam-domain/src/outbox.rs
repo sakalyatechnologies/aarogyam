@@ -51,6 +51,8 @@ pub enum MessageKind {
     ClinicMessage,
     /// A lab was reminded of work due (to a lab contact, never a patient).
     LabOrderReminder,
+    /// A campaign emailed to the staff member who asked for a test (never a patient).
+    CampaignTest,
 }
 
 impl MessageKind {
@@ -67,6 +69,7 @@ impl MessageKind {
             Self::AppointmentReminder => "appointment.reminder",
             Self::ClinicMessage => "clinic.message",
             Self::LabOrderReminder => "lab_order.reminder",
+            Self::CampaignTest => "campaign.test",
         }
     }
 
@@ -83,6 +86,7 @@ impl MessageKind {
             "appointment.reminder" => Some(Self::AppointmentReminder),
             "clinic.message" => Some(Self::ClinicMessage),
             "lab_order.reminder" => Some(Self::LabOrderReminder),
+            "campaign.test" => Some(Self::CampaignTest),
             _ => None,
         }
     }

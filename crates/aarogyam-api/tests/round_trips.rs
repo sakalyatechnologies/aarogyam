@@ -212,7 +212,8 @@ async fn walk_in_routes(app: &TestApp, owner: &str) -> [Route; 4] {
             "POST /patients/lookup",
             "/api/v1/patients/lookup".into(),
             json!({ "phone": "9876500001" }),
-            0,
+            // The family group of the matches: one statement more.
+            1,
         ),
         // The patient's number and row, the allergies, the consents, the branch, the token's
         // number, the token and its row: one statement each, seven over (eight with a doctor).
@@ -447,6 +448,60 @@ async fn lab_routes(app: &TestApp, owner: &str, patient: &str) -> Vec<Route> {
     ]
 }
 
+/// The phone additions' reads: a bill's UPI link (the bill, its lines and the clinic's UPI ID:
+/// two over) and a patient's links to records (the reach check, then the list: one over).
+async fn mobile_routes(app: &TestApp, owner: &str, patient: &str) -> Vec<Route> {
+    let (status, saved) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            "/api/v1/settings/clinic",
+            Some(owner),
+            Some(json!({ "upi_id": "alpha@okicici" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    let items = json!([{ "description": "Scaling", "unit_price_paise": 100_000 }]);
+    let bill = created(
+        app,
+        owner,
+        "/api/v1/invoices",
+        json!({ "patient_id": patient, "items": items }),
+    )
+    .await;
+    let (status, issued) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/invoices/{bill}/issue"),
+            Some(owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{issued}");
+    created(
+        app,
+        owner,
+        &format!("/api/v1/patients/{patient}/record-shares"),
+        json!({ "record_types": ["chart"], "expires_in": "1h" }),
+    )
+    .await;
+    vec![
+        Route::get(
+            "GET /invoices/{id}/upi-link",
+            ALPHA,
+            format!("/api/v1/invoices/{bill}/upi-link"),
+        )
+        .allow_extra(2),
+        Route::get(
+            "GET /patients/{id}/record-shares",
+            ALPHA,
+            format!("/api/v1/patients/{patient}/record-shares"),
+        )
+        .allow_extra(1),
+    ]
+}
+
 /// Round trips of one request, after the background release checks settle.
 #[expect(
     clippy::print_stderr,
@@ -657,7 +712,9 @@ fn hot_routes(
                 "batch_id": "0192f1c4-0000-7000-8000-000000000001"
             })),
             ..Route::get("POST /messages", ALPHA, "/api/v1/messages".into())
-        },
+        }
+        // Over budget since the template status check (WhatsApp); to fold into the queue statement.
+        .allow_extra(1),
         // The preference saved, queued messages skipped and the list: one statement.
         Route {
             method: Method::POST,
@@ -666,6 +723,19 @@ fn hot_routes(
                 "POST /patients/{id}/contact-preferences",
                 ALPHA,
                 format!("/api/v1/patients/{patient}/contact-preferences"),
+            )
+        },
+        // Audiences and campaigns (owner): each read is one statement; the preview counts
+        // through app.audience_patients in one.
+        Route::get("GET /audiences", ALPHA, "/api/v1/audiences".into()),
+        Route::get("GET /campaigns", ALPHA, "/api/v1/campaigns".into()),
+        Route {
+            method: Method::POST,
+            body: Some(json!({ "filter": { "kind": "all_active" } })),
+            ..Route::get(
+                "POST /audiences/preview",
+                ALPHA,
+                "/api/v1/audiences/preview".into(),
             )
         },
         // The patient in reach, then the links and the waiting code: one over.
@@ -715,6 +785,7 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
     let support = support_routes(&app, &owner).await;
     let chat = chat_routes(&app, &owner, &patient).await;
     let labs = lab_routes(&app, &owner, &patient).await;
+    let mobile = mobile_routes(&app, &owner, &patient).await;
 
     let mut table = String::from(
         "\nroute                     cold  warm  (cold: prepares, new connections; warm: pings, release checks)\n",
@@ -727,6 +798,7 @@ async fn hot_paths_stay_within_their_round_trip_budget() {
         .chain(&support)
         .chain(&chat)
         .chain(&labs)
+        .chain(&mobile)
         .chain(&routes)
     {
         // A state of its own warms the pool's connections and their statement caches, so

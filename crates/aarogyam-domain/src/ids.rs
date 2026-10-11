@@ -111,6 +111,8 @@ entities! {
     PatientAccount, PatientAccountId;
     /// A patient account's link to a clinic's record.
     PatientLink, PatientLinkId;
+    /// A family link between two patients of one clinic.
+    PatientRelation, PatientRelationId;
     /// Something clinic staff are told about, such as an online booking.
     StaffNotification, StaffNotificationId;
     /// A message in the clinic's inbox, such as a reminder about a waiting booking.
@@ -133,4 +135,8 @@ entities! {
     LabOrderItem, LabOrderItemId;
     /// Money paid to a lab.
     LabPayment, LabPaymentId;
+    /// A saved set of patients (a filter) a campaign is sent to.
+    Audience, AudienceId;
+    /// A one-off promotional send to an audience.
+    Campaign, CampaignId;
 }

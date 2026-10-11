@@ -4,6 +4,8 @@ use sakalya_db::DbError;
 use sqlx::PgConnection;
 use uuid::Uuid;
 
+use crate::avatars::AvatarRow;
+
 /// What the portal needs to know about the clinic it is running in.
 #[derive(Debug, Clone)]
 pub struct ClinicProfile {
@@ -47,11 +49,13 @@ pub async fn profile(conn: &mut PgConnection) -> Result<Option<ClinicProfile>, D
 pub async fn session(
     conn: &mut PgConnection,
     user_id: Uuid,
-) -> Result<Option<(ClinicProfile, Option<String>)>, DbError> {
+) -> Result<Option<(ClinicProfile, Option<String>, AvatarRow)>, DbError> {
     let row = sqlx::query!(
         r#"select o.id, o.slug, o.name, o.number_prefix, o.timezone,
                   coalesce(s.branding, '{}'::jsonb) as "branding!",
-                  (select u.display_name from aarogyam.users u where u.id = $1) as display_name
+                  (select u.display_name from aarogyam.users u where u.id = $1) as display_name,
+                  (select m.avatar_preset from aarogyam.memberships m where m.user_id = $1) as avatar_preset,
+                  (select m.avatar_file_id from aarogyam.memberships m where m.user_id = $1) as avatar_file_id
            from aarogyam.organizations o
            left join aarogyam.org_settings s on s.org_id = o.id
            where o.id = app.tenant_id()"#,
@@ -70,6 +74,10 @@ pub async fn session(
                 branding: row.branding,
             },
             row.display_name,
+            AvatarRow {
+                preset: row.avatar_preset,
+                file_id: row.avatar_file_id,
+            },
         )
     }))
 }

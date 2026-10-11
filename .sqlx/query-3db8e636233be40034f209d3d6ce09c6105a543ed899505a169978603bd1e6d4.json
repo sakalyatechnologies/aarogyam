@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select encounter_id from aarogyam.share_links where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "encounter_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "encounter_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "3db8e636233be40034f209d3d6ce09c6105a543ed899505a169978603bd1e6d4"
+}

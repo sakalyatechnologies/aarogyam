@@ -1632,7 +1632,8 @@
     }
    ],
    "referenced_by": [
-    "appointments.room_id"
+    "appointments.room_id",
+    "queue_tokens.room_id"
    ],
    "sensitivity": "internal",
    "offline": "read_only"
@@ -2050,7 +2051,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize().",
+   "notes": "Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize(). At most one of avatar_preset and avatar_file_id; the member sets their own with PUT /me/avatar, and app.my_clinics returns both for the clinic switcher.",
    "cols": [
     {
      "name": "user_id",
@@ -2086,6 +2087,27 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "avatar_preset",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the staff avatar as a preset id the apps ship (migration 0386)"
+    },
+    {
+     "name": "avatar_file_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "or the member's own PNG or JPEG photo in file storage under the clinic's folder, read through signed links"
+    },
+    {
+     "name": "avatar_mime",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "image/png or image/jpeg, set with avatar_file_id"
     }
    ],
    "referenced_by": [
@@ -2479,8 +2501,6 @@
     "data_requests.patient_id",
     "document_extractions.patient_id",
     "encounters.patient_id",
-    "family_links.patient_id",
-    "family_links.related_patient_id",
     "import_rows.patient_id",
     "invoices.patient_id",
     "lab_orders.patient_id",
@@ -2495,6 +2515,8 @@
     "patient_link_codes.patient_id",
     "patient_links.patient_id",
     "patient_notes.patient_id",
+    "patient_relations.patient_id",
+    "patient_relations.related_patient_id",
     "patients.merged_into_id",
     "patients.referred_by_patient_id",
     "payment_allocations.patient_id",
@@ -2550,15 +2572,15 @@
    "offline": "read_write"
   },
   {
-   "name": "family_links",
+   "name": "patient_relations",
    "domain": "people",
-   "purpose": "Relationships between patients in the same clinic: parent, child, spouse, guardian.",
+   "purpose": "Family under one mobile number: how two patients of a clinic are related. Each link has an inverse row written and removed with it.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "ephemeral",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Unique (org_id, patient_id, related_patient_id); a patient is never related to themselves. Erasure deletes both directions.",
    "cols": [
     {
      "name": "patient_id",
@@ -2576,17 +2598,17 @@
     },
     {
      "name": "relation",
-     "type": "relation_kind",
+     "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "parent, child, spouse, guardian, other"
+     "note": "guardian, child, spouse, parent, sibling, other (what the related patient is to patient_id)"
     },
     {
-     "name": "can_manage",
+     "name": "is_primary_contact",
      "type": "bool",
      "nullable": false,
      "ref": null,
-     "note": "guardian may act for this patient"
+     "note": "the contact person for patient_id"
     }
    ],
    "referenced_by": [],
@@ -3343,7 +3365,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done.",
+   "notes": "Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done. Moves: waiting to called to in_chair, called back to waiting, in_chair to ready_to_bill to done, left from any open state; waiting may still go straight to in_chair or done.",
    "cols": [
     {
      "name": "branch_id",
@@ -3392,7 +3414,7 @@
      "type": "token_status",
      "nullable": false,
      "ref": null,
-     "note": "waiting, in_chair, done, left"
+     "note": "waiting, called, in_chair, ready_to_bill, done, left (called and ready_to_bill: migration 0420)"
     },
     {
      "name": "issued_at",
@@ -3414,10 +3436,18 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "room_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "rooms",
+     "note": "the chair chosen when seated; a room of the token's branch (migration 0384)"
     }
    ],
    "referenced_by": [
-    "encounters.queue_token_id"
+    "encounters.queue_token_id",
+    "staff_notifications.queue_token_id"
    ],
    "sensitivity": "personal",
    "offline": "read_write"
@@ -3650,6 +3680,8 @@
     "observations.encounter_id",
     "prescriptions.encounter_id",
     "procedures.encounter_id",
+    "recalls.source_encounter_id",
+    "share_links.encounter_id",
     "specialty_records.encounter_id",
     "treatment_plans.encounter_id",
     "voice_notes.encounter_id"
@@ -4804,7 +4836,7 @@
      "type": "attachment_kind",
      "nullable": false,
      "ref": null,
-     "note": "photo, xray, report, document, audio, consent"
+     "note": "photo, xray, report, document, audio, consent, payment_proof"
     },
     {
      "name": "storage_key",
@@ -4916,6 +4948,7 @@
     "consent_forms.pdf_attachment_id",
     "consent_forms.signature_attachment_id",
     "document_extractions.attachment_id",
+    "payments.attachment_id",
     "voice_notes.attachment_id"
    ],
    "sensitivity": "health",
@@ -5768,7 +5801,8 @@
     "lab_order_events.lab_order_id",
     "lab_order_items.lab_order_id",
     "lab_orders.rework_of_id",
-    "lab_payments.lab_order_id"
+    "lab_payments.lab_order_id",
+    "staff_notifications.lab_order_id"
    ],
    "sensitivity": "health",
    "offline": "server_only"
@@ -7225,6 +7259,13 @@
      "nullable": true,
      "ref": "memberships",
      "note": ""
+    },
+    {
+     "name": "attachment_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "attachments",
+     "note": "proof of payment: a UPI screenshot or cheque photo"
     }
    ],
    "referenced_by": [
@@ -7441,6 +7482,20 @@
      "nullable": true,
      "ref": "memberships",
      "note": ""
+    },
+    {
+     "name": "idempotency_key",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the client's Idempotency-Key; unique per clinic (migration 0385)"
+    },
+    {
+     "name": "request_hash",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "SHA-256 of the request sent with the key"
     }
    ],
    "referenced_by": [
@@ -7510,62 +7565,90 @@
   {
    "name": "message_templates",
    "domain": "notify",
-   "purpose": "Message text per channel and language. Clinic rows override platform defaults.",
+   "purpose": "What each patient message says, per clinic, channel and language; WhatsApp ones with their Meta review state.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "org_id is null for platform defaults; this table allows that.",
+   "notes": "Built (migration 0375). Unique per clinic, key, channel and language. Each clinic gets copies of app.message_template_defaults() when it is created (trigger on organizations); never a row without a clinic. Email rows start approved (wording still in code), WhatsApp ones as drafts. Meta's review webhook updates submitted copies by name and language (app.whatsapp_template_reviewed). No patient data; retention class message_templates.",
    "cols": [
     {
      "name": "key",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "appointment_reminder, birthday, recall_cleaning ..."
+     "note": "care.note, reminder.follow_up, promo.offer, appointment.reminder, booking.*, prescription.shared, patient_app.invited"
     },
     {
      "name": "channel",
-     "type": "channel",
+     "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "whatsapp, sms, email, push"
+     "note": "email, whatsapp, sms"
     },
     {
      "name": "language",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "en-IN, hi-IN, mr-IN"
     },
     {
      "name": "body",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "with allow-listed {{variables}}; for WhatsApp, the order of Meta's parameters"
     },
     {
      "name": "category",
-     "type": "message_category",
+     "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "transactional, promotional"
+     "note": "marketing, utility, authentication (as Meta returns it)"
     },
     {
-     "name": "provider_template_id",
+     "name": "provider_template_ref",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "Meta or DLT template id"
+     "note": "the template's name at Meta"
     },
     {
-     "name": "approval",
-     "type": "approval_status",
+     "name": "status",
+     "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "draft, pending, approved, rejected"
+     "note": "draft, submitted, approved, rejected, paused"
+    },
+    {
+     "name": "submitted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "reviewed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "sender_header",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "SMS DLT sender, later"
+    },
+    {
+     "name": "dlt_template_id",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "SMS DLT template, later"
     }
    ],
    "referenced_by": [
@@ -7707,27 +7790,55 @@
   {
    "name": "staff_notifications",
    "domain": "notify",
-   "purpose": "Something clinic staff are told about: an online booking waiting for an answer, one confirmed automatically, or one the patient cancelled.",
+   "purpose": "Something clinic staff are told about: an online booking waiting for an answer, one confirmed automatically, one the patient cancelled, or lab work past its due date; or a queue event: a patient waiting for the doctor, the doctor calling one in, one ready to pay.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor.",
+   "notes": "Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor. Since migration 0395 also lab_overdue, written by a trigger when the reminder job flags an order overdue (overdue_flagged_on) and handled when the work comes back, is cancelled or gets a new due date; seen by members with labs.read whose scope reaches the order (app.clinical_in_reach). Since migration 0421 the queue kinds, written in the transaction that moves the token (check-in or walk-in: patient_waiting for the token's doctor; call: send_in for the front desk; ready_to_bill: collect_payment for the front desk and finance); IDs only, the clinic number comes from the token's patient.",
    "cols": [
     {
      "name": "kind",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient"
+     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue, patient_waiting, send_in, collect_payment"
     },
     {
      "name": "appointment_id",
      "type": "uuid",
-     "nullable": false,
+     "nullable": true,
      "ref": "appointments",
-     "note": ""
+     "note": "booking kinds"
+    },
+    {
+     "name": "lab_order_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "lab_orders",
+     "note": "lab_overdue; exactly one of the three subjects is set"
+    },
+    {
+     "name": "queue_token_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "queue_tokens",
+     "note": "patient_waiting, send_in, collect_payment (migration 0421)"
+    },
+    {
+     "name": "audience",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "doctor, front_desk or billing; set with queue_token_id"
+    },
+    {
+     "name": "lab_due_on",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": "the due date the order was overdue on; one alert per order and due date"
     },
     {
      "name": "handled_at",
@@ -7902,7 +8013,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history.",
+   "notes": "Built (migration 0391). Primary key (org_id, conversation_id, membership_id). The read pointer is left out of the change history. A trigger (0396) caps a group at 100 active members.",
    "cols": [
     {
      "name": "conversation_id",
@@ -8077,6 +8188,13 @@
      "nullable": true,
      "ref": "procedures",
      "note": ""
+    },
+    {
+     "name": "source_encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": "the visit whose closing planned it"
     }
    ],
    "referenced_by": [],
@@ -8086,13 +8204,13 @@
   {
    "name": "audiences",
    "domain": "notify",
-   "purpose": "Saved patient filters for campaigns: age, sex, treatment, doctor, fees, history.",
+   "purpose": "Saved patient filters for campaigns: all active, last visit, birthday month, age band, sex, tag.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "ephemeral",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built (migration 0380). No balance, treatment or visit-kind filters (purpose limitation). Evaluated when a campaign sends (app.audience_patients, 0382). Holds no patient, so no erasure step; support never reads it.",
    "cols": [
     {
      "name": "name",
@@ -8106,14 +8224,7 @@
      "type": "jsonb",
      "nullable": false,
      "ref": null,
-     "note": ""
-    },
-    {
-     "name": "estimated_count",
-     "type": "int",
-     "nullable": true,
-     "ref": null,
-     "note": ""
+     "note": "one typed filter by kind: all_active, last_visit, birthday_month, age_band, sex, tag"
     }
    ],
    "referenced_by": [
@@ -8125,13 +8236,13 @@
   {
    "name": "campaigns",
    "domain": "notify",
-   "purpose": "A one-off or scheduled send to an audience: health tips, offers.",
+   "purpose": "A one-off promotional send of a clinic's template to an audience.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Built (migrations 0381, 0383). Messages name their campaign (messages.campaign_id) under dedupe key campaign:<id>:<patient>; counts are group by status, skip_reason over them, never stored. app.campaigns_fan_out_next expands 500 patients a call, resumable and idempotent. Holds no patient; retention class campaigns.",
    "cols": [
     {
      "name": "name",
@@ -8155,6 +8266,20 @@
      "note": ""
     },
     {
+     "name": "channel",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "email, whatsapp"
+    },
+    {
+     "name": "offer_text",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "the allow-listed {{offer_text}}, and the email body"
+    },
+    {
      "name": "scheduled_at",
      "type": "timestamptz",
      "nullable": true,
@@ -8163,20 +8288,57 @@
     },
     {
      "name": "status",
-     "type": "campaign_status",
+     "type": "text",
      "nullable": false,
      "ref": null,
      "note": "draft, scheduled, sending, sent, cancelled"
     },
     {
-     "name": "cost_estimate_paise",
-     "type": "bigint",
+     "name": "scheduled_count",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": "the audience size the owner saw (count_token)"
+    },
+    {
+     "name": "fan_out_cursor",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "last patient expanded"
+    },
+    {
+     "name": "fan_out_started_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "fan_out_done_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "last_batch_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cancelled_at",
+     "type": "timestamptz",
      "nullable": true,
      "ref": null,
      "note": ""
     }
    ],
-   "referenced_by": [],
+   "referenced_by": [
+    "messages.campaign_id"
+   ],
    "sensitivity": "personal",
    "offline": "server_only"
   },
@@ -8414,7 +8576,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing.",
+   "notes": "Built (migrations 0370 to 0373); not partitioned. Never holds an address. The outbox job claims due rows (app.messages_claim, lease and SKIP LOCKED, a daily budget per provider), reads each through app.message_dispatch (address, may_contact, opt-outs, quiet hours, patient state) and sends, skips or reschedules it. The change history masks body, variables, secret, error and the unsubscribe hash. Erased with the patient; retention 365 days from queuing. Support never reads it (0397: a restrictive no_support policy, also on message_events and contact_preferences).",
    "cols": [
     {
      "name": "patient_id",
@@ -8480,6 +8642,13 @@
      "note": ""
     },
     {
+     "name": "campaign_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "campaigns",
+     "note": "promotional only"
+    },
+    {
      "name": "status",
      "type": "text",
      "nullable": false,
@@ -8491,7 +8660,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed..."
+     "note": "no_consent, consent_withdrawn, opted_out, no_address, patient_erased, appointment_changed, channel_disabled, no_opt_in, template_unavailable, template_paused, marketing_limit, undeliverable, frequency_cap, campaign_cancelled..."
     },
     {
      "name": "dedupe_key",
@@ -8533,7 +8702,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "log, resend"
+     "note": "log, resend, meta"
     },
     {
      "name": "provider_message_id",
@@ -8547,7 +8716,7 @@
      "type": "bigint",
      "nullable": true,
      "ref": null,
-     "note": ""
+     "note": "WhatsApp: the configured price of the template's category"
     },
     {
      "name": "unsubscribe_hash",
@@ -8561,7 +8730,7 @@
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "latest provider report"
+     "note": "latest provider report (WhatsApp: the furthest of sent, delivered, read; failed)"
     },
     {
      "name": "delivery_at",
@@ -8600,7 +8769,7 @@
    "partitioned": false,
    "lifecycle": "append_only",
    "schema": "aarogyam",
-   "notes": "Built (migration 0370). Metadata only, never the payload; written by the Resend webhook through app.message_provider_event, once per event whatever the order.",
+   "notes": "Built (migration 0370). Metadata only, never the payload; written by the Resend webhook through app.message_provider_event, and by Meta's through app.whatsapp_status (event id <wamid>:<status>, 0377), once per event whatever the order.",
    "cols": [
     {
      "name": "message_id",
@@ -8628,7 +8797,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "sent, delivered, delayed, bounced, complained, failed, opened, clicked"
+     "note": "sent, delivered, read, delayed, bounced, complained, failed, opened, clicked"
     },
     {
      "name": "occurred_at",
@@ -9482,7 +9651,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self.",
+   "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self. A records link (POST /patients/{id}/record-shares) has no document column: it shows the patient's own chart, X-rays and issued bills as chosen, and writes access_log for the share, each open and each X-ray download. A visit link (POST /visits/{id}/share) shows one visit: treatments done, the Plan section of signed notes as advice, the next follow-up and the last five visits.",
    "cols": [
     {
      "name": "token_hash",
@@ -9503,7 +9672,21 @@
      "type": "share_resource",
      "nullable": false,
      "ref": null,
-     "note": "prescription, invoice, report, upload_request"
+     "note": "prescription, invoice, report, upload_request, records, visit"
+    },
+    {
+     "name": "record_types",
+     "type": "text[]",
+     "nullable": true,
+     "ref": null,
+     "note": "for resource records: a subset of chart, xrays, bills (migration 0387)"
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": "for resource visit (migration 0425)"
     },
     {
      "name": "prescription_id",
@@ -9552,7 +9735,7 @@
      "type": "timestamptz",
      "nullable": false,
      "ref": null,
-     "note": "seven days"
+     "note": "seven days; for records the clinic picks 1 hour, 24 hours or 7 days"
     },
     {
      "name": "opened_at",

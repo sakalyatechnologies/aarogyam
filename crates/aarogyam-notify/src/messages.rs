@@ -5,10 +5,14 @@
 
 use std::fmt::Write as _;
 
+use aarogyam_dal::campaigns;
 use aarogyam_dal::message_worker::{self as dal, ClaimedMessage, Dispatch};
+use aarogyam_domain::campaign::FAN_OUT_BATCH;
 use aarogyam_domain::consent::Purpose;
 use aarogyam_domain::event::Event;
-use aarogyam_domain::messaging::{About, AppointmentNow, DueCheck, PatientState, Verdict, decide};
+use aarogyam_domain::messaging::{
+    About, AppointmentNow, DueCheck, PatientState, SkipReason, Verdict, decide,
+};
 use aarogyam_domain::outbox::{MessageKind, retry_at};
 use aws_lc_rs::digest;
 use base64::Engine as _;
@@ -24,6 +28,8 @@ const BATCH: i32 = 50;
 const LEASE_SECONDS: i32 = 300;
 /// Most reminders one run queues.
 const REMINDER_BATCH: i32 = 200;
+/// Most campaign batches one run expands.
+const FAN_OUT_CALLS: usize = 20;
 
 /// What one run of the patient message step did.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -44,6 +50,10 @@ pub struct MessageReport {
     pub retrying: usize,
     /// Failed for the last time.
     pub failed: usize,
+    /// Campaign messages queued by this run's fan-out.
+    pub campaign_queued: i64,
+    /// Campaign recipients skipped by the weekly promotional cap.
+    pub campaign_capped: i64,
 }
 
 /// A new unsubscribe token and the SHA-256 (hex) it is stored under, as
@@ -68,7 +78,22 @@ fn hash_token(token: &str) -> String {
         })
 }
 
-fn due_check(message: &Dispatch, purpose: Purpose, kind: Option<MessageKind>) -> DueCheck {
+/// Why the clinic's template stops a message on its channel: none for email without a row (the
+/// wording is in code), else anything but `approved`.
+pub(crate) fn template_block(message: &Dispatch) -> Option<SkipReason> {
+    match (message.channel.as_str(), message.template_status.as_deref()) {
+        (_, Some("approved")) | ("email", None) => None,
+        (_, Some("paused")) => Some(SkipReason::TemplatePaused),
+        _ => Some(SkipReason::TemplateUnavailable),
+    }
+}
+
+pub(crate) fn due_check(
+    message: &Dispatch,
+    purpose: Purpose,
+    kind: Option<MessageKind>,
+    blocked: Option<SkipReason>,
+) -> DueCheck {
     let appointment = match (&message.appointment_status, message.appointment_starts_at) {
         (Some(status), Some(starts_at)) => Some(AppointmentNow {
             active: matches!(status.as_str(), "booked" | "confirmed"),
@@ -86,6 +111,7 @@ fn due_check(message: &Dispatch, purpose: Purpose, kind: Option<MessageKind>) ->
             .as_deref()
             .is_some_and(|text| !text.is_empty()),
         quiet_until: message.quiet_until,
+        blocked,
         about: if kind == Some(MessageKind::AppointmentReminder) {
             About::Reminder(appointment)
         } else {
@@ -110,6 +136,7 @@ impl Notifier {
             reminders_queued: dal::queue_reminders(db.pool(), now, REMINDER_BATCH).await?,
             ..MessageReport::default()
         };
+        self.fan_out_campaigns(db, &mut report).await?;
         let claimed = dal::claim(
             db.pool(),
             "email",
@@ -117,6 +144,7 @@ impl Notifier {
             self.daily_budget,
             BATCH,
             LEASE_SECONDS,
+            self.campaigns_enabled,
         )
         .await?;
         for message in claimed {
@@ -134,7 +162,34 @@ impl Notifier {
                 "daily email budget spent; messages moved to tomorrow"
             );
         }
+        self.drain_whatsapp(db, now, &mut report).await?;
         Ok(report)
+    }
+
+    /// Expands due campaigns into messages, a batch of 500 recipients at a time, up to
+    /// [`FAN_OUT_CALLS`] batches a run. Nothing happens while the platform kill switch is off
+    /// (`ARO_CAMPAIGNS__ENABLED=false`): campaigns stay as they are and resume when it is on.
+    async fn fan_out_campaigns(&self, db: &Db, report: &mut MessageReport) -> Result<(), DbError> {
+        if !self.campaigns_enabled {
+            return Ok(());
+        }
+        for _ in 0..FAN_OUT_CALLS {
+            let Some(step) = campaigns::fan_out_next(db.pool(), FAN_OUT_BATCH).await? else {
+                break;
+            };
+            report.campaign_queued += i64::from(step.queued);
+            report.campaign_capped += i64::from(step.capped);
+            tracing::info!(
+                event = Event::CampaignFanOut.as_str(),
+                org_id = %step.org_id,
+                campaign_id = %step.campaign_id,
+                queued = step.queued,
+                capped = step.capped,
+                finished = step.finished,
+                "campaign recipients queued"
+            );
+        }
+        Ok(())
     }
 
     async fn handle(
@@ -152,7 +207,8 @@ impl Notifier {
         let Ok(purpose) = Purpose::parse(&message.purpose) else {
             return self.skip(db, &claimed, "unsupported", report).await;
         };
-        match decide(&due_check(&message, purpose, kind), now) {
+        let blocked = template_block(&message);
+        match decide(&due_check(&message, purpose, kind, blocked), now) {
             Verdict::Skip(reason) => self.skip(db, &claimed, reason.as_str(), report).await,
             Verdict::Wait(at) => {
                 dal::reschedule(db.pool(), org_id, id, at).await?;
@@ -163,14 +219,17 @@ impl Notifier {
                 let Some(kind) = kind else {
                     return self.skip(db, &claimed, "unsupported", report).await;
                 };
-                let outcome = self.send(db, &claimed, &message, kind, purpose).await;
+                let outcome = self
+                    .send(db, &claimed, &message, kind, purpose)
+                    .await
+                    .map(|(provider, provider_id)| (provider, provider_id, None));
                 self.settle(db, &claimed, &message.kind, outcome, now, report)
                     .await
             }
         }
     }
 
-    async fn skip(
+    pub(crate) async fn skip(
         &self,
         db: &Db,
         claimed: &ClaimedMessage,
@@ -244,25 +303,25 @@ impl Notifier {
     }
 
     /// Records a send's outcome: sent, retried with backoff, or abandoned.
-    async fn settle(
+    pub(crate) async fn settle(
         &self,
         db: &Db,
         claimed: &ClaimedMessage,
         kind: &str,
-        outcome: Result<(&'static str, Option<String>), Failure>,
+        outcome: Result<(&'static str, Option<String>, Option<i64>), Failure>,
         now: OffsetDateTime,
         report: &mut MessageReport,
     ) -> Result<(), DbError> {
         let (org_id, id) = (claimed.org_id, claimed.id);
         match outcome {
-            Ok((provider, provider_id)) => {
+            Ok((provider, provider_id, cost_paise)) => {
                 dal::mark_sent(
                     db.pool(),
                     org_id,
                     id,
                     provider,
                     provider_id.as_deref(),
-                    None,
+                    cost_paise,
                 )
                 .await?;
                 report.sent += 1;

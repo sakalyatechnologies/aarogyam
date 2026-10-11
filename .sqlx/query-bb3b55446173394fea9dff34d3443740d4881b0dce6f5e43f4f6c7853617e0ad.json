@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select encounter_id, name, tooth, surfaces\n           from aarogyam.procedures\n           where patient_id = $1 and encounter_id = any($2) and status = 'done'\n           order by performed_at nulls last, created_at, id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "encounter_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "encounter_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "tooth",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "tooth"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "surfaces",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "surfaces"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "bb3b55446173394fea9dff34d3443740d4881b0dce6f5e43f4f6c7853617e0ad"
+}

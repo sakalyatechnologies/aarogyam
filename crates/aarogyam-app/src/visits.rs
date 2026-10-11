@@ -9,13 +9,17 @@ use aarogyam_domain::clinical::{
     ClinicalError, EncounterStatus, NoteBody, NoteKind, NoteRefusal, NoteSource, NoteState,
     NoteStatus, Signing, clinical_text, error_reason, optional_text,
 };
-use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, MembershipId, NoteAddendumId, PatientId};
+use aarogyam_domain::ids::{
+    ClinicalNoteId, EncounterId, InvoiceId, MembershipId, NoteAddendumId, PatientId, RecallId,
+};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::QueueStatus;
 use sakalya_db::{Db, ScopedTx};
-use time::OffsetDateTime;
+use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::billing::{DraftInvoice, LineInput};
+use crate::clock::clinic_today;
 use crate::error::AppError;
 use crate::moved::Moved;
 use crate::scope::staff_scope as scope;
@@ -411,40 +415,204 @@ pub(crate) async fn open_in(
     })
 }
 
-/// Closes a visit. Addenda and corrections still work afterwards.
+/// What closing a visit may also do: plan a follow-up and start a draft bill.
+#[derive(Debug, Clone, Default)]
+pub struct CloseInput {
+    /// When the patient should come back.
+    pub follow_up_on: Option<Date>,
+    /// Why; "Follow-up" by default.
+    pub follow_up_reason: Option<String>,
+    /// A consultation fee in paise, billed as one line next to any priced procedures.
+    pub fee_paise: Option<i64>,
+    /// Printed on the draft bill.
+    pub note: Option<String>,
+}
+
+/// A closed visit and what closing it created.
+#[derive(Debug, Clone)]
+pub struct ClosedVisit {
+    /// The visit.
+    pub visit: VisitView,
+    /// The follow-up planned, when `follow_up_on` was given.
+    pub recall_id: Option<RecallId>,
+    /// The draft bill: made now, or already linked to the visit.
+    pub invoice_id: Option<InvoiceId>,
+}
+
+/// The visit's draft bill at close: the one it already has, else a new one from its priced
+/// procedures (when the caller may bill) and the consultation fee; none when there is nothing
+/// to charge.
+async fn bill_visit(
+    tx: &mut ScopedTx,
+    visit: Uuid,
+    patient: PatientId,
+    may_bill: bool,
+    fee_paise: Option<i64>,
+    notes: Option<String>,
+) -> Result<Option<InvoiceId>, AppError> {
+    if let Some(existing) = visits::invoice_of(tx.conn(), visit).await? {
+        return Ok(Some(InvoiceId::from_uuid(existing)));
+    }
+    let mut items: Vec<LineInput> = if may_bill {
+        visits::priced_procedures(tx.conn(), visit)
+            .await?
+            .into_iter()
+            .map(|p| LineInput {
+                procedure_id: Some(p.id),
+                description: Some(p.name),
+                unit_price_paise: Some(p.price_paise),
+                ..LineInput::default()
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    if let Some(fee) = fee_paise {
+        items.push(LineInput {
+            description: Some("Consultation fee".to_owned()),
+            unit_price_paise: Some(fee),
+            ..LineInput::default()
+        });
+    }
+    if items.is_empty() {
+        return Ok(None);
+    }
+    let id = crate::billing::create_in(
+        tx,
+        DraftInvoice {
+            patient_id: patient,
+            encounter_id: Some(visit),
+            place_of_supply: None,
+            notes,
+            items,
+            replaces_invoice_id: None,
+        },
+    )
+    .await?;
+    Ok(Some(InvoiceId::from_uuid(id)))
+}
+
+/// Closes a visit. Addenda and corrections still work afterwards. In the same transaction it
+/// plans the follow-up (`follow_up_on`) and starts a draft bill when a fee is given or the
+/// visit has priced procedures; a visit that already has a bill gets no second one. Closing a
+/// visit that is already closed returns the same result and changes nothing.
 ///
 /// # Errors
-/// [`AppError::NotFound`] when the visit isn't in this clinic; [`AppError::Conflict`] when it
-/// is already closed.
+/// [`AppError::NotFound`] when the visit isn't in this clinic; [`AppError::Denied`] for a follow-up without `patients.write` or a fee
+/// without `billing.write`; [`AppError::Invalid`] for a past follow-up date, a long reason or
+/// a fee of zero or less.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one transaction: lookup, checks and the writes it makes"
+)]
 pub async fn close(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     visit_id: EncounterId,
     now: OffsetDateTime,
-) -> Result<VisitView, AppError> {
+    input: CloseInput,
+) -> Result<ClosedVisit, AppError> {
     actor.require(Permission::ClinicalWrite)?;
+    let reason = match input.follow_up_reason.as_deref().map(str::trim) {
+        None | Some("") => "Follow-up".to_owned(),
+        Some(text) if text.chars().count() <= 300 => text.to_owned(),
+        Some(_) => {
+            return Err(AppError::invalid(
+                "follow_up_reason",
+                "at most 300 characters",
+            ));
+        }
+    };
+    if let Some(due) = input.follow_up_on {
+        actor.require(Permission::PatientsWrite)?;
+        if due < clinic_today(&actor.timezone, now) {
+            return Err(AppError::invalid("follow_up_on", "can't be in the past"));
+        }
+    }
+    if let Some(fee) = input.fee_paise {
+        actor.require(Permission::BillingWrite)?;
+        if fee <= 0 {
+            return Err(AppError::invalid("fee_paise", "must be more than zero"));
+        }
+    }
+    let may_bill = actor.require(Permission::BillingWrite).is_ok();
     db.scoped(&scope(actor, request_id), async |tx| {
-        let visit =
-            require_open_visit(tx, visit_id, actor.reach(Permission::ClinicalWrite)).await?;
+        let visit = visits::get_encounter(
+            tx.conn(),
+            visit_id.uuid(),
+            true,
+            actor.reach(Permission::ClinicalWrite).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("visit"))?;
+        // A retry of a close that landed returns what closing made, changing nothing.
+        if visit.status != EncounterStatus::Open.as_str() {
+            let names = Names::load(tx, [visit.clinician_id]).await?;
+            let recall_id = aarogyam_dal::recalls::of_visit(tx.conn(), visit.id)
+                .await?
+                .map(RecallId::from_uuid);
+            let invoice_id = visits::invoice_of(tx.conn(), visit.id)
+                .await?
+                .map(InvoiceId::from_uuid);
+            return Ok(ClosedVisit {
+                visit: visit_view(visit, &names)?,
+                recall_id,
+                invoice_id,
+            });
+        }
         let row = visits::close_encounter(tx.conn(), visit.id, now).await?;
-        // A visit started from the queue finishes its token (and the token's appointment).
+        let recall_id = if let Some(due) = input.follow_up_on {
+            let id = RecallId::new_v7();
+            aarogyam_dal::recalls::insert_from_visit(
+                tx.conn(),
+                id.uuid(),
+                row.patient_id,
+                &reason,
+                due,
+                row.id,
+            )
+            .await?;
+            Some(id)
+        } else {
+            None
+        };
+        let invoice_id = bill_visit(
+            tx,
+            row.id,
+            PatientId::from_uuid(row.patient_id),
+            may_bill,
+            input.fee_paise,
+            input.note.clone(),
+        )
+        .await?;
+        // A visit started from the queue finishes its token: to the desk when there is a
+        // balance to collect, otherwise done.
         if let Some(token_id) = visits::token_of(tx.conn(), row.id).await?
             && let Some(token) = aarogyam_dal::queue::lock(tx.conn(), token_id).await?
-            && matches!(token.status.as_str(), "waiting" | "in_chair")
+            && matches!(token.status.as_str(), "waiting" | "called" | "in_chair")
         {
-            crate::queue::move_token(
+            let target = if aarogyam_dal::queue::visit_has_balance(tx.conn(), row.id).await? {
+                QueueStatus::ReadyToBill
+            } else {
+                QueueStatus::Done
+            };
+            crate::queue::finish_token(
                 tx,
                 &actor.timezone,
                 &token,
-                QueueStatus::Done,
+                target,
                 actor.membership_id,
                 now,
             )
             .await?;
         }
         let names = Names::load(tx, [row.clinician_id]).await?;
-        visit_view(row, &names)
+        Ok(ClosedVisit {
+            visit: visit_view(row, &names)?,
+            recall_id,
+            invoice_id,
+        })
     })
     .await
 }

@@ -1,0 +1,136 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, pin_hash, resource, prescription_id, patient_id, failed_attempts, locked_at,\n                  expires_at, revoked_at, record_types\n           from aarogyam.share_links where token_hash = $1\n           for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "pin_hash",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "pin_hash"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "resource",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "resource"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "prescription_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "prescription_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "failed_attempts",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "failed_attempts"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "locked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "locked_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "revoked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "revoked_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "record_types",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.share_links",
+            "name": "record_types"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "f2157dab52651fb23337a8803e587a8a5f658ed4545ddc3555c4dffc80bf6de8"
+}

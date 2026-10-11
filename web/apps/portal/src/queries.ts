@@ -111,11 +111,12 @@ export function useUpdatePatient(id: PatientId) {
   });
 }
 
-export function useClinicSettings() {
+export function useClinicSettings(enabled = true) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["clinic-settings", access.org_id],
     queryFn: ({ signal }) => unwrap(api.getClinicSettings({ signal })),
+    enabled,
     ...REFERENCE,
   });
 }

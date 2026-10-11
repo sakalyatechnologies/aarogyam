@@ -4,7 +4,7 @@
  * source for the keys, sizes, zones, permissions and options); the registry in `registry.tsx` supplies how each is drawn.
  */
 
-import { PERMISSIONS, type DashboardCatalogue, type DashboardLayout, type Permission } from "@aarogyam/api-client";
+import { PERMISSIONS, type DashboardCatalogue, type DashboardLayout, type DashboardLayoutView, type Permission } from "@aarogyam/api-client";
 
 type DashboardLayoutItem = DashboardLayout["items"][number];
 
@@ -55,12 +55,16 @@ export interface ShownItem {
   index: number;
 }
 
+/** Widgets that show money: they need `finance.view` whatever else the catalogue asks for. */
+export const MONEY_WIDGETS: ReadonlySet<string> = new Set(["collections", "revenue_mix", "pending_payments"]);
+
 /** The items a member sees: known to the catalogue and allowed by `can()`. Order is the layout's. */
 export function shownItems(layout: DashboardLayout, catalogue: DashboardCatalogue, can: (permission: Permission) => boolean, known: (key: string) => boolean): ShownItem[] {
   const out: ShownItem[] = [];
   layout.items.forEach((item, index) => {
     const spec = specOf(catalogue, item.key);
     if (spec === undefined || !known(item.key) || !isZone(item.zone) || !allowed(spec.requires, can)) return;
+    if (MONEY_WIDGETS.has(item.key) && !can("finance.view")) return;
     out.push({ item, spec, zone: item.zone, index });
   });
   return out;
@@ -265,4 +269,57 @@ function normal(layout: DashboardLayout) {
 
 function sortKeys(opts: LayoutOpts): LayoutOpts {
   return Object.fromEntries(Object.entries(opts).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+
+// The portal's own take on the templates ---------------------------------------------------------
+
+type Items = DashboardLayout["items"];
+
+function placed(catalogue: DashboardCatalogue, key: string, zone: Zone, size: string, opts: LayoutOpts = {}): Items[number] {
+  const spec = specOf(catalogue, key);
+  return { key, zone, size, opts: { ...(spec === undefined ? {} : defaultOpts(spec)), ...opts } };
+}
+
+/** The key numbers of the MedSync top strip, in the order the founder chose. */
+export const MEDSYNC_METRICS = ["appointments", "chairs_busy", "waiting", "collected", "lab_due"] as const;
+
+/**
+ * A template as the New look draws it. The side column (calendar, queue and completed) always runs the full height of
+ * the page, on the left. The server's templates were laid out before that, so the portal puts them right here and the
+ * API stays as it is: MedSync becomes the key-number strip, the next-up hero and the appointments table beside the
+ * calendar column; the others keep their widgets and only gain the left column, with the queue and calendar in it.
+ */
+export function restyleTemplate(catalogue: DashboardCatalogue, key: string, layout: DashboardLayout): DashboardLayout {
+  if (key === "medsync") {
+    return {
+      ...layout,
+      rail: { side: "left", width: "medium" },
+      items: [
+        placed(catalogue, "kpis", "top", "full", { metrics: [...MEDSYNC_METRICS] }),
+        placed(catalogue, "nextup", "main", "full", { count: 3 }),
+        placed(catalogue, "appointments", "main", "full", { view: "table" }),
+        placed(catalogue, "calendar", "rail", "S"),
+        placed(catalogue, "queue", "rail", "M"),
+      ],
+    };
+  }
+  const calendar = layout.items.find((item) => item.key === "calendar") ?? placed(catalogue, "calendar", "rail", "S");
+  const queue = layout.items.find((item) => item.key === "queue");
+  const rest = layout.items.filter((item) => item.key !== "calendar" && item.key !== "queue");
+  const column = [calendar, ...(queue === undefined ? [] : [queue]), ...rest.filter((item) => item.zone === "rail")].map((item) => ({ ...item, zone: "rail" }));
+  return { ...layout, rail: { ...layout.rail, side: "left" }, items: [...rest.filter((item) => item.zone !== "rail"), ...column] };
+}
+
+/**
+ * The view as the New look shows it: every template restyled, and a layout that is still a server template untouched
+ * becomes the restyled one. A layout somebody changed and saved is left exactly as it is.
+ */
+export function adoptTemplates(view: DashboardLayoutView): DashboardLayoutView {
+  const server = view.catalogue;
+  const templates = server.templates.map((template) => ({ ...template, layout: restyleTemplate(server, template.key, template.layout) }));
+  const stock = server.templates.find((template) => template.key === view.layout.tpl);
+  const untouched = stock !== undefined && sameLayout(stock.layout, view.layout);
+  const layout = untouched ? (templates.find((template) => template.key === stock.key)?.layout ?? view.layout) : view.layout;
+  return { ...view, layout, catalogue: { ...server, templates } };
 }

@@ -770,3 +770,53 @@ pub async fn get_note_bundle(
         names: row.names.0,
     }))
 }
+
+/// A done procedure with a price, to bill when the visit closes.
+#[derive(Debug, Clone)]
+pub struct PricedProcedure {
+    /// Identifier.
+    pub id: Uuid,
+    /// What was done.
+    pub name: String,
+    /// Its price.
+    pub price_paise: i64,
+}
+
+/// The visit's done procedures that have a price, oldest first.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn priced_procedures(
+    conn: &mut PgConnection,
+    encounter_id: Uuid,
+) -> Result<Vec<PricedProcedure>, DbError> {
+    let rows = sqlx::query_as!(
+        PricedProcedure,
+        r#"select id, name, price_paise as "price_paise!"
+           from aarogyam.procedures
+           where encounter_id = $1 and status = 'done' and price_paise is not null
+           order by created_at, id"#,
+        encounter_id
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// The bill already linked to a visit, if any (a void one doesn't count).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn invoice_of(
+    conn: &mut PgConnection,
+    encounter_id: Uuid,
+) -> Result<Option<Uuid>, DbError> {
+    let id = sqlx::query_scalar!(
+        "select id from aarogyam.invoices where encounter_id = $1 and status <> 'void'
+         order by created_at limit 1",
+        encounter_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(id)
+}

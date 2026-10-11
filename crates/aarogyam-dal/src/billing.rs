@@ -689,6 +689,8 @@ pub struct PaymentRow {
     pub request_hash: String,
     /// Allocated to bills.
     pub allocated_paise: i64,
+    /// Proof of payment (an attachment of the same patient).
+    pub attachment_id: Option<Uuid>,
 }
 
 /// Payments received in `[from, to)`, or one payment, or the payment with an idempotency key.
@@ -718,7 +720,7 @@ pub async fn payments(
         PaymentRow,
         r#"select m.id, m.number, m.patient_id, p.full_name as patient_name, p.number as patient_number,
                   m.received_at, m.amount_paise, m.method, m.reference, m.status, m.void_reason,
-                  m.request_hash,
+                  m.request_hash, m.attachment_id,
                   coalesce((select sum(a.amount_paise) from aarogyam.payment_allocations a
                             where a.org_id = m.org_id and a.payment_id = m.id), 0)::bigint as "allocated_paise!"
            from aarogyam.payments m
@@ -798,6 +800,8 @@ pub struct NewPayment<'a> {
     pub idempotency_key: &'a str,
     /// Hash of the request.
     pub request_hash: &'a str,
+    /// Proof of payment.
+    pub attachment_id: Option<Uuid>,
 }
 
 /// Records a payment.
@@ -809,8 +813,8 @@ pub async fn insert_payment(conn: &mut PgConnection, new: &NewPayment<'_>) -> Re
     sqlx::query!(
         r#"insert into aarogyam.payments
              (id, number, patient_id, received_at, amount_paise, method, reference, received_by,
-              idempotency_key, request_hash)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"#,
+              idempotency_key, request_hash, attachment_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"#,
         new.id,
         new.number,
         new.patient_id,
@@ -820,7 +824,8 @@ pub async fn insert_payment(conn: &mut PgConnection, new: &NewPayment<'_>) -> Re
         new.reference,
         new.received_by,
         new.idempotency_key,
-        new.request_hash
+        new.request_hash,
+        new.attachment_id
     )
     .execute(conn)
     .await?;

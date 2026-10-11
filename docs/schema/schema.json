@@ -3680,6 +3680,7 @@
     "observations.encounter_id",
     "prescriptions.encounter_id",
     "procedures.encounter_id",
+    "recalls.source_encounter_id",
     "specialty_records.encounter_id",
     "treatment_plans.encounter_id",
     "voice_notes.encounter_id"
@@ -4834,7 +4835,7 @@
      "type": "attachment_kind",
      "nullable": false,
      "ref": null,
-     "note": "photo, xray, report, document, audio, consent"
+     "note": "photo, xray, report, document, audio, consent, payment_proof"
     },
     {
      "name": "storage_key",
@@ -4946,6 +4947,7 @@
     "consent_forms.pdf_attachment_id",
     "consent_forms.signature_attachment_id",
     "document_extractions.attachment_id",
+    "payments.attachment_id",
     "voice_notes.attachment_id"
    ],
    "sensitivity": "health",
@@ -7256,6 +7258,13 @@
      "nullable": true,
      "ref": "memberships",
      "note": ""
+    },
+    {
+     "name": "attachment_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "attachments",
+     "note": "proof of payment: a UPI screenshot or cheque photo"
     }
    ],
    "referenced_by": [
@@ -8178,6 +8187,13 @@
      "nullable": true,
      "ref": "procedures",
      "note": ""
+    },
+    {
+     "name": "source_encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": "the visit whose closing planned it"
     }
    ],
    "referenced_by": [],

@@ -2,6 +2,7 @@ package com.aarogyam.staff.desk
 
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.invoice
 import com.aarogyam.staff.billing.PayMethod
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.outbox.OutboxKind
@@ -14,11 +15,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** One issued bill with something left to pay. Amounts are paise. */
+/**
+ * One bill with something to pay. Amounts are paise. A [draft] is issued first (its [balancePaise]
+ * is the draft's total, a preview: the issued total may differ by tax and round-off).
+ */
 data class DueBill(
     val id: String,
     val number: String?,
     val balancePaise: Long,
+    val draft: Boolean = false,
 )
 
 /** What the collect-payment sheet draws before a payment is sent. */
@@ -105,10 +110,17 @@ class DeskPaymentStateHolder(
         scope.launch {
             when (val result = clinic.api.invoices(patientId)) {
                 is Outcome.Success -> {
+                    // The list has no lines, so a draft reads a total of 0 there: ask for the bill itself.
                     val dues =
-                        result.value.items
-                            .filter { it.status == "issued" && it.balancePaise > 0 }
-                            .map { DueBill(it.id, it.number, it.balancePaise) }
+                        result.value.items.mapNotNull { row ->
+                            if (row.status == "draft") {
+                                (clinic.api.invoice(row.id) as? Outcome.Success)?.value?.let {
+                                    dueBillOf(it.id, it.number ?: row.number, it.status, it.totalPaise, it.balancePaise)
+                                }
+                            } else {
+                                dueBillOf(row.id, row.number, row.status, row.totalPaise, row.balancePaise)
+                            }
+                        }
                     mutableState.value = DeskPayState.Ready(dues, canProof)
                 }
 
@@ -145,6 +157,7 @@ class DeskPaymentStateHolder(
                 amountPaise = amountPaise,
                 invoiceId = invoiceId,
                 allocatedPaise = invoiceId?.let { id -> minOf(amountPaise, dueOf(id)) } ?: 0,
+                issueFirst = invoiceId?.let { id -> draftOf(id) } ?: false,
                 proofId = proof?.let { IdempotencyKey.generate().toString() },
                 proofJpegBase64 = proof?.let(::encodeProof),
             )
@@ -190,8 +203,28 @@ class DeskPaymentStateHolder(
         (mutableState.value as? DeskPayState.Ready)?.dues?.firstOrNull { it.id == invoiceId }?.balancePaise
             ?: Long.MAX_VALUE
 
+    private fun draftOf(invoiceId: String): Boolean =
+        (mutableState.value as? DeskPayState.Ready)?.dues?.firstOrNull { it.id == invoiceId }?.draft == true
+
     private companion object {
         const val BILLING_READ = "billing.read"
         const val BILLING_WRITE = "billing.write"
     }
 }
+
+/**
+ * What is due on a bill: an issued bill's balance, or a draft's total (the draft reads a balance of 0
+ * until it is issued). Void, paid and empty bills are not due.
+ */
+internal fun dueBillOf(
+    id: String,
+    number: String?,
+    status: String,
+    totalPaise: Long,
+    balancePaise: Long,
+): DueBill? =
+    when {
+        status == "issued" && balancePaise > 0 -> DueBill(id, number, balancePaise)
+        status == "draft" && totalPaise > 0 -> DueBill(id, number, totalPaise, draft = true)
+        else -> null
+    }

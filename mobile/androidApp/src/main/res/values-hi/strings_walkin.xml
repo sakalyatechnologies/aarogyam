@@ -44,6 +44,8 @@
     <string name="queue_token">#%1$d</string>
     <string name="queue_wait_minutes">%1$d\u00A0मिनट</string>
     <string name="queue_status_waiting">इंतज़ार में</string>
+    <string name="queue_status_called">बुलाया गया</string>
+    <string name="queue_status_ready_to_bill">बिल के लिए तैयार</string>
     <string name="queue_status_in_chair">कुर्सी पर</string>
     <string name="queue_status_done">हो गया</string>
     <string name="queue_status_left">चले गए</string>

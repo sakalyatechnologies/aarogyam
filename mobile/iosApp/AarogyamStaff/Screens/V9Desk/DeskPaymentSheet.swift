@@ -94,13 +94,18 @@ private struct DeskPaymentScreen: View {
                 V7Label(text: dv("d9.pay.bill"))
                 SkChoiceChips(dues.map(\.id), selected: [chosen.id], label: { id in
                     let due = dues.first { $0.id == id }
-                    return [due?.number, ClinicFormat.rupees(paise: due?.balancePaise ?? 0)].compactMap { $0 }.joined(separator: " · ")
+                    return [due?.number, due?.draft == true ? dv("d9.pay.draft_tag") : nil, ClinicFormat.rupees(paise: due?.balancePaise ?? 0)].compactMap { $0 }.joined(separator: " · ")
                 }) { pick in
                     invoiceId = pick
                     if !amountEdited, let due = dues.first(where: { $0.id == pick }) { amount = DeskPay.rupeesText(paise: due.balancePaise) }
                 }
             } else {
                 Text(dvf("d9.pay.due", ClinicFormat.rupees(paise: chosen.balancePaise))).v7Text(13, .semibold).foregroundStyle(r.onSurfaceVariant.color)
+            }
+            if chosen.draft {
+                Text(dv("d9.pay.draft_note")).v7Text(12.5, .semibold).foregroundStyle(r.onTertiaryContainer.color)
+                    .padding(.horizontal, 12).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(r.tertiaryContainer.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             let problems = showProblems ? DeskPay.problems(amountText: amount, method: method) : []
             SkField(dv("d9.pay.amount"), text: Binding(get: { amount }, set: { amount = $0; amountEdited = true; holder.dismissOutcome() }),

@@ -52,7 +52,8 @@ struct QueueV7Screen: View {
     @ViewBuilder private func board(_ loaded: QueueStateLoaded) -> some View {
         let rows = loaded.rows
         let inChair = rows.filter { $0.status == .inChair }
-        let waiting = rows.filter { $0.status == .waiting }
+        let waiting = rows.filter { $0.status == .waiting || $0.status == .called }
+        let toBill = rows.filter { $0.status == .readyToBill }
         let free = QueueBoard.freeChairs(chairs: chairs, occupied: inChair.count, waiting: waiting.count)
         if let error = loaded.actionError {
             Text(error.message).skTextStyle(SkTypeScale.footnote).foregroundStyle(theme.roles.error.color).padding(.top, 4)
@@ -88,6 +89,9 @@ struct QueueV7Screen: View {
                 }
             }
         }
+        ForEach(toBill, id: \.id) { row in
+            ticket(row, loaded, elapsed: 0)
+        }
         summary(rows)
     }
 
@@ -96,9 +100,11 @@ struct QueueV7Screen: View {
         return SkTicket(
             number: "#\(row.tokenNumber)", title: row.name,
             subtitle: [patientLine(number: row.number, ageYears: row.ageYears?.intValue, sex: row.sex), row.doctor].compactMap { $0 }.joined(separator: " · "),
-            badge: String(format: String(localized: "t7.queue.wait", table: "TodayV7"), minutes)
+            badge: row.status == .waiting ? String(format: String(localized: "t7.queue.wait", table: "TodayV7"), minutes) : row.status.label
         ) {
-            if loaded.canStartVisit {
+            if row.status == .readyToBill {
+                EmptyView()
+            } else if loaded.canStartVisit {
                 SkPillButton(String(localized: "queue.start_visit"), variant: .tonal) { holder.startVisit(tokenId: row.id) }.disabled(row.busy)
             } else if loaded.canMove {
                 SkPillButton(String(localized: "queue.seat"), variant: .tonal) { holder.seat(id: row.id) }.disabled(row.busy)

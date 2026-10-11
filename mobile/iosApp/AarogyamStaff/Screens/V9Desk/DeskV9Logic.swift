@@ -123,3 +123,20 @@ extension PatientState {
         }
     }
 }
+
+/// Linking an existing patient as a relative: what must be true before "Link patient" is sent.
+enum DeskFamilyLink {
+    /// The unmet conditions (empty when the link can be sent); the rules live in the shared code.
+    static func problems(patientId: String, pickedId: String?, relation: DeskRelation?, linkedIds: Set<String>) -> [LinkProblem] {
+        FamilyStateHolderKt.linkProblems(patientId: patientId, pickedId: pickedId, relation: relation?.wire, linkedIds: linkedIds)
+    }
+
+    static func message(_ problem: LinkProblem) -> String {
+        switch problem {
+        case .noPatient: dv("d9.family.link.need_patient")
+        case .themselves: dv("d9.family.link.self")
+        case .alreadyLinked: dv("d9.family.link.already")
+        case .badRelation: dv("d9.family.link.need_relation")
+        }
+    }
+}

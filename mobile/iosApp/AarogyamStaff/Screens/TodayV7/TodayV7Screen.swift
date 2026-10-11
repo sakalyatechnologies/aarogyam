@@ -19,6 +19,7 @@ struct TodayV7Screen: View {
     @State private var avatars = false
     @State private var avatarRevision = 0
     @Environment(\.skTheme) private var theme
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ScrollView {
@@ -30,6 +31,15 @@ struct TodayV7Screen: View {
         }
         .scrollIndicators(.hidden)
         .refreshable { await refresh() }
+        .task(id: scenePhase) {
+            // Reloads every 20 s (shared PollingUpdates) while Today is on screen and the app is active.
+            // The task is cancelled when the screen goes away or the app leaves the foreground.
+            guard scenePhase == .active else { return }
+            for await _ in PollingUpdates(intervalMillis: PollingUpdates.companion.POLL_MILLIS).changes() {
+                holder.refresh()
+                notifications.refresh()
+            }
+        }
         .toolbar { toolbar }
         #if DEBUG && AARO_ENV_Local
         .onAppear {

@@ -154,7 +154,7 @@ struct DeskFamilySheet: View {
 
     var body: some View {
         ScreenHost(make: { graph.family(clinic: clinic, patientId: target.patientId, screen: $0) }, state: { $0.state }) { holder, state in
-            DeskFamilyList(holder: holder, state: state, name: target.name)
+            DeskFamilyList(holder: holder, state: state, patientId: target.patientId, name: target.name)
         }
         .skSheet()
     }
@@ -163,8 +163,10 @@ struct DeskFamilySheet: View {
 private struct DeskFamilyList: View {
     let holder: FamilyStateHolder
     let state: FamilyState
+    let patientId: String
     let name: String
     @Environment(\.skTheme) private var theme
+    @State private var linking = false
 
     var body: some View {
         let r = theme.roles
@@ -196,9 +198,77 @@ private struct DeskFamilyList: View {
                         }
                         .padding(12).background(r.card.color, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
+                    if loaded.canEdit {
+                        if linking {
+                            DeskLinkExisting(holder: holder, patientId: patientId, linkedIds: Set(loaded.items.map(\.patientId))) { linking = false }
+                        } else {
+                            SkPillButton(dv("d9.family.link"), variant: .tonal, wide: true) { linking = true }
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 18).padding(.top, 22).padding(.bottom, 30)
         }
+    }
+}
+
+/// "Link existing patient": search by number, pick the patient and the relation, then link.
+private struct DeskLinkExisting: View {
+    let holder: FamilyStateHolder
+    let patientId: String
+    let linkedIds: Set<String>
+    let onDone: () -> Void
+    @State private var query = ""
+    @State private var search: LinkSearch = LinkSearchIdle.shared
+    @State private var picked: LinkCandidate?
+    @State private var relation: DeskRelation?
+    @State private var showProblems = false
+    @Environment(\.skTheme) private var theme
+
+    var body: some View {
+        let r = theme.roles
+        VStack(alignment: .leading, spacing: 10) {
+            SkField(dv("d9.family.link.field"), text: Binding(get: { query }, set: { query = $0; picked = nil; holder.searchCandidates(query: $0) }))
+            switch onEnum(of: search) {
+            case .idle: EmptyView()
+            case .searching: SkLoadingIndicator(String(localized: "v7.loading")).frame(maxWidth: .infinity)
+            case .failed(let failed): Text(failed.error.message).v7Text(12.5, .semibold).foregroundStyle(r.error.color)
+            case .found(let found):
+                if found.items.isEmpty { Text(dv("d9.family.link.none")).v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color) }
+                ForEach(found.items, id: \.patientId) { item in
+                    Button { picked = item } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.name).v7Text(15, .bold).foregroundStyle(r.onSurface.color)
+                                Text(item.number).v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
+                            }
+                            Spacer(minLength: 0)
+                            if picked?.patientId == item.patientId { V7Icon(name: "check", size: 18, tint: r.primary.color) }
+                        }
+                        .padding(12).frame(minHeight: SkSpacing.minTouchTarget)
+                        .background(r.card.color, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            V7Label(text: dv("d9.family.link.relation"))
+            SkChoiceChips(DeskRelation.allCases, selected: relation.map { [$0] } ?? [], label: { $0.title }) { relation = $0 }
+            if showProblems {
+                ForEach(DeskFamilyLink.problems(patientId: patientId, pickedId: picked?.patientId, relation: relation, linkedIds: linkedIds), id: \.self) {
+                    Text(DeskFamilyLink.message($0)).v7Text(12, .semibold).foregroundStyle(r.error.color)
+                }
+            }
+            SkPillButton(dv("d9.family.link.submit"), wide: true) { submit() }
+        }
+        .task { for await next in holder.search { search = next } }
+    }
+
+    private func submit() {
+        showProblems = true
+        guard DeskFamilyLink.problems(patientId: patientId, pickedId: picked?.patientId, relation: relation, linkedIds: linkedIds).isEmpty,
+              let picked, let relation else { return }
+        holder.add(relatedPatientId: picked.patientId, relation: relation.wire, primaryContact: false)
+        holder.clearSearch()
+        onDone()
     }
 }

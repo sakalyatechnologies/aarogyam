@@ -20,18 +20,6 @@ struct LabsRoute: View {
 extension DevLaunch {
     static var openFirstPatient: Bool { ProcessInfo.processInfo.environment["AAROGYAM_DEV_OPEN_FIRST"] == "1" }
 
-    static var patientTab: PatientTab? {
-        switch ProcessInfo.processInfo.environment["AAROGYAM_DEV_PTAB"] {
-        case "visits": .visits
-        case "rx": .rx
-        case "bills": .bills
-        case "notes": .notes
-        case "files": .files
-        case "chart": .chart
-        default: nil
-        }
-    }
-
     static var tooth: Int32? { ProcessInfo.processInfo.environment["AAROGYAM_DEV_TOOTH"].flatMap { Int32($0) } }
 
     static var toothForm: Bool { ProcessInfo.processInfo.environment["AAROGYAM_DEV_TOOTH_FORM"] == "1" }

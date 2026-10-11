@@ -4,12 +4,13 @@ import SwiftUI
 
 /// What a Patient 360 sheet is open on.
 enum PatientSheet: String, Identifiable {
-    case book, share, rx
+    case book, share
     var id: String { rawValue }
 }
 
-/// Patient 360 in the v7 design: a tonal header with flags and quick actions, pill tabs that sit
-/// at the top while the page scrolls, the tab's content, and Send Rx and Share at the foot.
+/// The patient page: the tonal header (flags, quick actions, the money strip for roles with money),
+/// Start treatment for clinicians, then three pill tabs: Overview, History and Consent. A tap on a
+/// visit pushes its detail. The holders live here so switching tabs does not reload them.
 struct Patient360Screen: View {
     let holder: Patient360StateHolder
     let state: Patient360State
@@ -18,12 +19,15 @@ struct Patient360Screen: View {
     let patientId: String
     let billing: BillingStateHolder
     let billingState: BillingState
-    @State private var tab = PatientTab.chart
+    @State private var tab = PatientPageTab.overview
     @State private var sheet: PatientSheet?
     @State private var toast: String?
-    @State private var shareRx: String?
     @State private var visit: VisitRoute?
-    @State private var chartModel: ScreenModel<ChartStateHolder, ChartState>?
+    @State private var detail: VisitDetailRoute?
+    @State private var overview: ScreenModel<PatientOverviewStateHolder, OverviewState>?
+    @State private var history: ScreenModel<VisitHistoryStateHolder, VisitHistoryState>?
+    @State private var consents: ScreenModel<ConsentsStateHolder, ConsentsState>?
+    @State private var chart: ScreenModel<ChartStateHolder, ChartState>?
     @Environment(\.skTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -43,18 +47,41 @@ struct Patient360Screen: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if loaded != nil {
-                    Button { shareRx = nil; sheet = .share } label: { Label { Text(pv("pv.share")) } icon: { V7Icon(name: "share") } }
+                    Button { sheet = .share } label: { Label { Text(pv("pv.share")) } icon: { V7Icon(name: "share") } }
                 }
             }
         }
         .sheet(item: $sheet) { sheetContent($0) }
         .navigationDestination(item: $visit) { VisitScreen(graph: graph, clinic: clinic, route: $0) }
+        .navigationDestination(item: $detail) {
+            V9VisitDetail(graph: graph, clinic: clinic, patientId: patientId, visitId: $0.visitId, billing: billing, billingState: billingState)
+        }
         .skToast($toast)
-        // A recorded payment changes the balance in the header, so reload the patient.
-        .onChange(of: receipt) { _, new in if new != nil { holder.refresh() } }
+        .onAppear(perform: makeModels)
+        // A recorded payment changes the balance in the header and the money strip, so reload them.
+        .onChange(of: receipt) { _, new in
+            if new != nil { holder.refresh(); overview?.holder.refresh(); history?.holder.refresh() }
+        }
         #if DEBUG && AARO_ENV_Local
-        .onAppear { if let dev = DevLaunch.patientTab { tab = dev } }
+        .onAppear {
+            if let dev = DevLaunch.patientTab9 { tab = dev }
+            if DevLaunch.showMoney, overviewMoney != nil, !overviewMoneyShown { overview?.holder.toggleMoney() }
+        }
+        .onChange(of: firstVisitId) { _, id in
+            if DevLaunch.openFirstVisit, let id, detail == nil { detail = VisitDetailRoute(visitId: id) }
+        }
         #endif
+    }
+
+    private func makeModels() {
+        guard overview == nil else { return }
+        let can = clinic.permissions
+        if can.contains("clinical.read") {
+            overview = ScreenModel(make: { graph.patientOverview(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
+            chart = ScreenModel(make: { graph.chart(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
+        }
+        history = ScreenModel(make: { graph.visitHistory(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
+        consents = ScreenModel(make: { graph.consents(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
     }
 
     private var loaded: Patient360StateLoaded? {
@@ -65,60 +92,66 @@ struct Patient360Screen: View {
         if case .loaded(let value) = onEnum(of: billingState) { value.receipt } else { nil }
     }
 
-    private var can: (clinical: Bool, issue: Bool, book: Bool) {
-        let p = clinic.permissions
-        return (p.contains("clinical.read"), p.contains("prescriptions.issue"), p.contains("appointments.write"))
+    private var overviewLoaded: OverviewStateLoaded? {
+        if let overview, case .loaded(let value) = onEnum(of: overview.value) { value } else { nil }
     }
 
-    private var billsHidden: Bool {
-        if case .hidden = onEnum(of: billingState) { true } else { false }
+    private var overviewMoney: MoneySummary? { overviewLoaded?.money }
+    private var overviewMoneyShown: Bool { overviewLoaded?.moneyShown ?? false }
+
+    private var historyLoaded: VisitHistoryStateLoaded? {
+        if let history, case .loaded(let value) = onEnum(of: history.value) { value } else { nil }
+    }
+
+    private var firstVisitId: String? { historyLoaded?.rows.first?.id }
+
+    private var can: (book: Bool, treat: Bool) {
+        let p = clinic.permissions
+        return (p.contains("appointments.write"), p.contains("clinical.write"))
     }
 
     @ViewBuilder private func loadedPage(_ view: PatientView, error: ScreenError?) -> some View {
-        let tabs = PatientTab.visible(clinical: can.clinical, visits: view.visits != nil, bills: !billsHidden)
-        let current = tabs.contains(tab) ? tab : (tabs.first ?? .chart)
-        PatientHeader(view: view, canBook: can.book, onBook: { sheet = .book }, onPhoto: { toast = pv("pv.photo.preview") })
+        let tabs = PatientPageTab.visible(permissions: Set(clinic.permissions))
+        let current = tabs.contains(tab) ? tab : (tabs.first ?? .overview)
+        PatientHeader(view: view, canBook: can.book, onBook: { sheet = .book }, onPhoto: { toast = pv("pv.photo.preview") }) {
+            PatientMoneyStrip(model: MoneyStripModel.make(money: overviewMoney, shown: overviewMoneyShown)) {
+                overview?.holder.toggleMoney()
+            }
+        }
         if let error { Text(error.message).v7Text(12.5).foregroundStyle(theme.roles.error.color).padding(SkSpacing.l) }
+        if can.treat {
+            SkPillButton(CL("c.visit.start"), variant: .warm, icon: V7Icon.path("tooth"), wide: true) { visit = VisitRoute(patientId: patientId) }
+                .padding(.horizontal, SkSpacing.l).padding(.top, 12)
+        }
         Section {
             VStack(alignment: .leading, spacing: 10) {
-                tabBody(current, view: view)
+                tabBody(current)
                     .id(current)
                     .transition(.opacity)
-                footer(view)
             }
             .padding(.horizontal, SkSpacing.l).padding(.top, 6).padding(.bottom, SkSpacing.xxl)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: current)
         } header: {
-            PatientPillTabs(tabs: tabs, selection: current) { tab = $0 }
+            PatientV9PillTabs(tabs: tabs, selection: current, historyCount: historyLoaded?.rows.count) { tab = $0 }
         }
     }
 
-    @ViewBuilder private func tabBody(_ tab: PatientTab, view: PatientView) -> some View {
+    @ViewBuilder private func tabBody(_ tab: PatientPageTab) -> some View {
         switch tab {
-        case .chart: chartTab
-        case .visits: PatientVisitsTab(visits: view.visits ?? [])
-        case .rx:
-            PatientRxTab(graph: graph, clinic: clinic, patientId: patientId, allergies: view.flags.allergies) { shareRx = $0; sheet = .share }
-        case .bills:
-            PatientBillsTab(holder: billing, state: billingState, onUpi: { toast = pv("pv.upi.preview") })
-        case .notes: NotesTab(graph: graph, clinic: clinic, patientId: patientId)
-        case .files: FilesTab(graph: graph, clinic: clinic, patientId: patientId)
+        case .overview:
+            if let overview {
+                V9OverviewTab(
+                    holder: overview.holder, state: overview.value, chart: chart, graph: graph, clinic: clinic,
+                    onOpenVisit: { detail = VisitDetailRoute(visitId: $0) }
+                )
+            }
+        case .history:
+            if let history {
+                V9HistoryTab(holder: history.holder, state: history.value, clinic: clinic) { detail = VisitDetailRoute(visitId: $0) }
+            }
+        case .consent:
+            if let consents { V9ConsentTab(holder: consents.holder, state: consents.value) }
         }
-    }
-
-    private func footer(_ view: PatientView) -> some View {
-        VStack(spacing: 8) {
-            if clinic.permissions.contains("clinical.write") {
-                SkPillButton(CL("c.visit.start"), variant: .warm, icon: V7Icon.path("tooth"), wide: true) { visit = VisitRoute(patientId: patientId) }
-            }
-            HStack(spacing: 8) {
-            if can.issue && can.clinical {
-                SkPillButton(pv("pv.send_rx"), variant: .fill, icon: V7Icon.path("rx"), wide: true) { sheet = .rx }
-            }
-            SkPillButton(pv("pv.share"), variant: .tonal, icon: V7Icon.path("share"), wide: true) { shareRx = nil; sheet = .share }
-            }
-        }
-        .padding(.top, 4)
     }
 
     @ViewBuilder private func sheetContent(_ sheet: PatientSheet) -> some View {
@@ -126,20 +159,7 @@ struct Patient360Screen: View {
         case .book:
             PatientBookSheet(graph: graph, clinic: clinic, patientId: patientId, name: loaded?.view.name ?? "")
         case .share:
-            PatientShareSheet(graph: graph, clinic: clinic, patientId: patientId, preselected: shareRx)
-        case .rx:
-            RxSheet(graph: graph, clinic: clinic, patientId: patientId, allergies: loaded?.view.flags.allergies ?? [], phone: loaded?.view.phone)
-        }
-    }
-
-    @ViewBuilder private var chartTab: some View {
-        if let chartModel {
-            ChartTab(holder: chartModel.holder, state: chartModel.value, graph: graph, clinic: clinic)
-        } else {
-            SkLoadingIndicator(pv("pv.loading")).frame(maxWidth: .infinity).padding(SkSpacing.xxl)
-                .onAppear {
-                    chartModel = ScreenModel(make: { graph.chart(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
-                }
+            PatientShareSheet(graph: graph, clinic: clinic, patientId: patientId, preselected: nil)
         }
     }
 
@@ -163,37 +183,5 @@ struct Patient360Screen: View {
             if let now = next as? Patient360StateLoaded, now.refreshing { continue }
             break
         }
-    }
-}
-
-/// The mockup's `.ptabs`: pills that scroll sideways and stay at the top; the chosen one is inverted.
-struct PatientPillTabs: View {
-    let tabs: [PatientTab]
-    let selection: PatientTab
-    let onSelect: (PatientTab) -> Void
-    @Environment(\.skTheme) private var theme
-
-    var body: some View {
-        let r = theme.roles
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(tabs, id: \.self) { tab in
-                    let on = tab == selection
-                    Button { onSelect(tab) } label: {
-                        Text(tab.title).v7Text(12.5, .bold)
-                            .foregroundStyle((on ? r.background : r.onSurfaceVariant).color)
-                            .padding(.horizontal, 14).frame(minHeight: 34)
-                            .background((on ? r.onSurface : r.surface2).color, in: Capsule())
-                            .padding(.vertical, 5)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.skPressable)
-                    .accessibilityAddTraits(on ? .isSelected : [])
-                }
-            }
-            .padding(.horizontal, SkSpacing.l)
-        }
-        .padding(.top, 9).padding(.bottom, 1)
-        .background(r.background.color)
     }
 }

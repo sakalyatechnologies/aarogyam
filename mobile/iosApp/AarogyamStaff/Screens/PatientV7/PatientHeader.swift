@@ -29,11 +29,12 @@ struct PatientFlag: Identifiable, Equatable {
 }
 
 /// The tonal Patient 360 header (the mockup's `.phead`): initials, name and line, flags, and the four quick actions.
-struct PatientHeader: View {
+struct PatientHeader<Footer: View>: View {
     let view: PatientView
     let canBook: Bool
     let onBook: () -> Void
     let onPhoto: () -> Void
+    @ViewBuilder let footer: Footer
     @Environment(\.skTheme) private var theme
     @Environment(\.openURL) private var openURL
 
@@ -62,6 +63,7 @@ struct PatientHeader: View {
                 action("cal", pv("pv.action.book"), enabled: canBook, onBook)
                 action("cam", pv("pv.action.photo"), enabled: true, onPhoto)
             }
+            footer
         }
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -105,5 +107,11 @@ struct PatientHeader: View {
         .buttonStyle(.skPressable)
         .disabled(!enabled)
         .accessibilityLabel(title)
+    }
+}
+
+extension PatientHeader where Footer == EmptyView {
+    init(view: PatientView, canBook: Bool, onBook: @escaping () -> Void, onPhoto: @escaping () -> Void) {
+        self.init(view: view, canBook: canBook, onBook: onBook, onPhoto: onPhoto) { EmptyView() }
     }
 }

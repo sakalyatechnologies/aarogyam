@@ -65,13 +65,6 @@ final class PatientV7Tests: XCTestCase {
         XCTAssertFalse(PatientFilter.all.needsServer)
     }
 
-    func test_tabs_follow_the_role() {
-        XCTAssertEqual(PatientTab.visible(clinical: true, visits: true, bills: true), [.chart, .visits, .rx, .bills, .notes, .files])
-        XCTAssertEqual(PatientTab.visible(clinical: true, visits: true, bills: false), [.chart, .visits, .rx, .notes, .files])
-        XCTAssertEqual(PatientTab.visible(clinical: false, visits: false, bills: true), [.bills])
-        XCTAssertTrue(PatientTab.visible(clinical: false, visits: false, bills: false).isEmpty)
-    }
-
     func test_findings_map_to_the_jaw_colours() {
         XCTAssertEqual(JawTone.of(.sound), .plain)
         XCTAssertEqual(JawTone.of(.filled), .treated)

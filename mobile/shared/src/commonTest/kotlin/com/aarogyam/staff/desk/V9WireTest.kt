@@ -383,6 +383,70 @@ class V9WireTest {
             assertFalse("attachment_id" in backend.requests.last { it.url.encodedPath.endsWith("/payments") }.text())
         }
 
+    // Link an existing patient as a relative.
+
+    @Test
+    fun link_problems_cover_nobody_themselves_already_linked_and_the_relation() {
+        assertEquals(listOf(LinkProblem.NoPatient, LinkProblem.BadRelation), linkProblems("p1", null, null, emptySet()))
+        assertEquals(listOf(LinkProblem.Themselves), linkProblems("p1", "p1", "child", emptySet()))
+        assertEquals(listOf(LinkProblem.AlreadyLinked), linkProblems("p1", "p5", "child", setOf("p5")))
+        assertEquals(listOf(LinkProblem.BadRelation), linkProblems("p1", "p5", "cousin", emptySet()))
+        assertTrue(linkProblems("p1", "p5", "sibling", setOf("p9")).isEmpty())
+    }
+
+    @Test
+    fun the_link_search_skips_the_patient_and_relatives_then_a_link_is_posted() =
+        runTest {
+            val backend = FakeBackend()
+            val link =
+                """{"id":"l1","patient_id":"p5","number":"SD-1050","full_name":"Tara Shah","relation":"child","is_primary_contact":false}"""
+            val second = link.replace("l1", "l2").replace("p5", "p7")
+            var linked = false
+            backend.on("$SUNRISE/api/v1/patients/p1/family", { request ->
+                if (request.method.value == "POST") {
+                    linked = true
+                    json(second, HttpStatusCode.Created)
+                } else {
+                    json("""{"items":[$link${if (linked) ",$second" else ""}]}""")
+                }
+            })
+            backend.on(
+                "$SUNRISE/api/v1/patients/search",
+                {
+                    json(
+                        com.aarogyam.staff.patientListJson(
+                            com.aarogyam.staff.patientJson("p1", "Meera Shah", "SD-1042"),
+                            com.aarogyam.staff.patientJson("p5", "Tara Shah", "SD-1050"),
+                            com.aarogyam.staff.patientJson("p7", "Ravi Shah", "SD-1051"),
+                        ),
+                    )
+                },
+            )
+            val holder = FamilyStateHolder(clinic(backend), "p1", backgroundScope)
+            holder.state.first { it is FamilyState.Loaded }
+            holder.searchCandidates("SD-10")
+            val found = assertIs<LinkSearch.Found>(holder.search.first { it is LinkSearch.Found })
+            assertEquals(listOf(LinkCandidate("p7", "SD-1051", "Ravi Shah")), found.items)
+            holder.add("p7", "sibling")
+            holder.state.first { (it as? FamilyState.Loaded)?.items?.size == 2 }
+            val post = backend.requests.last { it.method.value == "POST" }
+            assertTrue(
+                """"related_patient_id":"p7"""" in post.text() && """"relation":"sibling"""" in post.text(),
+                post.text(),
+            )
+        }
+
+    @Test
+    fun a_one_letter_search_does_nothing() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/patients/p1/family", { json("""{"items":[]}""") })
+            val holder = FamilyStateHolder(clinic(backend), "p1", backgroundScope)
+            holder.searchCandidates("S")
+            assertEquals(LinkSearch.Idle, holder.search.value)
+            assertEquals(0, backend.count("$SUNRISE/api/v1/patients/search"))
+        }
+
     // BE8: share the visit summary.
 
     @Test

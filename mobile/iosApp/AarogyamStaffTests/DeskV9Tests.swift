@@ -98,4 +98,40 @@ final class DeskV9Tests: XCTestCase {
         XCTAssertEqual(DeskPay.rupeesText(paise: 125_050), "1250.5")
         XCTAssertEqual(DeskPay.rupeesText(paise: 125_005), "1250.05")
     }
+
+    // MARK: token status labels (Called and Ready to bill)
+
+    func testCalledAndReadyToBillHaveTheirOwnLabelsAndTones() {
+        XCTAssertEqual(TokenStatus.called.label, String(localized: "queue.status.called"))
+        XCTAssertEqual(TokenStatus.readyToBill.label, String(localized: "queue.status.ready_to_bill"))
+        XCTAssertEqual(TokenStatus.called.label, "Called")
+        XCTAssertEqual(TokenStatus.readyToBill.label, "Ready to bill")
+        XCTAssertNotEqual(TokenStatus.called.label, TokenStatus.waiting.label)
+        XCTAssertEqual(TokenStatus.unknown.label, TokenStatus.waiting.label)
+    }
+
+    func testEveryStatusHasALabel() {
+        for status in [TokenStatus.waiting, .called, .inChair, .readyToBill, .done, .left, .unknown] {
+            XCTAssertFalse(status.label.isEmpty)
+        }
+    }
+
+    // MARK: family link validation
+
+    func testLinkNeedsAPatientAndARelation() {
+        XCTAssertEqual(DeskFamilyLink.problems(patientId: "p1", pickedId: nil, relation: nil, linkedIds: []), [.noPatient, .badRelation])
+        XCTAssertEqual(DeskFamilyLink.problems(patientId: "p1", pickedId: "p5", relation: nil, linkedIds: []), [.badRelation])
+        XCTAssertEqual(DeskFamilyLink.problems(patientId: "p1", pickedId: "p5", relation: .sibling, linkedIds: []), [])
+    }
+
+    func testLinkRefusesThemselvesAndAnExistingRelative() {
+        XCTAssertEqual(DeskFamilyLink.problems(patientId: "p1", pickedId: "p1", relation: .child, linkedIds: []), [.themselves])
+        XCTAssertEqual(DeskFamilyLink.problems(patientId: "p1", pickedId: "p5", relation: .child, linkedIds: ["p5"]), [.alreadyLinked])
+    }
+
+    func testEveryLinkProblemHasAMessage() {
+        for problem in [LinkProblem.noPatient, .themselves, .alreadyLinked, .badRelation] {
+            XCTAssertFalse(DeskFamilyLink.message(problem).isEmpty)
+        }
+    }
 }

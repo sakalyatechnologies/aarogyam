@@ -10,6 +10,7 @@ import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,6 +46,52 @@ sealed interface FamilyState {
     ) : FamilyState
 }
 
+/** A patient found by number or name, who could be linked as a relative. */
+data class LinkCandidate(
+    val patientId: String,
+    val number: String,
+    val name: String,
+)
+
+/** What the "Link existing patient" search shows. */
+sealed interface LinkSearch {
+    data object Idle : LinkSearch
+
+    data object Searching : LinkSearch
+
+    /** [items] leave out the patient themselves and anyone already linked. */
+    data class Found(
+        val query: String,
+        val items: List<LinkCandidate>,
+    ) : LinkSearch
+
+    data class Failed(
+        val error: ScreenError,
+    ) : LinkSearch
+}
+
+/** Why a link cannot be made yet; the screen shows nothing until all are cleared. */
+enum class LinkProblem { NoPatient, Themselves, AlreadyLinked, BadRelation }
+
+/** The relations the server accepts on `POST /patients/{id}/family`. */
+val FAMILY_RELATIONS: List<String> = listOf("guardian", "child", "spouse", "parent", "sibling", "other")
+
+/** Checks a link before it is sent (the server also refuses: 409 for themselves or a pair already linked). */
+fun linkProblems(
+    patientId: String,
+    pickedId: String?,
+    relation: String?,
+    linkedIds: Set<String>,
+): List<LinkProblem> =
+    buildList {
+        when {
+            pickedId == null -> add(LinkProblem.NoPatient)
+            pickedId == patientId -> add(LinkProblem.Themselves)
+            pickedId in linkedIds -> add(LinkProblem.AlreadyLinked)
+        }
+        if (relation == null || relation !in FAMILY_RELATIONS) add(LinkProblem.BadRelation)
+    }
+
 /**
  * The family section of the desk flow for one patient: `GET`, `POST` and `DELETE`
  * `/patients/{id}/family`. The server writes and removes the inverse link too.
@@ -61,6 +108,11 @@ class FamilyStateHolder(
         )
 
     val state: StateFlow<FamilyState> = mutableState.asStateFlow()
+    private val mutableSearch = MutableStateFlow<LinkSearch>(LinkSearch.Idle)
+    private var searchJob: Job? = null
+
+    /** The "Link existing patient" search results. */
+    val search: StateFlow<LinkSearch> = mutableSearch.asStateFlow()
 
     init {
         if (PATIENTS_READ in clinic.permissions) load()
@@ -77,6 +129,47 @@ class FamilyStateHolder(
         primaryContact: Boolean = false,
     ) = change("family.add_failed") {
         clinic.api.addFamily(patientId, NewFamilyLink(relatedPatientId, relation, primaryContact))
+    }
+
+    /** Searches patients by number (or name) for [query]; needs `patients.write` since it leads to a link. */
+    fun searchCandidates(query: String) {
+        val text = query.trim()
+        searchJob?.cancel()
+        if (PATIENTS_WRITE !in clinic.permissions || text.length < MIN_QUERY) {
+            mutableSearch.value = LinkSearch.Idle
+            return
+        }
+        mutableSearch.value = LinkSearch.Searching
+        searchJob =
+            scope.launch {
+                when (val result = clinic.api.searchPatients(text)) {
+                    is Outcome.Success -> {
+                        val linked =
+                            (mutableState.value as? FamilyState.Loaded)
+                                ?.items
+                                .orEmpty()
+                                .map { it.patientId }
+                                .toSet()
+                        mutableSearch.value =
+                            LinkSearch.Found(
+                                text,
+                                result.value.items
+                                    .filter { it.id != patientId && it.id !in linked }
+                                    .map { LinkCandidate(it.id, it.number, it.fullName) },
+                            )
+                    }
+
+                    is Outcome.Failure -> {
+                        log.warn("family.search_failed") { code("error", result.error.code.value) }
+                        mutableSearch.value = LinkSearch.Failed(ScreenError.of(result.error))
+                    }
+                }
+            }
+    }
+
+    fun clearSearch() {
+        searchJob?.cancel()
+        mutableSearch.value = LinkSearch.Idle
     }
 
     fun remove(linkId: String) = change("family.remove_failed") { clinic.api.removeFamily(patientId, linkId) }
@@ -124,5 +217,6 @@ class FamilyStateHolder(
     private companion object {
         const val PATIENTS_READ = "patients.read"
         const val PATIENTS_WRITE = "patients.write"
+        const val MIN_QUERY = 2
     }
 }

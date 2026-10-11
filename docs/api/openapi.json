@@ -14551,51 +14551,6 @@
         ]
       }
     },
-    "/api/v1/visits/{id}/share": {
-      "post": {
-        "tags": [
-          "clinical"
-        ],
-        "summary": "Makes a seven-day link for the patient to open the visit summary with a PIN. Writes the\naccess record.",
-        "operationId": "createVisitShare",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "The visit",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VisitShare"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Not signed in"
-          },
-          "403": {
-            "description": "The role lacks clinical.read"
-          },
-          "404": {
-            "description": "No such visit in this clinic"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
     "/api/v1/walk-ins": {
       "post": {
         "tags": [

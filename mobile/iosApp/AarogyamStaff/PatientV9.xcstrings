@@ -2009,19 +2009,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d on %d teeth"
+            "value": "%d items · Teeth: %d"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d इलाज, %d दाँत"
+            "value": "%d प्रविष्टियाँ · दाँत: %d"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d उपचार, %d दात"
+            "value": "%d नोंदी · दात: %d"
           }
         }
       }

@@ -32,6 +32,7 @@ struct Patient360Screen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 if let loaded {
@@ -40,6 +41,15 @@ struct Patient360Screen: View {
                     placeholder.padding(.horizontal, SkSpacing.l)
                 }
             }
+        }
+        #if DEBUG && AARO_ENV_Local
+        // Screenshot runs: `_DEV_SCROLL=1` scrolls the tab body to the top once the overview has loaded.
+        .onChange(of: overviewLoaded != nil) { _, ready in
+            if ready, ProcessInfo.processInfo.environment["AAROGYAM_DEV_SCROLL"] == "1" {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { proxy.scrollTo("p9.body", anchor: .top) }
+            }
+        }
+        #endif
         }
         .background(theme.roles.background.color)
         .refreshable { await refresh() }
@@ -65,7 +75,9 @@ struct Patient360Screen: View {
         #if DEBUG && AARO_ENV_Local
         .onAppear {
             if let dev = DevLaunch.patientTab9 { tab = dev }
-            if DevLaunch.showMoney, overviewMoney != nil, !overviewMoneyShown { overview?.holder.toggleMoney() }
+            }
+        .onChange(of: overviewMoney != nil) { _, has in
+            if DevLaunch.showMoney, has, !overviewMoneyShown { overview?.holder.toggleMoney() }
         }
         .onChange(of: firstVisitId) { _, id in
             if DevLaunch.openFirstVisit, let id, detail == nil { detail = VisitDetailRoute(visitId: id) }
@@ -130,6 +142,7 @@ struct Patient360Screen: View {
                     .transition(.opacity)
             }
             .padding(.horizontal, SkSpacing.l).padding(.top, 6).padding(.bottom, SkSpacing.xxl)
+            .id("p9.body")
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: current)
         } header: {
             PatientV9PillTabs(tabs: tabs, selection: current, historyCount: historyLoaded?.rows.count) { tab = $0 }

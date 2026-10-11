@@ -25,6 +25,16 @@ struct ClinicPickerScreen: View {
             if let opening { OpeningClinicScreen(clinicName: opening.name, role: opening.roleName).transition(.opacity) }
         }
         .animation(.easeOut(duration: 0.25), value: opening?.slug)
+        #if DEBUG && AARO_ENV_Local
+        // Screenshot runs: `SIMCTL_CHILD_AAROGYAM_DEV_CLINIC=<slug>` opens that clinic.
+        .onChange(of: devClinics, initial: true) { _, count in
+            if count > 0, let slug = ProcessInfo.processInfo.environment["AAROGYAM_DEV_CLINIC"] { holder.select(slug: slug) }
+        }
+        #endif
+    }
+
+    private var devClinics: Int {
+        if case .choose(let choose) = onEnum(of: state) { choose.clinics.count } else { 0 }
     }
 
     /// The clinic being opened, if any: the spinner screen covers the list while it loads.

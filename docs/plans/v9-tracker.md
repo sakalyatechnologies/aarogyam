@@ -104,3 +104,8 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
   - ios-patient
   - sh-gaps: Rx timing, Save draft, recalls and `closeWith`, plus wiring them into V9Visit
   - be-int, resumed after the disk freed up (52 GB free)
+- ios-patient: done and merged. The page has 3 tabs and a hidden money strip, plus visit detail and consent. `ios-check.sh` passed and there are 11 XCTests; screenshots are in `mobile/docs/screenshots/v9/ios/patient/`.
+  - Gaps: no teeth chips or due amount on the history cards; visits without a title show "V-n"; Send Rx was removed from the patient page.
+  - It added `IosPatientV9.kt` and an Observation shim. The shared `Observation` model hides Swift's Observation, so renaming the model later is cleaner.
+- Spotless ran on the merged shared code. The kit link now points at wt-sakalya-pin2 (v0.2.0-dev.2), because SkPillButton needs it.
+- In progress: the full `gradlew check` and `ios-check.sh` on feat/v9. Next is ios-desk, once the simulator is free.

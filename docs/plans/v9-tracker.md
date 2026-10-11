@@ -149,3 +149,10 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
   1. Merge feat/v9-backend (main-based) into feat/v9, with web/ untouched from main.
   2. Run the end-to-end check on a v9 server.
   3. Start be-msg (BE7).
+- **ios-polish:** merged.
+  - History teeth chips, the due amount and title fallbacks.
+  - The Photo action now works through the outbox.
+  - Send Rx is back in Visit detail.
+  - It has no screenshots, because the worktree was missing `mobile/local.secrets.properties`. Copy that file into new worktrees from now on.
+- **Coordinator:** the Photo action now needs clinical.write (e6f295b).
+- **sh-wire:** its hook ran for 1.5 h under load 35 and was killed. The work is saved as WIP 988adf6, and the worker was resumed to finish the Swift call sites, the tests and the handoff.

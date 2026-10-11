@@ -46,6 +46,7 @@ import { NextupWidget } from "./nextup.js";
 import { QueueWidget } from "./queue.js";
 import { useDayToday, useMonthSummary, useOpenLabs, useWeeklyCollections } from "./queries.js";
 import { seeingOrder, useZone } from "./seeing.js";
+import { COPY } from "./copy.js";
 import { Body, Empty, Loading, WidgetCard, type WidgetProps } from "./widget-parts.js";
 
 type Appointment = Today["appointments"][number];
@@ -76,7 +77,7 @@ function AppointmentsWidget({ opts, spec }: WidgetProps) {
         </Link>
       }
     >
-      <Body query={day} label={spec.label} isEmpty={(t) => t.appointments.length === 0} empty={<Empty title="No appointments" description="Nothing is booked for this day." />}>
+      <Body query={day} label={spec.label} isEmpty={(t) => t.appointments.length === 0} empty={<Empty title={COPY.calmDay} />}>
         {(today) => {
           const rows = [...today.appointments].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
           const open = (a: Appointment) => {
@@ -180,7 +181,7 @@ function TimelineWidget({ spec }: WidgetProps) {
   const peek = usePatientPeek();
   return (
     <WidgetCard title={spec.label} subtitle="The day hour by hour">
-      <Body query={day} label={spec.label} isEmpty={(t) => t.appointments.length === 0} empty={<Empty title="No appointments" description="The timeline fills in as visits are booked." />}>
+      <Body query={day} label={spec.label} isEmpty={(t) => t.appointments.length === 0} empty={<Empty title={COPY.calmDay} />}>
         {(today) => (
           <DayTimeline
             appointments={today.appointments}
@@ -214,7 +215,7 @@ function LabsWidget({ spec }: WidgetProps) {
   const labs = useOpenLabs(true);
   return (
     <WidgetCard title={spec.label} subtitle="Open orders by stage" action={<Link to="/labs" className="tv2-link">All</Link>}>
-      <Body query={labs} label={spec.label} isEmpty={(page) => page.items.length === 0} empty={<Empty title="No open lab work" description="Orders show here until they are fitted." />}>
+      <Body query={labs} label={spec.label} isEmpty={(page) => page.items.length === 0} empty={<Empty title={COPY.noLabs} description={COPY.noLabsHint} />}>
         {(page) => {
           const late = page.items.filter((o) => o.late).length;
           const stages = [...new Set(page.items.map((o) => o.pipeline_stage))];
@@ -316,7 +317,7 @@ function RecentPatientsWidget({ spec }: WidgetProps) {
   const money = useTodayMoney(can("finance.view"));
   return (
     <WidgetCard title={spec.label} subtitle="Latest arrivals" action={<Link to="/patients" className="tv2-link">View all</Link>}>
-      <Body query={day} label={spec.label} empty={null}>
+      <Body query={day} label={spec.label} isEmpty={(t) => t.recent_patients.length === 0} empty={<Empty title={COPY.noRecent} description={COPY.noRecentHint} />}>
         {(today) => <RecentPatients tokens={today.recent_patients} appointments={today.appointments} pending={money.data?.pending ?? []} />}
       </Body>
     </WidgetCard>
@@ -330,7 +331,7 @@ function TeamTodayWidget({ spec }: WidgetProps) {
   const staff = useStaff(can("staff.manage"));
   return (
     <WidgetCard title={spec.label} subtitle="On duty">
-      <Body query={day} label={spec.label} isEmpty={(t) => t.team.length === 0} empty={<Empty title="No one on the roster" description="Add doctors and their hours in Settings." />}>
+      <Body query={day} label={spec.label} isEmpty={(t) => t.team.length === 0} empty={<Empty title={COPY.noTeam} />}>
         {(today) => <TeamToday team={today.team} staff={staff.data?.members ?? []} />}
       </Body>
     </WidgetCard>
@@ -365,7 +366,7 @@ function MoneyCard({ title, subtitle, link, children }: { title: string; subtitl
 function CollectionsBody({ weeks, label }: { weeks: number; label: string }) {
   const report = useWeeklyCollections(weeks, true);
   return (
-    <Body query={report} label={label} isEmpty={(r) => r.by_week.length === 0 || r.by_week.every((w) => w.amount_paise === 0)} empty={<Empty title="Nothing collected yet" description="Payments you record show here week by week." />}>
+    <Body query={report} label={label} isEmpty={(r) => r.by_week.length === 0 || r.by_week.every((w) => w.amount_paise === 0)} empty={<Empty title={COPY.noCollections} />}>
       {(r) => (
         <>
           <div className="tv2-chart">
@@ -431,7 +432,7 @@ function BusyHoursWidget({ spec }: WidgetProps) {
   const day = useDayToday(date);
   return (
     <WidgetCard title={spec.label} subtitle="The hours that fill up">
-      <Body query={day} label={spec.label} isEmpty={(t) => t.by_hour.every((h) => h.booked === 0)} empty={<Empty title="No appointments" description="Busy hours appear once visits are booked." />}>
+      <Body query={day} label={spec.label} isEmpty={(t) => t.by_hour.every((h) => h.booked === 0)} empty={<Empty title={COPY.noBusyHours} />}>
         {(today) => {
           const hours = today.by_hour;
           const name = (hour: number) => `${String(hour % 12 === 0 ? 12 : hour % 12)}${hour >= 12 ? "p" : "a"}`;

@@ -28,6 +28,24 @@ export function isZone(zone: string): zone is Zone {
   return zone === "top" || zone === "main" || zone === "rail";
 }
 
+/**
+ * The only widgets the calendar column (the rail) holds, top to bottom: the calendar, the patient queue and the
+ * completed patients of the chosen day (the queue card draws those under the queue). The server's catalogue still lets
+ * other widgets sit in the rail; the portal never puts one there, and drops one from an old saved layout.
+ */
+export const RAIL_KEYS: readonly string[] = ["calendar", "queue", "completed"];
+
+/** The zones a widget may sit in: the catalogue's, with the rail only for the widgets the calendar column holds. */
+export function zonesOf(spec: WidgetSpec): Zone[] {
+  return spec.zones.filter(isZone).filter((zone) => zone !== "rail" || RAIL_KEYS.includes(spec.key));
+}
+
+/** A layout without the rail items the calendar column does not hold. The same layout comes back when there are none. */
+export function railOnly(layout: DashboardLayout): DashboardLayout {
+  const items = layout.items.filter((item) => item.zone !== "rail" || RAIL_KEYS.includes(item.key));
+  return items.length === layout.items.length ? layout : { ...layout, items };
+}
+
 /** Whether the member holds the permission a widget (or metric) asks for. Nothing asked means anyone. */
 export function allowed(requires: string | null | undefined, can: (permission: Permission) => boolean): boolean {
   if (requires == null) return true;
@@ -64,6 +82,7 @@ export function shownItems(layout: DashboardLayout, catalogue: DashboardCatalogu
   layout.items.forEach((item, index) => {
     const spec = specOf(catalogue, item.key);
     if (spec === undefined || !known(item.key) || !isZone(item.zone) || !allowed(spec.requires, can)) return;
+    if (item.zone === "rail" && !RAIL_KEYS.includes(item.key)) return;
     if (MONEY_WIDGETS.has(item.key) && !can("finance.view")) return;
     out.push({ item, spec, zone: item.zone, index });
   });
@@ -88,9 +107,10 @@ export const RETIRED_TEMPLATE: Readonly<Record<string, string>> = { focus: "meds
 
 /** The layout as the Studio shows it: a saved `flat` card style reads as `soft`, and a saved `focus` template as `medsync`. */
 export function shownLayout(layout: DashboardLayout): DashboardLayout {
-  const card = RETIRED_CARD[layout.card] ?? layout.card;
-  const tpl = RETIRED_TEMPLATE[layout.tpl] ?? layout.tpl;
-  return card === layout.card && tpl === layout.tpl ? layout : { ...layout, card, tpl };
+  const clean = railOnly(layout);
+  const card = RETIRED_CARD[clean.card] ?? clean.card;
+  const tpl = RETIRED_TEMPLATE[clean.tpl] ?? clean.tpl;
+  return card === clean.card && tpl === clean.tpl ? clean : { ...clean, card, tpl };
 }
 
 /** The templates and card styles the Studio offers: the catalogue's, without the retired ones. */
@@ -104,7 +124,9 @@ export function fitSize(spec: WidgetSpec, wanted: string): string {
 
 export function addWidget(layout: DashboardLayout, spec: WidgetSpec): DashboardLayout {
   if (layout.items.some((item) => item.key === spec.key)) return layout;
-  return { ...layout, items: [...layout.items, { key: spec.key, zone: spec.default_zone, size: spec.default_size, opts: defaultOpts(spec) }] };
+  const zones = zonesOf(spec);
+  const zone = isZone(spec.default_zone) && zones.includes(spec.default_zone) ? spec.default_zone : (zones[0] ?? "main");
+  return { ...layout, items: [...layout.items, { key: spec.key, zone, size: fitSize(spec, spec.default_size), opts: defaultOpts(spec) }] };
 }
 
 export function removeAt(layout: DashboardLayout, index: number): DashboardLayout {
@@ -124,7 +146,7 @@ export function setOpt(layout: DashboardLayout, index: number, key: string, valu
 export function setZone(layout: DashboardLayout, index: number, zone: Zone, catalogue: DashboardCatalogue): DashboardLayout {
   const item = layout.items[index];
   const spec = item === undefined ? undefined : specOf(catalogue, item.key);
-  if (item === undefined || spec === undefined || !spec.zones.includes(zone)) return layout;
+  if (item === undefined || spec === undefined || !zonesOf(spec).includes(zone)) return layout;
   return patchItem(layout, index, { zone, size: fitSize(spec, item.size) });
 }
 
@@ -152,7 +174,7 @@ export function dropOn(layout: DashboardLayout, from: number, to: number, catalo
   const anchor = layout.items[to];
   if (moving === undefined || anchor === undefined || from === to) return layout;
   const spec = specOf(catalogue, moving.key);
-  if (spec === undefined || !isZone(anchor.zone) || !spec.zones.includes(anchor.zone)) return layout;
+  if (spec === undefined || !isZone(anchor.zone) || !zonesOf(spec).includes(anchor.zone)) return layout;
   const rest = layout.items.filter((_, at) => at !== from);
   const at = rest.indexOf(anchor);
   const placed: DashboardLayoutItem = { ...moving, zone: anchor.zone, size: anchor.zone === moving.zone ? moving.size : fitSize(spec, moving.size) };
@@ -168,7 +190,8 @@ export interface DropPlace {
 
 /** Whether the catalogue lets this widget sit in this zone. */
 export function zoneAllowed(catalogue: DashboardCatalogue, key: string, zone: Zone): boolean {
-  return specOf(catalogue, key)?.zones.includes(zone) === true;
+  const spec = specOf(catalogue, key);
+  return spec !== undefined && zonesOf(spec).includes(zone);
 }
 
 /**
@@ -178,7 +201,7 @@ export function zoneAllowed(catalogue: DashboardCatalogue, key: string, zone: Zo
 export function dropInZone(layout: DashboardLayout, key: string, place: DropPlace, catalogue: DashboardCatalogue): DashboardLayout {
   const moving = layout.items.find((item) => item.key === key);
   const spec = specOf(catalogue, key);
-  if (moving === undefined || spec === undefined || !spec.zones.includes(place.zone) || place.anchor === key) return layout;
+  if (moving === undefined || spec === undefined || !zonesOf(spec).includes(place.zone) || place.anchor === key) return layout;
   const rest = layout.items.filter((item) => item.key !== key);
   const anchorAt = place.anchor === undefined ? -1 : rest.findIndex((item) => item.key === place.anchor);
   let at: number;
@@ -288,7 +311,7 @@ export const MEDSYNC_METRICS = ["appointments", "chairs_busy", "waiting", "colle
  * A template as the New look draws it. The side column (calendar, queue and completed) always runs the full height of
  * the page, on the left. The server's templates were laid out before that, so the portal puts them right here and the
  * API stays as it is: MedSync becomes the key-number strip, the next-up hero and the appointments table beside the
- * calendar column; the others keep their widgets and only gain the left column, with the queue and calendar in it.
+ * calendar column; the others keep their widgets and only gain the left column, with the calendar and the queue in it (Next up and the rest move to the main area).
  */
 export function restyleTemplate(catalogue: DashboardCatalogue, key: string, layout: DashboardLayout): DashboardLayout {
   if (key === "medsync") {
@@ -307,8 +330,14 @@ export function restyleTemplate(catalogue: DashboardCatalogue, key: string, layo
   const calendar = layout.items.find((item) => item.key === "calendar") ?? placed(catalogue, "calendar", "rail", "S");
   const queue = layout.items.find((item) => item.key === "queue");
   const rest = layout.items.filter((item) => item.key !== "calendar" && item.key !== "queue");
-  const column = [calendar, ...(queue === undefined ? [] : [queue]), ...rest.filter((item) => item.zone === "rail")].map((item) => ({ ...item, zone: "rail" }));
-  return { ...layout, rail: { ...layout.rail, side: "left" }, items: [...rest.filter((item) => item.zone !== "rail"), ...column] };
+  const column = [calendar, ...(queue === undefined ? [] : [queue])].map((item) => ({ ...item, zone: "rail" }));
+  // Anything else the server put in the rail (Next up, Recent patients, ...) moves to the main area: the column holds only its three things.
+  const main = rest.map((item) => {
+    if (item.zone !== "rail") return item;
+    const spec = specOf(catalogue, item.key);
+    return { ...item, zone: "main", size: spec === undefined ? item.size : fitSize(spec, item.key === "nextup" ? "full" : item.size) };
+  });
+  return { ...layout, rail: { ...layout.rail, side: "left" }, items: [...main, ...column] };
 }
 
 /**
@@ -320,6 +349,7 @@ export function adoptTemplates(view: DashboardLayoutView): DashboardLayoutView {
   const templates = server.templates.map((template) => ({ ...template, layout: restyleTemplate(server, template.key, template.layout) }));
   const stock = server.templates.find((template) => template.key === view.layout.tpl);
   const untouched = stock !== undefined && sameLayout(stock.layout, view.layout);
-  const layout = untouched ? (templates.find((template) => template.key === stock.key)?.layout ?? view.layout) : view.layout;
+  // A layout somebody saved keeps its edits, but the calendar column only ever holds the calendar, the queue and the completed visits.
+  const layout = untouched ? (templates.find((template) => template.key === stock.key)?.layout ?? view.layout) : railOnly(view.layout);
   return { ...view, layout, catalogue: { ...server, templates } };
 }

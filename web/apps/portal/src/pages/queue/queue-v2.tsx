@@ -15,15 +15,16 @@ import { ChairDialog } from "./chair-dialog.js";
 import { CollectDialog } from "./collect-dialog.js";
 import { useCallToken } from "./queue-v2-queries.js";
 import "./queue-v2.css";
+import { COPY } from "../today/v2/copy.js";
 
 type Column = "waiting" | "called" | "in_chair" | "ready_to_bill" | "done";
 
 const COLUMNS: readonly { key: Column; title: string; icon: typeof Clock3; empty: string }[] = [
-  { key: "waiting", title: "Waiting", icon: Clock3, empty: "Nobody is waiting." },
-  { key: "called", title: "Called", icon: Footprints, empty: "Nobody has been called." },
-  { key: "in_chair", title: "In chair", icon: Armchair, empty: "No chairs in use." },
-  { key: "ready_to_bill", title: "Ready to bill", icon: CalendarCheck, empty: "Nothing to bill." },
-  { key: "done", title: "Done", icon: CheckCircle2, empty: "Nobody has finished yet." },
+  { key: "waiting", title: "Waiting", icon: Clock3, empty: COPY.nobodyWaiting },
+  { key: "called", title: "Called", icon: Footprints, empty: COPY.noneCalled },
+  { key: "in_chair", title: "In chair", icon: Armchair, empty: COPY.chairsFree },
+  { key: "ready_to_bill", title: "Ready to bill", icon: CalendarCheck, empty: COPY.nothingToBill },
+  { key: "done", title: "Done", icon: CheckCircle2, empty: COPY.noCompleted },
 ];
 
 /** A booked patient has an appointment behind the token; a walk-in does not. */

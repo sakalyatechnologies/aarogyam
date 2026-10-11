@@ -16,7 +16,6 @@ import io.ktor.client.engine.mock.toByteArray
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
-import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -102,7 +101,7 @@ class DeskLookupStateHolderTest {
     fun offline_is_a_failed_state() =
         runTest {
             val backend = FakeBackend()
-            backend.on(LOOKUP, { throw IOException("down") })
+            backend.on(LOOKUP, { throw kotlinx.io.IOException("down") })
             val holder = holder(backend)
             holder.search("9876543210")
             val failed = assertIs<DeskLookupState.Failed>(holder.settled())

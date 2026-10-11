@@ -1722,6 +1722,13 @@
      "note": "online booking: enabled, slot_minutes, buffer_minutes, auto_confirm, horizon_days, min_notice_minutes"
     },
     {
+     "name": "auto_messages",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "automatic patient messages on or off: welcome, visit_summary, follow_up_booking"
+    },
+    {
      "name": "patient_retention_years",
      "type": "smallint",
      "nullable": true,

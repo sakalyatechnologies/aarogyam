@@ -664,6 +664,7 @@ One row per clinic: branding, bill and prescription settings, defaults.
 | `prescription` | `jsonb` | letterhead layout |
 | `notifications` | `jsonb` | quiet hours, sender |
 | `booking` | `jsonb` | online booking: enabled, slot_minutes, buffer_minutes, auto_confirm, horizon_days, min_notice_minutes |
+| `auto_messages` | `jsonb` | automatic patient messages on or off: welcome, visit_summary, follow_up_booking |
 | `patient_retention_years` | `smallint?` | 7 to 50; null keeps the default 7 years |
 
 Primary key (org_id): exactly one row per clinic.

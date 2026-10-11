@@ -442,7 +442,8 @@ async fn row_level_security_limits_a_patient_account_in_a_direct_query() {
         ("select count(*) from aarogyam.prescriptions", 1),
         ("select count(*) from aarogyam.prescription_items", 1),
         ("select count(*) from aarogyam.attachments", 1),
-        ("select count(*) from aarogyam.encounters", 0),
+        // Their own visit (migration 0425), and nothing of other patients'.
+        ("select count(*) from aarogyam.encounters", 1),
         ("select count(*) from aarogyam.clinical_notes", 0),
         ("select count(*) from aarogyam.patient_link_codes", 0),
         ("select count(*) from aarogyam.memberships", 0),

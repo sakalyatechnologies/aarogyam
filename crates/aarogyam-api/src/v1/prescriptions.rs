@@ -762,7 +762,7 @@ pub(super) const fn state_name(state: LinkState) -> &'static str {
 pub struct SharedPreview {
     /// The clinic's name.
     pub clinic_name: String,
-    /// `prescription` or `records`.
+    /// `prescription`, `records` or `visit`. Open a visit with `POST /shared/{token}/visit`.
     pub resource: String,
     /// For a link to records, what it shows: `chart`, `xrays`, `bills`; open it with
     /// `POST /shared/{token}/records`. Absent for a prescription.

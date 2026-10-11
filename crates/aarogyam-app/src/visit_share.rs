@@ -222,11 +222,7 @@ async fn fetch(
 }
 
 /// The visits a patient may see, newest first, with the five visits before each.
-fn compose(
-    raw: Raw,
-    clinic_name: &str,
-    timezone: &str,
-) -> Result<Vec<VisitSummary>, AppError> {
+fn compose(raw: &Raw, clinic_name: &str, timezone: &str) -> Result<Vec<VisitSummary>, AppError> {
     let day = |at: OffsetDateTime| clinic_today(timezone, at);
     let all: Vec<&HeadRow> = raw.heads.iter().chain(&raw.earlier).collect();
     let mut out = Vec::with_capacity(raw.heads.len());
@@ -374,7 +370,7 @@ pub async fn open(
         )
         .await?
         .ok_or(AppError::NotFound("visit"))?;
-        let summary = compose(raw, &clinic_name, &timezone)?
+        let summary = compose(&raw, &clinic_name, &timezone)?
             .pop()
             .ok_or(AppError::NotFound("visit"))?;
         let request_text = request_id.map(|id| id.to_string());
@@ -442,7 +438,7 @@ pub async fn list(
         })
         .await?;
         all.extend(
-            compose(raw, &clinic.name, timezone)?
+            compose(&raw, &clinic.name, timezone)?
                 .into_iter()
                 .map(|summary| (index, summary)),
         );
@@ -472,7 +468,7 @@ pub async fn get(
         Ok(raw)
     })
     .await?;
-    raw.map(|raw| compose(raw, &clinic.name, timezone))
+    raw.map(|raw| compose(&raw, &clinic.name, timezone))
         .transpose()
         .map(|found| found.and_then(|mut one| one.pop()))
 }

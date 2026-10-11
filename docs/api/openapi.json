@@ -6287,6 +6287,79 @@
         ]
       }
     },
+    "/api/v1/me/patient/visits": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "The patient's visits at every linked clinic, with the same summary as a link.",
+        "operationId": "listMyVisits",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyVisits"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not the app host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/visits/{id}": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "One of the patient's visits.",
+        "operationId": "getMyVisit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "No such visit of this patient"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/practitioner": {
       "get": {
         "tags": [
@@ -12816,6 +12889,59 @@
         }
       }
     },
+    "/api/v1/shared/{token}/visit": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: opens a link to a visit with the PIN. Five wrong PINs lock the link.\nEvery open is written to the access record.",
+        "operationId": "openSharedVisit",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenVisit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitSummary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong PIN; the message says how many tries are left"
+          },
+          "404": {
+            "description": "No such link, or not a link to a visit"
+          },
+          "410": {
+            "description": "Expired"
+          },
+          "423": {
+            "description": "Locked after too many wrong PINs"
+          }
+        }
+      }
+    },
     "/api/v1/staff": {
       "get": {
         "tags": [
@@ -14324,6 +14450,51 @@
           },
           "409": {
             "description": "The visit is closed, or the plan item isn't accepted or already has a procedure"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/share": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Makes a seven-day link for the patient to open the visit summary with a PIN. Writes the\naccess record.",
+        "operationId": "createVisitShare",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitShare"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
           }
         },
         "security": [
@@ -18834,6 +19005,24 @@
           }
         }
       },
+      "EarlierVisit": {
+        "type": "object",
+        "description": "An earlier visit: the date and a title, nothing clinical.",
+        "required": [
+          "visited_on",
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "The treatments done, or `Consultation`."
+          },
+          "visited_on": {
+            "type": "string",
+            "description": "The clinic day (`YYYY-MM-DD`)."
+          }
+        }
+      },
       "EnteredInError": {
         "type": "object",
         "description": "Why a record is being marked entered in error.",
@@ -22542,6 +22731,22 @@
           }
         }
       },
+      "MyVisits": {
+        "type": "object",
+        "description": "The patient's visits.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitSummary"
+            },
+            "description": "Newest first within each clinic, at most 25 per clinic."
+          }
+        }
+      },
       "NewAddendum": {
         "type": "object",
         "description": "An addendum's text.",
@@ -24329,6 +24534,19 @@
           "pin": {
             "type": "string",
             "description": "The six digits printed on the paper."
+          }
+        }
+      },
+      "OpenVisit": {
+        "type": "object",
+        "description": "The PIN.",
+        "required": [
+          "pin"
+        ],
+        "properties": {
+          "pin": {
+            "type": "string",
+            "description": "The six digits the clinic gave."
           }
         }
       },
@@ -28951,7 +29169,7 @@
           },
           "resource": {
             "type": "string",
-            "description": "`prescription` or `records`."
+            "description": "`prescription`, `records` or `visit`. Open a visit with `POST /shared/{token}/visit`."
           },
           "state": {
             "type": "string",
@@ -31377,6 +31595,24 @@
           }
         }
       },
+      "VisitFollowUp": {
+        "type": "object",
+        "description": "The next follow-up.",
+        "required": [
+          "due_on",
+          "kind"
+        ],
+        "properties": {
+          "due_on": {
+            "type": "string",
+            "description": "The day it is due (`YYYY-MM-DD`)."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`follow_up`, `cleaning`, and so on."
+          }
+        }
+      },
       "VisitList": {
         "type": "object",
         "description": "A patient's visits, newest first.",
@@ -31465,6 +31701,124 @@
           }
         }
       },
+      "VisitPrescription": {
+        "type": "object",
+        "description": "The prescription issued in the visit.",
+        "required": [
+          "number",
+          "issued_on",
+          "items"
+        ],
+        "properties": {
+          "issued_on": {
+            "type": "string",
+            "description": "The clinic day it was issued (`YYYY-MM-DD`)."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitRxItem"
+            },
+            "description": "The medicines in order."
+          },
+          "number": {
+            "type": "string",
+            "description": "`RX-…`."
+          }
+        }
+      },
+      "VisitRxItem": {
+        "type": "object",
+        "description": "A medicine of the visit's prescription.",
+        "required": [
+          "drug_name",
+          "dose",
+          "frequency"
+        ],
+        "properties": {
+          "dose": {
+            "type": "string",
+            "description": "How much per dose."
+          },
+          "drug_name": {
+            "type": "string",
+            "description": "As printed."
+          },
+          "duration_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "For how many days."
+          },
+          "form": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Form, such as `tablet`."
+          },
+          "frequency": {
+            "type": "string",
+            "description": "`1-0-1`."
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "In the prescription's language."
+          },
+          "strength": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Strength, such as `500 mg`."
+          },
+          "timing": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`after_food`, and so on."
+          }
+        }
+      },
+      "VisitShare": {
+        "type": "object",
+        "description": "A new link to a visit. The token and PIN are shown once.",
+        "required": [
+          "id",
+          "token",
+          "path",
+          "pin",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "description": "When it stops working (seven days)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link's id."
+          },
+          "path": {
+            "type": "string",
+            "description": "Path on the clinic's host that the patient opens: `/shared/{token}`. Send the PIN apart\nfrom the link."
+          },
+          "pin": {
+            "type": "string",
+            "description": "Six-digit PIN."
+          },
+          "token": {
+            "type": "string",
+            "description": "Token for the link."
+          }
+        }
+      },
       "VisitSources": {
         "type": "object",
         "description": "Visits in the range by how they came.",
@@ -31482,6 +31836,127 @@
             "type": "integer",
             "format": "int64",
             "description": "Walk-in tokens issued in the range, not counting those who left unseen."
+          }
+        }
+      },
+      "VisitSummary": {
+        "type": "object",
+        "description": "What a patient sees of one visit.",
+        "required": [
+          "id",
+          "number",
+          "clinic_name",
+          "visited_on",
+          "treatments",
+          "earlier_visits",
+          "booking_path"
+        ],
+        "properties": {
+          "advice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The Plan section of the visit's signed notes."
+          },
+          "booking_path": {
+            "type": "string",
+            "description": "Where a patient books again, on the clinic's host."
+          },
+          "clinic_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic the visit was at; absent on a public link, which is on the clinic's host."
+          },
+          "clinic_name": {
+            "type": "string",
+            "description": "The clinic's name."
+          },
+          "doctor_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The doctor's name."
+          },
+          "earlier_visits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EarlierVisit"
+            },
+            "description": "The last five visits before this one, newest first."
+          },
+          "id": {
+            "type": "string",
+            "description": "The visit."
+          },
+          "next_follow_up": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VisitFollowUp",
+                "description": "The next follow-up."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number, such as `V-318`."
+          },
+          "prescription": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VisitPrescription",
+                "description": "The issued prescription."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "treatments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitTreatment"
+            },
+            "description": "What was done."
+          },
+          "visited_on": {
+            "type": "string",
+            "description": "The clinic day (`YYYY-MM-DD`)."
+          }
+        }
+      },
+      "VisitTreatment": {
+        "type": "object",
+        "description": "A treatment done in the visit. No fee.",
+        "required": [
+          "name",
+          "surfaces"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "What was done."
+          },
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Surfaces, such as `O`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI tooth number."
           }
         }
       },

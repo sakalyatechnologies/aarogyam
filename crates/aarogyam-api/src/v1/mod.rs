@@ -65,6 +65,7 @@ pub(crate) mod staff;
 pub(crate) mod support_grants;
 pub(crate) mod today;
 pub(crate) mod treatment;
+pub(crate) mod visit_shares;
 pub(crate) mod visits;
 pub(crate) mod vitals;
 pub(crate) mod walk_ins;
@@ -128,6 +129,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/me/patient/appointments", get(patient_app::appointments))
         .route("/me/patient/prescriptions", get(patient_app::prescriptions))
         .route("/me/patient/bills", get(patient_app::bills))
+        .route("/me/patient/visits", get(visit_shares::mine))
+        .route("/me/patient/visits/{id}", get(visit_shares::mine_one))
         .route("/me/patient/files", get(patient_app::files))
         .route("/me/patient/links", post(patient_app::redeem))
         .route("/me/patient/links/{id}/revoke", post(patient_app::revoke))
@@ -631,6 +634,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/shared/{token}", get(prescriptions::shared_preview))
         .route("/shared/{token}/open", post(prescriptions::shared_open))
         .route("/shared/{token}/records", post(record_shares::open))
+        .route("/shared/{token}/visit", post(visit_shares::open))
+        .route("/visits/{id}/share", post(visit_shares::create))
         .route(
             "/shared/{token}/records/xrays/{id}",
             get(record_shares::xray_content),

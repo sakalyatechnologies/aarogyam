@@ -26,12 +26,12 @@ create index share_links_encounter on aarogyam.share_links (org_id, encounter_id
 create function app.visit_advice(p_encounter uuid) returns text
   language sql stable security definer set search_path = ''
   as $$
-    select string_agg(btrim(n.body #>> '{sections,plan}'), E'\n\n' order by n.created_at, n.id)
+    select string_agg(btrim(n.body #>> '{plan}'), E'\n\n' order by n.created_at, n.id)
     from aarogyam.clinical_notes n
     where n.org_id = app.tenant_id()
       and n.encounter_id = p_encounter
       and n.status = 'signed'
-      and coalesce(btrim(n.body #>> '{sections,plan}'), '') <> ''
+      and coalesce(btrim(n.body #>> '{plan}'), '') <> ''
       and (app.actor_kind() <> 'patient_account' or n.patient_id = app.linked_patient_id())
   $$;
 grant execute on function app.visit_advice(uuid) to app_user;

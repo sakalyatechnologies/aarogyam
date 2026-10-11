@@ -18,7 +18,7 @@ const val PICKS_JSON =
        "complaints":[],"findings":[],"procedures":[],"advice":[],"medicine_sets":[]}"""
 
 const val MATCHES_JSON =
-    """{"items":[{"id":"p1","number":"SD-1042","full_name":"Meera Shah","sex":"female","registration_incomplete":false,"age_years":34}]}"""
+    """{"items":[{"id":"p1","number":"SD-1042","full_name":"Meera Shah","sex":"female","registration_incomplete":false,"age_years":34}],"family_group":[]}"""
 
 fun tokenJson(
     id: String = "t1",

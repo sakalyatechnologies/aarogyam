@@ -58,7 +58,7 @@ class DeskLookupStateHolderTest {
             assertTrue(meera.checkedInToday)
             assertEquals(PatientState.Waiting, meera.state)
             assertEquals(null, meera.lastVisit)
-            assertEquals(listOf(DeskAction.AddFamilyMember(phone), DeskAction.NewPatient(phone)), matches.actions)
+            assertEquals(listOf(DeskAction.AddFamilyMember(phone, "p1"), DeskAction.NewPatient(phone)), matches.actions)
             assertEquals(1, backend.count(LOOKUP))
             val body =
                 backend.requests
@@ -76,7 +76,7 @@ class DeskLookupStateHolderTest {
     fun many_matches_offer_check_in_for_those_not_in_today() =
         runTest {
             val backend = FakeBackend()
-            val two = MATCHES_JSON.replace("]}", ",$SECOND]}")
+            val two = MATCHES_JSON.replace("""],"family_group""", """,$SECOND],"family_group""")
             backend.on(LOOKUP, { json(two) })
             val holder = holder(backend)
             holder.search("9876543210")
@@ -90,7 +90,7 @@ class DeskLookupStateHolderTest {
     fun no_match_offers_only_a_new_patient() =
         runTest {
             val backend = FakeBackend()
-            backend.on(LOOKUP, { json("""{"items":[]}""") })
+            backend.on(LOOKUP, { json("""{"items":[],"family_group":[]}""") })
             val holder = holder(backend)
             holder.search("09876543210")
             val none = assertIs<DeskLookupState.NoMatch>(holder.settled())

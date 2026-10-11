@@ -1,24 +1,19 @@
 package com.aarogyam.staff.desk
 
-/**
- * Where a patient is today, one vocabulary for every screen. [previewOnly] states are not sent
- * by the server yet; screens may draw them in previews but must not depend on them.
- */
-enum class PatientState(
-    val previewOnly: Boolean = false,
-) {
+/** Where a patient is today, one vocabulary for every screen. The server sends every state. */
+enum class PatientState {
     Waiting,
-    Called(previewOnly = true),
+    Called,
     InConsult,
     InChair,
-    ReadyToBill(previewOnly = true),
+    ReadyToBill,
     Done,
     Left,
 }
 
 /**
  * Maps the server's facts to a [PatientState]. [tokenStatus] is `queue_tokens.status`
- * (`waiting`, `in_chair`, `done`, `left`; the future `called` and `ready_to_bill` are accepted),
+ * (`waiting`, `called`, `in_chair`, `ready_to_bill`, `done`, `left`),
  * [calledAt] is the token's `called_at`, [openVisit] says a clinical visit is open, and
  * [appointmentStatus] is the appointment's status, used only when there is no token.
  * Returns null when the patient is not in the clinic today (booked, confirmed, or unknown).

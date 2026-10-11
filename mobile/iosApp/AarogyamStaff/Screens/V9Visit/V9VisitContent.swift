@@ -42,7 +42,7 @@ struct V9VisitContent: View {
                     V9Header(graph: graph, view: view, patient: patient, chair: route.chair, closed: view.closed)
                     VStack(spacing: SkSpacing.ml) {
                         if view.closed {
-                            V9Summary(firstName: firstName, patientNumber: view.number, snapshot: snapshot, minutes: minutes) { dismiss() }
+                            V9Summary(graph: graph, clinic: clinic, visitId: view.visitId, phone: person?.phone, firstName: firstName, patientNumber: view.number, snapshot: snapshot, minutes: minutes) { dismiss() }
                         } else {
                             if !connectivity.online { V9OfflineBanner() }
                             V9Notes(holder: holder, view: view).id("notes")
@@ -54,6 +54,7 @@ struct V9VisitContent: View {
                             V9Procedures(chart: chart, state: chartState, staged: $staged, locked: closing || view.closing).id("procs")
                             V9CloseArea(
                                 confirm: $confirmClose, followUpOn: $followUpOn, followUpDate: $followUpDate, feeText: $feeText,
+                                canBill: clinic.permissions.contains("billing.write"), canFollowUp: clinic.permissions.contains("patients.write"),
                                 closing: closing || view.closing, error: closeError ?? view.error?.message,
                                 onClose: requestClose, onCloseAnyway: performClose, onSignNow: signNow
                             )
@@ -128,8 +129,8 @@ struct V9VisitContent: View {
             notes: view.bullets.count,
             rxNumber: rxState.issued?.number,
             medicines: rxState.phase == .issued ? rxState.lines.count : 0,
-            followUp: followUpOn ? followUpDate : nil,
-            feePaise: V9Close.paise(fromRupees: feeText)
+            followUp: followUpOn && clinic.permissions.contains("patients.write") ? followUpDate : nil,
+            feePaise: clinic.permissions.contains("billing.write") ? V9Close.paise(fromRupees: feeText) : nil
         )
         Task {
             if !(await commitProcedures()) { closing = false; return closeError = V9("v9v.close.procedures_failed") }
@@ -137,7 +138,10 @@ struct V9VisitContent: View {
                 holder.sign()
                 if !(await waitSigned()) { closing = false; return closeError = V9("v9v.close.sign_failed") }
             }
-            holder.closeWith(followUpOn: followUpOn ? Self.isoDay(followUpDate) : nil, reason: nil, feePaise: V9Close.paise(fromRupees: feeText).map { KotlinLong(value: $0) })
+            holder.closeWith(
+                followUpOn: followUpOn && clinic.permissions.contains("patients.write") ? Self.isoDay(followUpDate) : nil, reason: nil,
+                feePaise: clinic.permissions.contains("billing.write") ? V9Close.paise(fromRupees: feeText).map { KotlinLong(value: $0) } : nil
+            )
             closing = false
         }
     }

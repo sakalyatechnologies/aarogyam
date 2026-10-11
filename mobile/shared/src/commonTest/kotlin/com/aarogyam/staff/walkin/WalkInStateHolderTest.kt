@@ -93,7 +93,7 @@ class WalkInStateHolderTest {
     fun a_number_nobody_has_is_someone_new_and_extra_digits_are_ignored() =
         runTest {
             val backend = FakeBackend()
-            backend.on(LOOKUP, { json("""{"items":[]}""") })
+            backend.on(LOOKUP, { json("""{"items":[],"family_group":[]}""") })
             val holder = holder(backend)
             holder.setMobile("9123456780")
             val form = holder.awaitForm { it.lookup is LookupState.Matches }

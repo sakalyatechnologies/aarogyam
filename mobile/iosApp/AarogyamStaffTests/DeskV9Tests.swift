@@ -51,10 +51,25 @@ final class DeskV9Tests: XCTestCase {
         XCTAssertFalse(DeskBoard.showsCalledBanner(roleKey: "doctor", called: 2))
     }
 
-    func testCalledAndReadyToBillAreMarkedPreview() {
-        XCTAssertTrue(DeskBoard.isPreview(.called))
-        XCTAssertTrue(DeskBoard.isPreview(.readyToBill))
-        XCTAssertFalse(DeskBoard.isPreview(.waiting))
+    func testQueueAlertsHaveTitlesAndIcons() {
+        for kind in ["patient_waiting", "send_in", "collect_payment"] {
+            XCTAssertTrue(DeskAlert.isQueue(kind))
+            XCTAssertNotNil(DeskAlert.title(kind))
+            XCTAssertNotEqual(DeskAlert.icon(kind), "msg")
+        }
+        XCTAssertFalse(DeskAlert.isQueue("booking_requested"))
+        XCTAssertNil(DeskAlert.title("booking_requested"))
+    }
+
+    func testAlertDetailShowsTheTokenAndClinicNumberNeverAName() {
+        XCTAssertEqual(DeskAlert.detail(token: 7, number: "SC-1042", doctor: "Dr. Patil"), "#7 · SC-1042 · Dr. Patil")
+        XCTAssertEqual(DeskAlert.detail(token: 7, number: "SC-1042", doctor: nil), "#7 · SC-1042")
+        XCTAssertNil(DeskAlert.detail(token: nil, number: "SC-1042", doctor: nil))
+    }
+
+    func testRelationsMatchTheServerWords() {
+        XCTAssertEqual(DeskRelation.allCases.map(\.wire), ["guardian", "child", "spouse", "parent", "sibling", "other"])
+        XCTAssertEqual(DeskRelation.title(wire: "unknown"), DeskRelation.other.title)
     }
 
     // MARK: payment validation

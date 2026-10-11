@@ -6,7 +6,6 @@ import com.aarogyam.staff.api.ClinicApi
 import com.aarogyam.staff.api.model.Allocation
 import com.aarogyam.staff.api.model.NewPayment
 import com.aarogyam.staff.billing.PayMethod
-import com.aarogyam.staff.files.kindFor
 import com.aarogyam.staff.outbox.OutboxEntry
 import com.aarogyam.staff.outbox.OutboxKind
 import com.aarogyam.staff.outbox.OutboxSender
@@ -44,7 +43,6 @@ internal data class PaymentJob(
     val invoiceId: String? = null,
     val allocatedPaise: Long = 0,
     val proofId: String? = null,
-    val proofLabel: String? = null,
     val proofJpegBase64: String? = null,
 )
 
@@ -70,9 +68,9 @@ internal sealed interface Delivery {
 }
 
 /**
- * Sends one payment with [key] as the Idempotency-Key, then its proof photo, if any. A proof the
- * server refuses never blocks the payment; a proof that merely failed to travel retries the whole
- * entry, which the server answers with the first payment.
+ * Uploads the proof photo (kind `payment_proof`), if any, then sends the payment with [key] as the
+ * Idempotency-Key and the proof's `attachment_id`. A proof the server refuses never blocks the
+ * payment; a proof that merely failed to travel retries the whole entry.
  */
 @OptIn(ExperimentalEncodingApi::class)
 internal suspend fun deliver(
@@ -85,6 +83,28 @@ internal suspend fun deliver(
     val method =
         PayMethod.entries.firstOrNull { it.name == job.method }
             ?: return Delivery.Rejected(ScreenError.Unknown, "bad_method")
+    // The proof goes first so the payment can name it. Its id is the client's, so a retry is safe.
+    var attachmentId: String? = null
+    var proof = ProofStatus.None
+    val photo = job.proofJpegBase64
+    if (photo != null) {
+        val proofId = job.proofId
+        proof = ProofStatus.NotSent
+        if (proofId != null) {
+            when (val up = api.uploadAttachment(job.patientId, proofId, PROOF_KIND, Base64.decode(photo), null, null)) {
+                is Outcome.Success -> {
+                    attachmentId = up.value.id
+                    proof = ProofStatus.Sent
+                }
+
+                is Outcome.Failure -> {
+                    log.warn("deskpay.proof_failed") { code("error", up.error.code.value) }
+                    // Nothing is recorded yet: a proof that only failed to travel retries the whole entry.
+                    if (up.toSendResult() is SendResult.Retry) return Delivery.Retry(up.error.code.value)
+                }
+            }
+        }
+    }
     val payment =
         NewPayment(
             patientId = job.patientId,
@@ -93,6 +113,7 @@ internal suspend fun deliver(
             allocations =
                 job.invoiceId?.let { listOf(Allocation(invoiceId = it, amountPaise = job.allocatedPaise)) }
                     ?: emptyList(),
+            attachmentId = attachmentId,
         )
     val paid = api.recordPayment(payment, idempotency)
     if (paid is Outcome.Failure) {
@@ -103,35 +124,11 @@ internal suspend fun deliver(
             SendResult.Delivered -> Delivery.Retry("unexpected")
         }
     }
-    val number = (paid as Outcome.Success).value.number
-    val photo = job.proofJpegBase64 ?: return Delivery.Done(number, ProofStatus.None)
-    val proofId = job.proofId ?: return Delivery.Done(number, ProofStatus.NotSent)
-    val uploaded =
-        api.uploadAttachment(
-            job.patientId,
-            proofId,
-            kindFor(job.proofLabel),
-            Base64.decode(photo),
-            job.proofLabel,
-            null,
-        )
-    return when (uploaded) {
-        is Outcome.Success -> {
-            Delivery.Done(number, ProofStatus.Sent)
-        }
-
-        is Outcome.Failure -> {
-            log.warn("deskpay.proof_failed") { code("error", uploaded.error.code.value) }
-            if (uploaded.toSendResult() is SendResult.Retry) {
-                Delivery.Retry(
-                    uploaded.error.code.value,
-                )
-            } else {
-                Delivery.Done(number, ProofStatus.NotSent)
-            }
-        }
-    }
+    return Delivery.Done((paid as Outcome.Success).value.number, proof)
 }
+
+/** The upload kind the front desk may attach to a payment (`billing.write`). */
+internal const val PROOF_KIND = "payment_proof"
 
 private fun paymentSender(
     graph: AppGraph,

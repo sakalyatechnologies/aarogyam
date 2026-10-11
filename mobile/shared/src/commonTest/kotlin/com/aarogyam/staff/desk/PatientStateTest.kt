@@ -2,7 +2,6 @@ package com.aarogyam.staff.desk
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class PatientStateTest {
     private data class Row(
@@ -40,17 +39,5 @@ class PatientStateTest {
         table.forEach {
             assertEquals(it.want, patientState(it.token, it.calledAt, it.visit, it.appt), "$it")
         }
-    }
-
-    @Test
-    fun future_states_are_preview_only() {
-        assertEquals(
-            setOf(PatientState.Called, PatientState.ReadyToBill),
-            PatientState.entries
-                .filter {
-                    it.previewOnly
-                }.toSet(),
-        )
-        assertTrue(!PatientState.Waiting.previewOnly)
     }
 }

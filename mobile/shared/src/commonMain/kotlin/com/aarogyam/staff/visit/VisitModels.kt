@@ -1,6 +1,7 @@
 package com.aarogyam.staff.visit
 
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.model.CloseVisit
 import com.aarogyam.staff.device.DictationLanguage
 import kotlin.time.Instant
 
@@ -19,10 +20,8 @@ data class VisitView(
     val listening: DictationLanguage? = null,
     val closing: Boolean = false,
     val closed: Boolean = false,
-    /** The fee typed at close, in paise, until the server's close body takes it (BE5). */
+    /** The fee typed at close, in paise, (sent with the close). */
     val pendingFeePaise: Long? = null,
-    /** The visit closed but its follow-up was not saved; `closeWith` again retries only that. */
-    val followUpFailed: Boolean = false,
     val error: ScreenError? = null,
     /** The note is saved on this phone and not yet on the server ("Saved, will send"). */
     val noteSync: Boolean = false,
@@ -46,3 +45,15 @@ sealed interface VisitState {
         val view: VisitView,
     ) : VisitState
 }
+
+/** The close body: a follow-up (`YYYY-MM-DD`, with its reason) and a consultation fee, all optional. */
+internal fun closeBody(
+    followUpOn: String?,
+    reason: String?,
+    feePaise: Long?,
+): CloseVisit? =
+    if (followUpOn == null && feePaise == null) {
+        null
+    } else {
+        CloseVisit(followUpOn = followUpOn, followUpReason = reason?.takeIf { followUpOn != null }, feePaise = feePaise)
+    }

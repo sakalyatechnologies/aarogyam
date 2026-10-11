@@ -495,6 +495,267 @@
         ]
       }
     },
+    "/api/v1/audiences": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "The clinic's saved audiences.",
+        "operationId": "listAudiences",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Audiences"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Saves an audience.",
+        "operationId": "createAudience",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveAudience"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Audience"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad name or filter"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/audiences/preview": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Counts an audience without naming anyone.",
+        "operationId": "previewAudience",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewAudience"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudiencePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad filter"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/audiences/{id}": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "One audience.",
+        "operationId": "getAudience",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The audience",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Audience"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such audience in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Deletes an audience no campaign uses.",
+        "operationId": "deleteAudience",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The audience",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such audience in this clinic"
+          },
+          "409": {
+            "description": "A campaign uses it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Renames an audience or changes its filter.",
+        "operationId": "updateAudience",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The audience",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchAudience"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Audience"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad name or filter"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such audience in this clinic"
+          },
+          "409": {
+            "description": "A scheduled or sending campaign uses its filter"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/auth/handoff": {
       "post": {
         "tags": [
@@ -573,6 +834,377 @@
             "description": "Too many attempts"
           }
         }
+      }
+    },
+    "/api/v1/avatars/{id}/content": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Streams an avatar photo through its signed link, which works on the clinic's own host for an\nhour and is the proof of access (an `<img>` can use it).",
+        "operationId": "getAvatarContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The photo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "The signed token from the avatar's photo_url",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The photo, with its media type"
+          },
+          "403": {
+            "description": "The link has expired; load the list again"
+          },
+          "404": {
+            "description": "Not a valid link for a photo of this clinic"
+          }
+        }
+      }
+    },
+    "/api/v1/campaigns": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "The clinic's campaigns with counts.",
+        "operationId": "listCampaigns",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaigns"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Saves a draft campaign.",
+        "operationId": "createCampaign",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCampaign"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad text, channel, time or template"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "The audience or template isn't this clinic's"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/campaigns/{id}": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "One campaign with counts.",
+        "operationId": "getCampaign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The campaign",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such campaign in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Changes a draft campaign.",
+        "operationId": "updateCampaign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The campaign",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCampaign"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad text, channel, time or template"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such campaign, audience or template in this clinic"
+          },
+          "409": {
+            "description": "It isn't a draft"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/campaigns/{id}/cancel": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Cancels a campaign that hasn't finished; its queued messages are skipped.",
+        "operationId": "cancelCampaign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The campaign",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such campaign in this clinic"
+          },
+          "409": {
+            "description": "Already sent or cancelled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/campaigns/{id}/schedule": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Schedules a draft. The token must be a preview of the audience as it is now and unexpired.",
+        "operationId": "scheduleCampaign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The campaign",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleCampaign"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No time set, an unapproved template or a malformed token"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such campaign in this clinic"
+          },
+          "409": {
+            "description": "Not a draft, or the count token is expired, stale or another filter's"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/campaigns/{id}/test-send": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Emails the campaign to the caller's own address (the verified email of their sign-in, never\none from the request), through the staff outbox: no patient is involved and nothing is\ncounted.",
+        "operationId": "testSendCampaign",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The campaign",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Queued to the caller's own email"
+          },
+          "400": {
+            "description": "The caller's sign-in has no verified email address"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks campaigns.manage"
+          },
+          "404": {
+            "description": "No such campaign in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
       }
     },
     "/api/v1/client-errors": {
@@ -2331,8 +2963,22 @@
         "tags": [
           "billing"
         ],
-        "summary": "Records an expense.",
+        "summary": "Records an expense. Send an `Idempotency-Key` header (a UUID per form) so a retry returns\nthe first expense (`200`) instead of recording another.",
         "operationId": "recordExpense",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique per expense, 8 to 100 letters, digits, '-', '_', '.' or ':'; a retry sends the same key",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -2344,7 +2990,18 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Already recorded with this key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Expense"
+                }
+              }
+            }
+          },
           "201": {
+            "description": "Recorded",
             "content": {
               "application/json": {
                 "schema": {
@@ -2354,13 +3011,16 @@
             }
           },
           "400": {
-            "description": "Invalid input: amount, note, or a day after today"
+            "description": "Invalid input: amount, note, a day after today, or a malformed key"
           },
           "401": {
             "description": "Not signed in"
           },
           "403": {
             "description": "The role lacks expenses.write"
+          },
+          "409": {
+            "description": "The key was used for a different expense"
           }
         },
         "security": [
@@ -3401,6 +4061,54 @@
           },
           "409": {
             "description": "Already issued or void"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/invoices/{id}/upi-link": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "The UPI payment link and QR text for what is left on an issued bill. Records nothing.",
+        "operationId": "getInvoiceUpiLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The bill",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpiLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.read"
+          },
+          "404": {
+            "description": "No such bill in this clinic"
+          },
+          "409": {
+            "description": "Not issued, nothing left to pay, or no UPI ID in settings"
           }
         },
         "security": [
@@ -4883,6 +5591,76 @@
         ]
       }
     },
+    "/api/v1/me/avatar": {
+      "put": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Sets the caller's own avatar for this clinic as `multipart/form-data` with either a `preset`\nid or a `file` (PNG or JPEG, up to 2 MB, checked by content). Replaces the previous one. Any\nmember may do this; it changes only their own.",
+        "operationId": "putMyAvatar",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/AvatarForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Avatar"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not exactly one of preset and file, a bad preset, or not a PNG or JPEG"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          },
+          "413": {
+            "description": "Larger than 2 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Removes the caller's avatar.",
+        "operationId": "deleteMyAvatar",
+        "responses": {
+          "204": {
+            "description": "Removed (also when there was none)"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/badges": {
       "get": {
         "tags": [
@@ -5509,6 +6287,79 @@
         ]
       }
     },
+    "/api/v1/me/patient/visits": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "The patient's visits at every linked clinic, with the same summary as a link.",
+        "operationId": "listMyVisits",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyVisits"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "Not the app host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/patient/visits/{id}": {
+      "get": {
+        "tags": [
+          "patient"
+        ],
+        "summary": "One of the patient's visits.",
+        "operationId": "getMyVisit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "404": {
+            "description": "No such visit of this patient"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/practitioner": {
       "get": {
         "tags": [
@@ -6052,7 +6903,7 @@
         "tags": [
           "notifications"
         ],
-        "summary": "The caller's notifications about appointments within their scope, newest first, with their\nown read state and who handled each one. The portal checks every minute.",
+        "summary": "The caller's notifications, newest first: bookings within their `appointments.read` scope\nand overdue lab work within their `labs.read` scope, with their own read state and who\nhandled each one. The portal checks every minute.",
         "operationId": "listNotifications",
         "parameters": [
           {
@@ -6102,7 +6953,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks appointments.read"
+            "description": "The role lacks both appointments.read and labs.read"
           }
         },
         "security": [
@@ -6133,7 +6984,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks appointments.read"
+            "description": "The role lacks both appointments.read and labs.read"
           }
         },
         "security": [
@@ -6164,7 +7015,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks appointments.read"
+            "description": "The role lacks both appointments.read and labs.read"
           }
         },
         "security": [
@@ -6200,10 +7051,10 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks appointments.read"
+            "description": "The role lacks both appointments.read and labs.read"
           },
           "404": {
-            "description": "No such notification in this clinic, or its appointment is out of the role's reach"
+            "description": "No such notification in this clinic, or its appointment or lab order is out of the role's reach"
           }
         },
         "security": [
@@ -7221,7 +8072,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks clinical.write"
+            "description": "The role lacks clinical.write (or billing.write, for kind `payment_proof` only)"
           },
           "404": {
             "description": "No such patient in this clinic"
@@ -7676,7 +8527,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Records findings. Each supersedes the current entry for its tooth and surface (a crown,\nimplant or missing tooth also supersedes the tooth's surface entries); the history keeps\neverything. Returns the updated chart.",
+        "summary": "Records findings. Each supersedes the current entry for its tooth and surface (a crown,\nimplant or missing tooth also supersedes the tooth's surface entries); an entry with\n`supersedes_id` corrects that entry, even on another tooth or surface. The history keeps\neverything. Returns the updated chart.",
         "operationId": "recordDentalChart",
         "parameters": [
           {
@@ -7710,7 +8561,7 @@
             }
           },
           "400": {
-            "description": "A bad tooth, surface, finding, procedure or material, or a visit of another patient"
+            "description": "A bad tooth, surface, finding, procedure or material, a visit of another patient, or a `supersedes_id` that isn't this patient's chart entry"
           },
           "401": {
             "description": "Not signed in"
@@ -7722,7 +8573,159 @@
             "description": "No such patient in this clinic"
           },
           "409": {
-            "description": "The visit is closed, or the chart changed at the same moment"
+            "description": "The visit is closed, the corrected entry is no longer current, or the chart changed at the same moment"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/family": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The patient's relatives.",
+        "operationId": "listFamily",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Links a relative to the patient (and the patient back to the relative).",
+        "operationId": "addFamilyLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewFamilyLink"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown relation or a bad id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "Either patient isn't in this clinic"
+          },
+          "409": {
+            "description": "A patient linked to themselves, or a pair already linked"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/family/{link_id}": {
+      "delete": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Removes a family link and its inverse.",
+        "operationId": "removeFamilyLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "link_id",
+            "in": "path",
+            "description": "The link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed, with its inverse"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such link in this clinic"
           }
         },
         "security": [
@@ -8375,6 +9378,107 @@
           },
           "403": {
             "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/record-shares": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The patient's links to records, newest first, with whether each can still be opened.",
+        "operationId": "listRecordShares",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordShares"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Makes a link for the patient to see chosen records, with a lifetime of 1 hour, 24 hours or\n7 days. Writes the access record (`share`, one entry per kind).",
+        "operationId": "createRecordShare",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewRecordShare"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordShare"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown or repeated record type, or a lifetime other than 1h, 24h, 7d"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read, or the permission for a chosen kind"
           },
           "404": {
             "description": "No such patient in this clinic"
@@ -10069,6 +11173,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "practitioner_id",
+            "in": "query",
+            "description": "Only this doctor's tokens",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -10143,6 +11256,61 @@
         ]
       }
     },
+    "/api/v1/queue/{id}/call": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "The doctor calls a waiting patient in: the token becomes `called` (with `called_at`) and the\nfront desk gets a `send_in` notification. Calling a called token returns it unchanged.",
+        "operationId": "callQueueToken",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such token in this clinic, or its patient isn't yours"
+          },
+          "409": {
+            "description": "The token can't be called from its status (`current` is the token as it is)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveRefused"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/queue/{id}/start-visit": {
       "post": {
         "tags": [
@@ -10207,7 +11375,7 @@
         "tags": [
           "queue"
         ],
-        "summary": "Moves a token along. A token with an appointment moves the appointment too. Asking for the\nstatus the token already has changes nothing and returns it, so a retry after a lost answer\nis safe.",
+        "summary": "Moves a token along. A token with an appointment moves the appointment too. Asking for the\nstatus the token already has changes nothing and returns it, so a retry after a lost answer\nis safe. With `room_id` the patient is seated in that chair.",
         "operationId": "setQueueTokenStatus",
         "parameters": [
           {
@@ -10241,7 +11409,7 @@
             }
           },
           "400": {
-            "description": "Unknown status"
+            "description": "Unknown status, or a `room_id` with another status or not a chair of the token's branch"
           },
           "401": {
             "description": "Not signed in"
@@ -10253,7 +11421,7 @@
             "description": "No such token in this clinic"
           },
           "409": {
-            "description": "A move the table doesn't allow; `current` is the token as it is",
+            "description": "A move the table doesn't allow (`current` is the token as it is), or the appointment can't take that chair at its time",
             "content": {
               "application/json": {
                 "schema": {
@@ -11619,6 +12787,161 @@
         }
       }
     },
+    "/api/v1/shared/{token}/records": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: opens a link to records with the PIN. Five wrong PINs lock the link.\nEvery open is written to the access record.",
+        "operationId": "openSharedRecords",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenRecords"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedRecords"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong PIN; the message says how many tries are left"
+          },
+          "404": {
+            "description": "No such link, or not a link to records"
+          },
+          "410": {
+            "description": "Expired"
+          },
+          "423": {
+            "description": "Locked after too many wrong PINs"
+          }
+        }
+      }
+    },
+    "/api/v1/shared/{token}/records/xrays/{id}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: streams an X-ray through the signed `url` an opened link returned. Works\nwhile the link does and for ten minutes at most; each download is written to the access\nrecord.",
+        "operationId": "getSharedXrayContent",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The X-ray",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sig",
+            "in": "query",
+            "description": "The signed token from the X-ray's url",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, with its media type"
+          },
+          "403": {
+            "description": "The signed token or the link has expired; open the link again"
+          },
+          "404": {
+            "description": "Not a valid link, token or X-ray of this clinic"
+          }
+        }
+      }
+    },
+    "/api/v1/shared/{token}/visit": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: opens a link to a visit with the PIN. Five wrong PINs lock the link.\nEvery open is written to the access record.",
+        "operationId": "openSharedVisit",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenVisit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitSummary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong PIN; the message says how many tries are left"
+          },
+          "404": {
+            "description": "No such link, or not a link to a visit"
+          },
+          "410": {
+            "description": "Expired"
+          },
+          "423": {
+            "description": "Locked after too many wrong PINs"
+          }
+        }
+      }
+    },
     "/api/v1/staff": {
       "get": {
         "tags": [
@@ -12429,6 +13752,188 @@
         ]
       }
     },
+    "/api/v1/templates": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "The clinic's message templates: its copies of the platform's defaults and any it added.",
+        "operationId": "listMessageTemplates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplates"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Adds a template. Email ones are in use at once; `WhatsApp` ones start as drafts.",
+        "operationId": "createMessageTemplate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMessageTemplate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown key, channel, category or language, or a variable not on the allow-list"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "409": {
+            "description": "The clinic has this key, channel and language already"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/templates/{id}": {
+      "patch": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Edits the clinic's copy. A `WhatsApp` template whose text, name or category changes goes\nback to draft until it is submitted and approved again.",
+        "operationId": "updateMessageTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The template",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMessageTemplate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad body, category or name"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such template in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/templates/{id}/submit": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Records that the clinic's `WhatsApp` template was submitted to Meta for review (submission\nitself is by hand for the pilot; docs/whatsapp.md). Meta's decision arrives by webhook.",
+        "operationId": "submitMessageTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The template",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageTemplate"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "No such template in this clinic"
+          },
+          "409": {
+            "description": "An email template, one without a name at Meta, or one approved already"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/today": {
       "get": {
         "tags": [
@@ -12700,7 +14205,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and\nprocedures don't.",
+        "summary": "Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and\nprocedures don't. The optional body plans a follow-up and starts a draft bill in the same\ntransaction: a visit with a fee or priced procedures gets one bill, never two.",
         "operationId": "closeVisit",
         "parameters": [
           {
@@ -12713,21 +14218,41 @@
             }
           }
         ],
+        "requestBody": {
+          "description": "Optional follow-up and fee",
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CloseVisit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Visit"
+                  "$ref": "#/components/schemas/ClosedVisit"
                 }
               }
             }
+          },
+          "400": {
+            "description": "A past follow-up date, a long reason or a fee of zero"
           },
           "401": {
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks clinical.write"
+            "description": "The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee"
           },
           "404": {
             "description": "No such visit in this clinic"
@@ -12934,6 +14459,51 @@
         ]
       }
     },
+    "/api/v1/visits/{id}/share": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Makes a seven-day link for the patient to open the visit summary with a PIN. Writes the\naccess record.",
+        "operationId": "createVisitShare",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitShare"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/walk-ins": {
       "post": {
         "tags": [
@@ -13000,6 +14570,80 @@
           },
           "401": {
             "description": "The signature is missing, wrong or too old"
+          },
+          "413": {
+            "description": "The body is too large"
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/whatsapp": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Meta's subscription check: echoes `hub.challenge` when `hub.mode` is `subscribe` and\n`hub.verify_token` is the configured one.",
+        "operationId": "whatsappWebhookHandshake",
+        "parameters": [
+          {
+            "name": "hub.mode",
+            "in": "query",
+            "description": "`subscribe`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.verify_token",
+            "in": "query",
+            "description": "The configured verify token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.challenge",
+            "in": "query",
+            "description": "Echoed back",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The challenge, as plain text",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong mode or token, or none configured"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Meta's `WhatsApp` events, signed with the app secret (`X-Hub-Signature-256: sha256=<hex>`\nover the raw body; 1 MB cap). Records statuses (sent, delivered, read, failed; each once, in\nany order), template reviews, and STOP replies (the sender opts out of `WhatsApp`); every\nother inbound message is dropped unread. Answers 200 for every authentic request.",
+        "operationId": "whatsappWebhook",
+        "responses": {
+          "200": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "Authentic but not a WhatsApp event"
+          },
+          "401": {
+            "description": "The signature is missing or wrong, or no app secret is configured"
           },
           "413": {
             "description": "The body is too large"
@@ -13457,6 +15101,9 @@
           "chairs",
           "buckets",
           "patients",
+          "procedures_by_category",
+          "chair_time",
+          "visit_sources",
           "busy_hours",
           "lab_turnaround"
         ],
@@ -13478,6 +15125,10 @@
               "$ref": "#/components/schemas/BusyHour"
             },
             "description": "Visits by weekday and hour; only non-zero cells."
+          },
+          "chair_time": {
+            "$ref": "#/components/schemas/ChairTimeSplit",
+            "description": "Booked chair minutes by what they were spent on, from the appointment kind."
           },
           "chairs": {
             "type": "array",
@@ -13507,9 +15158,20 @@
             "$ref": "#/components/schemas/PatientBreakdown",
             "description": "Who the patients are."
           },
+          "procedures_by_category": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyCount"
+            },
+            "description": "Procedures done in the range by the category of the bill line that charged them\n(`uncategorised` when not billed or without a category), most first. Counts only."
+          },
           "to": {
             "type": "string",
             "description": "Last day, included."
+          },
+          "visit_sources": {
+            "$ref": "#/components/schemas/VisitSources",
+            "description": "Booked appointments against walk-ins."
           }
         }
       },
@@ -14186,6 +15848,144 @@
           }
         }
       },
+      "Audience": {
+        "type": "object",
+        "description": "A saved audience.",
+        "required": [
+          "id",
+          "name",
+          "filter",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was made (RFC 3339)."
+          },
+          "filter": {
+            "$ref": "#/components/schemas/AudienceFilterBody",
+            "description": "Its filter, evaluated when a campaign sends."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          }
+        }
+      },
+      "AudienceFilterBody": {
+        "type": "object",
+        "description": "One audience filter: `kind` and the fields it takes, nothing else.",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "after": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`last_visit`: last visit on or after this date. A patient never seen matches neither."
+          },
+          "before": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`last_visit`: last visit before this date (`YYYY-MM-DD`)."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`all_active`, `last_visit`, `birthday_month`, `age_band`, `sex` or `tag`. Balance,\ntreatment and visit-kind filters don't exist."
+          },
+          "max": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "`age_band`: oldest age in whole years."
+          },
+          "min": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "`age_band`: youngest age in whole years."
+          },
+          "month": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "`birthday_month`: 1 to 12."
+          },
+          "sex": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`sex`: `female`, `male`, `other` or `unknown`."
+          },
+          "tag": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`tag`: a patient tag."
+          }
+        }
+      },
+      "AudiencePreview": {
+        "type": "object",
+        "description": "How many patients a filter matches, and a token to schedule with.",
+        "required": [
+          "count",
+          "count_token",
+          "expires_at"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Active patients matching now. Consent, opt-outs and quiet hours apply when each message\nis sent, so fewer may be reached."
+          },
+          "count_token": {
+            "type": "string",
+            "description": "Hand it back to `POST /campaigns/{id}/schedule`: it proves this filter and this count."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When the token stops working (RFC 3339)."
+          }
+        }
+      },
+      "Audiences": {
+        "type": "object",
+        "description": "The clinic's audiences.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Audience"
+            },
+            "description": "Newest first, up to 200."
+          }
+        }
+      },
       "Availability": {
         "type": "object",
         "description": "Free slots.",
@@ -14216,6 +16016,54 @@
               "type": "string"
             },
             "description": "Start of each free slot, RFC 3339 in the clinic's time zone."
+          }
+        }
+      },
+      "Avatar": {
+        "type": "object",
+        "description": "A member's avatar: a preset the apps draw, or a photo to fetch.",
+        "properties": {
+          "photo_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When `photo_url` stops working (RFC 3339); load the list again for a new link."
+          },
+          "photo_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A signed path on the clinic's host for the photo (`GET /api/v1/avatars/{id}/content`)."
+          },
+          "preset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The preset id, such as `tooth_3`; the apps ship the pictures."
+          }
+        }
+      },
+      "AvatarForm": {
+        "type": "object",
+        "description": "The avatar form: exactly one of `file` and `preset`.",
+        "properties": {
+          "file": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "binary",
+            "description": "A PNG or JPEG photo of at most 2 MB."
+          },
+          "preset": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A preset id: 1 to 32 lower-case letters, digits or underscores, starting with a letter."
           }
         }
       },
@@ -14425,6 +16273,126 @@
           }
         }
       },
+      "Campaign": {
+        "type": "object",
+        "description": "A campaign with the outcome of its messages.",
+        "required": [
+          "id",
+          "name",
+          "audience_id",
+          "template_id",
+          "channel",
+          "offer_text",
+          "status",
+          "created_at",
+          "updated_at",
+          "counts"
+        ],
+        "properties": {
+          "audience_id": {
+            "type": "string",
+            "description": "Its audience."
+          },
+          "cancelled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was cancelled (RFC 3339)."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email` or `whatsapp`."
+          },
+          "counts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageCount"
+            },
+            "description": "Its messages by status and skip reason, counted when asked."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was made (RFC 3339)."
+          },
+          "created_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who made it."
+          },
+          "fan_out_done_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the last recipient was queued (RFC 3339)."
+          },
+          "fan_out_started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When recipients began to be queued (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name; also the email subject."
+          },
+          "offer_text": {
+            "type": "string",
+            "description": "The offer, filled into the template's `{{offer_text}}` and the email body."
+          },
+          "scheduled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it goes (RFC 3339)."
+          },
+          "scheduled_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The audience size the owner saw when scheduling."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft`, `scheduled`, `sending`, `sent` or `cancelled`."
+          },
+          "template_id": {
+            "type": "string",
+            "description": "Its `promo.offer` template."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          }
+        }
+      },
+      "Campaigns": {
+        "type": "object",
+        "description": "The clinic's campaigns.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Campaign"
+            },
+            "description": "Newest first, up to 100."
+          }
+        }
+      },
       "CancelRequest": {
         "type": "object",
         "description": "Cancelling a prescription.",
@@ -14604,6 +16572,32 @@
           "status": {
             "type": "string",
             "description": "`in_use` while a patient is in it, otherwise `free`."
+          }
+        }
+      },
+      "ChairTimeSplit": {
+        "type": "object",
+        "description": "Booked chair minutes (no-shows included) by what they were spent on.",
+        "required": [
+          "treatment",
+          "consult",
+          "admin"
+        ],
+        "properties": {
+          "admin": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Reserved: no appointment kind maps to it yet, so it is `0` minutes."
+          },
+          "consult": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes on new and follow-up consultations."
+          },
+          "treatment": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minutes on procedures and emergencies."
           }
         }
       },
@@ -15501,6 +17495,70 @@
           }
         }
       },
+      "CloseVisit": {
+        "type": "object",
+        "description": "What to do while closing a visit. Every field is optional; an empty body just closes.",
+        "properties": {
+          "fee_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Consultation fee in paise, more than zero. Starts a draft bill with a single line next\nto any priced procedures of the visit. Needs `billing.write`."
+          },
+          "follow_up_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Plans a follow-up on this day (`YYYY-MM-DD`, not in the past)."
+          },
+          "follow_up_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient should return (at most 300 characters); \"Follow-up\" by default."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Printed on the draft bill."
+          }
+        }
+      },
+      "ClosedVisit": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Visit",
+            "description": "The visit."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "invoice_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The draft bill (or the bill already linked to the visit)."
+              },
+              "recall_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The follow-up planned."
+              }
+            }
+          }
+        ],
+        "description": "A closed visit with the follow-up and the draft bill closing it made."
+      },
       "Code": {
         "type": "object",
         "description": "An optional clinical code. Free text always works without one.",
@@ -16294,6 +18352,86 @@
           }
         }
       },
+      "CreateCampaign": {
+        "type": "object",
+        "description": "A draft campaign to save.",
+        "required": [
+          "name",
+          "audience_id",
+          "template_id",
+          "channel",
+          "offer_text"
+        ],
+        "properties": {
+          "audience_id": {
+            "type": "string",
+            "description": "A saved audience."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email` or `whatsapp`."
+          },
+          "name": {
+            "type": "string",
+            "description": "One line of 1 to 120 characters; also the email subject."
+          },
+          "offer_text": {
+            "type": "string",
+            "description": "One line of 1 to 300 characters."
+          },
+          "scheduled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When to send (RFC 3339); needed before scheduling."
+          },
+          "template_id": {
+            "type": "string",
+            "description": "The clinic's `promo.offer` template for the channel."
+          }
+        }
+      },
+      "CreateMessageTemplate": {
+        "type": "object",
+        "description": "A template to add: another language or channel for a known key.",
+        "required": [
+          "key",
+          "channel",
+          "language",
+          "body",
+          "category"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The text; only the key's allow-listed `{{variables}}`."
+          },
+          "category": {
+            "type": "string",
+            "description": "`marketing`, `utility` or `authentication`."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email` or `whatsapp`."
+          },
+          "key": {
+            "type": "string",
+            "description": "A known key, such as `appointment.reminder`."
+          },
+          "language": {
+            "type": "string",
+            "description": "`en-IN`, `hi-IN`, `mr-IN`..."
+          },
+          "provider_template_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The template's name at Meta (lower case, digits and `_`)."
+          }
+        }
+      },
       "CreatedClinic": {
         "type": "object",
         "description": "A clinic just created. `invite_token` is shown once; only its hash is stored.",
@@ -16555,6 +18693,8 @@
           "messages_deferred",
           "messages_retrying",
           "messages_failed",
+          "campaign_messages_queued",
+          "campaign_recipients_capped",
           "lab_reminders_queued",
           "lab_reminders_skipped",
           "lab_orders_overdue"
@@ -16593,6 +18733,16 @@
             "type": "integer",
             "description": "Reminders written to the clinic inbox.",
             "minimum": 0
+          },
+          "campaign_messages_queued": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Campaign messages queued by this run's fan-out."
+          },
+          "campaign_recipients_capped": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Campaign recipients skipped by the weekly promotional cap."
           },
           "claimed": {
             "type": "integer",
@@ -16855,6 +19005,24 @@
           }
         }
       },
+      "EarlierVisit": {
+        "type": "object",
+        "description": "An earlier visit: the date and a title, nothing clinical.",
+        "required": [
+          "visited_on",
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "The treatments done, or `Consultation`."
+          },
+          "visited_on": {
+            "type": "string",
+            "description": "The clinic day (`YYYY-MM-DD`)."
+          }
+        }
+      },
       "EnteredInError": {
         "type": "object",
         "description": "Why a record is being marked entered in error.",
@@ -17065,6 +19233,111 @@
           }
         }
       },
+      "FamilyLink": {
+        "type": "object",
+        "description": "A relative of a patient.",
+        "required": [
+          "id",
+          "patient_id",
+          "number",
+          "full_name",
+          "relation",
+          "is_primary_contact"
+        ],
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "Their full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link; pass it to the delete route."
+          },
+          "is_primary_contact": {
+            "type": "boolean",
+            "description": "Whether they are this patient's contact person."
+          },
+          "number": {
+            "type": "string",
+            "description": "Their readable number, such as `SD-1042`."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The relative; open them at `/patients/{id}`."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What they are to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling` or\n`other`."
+          }
+        }
+      },
+      "FamilyList": {
+        "type": "object",
+        "description": "A patient's relatives.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FamilyLink"
+            },
+            "description": "The relatives, by name."
+          }
+        }
+      },
+      "FamilyMember": {
+        "type": "object",
+        "description": "A linked relative of a matched patient.",
+        "required": [
+          "of_patient_id",
+          "id",
+          "number",
+          "full_name",
+          "relation"
+        ],
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "Full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The relative."
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number, such as `SD-1043`."
+          },
+          "of_patient_id": {
+            "type": "string",
+            "description": "The matched patient they are linked to."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What they are to the matched patient: `guardian`, `child`, `spouse`, `parent`,\n`sibling` or `other`."
+          }
+        }
+      },
+      "FamilyOfFields": {
+        "type": "object",
+        "description": "Puts the walk-in in an existing patient's family.",
+        "required": [
+          "patient_id",
+          "relation"
+        ],
+        "properties": {
+          "patient_id": {
+            "type": "string",
+            "description": "The existing patient (a patient of this clinic)."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What the walk-in is to that patient: `guardian`, `child`, `spouse`, `parent`, `sibling`\nor `other`. `child` means the walk-in is that patient's child."
+          }
+        }
+      },
       "FileSharing": {
         "type": "object",
         "description": "Whether a file is shared with the patient.",
@@ -17080,7 +19353,7 @@
       },
       "HandledBy": {
         "type": "object",
-        "description": "Who handled a notification: confirmed, declined or cancelled its appointment.",
+        "description": "Who handled a notification: confirmed, declined or cancelled its appointment, or received,\ncancelled or re-dated its lab work.",
         "required": [
           "at"
         ],
@@ -19849,6 +22122,17 @@
           "branches"
         ],
         "properties": {
+          "avatar": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Avatar",
+                "description": "Their avatar: a preset id or a photo link (on the clinic's host, good for an hour)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "branches": {
             "type": "array",
             "items": {
@@ -19992,6 +22276,32 @@
           }
         }
       },
+      "MessageCount": {
+        "type": "object",
+        "description": "One group of a campaign's messages.",
+        "required": [
+          "status",
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many."
+          },
+          "skip_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why they were skipped: `no_consent`, `consent_withdrawn`, `opted_out`, `frequency_cap`..."
+          },
+          "status": {
+            "type": "string",
+            "description": "`queued`, `sending`, `sent`, `failed` or `skipped`."
+          }
+        }
+      },
       "MessageList": {
         "type": "object",
         "description": "A patient's messages, newest first.",
@@ -20080,6 +22390,105 @@
           "template_key": {
             "type": "string",
             "description": "Its template."
+          }
+        }
+      },
+      "MessageTemplate": {
+        "type": "object",
+        "description": "One of the clinic's templates.",
+        "required": [
+          "id",
+          "key",
+          "channel",
+          "language",
+          "body",
+          "category",
+          "status",
+          "updated_at"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The text, with allow-listed `{{variables}}`."
+          },
+          "category": {
+            "type": "string",
+            "description": "`marketing`, `utility` or `authentication`, as Meta categorises it."
+          },
+          "channel": {
+            "type": "string",
+            "description": "`email` or `whatsapp`."
+          },
+          "dlt_template_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SMS DLT template id, for later."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "key": {
+            "type": "string",
+            "description": "`care.note`, `reminder.follow_up`, `promo.offer`, `appointment.reminder`, `booking.*`..."
+          },
+          "language": {
+            "type": "string",
+            "description": "`en-IN`, `hi-IN`, `mr-IN`..."
+          },
+          "provider_template_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The template's name at Meta (`WhatsApp`)."
+          },
+          "reviewed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When Meta last reviewed it (RFC 3339)."
+          },
+          "sender_header": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SMS sender header (DLT), for later."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft`, `submitted`, `approved`, `rejected` or `paused`. Only approved ones are sent."
+          },
+          "submitted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was last submitted (RFC 3339)."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed (RFC 3339)."
+          }
+        }
+      },
+      "MessageTemplates": {
+        "type": "object",
+        "description": "The clinic's templates.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageTemplate"
+            },
+            "description": "By key, channel and language."
           }
         }
       },
@@ -20228,6 +22637,17 @@
           "role_name"
         ],
         "properties": {
+          "avatar": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Avatar",
+                "description": "The person's avatar at this clinic; photo links work on the clinic's `host`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "host": {
             "type": [
               "string",
@@ -20308,6 +22728,22 @@
               "$ref": "#/components/schemas/MySession"
             },
             "description": "Most recently used first."
+          }
+        }
+      },
+      "MyVisits": {
+        "type": "object",
+        "description": "The patient's visits.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitSummary"
+            },
+            "description": "Newest first within each clinic, at most 25 per clinic."
           }
         }
       },
@@ -20492,6 +22928,13 @@
             ],
             "description": "A procedure id from the chart's `terms`: seeded (`crown`) or the clinic's own. Not with `sound`."
           },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Corrects this current entry of the patient, which may be on another tooth or surface:\nit is superseded and the new entry links to it. Leave out to supersede the current entry\nfor the new entry's own tooth and surface."
+          },
           "surface": {
             "type": [
               "string",
@@ -20664,6 +23107,28 @@
           "spent_on": {
             "type": "string",
             "description": "The clinic day, `YYYY-MM-DD`; today or earlier."
+          }
+        }
+      },
+      "NewFamilyLink": {
+        "type": "object",
+        "description": "A relative to link.",
+        "required": [
+          "related_patient_id",
+          "relation"
+        ],
+        "properties": {
+          "is_primary_contact": {
+            "type": "boolean",
+            "description": "Whether the relative is this patient's contact person."
+          },
+          "related_patient_id": {
+            "type": "string",
+            "description": "The relative, a patient of this clinic."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What the relative is to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling`\nor `other`. The relative's own page shows the inverse (a guardian's dependant lists\nthem as `child`)."
           }
         }
       },
@@ -21091,6 +23556,13 @@
             "format": "int64",
             "description": "Paise, more than zero."
           },
+          "attachment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Proof of payment: a `payment_proof` file of the same patient, uploaded first."
+          },
           "method": {
             "type": "string",
             "description": "`cash`, `upi`, `card` or `bank`."
@@ -21301,6 +23773,27 @@
           "reason": {
             "type": "string",
             "description": "Why, 1 to 300 characters."
+          }
+        }
+      },
+      "NewRecordShare": {
+        "type": "object",
+        "description": "What to share and for how long.",
+        "required": [
+          "record_types",
+          "expires_in"
+        ],
+        "properties": {
+          "expires_in": {
+            "type": "string",
+            "description": "How long the link works: `1h`, `24h` or `7d`."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "One to three different kinds: `chart`, `xrays`, `bills`. Each needs the matching\npermission (`clinical.read` for chart and X-rays, `billing.read` for bills)."
           }
         }
       },
@@ -21599,13 +24092,19 @@
           "id",
           "kind",
           "created_at",
-          "read",
-          "appointment"
+          "read"
         ],
         "properties": {
           "appointment": {
-            "$ref": "#/components/schemas/NotifiedAppointment",
-            "description": "The appointment."
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedAppointment",
+                "description": "The appointment, for a booking notification."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_at": {
             "type": "string",
@@ -21635,7 +24134,29 @@
           },
           "kind": {
             "type": "string",
-            "description": "`booking_requested`, `booking_confirmed_auto` or `booking_cancelled_by_patient`."
+            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,\n`lab_overdue`, `patient_waiting` (for the doctor), `send_in` (for the front desk) or\n`collect_payment` (for the front desk and billing)."
+          },
+          "lab_order": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedLabOrder",
+                "description": "The lab order, for `lab_overdue`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "queue_token": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedQueueToken",
+                "description": "The queue token, for `patient_waiting`, `send_in` and `collect_payment`."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "read": {
             "type": "boolean",
@@ -21708,6 +24229,79 @@
           "status": {
             "type": "string",
             "description": "Its status now, such as `requested` or `confirmed`."
+          }
+        }
+      },
+      "NotifiedLabOrder": {
+        "type": "object",
+        "description": "The lab order an overdue alert is about.",
+        "required": [
+          "id",
+          "number",
+          "vendor_name"
+        ],
+        "properties": {
+          "due_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its due date now (`YYYY-MM-DD`)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The order; open it at `/lab-orders/{id}`."
+          },
+          "number": {
+            "type": "string",
+            "description": "Its number, such as `LAB-12`."
+          },
+          "vendor_name": {
+            "type": "string",
+            "description": "Its lab's name."
+          }
+        }
+      },
+      "NotifiedQueueToken": {
+        "type": "object",
+        "description": "The queue token a queue notification is about. No patient name: the clinic number only.",
+        "required": [
+          "id",
+          "token_number",
+          "status",
+          "patient_number"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The token; the queue lists it at `/queue`."
+          },
+          "patient_number": {
+            "type": "string",
+            "description": "The patient's clinic number, such as `SC-1042`."
+          },
+          "practitioner_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its doctor, when set."
+          },
+          "practitioner_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The doctor's name as shown on the calendar."
+          },
+          "status": {
+            "type": "string",
+            "description": "Its status now, such as `waiting` or `called`."
+          },
+          "token_number": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Its number today."
           }
         }
       },
@@ -21917,6 +24511,19 @@
           }
         }
       },
+      "OpenRecords": {
+        "type": "object",
+        "description": "The PIN.",
+        "required": [
+          "pin"
+        ],
+        "properties": {
+          "pin": {
+            "type": "string",
+            "description": "The six digits the clinic gave."
+          }
+        }
+      },
       "OpenRequest": {
         "type": "object",
         "description": "The PIN.",
@@ -21927,6 +24534,19 @@
           "pin": {
             "type": "string",
             "description": "The six digits printed on the paper."
+          }
+        }
+      },
+      "OpenVisit": {
+        "type": "object",
+        "description": "The PIN.",
+        "required": [
+          "pin"
+        ],
+        "properties": {
+          "pin": {
+            "type": "string",
+            "description": "The six digits the clinic gave."
           }
         }
       },
@@ -22053,6 +24673,78 @@
               "$ref": "#/components/schemas/OwnDentalTerm"
             },
             "description": "By list, then label; retired ones included."
+          }
+        }
+      },
+      "PatchAudience": {
+        "type": "object",
+        "description": "Changes to an audience; absent fields stay.",
+        "properties": {
+          "filter": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AudienceFilterBody",
+                "description": "New filter; refused while a scheduled or sending campaign uses the audience."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New name."
+          }
+        }
+      },
+      "PatchCampaign": {
+        "type": "object",
+        "description": "Changes to a draft; absent fields stay.",
+        "properties": {
+          "audience_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New audience."
+          },
+          "channel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New channel."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New name."
+          },
+          "offer_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New offer text."
+          },
+          "scheduled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New time (RFC 3339); an empty string removes it."
+          },
+          "template_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New template."
           }
         }
       },
@@ -22521,6 +25213,7 @@
         "description": "Who the patients in the range are.",
         "required": [
           "age_bands",
+          "sex",
           "visit_kinds",
           "referral_sources"
         ],
@@ -22538,6 +25231,13 @@
               "$ref": "#/components/schemas/KeyCount"
             },
             "description": "Patients whose first visit was in the range, by referral source kind: `patient`,\n`doctor`, `online`, `walk_in`, `camp`, `insurance`, `other`, `unknown` (none recorded).\nEvery kind listed."
+          },
+          "sex": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyCount"
+            },
+            "description": "Patients seen, by recorded sex: `female`, `male`, `other`, `unknown`. Every value listed."
           },
           "visit_kinds": {
             "type": "array",
@@ -23337,6 +26037,13 @@
             "format": "int64",
             "description": "Paise."
           },
+          "attachment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Proof of payment: a file of kind `payment_proof`."
+          },
           "id": {
             "type": "string",
             "description": "Identifier."
@@ -23581,9 +26288,17 @@
         "type": "object",
         "description": "Patients registered with a phone.",
         "required": [
-          "items"
+          "items",
+          "family_group"
         ],
         "properties": {
+          "family_group": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FamilyMember"
+            },
+            "description": "Relatives linked to the matches (`/patients/{id}/family`) who are not themselves matches,\nso the desk can offer the whole family. Empty when nothing is linked."
+          },
           "items": {
             "type": "array",
             "items": {
@@ -24121,6 +26836,19 @@
               "$ref": "#/components/schemas/Prescription"
             },
             "description": "Newest first."
+          }
+        }
+      },
+      "PreviewAudience": {
+        "type": "object",
+        "description": "A filter to count.",
+        "required": [
+          "filter"
+        ],
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/AudienceFilterBody",
+            "description": "The filter."
           }
         }
       },
@@ -24739,9 +27467,16 @@
               }
             ]
           },
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The chair the patient was seated in, when one was chosen."
+          },
           "status": {
             "type": "string",
-            "description": "`waiting`, `in_chair`, `done` or `left`."
+            "description": "`waiting`, `called`, `in_chair`, `ready_to_bill`, `done` or `left`."
           },
           "token_number": {
             "type": "integer",
@@ -25119,6 +27854,107 @@
           "purpose": {
             "type": "string",
             "description": "`care`, `reminders`, `promotional`, `sharing` or `research`."
+          }
+        }
+      },
+      "RecordShare": {
+        "type": "object",
+        "description": "A new link to records. The token and PIN are shown once.",
+        "required": [
+          "id",
+          "token",
+          "pin",
+          "record_types",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "description": "When it stops working (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link's id."
+          },
+          "pin": {
+            "type": "string",
+            "description": "Six-digit PIN to tell the patient."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What the link shows."
+          },
+          "token": {
+            "type": "string",
+            "description": "Token for the link: `/shared/{token}` on the clinic's host."
+          }
+        }
+      },
+      "RecordShareItem": {
+        "type": "object",
+        "description": "A link to records as listed: never its token or PIN.",
+        "required": [
+          "id",
+          "record_types",
+          "state",
+          "expires_at",
+          "open_count",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was made."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When it stops working."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link's id."
+          },
+          "open_count": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many times it was opened."
+          },
+          "opened_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was first opened."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What it shows."
+          },
+          "state": {
+            "type": "string",
+            "description": "`usable`, `expired` (past its expiry or revoked) or `locked` (too many wrong PINs)."
+          }
+        }
+      },
+      "RecordShares": {
+        "type": "object",
+        "description": "The patient's links to records.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordShareItem"
+            },
+            "description": "Newest first."
           }
         }
       },
@@ -25736,6 +28572,24 @@
           }
         }
       },
+      "SaveAudience": {
+        "type": "object",
+        "description": "An audience to save.",
+        "required": [
+          "name",
+          "filter"
+        ],
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/AudienceFilterBody",
+            "description": "The filter."
+          },
+          "name": {
+            "type": "string",
+            "description": "One line of 1 to 120 characters."
+          }
+        }
+      },
       "SavedAppointment": {
         "type": "object",
         "description": "An appointment after a booking or change.",
@@ -25802,6 +28656,19 @@
               "$ref": "#/components/schemas/RolePermission"
             },
             "description": "What it may do now, sorted by key."
+          }
+        }
+      },
+      "ScheduleCampaign": {
+        "type": "object",
+        "description": "The proof that the owner saw this audience's size.",
+        "required": [
+          "count_token"
+        ],
+        "properties": {
+          "count_token": {
+            "type": "string",
+            "description": "From `POST /audiences/preview` for the campaign's audience filter."
           }
         }
       },
@@ -26012,6 +28879,17 @@
           "display_name"
         ],
         "properties": {
+          "avatar": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Avatar",
+                "description": "Their avatar at this clinic."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "display_name": {
             "type": "string",
             "description": "Their name."
@@ -26180,6 +29058,87 @@
           }
         }
       },
+      "SharedBill": {
+        "type": "object",
+        "description": "An issued bill.",
+        "required": [
+          "id",
+          "total_paise",
+          "paid_paise"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The bill."
+          },
+          "issued_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was issued."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its number."
+          },
+          "paid_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paid so far, in paise."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Its total, in paise."
+          }
+        }
+      },
+      "SharedChartEntry": {
+        "type": "object",
+        "description": "One tooth finding on the chart.",
+        "required": [
+          "effective_at"
+        ],
+        "properties": {
+          "effective_at": {
+            "type": "string",
+            "description": "When the finding was made."
+          },
+          "finding": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The finding, such as `caries`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The note."
+          },
+          "surface": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The surface, such as `O`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI tooth number."
+          }
+        }
+      },
       "SharedPreview": {
         "type": "object",
         "description": "What a link shows before its PIN: no patient data.",
@@ -26198,13 +29157,129 @@
             "type": "string",
             "description": "When it stops working."
           },
+          "record_types": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "For a link to records, what it shows: `chart`, `xrays`, `bills`; open it with\n`POST /shared/{token}/records`. Absent for a prescription."
+          },
           "resource": {
             "type": "string",
-            "description": "`prescription`."
+            "description": "`prescription`, `records` or `visit`. Open a visit with `POST /shared/{token}/visit`."
           },
           "state": {
             "type": "string",
             "description": "`usable`, `expired` or `locked`."
+          }
+        }
+      },
+      "SharedRecords": {
+        "type": "object",
+        "description": "What an opened link shows; only the kinds the clinic chose are present.",
+        "required": [
+          "patient_name",
+          "record_types",
+          "expires_at"
+        ],
+        "properties": {
+          "bills": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SharedBill"
+            },
+            "description": "Issued bills; absent unless `bills` was shared."
+          },
+          "chart": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SharedChartEntry"
+            },
+            "description": "The current chart; absent unless `chart` was shared."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When the link stops working."
+          },
+          "patient_name": {
+            "type": "string",
+            "description": "The patient's name."
+          },
+          "record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The kinds shown."
+          },
+          "xrays": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SharedXray"
+            },
+            "description": "X-rays, newest first; absent unless `xrays` was shared."
+          }
+        }
+      },
+      "SharedXray": {
+        "type": "object",
+        "description": "An X-ray.",
+        "required": [
+          "id",
+          "taken_at",
+          "mime_type",
+          "url"
+        ],
+        "properties": {
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A caption."
+          },
+          "id": {
+            "type": "string",
+            "description": "The file."
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its label, such as `OPG`."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "Media type, such as `image/jpeg`."
+          },
+          "taken_at": {
+            "type": "string",
+            "description": "When it was taken, or else uploaded."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The tooth it shows."
+          },
+          "url": {
+            "type": "string",
+            "description": "Where to fetch it: a signed path on the clinic's host, good for ten minutes (never past\nthe link's own expiry). Open the link again for a new one."
           }
         }
       },
@@ -28144,9 +31219,16 @@
           "status"
         ],
         "properties": {
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "With `in_chair` only: the chair (a room of the token's branch) to seat the patient in.\nThe token's appointment moves to it too. Sending it again with another chair while in\nthe chair moves the patient."
+          },
           "status": {
             "type": "string",
-            "description": "`in_chair`, `done` or `left`."
+            "description": "`waiting` (undo a call), `called`, `in_chair`, `ready_to_bill`, `done` or `left`."
           }
         }
       },
@@ -28174,6 +31256,86 @@
           "unsubscribed": {
             "type": "boolean",
             "description": "Always true."
+          }
+        }
+      },
+      "UpdateMessageTemplate": {
+        "type": "object",
+        "description": "Changes to the clinic's copy; fields left out stay.",
+        "properties": {
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New text; only the key's allow-listed `{{variables}}`."
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`marketing`, `utility` or `authentication`."
+          },
+          "dlt_template_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SMS DLT template id."
+          },
+          "provider_template_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The template's name at Meta."
+          },
+          "sender_header": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SMS sender header (DLT)."
+          }
+        }
+      },
+      "UpiLink": {
+        "type": "object",
+        "description": "How a patient pays an issued bill by UPI.",
+        "required": [
+          "uri",
+          "qr_data",
+          "upi_id",
+          "payee_name",
+          "invoice_number",
+          "amount_paise"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What is left to pay, in paise."
+          },
+          "invoice_number": {
+            "type": "string",
+            "description": "The bill number sent as the payment note."
+          },
+          "payee_name": {
+            "type": "string",
+            "description": "The payee name shown in the UPI app (the clinic's name)."
+          },
+          "qr_data": {
+            "type": "string",
+            "description": "The same text, to encode in a QR code (no gateway; payments are recorded as usual)."
+          },
+          "upi_id": {
+            "type": "string",
+            "description": "The clinic's UPI ID from settings."
+          },
+          "uri": {
+            "type": "string",
+            "description": "The `upi://pay` link to open in a UPI app."
           }
         }
       },
@@ -28433,6 +31595,24 @@
           }
         }
       },
+      "VisitFollowUp": {
+        "type": "object",
+        "description": "The next follow-up.",
+        "required": [
+          "due_on",
+          "kind"
+        ],
+        "properties": {
+          "due_on": {
+            "type": "string",
+            "description": "The day it is due (`YYYY-MM-DD`)."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`follow_up`, `cleaning`, and so on."
+          }
+        }
+      },
       "VisitList": {
         "type": "object",
         "description": "A patient's visits, newest first.",
@@ -28521,6 +31701,265 @@
           }
         }
       },
+      "VisitPrescription": {
+        "type": "object",
+        "description": "The prescription issued in the visit.",
+        "required": [
+          "number",
+          "issued_on",
+          "items"
+        ],
+        "properties": {
+          "issued_on": {
+            "type": "string",
+            "description": "The clinic day it was issued (`YYYY-MM-DD`)."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitRxItem"
+            },
+            "description": "The medicines in order."
+          },
+          "number": {
+            "type": "string",
+            "description": "`RX-…`."
+          }
+        }
+      },
+      "VisitRxItem": {
+        "type": "object",
+        "description": "A medicine of the visit's prescription.",
+        "required": [
+          "drug_name",
+          "dose",
+          "frequency"
+        ],
+        "properties": {
+          "dose": {
+            "type": "string",
+            "description": "How much per dose."
+          },
+          "drug_name": {
+            "type": "string",
+            "description": "As printed."
+          },
+          "duration_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "For how many days."
+          },
+          "form": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Form, such as `tablet`."
+          },
+          "frequency": {
+            "type": "string",
+            "description": "`1-0-1`."
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "In the prescription's language."
+          },
+          "strength": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Strength, such as `500 mg`."
+          },
+          "timing": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`after_food`, and so on."
+          }
+        }
+      },
+      "VisitShare": {
+        "type": "object",
+        "description": "A new link to a visit. The token and PIN are shown once.",
+        "required": [
+          "id",
+          "token",
+          "path",
+          "pin",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "description": "When it stops working (seven days)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link's id."
+          },
+          "path": {
+            "type": "string",
+            "description": "Path on the clinic's host that the patient opens: `/shared/{token}`. Send the PIN apart\nfrom the link."
+          },
+          "pin": {
+            "type": "string",
+            "description": "Six-digit PIN."
+          },
+          "token": {
+            "type": "string",
+            "description": "Token for the link."
+          }
+        }
+      },
+      "VisitSources": {
+        "type": "object",
+        "description": "Visits in the range by how they came.",
+        "required": [
+          "booked",
+          "walk_in"
+        ],
+        "properties": {
+          "booked": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Visits that were booked appointments (not cancelled, no-show or unconfirmed requests)."
+          },
+          "walk_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Walk-in tokens issued in the range, not counting those who left unseen."
+          }
+        }
+      },
+      "VisitSummary": {
+        "type": "object",
+        "description": "What a patient sees of one visit.",
+        "required": [
+          "id",
+          "number",
+          "clinic_name",
+          "visited_on",
+          "treatments",
+          "earlier_visits",
+          "booking_path"
+        ],
+        "properties": {
+          "advice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The Plan section of the visit's signed notes."
+          },
+          "booking_path": {
+            "type": "string",
+            "description": "Where a patient books again, on the clinic's host."
+          },
+          "clinic_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic the visit was at; absent on a public link, which is on the clinic's host."
+          },
+          "clinic_name": {
+            "type": "string",
+            "description": "The clinic's name."
+          },
+          "doctor_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The doctor's name."
+          },
+          "earlier_visits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EarlierVisit"
+            },
+            "description": "The last five visits before this one, newest first."
+          },
+          "id": {
+            "type": "string",
+            "description": "The visit."
+          },
+          "next_follow_up": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VisitFollowUp",
+                "description": "The next follow-up."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number, such as `V-318`."
+          },
+          "prescription": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VisitPrescription",
+                "description": "The issued prescription."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "treatments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitTreatment"
+            },
+            "description": "What was done."
+          },
+          "visited_on": {
+            "type": "string",
+            "description": "The clinic day (`YYYY-MM-DD`)."
+          }
+        }
+      },
+      "VisitTreatment": {
+        "type": "object",
+        "description": "A treatment done in the visit. No fee.",
+        "required": [
+          "name",
+          "surfaces"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "What was done."
+          },
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Surfaces, such as `O`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI tooth number."
+          }
+        }
+      },
       "WalkIn": {
         "type": "object",
         "description": "What a walk-in did.",
@@ -28544,6 +31983,13 @@
               "type": "string"
             },
             "description": "The purposes whose consent was recorded."
+          },
+          "family_link_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The family link made, from the existing patient's side; absent without `family_of`."
           },
           "patient": {
             "$ref": "#/components/schemas/Patient",
@@ -28610,6 +32056,17 @@
               "$ref": "#/components/schemas/DeskConsentFields"
             },
             "description": "Consents given at the desk, each purpose once. Purposes already in force are left as\nthey are."
+          },
+          "family_of": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FamilyOfFields",
+                "description": "Add the walk-in to an existing patient's family (the link is written both ways)."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "no_known_allergies": {
             "type": "boolean",
@@ -29031,6 +32488,10 @@
     {
       "name": "messages",
       "description": "Messages to patients: sending, a patient's message list, contact preferences, unsubscribe links and provider webhooks"
+    },
+    {
+      "name": "campaigns",
+      "description": "Audiences (a typed filter, count-only preview) and campaigns: promotional sends to an audience, scheduled with a count token (owners)"
     },
     {
       "name": "chat",

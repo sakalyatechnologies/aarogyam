@@ -1,12 +1,10 @@
 package com.aarogyam.staff
 
-import com.aarogyam.staff.api.lookupByPhone
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.desk.DeskBoardStateHolder
 import com.aarogyam.staff.desk.DeskLookupStateHolder
 import com.aarogyam.staff.desk.DeskPaymentStateHolder
 import com.sakalya.mobile.core.Logger
-import com.sakalya.mobile.core.Outcome
 
 // The v9 front desk's holders, living as long as the SwiftUI screen that owns [screen].
 
@@ -28,18 +26,3 @@ fun AppGraph.deskPayment(
     patientId: String,
     screen: ScreenScope,
 ): DeskPaymentStateHolder = DeskPaymentStateHolder(clinic, patientId, screen.scope, this, Logger("aarogyam.deskpay"))
-
-/**
- * Names for the profiles the lookup found, by patient id. [com.aarogyam.staff.desk.DeskProfile] carries
- * initials only, so the picker asks once more for the names; empty when that call fails. Drop it when
- * the shared profile gains a name. The phone is for this one request only and is never logged.
- */
-suspend fun deskProfileNames(
-    clinic: ClinicContext,
-    phone: String,
-): Map<String, String> =
-    (clinic.api.lookupByPhone(phone) as? Outcome.Success)
-        ?.value
-        ?.items
-        ?.associate { it.id to it.fullName }
-        .orEmpty()

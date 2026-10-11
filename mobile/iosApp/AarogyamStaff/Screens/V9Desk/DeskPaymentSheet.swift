@@ -29,7 +29,6 @@ private struct DeskPaymentScreen: View {
     @State private var method: PayMethod?
     @State private var showProblems = false
     @State private var proof: Data?
-    @State private var proofLabel = DeskProofLabel.report
     @State private var camera = false
     @State private var library: PhotosPickerItem?
     @State private var outcome: DeskPayOutcome = DeskPayOutcomeIdle.shared
@@ -126,29 +125,24 @@ private struct DeskPaymentScreen: View {
         showProblems = true
         guard DeskPay.problems(amountText: amount, method: method).isEmpty,
               let paise = DeskPay.paise(from: amount), let method else { return }
-        holder.record(invoiceId: due.id, amountPaise: paise, method: method, proofJpeg: proof?.kotlinBytes,
-                      proofLabel: proof == nil ? nil : proofLabel.name)
+        holder.record(invoiceId: due.id, amountPaise: paise, method: method, proofJpeg: proof?.kotlinBytes)
     }
 
-    /// "Attach proof": the camera or the photo library, and the label the file is saved under.
+    /// "Attach proof": the camera or the photo library; the photo is saved as the payment's proof.
     @ViewBuilder private func proofSection(_ allowed: Bool) -> some View {
         let r = theme.roles
         V7Label(text: dv("d9.pay.proof"))
         if !allowed {
             Text(dv("d9.pay.proof.locked")).v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
-            PreviewNotice()
         } else if let proof, let image = UIImage(data: proof) {
             HStack(alignment: .top, spacing: 12) {
                 Image(uiImage: image).resizable().scaledToFill().frame(width: 84, height: 84)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .accessibilityLabel(dv("d9.pay.proof.photo.a11y"))
                 VStack(alignment: .leading, spacing: 8) {
-                    V7Label(text: dv("d9.pay.proof.label"))
-                    SkChoiceChips(DeskProofLabel.allCases, selected: [proofLabel], label: { $0.title }) { proofLabel = $0 }
                     SkPillButton(dv("d9.pay.proof.remove"), variant: .ghost) { self.proof = nil; library = nil }
                 }
             }
-            Text(dv("d9.pay.proof.preview")).v7Text(11.5).foregroundStyle(r.onSurfaceVariant.color)
         } else {
             FlowLayout(spacing: 8) {
                 if CameraPicker.isAvailable {
@@ -160,7 +154,6 @@ private struct DeskPaymentScreen: View {
                         .background(r.primaryContainer.color, in: Capsule())
                 }
             }
-            PreviewNotice(text: dv("d9.pay.proof.preview"))
         }
     }
 
@@ -198,12 +191,4 @@ private struct DeskPaymentScreen: View {
         .background(theme.roles.tertiaryContainer.color, in: Capsule())
         .accessibilityElement(children: .combine)
     }
-}
-
-/// What the proof photo is saved as in the patient's files, until BE6 gives payments their own proof.
-enum DeskProofLabel: CaseIterable, Hashable {
-    case report, other
-
-    var name: String { self == .report ? "Report" : "Other" }
-    var title: String { self == .report ? dv("d9.label.report") : dv("d9.label.other") }
 }

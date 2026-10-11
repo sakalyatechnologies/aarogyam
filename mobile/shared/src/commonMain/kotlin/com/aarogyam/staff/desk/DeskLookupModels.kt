@@ -9,9 +9,10 @@ sealed interface DeskAction {
         val prefilledPhone: String,
     ) : DeskAction
 
-    /** Another person on this number; the family relation itself is a future server field. */
+    /** Another person on this number, to be linked to [ofPatientId] (the first match) as a relative. */
     data class AddFamilyMember(
         val phone: String,
+        val ofPatientId: String? = null,
     ) : DeskAction
 
     data class CheckIn(
@@ -31,8 +32,11 @@ data class DeskProfile(
     val checkedInToday: Boolean,
     /** Today's state when checked in; null otherwise. */
     val state: PatientState?,
-    /** Relation to the number's owner; null until the server sends family relations. */
+    /** What this person is to [familyOf] (`guardian`, `child`, ...); null for a person on the number. */
     val relation: String? = null,
+    val name: String = "",
+    /** The matched patient this relative is linked to; null for a person on the number. */
+    val familyOf: String? = null,
 )
 
 /** What the Desk lookup draws. */

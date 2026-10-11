@@ -1,6 +1,8 @@
 package com.aarogyam.staff.desk
 
+import com.aarogyam.staff.LiveUpdates
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.callToken
 import com.aarogyam.staff.api.queue
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.Sex
@@ -38,19 +40,25 @@ sealed interface DeskBoardState {
         val error: ScreenError,
     ) : DeskBoardState
 
-    /** [error] is a failed refresh; the tickets shown are from the last good load. */
+    /**
+     * [error] is a failed refresh or a failed Send in; the tickets shown are from the last good
+     * load. [mine] is the doctor's "My patients" filter; [canFilterMine] says the toggle exists.
+     */
     data class Loaded(
         val tickets: List<BoardTicket>,
         val refreshing: Boolean = false,
         val error: ScreenError? = null,
+        val mine: Boolean = false,
+        val canFilterMine: Boolean = false,
+        val calling: Set<String> = emptySet(),
     ) : DeskBoardState
 }
 
 /**
  * Today's queue as a waiting-room board: one `GET /queue`, each token mapped through
  * [patientState]. A doctor's or owner's in-chair patient with an open visit is In consult; the
- * visit list needs `clinical.read`, so other roles see In chair. Called shows from `called_at`;
- * Ready to bill waits for the server (BE2).
+ * visit list needs `clinical.read`, so other roles see In chair. A doctor can send a waiting
+ * patient in (`POST /queue/{id}/call`) and filter to their own patients (`practitioner_id`).
  */
 class DeskBoardStateHolder(
     private val clinic: ClinicContext,
@@ -63,6 +71,10 @@ class DeskBoardStateHolder(
         )
 
     val state: StateFlow<DeskBoardState> = mutableState.asStateFlow()
+
+    private var mine = false
+    private var myPractitionerId: String? = null
+    private val canFilterMine = CLINICAL_WRITE in clinic.permissions
 
     init {
         if (APPOINTMENTS_READ in clinic.permissions) load()
@@ -92,9 +104,57 @@ class DeskBoardStateHolder(
         load()
     }
 
+    /** Reloads on every change [live] reports, until the scope ends (the screen is gone). */
+    fun observe(live: LiveUpdates) {
+        scope.launch { live.changes().collect { refresh() } }
+    }
+
+    /** Doctors only: shows just my patients (the `practitioner_id` filter) or everyone. */
+    fun setMine(on: Boolean) {
+        if (!canFilterMine || on == mine) return
+        mine = on
+        (mutableState.value as? DeskBoardState.Loaded)?.let {
+            mutableState.value =
+                it.copy(
+                    mine = on,
+                    refreshing = true,
+                )
+        }
+        load()
+    }
+
+    /** The doctor sends a waiting patient in; the board shows what the server now has. */
+    fun sendIn(tokenId: String) {
+        val shown = mutableState.value as? DeskBoardState.Loaded ?: return
+        if (CLINICAL_WRITE !in clinic.permissions || tokenId in shown.calling) return
+        mutableState.value = shown.copy(calling = shown.calling + tokenId, error = null)
+        scope.launch {
+            val result = clinic.api.callToken(tokenId)
+            if (result is Outcome.Failure) {
+                log.warn("deskboard.call_failed") { code("error", result.error.code.value) }
+                val error = ScreenError.of(result.error)
+                (mutableState.value as? DeskBoardState.Loaded)?.let {
+                    mutableState.value = it.copy(error = error, calling = it.calling - tokenId)
+                }
+            }
+            load()
+        }
+    }
+
+    private suspend fun myPractitioner(): String? {
+        myPractitionerId?.let { return it }
+        val me = clinic.session.membership.id
+        return (clinic.reference.practitioners() as? Outcome.Success)
+            ?.value
+            ?.firstOrNull { it.membershipId == me }
+            ?.id
+            ?.also { myPractitionerId = it }
+    }
+
     private fun load() {
         scope.launch {
-            when (val result = clinic.api.queue()) {
+            val filter = if (mine) myPractitioner() else null
+            when (val result = clinic.api.queue(filter)) {
                 is Outcome.Success -> {
                     val canSeeVisits = CLINICAL_READ in clinic.permissions
                     val tickets =
@@ -114,7 +174,8 @@ class DeskBoardStateHolder(
                                 waitMinutes = token.waitMinutes,
                             )
                         }
-                    mutableState.value = DeskBoardState.Loaded(tickets)
+                    mutableState.value =
+                        DeskBoardState.Loaded(tickets, mine = mine && filter != null, canFilterMine = canFilterMine)
                 }
 
                 is Outcome.Failure -> {
@@ -122,7 +183,8 @@ class DeskBoardStateHolder(
                     val error = ScreenError.of(result.error)
                     val current = mutableState.value as? DeskBoardState.Loaded
                     mutableState.value =
-                        current?.copy(refreshing = false, error = error) ?: DeskBoardState.Failed(error)
+                        current?.copy(refreshing = false, error = error, calling = emptySet())
+                            ?: DeskBoardState.Failed(error)
                 }
             }
         }
@@ -134,5 +196,6 @@ class DeskBoardStateHolder(
     private companion object {
         const val APPOINTMENTS_READ = "appointments.read"
         const val CLINICAL_READ = "clinical.read"
+        const val CLINICAL_WRITE = "clinical.write"
     }
 }

@@ -10,6 +10,7 @@ import com.aarogyam.staff.clinic.ClinicBranding
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
+import com.aarogyam.staff.desk.FamilyStateHolder
 import com.aarogyam.staff.desk.registerDeskPayments
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.UserDefaultsPreferences
@@ -41,6 +42,7 @@ import com.aarogyam.staff.team.StockStateHolder
 import com.aarogyam.staff.team.TeamStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
 import com.aarogyam.staff.visit.RecallsStateHolder
+import com.aarogyam.staff.visit.VisitShareStateHolder
 import com.aarogyam.staff.visit.VisitStateHolder
 import com.aarogyam.staff.walkin.WalkInStateHolder
 import com.sakalya.mobile.design.ThemeMode
@@ -241,6 +243,20 @@ fun AppGraph.visit(
     appointmentId: String?,
     screen: ScreenScope,
 ): VisitStateHolder = visit(clinic, patientId, tokenId, appointmentId, screen.scope)
+
+/** "Share visit summary" for [visitId], living as long as [screen]. */
+fun AppGraph.visitShare(
+    clinic: ClinicContext,
+    visitId: String,
+    screen: ScreenScope,
+): VisitShareStateHolder = VisitShareStateHolder(clinic, visitId, screen.scope)
+
+/** The family section for [patientId] (desk flow), living as long as [screen]. */
+fun AppGraph.family(
+    clinic: ClinicContext,
+    patientId: String,
+    screen: ScreenScope,
+): FamilyStateHolder = FamilyStateHolder(clinic, patientId, screen.scope)
 
 /** A patient's follow-ups, living as long as [screen]. */
 fun AppGraph.recalls(

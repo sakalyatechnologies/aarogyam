@@ -79,8 +79,8 @@ enum DeskLaunch {
 
     static var firstMode: DeskSheet.Mode {
         switch env["AAROGYAM_DEV_DESK"] {
-        case "new": .form(phone: firstPhone, family: false)
-        case "family": .form(phone: firstPhone, family: true)
+        case "new": .form(phone: firstPhone, family: nil)
+        case "family": .form(phone: firstPhone, family: [])
         default: .lookup
         }
     }

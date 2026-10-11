@@ -86,6 +86,12 @@ class WalkInStateHolder(
 
     fun setDoctor(id: String?) = edit { copy(doctorId = id) }
 
+    /** Puts the new walk-in in [patientId]'s family as [relation]; null clears it. */
+    fun setFamilyOf(
+        patientId: String?,
+        relation: String,
+    ) = edit { copy(familyOf = patientId?.let { FamilyOf(it, relation) }) }
+
     /** "Add to queue": validates, then sends one request. A second tap while sending is ignored. */
     fun submit() {
         val form = (mutableState.value as? WalkInState.Editing)?.form ?: return

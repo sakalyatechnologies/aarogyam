@@ -1,10 +1,10 @@
 package com.aarogyam.staff.visit
 
 import com.aarogyam.staff.ScreenError
-import com.aarogyam.staff.api.CloseBody
 import com.aarogyam.staff.api.closeVisit
 import com.aarogyam.staff.api.createNote
 import com.aarogyam.staff.api.editNote
+import com.aarogyam.staff.api.model.CloseVisit
 import com.aarogyam.staff.api.model.NewNote
 import com.aarogyam.staff.api.model.NewVisit
 import com.aarogyam.staff.api.model.Note
@@ -185,10 +185,9 @@ class VisitStateHolder(
     fun close() = closeWith(null, null, null)
 
     /**
-     * Saves any unsaved note, closes the visit, then plans the follow-up on [followUpOn]
-     * (`YYYY-MM-DD`) with [reason]. A failed follow-up keeps the visit closed, sets
-     * `followUpFailed` and the error; call again to retry only the follow-up. [feePaise] is kept
-     * as `pendingFeePaise` until the server takes it.
+     * Saves any unsaved note, then closes the visit; the one request also plans the follow-up on
+     * [followUpOn] (`YYYY-MM-DD`, with [reason]) and starts the draft bill from [feePaise]. If the
+     * server refuses any part (a past date, no permission) nothing happens and the visit stays open.
      */
     fun closeWith(
         followUpOn: String?,
@@ -196,24 +195,15 @@ class VisitStateHolder(
         feePaise: Long?,
     ) {
         val view = open() ?: return
-        if (view.closing || (view.closed && !view.followUpFailed)) return
+        if (view.closing || view.closed) return
         saveJob?.cancel()
         update { it.copy(closing = true, error = null, pendingFeePaise = feePaise ?: it.pendingFeePaise) }
         scope.launch {
             if (!view.closed) {
                 if (view.save == NoteSave.Unsaved && !save()) return@launch update { it.copy(closing = false) }
-                // BE5 switch point: with SERVER_CLOSE_BODY the server takes the follow-up and fee.
                 if (mustQueue(view.visitId)) return@launch queueClose(view, followUpOn, reason, feePaise)
-                val body = CloseBody(followUpOn, feePaise, reason)
-                val answer =
-                    if (SERVER_CLOSE_BODY) {
-                        clinic.api.closeVisit(
-                            view.visitId,
-                            body,
-                        )
-                    } else {
-                        clinic.api.closeVisit(view.visitId)
-                    }
+                // The server plans the follow-up and starts the draft bill with the close (BE5).
+                val answer = clinic.api.closeVisit(view.visitId, closeBody(followUpOn, reason, feePaise))
                 if (answer is Outcome.Failure && writes != null && answer.error.shouldQueue()) {
                     return@launch queueClose(view, followUpOn, reason, feePaise)
                 }
@@ -224,14 +214,7 @@ class VisitStateHolder(
                 log.info("visit.closed") { id("visit", view.visitId) }
                 update { it.copy(closed = true) }
             }
-            val failure =
-                if (SERVER_CLOSE_BODY || followUpOn == null) {
-                    null
-                } else {
-                    createRecallFor(clinic, patientId, followUpOn, reason ?: FOLLOW_UP)
-                }
-            failure?.let { failed("visit.follow_up_failed", it) }
-            update { it.copy(closing = false, followUpFailed = failure != null) }
+            update { it.copy(closing = false) }
         }
     }
 
@@ -352,7 +335,7 @@ class VisitStateHolder(
         when (val queued = w.close(clinic.slug, view.visitId, patientId, followUpOn, reason, feePaise)) {
             is Queued.Saved -> {
                 closeEntryId = queued.id
-                update { it.copy(closing = false, closed = true, followUpFailed = false) }
+                update { it.copy(closing = false, closed = true) }
                 syncFlags(w.runner.ids.value)
             }
 
@@ -397,9 +380,6 @@ class VisitStateHolder(
         /** How long after the last change the note is saved. */
         const val SAVE_DELAY_MS: Long = 800
 
-        /** BE5: flip to true once the server's close body (`follow_up_on`, `fee_paise`, `note`) ships. */
-        private const val SERVER_CLOSE_BODY = false
-        private const val FOLLOW_UP = "follow_up"
         private const val CLINICAL_WRITE = "clinical.write"
         private const val SOAP = "soap"
     }

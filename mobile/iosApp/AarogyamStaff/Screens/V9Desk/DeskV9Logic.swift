@@ -40,15 +40,40 @@ enum DeskBoard {
     /// Roles that send a waiting patient in: the doctor, and the owner who is also one.
     static func canSendIn(roleKey: String) -> Bool { roleKey == "doctor" || roleKey == "owner" }
 
-    /// The "Send in" button shows on Waiting tickets for those roles. It is a Preview until BE2 adds
-    /// `POST /queue/{id}/call`, so it is drawn but does not act.
+    /// The "Send in" button shows on Waiting tickets for those roles; it calls `POST /queue/{id}/call`.
     static func showsSendIn(roleKey: String, state: PatientState) -> Bool { canSendIn(roleKey: roleKey) && state == .waiting }
 
     /// The desk (who is not sending patients in) sees the "Patient called in" banner.
     static func showsCalledBanner(roleKey: String, called: Int) -> Bool { !canSendIn(roleKey: roleKey) && called > 0 }
+}
 
-    /// Ready to bill and Called are not sent by the server yet.
-    static func isPreview(_ state: PatientState) -> Bool { state.previewOnly }
+/// The queue notifications the server sends staff (BE4), as the bell draws them.
+enum DeskAlert {
+    static func isQueue(_ kind: String) -> Bool { ["patient_waiting", "send_in", "collect_payment"].contains(kind) }
+
+    static func title(_ kind: String) -> String? {
+        switch kind {
+        case "patient_waiting": dv("d9.alert.patient_waiting")
+        case "send_in": dv("d9.alert.send_in")
+        case "collect_payment": dv("d9.alert.collect_payment")
+        default: nil
+        }
+    }
+
+    static func icon(_ kind: String) -> String {
+        switch kind {
+        case "patient_waiting": "clock"
+        case "send_in": "bell"
+        case "collect_payment": "check"
+        default: "msg"
+        }
+    }
+
+    /// `#7 · SC-1042 · Dr. Patil`: the token and the clinic number, never the patient's name.
+    static func detail(token: Int?, number: String?, doctor: String?) -> String? {
+        guard let token else { return nil }
+        return ["#\(token)", number, doctor].compactMap { $0 }.joined(separator: " · ")
+    }
 }
 
 enum DeskPayProblem: Equatable { case amount, method }

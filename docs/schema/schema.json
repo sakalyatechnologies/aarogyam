@@ -6358,7 +6358,7 @@
    "partitioned": false,
    "lifecycle": null,
    "schema": "aarogyam",
-   "notes": "Built (migration 0061). Quantities are whole units. Status is derived: critical (out, or a fifth of the reorder level or less), low (at or below it), expiring (a batch within 30 days), else ok.",
+   "notes": "Built (migrations 0061, 0670). Quantities are whole units. Status is derived: critical (out, or a fifth of the reorder level or less), low (at or below it), expiring (a batch within 30 days), else ok.",
    "cols": [
     {
      "name": "name",
@@ -6387,6 +6387,20 @@
      "nullable": false,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "lead_time_days",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": "days from ordering to delivery, 0 to 120, default 7"
+    },
+    {
+     "name": "alerts_enabled",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "false opts the item out of stock alerts, default true"
     },
     {
      "name": "active",
@@ -6494,7 +6508,7 @@
    "partitioned": false,
    "lifecycle": null,
    "schema": "aarogyam",
-   "notes": "Append-only; one row per batch touched; created_by is who. Procedure-linked deduction (procedure_id) comes with procedure_materials.",
+   "notes": "Append-only; one row per batch touched; created_by is who. Stock alerts (migration 0671): app.stock_usage_snapshot reads the last 28 clinic-local days of `use` movements, app.record_stock_alert writes one staff_notifications alert per item and day (and hands older ones on), app.clear_stock_alerts handles them on recovery. Procedure-linked deduction (procedure_id) comes with procedure_materials.",
    "cols": [
     {
      "name": "item_id",
@@ -6530,6 +6544,13 @@
      "nullable": true,
      "ref": null,
      "note": "required for adjust and expire"
+    },
+    {
+     "name": "task_occurrence_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "task_occurrences",
+     "note": "the to-do a use came from (migration 0670), same clinic"
     }
    ],
    "referenced_by": [],
@@ -7215,7 +7236,8 @@
     }
    ],
    "referenced_by": [
-    "staff_notifications.task_occurrence_id"
+    "staff_notifications.task_occurrence_id",
+    "stock_movements.task_occurrence_id"
    ],
    "sensitivity": "internal",
    "offline": "server_only"

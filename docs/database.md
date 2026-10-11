@@ -1800,6 +1800,7 @@ erDiagram
   suppliers |o--o{ stock_batches : "supplier_id"
   inventory_items ||--o{ stock_movements : "item_id"
   stock_batches ||--o{ stock_movements : "batch_id"
+  task_occurrences |o--o{ stock_movements : "task_occurrence_id"
   inventory_items ||--o{ procedure_materials : "item_id"
   equipment ||--o{ maintenance_logs : "equipment_id"
   task_templates ||--o{ task_occurrences : "template_id"
@@ -1989,10 +1990,12 @@ Materials and medicines the clinic stocks.
 | `category` | `text?` |  |
 | `unit` | `text` | piece, ml, g, box, pack |
 | `reorder_level` | `bigint` |  |
+| `lead_time_days` | `smallint` | days from ordering to delivery, 0 to 120, default 7 |
+| `alerts_enabled` | `bool` | false opts the item out of stock alerts, default true |
 | `active` | `bool` |  |
 | `deleted_at` | `timestamptz?` |  |
 
-Built (migration 0061). Quantities are whole units. Status is derived: critical (out, or a fifth of the reorder level or less), low (at or below it), expiring (a batch within 30 days), else ok.
+Built (migrations 0061, 0670). Quantities are whole units. Status is derived: critical (out, or a fifth of the reorder level or less), low (at or below it), expiring (a batch within 30 days), else ok.
 
 Referenced by: `procedure_materials.item_id`, `stock_batches.item_id`, `stock_movements.item_id`
 
@@ -2030,8 +2033,9 @@ Every change in stock: receive, use, adjustment, expiry. Stock history comes fro
 | `kind` | `text` | receive, use, adjust, expire |
 | `quantity` | `bigint` | signed |
 | `reason` | `text?` | required for adjust and expire |
+| `task_occurrence_id` | `uuid?` | → `task_occurrences`. the to-do a use came from (migration 0670), same clinic |
 
-Append-only; one row per batch touched; created_by is who. Procedure-linked deduction (procedure_id) comes with procedure_materials.
+Append-only; one row per batch touched; created_by is who. Stock alerts (migration 0671): app.stock_usage_snapshot reads the last 28 clinic-local days of `use` movements, app.record_stock_alert writes one staff_notifications alert per item and day (and hands older ones on), app.clear_stock_alerts handles them on recovery. Procedure-linked deduction (procedure_id) comes with procedure_materials.
 
 ### `procedure_materials`
 
@@ -2205,7 +2209,7 @@ One day's run of a task template: what fell due, who it was for, and whether it 
 
 Built (migrations 0661, 0662). Made by app.materialize_task_occurrences (drain job): every slot that fell due in the last 24 hours and not before the template's activated_at, with its task_due notice in the same statement; safe to run twice at once. The change history leaves out the reminder counters and the note. Kept 3 years from due_at (retention class task_occurrences). staff_notifications.task_occurrence_id points here.
 
-Referenced by: `staff_notifications.task_occurrence_id`
+Referenced by: `staff_notifications.task_occurrence_id`, `stock_movements.task_occurrence_id`
 
 ## Money (`billing`)
 

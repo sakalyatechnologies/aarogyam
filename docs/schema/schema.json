@@ -2165,6 +2165,8 @@
     "staff_notifications.handled_by",
     "support_grants.granted_by",
     "support_grants.revoked_by",
+    "time_off_requests.decided_by",
+    "time_off_requests.membership_id",
     "treatment_plans.clinician_id"
    ],
    "sensitivity": "internal",
@@ -3179,6 +3181,101 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    }
+   ],
+   "referenced_by": [
+    "time_off_requests.leave_block_id"
+   ],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "time_off_requests",
+   "domain": "people",
+   "purpose": "A member's request for time off, decided by the owner. Approving it adds a leave block for someone with a practitioner row.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0665; 0666 adds the key from staff_notifications and checks org_settings.staff_ops). leave_blocks stays the only table availability reads; its reason is the generic 'Time off'. Pending and declined requests, and every kind and reason, are shown only to the requester and time_off.manage holders. The change history masks reason and decision_note. Kept 365 days after the last change (retention class time_off_requests).",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": "who is away"
+    },
+    {
+     "name": "kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "vacation, sick, personal, other; private to the requester and time_off.manage"
+    },
+    {
+     "name": "starts_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ends_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "after starts_at, at most 366 days"
+    },
+    {
+     "name": "all_day",
+     "type": "boolean",
+     "nullable": false,
+     "ref": null,
+     "note": "whole local days; the boundaries are local midnights worked out in Postgres"
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "pending, approved, declined, cancelled"
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "up to 200 characters, private; never copied to leave_blocks"
+    },
+    {
+     "name": "decided_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "decided_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "decision_note",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "up to 200 characters"
+    },
+    {
+     "name": "leave_block_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "leave_blocks",
+     "note": "set while approved for someone with a practitioner row; unique; cleared if the block is deleted"
     }
    ],
    "referenced_by": [],

@@ -346,6 +346,17 @@ TABLES = [
       purpose="Time a doctor is unavailable. Booking into it is allowed with a warning.",
       cols=["practitioner_id uuid -> practitioners",
             "starts_at timestamptz", "ends_at timestamptz", "reason text?"]),
+    T(name="time_off_requests", domain="people", rls="clinic", lifecycle="mutable",
+      purpose="A member's request for time off, decided by the owner. Approving it adds a leave block for someone with a practitioner row.",
+      cols=["membership_id uuid -> memberships | who is away",
+            "kind text | vacation, sick, personal, other; private to the requester and time_off.manage",
+            "starts_at timestamptz", "ends_at timestamptz | after starts_at, at most 366 days",
+            "all_day boolean | whole local days; the boundaries are local midnights worked out in Postgres",
+            "status text | pending, approved, declined, cancelled",
+            "reason text? | up to 200 characters, private; never copied to leave_blocks",
+            "decided_by uuid? -> memberships", "decided_at timestamptz?", "decision_note text? | up to 200 characters",
+            "leave_block_id uuid? -> leave_blocks | set while approved for someone with a practitioner row; unique; cleared if the block is deleted"],
+      notes="Built (migration 0665; 0666 adds the key from staff_notifications and checks org_settings.staff_ops). leave_blocks stays the only table availability reads; its reason is the generic 'Time off'. Pending and declined requests, and every kind and reason, are shown only to the requester and time_off.manage holders. The change history masks reason and decision_note. Kept 365 days after the last change (retention class time_off_requests)."),
 
     # ------------------------------------------------------------------ scheduling
     T(name="appointments", domain="scheduling", rls="clinic", star=True, lifecycle="soft_delete",

@@ -1,0 +1,167 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.time_off_requests\n             (membership_id, kind, starts_at, ends_at, all_day, reason)\n           values ($1, $2,\n                   case when $3 then app.time_off_day_start_utc($6::date) else $4::timestamptz end,\n                   case when $3 then app.time_off_day_start_utc($7::date + 1) else $5::timestamptz end,\n                   $3, $8)\n           returning id, membership_id, kind as \"kind?\", starts_at, ends_at, all_day, status,\n                     reason, decided_by, decided_at, decision_note, leave_block_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "membership_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "membership_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "ends_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "all_day",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "all_day"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "reason"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "decided_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "decided_by"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "decided_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "decided_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "decision_note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "decision_note"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "leave_block_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "leave_block_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bool",
+        "Timestamptz",
+        "Timestamptz",
+        "Date",
+        "Date",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "ef37c8cd680654b90f42eab532937010b30ccc989c4071420e79bb40c418b79e"
+}

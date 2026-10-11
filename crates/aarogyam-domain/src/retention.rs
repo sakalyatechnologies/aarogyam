@@ -40,6 +40,8 @@ text_value! {
         MessageTemplates => "message_templates",
         /// Campaigns that were sent or cancelled and nobody has changed since.
         Campaigns => "campaigns",
+        /// Staff time-off requests that were decided or cancelled and nobody has changed since.
+        TimeOffRequests => "time_off_requests",
     }
 }
 
@@ -82,7 +84,8 @@ impl Class {
             | Self::ChatMessages
             | Self::LabContacts
             | Self::MessageTemplates
-            | Self::Campaigns => Period::Days(365),
+            | Self::Campaigns
+            | Self::TimeOffRequests => Period::Days(365),
         }
     }
 
@@ -105,6 +108,7 @@ impl Class {
             Self::LabContacts => "when the contact was removed",
             Self::MessageTemplates => "when the template last changed",
             Self::Campaigns => "when the campaign last changed",
+            Self::TimeOffRequests => "when the request last changed",
         }
     }
 

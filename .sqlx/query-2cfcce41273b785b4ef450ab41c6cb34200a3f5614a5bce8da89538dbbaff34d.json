@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select staff_ops as \"staff_ops!\" from aarogyam.org_settings\n           where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "staff_ops!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_settings",
+            "name": "staff_ops"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2cfcce41273b785b4ef450ab41c6cb34200a3f5614a5bce8da89538dbbaff34d"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.org_settings set staff_ops = $1 where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "45d1a3fe9ddc89d6f3a6d33818d56ddbeb078b4a46e7c82985a2ec4d72b2bee8"
+}

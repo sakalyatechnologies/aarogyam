@@ -1,0 +1,138 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, membership_id,\n                  case when $1 or membership_id = $2 then kind end as \"kind?\",\n                  starts_at, ends_at, all_day, status,\n                  case when $1 or membership_id = $2 then reason end as \"reason?\",\n                  case when $1 or membership_id = $2 then decided_by end as \"decided_by?\",\n                  case when $1 or membership_id = $2 then decided_at end as \"decided_at?\",\n                  case when $1 or membership_id = $2 then decision_note end as \"decision_note?\",\n                  leave_block_id\n           from aarogyam.time_off_requests\n           where starts_at < $4 and ends_at > $3\n             and (status = 'approved'\n                  or (status <> 'cancelled' and ($1 or membership_id = $2)))\n           order by starts_at, id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "membership_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "membership_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "ends_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "all_day",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "all_day"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "reason?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "decided_by?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "decided_at?",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "decision_note?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "leave_block_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.time_off_requests",
+            "name": "leave_block_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null,
+      true
+    ]
+  },
+  "hash": "e1208d1bbff9593e9b15f3c5d8822cacfea9f441183ac33bc142c032ac343721"
+}

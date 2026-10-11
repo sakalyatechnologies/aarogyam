@@ -12884,6 +12884,85 @@
         ]
       }
     },
+    "/api/v1/settings/staff-ops": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The clinic's staff-operations settings.",
+        "operationId": "getStaffOpsSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffOpsSettingsBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Changes the staff-operations settings. The change history records each change.",
+        "operationId": "updateStaffOpsSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffOpsSettingsChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffOpsSettingsBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the setting"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/settings/website": {
       "get": {
         "tags": [
@@ -31808,6 +31887,53 @@
           }
         }
       },
+      "StaffOpsSettingsBody": {
+        "type": "object",
+        "description": "Whether staff time off needs approval, and how often open tasks are reminded.",
+        "required": [
+          "time_off",
+          "tasks"
+        ],
+        "properties": {
+          "tasks": {
+            "$ref": "#/components/schemas/TaskSettings",
+            "description": "Task settings."
+          },
+          "time_off": {
+            "$ref": "#/components/schemas/TimeOffSettings",
+            "description": "Time-off settings."
+          }
+        }
+      },
+      "StaffOpsSettingsChanges": {
+        "type": "object",
+        "description": "Changes to the staff-operations settings; what is left out stays.",
+        "properties": {
+          "tasks": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TaskSettingsChanges",
+                "description": "Task settings."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_off": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TimeOffSettingsChanges",
+                "description": "Time-off settings."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "StaffSupportGrant": {
         "type": "object",
         "description": "A grant the staff member holds.",
@@ -32456,6 +32582,36 @@
           }
         }
       },
+      "TaskSettings": {
+        "type": "object",
+        "description": "Task settings.",
+        "required": [
+          "remind_every_minutes"
+        ],
+        "properties": {
+          "remind_every_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Minutes between reminders of a task still open, 15 to 1440 (default 60).",
+            "minimum": 0
+          }
+        }
+      },
+      "TaskSettingsChanges": {
+        "type": "object",
+        "description": "Changes to the task settings; what is left out stays.",
+        "properties": {
+          "remind_every_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Minutes between reminders, 15 to 1440."
+          }
+        },
+        "additionalProperties": false
+      },
       "TeamMemberToday": {
         "type": "object",
         "description": "A doctor working today.",
@@ -32529,6 +32685,33 @@
             "description": "The template's layout; \"Reset to template\" saves this."
           }
         }
+      },
+      "TimeOffSettings": {
+        "type": "object",
+        "description": "Time-off settings.",
+        "required": [
+          "requires_approval"
+        ],
+        "properties": {
+          "requires_approval": {
+            "type": "boolean",
+            "description": "Whether a member's own request waits for the owner (default true). Time off the owner\nrecords for someone else is always approved at once."
+          }
+        }
+      },
+      "TimeOffSettingsChanges": {
+        "type": "object",
+        "description": "Changes to the time-off settings; what is left out stays.",
+        "properties": {
+          "requires_approval": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether a member's own request waits for the owner."
+          }
+        },
+        "additionalProperties": false
       },
       "Timeline": {
         "type": "object",

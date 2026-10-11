@@ -360,3 +360,28 @@ pub async fn chat_messages(
     .await?;
     Ok(rows)
 }
+
+/// Time-off requests decided or cancelled and unchanged since `cutoff`. They hold a member's
+/// private reason, not a patient.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn time_off_requests(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(updated_at) as "oldest?",
+                  (array_agg(id order by updated_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.time_off_requests
+           where status <> 'pending' and updated_at < $1
+           group by org_id order by org_id"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}

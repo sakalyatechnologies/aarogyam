@@ -211,3 +211,6 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
 - Running:
   - be-fix: D1–D4, D7, cancelling follow-ups on booking, then the full final check
   - the mobile gate after the be-msg spec change
+- **be-fix merged** (8f1a7ff1). Fixes D1, D2, D3 and D7, plus the follow-up cancel (migration 0428). Visit close keeps the invoice as a draft; the reason is in `docs/decisions.md`. Its scoped tests passed.
+  - The disk dropped to 117 MB again because of builds in two other sessions (`wt-t2`, `wt-t4b`). I stopped my own hook and deleted my cache.
+- **Now:** final gates on feat/v9, run once and alone: the mobile gate, then cargo fmt, clippy, workspace tests (`--include-ignored`), deny and machete.

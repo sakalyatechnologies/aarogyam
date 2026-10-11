@@ -13927,7 +13927,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and\nprocedures don't.",
+        "summary": "Closes a visit. Addenda and corrections still work afterwards; new notes, vitals and\nprocedures don't. The optional body plans a follow-up and starts a draft bill in the same\ntransaction: a visit with a fee or priced procedures gets one bill, never two.",
         "operationId": "closeVisit",
         "parameters": [
           {
@@ -13940,21 +13940,41 @@
             }
           }
         ],
+        "requestBody": {
+          "description": "Optional follow-up and fee",
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CloseVisit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Visit"
+                  "$ref": "#/components/schemas/ClosedVisit"
                 }
               }
             }
+          },
+          "400": {
+            "description": "A past follow-up date, a long reason or a fee of zero"
           },
           "401": {
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks clinical.write"
+            "description": "The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee"
           },
           "404": {
             "description": "No such visit in this clinic"
@@ -17151,6 +17171,70 @@
             "description": "Whether any active allergy is severe."
           }
         }
+      },
+      "CloseVisit": {
+        "type": "object",
+        "description": "What to do while closing a visit. Every field is optional; an empty body just closes.",
+        "properties": {
+          "fee_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Consultation fee in paise, more than zero. Starts a draft bill with a single line next\nto any priced procedures of the visit. Needs `billing.write`."
+          },
+          "follow_up_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Plans a follow-up on this day (`YYYY-MM-DD`, not in the past)."
+          },
+          "follow_up_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient should return (at most 300 characters); \"Follow-up\" by default."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Printed on the draft bill."
+          }
+        }
+      },
+      "ClosedVisit": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Visit",
+            "description": "The visit."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "invoice_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The draft bill (or the bill already linked to the visit)."
+              },
+              "recall_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The follow-up planned."
+              }
+            }
+          }
+        ],
+        "description": "A closed visit with the follow-up and the draft bill closing it made."
       },
       "Code": {
         "type": "object",
@@ -22988,6 +23072,13 @@
             "format": "int64",
             "description": "Paise, more than zero."
           },
+          "attachment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Proof of payment: a `payment_proof` file of the same patient, uploaded first."
+          },
           "method": {
             "type": "string",
             "description": "`cash`, `upi`, `card` or `bank`."
@@ -25448,6 +25539,13 @@
             "type": "integer",
             "format": "int64",
             "description": "Paise."
+          },
+          "attachment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Proof of payment: a file of kind `payment_proof`."
           },
           "id": {
             "type": "string",

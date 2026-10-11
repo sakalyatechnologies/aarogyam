@@ -493,6 +493,7 @@ mod tests {
             method: "upi".into(),
             amount_paise: 500,
             reference: None,
+            attachment_id: None,
             allocations: vec![(invoice, 200), (other, 300)],
         };
         let mut reordered = input.clone();

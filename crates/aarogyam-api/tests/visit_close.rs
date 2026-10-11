@@ -3,6 +3,10 @@
     clippy::unwrap_used,
     reason = "tests fail loudly instead of returning errors"
 )]
+#![expect(
+    clippy::too_many_lines,
+    reason = "each test follows one visit from start to finish"
+)]
 
 mod support;
 
@@ -57,7 +61,7 @@ async fn close(
 }
 
 async fn count(app: &TestApp, sql: &str) -> i64 {
-    sqlx::query_scalar::<_, i64>(sql)
+    sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql.to_owned()))
         .fetch_one(&app.owner)
         .await
         .unwrap()

@@ -439,6 +439,59 @@ pub struct ClosedVisit {
     pub invoice_id: Option<InvoiceId>,
 }
 
+/// The visit's draft bill at close: the one it already has, else a new one from its priced
+/// procedures (when the caller may bill) and the consultation fee; none when there is nothing
+/// to charge.
+async fn bill_visit(
+    tx: &mut ScopedTx,
+    visit: Uuid,
+    patient: PatientId,
+    may_bill: bool,
+    fee_paise: Option<i64>,
+    notes: Option<String>,
+) -> Result<Option<InvoiceId>, AppError> {
+    if let Some(existing) = visits::invoice_of(tx.conn(), visit).await? {
+        return Ok(Some(InvoiceId::from_uuid(existing)));
+    }
+    let mut items: Vec<LineInput> = if may_bill {
+        visits::priced_procedures(tx.conn(), visit)
+            .await?
+            .into_iter()
+            .map(|p| LineInput {
+                procedure_id: Some(p.id),
+                description: Some(p.name),
+                unit_price_paise: Some(p.price_paise),
+                ..LineInput::default()
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    if let Some(fee) = fee_paise {
+        items.push(LineInput {
+            description: Some("Consultation fee".to_owned()),
+            unit_price_paise: Some(fee),
+            ..LineInput::default()
+        });
+    }
+    if items.is_empty() {
+        return Ok(None);
+    }
+    let id = crate::billing::create_in(
+        tx,
+        DraftInvoice {
+            patient_id: patient,
+            encounter_id: Some(visit),
+            place_of_supply: None,
+            notes,
+            items,
+            replaces_invoice_id: None,
+        },
+    )
+    .await?;
+    Ok(Some(InvoiceId::from_uuid(id)))
+}
+
 /// Closes a visit. Addenda and corrections still work afterwards. In the same transaction it
 /// plans the follow-up (`follow_up_on`) and starts a draft bill when a fee is given or the
 /// visit has priced procedures; a visit that already has a bill gets no second one.
@@ -499,65 +552,30 @@ pub async fn close(
             )
             .await?;
         }
-        let recall_id = match input.follow_up_on {
-            Some(due) => {
-                let id = RecallId::new_v7();
-                aarogyam_dal::recalls::insert_from_visit(
-                    tx.conn(),
-                    id.uuid(),
-                    row.patient_id,
-                    &reason,
-                    due,
-                    row.id,
-                )
-                .await?;
-                Some(id)
-            }
-            None => None,
+        let recall_id = if let Some(due) = input.follow_up_on {
+            let id = RecallId::new_v7();
+            aarogyam_dal::recalls::insert_from_visit(
+                tx.conn(),
+                id.uuid(),
+                row.patient_id,
+                &reason,
+                due,
+                row.id,
+            )
+            .await?;
+            Some(id)
+        } else {
+            None
         };
-        let invoice_id = match visits::invoice_of(tx.conn(), row.id).await? {
-            Some(existing) => Some(InvoiceId::from_uuid(existing)),
-            None => {
-                let mut items: Vec<LineInput> = if may_bill {
-                    visits::priced_procedures(tx.conn(), row.id)
-                        .await?
-                        .into_iter()
-                        .map(|p| LineInput {
-                            procedure_id: Some(p.id),
-                            description: Some(p.name),
-                            unit_price_paise: Some(p.price_paise),
-                            ..LineInput::default()
-                        })
-                        .collect()
-                } else {
-                    Vec::new()
-                };
-                if let Some(fee) = input.fee_paise {
-                    items.push(LineInput {
-                        description: Some("Consultation fee".to_owned()),
-                        unit_price_paise: Some(fee),
-                        ..LineInput::default()
-                    });
-                }
-                if items.is_empty() {
-                    None
-                } else {
-                    let id = crate::billing::create_in(
-                        tx,
-                        DraftInvoice {
-                            patient_id: PatientId::from_uuid(row.patient_id),
-                            encounter_id: Some(row.id),
-                            place_of_supply: None,
-                            notes: input.note.clone(),
-                            items,
-                            replaces_invoice_id: None,
-                        },
-                    )
-                    .await?;
-                    Some(InvoiceId::from_uuid(id))
-                }
-            }
-        };
+        let invoice_id = bill_visit(
+            tx,
+            row.id,
+            PatientId::from_uuid(row.patient_id),
+            may_bill,
+            input.fee_paise,
+            input.note.clone(),
+        )
+        .await?;
         let names = Names::load(tx, [row.clinician_id]).await?;
         Ok(ClosedVisit {
             visit: visit_view(row, &names)?,

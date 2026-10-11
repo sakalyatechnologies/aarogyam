@@ -8,7 +8,7 @@ use aarogyam_app::visits::{
     VisitView,
 };
 use aarogyam_domain::event::Event;
-use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, PatientId};
+use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, InvoiceId, PatientId, RecallId};
 use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite};
 use axum::Json;
 use axum::extract::State;
@@ -444,8 +444,8 @@ pub(crate) async fn close(
     tracing::info!(event = Event::VisitClosed.as_str(), visit_id = %id, "visit closed");
     Ok(Json(ClosedVisit {
         visit: closed.visit.into(),
-        recall_id: closed.recall_id.map(|r| r.uuid()),
-        invoice_id: closed.invoice_id.map(|i| i.uuid()),
+        recall_id: closed.recall_id.map(RecallId::uuid),
+        invoice_id: closed.invoice_id.map(InvoiceId::uuid),
     }))
 }
 

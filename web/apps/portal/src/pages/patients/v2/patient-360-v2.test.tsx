@@ -17,6 +17,11 @@ async function firstStart(): Promise<HTMLElement> {
   return first;
 }
 
+/** After End visit the bar offers payment; sending it for payment opens the celebration. */
+async function sendForPayment(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("button", { name: "Send for payment" }));
+}
+
 const LAYOUTS: readonly P360Layout[] = ["console", "stage", "tabs"];
 
 beforeEach(() => {
@@ -80,25 +85,28 @@ describe("Patient 360 in the new look: three layouts, one set of data", () => {
     }
     expect((await screen.findAllByText(visitNumber)).length).toBeGreaterThan(0);
 
-    // Consent: the same panel in each.
+    // Consent lives under More in each.
     if (layout === "console") {
+      await user.click(screen.getByText("More", { selector: "summary" }));
       await user.click(screen.getByText("Consent forms"));
     } else if (layout === "stage") {
       await user.keyboard("{Escape}");
-      await user.click(await screen.findByRole("button", { name: "Consent" }));
+      await user.click(await screen.findByRole("button", { name: "More" }));
+      await user.click(await screen.findByText("Consent forms"));
     } else {
-      await user.click(screen.getByRole("tab", { name: "Consent" }));
+      await user.click(screen.getByRole("tab", { name: "More" }));
+      await user.click(await screen.findByText("Consent forms"));
     }
     expect(await screen.findByText("No consent recorded yet")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Record consent" })).toBeTruthy();
   });
 
-  it.each(LAYOUTS)("%s shows the allergy banner above the content", async (layout) => {
+  it.each(LAYOUTS)("%s shows the allergy as a tag in the header", async (layout) => {
     const { path, backend } = allergicPatient();
     choose(layout);
     renderPortal(path, { as: PEOPLE.asha, backend });
-    expect(await screen.findByText("Allergies:")).toBeTruthy();
-    expect(screen.getAllByText("Penicillin").length).toBeGreaterThan(0);
+    const summary = await screen.findByRole("region", { name: "Patient summary" });
+    expect((await within(summary).findByRole("status", { name: "Allergies" })).textContent).toMatch(/Allergy: .*Penicillin/);
   });
 });
 
@@ -174,7 +182,7 @@ describe("Permissions", () => {
     expect(screen.queryByRole("heading", { name: "Dental chart" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Prescription" })).toBeNull();
     expect(screen.queryByText("Billing", { selector: "summary" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Finish visit" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "End visit" })).toBeNull();
   });
 
   it("shows the owner the chart, the prescription block, billing and the pinned bar", async () => {
@@ -188,7 +196,7 @@ describe("Permissions", () => {
 });
 
 describe("A visit, from the new Patient 360", () => {
-  it("takes a quick pick into the note, finishes the visit and celebrates", async () => {
+  it("takes a quick pick into the note, ends the visit, sends it for payment and celebrates", async () => {
     const user = userEvent.setup();
     const { path, backend } = visitedPatient();
     renderPortal(path, { as: PEOPLE.asha, backend });
@@ -201,7 +209,8 @@ describe("A visit, from the new Patient 360", () => {
     expect(screen.getByLabelText("Subjective")).toHaveProperty("value", "Complains of toothache");
 
     await user.click(screen.getByRole("button", { name: "2 weeks" }));
-    await user.click(screen.getByRole("button", { name: "Finish visit" }));
+    await user.click(screen.getByRole("button", { name: "End visit" }));
+    await sendForPayment(user);
 
     const dialog = await screen.findByRole("dialog", { name: "Visit completed" });
     expect(within(dialog).getByText(/closed and the note signed/)).toBeTruthy();
@@ -214,12 +223,12 @@ describe("A visit, from the new Patient 360", () => {
     expect((await screen.findAllByRole("button", { name: "Start visit" })).length).toBeGreaterThan(0);
   });
 
-  it("says there is no connection and does not finish offline, and never claims a save", async () => {
+  it("says there is no connection and does not end the visit offline, and never claims a save", async () => {
     const user = userEvent.setup();
     const { path, backend } = visitedPatient();
     renderPortal(path, { as: PEOPLE.asha, backend });
     await user.click(await firstStart());
-    const finish = await screen.findByRole("button", { name: "Finish visit" });
+    const finish = await screen.findByRole("button", { name: "End visit" });
     expect(finish).toHaveProperty("disabled", false);
 
     const online = vi.spyOn(globalThis.navigator, "onLine", "get").mockReturnValue(false);
@@ -227,14 +236,14 @@ describe("A visit, from the new Patient 360", () => {
       globalThis.dispatchEvent(new Event("offline"));
     });
     expect(await screen.findByText(/No connection/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Finish visit" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "End visit" })).toHaveProperty("disabled", true);
     expect(screen.queryByText(/saved on this device/i)).toBeNull();
     online.mockRestore();
     act(() => {
       globalThis.dispatchEvent(new Event("online"));
     });
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Finish visit" })).toHaveProperty("disabled", false);
+      expect(screen.getByRole("button", { name: "End visit" })).toHaveProperty("disabled", false);
     });
   });
 
@@ -243,8 +252,6 @@ describe("A visit, from the new Patient 360", () => {
     const { path, backend } = visitedPatient();
     renderPortal(path, { as: PEOPLE.asha, backend });
     await user.click(await firstStart());
-    await user.click(await screen.findByRole("button", { name: "Start a note" }));
-    await user.click(await screen.findByRole("button", { name: "Record voice" }));
     const language = await screen.findByLabelText("Language");
     expect(within(language).getByRole("option", { name: "Gujarati" })).toBeTruthy();
   });
@@ -330,7 +337,8 @@ describe("Accessibility of the overlays", () => {
     const { path, backend } = visitedPatient();
     renderPortal(path, { as: PEOPLE.asha, backend });
     await user.click(await firstStart());
-    await user.click(await screen.findByRole("button", { name: "Finish visit" }));
+    await user.click(await screen.findByRole("button", { name: "End visit" }));
+    await sendForPayment(user);
     await screen.findByRole("dialog", { name: "Visit completed" });
     const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
     expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
@@ -390,15 +398,13 @@ describe("finishVisit", () => {
 async function draftWithMedicine(user: ReturnType<typeof userEvent.setup>, allergic: boolean) {
   await user.click(await firstStart());
   await user.click(await screen.findByRole("button", { name: /Post-extraction/ }));
-  await screen.findByText(/[1-9]\d* medicines? in the draft/);
+  await screen.findAllByPlaceholderText("Medicine name");
   if (allergic) {
     await user.click(screen.getByRole("button", { name: "Add free-text medicine" }));
     const last = screen.getAllByPlaceholderText("Medicine name").at(-1);
     if (last === undefined) throw new Error("no medicine row");
     await user.type(last, "PENICILLIN V");
   }
-  // The bar counts the draft's medicines once the server has them.
-  await screen.findByText(/[1-9]\d* medicines? in the draft/);
 }
 
 describe("Finishing a visit with the prescription", () => {
@@ -424,8 +430,9 @@ describe("Finishing a visit with the prescription", () => {
     });
     await draftWithMedicine(user, false);
     await user.click(screen.getByRole("button", { name: "2 weeks" }));
-    await user.click(screen.getByRole("button", { name: "Finish visit" }));
-    await user.click(await screen.findByRole("button", { name: "Issue and finish" }));
+    await user.click(screen.getByRole("button", { name: "End visit" }));
+    await user.click(await screen.findByRole("button", { name: "Issue and end" }));
+    await sendForPayment(user);
 
     const dialog = await screen.findByRole("dialog", { name: "Visit completed" });
     expect(finishes).toHaveLength(1);
@@ -463,15 +470,16 @@ describe("Finishing a visit with the prescription", () => {
       }),
     });
     await draftWithMedicine(user, true);
-    await user.click(screen.getByRole("button", { name: "Finish visit" }));
-    await user.click(await screen.findByRole("button", { name: "Issue and finish" }));
+    await user.click(screen.getByRole("button", { name: "End visit" }));
+    await user.click(await screen.findByRole("button", { name: "Issue and end" }));
 
     expect(await screen.findByRole("heading", { name: "Allergy alert" })).toBeTruthy();
     expect(screen.queryByRole("dialog", { name: "Visit completed" })).toBeNull();
-    const confirm = screen.getByRole<HTMLButtonElement>("button", { name: /issue anyway and finish/i });
+    const confirm = screen.getByRole<HTMLButtonElement>("button", { name: /issue anyway and end/i });
     expect(confirm.disabled).toBe(true);
     await user.type(screen.getByLabelText(/reason to override/i), "Patient confirmed no reaction on the last course");
     await user.click(confirm);
+    await sendForPayment(user);
 
     await screen.findByRole("dialog", { name: "Visit completed" });
     expect(finishes).toHaveLength(2);
@@ -491,7 +499,7 @@ describe("Finishing a visit with the prescription", () => {
       }),
     });
     await user.click(await firstStart());
-    await user.click(await screen.findByRole("button", { name: "Finish visit" }));
+    await user.click(await screen.findByRole("button", { name: "End visit" }));
     const alerts = await screen.findAllByRole("alert");
     expect(alerts.some((a) => /already closed.*Reload the patient/.test(a.textContent))).toBe(true);
     expect(screen.queryByRole("dialog", { name: "Visit completed" })).toBeNull();

@@ -1,7 +1,8 @@
 /**
- * The three arrangements of the same blocks: Console (stage on the left, tools on a sticky rail), Stage with drawers
- * (a docked toolbar opens Voice, Prescribe, History and Consent), and Tabs with a ribbon (dictate and add a set from
- * anywhere). They differ only in where blocks sit; each block reads the same data.
+ * The three arrangements of the same few blocks: Console (the chart on the left, today's notes and the prescription on a
+ * sticky rail), Stage with drawers (a docked toolbar opens Voice, Prescribe, History and More), and Tabs with a ribbon
+ * (dictate and add a set from anywhere). They differ only in where blocks sit; each block reads the same data. Everything
+ * that is not needed during a visit lives under "More".
  */
 import { FileText, Mic, PanelRight, Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -14,20 +15,17 @@ import { useVisits } from "../../../queries.js";
 import { useQuickPicks } from "../../../walk-in-queries.js";
 import { setItems } from "../../prescriptions/medicine-sets.js";
 import { apiErrorOf } from "@aarogyam/api-client";
+import { ClinicalFlagsPanel } from "../clinical-flags-panel.js";
 import { ConsentPanel } from "../consent-panel.js";
 import { FilesPanel } from "../files-panel.js";
 import { NotesPanel } from "../notes-panel.js";
 import { BillsPanel } from "../records-panels.js";
-import { ClinicalFlagsPanel } from "../clinical-flags-panel.js";
 import {
-  BillingBlock,
-  ConsentBlock,
   DetailsBlock,
   DoneTodayBlock,
-  FilesBlock,
   FlagsBlock,
   HistoryBlock,
-  NotesBlock,
+  ImagesBlock,
   PastRxBlock,
   PlanBlock,
   RxBlock,
@@ -36,6 +34,7 @@ import {
   VoiceBlock,
   WrapBlock,
 } from "./blocks.js";
+import { GalleryBlock } from "./images.js";
 import { Bento, Fold, PillTabs } from "./kit.js";
 import { useVisitSession } from "./visit-session.js";
 
@@ -46,9 +45,51 @@ export interface LayoutProps {
   showPastRx: boolean;
 }
 
-/** Console: the chart and what the patient says on the left; voice, prescription, wrap up and folds on a sticky rail. */
-export function ConsoleLayout({ patient, canClinical, showPastRx }: LayoutProps) {
+/** What is not needed during a visit, each in its own fold. */
+function MoreFolds({ patient, canClinical, pastRx, open = false }: { patient: LayoutProps["patient"]; canClinical: boolean; pastRx: boolean; open?: boolean }) {
   const { can } = useClinic();
+  return (
+    <>
+      {canClinical && pastRx ? (
+        <Fold title="Past prescriptions" open={open}>
+          <PastRxBlock />
+        </Fold>
+      ) : null}
+      {canClinical ? (
+        <Fold title="Treatment plans">
+          <PlanBlock />
+        </Fold>
+      ) : null}
+      <Fold title="Consent forms">
+        <ConsentPanel patientId={patient.id} />
+      </Fold>
+      {canClinical ? (
+        <>
+          <Fold title="Files">
+            <FilesPanel patientId={patient.id} />
+          </Fold>
+          <Fold title="Notes">
+            <NotesPanel patientId={patient.id} />
+          </Fold>
+          <Fold title="Clinical flags">
+            <ClinicalFlagsPanel patientId={patient.id} />
+          </Fold>
+          <Fold title="Details">
+            <DetailsBlock patient={patient} />
+          </Fold>
+        </>
+      ) : null}
+      {can("billing.read") ? (
+        <Fold title="Billing">
+          <BillsPanel patientId={patient.id} />
+        </Fold>
+      ) : null}
+    </>
+  );
+}
+
+/** Console: the chart and what the patient says on the left; today's notes, prescription and wrap up on a sticky rail. */
+export function ConsoleLayout({ patient, canClinical, showPastRx }: LayoutProps) {
   const session = useVisitSession();
   const visits = useVisits(canClinical ? patient.id : undefined);
   const count = visits.data?.items.length;
@@ -60,7 +101,7 @@ export function ConsoleLayout({ patient, canClinical, showPastRx }: LayoutProps)
             <ToothBlock patientId={patient.id} />
             <SaysBlock />
             <DoneTodayBlock />
-            <PlanBlock />
+            <ImagesBlock patientId={patient.id} />
           </>
         ) : (
           <>
@@ -74,45 +115,19 @@ export function ConsoleLayout({ patient, canClinical, showPastRx }: LayoutProps)
         <RxBlock />
         {session.canWrite ? <WrapBlock /> : null}
         {canClinical ? (
-          <>
-            <Fold title={count === undefined ? "Visit history" : `Visit history · ${String(count)}`}>
-              <HistoryBlock />
-            </Fold>
-            <Fold title="Past prescriptions" open={showPastRx}>
-              <PastRxBlock />
-            </Fold>
-          </>
-        ) : null}
-        <Fold title="Consent forms">
-          <ConsentPanel patientId={patient.id} />
-        </Fold>
-        {canClinical ? (
-          <>
-            <Fold title="Files">
-              <FilesPanel patientId={patient.id} />
-            </Fold>
-            <Fold title="Notes">
-              <NotesPanel patientId={patient.id} />
-            </Fold>
-            <Fold title="Clinical flags">
-              <ClinicalFlagsPanel patientId={patient.id} />
-            </Fold>
-            <Fold title="Details">
-              <DetailsBlock patient={patient} />
-            </Fold>
-          </>
-        ) : null}
-        {can("billing.read") ? (
-          <Fold title="Billing">
-            <BillsPanel patientId={patient.id} />
+          <Fold title={count === undefined ? "Visit history" : `Visit history · ${String(count)}`}>
+            <HistoryBlock />
           </Fold>
         ) : null}
+        <Fold title="More" open={showPastRx && canClinical}>
+          <MoreFolds patient={patient} canClinical={canClinical} pastRx open={showPastRx && canClinical} />
+        </Fold>
       </div>
     </div>
   );
 }
 
-type DrawerKey = "voice" | "prescribe" | "history" | "consent";
+type DrawerKey = "voice" | "prescribe" | "history" | "more";
 
 /** Stage with drawers: the chart is the stage; a docked toolbar opens each tool in a drawer. */
 export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
@@ -124,7 +139,7 @@ export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
     { key: "voice", label: "Voice", icon: <Mic aria-hidden="true" />, show: canClinical && session.canWrite },
     { key: "prescribe", label: "Prescribe", icon: <FileText aria-hidden="true" />, show: session.canRx },
     { key: "history", label: "History", icon: <PanelRight aria-hidden="true" />, show: canClinical },
-    { key: "consent", label: "Consent", icon: <PanelRight aria-hidden="true" />, show: true },
+    { key: "more", label: "More", icon: <PanelRight aria-hidden="true" />, show: true },
   ];
   const close = () => {
     // A prescription still being typed is saved before its drawer goes; if that fails the drawer stays so nothing is lost.
@@ -138,7 +153,7 @@ export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
       },
     );
   };
-  const titles: Record<DrawerKey, string> = { voice: "Voice notes", prescribe: "Prescribe", history: "History", consent: "Consent forms" };
+  const titles: Record<DrawerKey, string> = { voice: "Today's notes", prescribe: "Prescribe", history: "History", more: "More" };
   return (
     <>
       <div className="p360-dock" role="toolbar" aria-label="Open a panel">
@@ -168,16 +183,11 @@ export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
             {session.canWrite ? <WrapBlock /> : null}
           </div>
           <DoneTodayBlock />
-          <div className="p360-grid2">
-            <PlanBlock />
-            <FlagsBlock patientId={patient.id} />
-          </div>
-          <DetailsBlock patient={patient} />
+          <ImagesBlock patientId={patient.id} />
         </>
       ) : (
         <FlagsBlock patientId={patient.id} />
       )}
-      <BillingBlock patientId={patient.id} />
       <Drawer
         open={drawer !== null}
         onOpenChange={(open) => {
@@ -197,38 +207,43 @@ export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
               <Bento title="Past prescriptions">
                 <PastRxBlock />
               </Bento>
-              <FilesBlock patientId={patient.id} />
-              <NotesBlock patientId={patient.id} />
             </>
           ) : null}
-          {drawer === "consent" ? <ConsentBlock patientId={patient.id} /> : null}
+          {drawer === "more" ? <MoreFolds patient={patient} canClinical={canClinical} pastRx={false} /> : null}
         </div>
       </Drawer>
     </>
   );
 }
 
-type TabKey = "visit" | "history" | "rx" | "consent" | "details";
+type TabKey = "visit" | "history" | "details" | "more";
 
 /** Tabs with a ribbon: dictate and add a medicine set from any tab. */
 export function TabsLayout({ patient, canClinical, showPastRx }: LayoutProps) {
   const session = useVisitSession();
   const picks = useQuickPicks();
-  const [tab, setTab] = useState<TabKey>(showPastRx && canClinical ? "rx" : canClinical ? "visit" : "details");
+  const [tab, setTab] = useState<TabKey>(showPastRx && canClinical ? "history" : canClinical ? "visit" : "details");
   const sets = (picks.data?.medicine_sets ?? []).slice(0, 3);
   const note = session.note;
+  const voice = session.voice;
   const ribbon = canClinical && session.canWrite;
-  const status = session.voiceOpen ? "Recorder open" : Object.values(note.values).some((v) => v.trim() !== "") ? "Note drafted" : "Tap to dictate";
+  const status =
+    voice.phase === "recording"
+      ? "Recording"
+      : voice.phase === "paused"
+        ? "Recording paused"
+        : Object.values(note.values).some((v) => v.trim() !== "")
+          ? "Note drafted"
+          : "Tap to dictate";
   const options: { value: TabKey; label: string }[] = canClinical
     ? [
         { value: "visit", label: "Visit" },
         { value: "history", label: "History" },
-        { value: "rx", label: "Rx" },
-        { value: "consent", label: "Consent" },
+        { value: "more", label: "More" },
       ]
     : [
         { value: "details", label: "Details" },
-        { value: "consent", label: "Consent" },
+        { value: "more", label: "More" },
       ];
   return (
     <>
@@ -237,13 +252,14 @@ export function TabsLayout({ patient, canClinical, showPastRx }: LayoutProps) {
           <button
             type="button"
             className="p360-mic"
-            aria-label={session.voiceOpen ? "Close the voice recorder" : "Open the voice recorder"}
-            aria-pressed={session.voiceOpen}
+            aria-label="Go to the voice recorder"
             disabled={session.visit === undefined}
             onClick={() => {
               setTab("visit");
-              if (!note.hasDraft && !session.voiceOpen) note.start();
-              session.setVoiceOpen(!session.voiceOpen);
+              // The recorder is on the Visit tab; once it shows, focus its button.
+              requestAnimationFrame(() => {
+                document.querySelector<HTMLElement>('[aria-label="Voice recorder"] button')?.focus();
+              });
             }}
           >
             <Mic aria-hidden="true" />
@@ -290,7 +306,7 @@ export function TabsLayout({ patient, canClinical, showPastRx }: LayoutProps) {
                 </div>
               </div>
               <DoneTodayBlock />
-              <PlanBlock />
+              <ImagesBlock patientId={patient.id} />
             </div>
           ) : null,
           history: (
@@ -298,27 +314,21 @@ export function TabsLayout({ patient, canClinical, showPastRx }: LayoutProps) {
               <Bento title="Visit history">
                 <HistoryBlock limit={20} />
               </Bento>
-              <FilesBlock patientId={patient.id} />
-              <NotesBlock patientId={patient.id} />
-            </div>
-          ),
-          rx: (
-            <Bento title="Past prescriptions">
-              <PastRxBlock />
-            </Bento>
-          ),
-          consent: (
-            <div className="p360-stack">
-              <ConsentBlock patientId={patient.id} />
-              <FlagsBlock patientId={patient.id} />
+              <Bento title="Past prescriptions">
+                <PastRxBlock />
+              </Bento>
+              <Bento title="X-rays and photos">
+                <GalleryBlock patientId={patient.id} canUpload={session.canWrite} visitId={session.visit?.id} />
+              </Bento>
             </div>
           ),
           details: (
             <div className="p360-stack">
               <DetailsBlock patient={patient} />
-              <BillingBlock patientId={patient.id} />
+              <FlagsBlock patientId={patient.id} />
             </div>
           ),
+          more: <MoreFolds patient={patient} canClinical={canClinical} pastRx={false} />,
         }}
       />
     </>

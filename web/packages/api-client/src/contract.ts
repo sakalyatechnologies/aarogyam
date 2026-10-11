@@ -470,6 +470,7 @@ export type InvoiceLineInput = Schemas["InvoiceLineInput"];
 export type Invoice = Schemas["Invoice"];
 export type InvoiceList = Schemas["InvoiceList"];
 export type NewInvoice = Schemas["NewInvoice"];
+export type UpiLink = Schemas["UpiLink"];
 export type InvoiceEdit = Schemas["InvoiceEdit"];
 
 export type Allocation = Schemas["Allocation"];

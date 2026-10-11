@@ -1930,6 +1930,16 @@ export const invoiceLine = z.object({
 }) satisfies z.ZodType<C.InvoiceLine>;
 export type InvoiceLine = z.output<typeof invoiceLine>;
 
+export const upiLink = z.object({
+  uri: z.string(),
+  qr_data: z.string(),
+  upi_id: z.string(),
+  payee_name: z.string(),
+  invoice_number: z.string(),
+  amount_paise: paise,
+}) satisfies z.ZodType<C.UpiLink>;
+export type UpiLink = z.output<typeof upiLink>;
+
 export const invoice = z.object({
   id: invoiceId,
   status: invoiceStatus,

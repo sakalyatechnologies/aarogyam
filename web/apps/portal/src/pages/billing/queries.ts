@@ -113,9 +113,9 @@ export function useVoidInvoice(id: InvoiceId) {
   });
 }
 
-export function usePayments(range: Partial<DateRange> = {}) {
+export function usePayments(range: Partial<DateRange> = {}, enabled = true) {
   const { api, access } = useClinic();
-  return useQuery({ queryKey: ["payments", access.org_id, range.from, range.to], queryFn: ({ signal }) => unwrap(api.listPayments(range, { signal })) });
+  return useQuery({ queryKey: ["payments", access.org_id, range.from, range.to], queryFn: ({ signal }) => unwrap(api.listPayments(range, { signal })), enabled });
 }
 
 export function usePayment(id: PaymentId | undefined) {

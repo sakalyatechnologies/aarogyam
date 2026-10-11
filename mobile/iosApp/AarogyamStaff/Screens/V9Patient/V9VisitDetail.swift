@@ -9,12 +9,16 @@ struct V9VisitDetail: View {
     let clinic: ClinicContext
     let patientId: String
     let visitId: String
+    let phone: String?
     let billing: BillingStateHolder
     let billingState: BillingState
 
     var body: some View {
         ScreenHost(make: { graph.visitDetail(clinic: clinic, visitId: visitId, patientId: patientId, screen: $0) }, state: { $0.state }) { holder, state in
-            V9VisitDetailBody(holder: holder, state: state, billing: billing, billingState: billingState)
+            V9VisitDetailBody(
+                holder: holder, state: state, graph: graph, clinic: clinic, patientId: patientId, visitId: visitId, phone: phone,
+                billing: billing, billingState: billingState
+            )
         }
         .navigationTitle(p9("p9.visit.title"))
         .navigationBarTitleDisplayMode(.inline)
@@ -24,8 +28,14 @@ struct V9VisitDetail: View {
 private struct V9VisitDetailBody: View {
     let holder: VisitDetailStateHolder
     let state: VisitDetailState
+    let graph: AppGraph
+    let clinic: ClinicContext
+    let patientId: String
+    let visitId: String
+    let phone: String?
     let billing: BillingStateHolder
     let billingState: BillingState
+    @State private var sendRx: VisitRxRef?
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -48,6 +58,9 @@ private struct V9VisitDetailBody: View {
             if let form = billLoaded?.form { PaymentSheet(holder: billing, form: form) }
         }
         .onChange(of: receipt) { _, new in if new != nil { holder.refresh() } }
+        .sheet(item: $sendRx) { ref in
+            V9SendRxSheet(graph: graph, clinic: clinic, patientId: patientId, visitId: visitId, rx: ref, phone: phone) { sendRx = nil }
+        }
     }
 
     private var billLoaded: BillingStateLoaded? {
@@ -59,7 +72,7 @@ private struct V9VisitDetailBody: View {
     @ViewBuilder private func detail(_ view: VisitDetailView) -> some View {
         let r = theme.roles
         VStack(alignment: .leading, spacing: 2) {
-            Text(view.title ?? view.number).v7Text(22, .heavy).foregroundStyle(r.onSurface.color)
+            Text(HistoryRowFormat.title(complaint: view.title, procedure: view.procedures.first?.name, kind: nil)).v7Text(22, .heavy).foregroundStyle(r.onSurface.color)
             Text(subtitle(view)).v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color)
         }
         .accessibilityElement(children: .combine)
@@ -180,6 +193,11 @@ private struct V9VisitDetailBody: View {
                             )
                         )
                     }
+                    if rx.issued, clinic.permissions.contains("prescriptions.issue") {
+                        SkPillButton(p9("p9.visit.rx.send"), variant: .tonal, icon: V7Icon.path("wa"), wide: true) {
+                            sendRx = VisitRxRef(id: rx.id, number: rx.number)
+                        }
+                    }
                 }
             }
         } else {
@@ -296,5 +314,36 @@ struct MedicineCard: View {
         .padding(12)
         .background(r.surface2.color, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .accessibilityElement(children: .contain)
+    }
+}
+
+/// The signed prescription of a visit, to send again.
+struct VisitRxRef: Identifiable { let id: String; let number: String? }
+
+/// "Send prescription": a fresh link and PIN for the visit's signed Rx, then WhatsApp, SMS or Print.
+struct V9SendRxSheet: View {
+    let graph: AppGraph
+    let clinic: ClinicContext
+    let patientId: String
+    let visitId: String
+    let rx: VisitRxRef
+    let phone: String?
+    let onDone: () -> Void
+
+    var body: some View {
+        ScreenHost(
+            make: { graph.rxSheetInVisit(clinic: clinic, patientId: patientId, allergies: [], visitId: visitId, screen: $0) },
+            state: { $0.state }
+        ) { holder, state in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    SkSheetHeader(p9("p9.visit.rx.send"), subtitle: rx.number)
+                    RxDelivery(holder: holder, state: state, phone: phone, onDone: onDone)
+                }
+                .padding(.horizontal, 18).padding(.top, 22).padding(.bottom, 30)
+            }
+            .skSheet()
+            .onAppear { holder.shareIssued(id: rx.id, number: rx.number) }
+        }
     }
 }

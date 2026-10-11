@@ -56,6 +56,35 @@ final class PatientV9Tests: XCTestCase {
         XCTAssertEqual(HistoryRowFormat.chips(hasNotes: false, hasRx: false, hasPhotos: false, bill: .none, open: false), [])
     }
 
+    func test_title_falls_back_complaint_then_procedure_then_kind_then_visit() {
+        XCTAssertEqual(HistoryRowFormat.title(complaint: "Toothache", procedure: "RCT", kind: .walkIn), "Toothache")
+        XCTAssertEqual(HistoryRowFormat.title(complaint: "  ", procedure: "RCT", kind: .walkIn), "RCT")
+        XCTAssertEqual(HistoryRowFormat.title(complaint: nil, procedure: " ", kind: .appointment), p9("p9.title.appointment"))
+        XCTAssertEqual(HistoryRowFormat.title(complaint: nil, procedure: nil, kind: .walkIn), p9("p9.title.walkin"))
+        XCTAssertEqual(HistoryRowFormat.title(complaint: nil, procedure: nil, kind: nil), "Visit")
+        XCTAssertFalse(HistoryRowFormat.title(complaint: nil, procedure: nil, kind: nil).hasPrefix("V-"))
+    }
+
+    func test_due_shows_only_with_money_and_a_balance() {
+        XCTAssertEqual(HistoryRowFormat.dueText(duePaise: 600_000, moneyVisible: true), ClinicFormat.rupees(paise: 600_000))
+        XCTAssertNil(HistoryRowFormat.dueText(duePaise: 600_000, moneyVisible: false))
+        XCTAssertNil(HistoryRowFormat.dueText(duePaise: 0, moneyVisible: true))
+        XCTAssertNil(HistoryRowFormat.dueText(duePaise: nil, moneyVisible: true))
+        // An assistant's list carries no due at all, so the card falls back to the plain chip.
+        XCTAssertEqual(HistoryRowFormat.chips(hasNotes: nil, hasRx: false, hasPhotos: nil, bill: .due, open: false, duePaise: nil), [.due])
+        let amount = HistoryRowFormat.chips(hasNotes: nil, hasRx: false, hasPhotos: nil, bill: .due, open: false, duePaise: 600_000)
+        XCTAssertEqual(amount, [.dueAmount(ClinicFormat.rupees(paise: 600_000))])
+        XCTAssertTrue(amount[0].title.contains(ClinicFormat.rupees(paise: 600_000)))
+    }
+
+    func test_teeth_chips_come_first_after_open_and_read_as_teeth() {
+        let chips = HistoryRowFormat.chips(hasNotes: nil, hasRx: true, hasPhotos: nil, bill: .paid, open: true, teeth: [26, 36])
+        XCTAssertEqual(chips, [.open, .tooth(26), .tooth(36), .rx, .paid])
+        XCTAssertEqual(chips[1].title, "26")
+        XCTAssertEqual(chips[1].spoken, p9f("p9.chip.tooth.a11y", 26))
+        XCTAssertEqual(HistoryRowFormat.chips(hasNotes: nil, hasRx: false, hasPhotos: nil, bill: .none, open: false, teeth: []), [])
+    }
+
     func test_dose_grid_reads_the_frequency_and_totals_the_tablets() {
         let d = DoseDisplay.make(frequency: "1-0-1", timing: "after_food", days: 5, form: "tablet")
         XCTAssertEqual(d.cells.map(\.value), ["1", "0", "1"])

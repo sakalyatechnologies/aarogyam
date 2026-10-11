@@ -216,14 +216,16 @@ async fn walk_in_routes(app: &TestApp, owner: &str) -> [Route; 4] {
             1,
         ),
         // The patient's number and row, the allergies, the consents, the branch, the token's
-        // number, the token and its row: one statement each, seven over (eight with a doctor).
+        // number, the token and its row: one statement each, seven over (eight with a doctor);
+        // the welcome adds six: the switch, the portal and website addresses, the channel, the
+        // patient's reach and the queued message.
         post(
             "POST /walk-ins",
             "/api/v1/walk-ins".into(),
             json!({ "patient": { "full_name": "Ravi Pawar", "age_years": 30, "phone": "9876500002" },
                     "allergies": ["Latex"],
                     "consents": [{ "purpose": "care", "method": "verbal" }] }),
-            7,
+            13,
         ),
         // The token's lock, the visit it has, the doctor's name and the token's row: three over.
         post(

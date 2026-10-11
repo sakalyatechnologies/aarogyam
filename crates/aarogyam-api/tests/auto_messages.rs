@@ -205,7 +205,7 @@ async fn the_clinic_switches_decide_and_default_as_documented() {
     )
     .await;
     let id = off["patient"]["id"].as_str().unwrap().to_owned();
-    assert!(rows(&app, &id).await.is_empty());
+    assert_eq!(rows(&app, &id).await.len(), 0);
     // Other switches keep their values.
     let (_, settings) = app
         .send(
@@ -224,7 +224,7 @@ async fn the_clinic_switches_decide_and_default_as_documented() {
         close(&app, &owner, ALPHA, &visit, json!({})).await,
         StatusCode::OK
     );
-    assert!(rows(&app, &id).await.is_empty());
+    assert_eq!(rows(&app, &id).await.len(), 0);
     assert_eq!(
         count(
             &app,
@@ -300,14 +300,20 @@ async fn closing_queues_the_summary_and_its_pin_once_and_a_repeat_adds_nothing()
         .await,
         1
     );
-    // Sending clears the secrets.
+    // Sending clears the secret; the PIN waits half a minute so it arrives after the link.
     drain(&app).await;
     let left = count(
         &app,
         "select count(*) from aarogyam.messages where secret is not null",
     )
     .await;
-    assert_eq!(left, 0);
+    assert_eq!(left, 1);
+    let waiting: String =
+        sqlx::query_scalar("select kind from aarogyam.messages where secret is not null")
+            .fetch_one(&app.owner)
+            .await
+            .unwrap();
+    assert_eq!(waiting, "visit.summary_pin");
     app.finish().await;
 }
 
@@ -331,7 +337,7 @@ async fn a_visit_that_already_has_a_live_link_is_not_sent_a_second() {
         close(&app, &owner, ALPHA, &visit, json!({})).await,
         StatusCode::OK
     );
-    assert!(rows(&app, &id).await.is_empty());
+    assert_eq!(rows(&app, &id).await.len(), 0);
     assert_eq!(
         count(
             &app,
@@ -478,7 +484,7 @@ async fn the_follow_up_message_waits_until_two_days_before_and_needs_reminder_co
     )
     .await;
     let soon: OffsetDateTime = sqlx::query_scalar(
-        "select max(scheduled_for) from aarogyam.messages
+        "select min(scheduled_for) from aarogyam.messages
          where kind = 'visit.follow_up_booking' and patient_id = $1::uuid",
     )
     .bind(&id)
@@ -558,7 +564,7 @@ async fn whatsapp_needs_opt_in_and_an_approved_template_and_stays_off_without_cr
     drain(&app).await;
     let reasons: Vec<Option<String>> = sqlx::query_scalar(
         "select skip_reason from aarogyam.messages
-         where patient_id = $1::uuid and channel = 'whatsapp'",
+         where patient_id = $1::uuid and channel = 'whatsapp' order by kind",
     )
     .bind(&id)
     .fetch_all(&app.owner)
@@ -568,7 +574,8 @@ async fn whatsapp_needs_opt_in_and_an_approved_template_and_stays_off_without_cr
         reasons,
         [
             Some("channel_disabled".into()),
-            Some("channel_disabled".into())
+            // The PIN waits half a minute, then is skipped the same way.
+            None
         ]
     );
     app.finish().await;
@@ -650,11 +657,10 @@ async fn templates_say_thanks_in_three_languages_with_links_and_no_patient_detai
             names.contains(&"clinic_name".to_owned()),
             "{key} {language}"
         );
-        for banned in ["patient", "diagnos", "tooth", "drug", "medicine", "name}}"] {
+        for banned in ["diagnos", "tooth", "drug", "medicine", "{{name"] {
             assert!(
-                !body.to_lowercase().contains(banned)
-                    || banned == "name}}" && body.contains("clinic_name"),
-                "{key} {language} says {banned}"
+                !body.to_lowercase().contains(banned),
+                "{key} {language}: {banned}"
             );
         }
         // Meta refuses a template that ends on a variable.

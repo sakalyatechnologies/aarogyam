@@ -54,34 +54,6 @@ enum PatientLinks {
     private static func digits(_ phone: String) -> String { phone.filter(\.isASCII).filter(\.isNumber) }
 }
 
-/// The pill tabs of Patient 360, in the order they show. Chart, Visits, Rx and Bills are the mockup's;
-/// Notes and Files keep the pages that already work.
-enum PatientTab: CaseIterable, Hashable {
-    case chart, visits, rx, bills, notes, files
-
-    /// The tabs a role sees: the chart, Rx, notes and files need `clinical.read`, Visits needs the visit list and Bills `billing.read`.
-    static func visible(clinical: Bool, visits: Bool, bills: Bool) -> [PatientTab] {
-        allCases.filter { tab in
-            switch tab {
-            case .chart, .rx, .notes, .files: clinical
-            case .visits: visits
-            case .bills: bills
-            }
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .chart: pv("pv.tab.chart")
-        case .visits: pv("pv.tab.visits")
-        case .rx: pv("pv.tab.rx")
-        case .bills: pv("pv.tab.bills")
-        case .notes: pv("pv.tab.notes")
-        case .files: pv("pv.tab.files")
-        }
-    }
-}
-
 /// How a tooth shows on the jaw: the mockup's treated, in progress, planned and watch colours, plus care and missing.
 enum JawTone: CaseIterable {
     case plain, treated, progress, watch, care, missing

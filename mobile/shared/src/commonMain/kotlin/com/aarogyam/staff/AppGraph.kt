@@ -16,6 +16,8 @@ import com.aarogyam.staff.device.MemoryPreferences
 import com.aarogyam.staff.device.Preferences
 import com.aarogyam.staff.expenses.ExpensesStateHolder
 import com.aarogyam.staff.files.FilesStateHolder
+import com.aarogyam.staff.history.VisitDetailStateHolder
+import com.aarogyam.staff.history.VisitHistoryStateHolder
 import com.aarogyam.staff.labs.LabsStateHolder
 import com.aarogyam.staff.labs.NewLabCaseStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
@@ -120,6 +122,20 @@ class AppGraph private constructor(
         patientId: String,
         scope: CoroutineScope,
     ): Patient360StateHolder = Patient360StateHolder(clinic, patientId, scope, logger("aarogyam.patient360"))
+
+    fun visitHistory(
+        clinic: ClinicContext,
+        patientId: String,
+        scope: CoroutineScope,
+    ): VisitHistoryStateHolder = VisitHistoryStateHolder(clinic, patientId, scope, logger("aarogyam.history"))
+
+    fun visitDetail(
+        clinic: ClinicContext,
+        visitId: String,
+        patientId: String,
+        scope: CoroutineScope,
+    ): VisitDetailStateHolder =
+        VisitDetailStateHolder(clinic, visitId, patientId, scope, logger("aarogyam.visit_detail"))
 
     fun files(
         clinic: ClinicContext,

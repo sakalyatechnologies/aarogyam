@@ -41,6 +41,7 @@ struct DeskSheet: View {
                 }
             }
         }
+        .safeAreaInset(edge: .top, alignment: .leading) { OutboxBadge(graph: graph).padding(.horizontal, SkSpacing.l) }
         .sheet(item: $paying) { target in DeskPaymentSheet(graph: graph, clinic: clinic, target: target) }
     }
 }

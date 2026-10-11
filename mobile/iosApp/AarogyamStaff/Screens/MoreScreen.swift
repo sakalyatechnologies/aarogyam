@@ -23,6 +23,7 @@ struct MoreScreen: View {
     @State private var avatars = false
     @State private var languages = false
     @State private var avatarRevision = 0
+    @State private var unsent: Int?
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -58,6 +59,10 @@ struct MoreScreen: View {
         .navigationTitle(String(localized: "v7.more.title"))
         .navigationDestination(for: MoreRoute.self) { route in destination(route) }
         .sheet(item: $settingsURL) { url in SafariView(url: url).ignoresSafeArea() }
+        .alert(String(format: String(localized: "outbox.signout.title"), unsent ?? 0), isPresented: Binding(get: { unsent != nil }, set: { if !$0 { unsent = nil } })) {
+            Button(String(localized: "outbox.signout.anyway"), role: .destructive) { graph.signOut() }
+            Button(String(localized: "outbox.signout.stay"), role: .cancel) {}
+        }
         .sheet(isPresented: $languages) { LanguageSheet().presentationDetents([.medium]) }
         .sheet(isPresented: $avatars) { AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large]) }
     }
@@ -100,7 +105,9 @@ struct MoreScreen: View {
         case .switchClinic: onSwitchClinic()
         case .language: languages = true
         case .help: path.append(.help)
-        case .signOut: graph.signOut()
+        case .signOut:
+            // Writes not sent yet would be lost: ask first.
+            if case .signOutBlocked(let blocked) = onEnum(of: graph.trySignOut()) { unsent = Int(blocked.pendingCount) }
         case .clinicQr: path.append(.rxSets)
         }
     }

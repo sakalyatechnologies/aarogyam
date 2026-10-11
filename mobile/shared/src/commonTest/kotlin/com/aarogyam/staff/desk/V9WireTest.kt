@@ -38,7 +38,8 @@ import kotlin.test.assertTrue
 /** The calls the v9 backend (BE1, BE2, BE4, BE6, BE8) made live, one test group each. */
 class V9WireTest {
     private val queue = "$SUNRISE/api/v1/queue"
-    private val doctor = listOf("appointments.read", "clinical.read", "clinical.write", "patients.read", "patients.write")
+    private val doctor =
+        listOf("appointments.read", "clinical.read", "clinical.write", "patients.read", "patients.write")
 
     private suspend fun HttpRequestData.text() = body.toByteArray().decodeToString()
 
@@ -110,12 +111,25 @@ class V9WireTest {
             val board = DeskBoardStateHolder(clinic(backend), backgroundScope)
             board.state.first { it is DeskBoardState.Loaded }
             board.setMine(true)
-            val loaded = board.state.first { (it as? DeskBoardState.Loaded)?.let { l -> l.mine && !l.refreshing } == true } as DeskBoardState.Loaded
+            val loaded =
+                board.state.first {
+                    (it as? DeskBoardState.Loaded)?.let { l -> l.mine && !l.refreshing } ==
+                        true
+                } as DeskBoardState.Loaded
             assertTrue(loaded.canFilterMine)
-            assertEquals("d1", backend.requests.last { it.url.encodedPath.endsWith("/queue") }.url.parameters["practitioner_id"])
+            assertEquals(
+                "d1",
+                backend.requests
+                    .last { it.url.encodedPath.endsWith("/queue") }
+                    .url.parameters["practitioner_id"],
+            )
             board.setMine(false)
             board.state.first { (it as? DeskBoardState.Loaded)?.let { l -> !l.mine && !l.refreshing } == true }
-            assertNull(backend.requests.last { it.url.encodedPath.endsWith("/queue") }.url.parameters["practitioner_id"])
+            assertNull(
+                backend.requests
+                    .last { it.url.encodedPath.endsWith("/queue") }
+                    .url.parameters["practitioner_id"],
+            )
         }
 
     @Test
@@ -142,7 +156,12 @@ class V9WireTest {
                     )
                 },
             )
-            val holder = DeskLookupStateHolder(clinic(backend, listOf("patients.read", "appointments.read", "appointments.write", "intake.write")), backgroundScope, debounceMillis = 0)
+            val holder =
+                DeskLookupStateHolder(
+                    clinic(backend, listOf("patients.read", "appointments.read", "appointments.write", "intake.write")),
+                    backgroundScope,
+                    debounceMillis = 0,
+                )
             holder.search("9876543210")
             val matches = assertIs<DeskLookupState.Matches>(holder.state.first { it is DeskLookupState.Matches })
             assertEquals(listOf("p1", "p5"), matches.profiles.map { it.id })
@@ -178,27 +197,48 @@ class V9WireTest {
     fun the_family_section_lists_adds_and_removes_links() =
         runTest {
             val backend = FakeBackend()
-            val link = """{"id":"l1","patient_id":"p5","number":"SD-1050","full_name":"Tara Shah","relation":"child","is_primary_contact":false}"""
+            val link =
+                """{"id":"l1","patient_id":"p5","number":"SD-1050","full_name":"Tara Shah",""" +
+                    """"relation":"child","is_primary_contact":false}"""
             val family = "$SUNRISE/api/v1/patients/p1/family"
             backend.on(family, { json("""{"items":[$link]}""") })
             val holder = FamilyStateHolder(clinic(backend), "p1", backgroundScope)
             val loaded = holder.state.first { it is FamilyState.Loaded } as FamilyState.Loaded
-            assertEquals(Relative("l1", "p5", "SD-1050", "Tara Shah", "child", false), loaded.items.single())
+            val tara = Relative("l1", "p5", "SD-1050", "Tara Shah", "child", false)
+            assertEquals(tara, loaded.items.single())
             assertTrue(loaded.canEdit)
             val second = link.replace("l1", "l2").replace("p5", "p6")
             backend.on(family, { request ->
-                if (request.method.value == "POST") json(second, HttpStatusCode.Created) else json("""{"items":[$link,$second]}""")
+                if (request.method.value ==
+                    "POST"
+                ) {
+                    json(second, HttpStatusCode.Created)
+                } else {
+                    json("""{"items":[$link,$second]}""")
+                }
             })
             holder.add("p6", "child")
             val grown = holder.state.first { (it as? FamilyState.Loaded)?.items?.size == 2 } as FamilyState.Loaded
             assertEquals(2, grown.items.size)
-            val post = backend.requests.last { it.method.value == "POST" && it.url.encodedPath.endsWith("/family") }.text()
+            val post =
+                backend.requests
+                    .last {
+                        it.method.value == "POST" &&
+                            it.url.encodedPath.endsWith(
+                                "/family",
+                            )
+                    }.text()
             assertTrue(""""related_patient_id":"p6"""" in post && """"relation":"child"""" in post, post)
             backend.on("$family/l2", { json("{}", HttpStatusCode.NoContent) })
             backend.on(family, { json("""{"items":[$link]}""") })
             holder.remove("l2")
             holder.state.first { (it as? FamilyState.Loaded)?.items?.size == 1 }
-            assertEquals("DELETE", backend.requests.last { it.url.encodedPath.endsWith("/l2") }.method.value)
+            assertEquals(
+                "DELETE",
+                backend.requests
+                    .last { it.url.encodedPath.endsWith("/l2") }
+                    .method.value,
+            )
         }
 
     @Test
@@ -207,7 +247,13 @@ class V9WireTest {
             val backend = FakeBackend()
             val family = "$SUNRISE/api/v1/patients/p1/family"
             backend.on(family, { request ->
-                if (request.method.value == "POST") apiError(HttpStatusCode.Conflict, "already_linked") else json("""{"items":[]}""")
+                if (request.method.value ==
+                    "POST"
+                ) {
+                    apiError(HttpStatusCode.Conflict, "already_linked")
+                } else {
+                    json("""{"items":[]}""")
+                }
             })
             val holder = FamilyStateHolder(clinic(backend), "p1", backgroundScope)
             holder.state.first { it is FamilyState.Loaded }
@@ -235,7 +281,9 @@ class V9WireTest {
                 },
             )
             val ctx = clinic(backend, listOf("billing.write"))
-            val holder = com.aarogyam.staff.team.NotificationsStateHolder(ctx, backgroundScope)
+            val holder =
+                com.aarogyam.staff.team
+                    .NotificationsStateHolder(ctx, backgroundScope)
             val list = holder.state.first { it is ListState.Loaded } as ListState.Loaded
             val first = list.items.first()
             assertEquals("send_in", first.kind)
@@ -272,14 +320,31 @@ class V9WireTest {
                     )
                 },
             )
-            val job = PaymentJob("sunrise", "p1", PayMethod.Upi.name, 50000, proofId = "0192f3a4-5b6c-7d8e-9f01-23456789abce", proofJpegBase64 = encodeProof(byteArrayOf(1, 2, 3)))
-            val done = deliver(clinic(backend, listOf("billing.write", "billing.read")).api, job, "0192f3a4-5b6c-7d8e-9f01-23456789abcd", Logger("t"))
+            val job =
+                PaymentJob(
+                    "sunrise",
+                    "p1",
+                    PayMethod.Upi.name,
+                    50000,
+                    proofId = "0192f3a4-5b6c-7d8e-9f01-23456789abce",
+                    proofJpegBase64 = encodeProof(byteArrayOf(1, 2, 3)),
+                )
+            val done =
+                deliver(
+                    clinic(backend, listOf("billing.write", "billing.read")).api,
+                    job,
+                    "0192f3a4-5b6c-7d8e-9f01-23456789abcd",
+                    Logger("t"),
+                )
             assertEquals(Delivery.Done("RC/26-27/000042", ProofStatus.Sent), done)
             val upload = backend.requests.first { it.url.encodedPath.endsWith("/attachments") }.text()
             assertTrue("payment_proof" in upload, "kind is payment_proof")
             val payment = backend.requests.last { it.url.encodedPath.endsWith("/payments") }.text()
             assertTrue(""""attachment_id":"a1"""" in payment, payment)
-            assertTrue(backend.requests.indexOfFirst { it.url.encodedPath.endsWith("/attachments") } < backend.requests.indexOfFirst { it.url.encodedPath.endsWith("/payments") })
+            assertTrue(
+                backend.requests.indexOfFirst { it.url.encodedPath.endsWith("/attachments") } <
+                    backend.requests.indexOfFirst { it.url.encodedPath.endsWith("/payments") },
+            )
         }
 
     @Test
@@ -298,8 +363,22 @@ class V9WireTest {
                     )
                 },
             )
-            val job = PaymentJob("sunrise", "p1", PayMethod.Cash.name, 50000, proofId = "0192f3a4-5b6c-7d8e-9f01-23456789abce", proofJpegBase64 = encodeProof(byteArrayOf(1)))
-            val done = deliver(clinic(backend, listOf("billing.write")).api, job, "0192f3a4-5b6c-7d8e-9f01-23456789abcd", Logger("t"))
+            val job =
+                PaymentJob(
+                    "sunrise",
+                    "p1",
+                    PayMethod.Cash.name,
+                    50000,
+                    proofId = "0192f3a4-5b6c-7d8e-9f01-23456789abce",
+                    proofJpegBase64 = encodeProof(byteArrayOf(1)),
+                )
+            val done =
+                deliver(
+                    clinic(backend, listOf("billing.write")).api,
+                    job,
+                    "0192f3a4-5b6c-7d8e-9f01-23456789abcd",
+                    Logger("t"),
+                )
             assertEquals(Delivery.Done("RC/1", ProofStatus.NotSent), done)
             assertFalse("attachment_id" in backend.requests.last { it.url.encodedPath.endsWith("/payments") }.text())
         }
@@ -312,7 +391,12 @@ class V9WireTest {
             val backend = FakeBackend()
             backend.on(
                 "$SUNRISE/api/v1/visits/v1/share",
-                { json("""{"id":"s1","token":"tok","path":"/shared/tok","pin":"123456","expires_at":"2026-10-15T04:00:00Z"}""", HttpStatusCode.Created) },
+                {
+                    json(
+                        """{"id":"s1","token":"tok","path":"/shared/tok","pin":"123456","expires_at":"2026-10-15T04:00:00Z"}""",
+                        HttpStatusCode.Created,
+                    )
+                },
             )
             val ctx = clinic(backend)
             val holder = VisitShareStateHolder(ctx, "v1", backgroundScope)
@@ -321,7 +405,12 @@ class V9WireTest {
             val ready = assertIs<VisitShareState.Ready>(holder.state.first { it is VisitShareState.Ready })
             assertEquals("${ctx.api.origin}/shared/tok", ready.url)
             assertEquals("123456", ready.pin)
-            assertEquals("POST", backend.requests.last().method.value)
+            assertEquals(
+                "POST",
+                backend.requests
+                    .last()
+                    .method.value,
+            )
         }
 
     @Test

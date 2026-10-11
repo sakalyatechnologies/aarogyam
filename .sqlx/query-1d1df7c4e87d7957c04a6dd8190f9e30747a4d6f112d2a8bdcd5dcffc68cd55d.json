@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.messages m\n             set status = 'skipped', skip_reason = 'follow_up_resolved', processed_at = now(),\n                 secret = null\n           from aarogyam.recalls r\n           where r.id = $1 and r.source_encounter_id is not null\n             and m.dedupe_key = 'auto:follow_up:' || r.source_encounter_id::text\n             and m.status = 'queued'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1d1df7c4e87d7957c04a6dd8190f9e30747a4d6f112d2a8bdcd5dcffc68cd55d"
+}

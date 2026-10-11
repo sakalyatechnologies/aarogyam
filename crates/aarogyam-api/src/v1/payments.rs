@@ -16,7 +16,7 @@ use uuid::Uuid;
 use super::billing::{PatientRef, Reason};
 use super::{parse_day, rfc3339};
 use crate::AppState;
-use crate::extract::Require;
+use crate::extract::{Require, RequireAfterLookup};
 use crate::failure::ApiFailure;
 
 /// Part of a payment going to a bill.
@@ -206,7 +206,7 @@ pub(crate) async fn record(
 )]
 pub(crate) async fn void(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingWrite>,
+    RequireAfterLookup { request, .. }: RequireAfterLookup<BillingWrite>,
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<Reason>,
 ) -> Result<Json<Payment>, ApiFailure> {
@@ -240,7 +240,7 @@ pub(crate) async fn void(
 )]
 pub(crate) async fn get(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingRead>,
+    RequireAfterLookup { request, .. }: RequireAfterLookup<BillingRead>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<Json<Payment>, ApiFailure> {
     let view = app::get(
@@ -260,6 +260,8 @@ pub struct PaymentParams {
     pub from: Option<String>,
     /// Last clinic day, included.
     pub to: Option<String>,
+    /// One patient's payments.
+    pub patient_id: Option<Uuid>,
     /// Most rows, 1 to 500 (default 100).
     pub limit: Option<i64>,
 }
@@ -273,6 +275,7 @@ pub struct PaymentParams {
     params(
         ("from" = Option<String>, Query, description = "First clinic day, YYYY-MM-DD"),
         ("to" = Option<String>, Query, description = "Last clinic day, included"),
+        ("patient_id" = Option<String>, Query, description = "One patient's payments"),
         ("limit" = Option<i64>, Query, description = "Most rows, 1 to 500 (default 100)")
     ),
     security(("bearer" = [])),
@@ -304,6 +307,7 @@ pub(crate) async fn list(
         request.request_id,
         from,
         to,
+        params.patient_id.map(PatientId::from_uuid),
         params.limit.unwrap_or(100),
     )
     .await?;

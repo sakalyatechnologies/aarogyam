@@ -565,15 +565,23 @@ async fn every_route_requires_sign_in_and_a_permission() {
             let patient_route = path.starts_with("/api/v1/me/patient");
             let clinic_route =
                 host == ALPHA && !signed_in_only.contains(&path.as_str()) && !patient_route;
+            // These look the record up before the permission (rule 5): an ID that isn't in the
+            // clinic is 404 for every role; tests/billing.rs checks the 403 on a real record.
+            let lookup_first = path.starts_with("/api/v1/invoices/{id}")
+                || path.starts_with("/api/v1/payments/{id}");
             if clinic_route {
                 let (status, _) = app
                     .send(method.clone(), host, &concrete, Some(&nothing), body)
                     .await;
-                assert_eq!(
-                    status,
-                    StatusCode::FORBIDDEN,
-                    "{method} {path} without a permission"
-                );
+                // (An empty body for a route that needs one is refused as `422` first.)
+                let expected = if lookup_first && status == StatusCode::UNPROCESSABLE_ENTITY {
+                    status
+                } else if lookup_first {
+                    StatusCode::NOT_FOUND
+                } else {
+                    StatusCode::FORBIDDEN
+                };
+                assert_eq!(status, expected, "{method} {path} without a permission");
             }
             checked += 1;
         }

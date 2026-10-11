@@ -278,3 +278,23 @@ pub(crate) async fn visit_closed(
     }
     Ok(())
 }
+
+/// The patient booked an appointment: the follow-up booking message still queued is no longer
+/// needed. Call it in the booking's transaction.
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub(crate) async fn follow_up_booked(tx: &mut ScopedTx, patient_id: Uuid) -> Result<(), AppError> {
+    dal::cancel_follow_ups_of_patient(tx.conn(), patient_id).await?;
+    Ok(())
+}
+
+/// A recall was marked done or dismissed: its follow-up booking message, if not yet sent, is
+/// skipped. Call it in the transaction that closes the recall.
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub(crate) async fn follow_up_closed(tx: &mut ScopedTx, recall_id: Uuid) -> Result<(), AppError> {
+    dal::cancel_follow_up_of_recall(tx.conn(), recall_id).await?;
+    Ok(())
+}

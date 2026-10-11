@@ -735,6 +735,17 @@ async fn patients_book_and_cancel_through_the_online_booking_rules() {
     assert_eq!(status, StatusCode::OK, "{free}");
     let slot = free["slots"][4].as_str().unwrap().to_owned();
     let booking = json!({ "practitioner_id": doctor, "starts_at": slot, "reason": "Check-up" });
+    // A follow-up booking message waiting for this patient goes away once they book (BE7 gap).
+    sqlx::query(
+        "insert into aarogyam.messages (org_id, patient_id, channel, kind, purpose, template_key, dedupe_key)
+         select org_id, id, 'email', 'visit.follow_up_booking', 'reminders',
+                'visit.follow_up_booking', 'auto:follow_up:test'
+         from aarogyam.patients where id = $1::uuid",
+    )
+    .bind(&mine)
+    .execute(&app.owner)
+    .await
+    .unwrap();
 
     // Only at a clinic that linked the patient, and only offered slots.
     let (status, _) = app
@@ -772,6 +783,16 @@ async fn patients_book_and_cancel_through_the_online_booking_rules() {
     assert_eq!(booked["status"], "requested");
     assert_eq!(booked["can_cancel"], true);
     let id = id_of(&booked);
+    let (status, reason): (String, Option<String>) = sqlx::query_as(
+        "select status, skip_reason from aarogyam.messages where dedupe_key = 'auto:follow_up:test'",
+    )
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(
+        (status.as_str(), reason.as_deref()),
+        ("skipped", Some("follow_up_resolved"))
+    );
     let (patient_id, source): (Uuid, String) =
         sqlx::query_as("select patient_id, source from aarogyam.appointments where id = $1::uuid")
             .bind(&id)

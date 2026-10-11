@@ -415,12 +415,13 @@ pub async fn void(
     reason: &str,
     now: OffsetDateTime,
 ) -> Result<PaymentView, AppError> {
-    actor.require(Permission::BillingWrite)?;
-    let reason = void_reason(reason)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let status = dal::lock_payment(tx.conn(), id.uuid())
             .await?
             .ok_or(AppError::NotFound("payment"))?;
+        // After the lookup: a payment of another clinic is a 404 for everyone (rule 5).
+        actor.require(Permission::BillingWrite)?;
+        let reason = void_reason(reason)?;
         if status != PaymentStatus::Received.as_str() {
             return Err(AppError::Conflict("this payment is already void"));
         }
@@ -447,14 +448,17 @@ pub async fn get(
     request_id: Option<Uuid>,
     id: PaymentId,
 ) -> Result<PaymentView, AppError> {
-    actor.require(Permission::BillingRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        load_one(tx, id.uuid()).await
+        let view = load_one(tx, id.uuid()).await?;
+        // After the lookup: a payment of another clinic is a 404 for everyone (rule 5).
+        actor.require(Permission::BillingRead)?;
+        Ok(view)
     })
     .await
 }
 
-/// Payments received on clinic days `from` to `to` (both included), newest first.
+/// Payments received on clinic days `from` to `to` (both included), newest first; only
+/// `patient_id`'s when given.
 ///
 /// # Errors
 /// [`AppError::Denied`] without `billing.read`; [`AppError::Db`] on failures.
@@ -464,6 +468,7 @@ pub async fn list(
     request_id: Option<Uuid>,
     from: Option<Date>,
     to: Option<Date>,
+    patient_id: Option<PatientId>,
     limit: i64,
 ) -> Result<Vec<PaymentView>, AppError> {
     actor.require(Permission::BillingRead)?;
@@ -478,6 +483,7 @@ pub async fn list(
             &PaymentFilter {
                 from,
                 to,
+                patient_id: patient_id.map(PatientId::uuid),
                 limit: limit.clamp(1, 500),
                 ..PaymentFilter::default()
             },

@@ -238,7 +238,7 @@ pub async fn record_procedure(
     id: Option<ProcedureId>,
     input: ProcedureInput,
     now: OffsetDateTime,
-) -> Result<ProcedureView, AppError> {
+) -> Result<(ProcedureView, bool), AppError> {
     actor.require(Permission::ClinicalWrite)?;
     let status = match input.status.as_deref() {
         Some(text) => ProcedureStatus::parse(text.trim()).map_err(invalid("status"))?,
@@ -275,7 +275,7 @@ pub async fn record_procedure(
                         .is_none_or(|item| row.treatment_plan_item_id == Some(item));
                 return if same {
                     let names = Names::load(tx, [row.clinician_id]).await?;
-                    procedure_view(row, &names)
+                    Ok((procedure_view(row, &names)?, false))
                 } else {
                     Err(AppError::IdConflict)
                 };
@@ -340,7 +340,7 @@ pub async fn record_procedure(
             finish_item(tx, &row).await?;
         }
         let names = Names::load(tx, [row.clinician_id]).await?;
-        procedure_view(row, &names)
+        Ok((procedure_view(row, &names)?, true))
     })
     .await
 }

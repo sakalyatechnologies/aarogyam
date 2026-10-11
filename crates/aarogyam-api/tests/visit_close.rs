@@ -157,6 +157,21 @@ async fn close_plans_a_follow_up_and_bills_the_fee() {
     assert_eq!(bill["encounter_id"], visit);
     assert_eq!(bill["subtotal_paise"], 50_000);
     assert_eq!(bill["notes"], "Paid at desk");
+    // Close leaves the bill a draft (the desk reviews GST and place of supply, and an issued
+    // bill takes a number and is final), but it reports what is owed, in detail and list.
+    assert_eq!(bill["total_paise"], 50_000);
+    assert_eq!(bill["balance_paise"], 50_000);
+    let (_, list) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/invoices?status=draft",
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(list["items"][0]["total_paise"], 50_000);
+    assert_eq!(list["items"][0]["balance_paise"], 50_000);
 
     // Both, with a priced procedure: two lines.
     let visit = start_visit(&app, &owner, &patient).await;

@@ -4089,6 +4089,7 @@
         ],
         "responses": {
           "200": {
+            "description": "Issued; an already issued bill comes back unchanged",
             "content": {
               "application/json": {
                 "schema": {
@@ -4110,7 +4111,7 @@
             "description": "No such bill in this clinic"
           },
           "409": {
-            "description": "Already issued or void"
+            "description": "The bill is void"
           }
         },
         "security": [
@@ -9921,6 +9922,15 @@
             }
           },
           {
+            "name": "patient_id",
+            "in": "query",
+            "description": "One patient's payments",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "description": "Most rows, 1 to 500 (default 100)",
@@ -14474,7 +14484,18 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "A retry with the same `id`: the procedure already recorded, unchanged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Procedure"
+                }
+              }
+            }
+          },
           "201": {
+            "description": "Recorded",
             "content": {
               "application/json": {
                 "schema": {

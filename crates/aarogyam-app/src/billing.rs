@@ -500,8 +500,11 @@ fn invoice_view(
     let amounts = preview.map_or(stored, Amounts::from);
     let paid = Paise::new(row.paid_paise);
     let issued = status == InvoiceStatus::Issued;
+    // An issued bill owes its stored total; a draft owes what it would total if issued.
     let balance = if issued {
         Paise::new((row.total_paise - row.paid_paise).max(0))
+    } else if status == InvoiceStatus::Draft {
+        Paise::new((amounts.total.get() - row.paid_paise).max(0))
     } else {
         Paise::ZERO
     };
@@ -814,10 +817,11 @@ pub async fn edit(
     id: InvoiceId,
     changes: InvoiceChanges,
 ) -> Result<InvoiceView, AppError> {
-    actor.require(Permission::BillingWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         dal::lock_invoices(tx.conn(), &[id.uuid()]).await?;
         let current = load(tx, id.uuid()).await?;
+        // After the lookup: a bill of another clinic is a 404 for everyone (rule 5).
+        actor.require(Permission::BillingWrite)?;
         if current.status != InvoiceStatus::Draft {
             return Err(AppError::Conflict(
                 "only a draft bill can be edited; void it and bill again",
@@ -866,15 +870,19 @@ pub async fn issue(
     id: InvoiceId,
     now: OffsetDateTime,
 ) -> Result<InvoiceView, AppError> {
-    actor.require(Permission::BillingWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let locked = dal::lock_invoices(tx.conn(), &[id.uuid()])
             .await?
             .into_iter()
             .next()
             .ok_or(AppError::NotFound("invoice"))?;
+        actor.require(Permission::BillingWrite)?;
+        // Issuing twice is a retry: the issued bill comes back unchanged.
+        if locked.status == InvoiceStatus::Issued.as_str() {
+            return load(tx, id.uuid()).await;
+        }
         if locked.status != InvoiceStatus::Draft.as_str() {
-            return Err(AppError::Conflict("this bill is already issued or void"));
+            return Err(AppError::Conflict("this bill is void"));
         }
         let mut lines = dal::invoice_lines(tx.conn(), id.uuid()).await?;
         if lines.is_empty() {
@@ -965,14 +973,14 @@ pub async fn void(
     reason: &str,
     now: OffsetDateTime,
 ) -> Result<InvoiceView, AppError> {
-    actor.require(Permission::BillingWrite)?;
-    let reason = void_reason(reason)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let locked = dal::lock_invoices(tx.conn(), &[id.uuid()])
             .await?
             .into_iter()
             .next()
             .ok_or(AppError::NotFound("invoice"))?;
+        actor.require(Permission::BillingWrite)?;
+        let reason = void_reason(reason)?;
         if locked.status == InvoiceStatus::Void.as_str() {
             return Err(AppError::Conflict("this bill is already void"));
         }
@@ -1004,9 +1012,9 @@ pub async fn get(
     request_id: Option<Uuid>,
     id: InvoiceId,
 ) -> Result<InvoiceView, AppError> {
-    actor.require(Permission::BillingRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let view = load(tx, id.uuid()).await?;
+        actor.require(Permission::BillingRead)?;
         let request_text = request_id.map(|id| id.to_string());
         access::record(
             tx.conn(),
@@ -1059,9 +1067,9 @@ pub async fn upi_link(
     request_id: Option<Uuid>,
     id: InvoiceId,
 ) -> Result<UpiLink, AppError> {
-    actor.require(Permission::BillingRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let view = load(tx, id.uuid()).await?;
+        actor.require(Permission::BillingRead)?;
         let (InvoiceStatus::Issued, Some(number)) = (view.status, view.number) else {
             return Err(AppError::Conflict("only an issued bill can be paid"));
         };
@@ -1132,10 +1140,31 @@ pub async fn list(
             },
         )
         .await?;
-        Ok(rows
-            .into_iter()
-            .map(|row| invoice_view(row, Vec::new(), None))
-            .collect())
+        // A draft's stored totals stay zero until it is issued: preview them from its lines.
+        let mut views = Vec::with_capacity(rows.len());
+        let mut supplier = None;
+        for row in rows {
+            let mut preview = None;
+            if row.status == InvoiceStatus::Draft.as_str() {
+                if supplier.is_none() {
+                    supplier = Some(
+                        dal::supplier(tx.conn())
+                            .await?
+                            .ok_or(AppError::NotFound("clinic"))?,
+                    );
+                }
+                if let Some(supplier) = &supplier {
+                    let mut lines = dal::invoice_lines(tx.conn(), row.id).await?;
+                    if !lines.is_empty() {
+                        let (totals, _) = TaxSetup::of(supplier)
+                            .compute(row.place_of_supply.as_deref(), &mut lines)?;
+                        preview = Some(totals);
+                    }
+                }
+            }
+            views.push(invoice_view(row, Vec::new(), preview));
+        }
+        Ok(views)
     })
     .await
 }

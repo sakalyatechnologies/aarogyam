@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 use super::{optional_uuid, parse_day, rfc3339};
 use crate::AppState;
-use crate::extract::Require;
+use crate::extract::{Require, RequireAfterLookup};
 use crate::failure::ApiFailure;
 
 /// A price list entry.
@@ -514,7 +514,7 @@ pub(crate) async fn create_invoice(
 )]
 pub(crate) async fn edit_invoice(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingWrite>,
+    RequireAfterLookup { request, .. }: RequireAfterLookup<BillingWrite>,
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<InvoiceEdit>,
 ) -> Result<Json<Invoice>, ApiFailure> {
@@ -550,17 +550,17 @@ pub(crate) async fn edit_invoice(
     params(("id" = String, Path, description = "The bill")),
     security(("bearer" = [])),
     responses(
-        (status = 200, body = Invoice),
+        (status = 200, body = Invoice, description = "Issued; an already issued bill comes back unchanged"),
         (status = 400, description = "The bill has no lines"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks billing.write"),
         (status = 404, description = "No such bill in this clinic"),
-        (status = 409, description = "Already issued or void")
+        (status = 409, description = "The bill is void")
     )
 )]
 pub(crate) async fn issue_invoice(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingWrite>,
+    RequireAfterLookup { request, .. }: RequireAfterLookup<BillingWrite>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<Json<Invoice>, ApiFailure> {
     let view = app::issue(
@@ -595,7 +595,7 @@ pub(crate) async fn issue_invoice(
 )]
 pub(crate) async fn void_invoice(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingWrite>,
+    RequireAfterLookup { request, .. }: RequireAfterLookup<BillingWrite>,
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<Reason>,
 ) -> Result<Json<Invoice>, ApiFailure> {
@@ -629,7 +629,7 @@ pub(crate) async fn void_invoice(
 )]
 pub(crate) async fn get_invoice(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingRead>,
+    RequireAfterLookup { request, .. }: RequireAfterLookup<BillingRead>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<Json<Invoice>, ApiFailure> {
     let view = app::get(
@@ -677,7 +677,7 @@ pub struct UpiLink {
 )]
 pub(crate) async fn get_upi_link(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingRead>,
+    RequireAfterLookup { request, .. }: RequireAfterLookup<BillingRead>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<Json<UpiLink>, ApiFailure> {
     let link = app::upi_link(

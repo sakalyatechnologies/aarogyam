@@ -74,6 +74,8 @@ text_value! {
         FrequencyCap => "frequency_cap",
         /// The campaign was cancelled before the message went.
         CampaignCancelled => "campaign_cancelled",
+        /// The patient booked, or the follow-up was closed, before the booking message went.
+        FollowUpResolved => "follow_up_resolved",
     }
 }
 

@@ -176,3 +176,48 @@ pub async fn record_skipped(
     .await?;
     Ok(done.rows_affected() == 1)
 }
+
+/// Skips the follow-up booking message still queued for a recall's visit (`follow_up_resolved`);
+/// returns how many. A message already sent or skipped is left as it is.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn cancel_follow_up_of_recall(
+    conn: &mut PgConnection,
+    recall_id: Uuid,
+) -> Result<u64, DbError> {
+    let result = sqlx::query!(
+        r#"update aarogyam.messages m
+             set status = 'skipped', skip_reason = 'follow_up_resolved', processed_at = now(),
+                 secret = null
+           from aarogyam.recalls r
+           where r.id = $1 and r.source_encounter_id is not null
+             and m.dedupe_key = 'auto:follow_up:' || r.source_encounter_id::text
+             and m.status = 'queued'"#,
+        recall_id
+    )
+    .execute(conn)
+    .await?;
+    Ok(result.rows_affected())
+}
+
+/// Skips the follow-up booking messages still queued for a patient who just booked
+/// (`follow_up_resolved`); returns how many.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn cancel_follow_ups_of_patient(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+) -> Result<u64, DbError> {
+    let result = sqlx::query!(
+        r#"update aarogyam.messages
+             set status = 'skipped', skip_reason = 'follow_up_resolved', processed_at = now(),
+                 secret = null
+           where patient_id = $1 and kind = 'visit.follow_up_booking' and status = 'queued'"#,
+        patient_id
+    )
+    .execute(conn)
+    .await?;
+    Ok(result.rows_affected())
+}

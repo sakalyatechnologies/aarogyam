@@ -138,6 +138,7 @@ pub async fn done(
         if !dal::done(tx.conn(), id.uuid(), now).await? {
             return Err(AppError::Conflict("this follow-up is already closed"));
         }
+        crate::auto_messages::follow_up_closed(tx, id.uuid()).await?;
         load(tx, id.uuid(), reach).await
     })
     .await

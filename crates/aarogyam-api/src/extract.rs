@@ -252,6 +252,32 @@ impl<P: Required> FromRequestParts<AppState> for Require<P> {
     }
 }
 
+/// A [`ClinicRequest`] for a route that names a record by ID. The permission `P` is **not**
+/// checked here: the app function looks the record up first and then requires `P`, so an ID from
+/// another clinic is `404` for every member, whatever their role (rule 5), and a member's role
+/// is never told apart by the ID. A handler that takes this must call an app function that
+/// checks `P` itself.
+#[derive(Debug)]
+pub struct RequireAfterLookup<P: Required> {
+    /// The admitted request.
+    pub request: ClinicRequest,
+    permission: PhantomData<P>,
+}
+
+impl<P: Required> FromRequestParts<AppState> for RequireAfterLookup<P> {
+    type Rejection = ApiFailure;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        Ok(Self {
+            request: ClinicRequest::admit(parts, state, true).await?,
+            permission: PhantomData,
+        })
+    }
+}
+
 /// A [`ClinicRequest`] whose role holds permission `A` or permission `B`; otherwise `403`. For the
 /// few reads two screens share, such as the list of roles (the team list and the roles editor).
 #[derive(Debug)]

@@ -164,7 +164,8 @@ pub struct NewProcedure {
     request_body = NewProcedure,
     security(("bearer" = [])),
     responses(
-        (status = 201, body = Procedure),
+        (status = 201, body = Procedure, description = "Recorded"),
+        (status = 200, body = Procedure, description = "A retry with the same `id`: the procedure already recorded, unchanged"),
         (status = 400, description = "Invalid input, or a plan item of another patient"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
@@ -183,7 +184,7 @@ pub(crate) async fn record_procedure(
         .as_deref()
         .map(|text| client_id("id", text))
         .transpose()?;
-    let view = app::record_procedure(
+    let (view, created) = app::record_procedure(
         state.db(),
         &request.actor,
         request.request_id,
@@ -199,10 +200,15 @@ pub(crate) async fn record_procedure(
         OffsetDateTime::now_utc(),
     )
     .await?;
-    if view.performed_at.is_some() {
+    if created && view.performed_at.is_some() {
         tracing::info!(event = Event::ProcedureCompleted.as_str(), procedure_id = %view.id.uuid(), "procedure done");
     }
-    Ok((StatusCode::CREATED, Json(view.into())))
+    let status = if created {
+        StatusCode::CREATED
+    } else {
+        StatusCode::OK
+    };
+    Ok((status, Json(view.into())))
 }
 
 /// A patient's procedures, newest first.

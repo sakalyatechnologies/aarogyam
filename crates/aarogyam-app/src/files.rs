@@ -682,6 +682,27 @@ fn check_fields(input: &Upload) -> Result<Checked, AppError> {
     })
 }
 
+/// The permission an upload needs. A payment proof is the desk's, not clinical: whoever records
+/// payments may attach one, and may attach nothing else. Every other kind needs `clinical.write`.
+fn upload_permission(
+    actor: &ClinicActor,
+    checked: &Checked,
+    input: &Upload,
+) -> Result<Permission, AppError> {
+    if checked.kind != AttachmentKind::PaymentProof {
+        actor.require(Permission::ClinicalWrite)?;
+        return Ok(Permission::ClinicalWrite);
+    }
+    actor.require(Permission::BillingWrite)?;
+    if input.note_id.is_some() || input.visit_id.is_some() {
+        return Err(AppError::invalid(
+            "kind",
+            "a payment proof can't be linked to a visit or note",
+        ));
+    }
+    Ok(Permission::BillingWrite)
+}
+
 /// Stores a patient file. Its type comes from its content: JPEG, PNG, PDF, DICOM or a `WebM`,
 /// `MP4` or `Ogg` recording. A recording may be linked to a note of the same visit: a draft only by its
 /// author, a signed note only through one of the uploader's own addenda. A retry with the same
@@ -699,7 +720,8 @@ pub async fn upload(
     patient_id: PatientId,
     input: Upload,
 ) -> Result<AttachmentView, AppError> {
-    actor.require(Permission::ClinicalWrite)?;
+    let checked = check_fields(&input)?;
+    let needed = upload_permission(actor, &checked, &input)?;
     let Checked {
         file_type,
         kind,
@@ -707,7 +729,7 @@ pub async fn upload(
         caption,
         label,
         tooth,
-    } = check_fields(&input)?;
+    } = checked;
     let size = i64::try_from(input.bytes.len()).map_err(|_| AppError::Internal("file size"))?;
     let sha256 = sha256_hex(&input.bytes);
     let described = Described {
@@ -727,7 +749,7 @@ pub async fn upload(
     // Set once this attempt has stored the bytes, so a failure removes only what it wrote: with a
     // client-chosen id the key may already hold an earlier upload's file.
     let mut wrote = false;
-    let reach = actor.reach(Permission::ClinicalWrite);
+    let reach = actor.reach(needed);
     let stored = db
         .scoped(&scope(actor, request_id), async |tx| {
             let patient = require_patient(tx, patient_id, reach).await?;

@@ -7999,7 +7999,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks clinical.write"
+            "description": "The role lacks clinical.write (or billing.write, for kind `payment_proof` only)"
           },
           "404": {
             "description": "No such patient in this clinic"

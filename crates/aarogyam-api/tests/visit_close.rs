@@ -361,3 +361,59 @@ async fn payment_proof_must_belong_to_the_same_patient() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_front_desk_attaches_a_payment_proof_but_no_clinical_photo() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let nothing = app.token(ALPHA_NOTHING);
+    let patient = register(&app, &owner, "Meera Shah").await;
+    let mut png = vec![0x89_u8, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+    png.extend_from_slice(&[7_u8; 256]);
+
+    let (status, proof) = app
+        .upload(ALPHA, &desk, &patient, &png, &[("kind", "payment_proof")])
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{proof}");
+    assert_eq!(proof["kind"], "payment_proof");
+    // The proof goes on a payment the desk records.
+    let (status, payment) = app
+        .send_with(
+            Method::POST,
+            ALPHA,
+            "/api/v1/payments",
+            Some(&desk),
+            Some(
+                json!({ "patient_id": patient, "method": "upi", "amount_paise": 10_000,
+                         "attachment_id": proof["id"] }),
+            ),
+            &[("idempotency-key", "key-0000-0101")],
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{payment}");
+    assert_eq!(payment["attachment_id"], proof["id"]);
+
+    // Anything clinical is still refused to the desk, and a proof is not linked to a visit.
+    for kind in ["document", "photo", "xray"] {
+        let (status, body) = app
+            .upload(ALPHA, &desk, &patient, &png, &[("kind", kind)])
+            .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{kind}: {body}");
+    }
+    let (status, body) = app.upload(ALPHA, &desk, &patient, &png, &[]).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    // Someone with neither permission gets nothing, proof included.
+    let (status, _) = app
+        .upload(
+            ALPHA,
+            &nothing,
+            &patient,
+            &png,
+            &[("kind", "payment_proof")],
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    app.finish().await;
+}

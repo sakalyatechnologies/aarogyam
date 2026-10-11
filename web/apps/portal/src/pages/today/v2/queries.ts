@@ -4,6 +4,7 @@ import { unwrap, type DashboardLayout, type DashboardLayoutView } from "@aarogya
 
 import { useClinic } from "../../../clinic.js";
 import { REFERENCE, SCHEDULE } from "../../../lib/cache-policy.js";
+import { adoptTemplates } from "./layout-model.js";
 
 /** A clinic day's board data. `date` is `YYYY-MM-DD`; left out it is the current day, and refreshes by itself. */
 export function useDayToday(date: string | undefined) {
@@ -57,6 +58,7 @@ export function useMyLayout() {
   return useQuery({
     queryKey: layoutKey(access.org_id, "me"),
     queryFn: ({ signal }) => unwrap(api.getMyDashboardLayout({ signal })),
+    select: adoptTemplates,
     ...REFERENCE,
   });
 }
@@ -67,6 +69,7 @@ export function useClinicLayout() {
   return useQuery({
     queryKey: layoutKey(access.org_id, "clinic"),
     queryFn: ({ signal }) => unwrap(api.getDashboardLayout({ signal })),
+    select: adoptTemplates,
     ...REFERENCE,
   });
 }

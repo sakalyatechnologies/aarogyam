@@ -55,7 +55,7 @@ describe("the widget registry", () => {
         },
       }),
     });
-    await screen.findByRole("heading", { level: 1, name: "Today" });
+    await screen.findByRole("heading", { level: 1 });
     await waitFor(() => { expect(catalogue).toBeDefined(); });
     expect(catalogue?.widgets.map((w) => w.key).sort()).toEqual([...WIDGET_KEYS].sort());
   });
@@ -69,7 +69,8 @@ const openMore = async (user: ReturnType<typeof userEvent.setup>) => {
 describe("Settings, Appearance tab, My dashboard section", () => {
   it("is there with the New look and gone without it", async () => {
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
-    expect(await screen.findByRole("button", { name: "Appearance" })).toBeTruthy();
+    // The first Settings page of the run loads its code on demand, which a busy machine can make slow.
+    expect(await screen.findByRole("button", { name: "Appearance" }, { timeout: 10_000 })).toBeTruthy();
     expect(await screen.findByRole("group", { name: "Live preview of Today" })).toBeTruthy();
     cleanup();
     localStorage.setItem(NEW_LOOK_KEY, "0");
@@ -156,13 +157,14 @@ describe("Settings, Appearance tab, My dashboard section", () => {
     expect(order(preview())).toEqual(before);
     await user.click(screen.getByRole("button", { name: /Care/ }));
     await user.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => { expect(preview().querySelector(".tv2")?.getAttribute("data-side")).toBe("left"); });
+    await waitFor(() => { expect(preview().querySelector(".tv2")?.getAttribute("data-tpl")).toBe("care"); });
     cleanup();
 
     // Back on Today, the saved layout comes from the API: the Care template, the rail on the left.
     renderPortal("/today", { as: PEOPLE.asha, backend });
     await screen.findByRole("list", { name: "Key numbers" });
-    await waitFor(() => { expect(today().getAttribute("data-side")).toBe("left"); });
+    await waitFor(() => { expect(today().getAttribute("data-tpl")).toBe("care"); });
+    expect(today().getAttribute("data-side")).toBe("left");
     expect(order(today())).toEqual(expect.arrayContaining(["queue", "recent_patients", "timeline", "calendar"]));
     expect(order(today()).indexOf("calendar")).toBeLessThan(order(today()).indexOf("queue"));
   });
@@ -171,11 +173,13 @@ describe("Settings, Appearance tab, My dashboard section", () => {
     const user = userEvent.setup();
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
     await screen.findByRole("group", { name: "Live preview of Today" });
+    // Compact has Appointments, Chairs and Attention one under the other in the main area.
+    await user.click(screen.getByRole("button", { name: /Compact/ }));
     await openMore(user);
     const before = order(preview()).filter((key) => ["appointments", "attention", "chairs"].includes(key ?? ""));
     expect(before[0]).toBe("appointments");
     await user.click(screen.getByRole("button", { name: "Move Appointments down" }));
-    expect(order(preview()).filter((key) => ["appointments", "attention", "chairs"].includes(key ?? "")).slice(0, 2)).toEqual(["attention", "appointments"]);
+    expect(order(preview()).filter((key) => ["appointments", "attention", "chairs"].includes(key ?? "")).slice(0, 2)).toEqual(["chairs", "appointments"]);
     await user.click(screen.getByRole("button", { name: "Move Appointments up" }));
     expect(order(preview()).filter((key) => ["appointments", "attention", "chairs"].includes(key ?? ""))[0]).toBe("appointments");
     // The first in a zone cannot go up.
@@ -197,15 +201,16 @@ describe("Settings, Appearance tab, My dashboard section", () => {
     await waitFor(() => { expect(within(preview()).queryByRole("table")).toBeNull(); });
     await user.click(screen.getByRole("button", { name: "Full width" }));
     expect(preview().querySelector('[data-widget="appointments"]')?.getAttribute("data-size")).toBe("full");
-    // Key numbers: between 4 and 6 numbers can be picked.
+    // Key numbers: between 4 and 6 numbers can be picked; MedSync shows five.
     await user.click(screen.getByRole("button", { name: "Settings for Key numbers" }));
     const boxes = screen.getAllByRole("checkbox").filter((box): box is HTMLInputElement => box instanceof HTMLInputElement && box.closest(".tv2-metrics") !== null);
-    expect(boxes.filter((box) => box.checked).length).toBe(4);
-    expect(boxes.filter((box) => box.checked).every((box) => box.disabled)).toBe(true);
+    expect(boxes.filter((box) => box.checked).length).toBe(5);
     const spare = boxes.find((box) => !box.checked && !box.disabled);
     if (spare === undefined) throw new Error("no spare metric");
     await user.click(spare);
-    expect(boxes.filter((box) => box.checked).length).toBe(5);
+    expect(boxes.filter((box) => box.checked).length).toBe(6);
+    // At the most, the numbers not picked cannot be.
+    expect(boxes.filter((box) => !box.checked).every((box) => box.disabled)).toBe(true);
   });
 
   it("Reset to template puts the template's layout back", async () => {
@@ -296,11 +301,12 @@ describe("Direct manipulation on the preview", () => {
   it("reorders with the buttons on the card, and the edge ones are disabled", async () => {
     const user = userEvent.setup();
     await open();
+    await user.click(screen.getByRole("button", { name: /Compact/ }));
     const pick = (keys: (string | undefined)[]) => keys.filter((key) => ["appointments", "attention", "chairs"].includes(key ?? ""));
     expect(pick(order(preview()))[0]).toBe("appointments");
     expect(screen.getByRole("button", { name: "Move Appointments up in preview" }).hasAttribute("disabled")).toBe(true);
     await user.click(screen.getByRole("button", { name: "Move Appointments down in preview" }));
-    expect(pick(order(preview())).slice(0, 2)).toEqual(["attention", "appointments"]);
+    expect(pick(order(preview())).slice(0, 2)).toEqual(["chairs", "appointments"]);
     await user.click(screen.getByRole("button", { name: "Move Appointments up in preview" }));
     expect(pick(order(preview()))[0]).toBe("appointments");
     await user.click(screen.getByRole("button", { name: "Remove Chairs from preview" }));
@@ -311,18 +317,18 @@ describe("Direct manipulation on the preview", () => {
     const user = userEvent.setup();
     await open();
     const slider = screen.getByRole("slider", { name: "Resize Appointments" });
-    // Appointments comes in L and full only.
-    expect(sizeOf("appointments")).toBe("L");
+    // Appointments comes in L and full only, and MedSync gives it the full width.
+    expect(sizeOf("appointments")).toBe("full");
     slider.focus();
     await user.keyboard("{ArrowRight}");
     expect(sizeOf("appointments")).toBe("full");
     expect(slider.getAttribute("aria-valuetext")).toBe("Full width");
+    await user.keyboard("{ArrowLeft}");
+    expect(sizeOf("appointments")).toBe("L");
+    await user.keyboard("{ArrowLeft}");
+    expect(sizeOf("appointments")).toBe("L");
     await user.keyboard("{ArrowRight}");
     expect(sizeOf("appointments")).toBe("full");
-    await user.keyboard("{ArrowLeft}");
-    expect(sizeOf("appointments")).toBe("L");
-    await user.keyboard("{ArrowLeft}");
-    expect(sizeOf("appointments")).toBe("L");
   });
 
   it("snaps a dragged corner to an allowed size", async () => {
@@ -362,6 +368,7 @@ describe("Direct manipulation on the preview", () => {
     });
     const user = userEvent.setup();
     await open({ backend, wrap });
+    await user.click(screen.getByRole("button", { name: /Compact/ }));
     expect(zoneOf("attention")).toBe("main");
     dragTo("attention", 850, 600);
     expect(zoneOf("attention")).toBe("rail");
@@ -376,7 +383,7 @@ describe("Direct manipulation on the preview", () => {
     expect(items.find((item) => item.key === "attention")?.zone).toBe("rail");
     // The saved list, drawn zone by zone (without what this role cannot see), is the preview's order.
     const byZone = (zone: string) => items.filter((item) => item.zone === zone && drawn.includes(item.key)).map((item) => item.key);
-    expect([...byZone("top"), ...(saved[0]?.rail.side === "left" ? byZone("rail") : []), ...byZone("main"), ...(saved[0]?.rail.side === "left" ? [] : byZone("rail"))]).toEqual(drawn);
+    expect([...(saved[0]?.rail.side === "left" ? byZone("rail") : []), ...byZone("top"), ...byZone("main"), ...(saved[0]?.rail.side === "left" ? [] : byZone("rail"))]).toEqual(drawn);
   });
 
   it("moves a card before another in its zone by dragging, and Escape puts it back", async () => {

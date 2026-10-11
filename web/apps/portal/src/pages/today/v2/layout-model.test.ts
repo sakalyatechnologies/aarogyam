@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { DashboardCatalogue, DashboardLayout } from "@aarogyam/api-client";
+import { fakeTokenFor } from "@aarogyam/api-client/fake";
 
-import { addWidget, allowed, canStep, dropInZone, dropOn, nearestSize, stepSize, stepWidget, moveInZone, removeAt, sameLayout, setOpt, setZone, shownItems, shownLayout, specOf, templateLayout, offeredCards, offeredTemplates } from "./layout-model.js";
+import { NOW, PEOPLE, fakeApi } from "../../../test/render.js";
+
+import { adoptTemplates, addWidget, allowed, canStep, dropInZone, dropOn, nearestSize, stepSize, stepWidget, moveInZone, removeAt, sameLayout, setOpt, setZone, shownItems, shownLayout, specOf, templateLayout, offeredCards, offeredTemplates } from "./layout-model.js";
 
 const spec = (key: string, zones: string[], sizes: string[], requires: string | null = null) => ({
   key,
@@ -145,5 +148,46 @@ describe("retired choices", () => {
     expect(offeredTemplates(catalogue).map((t) => t.key)).toEqual(["compact"]);
     expect(offeredCards(catalogue)).toEqual(["soft", "outline"]);
     expect(templateLayout(catalogue, "compact")?.card).toBe("soft");
+  });
+});
+
+describe("the portal's templates", () => {
+  const server = async () => {
+    const api = fakeApi().client({ host: "sunrise.localtest.me", getToken: () => fakeTokenFor({ id: PEOPLE.asha }), now: () => NOW });
+    const got = await api.getMyDashboardLayout();
+    if (!got.ok) throw new Error("expected a layout");
+    return got.value;
+  };
+
+  it("draws a stock MedSync as the key numbers, the next-up hero and the appointments table beside the calendar column", async () => {
+    const view = adoptTemplates(await server());
+    expect(view.layout.rail.side).toBe("left");
+    const where = (key: string) => view.layout.items.find((item) => item.key === key);
+    expect(where("kpis")).toMatchObject({ zone: "top", opts: { metrics: ["appointments", "chairs_busy", "waiting", "collected", "lab_due"] } });
+    expect(where("nextup")).toMatchObject({ zone: "main", size: "full" });
+    expect(where("appointments")).toMatchObject({ zone: "main", size: "full", opts: { view: "table" } });
+    expect(where("calendar")?.zone).toBe("rail");
+    expect(where("queue")?.zone).toBe("rail");
+    expect(where("timeline")).toBeUndefined();
+  });
+
+  it("puts the calendar column on the left in every template, with the calendar and the queue in it", async () => {
+    const view = adoptTemplates(await server());
+    for (const template of view.catalogue.templates) {
+      const rail = template.layout.items.filter((item) => item.zone === "rail").map((item) => item.key);
+      expect(template.layout.rail.side, template.key).toBe("left");
+      expect(rail, template.key).toContain("calendar");
+      if (template.layout.items.some((item) => item.key === "queue")) expect(rail, template.key).toContain("queue");
+      // Every widget of the server's own template is still there.
+      const original = (await server()).catalogue.templates.find((t) => t.key === template.key);
+      if (template.key !== "medsync") expect(template.layout.items.map((item) => item.key).sort(), template.key).toEqual(expect.arrayContaining((original?.layout.items ?? []).map((item) => item.key)));
+    }
+  });
+
+  it("leaves a layout somebody changed exactly as saved", async () => {
+    const view = await server();
+    const density: DashboardLayout["density"] = "compact";
+    const changed = { ...view, layout: { ...view.layout, density } };
+    expect(adoptTemplates(changed).layout).toBe(changed.layout);
   });
 });

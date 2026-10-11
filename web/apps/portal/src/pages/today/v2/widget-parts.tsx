@@ -1,8 +1,19 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
+import type { DashboardCatalogue } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
 import { BentoCard, EmptyState, Skeleton } from "@sakalya/ui";
+
+import type { LayoutOpts, WidgetSpec, Zone } from "./layout-model.js";
+
+/** What every widget's drawing code is given. */
+export interface WidgetProps {
+  spec: WidgetSpec;
+  opts: LayoutOpts;
+  zone: Zone;
+  catalogue: DashboardCatalogue;
+}
 
 /** The card every widget sits in. The Board's card style and density restyle `.tv2-card` from outside. */
 export function WidgetCard({ title, subtitle, action, children }: { title: string; subtitle?: ReactNode; action?: ReactNode; children: ReactNode }) {

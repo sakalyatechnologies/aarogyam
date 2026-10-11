@@ -53,6 +53,8 @@ export interface FinishedVisit {
 export interface FinishOptions {
   issueRx?: boolean;
   overrideReason?: string;
+  /** Leave the visit's queue token at "ready to bill" (the patient goes on to pay) instead of "done". */
+  sendForPayment?: boolean;
 }
 
 export interface VisitSession {
@@ -335,7 +337,7 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
     try {
       const rxToIssue = options.issueRx === true && draftRx !== undefined ? { id: draftRx.id, overrideReason: options.overrideReason } : undefined;
       const { noteSigned } = await finishVisit(
-        { followUp: follow, rx: rxToIssue, feePaise: paiseOf(fee) },
+        { followUp: follow, rx: rxToIssue, feePaise: paiseOf(fee), ...(options.sendForPayment === true ? { queueStatus: "ready_to_bill" as const } : {}) },
         {
           saveNote,
           saveRx: async () => {

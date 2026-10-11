@@ -86,9 +86,10 @@ export function VisitBar() {
     rx.issued?.rx ?? [...(prescriptions.data?.items ?? [])].filter((r) => r.status === "issued").sort((a, b) => (b.issued_at ?? "").localeCompare(a.issued_at ?? ""))[0];
   const medicines = rx.draft?.items.length ?? 0;
 
+  // Ending the visit is the step before payment: the queue token waits at "ready to bill" rather than going to "done".
   const run = (options?: FinishOptions) => {
     setConfirming(false);
-    void session.finish(options).then((finished) => {
+    void session.finish({ ...options, sendForPayment: true }).then((finished) => {
       if (finished !== undefined) setReason("");
     });
   };

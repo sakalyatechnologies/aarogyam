@@ -381,6 +381,19 @@ pub struct CloseRequest {
     /// The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed
     /// on the draft bill.
     pub note: Option<String>,
+    /// Where the visit's queue token goes: `done` (the default) or `ready_to_bill` (sent for
+    /// payment).
+    pub queue_status: Option<CloseQueueStatus>,
+}
+
+/// Where a closed visit's queue token goes.
+#[derive(Debug, Clone, Copy, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CloseQueueStatus {
+    /// The visit is done (the default).
+    Done,
+    /// The visit is sent for payment: the token waits to be billed.
+    ReadyToBill,
 }
 
 impl CloseRequest {
@@ -395,6 +408,7 @@ impl CloseRequest {
                 .transpose()?,
             fee_paise: self.fee_paise,
             note: self.note,
+            ready_to_bill: matches!(self.queue_status, Some(CloseQueueStatus::ReadyToBill)),
         })
     }
 }
@@ -486,6 +500,9 @@ pub struct FinishRequest {
     /// The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed
     /// on the draft bill.
     pub note: Option<String>,
+    /// Where the visit's queue token goes: `done` (the default) or `ready_to_bill` (sent for
+    /// payment).
+    pub queue_status: Option<CloseQueueStatus>,
 }
 
 /// A finished visit.
@@ -557,6 +574,7 @@ pub(crate) async fn finish(
         follow_up_on: body.follow_up_on,
         fee_paise: body.fee_paise,
         note: body.note,
+        queue_status: body.queue_status,
     }
     .wrap_up()?;
     let outcome = finish::finish(

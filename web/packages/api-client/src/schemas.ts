@@ -3027,3 +3027,152 @@ export const chatMessage = z.object({
 export type ChatMessage = z.output<typeof chatMessage>;
 export const chatMessageList = z.object({ items: z.array(chatMessage) }) satisfies z.ZodType<C.ChatMessageList>;
 export type ChatMessageList = z.output<typeof chatMessageList>;
+
+// Lab work: vendors, contacts, orders and payments --------------------------------------------------
+
+export const labOrderState = z.enum(["draft", "sent", "in_progress", "received", "fitted", "returned_for_rework", "cancelled"]) satisfies z.ZodType<C.LabOrderState>;
+export type LabOrderState = z.output<typeof labOrderState>;
+
+export const labContact = z.object({
+  id: z.string().min(1),
+  vendor_id: z.string().min(1),
+  name: z.string(),
+  role: optionalText,
+  phone: optionalText,
+  email: optionalText,
+  whatsapp: z.boolean(),
+  preferred_channel: z.enum(["email", "whatsapp", "phone"]),
+}) satisfies z.ZodType<C.LabContact>;
+export type LabContact = z.output<typeof labContact>;
+
+export const labVendor = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  kind: z.enum(["dental_lab", "pathology", "radiology", "other"]),
+  phone: optionalText,
+  email: optionalText,
+  address: optionalText,
+  note: optionalText,
+  contacts: z.array(labContact),
+  created_at: timestamp,
+}) satisfies z.ZodType<C.LabVendor>;
+export type LabVendor = z.output<typeof labVendor>;
+
+export const labVendorList = z.object({ items: z.array(labVendor) }) satisfies z.ZodType<C.LabVendorList>;
+export type LabVendorList = z.output<typeof labVendorList>;
+
+export const labBalance = z.object({
+  vendor_id: z.string().min(1),
+  name: z.string(),
+  orders: count,
+  billed_paise: z.number().int(),
+  paid_paise: z.number().int(),
+  due_paise: z.number().int(),
+}) satisfies z.ZodType<C.LabBalance>;
+export type LabBalance = z.output<typeof labBalance>;
+
+export const labOrderItem = z.object({
+  id: z.string().min(1),
+  line_no: z.number().int(),
+  work_type: z.string(),
+  teeth: z.array(z.number().int()),
+  shade: optionalText,
+  material: optionalText,
+  qty: z.number().int(),
+  unit_cost_paise: z.number().int().nullable().exactOptional(),
+}) satisfies z.ZodType<C.LabOrderItem>;
+export type LabOrderItem = z.output<typeof labOrderItem>;
+
+export const labOrderEvent = z.object({
+  kind: z.string(),
+  from_status: labOrderState.nullable().exactOptional(),
+  to_status: labOrderState.nullable().exactOptional(),
+  stage: optionalText,
+  due_on: optionalText,
+  reminder: optionalText,
+  note: optionalText,
+  channel: optionalText,
+  outcome: optionalText,
+  contact_id: optionalText,
+  line_no: z.number().int().nullable().exactOptional(),
+  actor_id: optionalText,
+  at: timestamp,
+}) satisfies z.ZodType<C.LabOrderEvent>;
+export type LabOrderEvent = z.output<typeof labOrderEvent>;
+
+/** A whole lab order: the work, who has it, where it stands and what happened. Costs come only with `finance.view`. */
+export const labOrder = z.object({
+  id: z.string().min(1),
+  number: z.string(),
+  vendor_id: z.string().min(1),
+  vendor_name: optionalText,
+  vendor_phone: optionalText,
+  contact_id: optionalText,
+  contact_name: optionalText,
+  contact_phone: optionalText,
+  contact_email: optionalText,
+  contact_whatsapp: z.boolean(),
+  last_contacted_at: optionalTimestamp,
+  last_contacted_by: optionalText,
+  last_contacted_by_name: optionalText,
+  patient_id: z.string().min(1),
+  patient_number: z.string(),
+  patient_name: z.string(),
+  doctor_id: z.string().min(1),
+  doctor_name: optionalText,
+  procedure_id: optionalText,
+  encounter_id: optionalText,
+  status: labOrderState,
+  pipeline_stage: labPipelineStage,
+  late: z.boolean(),
+  days_late: z.number().int().nonnegative().nullable().exactOptional(),
+  stage: optionalText,
+  instructions: optionalText,
+  sent_at: optionalTimestamp,
+  due_on: date.nullable().exactOptional(),
+  received_at: optionalTimestamp,
+  rework_of_id: optionalText,
+  created_at: timestamp,
+  costs_visible: z.boolean(),
+  items: z.array(labOrderItem),
+  events: z.array(labOrderEvent),
+}) satisfies z.ZodType<C.LabOrder>;
+export type LabOrder = z.output<typeof labOrder>;
+
+export const labOrderList = z.object({ items: z.array(labOrder) }) satisfies z.ZodType<C.LabOrderList>;
+export type LabOrderList = z.output<typeof labOrderList>;
+
+export const labReminderQueued = z.object({ message_id: z.string().min(1) }) satisfies z.ZodType<C.LabReminderQueued>;
+export type LabReminderQueued = z.output<typeof labReminderQueued>;
+
+export const labPayment = z.object({
+  id: z.string().min(1),
+  vendor_id: z.string().min(1),
+  lab_order_id: optionalText,
+  paid_on: date,
+  amount_paise: z.number().int(),
+  lab_invoice_ref: optionalText,
+  note: optionalText,
+  expense_id: z.string().min(1),
+  status: z.string(),
+  void_reason: optionalText,
+  voided_at: optionalTimestamp,
+  recorded_by: z.string().min(1),
+  created_at: timestamp,
+}) satisfies z.ZodType<C.LabPayment>;
+export type LabPayment = z.output<typeof labPayment>;
+
+export const labPaymentList = z.object({ items: z.array(labPayment) }) satisfies z.ZodType<C.LabPaymentList>;
+export type LabPaymentList = z.output<typeof labPaymentList>;
+
+/** Request bodies. */
+export type NewLabOrder = C.NewLabOrder;
+export type NewLabOrderItem = C.NewLabOrderItem;
+export type LabOrderStatusChange = C.LabOrderStatusChange;
+export type LabOrderChanges = C.LabOrderChanges;
+export type LabContactLogEntry = C.LabContactLogEntry;
+export type LabVendorValues = C.LabVendorValues;
+export type LabContactValues = C.LabContactValues;
+export type NewLabPayment = C.NewLabPayment;
+export type LabVendorKind = C.LabVendorKind;
+export type LabContactChannel = C.LabContactChannel;

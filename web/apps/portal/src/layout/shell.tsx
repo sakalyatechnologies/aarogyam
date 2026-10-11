@@ -4,6 +4,7 @@ import {
   ReceiptIndianRupee,
   CalendarCheck,
   CalendarRange,
+  FlaskConical,
   ListOrdered,
   LogOut,
   MessageSquare,
@@ -260,6 +261,7 @@ export function Account({ avatar }: { avatar?: ReactNode } = {}) {
  */
 export function useShellNav() {
   const { can } = useClinic();
+  const [newLook] = useNewLook();
   const location = useLocation();
   const today = useToday();
   const appointmentsToday = today.data?.counts.total;
@@ -309,6 +311,8 @@ export function useShellNav() {
           },
         ]
       : []),
+    // Lab work exists only in the New look.
+    ...(newLook && can("labs.read") ? [{ id: "labs", label: "Lab work", icon: <FlaskConical />, href: "/labs" }] : []),
     { id: "stock", label: "Stock", icon: <Package />, href: "/stock" },
     ...(can("analytics.view")
       ? [{ id: "analytics", label: "Analytics", icon: <ChartNoAxesCombined />, href: "/analytics" }]

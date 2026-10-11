@@ -9,6 +9,7 @@ import { useToast } from "@sakalya/ui";
 import { QrCode } from "../../../components/qr-code.js";
 import { useClinic } from "../../../clinic.js";
 import { displayName } from "../../../lib/patients.js";
+import { useInvoices } from "../../billing/queries.js";
 import { useCreateShareLinkWith } from "../../prescriptions/queries.js";
 import { dateAfter } from "./finish-visit.js";
 import { PillButton } from "./kit.js";
@@ -35,7 +36,10 @@ export function Celebration({ finished, patient, onClose }: { finished: Finished
   const navigate = useNavigate();
   const done = useRef<HTMLButtonElement>(null);
   const card = useRef<HTMLDivElement>(null);
-  
+  // The bill made in the payment step (or by Send for payment), if there is one: the button opens it instead of starting another.
+  const invoices = useInvoices({ patientId: patient.id }, can("billing.read"));
+  const bill = invoices.data?.items.find((i) => i.encounter_id === finished.visit.id && i.status !== "void");
+
   useEffect(() => {
     const before = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     done.current?.focus();
@@ -116,10 +120,10 @@ export function Celebration({ finished, patient, onClose }: { finished: Finished
             <PillButton
               variant="ghost"
               onClick={() => {
-                void navigate(`/billing/invoices/new?patient=${encodeURIComponent(patient.id)}`);
+                void navigate(bill === undefined ? `/billing/invoices/new?patient=${encodeURIComponent(patient.id)}` : `/billing/invoices/${bill.id}`);
               }}
             >
-              Create the bill
+              {bill === undefined ? "Start a new bill" : "Open bill"}
             </PillButton>
           ) : null}
           <PillButton ref={done} onClick={onClose}>

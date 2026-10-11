@@ -242,7 +242,7 @@ describe("Ending the visit and payment", () => {
     await user.click(await screen.findByRole("button", { name: "Collect payment" }));
 
     const drawer = await screen.findByRole("dialog", { name: "Collect payment" });
-    expect(await within(drawer).findByText("₹500")).toBeTruthy();
+    expect((await within(drawer).findByTestId("bill-total")).textContent).toBe("₹500");
     expect(within(drawer).getByRole("radio", { name: "Cash" }).getAttribute("aria-checked")).toBe("true");
     await user.click(within(drawer).getByRole("button", { name: "Record payment" }));
     expect((await within(drawer).findAllByRole("alert")).some((a) => /connection dropped/.test(a.textContent))).toBe(true);
@@ -279,8 +279,10 @@ describe("Ending the visit and payment", () => {
     await doctorsDay(user);
     await user.click(await screen.findByRole("button", { name: "Collect payment" }));
     const drawer = await screen.findByRole("dialog", { name: "Collect payment" });
-    await within(drawer).findByText("₹300");
+    expect((await within(drawer).findByTestId("bill-total")).textContent).toBe("₹300");
     await user.click(within(drawer).getByRole("radio", { name: "UPI" }));
+    // The QR needs the bill: confirming it saves the lines and issues it.
+    await user.click(within(drawer).getByRole("button", { name: "Confirm the bill and show the QR" }));
     expect(await within(drawer).findByText(/sunrisedental@okicici/)).toBeTruthy();
     expect(within(drawer).getByRole("img", { name: /UPI QR for ₹300/ })).toBeTruthy();
     expect(await axeViolations()).toEqual([]);
@@ -297,9 +299,12 @@ describe("Ending the visit and payment", () => {
     await doctorsDay(user);
     await user.click(await screen.findByRole("button", { name: "Collect payment" }));
     const drawer = await screen.findByRole("dialog", { name: "Collect payment" });
-    await user.type(await within(drawer).findByLabelText(/^Fee/), "400");
-    await user.click(within(drawer).getByRole("button", { name: "Make the bill" }));
-    await within(drawer).findByText("₹400");
+    // No fee was typed: Consultation comes from the price list, and the desk changes it.
+    const price = await within(drawer).findByLabelText("Price of Consultation (₹)");
+    expect(price).toHaveProperty("value", "500");
+    await user.clear(price);
+    await user.type(price, "400");
+    expect(within(drawer).getByTestId("bill-total").textContent).toBe("₹400");
     await user.click(within(drawer).getByRole("radio", { name: "Card" }));
     await user.type(within(drawer).getByLabelText(/^Amount/), "150");
     await user.click(within(drawer).getByRole("button", { name: "Record payment" }));
@@ -445,7 +450,7 @@ describe("X-rays, photos and what a visit holds", () => {
     await user.click(await screen.findByRole("button", { name: "Issue and end" }));
     await user.click(await screen.findByRole("button", { name: "Collect payment" }));
     const drawer = await screen.findByRole("dialog", { name: "Collect payment" });
-    await within(drawer).findByText("₹500");
+    expect((await within(drawer).findByTestId("bill-total")).textContent).toBe("₹500");
     await user.click(within(drawer).getByRole("button", { name: "Record payment" }));
     await within(drawer).findByText(/Paid in full/);
     await user.click(within(drawer).getByRole("button", { name: "Finish" }));

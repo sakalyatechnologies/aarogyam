@@ -40,6 +40,12 @@ struct DevSignInPanel: View {
         }
         .padding(SkSpacing.xl)
         .background(theme.palette.background.color)
+        .task {
+            // Screenshot runs: `SIMCTL_CHILD_AAROGYAM_DEV_SIGN_IN=<auth uid>` signs in at launch.
+            if let uid = ProcessInfo.processInfo.environment["AAROGYAM_DEV_SIGN_IN"] {
+                failed = !(await signIn(as: uid))
+            }
+        }
     }
 
     private func signIn(as authUid: String) async -> Bool {
@@ -78,6 +84,22 @@ struct DevSignInPanel: View {
         add[kSecValueData as String] = data
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
+    }
+}
+/// Screenshot runs: `SIMCTL_CHILD_AAROGYAM_DEV_TAB=more` opens that tab first, and
+/// `SIMCTL_CHILD_AAROGYAM_DEV_SHEET=walkin` a sheet.
+enum DevLaunch {
+    static var sheet: String? { ProcessInfo.processInfo.environment["AAROGYAM_DEV_SHEET"] }
+
+    static var tab: NavTab? {
+        switch ProcessInfo.processInfo.environment["AAROGYAM_DEV_TAB"] {
+        case "patients": .patients
+        case "schedule": .schedule
+        case "expenses": .expenses
+        case "more": .more
+        case "today": .today
+        default: nil
+        }
     }
 }
 #endif

@@ -21,6 +21,16 @@ struct ClinicPickerScreen: View {
                 Button(String(localized: "sign_out"), action: onSignOut)
             }
         }
+        .overlay {
+            if let opening { OpeningClinicScreen(clinicName: opening.name, role: opening.roleName).transition(.opacity) }
+        }
+        .animation(.easeOut(duration: 0.25), value: opening?.slug)
+    }
+
+    /// The clinic being opened, if any: the spinner screen covers the list while it loads.
+    private var opening: ClinicChoice? {
+        guard case .choose(let choose) = onEnum(of: state), let slug = choose.opening else { return nil }
+        return choose.clinics.first { $0.slug == slug }
     }
 
     @ViewBuilder private var content: some View {

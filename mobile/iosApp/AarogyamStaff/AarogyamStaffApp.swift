@@ -10,6 +10,7 @@ struct AarogyamStaffApp: App {
             RootView(app: app)
                 .privacyShield()
                 .task { await app.start() }
+                .onOpenURL { app.handle(url: $0) }
         }
     }
 }

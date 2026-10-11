@@ -22,6 +22,10 @@ import com.aarogyam.staff.labs.LabsStateHolder
 import com.aarogyam.staff.labs.NewLabCaseStateHolder
 import com.aarogyam.staff.consents.ConsentsStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
+import com.aarogyam.staff.outbox.Connectivity
+import com.aarogyam.staff.outbox.MemoryOutboxStore
+import com.aarogyam.staff.outbox.OutboxStore
+import com.aarogyam.staff.outbox.asConnectivity
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
 import com.aarogyam.staff.patients.PatientsStateHolder
@@ -86,6 +90,10 @@ class AppGraph private constructor(
     val preferences: Preferences,
     /** The platform speech recogniser for voice notes. */
     val dictation: Dictation,
+    /** Whether the phone has a network; the outbox sends only while it does. */
+    val connectivity: Connectivity,
+    /** Writes saved on the phone, waiting to be sent. */
+    val outboxStore: OutboxStore,
 ) {
     private val clients = mutableMapOf<BaseUrl, HttpClient>()
 
@@ -337,6 +345,7 @@ class AppGraph private constructor(
             logSink: LogSink = platformLogSink(),
             preferences: Preferences = MemoryPreferences(),
             dictation: Dictation = Dictation.None,
+            outboxStore: OutboxStore = MemoryOutboxStore(),
         ): AppGraph? {
             val level = if (config.debug) LogLevel.Debug else LogLevel.Info
             val logger = { tag: String -> Logger(tag, logSink, level) }
@@ -370,6 +379,8 @@ class AppGraph private constructor(
                     logger,
                     preferences,
                     dictation,
+                    network.asConnectivity(),
+                    outboxStore,
                 )
             scope.launch { sessions.restore() }
             return graph

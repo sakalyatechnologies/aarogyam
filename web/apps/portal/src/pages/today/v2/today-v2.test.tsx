@@ -387,16 +387,16 @@ describe("every widget has a loading state", () => {
 });
 
 const EMPTY_TEXT: Readonly<Record<string, RegExp>> = {
-  nextup: /No one is waiting/,
+  nextup: /You're free right now/,
   chairs: /No chairs set up yet/,
-  appointments: /No appointments/,
+  appointments: /A calm day ahead/,
   attention: /Nothing needs attention/,
-  labs: /No open lab work/,
-  queue: /Nobody in the queue/,
-  collections: /Nothing collected yet/,
-  timeline: /No appointments/,
-  team_today: /No one on the roster/,
-  busy_hours: /No appointments/,
+  labs: /All lab work is up to date/,
+  queue: /All caught up — time for a breather/,
+  collections: /Payments you record will show up here/,
+  timeline: /A calm day ahead/,
+  team_today: /Add your doctors in Settings/,
+  busy_hours: /Your busiest hours will appear/,
 };
 
 describe("widgets with nothing to show say so", () => {

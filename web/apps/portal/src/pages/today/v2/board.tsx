@@ -28,8 +28,8 @@ class WidgetBoundary extends Component<{ label: string; children: ReactNode }, {
   }
 }
 
-/** Widgets whose day the calendar chooses: the side column and the calendar and queue wherever they sit. Everything else stays on today. */
-const DAY_WIDGETS: ReadonlySet<string> = new Set(["calendar", "queue"]);
+/** Where the calendar's day shows: the side column, and the calendar itself wherever it sits. Everything else stays on today. */
+const DAY_WIDGETS: ReadonlySet<string> = new Set(["calendar"]);
 
 function DayScope({ zone, widget, children }: { zone: string; widget: string; children: ReactNode }) {
   const board = useBoard();

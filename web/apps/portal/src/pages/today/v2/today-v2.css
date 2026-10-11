@@ -126,11 +126,13 @@
 /* Studio */
 .tv2-studio { display: flex; flex-direction: column; gap: 18px; }
 .tv2-lead { margin: 0; }
-.tv2-more { border-top: 1px solid var(--sk-border); padding-top: 12px; display: grid; gap: 14px; }
-.tv2-more-btn { display: inline-flex; align-items: center; gap: 6px; justify-self: start; min-height: 40px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--sk-border); background: var(--sk-surface); font: inherit; font-size: 13px; font-weight: 600; color: var(--sk-text); cursor: pointer; }
-.tv2-more-btn:hover { background: var(--sk-surface-muted); }
-.tv2-more-btn svg { transition: transform .2s; }
-.tv2-more-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+.tv2-more { border-top: 1px solid var(--sk-border); padding-top: 14px; display: grid; gap: 14px; }
+.tv2-more-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--sk-text); }
+.tv2-fields { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.tv2-field { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.tv2-field-head { margin: 0; display: flex; flex-direction: column; gap: 1px; }
+.tv2-field-name { font-size: 13px; font-weight: 600; color: var(--sk-text); }
+.tv2-field-hint { font-size: 12px; color: var(--sk-text-muted); }
 .tv2-studio fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .tv2-studio legend, .tv2-field-label { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--sk-text-muted); padding: 0; margin-bottom: 8px; }
 .tv2-templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
@@ -160,15 +162,19 @@
 .tv2-metric { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--sk-border); background: var(--sk-surface); font-size: 12px; cursor: pointer; min-height: 32px; }
 .tv2-metric:has(input:checked) { border-color: var(--sk-primary); background: var(--sk-primary-soft); }
 .tv2-metric:has(input:disabled) { opacity: .5; cursor: default; }
-.tv2-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tv2-studio .tv2-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* The save bar stays at the bottom of the screen while the section scrolls, and sits after everything else, so it never covers content. */
+.tv2-studio > .tv2-actions { position: sticky; bottom: 0; z-index: 20; padding: 10px 14px; margin-inline: -4px; border: 1px solid var(--sk-border); border-radius: 16px; background: var(--sk-surface); box-shadow: 0 -8px 20px -12px rgba(0, 0, 0, .25); }
 .tv2-note { font-size: 12px; color: var(--sk-text-muted); margin: 0; }
-.tv2-preview { border: 1px solid var(--sk-border); border-radius: 20px; background: var(--sk-background); padding: 12px; min-width: 0; position: sticky; top: 8px; }
+.tv2-preview { border: 1px solid var(--sk-border); border-radius: 20px; background: var(--sk-background); padding: 12px; min-width: 0; }
 .tv2-preview-frame { overflow: hidden; position: relative; }
 .tv2-preview-inner { width: 1100px; transform-origin: top left; }
 
 
 /* Studio edit mode: handles on each card of the preview. The chrome is counter-scaled so it stays a usable size on screen. */
-.tv2-preview[data-editing="1"] { position: sticky; }
+.tv2-preview[data-editing="1"] { position: relative; }
+/* Room above the first card for its controls, which hang over the card's top edge. */
+.tv2-preview .tv2-preview-frame { padding-top: 22px; box-sizing: content-box; }
 .tv2 .tv2-cell[data-editing="1"] { position: relative; cursor: default; }
 .tv2-edit-body { display: contents; }
 .tv2-edit-chrome { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
@@ -176,7 +182,10 @@
 .tv2-edit-grip { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; cursor: grab; touch-action: none; color: var(--sk-text-muted); }
 .tv2-edit-grip:hover { background: var(--sk-surface-muted); }
 .tv2-edit-grip:active { cursor: grabbing; }
-.tv2-edit-bar { top: 6px; right: 6px; transform-origin: top right; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; padding: 2px; border-radius: 12px; background: var(--sk-surface); border: 1px solid var(--sk-border); box-shadow: var(--sk-shadow); width: max-content; max-width: calc(100cqw / var(--tv2-unscale, 1) - 12px); }
+.tv2-edit-bar { top: 0; right: 8px; transform-origin: top right; transform: scale(var(--tv2-unscale, 1)) translateY(-72%); opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 3; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; padding: 2px; border-radius: 12px; background: var(--sk-surface); border: 1px solid var(--sk-border); box-shadow: var(--sk-shadow); width: max-content; max-width: calc(100cqw / var(--tv2-unscale, 1) - 12px); }
+/* The controls show when the card is hovered or has focus, on a solid background hanging over its top edge, so the title is never covered. */
+.tv2 .tv2-cell[data-editing="1"]:hover .tv2-edit-bar, .tv2 .tv2-cell[data-editing="1"]:focus-within .tv2-edit-bar, .tv2 .tv2-cell[data-dragging="1"] .tv2-edit-bar { opacity: 1; pointer-events: auto; }
+@media (hover: none) { .tv2 .tv2-cell[data-editing="1"] .tv2-edit-bar { opacity: 1; pointer-events: auto; } }
 .tv2-edit-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; border: 0; background: transparent; color: var(--sk-text); cursor: pointer; }
 .tv2-edit-btn:hover:not(:disabled) { background: var(--sk-surface-muted); }
 .tv2-edit-btn:disabled { opacity: .3; cursor: default; }
@@ -264,7 +273,7 @@
     .tv2-content { height: 100%; min-height: 0; }
     .tv2-body { flex: 1 1 auto; min-height: 0; }
     .tv2-main { height: 100%; }
-    .tv2-rail { min-height: 0; overflow-y: auto; }
+    .tv2[data-fit] .tv2-rail { min-height: 0; overflow-y: auto; }
   }
   @container tv2 (min-width: 760px) {
     .tv2[data-fit] .tv2-main { grid-template-rows: var(--tv2-tracks, auto); }
@@ -285,3 +294,7 @@
   .tv2[data-fit] .tv2-rail > .tv2-cell[data-widget="queue"] .tv2-qbox:has(> p) { flex: 0 0 auto; min-height: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .tv2-hero, .tv2-kpi { transition: none; } }
+
+/* The Studio's preview shows everything at once: nothing in it scrolls, it grows (and is scaled down to fit). */
+.tv2[data-preview] .tv2-qbox { max-height: none; overflow: visible; }
+.tv2[data-preview] .tv2-rail { overflow: visible; }

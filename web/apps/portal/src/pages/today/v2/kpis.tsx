@@ -13,6 +13,7 @@ import { allowed } from "./layout-model.js";
 import { MoneyEye, useShowMoney } from "./money.js";
 import { useDayToday, useOpenLabs } from "./queries.js";
 import { firstWord } from "./seeing.js";
+import { COPY } from "./copy.js";
 import { Body, Empty, type WidgetProps } from "./widget-parts.js";
 
 const METRIC_ICON: Readonly<Record<string, LucideIcon>> = {
@@ -60,14 +61,14 @@ export function labBreakdown(orders: readonly Lab[], today: string): { sent: num
 
 function chairHint(today: Today): string {
   const busy = today.chairs.find((c) => c.status === "in_use");
-  if (busy === undefined) return today.chairs.length === 0 ? "No chairs set up" : "All chairs free";
+  if (busy === undefined) return today.chairs.length === 0 ? COPY.noChairsSetUp : "All chairs free";
   const who = busy.current?.patient.full_name;
   return who === undefined ? busy.name : `${busy.name} · ${firstWord(displayName(who))}`;
 }
 
 function waitHint(today: Today): string {
   const waiting = today.appointments.filter((a) => a.status === "arrived");
-  if (waiting.length === 0) return "No one waiting";
+  if (waiting.length === 0) return COPY.noOneWaiting;
   const total = waiting.reduce((sum, a) => sum + waitingMinutes(a, today.as_of), 0);
   return `Avg wait ${String(Math.round(total / waiting.length))} min`;
 }
@@ -110,7 +111,7 @@ export function KpisWidget({ opts, catalogue, spec }: WidgetProps) {
   return (
     <Body query={day} label={spec.label} rows={2} empty={null}>
       {(today) => {
-        if (metrics.length === 0) return <Empty title="No numbers to show" description="Pick numbers for this row in the Dashboard studio." />;
+        if (metrics.length === 0) return <Empty title={COPY.noKeyNumbers} />;
         const toGo = Math.max(0, today.counts.total - today.counts.done - today.counts.cancelled - today.counts.no_shows);
         const tiles: Tile[] = [];
         for (const metric of metrics) {

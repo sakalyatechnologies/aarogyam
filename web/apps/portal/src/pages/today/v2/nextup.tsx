@@ -14,6 +14,7 @@ import { usePatientPeek } from "../../../layout/peek.js";
 import { useBoard } from "./board-context.js";
 import { useDayToday } from "./queries.js";
 import { KIND_LABEL, seeingOrder, useZone, type Appointment } from "./seeing.js";
+import { COPY } from "./copy.js";
 import { Body, Empty, WidgetCard, type WidgetProps } from "./widget-parts.js";
 
 function numberOpt(opts: WidgetProps["opts"], key: string, fallback: number): number {
@@ -50,8 +51,8 @@ function Hero({ today, count, label }: { today: Today; count: number; label: str
       {a === undefined ? (
         <div className="tv2-hero-empty">
           <p className="tv2-hero-eyebrow">Next up</p>
-          <p className="tv2-hero-name">No one is waiting</p>
-          <p className="tv2-hero-sub">Everyone booked has been seen.</p>
+          <p className="tv2-hero-name">{COPY.nextUpFree}</p>
+          <p className="tv2-hero-sub">{COPY.nextUpFreeHint}</p>
         </div>
       ) : (
         <>
@@ -146,7 +147,7 @@ export function NextupWidget({ opts, spec, zone: place }: WidgetProps) {
   }
   return (
     <WidgetCard title={spec.label} subtitle={date === undefined ? "Who is next" : "Left to see that day"}>
-      <Body query={day} label={spec.label} rows={2} isEmpty={(t) => seeingOrder(t).length === 0} empty={<Empty title="No one is waiting" description="Everyone booked has been seen." />}>
+      <Body query={day} label={spec.label} rows={2} isEmpty={(t) => seeingOrder(t).length === 0} empty={<Empty title={COPY.nextUpFree} description={COPY.nextUpFreeHint} />}>
         {(today) => {
           const list = seeingOrder(today).slice(0, count);
           return (

@@ -61,11 +61,6 @@ describe("the widget registry", () => {
   });
 });
 
-/** The Studio keeps density, card style, rail side and the widget list in a fold; opens it. */
-const openMore = async (user: ReturnType<typeof userEvent.setup>) => {
-  await user.click(screen.getByRole("button", { name: "More options" }));
-};
-
 describe("Settings, Appearance tab, My dashboard section", () => {
   it("is there with the New look and gone without it", async () => {
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
@@ -87,20 +82,48 @@ describe("Settings, Appearance tab, My dashboard section", () => {
     if (!got.ok) throw new Error("expected a layout");
     // The API still accepts both retired choices, so one can be saved by an older client or the mobile apps.
     expect((await api.saveMyDashboardLayout({ ...got.value.layout, tpl: "focus", card: "flat" })).ok).toBe(true);
-    const user = userEvent.setup();
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha, backend });
     await screen.findByRole("group", { name: "Live preview of Today" });
     const cards = within(screen.getByRole("group", { name: "Template" }) ).getAllByRole("button").map((b) => b.querySelector("b")?.textContent);
     expect(cards).toEqual(["MedSync", "Executive", "Care", "Compact", "Front desk"]);
     expect(screen.getByRole("button", { name: /MedSync/ }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.queryByRole("button", { name: /Focus/ })).toBeNull();
-    // The fold is closed until asked for, and nothing is unsaved yet.
-    expect(screen.queryByRole("button", { name: "Soft" })).toBeNull();
-    await openMore(user);
+    // More options are always shown, and nothing is unsaved yet.
     expect(screen.getByRole("button", { name: "Soft" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "Outline" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Flat" })).toBeNull();
     expect(screen.getByRole("button", { name: "Save" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("always shows More options, each control with a one-line label, and the Save bar sits at the end, outside the preview and any scroll box", async () => {
+    renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
+    await screen.findByRole("group", { name: "Live preview of Today" });
+    expect(screen.getByRole("heading", { name: "More options" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "More options" })).toBeNull();
+    for (const text of ["How much space between cards", "Which side the calendar column sits on", "Column width", "Card style", "Widgets"]) expect(screen.getAllByText(text).length, text).toBeGreaterThan(0);
+    const bar = screen.getByRole("button", { name: "Save" }).closest<HTMLElement>(".tv2-actions");
+    if (bar === null) throw new Error("no action bar");
+    expect(within(bar).getByRole("button", { name: "Reset to template" })).toBeTruthy();
+    expect(bar.closest(".tv2-preview")).toBeNull();
+    expect(bar.parentElement?.lastElementChild).toBe(bar);
+    for (let el: HTMLElement | null = bar.parentElement; el !== null; el = el.parentElement) {
+      expect(["auto", "scroll"], el.className).not.toContain(getComputedStyle(el).overflowY);
+    }
+    expect(preview().querySelector("[style*='overflow']")).toBeNull();
+  });
+
+  it("keeps Next up out of the calendar column: an old layout with it in the rail loads without it", async () => {
+    const backend = fakeApi();
+    const api = backend.client({ host: "sunrise.localtest.me", getToken: () => fakeTokenFor({ id: PEOPLE.asha }), now: () => NOW });
+    const got = await api.getMyDashboardLayout();
+    if (!got.ok) throw new Error("expected a layout");
+    const items = [...got.value.layout.items.filter((i) => i.key !== "nextup"), { key: "nextup", zone: "rail", size: "M" }];
+    expect((await api.saveMyDashboardLayout({ ...got.value.layout, density: "compact", items })).ok).toBe(true);
+    renderPortal("/settings?tab=studio", { as: PEOPLE.asha, backend });
+    await screen.findByRole("group", { name: "Live preview of Today" });
+    expect(order(preview())).not.toContain("nextup");
+    const rail = within(preview()).getByLabelText("Side panel in the preview");
+    expect(order(rail)).toEqual(["calendar", "queue"]);
   });
 
   it("saves the member's layout through the API and Today draws it after a reload", async () => {
@@ -117,7 +140,6 @@ describe("Settings, Appearance tab, My dashboard section", () => {
     const { router } = renderPortal("/settings?tab=studio", { as: PEOPLE.asha, backend, wrap });
     await screen.findByRole("group", { name: "Live preview of Today" });
     await user.click(screen.getByRole("button", { name: /Executive/ }));
-    await openMore(user);
     await user.click(screen.getByRole("button", { name: "Compact" }));
     await user.click(screen.getByRole("button", { name: "Remove Busy hours" }));
     expect(order(preview())).not.toContain("busy_hours");
@@ -174,8 +196,7 @@ describe("Settings, Appearance tab, My dashboard section", () => {
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
     await screen.findByRole("group", { name: "Live preview of Today" });
     // Compact has Appointments, Chairs and Attention one under the other in the main area.
-    await user.click(screen.getByRole("button", { name: /Compact/ }));
-    await openMore(user);
+    await user.click(within(screen.getByRole("group", { name: "Template" })).getByRole("button", { name: /Compact/ }));
     const before = order(preview()).filter((key) => ["appointments", "attention", "chairs"].includes(key ?? ""));
     expect(before[0]).toBe("appointments");
     await user.click(screen.getByRole("button", { name: "Move Appointments down" }));
@@ -195,7 +216,6 @@ describe("Settings, Appearance tab, My dashboard section", () => {
     const user = userEvent.setup();
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
     await screen.findByRole("group", { name: "Live preview of Today" });
-    await openMore(user);
     await user.click(screen.getByRole("button", { name: "Settings for Appointments" }));
     await user.click(screen.getByRole("button", { name: "List" }));
     await waitFor(() => { expect(within(preview()).queryByRole("table")).toBeNull(); });
@@ -218,7 +238,6 @@ describe("Settings, Appearance tab, My dashboard section", () => {
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
     await screen.findByRole("group", { name: "Live preview of Today" });
     const first = order(preview());
-    await openMore(user);
     await user.click(screen.getByRole("button", { name: "Remove Appointments" }));
     expect(order(preview())).not.toEqual(first);
     await user.click(screen.getByRole("button", { name: "Reset to template" }));
@@ -239,7 +258,6 @@ describe("Settings, Appearance tab, My dashboard section", () => {
     await screen.findByRole("group", { name: "Live preview of Today" });
     expect(screen.queryByRole("button", { name: "Save as clinic default" })).toBeNull();
     // The assistant gets the clinic's Front desk layout, and cannot add what her role may not see.
-    await openMore(userEvent.setup());
     expect(order(preview())).toContain("queue");
     expect(screen.queryByRole("button", { name: "Add Collections" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Add Revenue mix" })).toBeNull();
@@ -301,7 +319,7 @@ describe("Direct manipulation on the preview", () => {
   it("reorders with the buttons on the card, and the edge ones are disabled", async () => {
     const user = userEvent.setup();
     await open();
-    await user.click(screen.getByRole("button", { name: /Compact/ }));
+    await user.click(within(screen.getByRole("group", { name: "Template" })).getByRole("button", { name: /Compact/ }));
     const pick = (keys: (string | undefined)[]) => keys.filter((key) => ["appointments", "attention", "chairs"].includes(key ?? ""));
     expect(pick(order(preview()))[0]).toBe("appointments");
     expect(screen.getByRole("button", { name: "Move Appointments up in preview" }).hasAttribute("disabled")).toBe(true);
@@ -356,34 +374,15 @@ describe("Direct manipulation on the preview", () => {
     expect(screen.getByRole("button", { name: /Move Appointments to the side rail/ }).hasAttribute("disabled")).toBe(true);
   });
 
-  it("drops a widget in the rail when it may go there, and Save sends what was dragged", async () => {
-    const backend = fakeApi();
-    const saved: DashboardLayout[] = [];
-    const wrap = (client: ApiClient): ApiClient => ({
-      ...client,
-      saveMyDashboardLayout: (layout, options) => {
-        saved.push(layout);
-        return client.saveMyDashboardLayout(layout, options);
-      },
-    });
+  it("snaps a card back when it is dropped on the calendar column, which holds only the calendar, the queue and the completed visits", async () => {
     const user = userEvent.setup();
-    await open({ backend, wrap });
-    await user.click(screen.getByRole("button", { name: /Compact/ }));
+    await open();
+    await user.click(within(screen.getByRole("group", { name: "Template" })).getByRole("button", { name: /Compact/ }));
     expect(zoneOf("attention")).toBe("main");
     dragTo("attention", 850, 600);
-    expect(zoneOf("attention")).toBe("rail");
-    expect(screen.getByText(/moved to the side rail/)).toBeTruthy();
-    // It is the last card of the rail.
+    expect(zoneOf("attention")).toBe("main");
     const rail = [...preview().querySelectorAll<HTMLElement>('[data-zone="rail"] [data-widget]')].map((el) => el.dataset["widget"]);
-    expect(rail[rail.length - 1]).toBe("attention");
-    const drawn = order(preview());
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => { expect(saved).toHaveLength(1); });
-    const items = saved[0]?.items ?? [];
-    expect(items.find((item) => item.key === "attention")?.zone).toBe("rail");
-    // The saved list, drawn zone by zone (without what this role cannot see), is the preview's order.
-    const byZone = (zone: string) => items.filter((item) => item.zone === zone && drawn.includes(item.key)).map((item) => item.key);
-    expect([...(saved[0]?.rail.side === "left" ? byZone("rail") : []), ...byZone("top"), ...byZone("main"), ...(saved[0]?.rail.side === "left" ? [] : byZone("rail"))]).toEqual(drawn);
+    expect(rail).toEqual(["calendar", "queue"]);
   });
 
   it("moves a card before another in its zone by dragging, and Escape puts it back", async () => {
@@ -411,7 +410,6 @@ describe("Accessibility of the studio", () => {
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
     await screen.findByRole("group", { name: "Live preview of Today" });
     const user = userEvent.setup();
-    await openMore(user);
     await user.click(screen.getByRole("button", { name: "Settings for Appointments" }));
     expect(problems(await axe.run(document.body, AXE))).toEqual([]);
   });

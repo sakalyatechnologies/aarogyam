@@ -110,3 +110,4 @@
 .cal2 .mk-month .mk-evchip { border-radius: 10px; background: color-mix(in srgb, var(--bar) 15%, var(--surface)); color: var(--ink); }
 .cal2 .mk-tip { border-radius: 14px; }
 .cal2 .mk-legend-chip { background: var(--surface); }
+.cal-calm { margin: 12px 0 0; text-align: center; font-size: 14px; color: var(--sk-text-muted); }

@@ -449,7 +449,7 @@ pub(crate) async fn finish_token(
         {
             return Ok(());
         }
-        state.status = QueueStatus::InChair.as_str().to_owned();
+        QueueStatus::InChair.as_str().clone_into(&mut state.status);
     }
     // Refusals (an appointment that can't complete) leave the token where it is.
     move_token(tx, timezone, &state, target, by, now).await?;

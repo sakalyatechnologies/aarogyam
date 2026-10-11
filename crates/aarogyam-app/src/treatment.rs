@@ -226,6 +226,10 @@ async fn finish_item(tx: &mut ScopedTx, row: &ProcedureRow) -> Result<(), AppErr
 /// visit is closed, the plan item isn't accepted, or it already has a procedure;
 /// [`AppError::IdConflict`] when the client's `id` belongs to a different procedure. A retry with
 /// the same `id` returns the procedure that exists, even after its visit closed.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one transaction: lookup, checks and the writes it makes"
+)]
 pub async fn record_procedure(
     db: &Db,
     actor: &ClinicActor,

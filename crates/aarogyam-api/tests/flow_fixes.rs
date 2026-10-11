@@ -162,7 +162,7 @@ async fn closing_without_a_balance_finishes_the_token() {
     )
     .await;
     assert_eq!(status_of_token(&app, &desk, &token).await, "done");
-    assert!(collect_rows(&app, &token).await.is_empty());
+    assert_eq!(collect_rows(&app, &token).await, Vec::<bool>::new());
     app.finish().await;
 }
 

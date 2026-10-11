@@ -501,6 +501,10 @@ async fn bill_visit(
 /// [`AppError::NotFound`] when the visit isn't in this clinic; [`AppError::Denied`] for a follow-up without `patients.write` or a fee
 /// without `billing.write`; [`AppError::Invalid`] for a past follow-up date, a long reason or
 /// a fee of zero or less.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one transaction: lookup, checks and the writes it makes"
+)]
 pub async fn close(
     db: &Db,
     actor: &ClinicActor,

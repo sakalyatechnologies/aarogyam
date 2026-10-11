@@ -68,9 +68,9 @@ async fn run(mut listener: dal::Listener, hub: Weak<HubInner>) {
         let next = tokio::time::timeout(IDLE_CHECK, dal::next(&mut listener)).await;
         let Some(hub) = hub.upgrade() else { return };
         let live = match next {
-            Err(_) => continue,
             Ok(Ok(Some(Some(signal)))) => Live::Change(signal),
-            Ok(Ok(Some(None))) => continue,
+            // Timed out (only to check the server still wants us), or not our payload.
+            Err(_) | Ok(Ok(Some(None))) => continue,
             Ok(Ok(None)) => Live::Resync,
             Ok(Err(error)) => {
                 tracing::warn!(%error, "live listener lost its connection; retrying");

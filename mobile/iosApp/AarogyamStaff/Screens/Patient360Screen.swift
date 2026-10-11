@@ -4,7 +4,7 @@ import SwiftUI
 
 /// What a Patient 360 sheet is open on.
 enum PatientSheet: String, Identifiable {
-    case book, share
+    case book, share, photo
     var id: String { rawValue }
 }
 
@@ -64,10 +64,19 @@ struct Patient360Screen: View {
         .sheet(item: $sheet) { sheetContent($0) }
         .navigationDestination(item: $visit) { VisitScreen(graph: graph, clinic: clinic, route: $0) }
         .navigationDestination(item: $detail) {
-            V9VisitDetail(graph: graph, clinic: clinic, patientId: patientId, visitId: $0.visitId, billing: billing, billingState: billingState)
+            V9VisitDetail(graph: graph, clinic: clinic, patientId: patientId, visitId: $0.visitId, phone: loaded?.view.phone, billing: billing, billingState: billingState)
         }
         .skToast($toast)
         .onAppear(perform: makeModels)
+        // A queued picture lands in the Overview tiles once the outbox has sent it.
+        .task {
+            var last = 0
+            for await next in graph.outbox.pending {
+                let now = Int(truncating: next)
+                if last > 0, now == 0 { overview?.holder.refresh() }
+                last = now
+            }
+        }
         // A recorded payment changes the balance in the header and the money strip, so reload them.
         .onChange(of: receipt) { _, new in
             if new != nil { holder.refresh(); overview?.holder.refresh(); history?.holder.refresh() }
@@ -75,6 +84,7 @@ struct Patient360Screen: View {
         #if DEBUG && AARO_ENV_Local
         .onAppear {
             if let dev = DevLaunch.patientTab9 { tab = dev }
+            if ProcessInfo.processInfo.environment["AAROGYAM_DEV_PHOTO_SHEET"] == "1" { sheet = .photo }
             }
         .onChange(of: overviewMoney != nil) { _, has in
             if DevLaunch.showMoney, has, !overviewMoneyShown { overview?.holder.toggleMoney() }
@@ -125,7 +135,8 @@ struct Patient360Screen: View {
     @ViewBuilder private func loadedPage(_ view: PatientView, error: ScreenError?) -> some View {
         let tabs = PatientPageTab.visible(permissions: Set(clinic.permissions))
         let current = tabs.contains(tab) ? tab : (tabs.first ?? .overview)
-        PatientHeader(view: view, canBook: can.book, onBook: { sheet = .book }, onPhoto: { toast = pv("pv.photo.preview") }) {
+        PatientHeader(view: view, canBook: can.book, onBook: { sheet = .book }, onPhoto: { sheet = .photo }) {
+            OutboxBadge(graph: graph).frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
             PatientMoneyStrip(model: MoneyStripModel.make(money: overviewMoney, shown: overviewMoneyShown)) {
                 overview?.holder.toggleMoney()
             }
@@ -171,6 +182,8 @@ struct Patient360Screen: View {
         switch sheet {
         case .book:
             PatientBookSheet(graph: graph, clinic: clinic, patientId: patientId, name: loaded?.view.name ?? "")
+        case .photo:
+            V9PhotoSheet(graph: graph, clinic: clinic, patientId: patientId) { self.sheet = nil }
         case .share:
             PatientShareSheet(graph: graph, clinic: clinic, patientId: patientId, preselected: nil)
         }

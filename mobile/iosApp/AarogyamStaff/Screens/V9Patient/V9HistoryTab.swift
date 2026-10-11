@@ -42,9 +42,10 @@ struct HistoryCard: View {
         let iso = row.at.date.isoText
         let badge = HistoryRowFormat.badge(dateISO: iso, todayISO: todayISO)
         let chips = HistoryRowFormat.chips(
-            hasNotes: row.hasNotes?.boolValue, hasRx: row.hasRx, hasPhotos: row.hasPhotos?.boolValue, bill: row.bill, open: row.open
+            hasNotes: row.hasNotes?.boolValue, hasRx: row.hasRx, hasPhotos: row.hasPhotos?.boolValue, bill: row.bill, open: row.open,
+            teeth: row.teeth.map(\.intValue), duePaise: row.duePaise?.int64Value
         )
-        let title = row.title ?? row.number
+        let title = HistoryRowFormat.title(row.titleSource)
         Button(action: onTap) {
             HStack(alignment: .center, spacing: 12) {
                 VStack(spacing: 1) {
@@ -59,7 +60,7 @@ struct HistoryCard: View {
                     Text(row.clinician).v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
                     if !chips.isEmpty {
                         V7Flow(spacing: 6) {
-                            ForEach(chips, id: \.title) { chip in chipView(chip) }
+                            ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in chipView(chip) }
                         }
                         .padding(.top, 2)
                     }
@@ -73,7 +74,7 @@ struct HistoryCard: View {
         }
         .buttonStyle(.skPressable)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(([ClinicFormat.date(iso: iso), title, row.clinician] + chips.map(\.title)).joined(separator: ", "))
+        .accessibilityLabel(([ClinicFormat.date(iso: iso), title, row.clinician] + chips.map(\.spoken)).joined(separator: ", "))
         .accessibilityAddTraits(.isButton)
     }
 
@@ -81,12 +82,16 @@ struct HistoryCard: View {
         let r = theme.roles
         let (fill, ink): (Color, Color) = switch chip {
         case .paid: (r.primaryContainer.color, r.onPrimaryContainer.color)
-        case .due: (r.errorContainer.color, r.onErrorContainer.color)
+        case .due, .dueAmount: (r.errorContainer.color, r.onErrorContainer.color)
         case .open: (r.tertiaryContainer.color, r.onTertiaryContainer.color)
         default: (r.surface2.color, r.onSurfaceVariant.color)
         }
-        return Text(chip.title).v7Text(11, .bold).foregroundStyle(ink)
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(fill, in: Capsule())
+        return HStack(spacing: 3) {
+            if case .tooth = chip { V7Icon(name: "tooth", size: 11, tint: ink) }
+            Text(chip.title).v7Text(11, .bold)
+        }
+        .foregroundStyle(ink)
+        .padding(.horizontal, 8).padding(.vertical, 3)
+        .background(fill, in: Capsule())
     }
 }

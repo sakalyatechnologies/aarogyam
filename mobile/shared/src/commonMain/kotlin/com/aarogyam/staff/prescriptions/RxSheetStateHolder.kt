@@ -237,6 +237,23 @@ class RxSheetStateHolder(
         }
     }
 
+    /**
+     * Sends an already issued prescription again (Visit detail): opens the delivery step for [id] and
+     * makes a fresh link and PIN. Does nothing while composing or once a prescription is set.
+     */
+    fun shareIssued(
+        id: String,
+        number: String?,
+    ) {
+        val current = mutableState.value
+        if (current.issued != null || current.phase != RxPhase.Composing || current.lines.isNotEmpty()) return
+        frozen = true
+        mutableState.update {
+            it.copy(phase = RxPhase.Issued, issued = IssuedRx(id, number, clinic.session.clinic.name))
+        }
+        share()
+    }
+
     /** Creates the patient's link and PIN for the issued prescription; call again after a failure. */
     fun share() {
         val issued = mutableState.value.issued ?: return

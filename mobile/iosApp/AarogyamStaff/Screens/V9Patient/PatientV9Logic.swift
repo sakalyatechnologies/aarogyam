@@ -59,9 +59,21 @@ enum HistoryRowFormat {
 
     enum Chip: Equatable {
         case notes, rx, photos, paid, due, open
+        /// One tooth (FDI) the visit worked on.
+        case tooth(Int)
+        /// The balance, formatted: only for a role with money and a bill with something left.
+        case dueAmount(String)
+
+        /// What VoiceOver says: "Tooth 36" instead of "36".
+        var spoken: String {
+            if case .tooth(let number) = self { return p9f("p9.chip.tooth.a11y", number) }
+            return title
+        }
 
         var title: String {
             switch self {
+            case .tooth(let number): String(number)
+            case .dueAmount(let text): p9f("p9.chip.due_amount", text)
             case .notes: p9("p9.chip.notes")
             case .rx: p9("p9.chip.rx")
             case .photos: p9("p9.chip.photos")
@@ -86,18 +98,47 @@ enum HistoryRowFormat {
 
     /// The chips of a card: what the list knows. Notes and photos only when the list says so;
     /// the bill chip only for a role that sees money.
-    static func chips(hasNotes: Bool?, hasRx: Bool, hasPhotos: Bool?, bill: BillState, open: Bool) -> [Chip] {
+    static func chips(
+        hasNotes: Bool?, hasRx: Bool, hasPhotos: Bool?, bill: BillState, open: Bool,
+        teeth: [Int] = [], duePaise: Int64? = nil
+    ) -> [Chip] {
         var out: [Chip] = []
         if open { out.append(.open) }
+        out.append(contentsOf: teeth.map { Chip.tooth($0) })
         if hasNotes == true { out.append(.notes) }
         if hasRx { out.append(.rx) }
         if hasPhotos == true { out.append(.photos) }
         switch bill {
         case .paid: out.append(.paid)
-        case .due: out.append(.due)
+        case .due: out.append(dueText(duePaise: duePaise, moneyVisible: true).map { Chip.dueAmount($0) } ?? .due)
         default: break
         }
         return out
+    }
+
+    /// `₹6,000`-style balance of a bill, or nil when the role has no money or nothing is left.
+    static func dueText(duePaise: Int64?, moneyVisible: Bool) -> String? {
+        guard moneyVisible, let duePaise, duePaise > 0 else { return nil }
+        return ClinicFormat.rupees(paise: duePaise)
+    }
+
+    /// The card title: the complaint, else the first procedure's name, else how the visit began, else "Visit".
+    static func title(complaint: String?, procedure: String?, kind: VisitKind_?) -> String {
+        func clean(_ text: String?) -> String? {
+            guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+            return text
+        }
+        if let complaint = clean(complaint) { return complaint }
+        if let procedure = clean(procedure) { return procedure }
+        switch kind {
+        case .appointment: return p9("p9.title.appointment")
+        case .walkIn: return p9("p9.title.walkin")
+        default: return p9("p9.title.visit")
+        }
+    }
+
+    static func title(_ source: VisitTitleSource) -> String {
+        title(complaint: source.complaint, procedure: source.firstProcedure, kind: source.kind)
     }
 }
 

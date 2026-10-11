@@ -42,6 +42,8 @@ text_value! {
         Campaigns => "campaigns",
         /// Staff time-off requests that were decided or cancelled and nobody has changed since.
         TimeOffRequests => "time_off_requests",
+        /// Each day's run of a clinic's recurring staff tasks, with who did it and any note.
+        TaskOccurrences => "task_occurrences",
     }
 }
 
@@ -78,7 +80,7 @@ impl Class {
             Self::Invoices | Self::LabWork => Period::Years(8),
             Self::Outbox => Period::Days(90),
             Self::ShareLinks | Self::ImportSessions => Period::Days(30),
-            Self::AccessLog => Period::Years(3),
+            Self::AccessLog | Self::TaskOccurrences => Period::Years(3),
             Self::Messages
             | Self::ClinicApplications
             | Self::ChatMessages
@@ -109,6 +111,7 @@ impl Class {
             Self::MessageTemplates => "when the template last changed",
             Self::Campaigns => "when the campaign last changed",
             Self::TimeOffRequests => "when the request last changed",
+            Self::TaskOccurrences => "when the task fell due",
         }
     }
 

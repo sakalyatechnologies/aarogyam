@@ -62,6 +62,7 @@ pub async fn report(
             Class::MessageTemplates => dal::message_templates(db.pool(), cutoff, sample).await?,
             Class::Campaigns => dal::campaigns(db.pool(), cutoff, sample).await?,
             Class::TimeOffRequests => dal::time_off_requests(db.pool(), cutoff, sample).await?,
+            Class::TaskOccurrences => dal::task_occurrences(db.pool(), cutoff, sample).await?,
         };
         classes.push(ClassReport {
             class,

@@ -3,7 +3,9 @@ package com.aarogyam.staff.history
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.model.Invoice
 import com.aarogyam.staff.api.model.Prescription
+import com.aarogyam.staff.api.model.Procedure
 import com.aarogyam.staff.api.model.Visit
+import com.aarogyam.staff.api.patientProcedures
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.ClinicMoment
 import com.aarogyam.staff.patients.moment
@@ -22,6 +24,19 @@ import kotlinx.coroutines.launch
 /** The bill of a visit as the list shows it; [None] also covers a role without `billing.read`. */
 enum class BillState { Paid, Due, None }
 
+/** How the visit began, for a title when it has no complaint and no procedure. */
+enum class VisitKind { Appointment, WalkIn }
+
+/**
+ * What a card can be titled from, in this order: [complaint], else [firstProcedure], else [kind].
+ * The words stay in the app's strings; the holder only says which source exists.
+ */
+data class VisitTitleSource(
+    val complaint: String?,
+    val firstProcedure: String?,
+    val kind: VisitKind,
+)
+
 /**
  * One line of the History tab. [hasNotes] and [hasPhotos] are null: the list calls don't carry
  * them (the visit detail does), so the list never guesses.
@@ -37,6 +52,11 @@ data class VisitRow(
     val hasPhotos: Boolean?,
     val bill: BillState,
     val open: Boolean,
+    /** Teeth (FDI) of the visit's procedures, ascending; empty when none or without `clinical.read`. */
+    val teeth: List<Int> = emptyList(),
+    /** Left to pay on the visit's bill; null without `billing.read` or when there is no bill, 0 when paid. */
+    val duePaise: Long? = null,
+    val titleSource: VisitTitleSource = VisitTitleSource(title, null, VisitKind.WalkIn),
 )
 
 /** What the History tab draws. */
@@ -124,9 +144,21 @@ class VisitHistoryStateHolder(
             val visits = async { clinic.api.visits(patientId) }
             val rx = async { if (CLINICAL_READ in clinic.permissions) clinic.api.prescriptions(patientId) else null }
             val bills = async { if (money) clinic.api.invoices(patientId) else null }
+            // Teeth and titles only; a refusal or a failure here leaves them out instead of failing the tab.
+            val procs =
+                async {
+                    if (CLINICAL_READ in
+                        clinic.permissions
+                    ) {
+                        clinic.api.patientProcedures(patientId)
+                    } else {
+                        null
+                    }
+                }
             val v = visits.await()
             val r = rx.await().optional()
             val b = bills.await().optional()
+            val procedures = (procs.await() as? Outcome.Success)?.value?.items
             when {
                 v is Outcome.Failure -> {
                     v
@@ -141,7 +173,7 @@ class VisitHistoryStateHolder(
                 }
 
                 v is Outcome.Success && r is Outcome.Success && b is Outcome.Success -> {
-                    Outcome.Success(rows(v.value.items, r.value?.items, b.value?.items))
+                    Outcome.Success(rows(v.value.items, r.value?.items, b.value?.items, procedures))
                 }
 
                 else -> {
@@ -154,12 +186,15 @@ class VisitHistoryStateHolder(
         visits: List<Visit>,
         prescriptions: List<Prescription>?,
         invoices: List<Invoice>?,
+        procedures: List<Procedure>?,
     ): List<VisitRow> =
         visits
             .mapNotNull { visit -> parseInstant(visit.startedAt)?.let { it to visit } }
             .sortedByDescending { it.first }
             .mapNotNull { (_, visit) ->
                 moment(visit.startedAt, clinic.timeZone)?.let { at ->
+                    val mine = procedures.orEmpty().filter { it.visitId == visit.id && it.status != "entered_in_error" }
+                    val invoice = invoices.forVisit(visit.id)
                     VisitRow(
                         id = visit.id,
                         number = visit.number,
@@ -169,8 +204,27 @@ class VisitHistoryStateHolder(
                         hasNotes = null,
                         hasRx = prescriptions.forVisit(visit.id) != null,
                         hasPhotos = null,
-                        bill = billState(invoices.forVisit(visit.id)),
+                        bill = billState(invoice),
                         open = visit.status == "open",
+                        teeth =
+                            mine
+                                .mapNotNull { it.tooth }
+                                .filter { it > 0 }
+                                .distinct()
+                                .sorted(),
+                        duePaise = invoice?.balancePaise,
+                        titleSource =
+                            VisitTitleSource(
+                                complaint = visit.chiefComplaint?.trim()?.takeIf { it.isNotEmpty() },
+                                // The list is newest first; the first of the visit is the oldest.
+                                firstProcedure =
+                                    mine
+                                        .lastOrNull()
+                                        ?.name
+                                        ?.trim()
+                                        ?.takeIf { it.isNotEmpty() },
+                                kind = if (visit.appointmentId != null) VisitKind.Appointment else VisitKind.WalkIn,
+                            ),
                     )
                 }
             }

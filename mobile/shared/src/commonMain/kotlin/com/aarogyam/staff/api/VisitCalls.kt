@@ -2,6 +2,7 @@ package com.aarogyam.staff.api
 
 import com.aarogyam.staff.api.model.NewProcedure
 import com.aarogyam.staff.api.model.Procedure
+import com.aarogyam.staff.api.model.ProcedureList
 import com.aarogyam.staff.api.model.VisitDetail
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Outcome
@@ -28,3 +29,7 @@ suspend fun ClinicApi.addProcedure(
 /** `GET /api/v1/visits/{id}` (`getVisit`): one visit with its notes, procedures, chart entries, observations and files. */
 suspend fun ClinicApi.visit(id: String): Outcome<VisitDetail, ApiError> =
     client.call { url("api/v1/visits/${id.encodeURLPathPart()}") }
+
+/** `GET /api/v1/patients/{id}/procedures` (`listProcedures`): every procedure of the patient, newest first (`clinical.read`). */
+suspend fun ClinicApi.patientProcedures(id: String): Outcome<ProcedureList, ApiError> =
+    client.call { url("api/v1/patients/${id.encodeURLPathPart()}/procedures") }

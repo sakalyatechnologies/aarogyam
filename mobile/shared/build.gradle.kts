@@ -173,6 +173,7 @@ val apiModels =
         "PaymentList",
         "PendingInvitation",
         "Procedure",
+        "ProcedureList",
         "ReadUpTo",
         "Reason",
         "RegistrationReceived",

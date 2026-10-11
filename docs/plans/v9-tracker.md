@@ -192,3 +192,10 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
 | D1 + D4 | A draft invoice shows balance 0, and a payment can't apply until the invoice is issued. Fix: close issues the invoice, or the collect step issues it first. | — |
 | D5 | Dev sign-in is ignored while a session is stored | add `AAROGYAM_DEV_SIGN_OUT` |
 | D6 | The share link opens only on the clinic host | this is by design (rule 1); document it |
+- ios-fix merged (61cb12d9). Its own gradle check and ios-check passed.
+  - Collect on a draft issues the invoice first, then records the payment, including through the offline outbox.
+  - TokenStatus now has Called and ReadyToBill, with the Swift and Android switches updated.
+  - Today polls every 20 s.
+  - New `AAROGYAM_DEV_SIGN_OUT`.
+  - Family sheet: "Link existing patient".
+  - Remaining server gap: the invoice list reports total 0 for drafts. That goes to be-fix, with D2 and D3.

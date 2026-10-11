@@ -1,4 +1,5 @@
-import Shared
+import AarogyamShared
+import SakalyaUI
 import SwiftUI
 
 /// "Saved, will send · N": shows while writes saved on this phone wait for the network. Any screen

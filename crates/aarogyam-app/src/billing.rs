@@ -743,9 +743,18 @@ pub async fn create(
     input: DraftInvoice,
 ) -> Result<InvoiceView, AppError> {
     actor.require(Permission::BillingWrite)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let id = create_in(tx, input).await?;
+        load(tx, id).await
+    })
+    .await
+}
+
+/// Inserts a draft bill and its lines inside the caller's transaction; returns its id.
+pub(crate) async fn create_in(tx: &mut ScopedTx, input: DraftInvoice) -> Result<Uuid, AppError> {
     let place = place_of_supply(input.place_of_supply.as_deref())?;
     let notes = trimmed(input.notes.as_deref(), "notes", 1000)?;
-    db.scoped(&scope(actor, request_id), async |tx| {
+    {
         patients::get(tx.conn(), input.patient_id.uuid(), None)
             .await?
             .ok_or(AppError::NotFound("patient"))?;
@@ -790,9 +799,8 @@ pub async fn create(
         for line in &lines {
             dal::insert_line(tx.conn(), id, line).await?;
         }
-        load(tx, id).await
-    })
-    .await
+        Ok(id)
+    }
 }
 
 /// Edits a draft bill.

@@ -38,7 +38,7 @@ flowchart LR
   web["Websites<br/>8 tables"]
   trust["Trust and audit<br/>11 tables"]
   onboarding["Onboarding<br/>6 tables"]
-  billing -->|2| clinical
+  billing -->|3| clinical
   billing -->|3| people
   billing -->|9| tenancy
   clinical -->|1| ops
@@ -47,7 +47,7 @@ flowchart LR
   clinical -->|18| tenancy
   iam -->|1| people
   notify -->|1| billing
-  notify -->|1| clinical
+  notify -->|2| clinical
   notify -->|1| iam
   notify -->|1| ops
   notify -->|5| people
@@ -1268,7 +1268,7 @@ One visit. Visit-level clinical data (complaint, vitals, notes, procedures, file
 
 Unique (org_id, id, patient_id): every child row carries patient_id and a composite foreign key (org_id, encounter_id, patient_id), so a visit's notes, vitals, procedures and files can't belong to another patient. Patient-level facts (allergies, active conditions, history) live on the patient and may be updated during a visit; they do not require one. Opening a visit writes access_log.
 
-Referenced by: `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `invoices.encounter_id`, `lab_orders.encounter_id`, `observations.encounter_id`, `prescriptions.encounter_id`, `procedures.encounter_id`, `specialty_records.encounter_id`, `treatment_plans.encounter_id`, `voice_notes.encounter_id`
+Referenced by: `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `invoices.encounter_id`, `lab_orders.encounter_id`, `observations.encounter_id`, `prescriptions.encounter_id`, `procedures.encounter_id`, `recalls.source_encounter_id`, `specialty_records.encounter_id`, `treatment_plans.encounter_id`, `voice_notes.encounter_id`
 
 ### `clinical_notes` (★ foundation)
 
@@ -1550,7 +1550,7 @@ Patient files: photos, X-rays, reports, documents, audio, signed consent.
 |---|---|---|
 | `patient_id` | `uuid` | → `patients` |
 | `encounter_id` | `uuid?` | → `encounters` |
-| `kind` | `attachment_kind` | photo, xray, report, document, audio, consent |
+| `kind` | `attachment_kind` | photo, xray, report, document, audio, consent, payment_proof |
 | `storage_key` | `text` | <org_id>/<id>, never from a file name |
 | `mime_type` | `text` | from the content: JPEG, PNG, PDF, DICOM, or WebM, MP4, Ogg audio |
 | `size_bytes` | `bigint` | at most 10 MB |
@@ -1569,7 +1569,7 @@ Patient files: photos, X-rays, reports, documents, audio, signed consent.
 
 A trigger refuses a recording on a signed note unless it carries an addendum. Served only through short-lived signed links (HMAC, 5 minutes) issued after a permission check; each download writes access_log. Local disk in development, object storage later, behind one Storage trait.
 
-Referenced by: `consent_forms.pdf_attachment_id`, `consent_forms.signature_attachment_id`, `document_extractions.attachment_id`, `voice_notes.attachment_id`
+Referenced by: `consent_forms.pdf_attachment_id`, `consent_forms.signature_attachment_id`, `document_extractions.attachment_id`, `payments.attachment_id`, `voice_notes.attachment_id`
 
 ### `voice_notes`
 
@@ -2210,6 +2210,7 @@ Money received from a patient, by any method.
 | `void_reason` | `text?` |  |
 | `voided_at` | `timestamptz?` |  |
 | `voided_by` | `uuid?` | → `memberships` |
+| `attachment_id` | `uuid?` | → `attachments`. proof of payment: a UPI screenshot or cheque photo |
 
 Referenced by: `payment_allocations.payment_id`, `refunds.payment_id`
 
@@ -2507,6 +2508,7 @@ Follow-ups that are due: cleaning in six months, BP review, vaccine.
 | `status` | `recall_status` | due, notified, booked, done, dismissed |
 | `done_at` | `timestamptz?` |  |
 | `source_procedure_id` | `uuid?` | → `procedures` |
+| `source_encounter_id` | `uuid?` | → `encounters`. the visit whose closing planned it |
 
 ### `audiences`
 

@@ -269,6 +269,8 @@ text_enum!(
         Audio => "audio",
         /// A signed consent form.
         Consent => "consent",
+        /// Proof of a payment: a UPI screenshot or a cheque photo.
+        PaymentProof => "payment_proof",
     }
 );
 

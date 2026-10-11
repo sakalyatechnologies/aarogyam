@@ -1,6 +1,12 @@
-import AarogyamShared
 import Foundation
 import Observation
+// Named imports: the shared `Observation` model would otherwise hide Swift's `Observation` module
+// from the `@Observable` macro.
+import class AarogyamShared.AppGraph
+import class AarogyamShared.ClinicContext
+import class AarogyamShared.InviteLink
+import class AarogyamShared.IosAppKt
+import protocol AarogyamShared.SessionState
 
 /// Builds the shared app graph once and exposes the session and the open clinic to SwiftUI.
 @MainActor

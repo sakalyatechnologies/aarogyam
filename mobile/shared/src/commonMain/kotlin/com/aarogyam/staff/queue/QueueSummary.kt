@@ -18,7 +18,7 @@ data class QueueSummary(
     companion object {
         /** Summarises [rows]. */
         fun of(rows: List<QueueRow>): QueueSummary {
-            val waiting = rows.filter { it.status == TokenStatus.Waiting }
+            val waiting = rows.filter { it.status == TokenStatus.Waiting || it.status == TokenStatus.Called }
             return QueueSummary(
                 waiting = waiting.size,
                 inChair = rows.count { it.status == TokenStatus.InChair },

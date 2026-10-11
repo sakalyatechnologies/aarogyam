@@ -10,14 +10,16 @@ enum class TokenStatus(
     internal val wire: String,
 ) {
     Waiting("waiting"),
+    Called("called"),
+    ReadyToBill("ready_to_bill"),
     InChair("in_chair"),
     Done("done"),
     Left("left"),
     Unknown(""),
     ;
 
-    /** Still in the clinic (waiting or in the chair). */
-    val active: Boolean get() = this == Waiting || this == InChair
+    /** Still in the clinic (waiting, called, in the chair or ready to bill). */
+    val active: Boolean get() = this == Waiting || this == Called || this == InChair || this == ReadyToBill
 
     internal companion object {
         fun of(text: String): TokenStatus = entries.firstOrNull { it.wire == text && it != Unknown } ?: Unknown

@@ -101,7 +101,9 @@ private fun Action(
 private fun TokenStatus.label(): Int =
     when (this) {
         TokenStatus.Waiting, TokenStatus.Unknown -> R.string.queue_status_waiting
+        TokenStatus.Called -> R.string.queue_status_called
         TokenStatus.InChair -> R.string.queue_status_in_chair
+        TokenStatus.ReadyToBill -> R.string.queue_status_ready_to_bill
         TokenStatus.Done -> R.string.queue_status_done
         TokenStatus.Left -> R.string.queue_status_left
     }
@@ -109,7 +111,9 @@ private fun TokenStatus.label(): Int =
 private fun TokenStatus.tone(): SkTone =
     when (this) {
         TokenStatus.Waiting, TokenStatus.Unknown -> SkTone.Warning
+        TokenStatus.Called -> SkTone.Brand
         TokenStatus.InChair -> SkTone.Info
+        TokenStatus.ReadyToBill -> SkTone.Success
         TokenStatus.Done -> SkTone.Success
         TokenStatus.Left -> SkTone.Neutral
     }

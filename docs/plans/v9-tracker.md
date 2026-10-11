@@ -72,3 +72,24 @@ All work stopped at 12:50, at the founder's request. Each worker was told to com
   - be-close (has never compiled)
 
   Commit each of these on resume, when the machine is quiet. Run at most 3 Gradle or cargo gates at a time.
+
+## Resume, 11 Oct: 3 workers at a time (founder: about 30% of the earlier load)
+
+- The 6 staged pieces were committed as wip (rxdose 9db6677, overview f5d163e, consent a0b25ab, outbox 6dc0068, desk ccc594b, be-close 2b8b331).
+- The mobile pieces are merged into feat/v9 (8adc8b0). One shared test run on the merged branch replaces six separate gates.
+- **Running now** (3 at a time):
+  - be-int: one worker brings the 4 backend branches together on feat/v9-backend, makes them compile, and finishes the APIs and tests.
+  - ios-patient and ios-visit: start once the merged tests pass.
+- **Queued:** ios-desk, be-events, be-msg, sh-wire, and the concept tasks below.
+
+## iOS concept tasks (founder, 11 Oct)
+
+| ID | Concept | Where it goes | Rule |
+|---|---|---|---|
+| C1 | Dynamic Island / Live Activity for the chair timer; floating spring dock; Day 0 "connect clinic" card, Day 1+ morning briefing | new `ios-live` task (ActivityKit); the briefing goes on Today | The lock screen and Dynamic Island show only the chair, the timer and the token number. No patient name or vitals (rule 6). |
+| C2 | Tilted 3D arch, a thumb-arc gesture rail for gloved hands, tapping a tooth surface (M/D/O/B/L) to open a diagnosis sheet | ios-visit (rail, surfaces); the arch tilt goes with J3 | Gestures need a non-gesture alternative for accessibility. |
+| C3 | Shared-element bento sheets, a patient carousel, bento tiles (chair occupancy, collections, lab timeline) | Today and Patients polish, after the v8 screens | Each tile uses the data the screen already fetches. |
+| C4 | Voice capsule with ripple; the live transcript turns tooth numbers, diagnoses and drugs into chips | ios-visit dictation, plus a shared `DictationExtractor` (rule based, en/hi/mr numerals, tested) | Chips are suggestions the doctor confirms. Nothing is saved without a tap. |
+| C5 | Doctor ↔ front desk role flip card | More menu → "Switch view", only for members holding both roles | Permissions still come from the server; the flip changes the layout, not access. |
+
+C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the founder, then built.

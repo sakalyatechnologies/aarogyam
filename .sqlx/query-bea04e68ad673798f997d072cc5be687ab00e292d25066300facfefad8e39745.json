@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select n.id, n.kind, n.created_at, r.read_at as \"read_at?\", n.handled_at, n.handled_by,\n                  u.display_name as \"handled_by_name?\", n.reminded_at, n.escalated_at,\n                  a.id as \"appointment_id?\", a.starts_at as \"starts_at?\", a.ends_at as \"ends_at?\",\n                  a.status as \"appointment_status?\", p.id as \"practitioner_id?\",\n                  p.display_name as \"practitioner_name?\", o.id as \"lab_order_id?\",\n                  o.number as \"lab_order_number?\", v.name as \"lab_vendor_name?\",\n                  o.due_on as \"lab_due_on?\"\n           from aarogyam.staff_notifications n\n           left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id\n           left join aarogyam.practitioners p on p.org_id = a.org_id and p.id = a.practitioner_id\n           left join aarogyam.lab_vendors v on v.org_id = o.org_id and v.id = o.vendor_id\n           left join aarogyam.staff_notification_reads r\n             on r.org_id = n.org_id and r.notification_id = n.id and r.membership_id = $1\n           left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.handled_by\n           left join aarogyam.users u on u.id = m.user_id\n           where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))\n                  or ($8 and o.id is not null\n                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9)))\n             and ($4::uuid is null or n.id < $4)\n             and (not $3 or (r.read_at is null\n                             and n.created_at > now() - make_interval(days => $6::int)))\n           order by n.id desc\n           limit $5",
+  "query": "select n.id, n.kind, n.created_at, r.read_at as \"read_at?\", n.handled_at, n.handled_by,\n                  u.display_name as \"handled_by_name?\", n.reminded_at, n.escalated_at,\n                  a.id as \"appointment_id?\", a.starts_at as \"starts_at?\", a.ends_at as \"ends_at?\",\n                  a.status as \"appointment_status?\", p.id as \"practitioner_id?\",\n                  p.display_name as \"practitioner_name?\", o.id as \"lab_order_id?\",\n                  o.number as \"lab_order_number?\", v.name as \"lab_vendor_name?\",\n                  o.due_on as \"lab_due_on?\", q.id as \"queue_token_id?\",\n                  q.token_number as \"token_number?\", q.status as \"queue_status?\",\n                  qp.id as \"queue_practitioner_id?\", qp.display_name as \"queue_practitioner_name?\",\n                  qpt.number as \"patient_number?\"\n           from aarogyam.staff_notifications n\n           left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id\n           left join aarogyam.practitioners p on p.org_id = a.org_id and p.id = a.practitioner_id\n           left join aarogyam.lab_vendors v on v.org_id = o.org_id and v.id = o.vendor_id\n           left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id\n           left join aarogyam.practitioners qp on qp.org_id = q.org_id and qp.id = q.practitioner_id\n           left join aarogyam.patients qpt on qpt.org_id = q.org_id and qpt.id = q.patient_id\n           left join aarogyam.staff_notification_reads r\n             on r.org_id = n.org_id and r.notification_id = n.id and r.membership_id = $1\n           left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.handled_by\n           left join aarogyam.users u on u.id = m.user_id\n           where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))\n                  or ($8 and o.id is not null\n                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9))\n                  or (q.id is not null and ((n.audience = 'doctor' and $10 and qp.membership_id = $1)\n                       or (n.audience = 'front_desk' and $11) or (n.audience = 'billing' and $12))))\n             and ($4::uuid is null or n.id < $4)\n             and (not $3 or (r.read_at is null\n                             and n.created_at > now() - make_interval(days => $6::int)))\n           order by n.id desc\n           limit $5",
   "describe": {
     "columns": [
       {
@@ -211,6 +211,72 @@
             "name": "due_on"
           }
         }
+      },
+      {
+        "ordinal": 19,
+        "name": "queue_token_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "token_number?",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "token_number"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "queue_status?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 22,
+        "name": "queue_practitioner_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 23,
+        "name": "queue_practitioner_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 24,
+        "name": "patient_number?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
       }
     ],
     "parameters": {
@@ -223,7 +289,10 @@
         "Int4",
         "Bool",
         "Bool",
-        "Uuid"
+        "Uuid",
+        "Bool",
+        "Bool",
+        "Bool"
       ]
     },
     "nullable": [
@@ -245,8 +314,14 @@
       false,
       false,
       false,
-      true
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
     ]
   },
-  "hash": "ad7f7e399683090d465ad8b72dadeced6ab9dacb219e60565b3baba223a65858"
+  "hash": "bea04e68ad673798f997d072cc5be687ab00e292d25066300facfefad8e39745"
 }

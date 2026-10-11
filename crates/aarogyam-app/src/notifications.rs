@@ -7,7 +7,7 @@
 //! the patient's name or reason.
 
 use aarogyam_dal::appointments::AppointmentRow;
-use aarogyam_dal::notifications::{self as dal, FeedRow, InboxRow, Sees, Viewer};
+use aarogyam_dal::notifications::{self as dal, FeedRow, InboxRow, QueueSees, Sees, Viewer};
 use aarogyam_domain::access::{ClinicActor, Denied};
 use aarogyam_domain::ids::{
     AppointmentId, InboxMessageId, LabOrderId, MembershipId, PractitionerId, StaffNotificationId,
@@ -179,6 +179,25 @@ pub enum Subject {
     Appointment(NotifiedAppointment),
     /// Lab work past its due date.
     LabOrder(NotifiedLabOrder),
+    /// A patient in the queue: waiting for the doctor, to be sent in, or ready to pay.
+    QueueToken(NotifiedQueueToken),
+}
+
+/// The queue token a queue notification is about. No name: the clinic number only.
+#[derive(Debug, Clone)]
+pub struct NotifiedQueueToken {
+    /// The token.
+    pub id: Uuid,
+    /// Its number today.
+    pub token_number: i32,
+    /// Its status now.
+    pub status: QueueStatus,
+    /// The patient's clinic number, such as `SC-1042`.
+    pub patient_number: String,
+    /// Its doctor, when set.
+    pub practitioner_id: Option<PractitionerId>,
+    /// The doctor's name.
+    pub practitioner_name: Option<String>,
 }
 
 fn status_of(text: &str) -> Result<AppointmentStatus, AppError> {
@@ -206,6 +225,17 @@ fn view(mut row: FeedRow, offset: UtcOffset) -> Result<NotificationView, AppErro
 
 fn subject(row: FeedRow, offset: UtcOffset) -> Result<Subject, AppError> {
     let missing = || AppError::Internal("notification without its subject");
+    if let Some(id) = row.queue_token_id {
+        return Ok(Subject::QueueToken(NotifiedQueueToken {
+            id,
+            token_number: row.token_number.ok_or_else(missing)?,
+            status: QueueStatus::parse(&row.queue_status.ok_or_else(missing)?)
+                .map_err(|_| AppError::Internal("unknown queue status"))?,
+            patient_number: row.patient_number.ok_or_else(missing)?,
+            practitioner_id: row.queue_practitioner_id.map(PractitionerId::from_uuid),
+            practitioner_name: row.queue_practitioner_name,
+        }));
+    }
     if let Some(id) = row.lab_order_id {
         return Ok(Subject::LabOrder(NotifiedLabOrder {
             id: LabOrderId::from_uuid(id),
@@ -246,15 +276,24 @@ fn sees(actor: &ClinicActor, permission: Permission) -> Sees {
 }
 
 /// Which notifications `actor` sees: bookings with `appointments.read`, lab work with
-/// `labs.read`, each within its scope. `None` when neither.
+/// `labs.read`, each within its scope; queue ones by audience: the token's doctor
+/// (`clinical.write`), the front desk (`appointments.write`), billing (`billing.write` or
+/// `finance.view`). `None` when none.
 #[must_use]
 pub fn viewer(actor: &ClinicActor) -> Option<Viewer> {
     let bookings = sees(actor, Permission::AppointmentsRead);
     let labs = sees(actor, Permission::LabsRead);
-    (bookings.shown || labs.shown).then_some(Viewer {
+    let allows = |permission| actor.permissions.allows(permission);
+    let queue = QueueSees {
+        doctor: allows(Permission::ClinicalWrite),
+        front_desk: allows(Permission::AppointmentsWrite),
+        billing: allows(Permission::BillingWrite) || allows(Permission::FinanceView),
+    };
+    (bookings.shown || labs.shown || queue.any()).then_some(Viewer {
         member: actor.membership_id.uuid(),
         bookings,
         labs,
+        queue,
         unread_days: UNREAD_WINDOW_DAYS,
     })
 }

@@ -10948,6 +10948,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "practitioner_id",
+            "in": "query",
+            "description": "Only this doctor's tokens",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -11013,6 +11022,61 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/queue/{id}/call": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "The doctor calls a waiting patient in: the token becomes `called` (with `called_at`) and the\nfront desk gets a `send_in` notification. Calling a called token returns it unchanged.",
+        "operationId": "callQueueToken",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such token in this clinic, or its patient isn't yours"
+          },
+          "409": {
+            "description": "The token can't be called from its status (`current` is the token as it is)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveRefused"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -23495,13 +23559,24 @@
           },
           "kind": {
             "type": "string",
-            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient` or\n`lab_overdue`."
+            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,\n`lab_overdue`, `patient_waiting` (for the doctor), `send_in` (for the front desk) or\n`collect_payment` (for the front desk and billing)."
           },
           "lab_order": {
             "oneOf": [
               {
                 "$ref": "#/components/schemas/NotifiedLabOrder",
                 "description": "The lab order, for `lab_overdue`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "queue_token": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedQueueToken",
+                "description": "The queue token, for `patient_waiting`, `send_in` and `collect_payment`."
               },
               {
                 "type": "null"
@@ -23609,6 +23684,49 @@
           "vendor_name": {
             "type": "string",
             "description": "Its lab's name."
+          }
+        }
+      },
+      "NotifiedQueueToken": {
+        "type": "object",
+        "description": "The queue token a queue notification is about. No patient name: the clinic number only.",
+        "required": [
+          "id",
+          "token_number",
+          "status",
+          "patient_number"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The token; the queue lists it at `/queue`."
+          },
+          "patient_number": {
+            "type": "string",
+            "description": "The patient's clinic number, such as `SC-1042`."
+          },
+          "practitioner_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its doctor, when set."
+          },
+          "practitioner_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The doctor's name as shown on the calendar."
+          },
+          "status": {
+            "type": "string",
+            "description": "Its status now, such as `waiting` or `called`."
+          },
+          "token_number": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Its number today."
           }
         }
       },
@@ -26755,7 +26873,7 @@
           },
           "status": {
             "type": "string",
-            "description": "`waiting`, `in_chair`, `done` or `left`."
+            "description": "`waiting`, `called`, `in_chair`, `ready_to_bill`, `done` or `left`."
           },
           "token_number": {
             "type": "integer",
@@ -30507,7 +30625,7 @@
           },
           "status": {
             "type": "string",
-            "description": "`in_chair`, `done` or `left`."
+            "description": "`waiting` (undo a call), `called`, `in_chair`, `ready_to_bill`, `done` or `left`."
           }
         }
       },

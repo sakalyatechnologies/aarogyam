@@ -658,8 +658,10 @@ pub async fn badges(
     notifications: Option<crate::notifications::Viewer>,
 ) -> Result<Badges, DbError> {
     let none = crate::notifications::Sees::NONE;
-    let (bookings, labs, days) =
-        notifications.map_or((none, none, 0), |v| (v.bookings, v.labs, v.unread_days));
+    let (bookings, labs, days, queue) = notifications.map_or(
+        (none, none, 0, crate::notifications::QueueSees::default()),
+        |v| (v.bookings, v.labs, v.unread_days, v.queue),
+    );
     let row = sqlx::query_as!(
         Badges,
         r#"select
@@ -675,10 +677,17 @@ pub async fn badges(
                 select 1 from aarogyam.staff_notifications n
                 left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
                 left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
+                left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id
+                left join aarogyam.practitioners qp
+                  on qp.org_id = q.org_id and qp.id = q.practitioner_id
                 where n.created_at > now() - make_interval(days => $5::int)
                   and (($6 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $4))
                        or ($7 and o.id is not null
-                           and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $8)))
+                           and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $8))
+                       or (q.id is not null and (
+                            (n.audience = 'doctor' and $9 and qp.membership_id = $1)
+                            or (n.audience = 'front_desk' and $10)
+                            or (n.audience = 'billing' and $11))))
                   and not exists (select 1 from aarogyam.staff_notification_reads r
                                   where r.org_id = n.org_id and r.notification_id = n.id
                                     and r.membership_id = $1)
@@ -691,6 +700,9 @@ pub async fn badges(
         bookings.shown,
         labs.shown,
         labs.reach,
+        queue.doctor,
+        queue.front_desk,
+        queue.billing,
     )
     .fetch_one(conn)
     .await?;

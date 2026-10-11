@@ -8,7 +8,7 @@ use aarogyam_app::notifications::{
     self as app, FeedQuery, InboxQuery, InboxView, NotificationView, Subject,
 };
 use aarogyam_domain::event::Event;
-use aarogyam_domain::ids::{InboxMessageId, MembershipId, StaffNotificationId};
+use aarogyam_domain::ids::{InboxMessageId, MembershipId, PractitionerId, StaffNotificationId};
 use aarogyam_domain::permission::require::{AppointmentsRead, LabsRead};
 use axum::Json;
 use axum::extract::State;
@@ -56,6 +56,25 @@ pub struct NotifiedLabOrder {
     pub due_on: Option<String>,
 }
 
+/// The queue token a queue notification is about. No patient name: the clinic number only.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NotifiedQueueToken {
+    /// The token; the queue lists it at `/queue`.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Its number today.
+    pub token_number: i32,
+    /// Its status now, such as `waiting` or `called`.
+    pub status: String,
+    /// The patient's clinic number, such as `SC-1042`.
+    pub patient_number: String,
+    /// Its doctor, when set.
+    #[schema(value_type = Option<String>)]
+    pub practitioner_id: Option<Uuid>,
+    /// The doctor's name as shown on the calendar.
+    pub practitioner_name: Option<String>,
+}
+
 /// Who handled a notification: confirmed, declined or cancelled its appointment, or received,
 /// cancelled or re-dated its lab work.
 #[derive(Debug, Serialize, ToSchema)]
@@ -75,8 +94,9 @@ pub struct Notification {
     /// Identifier; pass as `before` for the next page.
     #[schema(value_type = String)]
     pub id: Uuid,
-    /// `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient` or
-    /// `lab_overdue`.
+    /// `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,
+    /// `lab_overdue`, `patient_waiting` (for the doctor), `send_in` (for the front desk) or
+    /// `collect_payment` (for the front desk and billing).
     pub kind: String,
     /// When it happened (RFC 3339).
     pub created_at: String,
@@ -94,11 +114,13 @@ pub struct Notification {
     pub appointment: Option<NotifiedAppointment>,
     /// The lab order, for `lab_overdue`.
     pub lab_order: Option<NotifiedLabOrder>,
+    /// The queue token, for `patient_waiting`, `send_in` and `collect_payment`.
+    pub queue_token: Option<NotifiedQueueToken>,
 }
 
 impl From<NotificationView> for Notification {
     fn from(view: NotificationView) -> Self {
-        let (appointment, lab_order) = match view.subject {
+        let (appointment, lab_order, queue_token) = match view.subject {
             Subject::Appointment(appointment) => (
                 Some(NotifiedAppointment {
                     id: appointment.id.uuid(),
@@ -109,6 +131,7 @@ impl From<NotificationView> for Notification {
                     practitioner_name: appointment.practitioner_name,
                 }),
                 None,
+                None,
             ),
             Subject::LabOrder(order) => (
                 None,
@@ -117,6 +140,19 @@ impl From<NotificationView> for Notification {
                     number: order.number,
                     vendor_name: order.vendor_name,
                     due_on: order.due_on.map(|day| day.to_string()),
+                }),
+                None,
+            ),
+            Subject::QueueToken(token) => (
+                None,
+                None,
+                Some(NotifiedQueueToken {
+                    id: token.id,
+                    token_number: token.token_number,
+                    status: token.status.as_str().to_owned(),
+                    patient_number: token.patient_number,
+                    practitioner_id: token.practitioner_id.map(PractitionerId::uuid),
+                    practitioner_name: token.practitioner_name,
                 }),
             ),
         };
@@ -135,6 +171,7 @@ impl From<NotificationView> for Notification {
             escalated_at: view.escalated_at.map(rfc3339),
             appointment,
             lab_order,
+            queue_token,
         }
     }
 }

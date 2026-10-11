@@ -693,7 +693,7 @@ mod tests {
             (ReadyToBill, Left),
         ];
         for (from, to) in allowed {
-            assert!(from.can_become(to), "{from} to {to}");
+            assert!(from.can_become(to), "{from:?} to {to:?}");
         }
         let refused = [
             (Called, Done),
@@ -707,7 +707,7 @@ mod tests {
             (Left, Waiting),
         ];
         for (from, to) in refused {
-            assert!(!from.can_become(to), "{from} to {to}");
+            assert!(!from.can_become(to), "{from:?} to {to:?}");
         }
         assert_eq!(Called.appointment_status(), None);
         assert_eq!(ReadyToBill.appointment_status(), None);

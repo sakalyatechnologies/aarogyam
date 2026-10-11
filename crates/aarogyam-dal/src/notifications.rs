@@ -159,6 +159,18 @@ pub struct FeedRow {
     pub lab_vendor_name: Option<String>,
     /// Its due date now.
     pub lab_due_on: Option<time::Date>,
+    /// The queue token, for a queue notification.
+    pub queue_token_id: Option<Uuid>,
+    /// Its number today.
+    pub token_number: Option<i32>,
+    /// Its status now.
+    pub queue_status: Option<String>,
+    /// Its doctor.
+    pub queue_practitioner_id: Option<Uuid>,
+    /// The doctor's name.
+    pub queue_practitioner_name: Option<String>,
+    /// The patient's clinic number, such as `SC-1042`.
+    pub patient_number: Option<String>,
 }
 
 /// Whether a member sees one kind of notification, and how far.
@@ -178,6 +190,25 @@ impl Sees {
     };
 }
 
+/// Which queue notifications a member sees, by the audience they are addressed to.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct QueueSees {
+    /// The ones for the token's doctor (`doctor`), when this member is that doctor.
+    pub doctor: bool,
+    /// The ones for the front desk (`appointments.write`).
+    pub front_desk: bool,
+    /// The ones for billing (`billing.write` or `finance.view`).
+    pub billing: bool,
+}
+
+impl QueueSees {
+    /// Whether any audience is shown.
+    #[must_use]
+    pub const fn any(self) -> bool {
+        self.doctor || self.front_desk || self.billing
+    }
+}
+
 /// What a feed or count query asks for.
 #[derive(Debug, Clone, Copy)]
 pub struct Viewer {
@@ -187,6 +218,8 @@ pub struct Viewer {
     pub bookings: Sees,
     /// Lab notifications (`labs.read`).
     pub labs: Sees,
+    /// Queue notifications, by audience.
+    pub queue: QueueSees,
     /// Notifications older than this many days count as read.
     pub unread_days: i32,
 }
@@ -211,19 +244,27 @@ pub async fn feed(
                   a.status as "appointment_status?", p.id as "practitioner_id?",
                   p.display_name as "practitioner_name?", o.id as "lab_order_id?",
                   o.number as "lab_order_number?", v.name as "lab_vendor_name?",
-                  o.due_on as "lab_due_on?"
+                  o.due_on as "lab_due_on?", q.id as "queue_token_id?",
+                  q.token_number as "token_number?", q.status as "queue_status?",
+                  qp.id as "queue_practitioner_id?", qp.display_name as "queue_practitioner_name?",
+                  qpt.number as "patient_number?"
            from aarogyam.staff_notifications n
            left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
            left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
            left join aarogyam.practitioners p on p.org_id = a.org_id and p.id = a.practitioner_id
            left join aarogyam.lab_vendors v on v.org_id = o.org_id and v.id = o.vendor_id
+           left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id
+           left join aarogyam.practitioners qp on qp.org_id = q.org_id and qp.id = q.practitioner_id
+           left join aarogyam.patients qpt on qpt.org_id = q.org_id and qpt.id = q.patient_id
            left join aarogyam.staff_notification_reads r
              on r.org_id = n.org_id and r.notification_id = n.id and r.membership_id = $1
            left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.handled_by
            left join aarogyam.users u on u.id = m.user_id
            where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))
                   or ($8 and o.id is not null
-                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9)))
+                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9))
+                  or (q.id is not null and ((n.audience = 'doctor' and $10 and qp.membership_id = $1)
+                       or (n.audience = 'front_desk' and $11) or (n.audience = 'billing' and $12))))
              and ($4::uuid is null or n.id < $4)
              and (not $3 or (r.read_at is null
                              and n.created_at > now() - make_interval(days => $6::int)))
@@ -238,6 +279,9 @@ pub async fn feed(
         viewer.bookings.shown,
         viewer.labs.shown,
         viewer.labs.reach,
+        viewer.queue.doctor,
+        viewer.queue.front_desk,
+        viewer.queue.billing,
     )
     .fetch_all(conn)
     .await?;
@@ -259,10 +303,14 @@ pub async fn unread_count(
              select 1 from aarogyam.staff_notifications n
              left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
              left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
+             left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id
+             left join aarogyam.practitioners qp on qp.org_id = q.org_id and qp.id = q.practitioner_id
              where n.created_at > now() - make_interval(days => $3::int)
                and (($5 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))
                   or ($6 and o.id is not null
-                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $7)))
+                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $7))
+                  or (q.id is not null and ((n.audience = 'doctor' and $8 and qp.membership_id = $1)
+                       or (n.audience = 'front_desk' and $9) or (n.audience = 'billing' and $10))))
                and not exists (select 1 from aarogyam.staff_notification_reads r
                                where r.org_id = n.org_id and r.notification_id = n.id
                                  and r.membership_id = $1)
@@ -275,6 +323,9 @@ pub async fn unread_count(
         viewer.bookings.shown,
         viewer.labs.shown,
         viewer.labs.reach,
+        viewer.queue.doctor,
+        viewer.queue.front_desk,
+        viewer.queue.billing,
     )
     .fetch_one(conn)
     .await?;
@@ -292,9 +343,13 @@ pub async fn mark_read(conn: &mut PgConnection, id: Uuid, viewer: Viewer) -> Res
              select n.id from aarogyam.staff_notifications n
              left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
              left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
+             left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id
+             left join aarogyam.practitioners qp on qp.org_id = q.org_id and qp.id = q.practitioner_id
              where n.id = $1 and (($4 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $3))
                   or ($5 and o.id is not null
-                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $6)))
+                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $6))
+                  or (q.id is not null and ((n.audience = 'doctor' and $7 and qp.membership_id = $2)
+                       or (n.audience = 'front_desk' and $8) or (n.audience = 'billing' and $9))))
            ), saved as (
              insert into aarogyam.staff_notification_reads (notification_id, membership_id)
              select id, $2 from target
@@ -307,6 +362,9 @@ pub async fn mark_read(conn: &mut PgConnection, id: Uuid, viewer: Viewer) -> Res
         viewer.bookings.shown,
         viewer.labs.shown,
         viewer.labs.reach,
+        viewer.queue.doctor,
+        viewer.queue.front_desk,
+        viewer.queue.billing,
     )
     .fetch_one(conn)
     .await?;
@@ -323,15 +381,22 @@ pub async fn mark_all_read(conn: &mut PgConnection, viewer: Viewer) -> Result<u6
            select n.id, $1 from aarogyam.staff_notifications n
            left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
            left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
+           left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id
+           left join aarogyam.practitioners qp on qp.org_id = q.org_id and qp.id = q.practitioner_id
            where (($3 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))
                   or ($4 and o.id is not null
-                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $5)))
+                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $5))
+                  or (q.id is not null and ((n.audience = 'doctor' and $6 and qp.membership_id = $1)
+                       or (n.audience = 'front_desk' and $7) or (n.audience = 'billing' and $8))))
            on conflict do nothing"#,
         viewer.member,
         viewer.bookings.reach,
         viewer.bookings.shown,
         viewer.labs.shown,
         viewer.labs.reach,
+        viewer.queue.doctor,
+        viewer.queue.front_desk,
+        viewer.queue.billing,
     )
     .execute(conn)
     .await?;

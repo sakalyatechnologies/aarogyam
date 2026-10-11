@@ -72,7 +72,7 @@ private struct V9OpenVisit: View {
             ScreenHost(make: { graph.chart(clinic: clinic, patientId: route.patientId, screen: $0) }, state: { $0.state }) { chart, chartState in
                 ScreenHost(make: { graph.toothSheet(clinic: clinic, chart: chart, visitId: view.visitId, screen: $0) }, state: { $0.form }) { sheet, form in
                     V9VisitContent(
-                        clinic: clinic, route: route, holder: holder, view: view, patient: patient,
+                        graph: graph, clinic: clinic, route: route, holder: holder, view: view, patient: patient,
                         rx: rx, rxState: rxState, chart: chart, chartState: chartState, sheet: sheet, form: form
                     )
                 }

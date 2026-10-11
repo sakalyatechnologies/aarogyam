@@ -37,11 +37,15 @@ class OutboxRunner(
     private val now: () -> Long,
     private val baseDelayMillis: Long = 2_000,
     private val maxDelayMillis: Long = 300_000,
+    private val files: OutboxFiles = MemoryOutboxFiles(),
 ) {
     private val mutex = Mutex()
+    private var inFlight: String? = null
     private val wake = Channel<Unit>(Channel.CONFLATED)
     private val pendingCount = MutableStateFlow(count(OutboxStatus.Pending))
     private val failedList = MutableStateFlow(failedNow())
+    private val idsNow = MutableStateFlow(store.all().map { it.id }.toSet())
+    private val keysNow = MutableStateFlow(pendingKeys())
 
     /** Entries still to send, for the "Saved, will send" badge. */
     val pending: StateFlow<Int> = pendingCount.asStateFlow()
@@ -49,13 +53,50 @@ class OutboxRunner(
     /** Entries the server refused, kept for the screen. */
     val failed: StateFlow<List<OutboxEntry>> = failedList.asStateFlow()
 
-    /** Saves a write and wakes the runner. Pass [id] to reuse one made earlier. */
+    /** Ids of every entry still held (waiting, or refused and kept): a holder shows `pendingSync` while its id is here. */
+    val ids: StateFlow<Set<String>> = idsNow.asStateFlow()
+
+    /** Waiting entries per [OutboxEntry.orderKey], for a screen that shows how many of its writes are not sent. */
+    val pendingByKey: StateFlow<Map<String, Int>> = keysNow.asStateFlow()
+
+    /** Entries not sent yet, waiting or refused: what sign-out would lose. */
+    fun unsentCount(): Int = store.all().size
+
+    /** Whether anything with [orderKey] is still held, so a later write must queue behind it. */
+    fun hasUnsent(orderKey: String): Boolean = store.all().any { it.orderKey == orderKey }
+
+    /**
+     * Saves a write and wakes the runner. Pass [id] to reuse one made earlier. A waiting entry with
+     * the same [coalesceKey] is replaced (only the latest PATCH of a note is kept); [fileName] names
+     * an image already written to the files, which goes with the entry. Throws [OutboxFullException]
+     * when the queue is full.
+     */
     fun enqueue(
         kind: OutboxKind,
         payload: String,
         id: String = IdempotencyKey.generate().toString(),
+        orderKey: String? = null,
+        coalesceKey: String? = null,
+        fileName: String? = null,
     ): String {
-        store.put(OutboxEntry(id = id, kind = kind, payload = payload, createdAt = now()))
+        val entry =
+            OutboxEntry(
+                id = id,
+                kind = kind,
+                payload = payload,
+                createdAt = now(),
+                orderKey = orderKey,
+                coalesceKey = coalesceKey,
+                fileName = fileName,
+            )
+        if (coalesceKey != null) {
+            // Not the one being sent right now: a send in progress finishes, and a newer one follows it.
+            store
+                .all()
+                .filter { it.coalesceKey == coalesceKey && it.status == OutboxStatus.Pending && it.id != inFlight }
+                .forEach { drop(it) }
+        }
+        store.put(entry)
         publish()
         wake.trySend(Unit)
         return id
@@ -72,8 +113,13 @@ class OutboxRunner(
 
     /** Drops an entry, for a "Discard" button. */
     fun discard(id: String) {
-        store.remove(id)
+        store.all().firstOrNull { it.id == id }?.let { drop(it) }
         publish()
+    }
+
+    private fun drop(entry: OutboxEntry) {
+        store.remove(entry.id)
+        entry.fileName?.let { runCatching { files.delete(it) } }
     }
 
     /**
@@ -82,6 +128,7 @@ class OutboxRunner(
      */
     suspend fun clear() {
         mutex.withLock {
+            store.all().forEach { e -> e.fileName?.let { runCatching { files.delete(it) } } }
             store.clear()
             publish()
         }
@@ -99,21 +146,43 @@ class OutboxRunner(
     suspend fun drain(): Int =
         mutex.withLock {
             var delivered = 0
-            if (!connectivity.online.value) return 0
-            for (kind in OutboxKind.entries) {
-                while (connectivity.online.value) {
-                    val head =
-                        store.all().firstOrNull { it.kind == kind && it.status == OutboxStatus.Pending }
-                            ?: break
-                    if (head.nextAttemptAt > now()) break
-                    val result = send(head)
-                    val next = settle(head, result)
-                    if (result == SendResult.Delivered) delivered++
-                    if (!next) break
-                }
+            while (connectivity.online.value) {
+                val entries = store.all()
+                val head =
+                    entries
+                        .withIndex()
+                        .firstOrNull { (i, e) ->
+                            e.status == OutboxStatus.Pending && e.nextAttemptAt <= now() && !blocked(entries, i)
+                        }?.value ?: break
+                inFlight = head.id
+                val result = send(head)
+                inFlight = null
+                settle(head, result)
+                if (result == SendResult.Delivered) delivered++
             }
             delivered
         }
+
+    /**
+     * An entry waits for the ones before it: without a key, for a waiting one of its kind; with a
+     * key, for any earlier one of that key (a refused one too, so a close never goes without the
+     * note it follows). A `VisitClose` also waits for every other entry of its key, saved later or not.
+     */
+    private fun blocked(
+        entries: List<OutboxEntry>,
+        index: Int,
+    ): Boolean {
+        val e = entries[index]
+        val before = entries.subList(0, index)
+        val key =
+            e.orderKey
+                ?: return before.any { it.orderKey == null && it.kind == e.kind && it.status == OutboxStatus.Pending }
+        // An earlier close does not hold the writes it must wait for.
+        return before.any {
+            it.orderKey == key && !(it.kind == OutboxKind.VisitClose && e.kind != OutboxKind.VisitClose)
+        } ||
+            (e.kind == OutboxKind.VisitClose && entries.any { it.orderKey == key && it.kind != OutboxKind.VisitClose })
+    }
 
     /** Runs until [scope] ends: drains at start, on enqueue, when the network returns, and when a retry is due. */
     fun start(scope: CoroutineScope): Job =
@@ -121,7 +190,11 @@ class OutboxRunner(
             launch { connectivity.online.collect { if (it) wake.trySend(Unit) } }
             while (true) {
                 drain()
-                val due = store.all().filter { it.status == OutboxStatus.Pending }.minOfOrNull { it.nextAttemptAt }
+                val all = store.all()
+                val due =
+                    all
+                        .filterIndexed { i, e -> e.status == OutboxStatus.Pending && !blocked(all, i) }
+                        .minOfOrNull { it.nextAttemptAt }
                 if (due == null || !connectivity.online.value) {
                     wake.receive()
                 } else {
@@ -139,11 +212,12 @@ class OutboxRunner(
             SendResult.Retry("send_exception")
         }
 
-    /** Records the result; true when the next entry of the kind may go. */
+    /** Records the result. An entry dropped or replaced while it was being sent is not brought back. */
     private fun settle(
         entry: OutboxEntry,
         result: SendResult,
-    ): Boolean {
+    ) {
+        val stillHeld = store.all().any { it.id == entry.id }
         val attempts = entry.attempts + 1
         val next =
             when (result) {
@@ -159,9 +233,12 @@ class OutboxRunner(
                     entry.copy(attempts = attempts, status = OutboxStatus.Failed, lastError = result.code)
                 }
             }
-        if (next == null) store.remove(entry.id) else store.put(next)
+        if (next == null) {
+            drop(entry)
+        } else if (stillHeld) {
+            store.put(next)
+        }
         publish()
-        return result !is SendResult.Retry
     }
 
     private fun backoff(attempts: Int): Long = min(maxDelayMillis, baseDelayMillis shl min(attempts - 1, MAX_SHIFT))
@@ -169,7 +246,17 @@ class OutboxRunner(
     private fun publish() {
         pendingCount.value = count(OutboxStatus.Pending)
         failedList.value = failedNow()
+        idsNow.value = store.all().map { it.id }.toSet()
+        keysNow.value = pendingKeys()
     }
+
+    private fun pendingKeys(): Map<String, Int> =
+        store
+            .all()
+            .filter { it.status == OutboxStatus.Pending }
+            .mapNotNull { it.orderKey }
+            .groupingBy { it }
+            .eachCount()
 
     private fun count(status: OutboxStatus) = store.all().count { it.status == status }
 

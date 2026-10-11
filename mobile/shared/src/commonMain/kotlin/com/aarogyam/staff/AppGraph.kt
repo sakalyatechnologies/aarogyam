@@ -24,12 +24,17 @@ import com.aarogyam.staff.labs.LabsStateHolder
 import com.aarogyam.staff.labs.NewLabCaseStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.outbox.Connectivity
+import com.aarogyam.staff.outbox.MemoryOutboxFiles
 import com.aarogyam.staff.outbox.MemoryOutboxStore
+import com.aarogyam.staff.outbox.OutboxFiles
 import com.aarogyam.staff.outbox.OutboxKind
 import com.aarogyam.staff.outbox.OutboxRunner
 import com.aarogyam.staff.outbox.OutboxSender
 import com.aarogyam.staff.outbox.OutboxStore
 import com.aarogyam.staff.outbox.SendResult
+import com.aarogyam.staff.outbox.SignOutResult
+import com.aarogyam.staff.outbox.VisitWriteSender
+import com.aarogyam.staff.outbox.WriteQueue
 import com.aarogyam.staff.outbox.asConnectivity
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
@@ -100,6 +105,8 @@ class AppGraph private constructor(
     val connectivity: Connectivity,
     /** Writes saved on the phone, waiting to be sent. */
     outboxStore: OutboxStore,
+    /** Images of unsent photo uploads, in protected storage beside the queue. */
+    private val outboxFiles: OutboxFiles,
     private val clock: Clock,
 ) {
     private val clients = mutableMapOf<BaseUrl, HttpClient>()
@@ -127,11 +134,24 @@ class AppGraph private constructor(
             sender = { entry -> senders[entry.kind]?.send(entry) ?: SendResult.Retry("no_sender") },
             connectivity = connectivity,
             now = { clock.now().toEpochMilliseconds() },
+            files = outboxFiles,
         )
+
+    /** Saves visit notes, procedures, close and photos for later; the holders use it when offline. */
+    val writes: WriteQueue = WriteQueue(outbox, outboxFiles, connectivity)
 
     private var outboxJob: Job? = null
 
     init {
+        val visitWrites = VisitWriteSender(directory::opened, outboxFiles)
+        listOf(
+            OutboxKind.Note,
+            OutboxKind.NoteEdit,
+            OutboxKind.NoteSign,
+            OutboxKind.Procedure,
+            OutboxKind.VisitClose,
+            OutboxKind.Photo,
+        ).forEach { senders[it] = visitWrites }
         startOutbox()
         scope.launch {
             sessions.state.collect {
@@ -213,7 +233,7 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         patientId: String,
         scope: CoroutineScope,
-    ): FilesStateHolder = FilesStateHolder(clinic, patientId, scope, logger("aarogyam.files"))
+    ): FilesStateHolder = FilesStateHolder(clinic, patientId, scope, logger("aarogyam.files"), writes)
 
     fun chart(
         clinic: ClinicContext,
@@ -309,7 +329,8 @@ class AppGraph private constructor(
         chart: ChartStateHolder,
         visitId: String?,
         scope: CoroutineScope,
-    ): ToothSheetStateHolder = ToothSheetStateHolder(clinic, chart, visitId, scope, logger("aarogyam.toothsheet"))
+    ): ToothSheetStateHolder =
+        ToothSheetStateHolder(clinic, chart, visitId, scope, logger("aarogyam.toothsheet"), writes)
 
     /** Start treatment: the Visit screen, from [tokenId] when the patient is queued. */
     fun visit(
@@ -319,7 +340,7 @@ class AppGraph private constructor(
         appointmentId: String?,
         scope: CoroutineScope,
     ): VisitStateHolder =
-        VisitStateHolder(clinic, patientId, tokenId, appointmentId, dictation, scope, logger("aarogyam.visit"))
+        VisitStateHolder(clinic, patientId, tokenId, appointmentId, dictation, scope, logger("aarogyam.visit"), writes)
 
     /** Joining from an invitation [link] (or one pasted later); the token stays in memory. */
     fun invite(
@@ -385,7 +406,18 @@ class AppGraph private constructor(
         scope.launch { sessions.restore() }
     }
 
-    /** Revokes the session at Supabase and clears secure storage and the caches. */
+    /**
+     * Sign-out that first checks for writes not sent yet: [SignOutResult.SignOutBlocked] (and nothing
+     * done) when any wait, so the screen can ask "N items not sent yet. Sign out anyway?" and then call [signOut].
+     */
+    fun trySignOut(): SignOutResult {
+        val unsent = outbox.unsentCount()
+        if (unsent > 0) return SignOutResult.SignOutBlocked(unsent)
+        signOut()
+        return SignOutResult.SignedOut
+    }
+
+    /** Revokes the session at Supabase and clears secure storage and the caches. Unsent writes are dropped: see [trySignOut]. */
     fun signOut() {
         scope.launch {
             sessions.signOut()
@@ -415,6 +447,7 @@ class AppGraph private constructor(
             preferences: Preferences = MemoryPreferences(),
             dictation: Dictation = Dictation.None,
             outboxStore: OutboxStore = MemoryOutboxStore(),
+            outboxFiles: OutboxFiles = MemoryOutboxFiles(),
         ): AppGraph? {
             val level = if (config.debug) LogLevel.Debug else LogLevel.Info
             val logger = { tag: String -> Logger(tag, logSink, level) }
@@ -450,6 +483,7 @@ class AppGraph private constructor(
                     dictation,
                     network.asConnectivity(),
                     outboxStore,
+                    outboxFiles,
                     clock,
                 )
             scope.launch { sessions.restore() }

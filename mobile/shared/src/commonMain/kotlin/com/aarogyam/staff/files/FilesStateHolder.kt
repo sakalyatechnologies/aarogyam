@@ -3,6 +3,9 @@ package com.aarogyam.staff.files
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.model.Attachment
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.outbox.Queued
+import com.aarogyam.staff.outbox.WriteQueue
+import com.aarogyam.staff.outbox.shouldQueue
 import com.aarogyam.staff.patients.ClinicMoment
 import com.aarogyam.staff.patients.moment
 import com.sakalya.mobile.core.IdempotencyKey
@@ -51,6 +54,10 @@ sealed interface FilesState {
         val refreshing: Boolean = false,
         val problem: UploadProblem? = null,
         val error: ScreenError? = null,
+        /** Photos saved on this phone and not yet sent ("Saved, will send"). */
+        val pendingSync: Int = 0,
+        /** The last photo was refused: too many unsent photos are stored. Send or discard some first. */
+        val queueFull: Boolean = false,
     ) : FilesState
 }
 
@@ -64,6 +71,8 @@ class FilesStateHolder(
     private val patientId: String,
     private val scope: CoroutineScope,
     private val log: Logger = Logger("aarogyam.files"),
+    /** Saves a photo for later when offline; null keeps uploads online-only. */
+    private val writes: WriteQueue? = null,
 ) {
     private val mutableState = MutableStateFlow<FilesState>(FilesState.Loading)
 
@@ -74,9 +83,25 @@ class FilesStateHolder(
     private var pendingId: String? = null
 
     private val canUpload = WRITE in clinic.permissions
+    private val queuedIds = mutableSetOf<String>()
 
     init {
         if (READ in clinic.permissions) refresh() else mutableState.value = FilesState.NotAllowed
+        writes?.let { w ->
+            scope.launch {
+                var before = 0
+                w.runner.ids.collect { ids ->
+                    val waiting = queuedIds.count { it in ids }
+                    (mutableState.value as? FilesState.Loaded)?.let {
+                        mutableState.value =
+                            it.copy(pendingSync = waiting)
+                    }
+                    // A queued photo reached the server: the gallery has it now.
+                    if (waiting < before) refresh()
+                    before = waiting
+                }
+            }
+        }
     }
 
     /** Reloads the gallery, keeping what is on screen until the answer arrives. */
@@ -94,6 +119,8 @@ class FilesStateHolder(
                             canUpload = canUpload,
                             uploading = previous?.uploading ?: false,
                             problem = previous?.problem,
+                            pendingSync = previous?.pendingSync ?: 0,
+                            queueFull = previous?.queueFull ?: false,
                         )
                 }
 
@@ -138,7 +165,8 @@ class FilesStateHolder(
             return
         }
         val id = pendingId ?: IdempotencyKey.generate().toString().also { pendingId = it }
-        mutableState.value = current.copy(uploading = true, problem = null)
+        mutableState.value = current.copy(uploading = true, problem = null, queueFull = false)
+        if (writes != null && !writes.online) return queuePhoto(writes, id, jpeg, clean, tooth)
         scope.launch {
             when (val result = clinic.api.uploadAttachment(patientId, id, kindFor(clean), jpeg, clean, tooth)) {
                 is Outcome.Success -> {
@@ -149,6 +177,11 @@ class FilesStateHolder(
                 }
 
                 is Outcome.Failure -> {
+                    if (writes != null &&
+                        result.error.shouldQueue()
+                    ) {
+                        return@launch queuePhoto(writes, id, jpeg, clean, tooth)
+                    }
                     log.warn("files.upload_failed") {
                         id("patient", patientId)
                         code("error", result.error.code.value)
@@ -160,10 +193,34 @@ class FilesStateHolder(
         }
     }
 
+    /** Keeps the photo on the phone, beside the queue, until it is sent; the same id is used when it goes. */
+    private fun queuePhoto(
+        w: WriteQueue,
+        id: String,
+        jpeg: ByteArray,
+        label: String?,
+        tooth: Int?,
+    ) {
+        val now = mutableState.value as? FilesState.Loaded ?: return
+        when (val queued = w.photo(clinic.slug, patientId, id, jpeg, label, tooth)) {
+            is Queued.Saved -> {
+                pendingId = null
+                queuedIds += queued.id
+                mutableState.value =
+                    now.copy(uploading = false, pendingSync = queuedIds.count { it in w.runner.ids.value })
+            }
+
+            is Queued.Refused -> {
+                log.warn("files.not_queued") { code("why", queued.why.name) }
+                mutableState.value = now.copy(uploading = false, queueFull = true)
+            }
+        }
+    }
+
     /** Clears the upload problem once the person has seen it. */
     fun dismissProblem() {
         val current = mutableState.value as? FilesState.Loaded ?: return
-        mutableState.value = current.copy(problem = null)
+        mutableState.value = current.copy(problem = null, queueFull = false)
     }
 
     /** A picture's bytes for the gallery, fetched through a short-lived link; null when it can't be had. */

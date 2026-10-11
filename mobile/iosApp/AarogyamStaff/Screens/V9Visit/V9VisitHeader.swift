@@ -5,6 +5,7 @@ import SwiftUI
 /// The top of the visit: a live pill, who the patient is, a big timer and the allergy banner.
 /// It runs under the (clear) navigation bar like the mockup's `.vhead`.
 struct V9Header: View {
+    let graph: AppGraph
     let view: VisitView_
     let patient: Patient360State
     let chair: Int?
@@ -17,10 +18,14 @@ struct V9Header: View {
         let ink = r.onPrimaryContainer.color
         VStack(spacing: SkSpacing.m) {
             if !closed {
-                HStack {
+                HStack(spacing: 8) {
                     livePill
                     Spacer(minLength: 0)
+                    // "Saved, will send · N": the note, procedures or close of this visit wait for the network.
+                    OutboxBadge(graph: graph)
                 }
+            } else {
+                OutboxBadge(graph: graph)
             }
             HStack(spacing: SkSpacing.ml) {
                 V7Initials(name: person?.name ?? "?", size: 46, strong: true)

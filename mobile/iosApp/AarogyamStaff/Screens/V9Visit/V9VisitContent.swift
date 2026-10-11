@@ -5,6 +5,7 @@ import SwiftUI
 /// The open visit's scroll: header, notes, prescription, procedures and close, with the state
 /// the close needs (what is staged, whether the prescription card is open, the follow-up).
 struct V9VisitContent: View {
+    let graph: AppGraph
     let clinic: ClinicContext
     let route: VisitRoute
     let holder: VisitStateHolder
@@ -38,7 +39,7 @@ struct V9VisitContent: View {
         ScrollViewReader { scroller in
             ScrollView {
                 VStack(spacing: SkSpacing.ml) {
-                    V9Header(view: view, patient: patient, chair: route.chair, closed: view.closed)
+                    V9Header(graph: graph, view: view, patient: patient, chair: route.chair, closed: view.closed)
                     VStack(spacing: SkSpacing.ml) {
                         if view.closed {
                             V9Summary(firstName: firstName, patientNumber: view.number, snapshot: snapshot, minutes: minutes) { dismiss() }

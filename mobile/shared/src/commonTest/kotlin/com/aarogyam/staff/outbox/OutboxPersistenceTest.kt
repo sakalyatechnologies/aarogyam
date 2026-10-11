@@ -165,7 +165,7 @@ class OutboxPersistenceTest {
             val backend = FakeBackend()
             val graph = testGraph(backend, backgroundScope, outboxStore = storeOver(file))
             signIn(graph, backend)
-            graph.outbox.enqueue(OutboxKind.Note, """{"body":"Asha Patil"}""")
+            graph.outbox.enqueue(OutboxKind.Payment, """{"body":"Asha Patil"}""")
             assertEquals(1, graph.outbox.pending.value)
             assertTrue(file.text.orEmpty().contains("Asha"))
             graph.signOut()

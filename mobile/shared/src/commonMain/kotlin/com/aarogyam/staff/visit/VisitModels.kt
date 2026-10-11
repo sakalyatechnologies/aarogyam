@@ -24,6 +24,12 @@ data class VisitView(
     /** The visit closed but its follow-up was not saved; `closeWith` again retries only that. */
     val followUpFailed: Boolean = false,
     val error: ScreenError? = null,
+    /** The note is saved on this phone and not yet on the server ("Saved, will send"). */
+    val noteSync: Boolean = false,
+    /** The close is saved on this phone and not yet on the server. */
+    val closeSync: Boolean = false,
+    /** Writes of this visit (notes, procedures, close) still waiting to be sent. */
+    val unsent: Int = 0,
 )
 
 sealed interface VisitState {

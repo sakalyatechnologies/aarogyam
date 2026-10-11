@@ -2452,6 +2452,57 @@
         }
       }
     },
+    "outbox.signout.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d items not sent yet. Sign out anyway?"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d आइटम अभी भेजे नहीं गए। फिर भी साइन आउट करें?"
+          }
+        }
+      }
+    },
+    "outbox.signout.anyway": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out anyway"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फिर भी साइन आउट करें"
+          }
+        }
+      }
+    },
+    "outbox.signout.stay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stay signed in"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन इन रहें"
+          }
+        }
+      }
+    },
     "outbox.badge": {
       "extractionState": "manual",
       "localizations": {

@@ -40,6 +40,8 @@ text_value! {
         MessageTemplates => "message_templates",
         /// Campaigns that were sent or cancelled and nobody has changed since.
         Campaigns => "campaigns",
+        /// Each day's run of a clinic's recurring staff tasks, with who did it and any note.
+        TaskOccurrences => "task_occurrences",
     }
 }
 
@@ -76,7 +78,7 @@ impl Class {
             Self::Invoices | Self::LabWork => Period::Years(8),
             Self::Outbox => Period::Days(90),
             Self::ShareLinks | Self::ImportSessions => Period::Days(30),
-            Self::AccessLog => Period::Years(3),
+            Self::AccessLog | Self::TaskOccurrences => Period::Years(3),
             Self::Messages
             | Self::ClinicApplications
             | Self::ChatMessages
@@ -105,6 +107,7 @@ impl Class {
             Self::LabContacts => "when the contact was removed",
             Self::MessageTemplates => "when the template last changed",
             Self::Campaigns => "when the campaign last changed",
+            Self::TaskOccurrences => "when the task fell due",
         }
     }
 

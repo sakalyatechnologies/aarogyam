@@ -1956,7 +1956,9 @@
     "invitations.role_id",
     "memberships.role_id",
     "role_changes.role_id",
-    "role_permissions.role_id"
+    "role_permissions.role_id",
+    "task_occurrences.assignee_role_id",
+    "task_templates.assignee_role_id"
    ],
    "sensitivity": "internal",
    "offline": "read_only"
@@ -2165,6 +2167,9 @@
     "staff_notifications.handled_by",
     "support_grants.granted_by",
     "support_grants.revoked_by",
+    "task_occurrences.assignee_membership_id",
+    "task_occurrences.completed_by",
+    "task_templates.assignee_membership_id",
     "treatment_plans.clinician_id"
    ],
    "sensitivity": "internal",
@@ -6852,6 +6857,273 @@
    "offline": "server_only"
   },
   {
+   "name": "task_templates",
+   "domain": "ops",
+   "purpose": "A clinic's recurring staff task: what is to be done, by whom (one person or everyone holding a role) and when.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
+   "notes": "Built (migrations 0661, 0662). No patient data. app.seed_default_tasks gives each clinic the standard tasks (backfilled; app.seed_missing_default_tasks adds them for new clinics); a standard task switched off is never added back. The monthly schedule is not built.",
+   "cols": [
+    {
+     "name": "title",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "1 to 120 characters"
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "at most 500"
+    },
+    {
+     "name": "assignee_membership_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": "exactly one of this and assignee_role_id"
+    },
+    {
+     "name": "assignee_role_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "roles",
+     "note": "whoever holds the role; the first to finish it closes it"
+    },
+    {
+     "name": "schedule_kind",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "once, daily, every_n_days, weekdays"
+    },
+    {
+     "name": "once_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "once only: the moment it falls due"
+    },
+    {
+     "name": "interval_days",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": "every_n_days only: 2 to 365, counted from starts_on"
+    },
+    {
+     "name": "weekdays",
+     "type": "smallint",
+     "nullable": true,
+     "ref": null,
+     "note": "weekdays only: ISO bitmask, Monday = 1 to Sunday = 64"
+    },
+    {
+     "name": "due_time",
+     "type": "time",
+     "nullable": true,
+     "ref": null,
+     "note": "clinic local time; not for once"
+    },
+    {
+     "name": "starts_on",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": "the first day; not for once"
+    },
+    {
+     "name": "ends_on",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": "the last day, if it stops"
+    },
+    {
+     "name": "remind_every_minutes",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": "15 to 1440; empty means the clinic default (60)"
+    },
+    {
+     "name": "escalate_after",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "reminders before the owner is told once more; 0 never; default 3"
+    },
+    {
+     "name": "action",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "none, record_usage, confirm_photos"
+    },
+    {
+     "name": "active",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "switched off, never removed"
+    },
+    {
+     "name": "activated_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "when it last began to count: created, switched back on or its schedule changed; nothing falls due before it"
+    },
+    {
+     "name": "is_default",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "one of the three standard tasks; cannot be deleted"
+    },
+    {
+     "name": "default_key",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "sterilise_instruments, eod_check_photos, eod_record_materials; unique per clinic"
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "task_occurrences.template_id"
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "task_occurrences",
+   "domain": "ops",
+   "purpose": "One day's run of a task template: what fell due, who it was for, and whether it was done. The compliance history.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migrations 0661, 0662). Made by app.materialize_task_occurrences (drain job): every slot that fell due in the last 24 hours and not before the template's activated_at, with its task_due notice in the same statement; safe to run twice at once. The change history leaves out the reminder counters and the note. Kept 3 years from due_at (retention class task_occurrences). staff_notifications.task_occurrence_id points here.",
+   "cols": [
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "task_templates",
+     "note": ""
+    },
+    {
+     "name": "title",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "snapshot of the template"
+    },
+    {
+     "name": "action",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "snapshot: none, record_usage, confirm_photos"
+    },
+    {
+     "name": "assignee_membership_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": "snapshot"
+    },
+    {
+     "name": "assignee_role_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "roles",
+     "note": "snapshot"
+    },
+    {
+     "name": "local_date",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": "the clinic's calendar day; unique per template"
+    },
+    {
+     "name": "due_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "unique per template"
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "open, done, skipped, missed"
+    },
+    {
+     "name": "completed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "set with completed_by when done or skipped"
+    },
+    {
+     "name": "completed_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "at most 300 characters; free text, kept out of the change history; the screens warn against patient names"
+    },
+    {
+     "name": "reminder_count",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "last_reminded_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "escalated_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "staff_notifications.task_occurrence_id"
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
    "name": "price_items",
    "domain": "billing",
    "purpose": "The clinic's price list. Seeded from the specialty, then edited.",
@@ -7946,8 +8218,8 @@
      "name": "task_occurrence_id",
      "type": "uuid",
      "nullable": true,
-     "ref": null,
-     "note": "task_due, task_reminder and task_escalated; the foreign key comes with the task tables"
+     "ref": "task_occurrences",
+     "note": "task_due, task_reminder and task_escalated"
     },
     {
      "name": "time_off_request_id",

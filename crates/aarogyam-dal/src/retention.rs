@@ -338,6 +338,29 @@ pub async fn lab_contacts(
     Ok(rows)
 }
 
+/// Task occurrences that fell due before `cutoff`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn task_occurrences(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(due_at) as "oldest?",
+                  (array_agg(id order by due_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.task_occurrences where due_at < $1
+           group by org_id order by org_id"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 /// Chat messages posted before `cutoff`, per clinic (the retention report; owner's pool).
 ///
 /// # Errors

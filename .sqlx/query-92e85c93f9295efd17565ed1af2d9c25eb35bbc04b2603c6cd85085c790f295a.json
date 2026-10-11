@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.seed_missing_default_tasks($1) as \"added!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "added!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "92e85c93f9295efd17565ed1af2d9c25eb35bbc04b2603c6cd85085c790f295a"
+}

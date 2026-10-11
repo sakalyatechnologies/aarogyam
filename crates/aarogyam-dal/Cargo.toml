@@ -23,5 +23,8 @@ whoami.workspace = true
 [package.metadata.cargo-machete]
 ignored = ["whoami"]
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros"] }
+
 [lints]
 workspace = true

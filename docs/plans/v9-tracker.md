@@ -129,3 +129,6 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
   - be-close: finished, including the `payment_proof` upload permission fix, which now needs billing.write (91611e2, b143a20)
   - be-family: merged (8d2e428); API in progress
   - be-share: still to do
+- outbox2: merged. The outbox is now a persistent file store on both platforms, with one runner in AppGraph that is cleared on sign-out. It passed gradle check and ios-check through the hook, and adds 6 new tests.
+  - Gaps: only payments have a sender, and there is no 48 h expiry.
+  - Gaps: a sign-out after the session expires drops unsent writes. Founder decision: should we warn before sign-out when items are pending?

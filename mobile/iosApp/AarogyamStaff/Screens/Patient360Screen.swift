@@ -135,7 +135,7 @@ struct Patient360Screen: View {
     @ViewBuilder private func loadedPage(_ view: PatientView, error: ScreenError?) -> some View {
         let tabs = PatientPageTab.visible(permissions: Set(clinic.permissions))
         let current = tabs.contains(tab) ? tab : (tabs.first ?? .overview)
-        PatientHeader(view: view, canBook: can.book, onBook: { sheet = .book }, onPhoto: { sheet = .photo }) {
+        PatientHeader(view: view, canBook: can.book, canPhoto: can.treat, onBook: { sheet = .book }, onPhoto: { sheet = .photo }) {
             OutboxBadge(graph: graph).frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
             PatientMoneyStrip(model: MoneyStripModel.make(money: overviewMoney, shown: overviewMoneyShown)) {
                 overview?.holder.toggleMoney()

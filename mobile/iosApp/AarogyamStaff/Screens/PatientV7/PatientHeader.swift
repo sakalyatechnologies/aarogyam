@@ -32,6 +32,7 @@ struct PatientFlag: Identifiable, Equatable {
 struct PatientHeader<Footer: View>: View {
     let view: PatientView
     let canBook: Bool
+    var canPhoto: Bool = true
     let onBook: () -> Void
     let onPhoto: () -> Void
     @ViewBuilder let footer: Footer
@@ -61,7 +62,7 @@ struct PatientHeader<Footer: View>: View {
                     if let url = PatientLinks.whatsApp(view.phone) { openURL(url) }
                 }
                 action("cal", pv("pv.action.book"), enabled: canBook, onBook)
-                action("cam", pv("pv.action.photo"), enabled: true, onPhoto)
+                action("cam", pv("pv.action.photo"), enabled: canPhoto, onPhoto)
             }
             footer
         }
@@ -111,7 +112,7 @@ struct PatientHeader<Footer: View>: View {
 }
 
 extension PatientHeader where Footer == EmptyView {
-    init(view: PatientView, canBook: Bool, onBook: @escaping () -> Void, onPhoto: @escaping () -> Void) {
-        self.init(view: view, canBook: canBook, onBook: onBook, onPhoto: onPhoto) { EmptyView() }
+    init(view: PatientView, canBook: Bool, canPhoto: Bool = true, onBook: @escaping () -> Void, onPhoto: @escaping () -> Void) {
+        self.init(view: view, canBook: canBook, canPhoto: canPhoto, onBook: onBook, onPhoto: onPhoto) { EmptyView() }
     }
 }

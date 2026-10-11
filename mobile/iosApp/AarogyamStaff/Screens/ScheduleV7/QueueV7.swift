@@ -102,7 +102,9 @@ struct QueueV7Screen: View {
             subtitle: [patientLine(number: row.number, ageYears: row.ageYears?.intValue, sex: row.sex), row.doctor].compactMap { $0 }.joined(separator: " · "),
             badge: row.status == .waiting ? String(format: String(localized: "t7.queue.wait", table: "TodayV7"), minutes) : row.status.label
         ) {
-            if loaded.canStartVisit {
+            if row.status == .readyToBill {
+                EmptyView()
+            } else if loaded.canStartVisit {
                 SkPillButton(String(localized: "queue.start_visit"), variant: .tonal) { holder.startVisit(tokenId: row.id) }.disabled(row.busy)
             } else if loaded.canMove {
                 SkPillButton(String(localized: "queue.seat"), variant: .tonal) { holder.seat(id: row.id) }.disabled(row.busy)

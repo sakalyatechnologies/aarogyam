@@ -9,7 +9,7 @@ import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTi
 import { EmptyState, Initials, MkCard, PageHeader, SkeletonList, StatusChip, rowLink } from "../../components/mk/index.js";
 import { StaggerItem, StaggerList } from "../../components/mk/motion.js";
 import { useClinic } from "../../clinic.js";
-import { displayName, patientPath } from "../../lib/patients.js";
+import { displayName, formatPhone, patientPath } from "../../lib/patients.js";
 import { recentPatientIds } from "../../lib/recent-patients.js";
 import { SortHeader } from "../../components/sort-header.js";
 import { useSortable, type SortColumn } from "../../components/use-sortable.js";
@@ -170,6 +170,7 @@ export function PatientsPage() {
                   <tr>
                     <SortHeader id="name" sortable={sortable}>Patient</SortHeader>
                     <SortHeader id="number" sortable={sortable}>Patient ID</SortHeader>
+                    <th scope="col">Mobile</th>
                     <SortHeader id="last_visit" sortable={sortable}>Last visit</SortHeader>
                     <SortHeader id="next" sortable={sortable}>Next</SortHeader>
                     {can("billing.read") ? <SortHeader id="balance" sortable={sortable}>Balance</SortHeader> : null}
@@ -189,6 +190,7 @@ export function PatientsPage() {
                         </span>
                       </th>
                       <td className="mk-mono">{row.number}</td>
+                      <td className="mk-mono">{row.phone == null ? "—" : formatPhone(row.phone)}</td>
                       <td>{row.last_visit_at == null ? "—" : formatDate(row.last_visit_at)}</td>
                       <td>
                         {row.next_appointment == null ? (

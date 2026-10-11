@@ -10,9 +10,10 @@ import { useBoard } from "./board-context.js";
 import { useShowMoney } from "./money.js";
 import { useDayToday } from "./queries.js";
 import { seeingOrder, useZone, type Appointment } from "./seeing.js";
-import { Body, Empty, WidgetCard, type WidgetProps } from "./widget-parts.js";
+import { Body, WidgetCard, type WidgetProps } from "./widget-parts.js";
 import { APPOINTMENT_CHIP } from "../../../lib/appointment-status.js";
 import { useClinic } from "../../../clinic.js";
+import { COPY } from "./copy.js";
 
 /** The dot beside a queue row: green in the chair, blue waiting, grey still to come. */
 const DOT: Readonly<Record<Appointment["status"], string>> = {
@@ -63,8 +64,7 @@ export function QueueWidget({ spec }: WidgetProps) {
       <Body
         query={day}
         label={spec.label}
-        isEmpty={(t) => t.appointments.every((a) => a.status === "cancelled") && t.completed_visits.length === 0}
-        empty={<Empty title="Nobody in the queue" description={live ? "Check someone in and they show up here." : "No visits that day."} />}
+        empty={null}
       >
         {(today) => {
           const rows = seeingOrder(today);
@@ -72,7 +72,7 @@ export function QueueWidget({ spec }: WidgetProps) {
             <div className="tv2-queue">
               <div className="tv2-qbox">
                 {rows.length === 0 ? (
-                  <p className="tv2-sub">{live ? "No one is waiting right now." : "No open visits that day."}</p>
+                  <p className="tv2-sub">{live ? COPY.nobodyWaiting : today.appointments.length === 0 ? COPY.calmDay : COPY.nobodyWaitingOtherDay}</p>
                 ) : (
                   <ol aria-label="Patient queue" className="tv2-list tv2-qlist">
                     {rows.map((a, index) => (
@@ -104,7 +104,7 @@ export function QueueWidget({ spec }: WidgetProps) {
               <h3 className="tv2-h3">Completed ({today.completed_visits.length})</h3>
               <div className="tv2-qbox">
                 {today.completed_visits.length === 0 ? (
-                  <p className="tv2-sub">No visits closed yet.</p>
+                  <p className="tv2-sub">{COPY.noCompleted}</p>
                 ) : (
                   <ul aria-label="Completed visits" className="tv2-list tv2-qlist">
                     {today.completed_visits.map((v) => (

@@ -75,28 +75,20 @@ describe("Patient 360 in the new look: three layouts, one set of data", () => {
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Dental chart" })).toBeTruthy();
 
-    // History: a summary to open, a toolbar button, or a tab, depending on the layout.
-    if (layout === "console") {
-      await user.click(screen.getByText(/^Visit history/));
-    } else if (layout === "stage") {
-      await user.click(screen.getByRole("button", { name: "History" }));
-    } else {
-      await user.click(screen.getByRole("tab", { name: "History" }));
+    // Records: one card with small tabs, reached directly, from the toolbar, or from a tab, depending on the layout.
+    if (layout === "stage") {
+      await user.click(within(screen.getByRole("toolbar", { name: "Open a panel" })).getByRole("button", { name: "Records" }));
+    } else if (layout === "tabs") {
+      await user.click(screen.getByRole("tab", { name: "Records" }));
     }
-    expect((await screen.findAllByText(visitNumber)).length).toBeGreaterThan(0);
+    const records = await screen.findByRole("heading", { level: 2, name: "Records" });
+    const card = records.closest("section");
+    if (card === null) throw new Error("the Records card is missing");
+    expect(within(card).getAllByRole("tab").map((t) => t.textContent)).toEqual(["History", "Plans", "Prescriptions", "Images", "Consent"]);
+    expect((await within(card).findAllByText(visitNumber)).length).toBeGreaterThan(0);
 
-    // Consent lives under More in each.
-    if (layout === "console") {
-      await user.click(screen.getByText("More", { selector: "summary" }));
-      await user.click(screen.getByText("Consent forms"));
-    } else if (layout === "stage") {
-      await user.keyboard("{Escape}");
-      await user.click(within(screen.getByRole("toolbar", { name: "Open a panel" })).getByRole("button", { name: "More" }));
-      await user.click(await screen.findByText("Consent forms"));
-    } else {
-      await user.click(screen.getByRole("tab", { name: "More" }));
-      await user.click(await screen.findByText("Consent forms"));
-    }
+    // Consent is a tab of the same card.
+    await user.click(within(card).getByRole("tab", { name: "Consent" }));
     expect(await screen.findByText("No consent recorded yet")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Record consent" })).toBeTruthy();
   });
@@ -178,7 +170,9 @@ describe("Permissions", () => {
     });
     renderPortal(path, { as: PEOPLE.farah, backend });
     await screen.findByRole("region", { name: "Patient summary" });
-    expect(await screen.findByText("Consent forms")).toBeTruthy();
+    expect(await screen.findByRole("tab", { name: "Consent" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "History" })).toBeNull();
+    expect(await screen.findByText("No consent recorded yet")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Dental chart" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Prescription" })).toBeNull();
     expect(screen.queryByText("Billing", { selector: "summary" })).toBeNull();

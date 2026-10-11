@@ -76,11 +76,20 @@
 .tc-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .tc-card p { margin: 0; font-size: 13.5px; }
 .tc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.tc-form { display: grid; gap: 4px; max-height: 640px; overflow-y: auto; padding-right: 4px; }
-.tc-label { margin: 12px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.tc-form { display: grid; gap: 10px; max-height: 640px; overflow-y: auto; padding-right: 4px; }
+.tc-label { margin: 6px 0 -4px; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .tc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.tc-rct { margin-top: 12px; padding: 12px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--odo-warning) 40%, transparent); background: color-mix(in srgb, var(--odo-warning) 8%, var(--surface)); display: grid; gap: 6px; }
-.tc-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.tc-add { display: flex; gap: 8px; align-items: end; margin-top: 8px; }
+.tc-rct { container-type: inline-size; margin-top: 6px; padding: 12px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--odo-warning) 40%, transparent); background: color-mix(in srgb, var(--odo-warning) 8%, var(--surface)); display: grid; gap: 8px; }
+/* Two equal columns, labels on one row height, inputs on one line, the hint under the input; one column when the panel is narrow. */
+.tc-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; align-items: start; }
+.tc-two > * { min-width: 0; }
+.tc-two .tc-hint { margin: 0; }
+@container (max-width: 340px) { .tc-two { grid-template-columns: minmax(0, 1fr); } }
+.tc-add { display: flex; gap: 8px; align-items: end; }
+.tc-add > button { min-height: 44px; flex: none; }
 .tc-add > div { flex: 1; }
 .tc-error { margin: 8px 0 0; font-size: 13px; font-weight: 500; color: var(--sk-danger-text, #b3261e); }
+
+/* One label style across the form: the Field labels match the section labels. */
+.tc-form label { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.tc-form .tc-hint { color: var(--muted); font-size: 12px; }

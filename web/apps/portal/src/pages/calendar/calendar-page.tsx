@@ -22,6 +22,7 @@ import { MonthView, type MonthItem } from "./month-view.js";
 import { TimeGrid, type GridColumn, type GridEvent } from "./time-grid.js";
 import { BookingDialog } from "./booking-dialog.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
+import { COPY } from "../today/v2/copy.js";
 
 type View = "day" | "week" | "month";
 type Lane = "chair" | "doctor";
@@ -340,8 +341,8 @@ export function CalendarPage() {
         ) : columns.length === 0 ? (
           <EmptyState
             art={lane === "chair" ? "queue" : "team"}
-            title={lane === "chair" ? "No chairs set up yet" : "No doctors set up yet"}
-            description="Add them in Settings to see the schedule here."
+            title={lane === "chair" ? COPY.noChairs : COPY.noDoctors}
+            description={COPY.addInSettings}
             action={
               <Link to="/settings" className="mk-btn mk-btn-ghost">
                 Open Settings
@@ -360,6 +361,11 @@ export function CalendarPage() {
             onSelect={setSelectedId}
           />
         )}
+        {appointments.isSuccess && view !== "month" && columns.length > 0 && events.length === 0 ? (
+          <p role="status" className="cal-calm">
+            {view === "week" ? COPY.calmWeek : COPY.calmDay}
+          </p>
+        ) : null}
       </MkCard>
 
       <BookingDialog

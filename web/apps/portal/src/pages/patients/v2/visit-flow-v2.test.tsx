@@ -389,10 +389,8 @@ describe("X-rays, photos and what a visit holds", () => {
         },
       }),
     });
-    const photos = await screen.findByText("X-rays and photos", { selector: "summary" });
-    await user.click(photos);
-    const section = photos.closest("details");
-    if (section === null) throw new Error("the photos fold is missing");
+    await user.click(await screen.findByRole("tab", { name: "Images" }));
+    const section = screen.getByRole("tabpanel");
     expect(await within(section).findByText("No images yet")).toBeTruthy();
 
     const add = async (tag: string, name: string) => {
@@ -432,10 +430,8 @@ describe("X-rays, photos and what a visit holds", () => {
     const complaints = await screen.findByRole("group", { name: "Complaint" });
     await user.click(within(complaints).getByRole("button", { name: "Toothache" }));
     await screen.findAllByText(/Complains of toothache/);
-    const photos = screen.getByText("X-rays and photos", { selector: "summary" });
-    await user.click(photos);
-    const section = photos.closest("details");
-    if (section === null) throw new Error("the photos fold is missing");
+    await user.click(screen.getByRole("tab", { name: "Images" }));
+    const section = screen.getByRole("tabpanel");
     await user.click(within(section).getByRole("button", { name: "Add X-ray or photo" }));
     const dialog = await screen.findByRole("dialog", { name: "Add an X-ray or photo" });
     await user.upload(within(dialog).getByLabelText("Image"), new File([new Uint8Array([137, 80, 78, 71])], "bitewing.png", { type: "image/png" }));
@@ -458,7 +454,7 @@ describe("X-rays, photos and what a visit holds", () => {
     await user.click(within(done).getByRole("button", { name: "Done" }));
 
     // History: click the visit that was just done.
-    await user.click(screen.getByText(/^Visit history/));
+    await user.click(screen.getByRole("tab", { name: "History" }));
     const rows = await screen.findAllByRole("button", { name: /^Open visit / });
     const newest = rows.at(0);
     if (newest === undefined) throw new Error("no visit in the history");

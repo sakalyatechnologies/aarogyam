@@ -1,11 +1,12 @@
 import { ChevronDown, ChevronUp, GripVertical, Plus, Settings2, Trash2 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 
 import { apiErrorOf, type DashboardCatalogue, type DashboardLayout, type DashboardLayoutView } from "@aarogyam/api-client";
 import { Pills, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
+import { STUDIO_HINT } from "./copy.js";
 import { useBoardEdit, type BoardEdit } from "./board-edit.js";
 import { Board } from "./board.js";
 import {
@@ -33,10 +34,24 @@ import {
   type ShownItem,
   type WidgetSpec,
   type Zone,
+  zonesOf,
 } from "./layout-model.js";
 import { useResetLayout, useSaveLayout } from "./queries.js";
 import { entryOf, WIDGET_REGISTRY } from "./registry.js";
 import { SampleData, SampleScope } from "./sample-data.js";
+
+/** One control with its name and a one-line note on what it does. */
+function Field({ name, hint, children }: { name: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="tv2-field">
+      <p className="tv2-field-head">
+        <span className="tv2-field-name">{name}</span>
+        {hint === undefined ? null : <span className="tv2-field-hint">{hint}</span>}
+      </p>
+      {children}
+    </div>
+  );
+}
 
 const toPills = (values: readonly string[], labels: Readonly<Record<string, string>> = {}) => values.map((value) => ({ value, label: labels[value] ?? value.charAt(0).toUpperCase() + value.slice(1) }));
 
@@ -212,8 +227,6 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
   const base = useMemo(() => shownLayout(view.layout), [view.layout]);
   const [draft, setDraft] = useState<DashboardLayout>(base);
   const [open, setOpen] = useState<string | undefined>(undefined);
-  const [more, setMore] = useState(false);
-  const moreId = useId();
   const [dragging, setDragging] = useState<number | undefined>(undefined);
   const [over, setOver] = useState<number | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
@@ -300,19 +313,26 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
 
   const options = (
     <div className="tv2-knobs">
-      <div className="tv2-row">
-        <Pills label="Density" size="sm" options={toPills(catalogue.densities)} value={draft.density} onValueChange={(density) => { change({ ...draft, density }); }} />
-        <Pills label="Card style" size="sm" options={toPills(offeredCards(catalogue))} value={draft.card} onValueChange={(card) => { change({ ...draft, card }); }} />
-      </div>
-      <div className="tv2-row">
-        <Pills label="Rail side" size="sm" options={toPills(catalogue.rail_sides)} value={draft.rail.side} onValueChange={(side) => { change({ ...draft, rail: { ...draft.rail, side } }); }} />
-        <Pills label="Rail width" size="sm" options={toPills(catalogue.rail_widths)} value={draft.rail.width} onValueChange={(width) => { change({ ...draft, rail: { ...draft.rail, width } }); }} />
+      <div className="tv2-fields">
+        <Field name="Density" hint={STUDIO_HINT.density}>
+          <Pills label="Density" size="sm" options={toPills(catalogue.densities)} value={draft.density} onValueChange={(density) => { change({ ...draft, density }); }} />
+        </Field>
+        <Field name="Card style" hint={STUDIO_HINT.card}>
+          <Pills label="Card style" size="sm" options={toPills(offeredCards(catalogue))} value={draft.card} onValueChange={(card) => { change({ ...draft, card }); }} />
+        </Field>
+        <Field name="Rail side" hint={STUDIO_HINT.side}>
+          <Pills label="Rail side" size="sm" options={toPills(catalogue.rail_sides)} value={draft.rail.side} onValueChange={(side) => { change({ ...draft, rail: { ...draft.rail, side } }); }} />
+        </Field>
+        <Field name="Column width" hint={STUDIO_HINT.width}>
+          <Pills label="Column width" size="sm" options={toPills(catalogue.rail_widths)} value={draft.rail.width} onValueChange={(width) => { change({ ...draft, rail: { ...draft.rail, width } }); }} />
+        </Field>
       </div>
 
       <section aria-labelledby="studio-widgets">
         <h3 id="studio-widgets" className="tv2-field-label">
           Widgets
         </h3>
+        <p className="tv2-field-hint">{STUDIO_HINT.widgets}</p>
         {ZONES.map((zone) => {
           const list = rows(zone);
           if (list.length === 0) return null;
@@ -365,12 +385,12 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
                       {expanded ? (
                         <div className="tv2-item-body">
                           <p className="tv2-note">{row.spec.description}</p>
-                          {row.spec.zones.length > 1 ? (
+                          {zonesOf(row.spec).length > 1 ? (
                             <div className="tv2-row">
                               <label htmlFor={`zone-${row.item.key}`}>Place in</label>
                               <select id={`zone-${row.item.key}`} className="tv2-select" value={row.zone} onChange={(event) => { const zoneValue = event.currentTarget.value;
                                 if (isZone(zoneValue)) change(setZone(draft, row.index, zoneValue, catalogue)); }}>
-                                {row.spec.zones.filter(isZone).map((z) => (
+                                {zonesOf(row.spec).map((z) => (
                                   <option key={z} value={z}>
                                     {ZONE_LABEL[z]}
                                   </option>
@@ -419,8 +439,13 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
 
   const actions = (
     <>
+    {problem === undefined ? null : (
+      <p role="alert" className="tv2-note" style={{ color: "var(--sk-danger-text)" }}>
+        {problem}
+      </p>
+    )}
     {hideActions ? null : (
-      <div className="tv2-actions">
+      <div className="tv2-actions" role="toolbar" aria-label="Save your dashboard">
         <button type="button" className="mk-btn mk-btn-primary" disabled={saveMine.isPending || !dirty} onClick={() => { save(scope); }}>
           {saveMine.isPending ? "Saving…" : scope === "clinic" ? "Save clinic default" : "Save"}
         </button>
@@ -461,25 +486,19 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
         </span>
       </div>
     )}
-    {problem === undefined ? null : (
-      <p role="alert" className="tv2-note" style={{ color: "var(--sk-danger-text)" }}>
-        {problem}
-      </p>
-    )}
     </>
   );
 
   const studio = (
     <div className="tv2-studio" data-layout={arrangement} data-thumbs={thumbnails ? "1" : undefined}>
-      <p className="tv2-note tv2-lead">Pick a layout, then drag and resize cards in the preview.</p>
+      <p className="tv2-note tv2-lead">Pick a layout, then hover a card in the preview to drag, resize or move it.</p>
       <SampleScope>{templates}</SampleScope>
       <ScaledPreview layout={draft} view={view} sample={sample} onChange={change} />
-      <section className="tv2-more">
-        <button type="button" className="tv2-more-btn" aria-expanded={more} aria-controls={moreId} onClick={() => { setMore(!more); }}>
+      <section className="tv2-more" aria-labelledby="studio-more">
+        <h3 id="studio-more" className="tv2-more-title">
           More options
-          <ChevronDown className="size-4" aria-hidden="true" data-open={more ? "1" : undefined} />
-        </button>
-        {more ? <div id={moreId}>{options}</div> : null}
+        </h3>
+        {options}
       </section>
       {actions}
     </div>

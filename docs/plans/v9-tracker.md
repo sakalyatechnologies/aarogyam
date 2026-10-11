@@ -156,3 +156,10 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
   - It has no screenshots, because the worktree was missing `mobile/local.secrets.properties`. Copy that file into new worktrees from now on.
 - **Coordinator:** the Photo action now needs clinical.write (e6f295b).
 - **sh-wire:** its hook ran for 1.5 h under load 35 and was killed. The work is saved as WIP 988adf6, and the worker was resumed to finish the Swift call sites, the tests and the handoff.
+- be-flow merged into feat/v9-backend (3ea549f).
+  - Close now sets `ready_to_bill`, and a payment that clears the balance moves the token to `done`.
+  - Retries are idempotent.
+  - SSE `/events` uses LISTEN/NOTIFY (migration 0426). There is no Last-Event-ID support, so the client refetches on reconnect.
+  - Not run yet, because free disk was 4.8 GB: the final workspace test, cargo deny/machete, and the re-test after the clippy fix.
+- sh-wire's handoff is written and its final tests are running.
+- Blocked: the disk. I asked the founder whether to clear other sessions' idle Rust caches.

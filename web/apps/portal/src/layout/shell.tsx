@@ -187,7 +187,8 @@ function PhoneSearchButton({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-export function Account() {
+/** `avatar` replaces the initials in the button (the new look passes the person's picture). */
+export function Account({ avatar }: { avatar?: ReactNode } = {}) {
   const { session, access } = useClinic();
   const auth = useAuth();
   const [open, setOpen] = useState(false);
@@ -209,7 +210,7 @@ export function Account() {
           setOpen((value) => !value);
         }}
       >
-        {initials(session.user.display_name)}
+        {avatar ?? initials(session.user.display_name)}
       </button>
       {open ? (
         <div className="mk-pop">

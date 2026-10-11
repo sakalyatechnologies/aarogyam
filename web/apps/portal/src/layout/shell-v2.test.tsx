@@ -1,7 +1,7 @@
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "@aarogyam/api-client";
 import { ROLES } from "@aarogyam/api-client/fake";
@@ -264,5 +264,83 @@ describe("Shell v2 accessibility", () => {
     expect(await run()).toEqual([]);
     await user.click(screen.getByRole("button", { name: "Expand sidebar" }));
     expect(await run()).toEqual([]);
+  });
+});
+
+describe("Shell v2 clinic emblem and account picture", () => {
+  const emblem = () => document.querySelector(".mk2-emblem");
+  const setSpecialty = (specialty: string) =>
+    fakeApi((fixtures) => {
+      for (const clinic of fixtures.clinics) clinic.specialty = specialty;
+    });
+  const stubMotion = (reduce: boolean) => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: reduce && query.includes("reduce"), media: query, addEventListener: () => undefined, removeEventListener: () => undefined }));
+  };
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("shows a tooth emblem for a dental clinic, centred in the rail head, that floats while idle", async () => {
+    stubMotion(false);
+    renderPortal("/today", { as: PEOPLE.asha, backend: setSpecialty("dental") });
+    await waitFor(() => {
+      expect(emblem()).not.toBeNull();
+    });
+    expect(emblem()?.getAttribute("data-glyph")).toBe("tooth");
+    expect(emblem()?.getAttribute("data-motion")).toBe("idle");
+    expect(emblem()?.classList.contains("mk2-emblem-live")).toBe(true);
+    expect(document.querySelector(".mk2-mark .mk-logo-mark")?.textContent).toBe("");
+  });
+
+  it("uses another picture for another specialty and initials for an unknown one", async () => {
+    stubMotion(false);
+    renderPortal("/today", { as: PEOPLE.asha, backend: setSpecialty("ophthalmology") });
+    await waitFor(() => {
+      expect(emblem()?.getAttribute("data-glyph")).toBe("icon");
+    });
+    cleanup();
+    renderPortal("/today", { as: PEOPLE.asha, backend: setSpecialty("astrology") });
+    await screen.findByRole("button", { name: "Expand sidebar" });
+    await waitFor(() => {
+      expect(document.querySelector(".mk2-mark .mk-logo-mark")?.textContent).toMatch(/^[A-Z]{1,2}$/);
+    });
+    expect(emblem()).toBeNull();
+  });
+
+  it("shows initials for people who cannot read clinic settings", async () => {
+    const backend = fakeApi((fixtures) => {
+      const membership = fixtures.memberships.find((m) => m.user_id === PEOPLE.farah);
+      if (membership !== undefined) membership.role = ROLES.assistant;
+    });
+    renderPortal("/today", { as: PEOPLE.farah, backend });
+    await screen.findByRole("button", { name: "Expand sidebar" });
+    expect(emblem()).toBeNull();
+  });
+
+  it("does not animate the emblem when the person prefers reduced motion", async () => {
+    stubMotion(true);
+    renderPortal("/today", { as: PEOPLE.asha, backend: setSpecialty("dental") });
+    await waitFor(() => {
+      expect(emblem()).not.toBeNull();
+    });
+    expect(emblem()?.getAttribute("data-motion")).toBe("still");
+    expect(emblem()?.classList.contains("mk2-emblem-live")).toBe(false);
+  });
+
+  it("shows the person's photo on the account button when one is set, else their initials", async () => {
+    const withPhoto = fakeApi((fixtures) => {
+      const user = fixtures.users.find((u) => u.id === PEOPLE.asha);
+      if (user !== undefined) user.avatar = { photo_url: "https://example.test/asha.png" };
+    });
+    renderPortal("/today", { as: PEOPLE.asha, backend: withPhoto });
+    const button = await screen.findByRole("button", { name: /^Account:/ });
+    await waitFor(() => {
+      expect(button.querySelector("img")?.getAttribute("src")).toBe("https://example.test/asha.png");
+    });
+    cleanup();
+    renderPortal("/today", { as: PEOPLE.asha });
+    const plain = await screen.findByRole("button", { name: /^Account:/ });
+    expect(plain.querySelector("img")).toBeNull();
+    expect(plain.textContent).toMatch(/^[A-Z]{1,2}$/);
   });
 });

@@ -80,12 +80,31 @@ class ConsentsStateHolderTest {
             backend.on(notices, { json(NOTICES) })
             val h = holder(backend)
             h.loaded()
-            backend.on(consents, { if (it.method == HttpMethod.Post) json(consent("c1", "care"), HttpStatusCode.Created) else json(list(consent("c1", "care"))) })
+            backend.on(consents, {
+                if (it.method ==
+                    HttpMethod.Post
+                ) {
+                    json(consent("c1", "care"), HttpStatusCode.Created)
+                } else {
+                    json(list(consent("c1", "care")))
+                }
+            })
             h.record(ConsentPurpose.Care, ConsentMethod.Verbal)
             h.state.first { it is ConsentsState.Loaded && it.active.size == 1 }
-            val post = backend.requests.last { it.method == HttpMethod.Post && it.url.encodedPath.endsWith("/consents") }
+            val post =
+                backend.requests.last {
+                    it.method == HttpMethod.Post &&
+                        it.url.encodedPath.endsWith(
+                            "/consents",
+                        )
+                }
             assertNotNull(post.headers["Idempotency-Key"])
-            assertTrue(post.body.toByteArray().decodeToString().contains("\"verbal\""))
+            assertTrue(
+                post.body
+                    .toByteArray()
+                    .decodeToString()
+                    .contains("\"verbal\""),
+            )
             assertEquals(1, h.loaded().active.size)
         }
 
@@ -96,7 +115,15 @@ class ConsentsStateHolderTest {
             backend.base()
             val h = holder(backend)
             h.loaded()
-            backend.on(consents, { if (it.method == HttpMethod.Post) apiError(HttpStatusCode.InternalServerError, "internal") else json(list()) })
+            backend.on(consents, {
+                if (it.method ==
+                    HttpMethod.Post
+                ) {
+                    apiError(HttpStatusCode.InternalServerError, "internal")
+                } else {
+                    json(list())
+                }
+            })
             h.record(ConsentPurpose.Sharing, ConsentMethod.App, "asked")
             advanceUntilIdle()
             val failed = assertNotNull(h.loaded().failedRecord)
@@ -105,7 +132,12 @@ class ConsentsStateHolderTest {
             assertEquals(ScreenError.Server, failed.error)
             h.record(ConsentPurpose.Sharing, ConsentMethod.App, "asked")
             h.state.first { it is ConsentsState.Loaded && it.failedRecord != null }
-            val keys = backend.requests.filter { it.method == HttpMethod.Post && it.url.encodedPath.endsWith("/consents") }.map { it.headers["Idempotency-Key"] }
+            val keys =
+                backend.requests
+                    .filter {
+                        it.method == HttpMethod.Post &&
+                            it.url.encodedPath.endsWith("/consents")
+                    }.map { it.headers["Idempotency-Key"] }
             assertEquals(2, keys.size)
             assertEquals(keys[0], keys[1])
         }
@@ -138,7 +170,13 @@ class ConsentsStateHolderTest {
             h.record(ConsentPurpose.Care, ConsentMethod.Paper)
             advanceUntilIdle()
             assertEquals(ScreenError.NotAllowed, h.loaded().error)
-            assertEquals(0, backend.requests.count { it.method == HttpMethod.Post && it.url.encodedPath.contains("consent") })
+            assertEquals(
+                0,
+                backend.requests.count {
+                    it.method == HttpMethod.Post &&
+                        it.url.encodedPath.contains("consent")
+                },
+            )
         }
 
     @Test

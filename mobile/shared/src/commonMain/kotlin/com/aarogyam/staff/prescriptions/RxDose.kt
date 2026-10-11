@@ -97,7 +97,9 @@ fun unitsTotal(
 }
 
 /** The API's `timing` strings, one per case. */
-enum class RxTiming(val api: String) {
+enum class RxTiming(
+    val api: String,
+) {
     BeforeFood("before_food"),
     AfterFood("after_food"),
     EmptyStomach("empty_stomach"),

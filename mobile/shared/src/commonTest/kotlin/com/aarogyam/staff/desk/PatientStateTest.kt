@@ -44,7 +44,13 @@ class PatientStateTest {
 
     @Test
     fun future_states_are_preview_only() {
-        assertEquals(setOf(PatientState.Called, PatientState.ReadyToBill), PatientState.entries.filter { it.previewOnly }.toSet())
+        assertEquals(
+            setOf(PatientState.Called, PatientState.ReadyToBill),
+            PatientState.entries
+                .filter {
+                    it.previewOnly
+                }.toSet(),
+        )
         assertTrue(!PatientState.Waiting.previewOnly)
     }
 }

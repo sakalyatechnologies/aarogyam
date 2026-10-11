@@ -128,11 +128,17 @@ class OutboxRunner(
         val attempts = entry.attempts + 1
         val next =
             when (result) {
-                SendResult.Delivered -> null
-                is SendResult.Retry ->
+                SendResult.Delivered -> {
+                    null
+                }
+
+                is SendResult.Retry -> {
                     entry.copy(attempts = attempts, nextAttemptAt = now() + backoff(attempts), lastError = result.code)
-                is SendResult.Rejected ->
+                }
+
+                is SendResult.Rejected -> {
                     entry.copy(attempts = attempts, status = OutboxStatus.Failed, lastError = result.code)
+                }
             }
         if (next == null) store.remove(entry.id) else store.put(next)
         publish()

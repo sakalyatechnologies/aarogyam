@@ -33,5 +33,6 @@ data class OutboxEntry(
     val lastError: String? = null,
 ) {
     /** Leaves the payload out, so an entry in a log line or a crash report carries no patient data. */
-    override fun toString(): String = "OutboxEntry(id=$id, kind=$kind, status=$status, attempts=$attempts, error=$lastError)"
+    override fun toString(): String =
+        "OutboxEntry(id=$id, kind=$kind, status=$status, attempts=$attempts, error=$lastError)"
 }

@@ -11,6 +11,7 @@ import com.aarogyam.staff.clinic.ClinicDirectory
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.Hosts
+import com.aarogyam.staff.consents.ConsentsStateHolder
 import com.aarogyam.staff.desk.DeskLookupStateHolder
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.MemoryPreferences
@@ -21,7 +22,6 @@ import com.aarogyam.staff.history.VisitDetailStateHolder
 import com.aarogyam.staff.history.VisitHistoryStateHolder
 import com.aarogyam.staff.labs.LabsStateHolder
 import com.aarogyam.staff.labs.NewLabCaseStateHolder
-import com.aarogyam.staff.consents.ConsentsStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.outbox.Connectivity
 import com.aarogyam.staff.outbox.MemoryOutboxStore

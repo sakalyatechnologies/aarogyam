@@ -36,8 +36,7 @@ data class RxLineDraft(
 
     fun withDays(value: Int): RxLineDraft = copy(days = value.coerceIn(RX_MIN_DAYS, RX_MAX_DAYS))
 
-    fun cycled(slot: DoseSlot): RxLineDraft =
-        copy(dose = (dose ?: RxDose(0, 0, 0)).cycle(slot), rawFrequency = null)
+    fun cycled(slot: DoseSlot): RxLineDraft = copy(dose = (dose ?: RxDose(0, 0, 0)).cycle(slot), rawFrequency = null)
 
     fun toItem(): RxItem =
         RxItem(

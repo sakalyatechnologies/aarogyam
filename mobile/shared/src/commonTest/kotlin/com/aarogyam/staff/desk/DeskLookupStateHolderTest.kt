@@ -1,8 +1,8 @@
 package com.aarogyam.staff.desk
 
 import com.aarogyam.staff.FakeBackend
-import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.SUNRISE
+import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.json
 import com.aarogyam.staff.openClinic
 import com.aarogyam.staff.testGraph
@@ -39,7 +39,11 @@ class DeskLookupStateHolderTest {
         return graph.desk(clinic, backgroundScope)
     }
 
-    private suspend fun DeskLookupStateHolder.settled() = state.first { it !is DeskLookupState.Idle && it !is DeskLookupState.Looking }
+    private suspend fun DeskLookupStateHolder.settled() =
+        state.first {
+            it !is DeskLookupState.Idle &&
+                it !is DeskLookupState.Looking
+        }
 
     @Test
     fun one_match_checked_in_today_offers_no_check_in() =
@@ -57,7 +61,15 @@ class DeskLookupStateHolderTest {
             assertEquals(null, meera.lastVisit)
             assertEquals(listOf(DeskAction.AddFamilyMember(phone), DeskAction.NewPatient(phone)), matches.actions)
             assertEquals(1, backend.count(LOOKUP))
-            val body = backend.requests.last { it.url.encodedPath.endsWith("lookup") }.body.toByteArray().decodeToString()
+            val body =
+                backend.requests
+                    .last {
+                        it.url.encodedPath.endsWith(
+                            "lookup",
+                        )
+                    }.body
+                    .toByteArray()
+                    .decodeToString()
             assertEquals("""{"phone":"$phone"}""", body)
         }
 
@@ -120,7 +132,15 @@ class DeskLookupStateHolderTest {
             holder.checkIn("p1")
             val done = assertIs<DeskLookupState.CheckedIn>(holder.state.first { it is DeskLookupState.CheckedIn })
             assertEquals(7, done.tokenNumber)
-            val sent = backend.requests.last { it.url.encodedPath.endsWith("walk-ins") }.body.toByteArray().decodeToString()
+            val sent =
+                backend.requests
+                    .last {
+                        it.url.encodedPath.endsWith(
+                            "walk-ins",
+                        )
+                    }.body
+                    .toByteArray()
+                    .decodeToString()
             assertTrue("\"patient_id\":\"p1\"" in sent)
             assertFalse(logs.records.any { "9876543210" in it.toString() })
         }

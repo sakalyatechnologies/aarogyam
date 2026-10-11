@@ -32,7 +32,10 @@ fun interface OutboxSender {
  */
 fun Outcome<*, ApiError>.toSendResult(): SendResult =
     when (this) {
-        is Outcome.Success -> SendResult.Delivered
+        is Outcome.Success -> {
+            SendResult.Delivered
+        }
+
         is Outcome.Failure -> {
             val status = error.status
             val retry = error.isRetryable || status == 401 || status == 426 || status == 408 || status == 429

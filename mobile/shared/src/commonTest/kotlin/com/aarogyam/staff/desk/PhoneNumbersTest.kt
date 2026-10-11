@@ -13,7 +13,13 @@ class PhoneNumbersTest {
 
     @Test
     fun incomplete_or_invalid_numbers_are_null() {
-        listOf("", "98765", "5876543210", "98765432101", "+91 98765 4321").forEach { assertNull(normaliseIndianPhone(it), it) }
+        listOf(
+            "",
+            "98765",
+            "5876543210",
+            "98765432101",
+            "+91 98765 4321",
+        ).forEach { assertNull(normaliseIndianPhone(it), it) }
     }
 
     @Test

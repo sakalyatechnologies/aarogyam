@@ -2,10 +2,10 @@ package com.aarogyam.staff.desk
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.lookupByPhone
-import com.aarogyam.staff.api.queue
-import com.aarogyam.staff.api.registerWalkIn
 import com.aarogyam.staff.api.model.DeskConsentFields
 import com.aarogyam.staff.api.model.WalkInRequest
+import com.aarogyam.staff.api.queue
+import com.aarogyam.staff.api.registerWalkIn
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.sexOf
 import com.sakalya.mobile.core.Logger
@@ -51,10 +51,11 @@ class DeskLookupStateHolder(
             return
         }
         mutableState.value = DeskLookupState.Looking
-        job = scope.launch {
-            delay(debounceMillis)
-            lookup(phone)
-        }
+        job =
+            scope.launch {
+                delay(debounceMillis)
+                lookup(phone)
+            }
     }
 
     /** Checks in the registered patient [patientId]; a second tap while sending is ignored. */
@@ -63,12 +64,16 @@ class DeskLookupStateHolder(
         checkingIn = true
         scope.launch {
             val request =
-                WalkInRequest(patientId = patientId, consents = listOf(DeskConsentFields(method = "verbal", purpose = "care")))
+                WalkInRequest(
+                    patientId = patientId,
+                    consents = listOf(DeskConsentFields(method = "verbal", purpose = "care")),
+                )
             when (val result = clinic.api.registerWalkIn(request)) {
                 is Outcome.Success -> {
                     log.info("desk.checked_in") { id("patient_id", patientId) }
                     mutableState.value = DeskLookupState.CheckedIn(patientId, result.value.token.tokenNumber)
                 }
+
                 is Outcome.Failure -> {
                     log.warn("desk.check_in_failed") { code("error", result.error.code.value) }
                     mutableState.value = DeskLookupState.Failed(ScreenError.of(result.error))
@@ -85,6 +90,7 @@ class DeskLookupStateHolder(
                 requested = null
                 mutableState.value = DeskLookupState.Failed(ScreenError.of(found.error))
             }
+
             is Outcome.Success -> {
                 if (found.value.items.isEmpty()) {
                     mutableState.value = DeskLookupState.NoMatch(phone, listOf(DeskAction.NewPatient(phone)))
@@ -94,7 +100,16 @@ class DeskLookupStateHolder(
                 val profiles =
                     found.value.items.map {
                         val state = today[it.id]
-                        DeskProfile(it.id, it.number, initialsOf(it.fullName), it.ageYears, sexOf(it.sex), null, state != null, state)
+                        DeskProfile(
+                            it.id,
+                            it.number,
+                            initialsOf(it.fullName),
+                            it.ageYears,
+                            sexOf(it.sex),
+                            null,
+                            state != null,
+                            state,
+                        )
                     }
                 val actions =
                     profiles.filter { !it.checkedInToday }.map { DeskAction.CheckIn(it.id) } +

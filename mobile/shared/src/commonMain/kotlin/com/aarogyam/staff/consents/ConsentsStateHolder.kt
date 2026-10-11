@@ -146,7 +146,14 @@ class ConsentsStateHolder(
                 log.warn("consents.load_failed") { id("patient", patientId) }
                 val error = ScreenError.of(result.error)
                 mutableState.value =
-                    if (now is ConsentsState.Loaded) now.copy(refreshing = false, error = error) else ConsentsState.Failed(error)
+                    if (now is ConsentsState.Loaded) {
+                        now.copy(
+                            refreshing = false,
+                            error = error,
+                        )
+                    } else {
+                        ConsentsState.Failed(error)
+                    }
             }
         }
     }
@@ -166,7 +173,8 @@ class ConsentsStateHolder(
         val key = pendingKey ?: IdempotencyKey.generate().also { pendingKey = it }
         mutableState.value = current.copy(busy = true, error = null, failedRecord = null)
         scope.launch {
-            val body = RecordConsent(purpose = purpose.wire, method = method.wire, note = note?.takeIf { it.isNotBlank() })
+            val body =
+                RecordConsent(purpose = purpose.wire, method = method.wire, note = note?.takeIf { it.isNotBlank() })
             when (val result = clinic.api.recordConsent(patientId, body, key)) {
                 is Outcome.Success -> {
                     pendingKey = null

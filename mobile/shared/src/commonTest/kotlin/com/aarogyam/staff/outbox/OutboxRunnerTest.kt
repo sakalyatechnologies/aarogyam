@@ -75,7 +75,15 @@ class OutboxRunnerTest {
     fun backoffIsCapped() =
         runTest {
             net.online.value = true
-            val runner = OutboxRunner(store, FakeSender(MutableList(30) { SendResult.Retry("x") }), net, { clock }, 2_000, 10_000)
+            val runner =
+                OutboxRunner(
+                    store,
+                    FakeSender(MutableList(30) { SendResult.Retry("x") }),
+                    net,
+                    { clock },
+                    2_000,
+                    10_000,
+                )
             runner.enqueue(OutboxKind.Note, "{}")
             repeat(8) {
                 runner.drain()
@@ -96,7 +104,12 @@ class OutboxRunnerTest {
             runner.enqueue(OutboxKind.Note, "{}")
             assertEquals(1, runner.drain())
             assertEquals(listOf(bad), runner.failed.value.map { it.id })
-            assertEquals("validation_failed", runner.failed.value.single().lastError)
+            assertEquals(
+                "validation_failed",
+                runner.failed.value
+                    .single()
+                    .lastError,
+            )
             assertEquals(0, runner.pending.value)
             runner.drain()
             assertEquals(2, sender.sent.size) // the failed one is not sent again
@@ -164,6 +177,12 @@ class OutboxRunnerTest {
         PersistentOutboxStore(persistence).put(OutboxEntry("a", OutboxKind.Note, """{"body":"Asha Patil"}""", 1))
         val again = PersistentOutboxStore(persistence)
         assertEquals(1, again.all().size)
-        assertFalse(again.all().single().toString().contains("Asha"))
+        assertFalse(
+            again
+                .all()
+                .single()
+                .toString()
+                .contains("Asha"),
+        )
     }
 }

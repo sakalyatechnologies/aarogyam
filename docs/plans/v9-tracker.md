@@ -172,3 +172,8 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
 2. Run the final backend workspace test, cargo deny and machete. This needs about 15 GB of disk.
 3. End-to-end on a v9 server (DB aarogyam_v9be) with two simulators, desk and doctor.
 4. be-msg (BE7): WhatsApp/SMS with a fake provider.
+- **feat/v9 = 249e642: mobile, backend and main in one branch.**
+  - Merged feat/v9-backend into feat/v9. Conflicts: the backlog (both sides kept); openapi taken from the backend, since it is generated.
+  - web/ differs from main only by the v7 reference scripts under `web/e2e/v7`.
+  - `gradlew check` is green; `ios-check.sh` is running.
+- Main already sends WhatsApp through Meta's Cloud API (off by default), so BE7 shrinks to templates and triggers. be-msg started from feat/v9: welcome, visit_summary and follow_up_booking, plus a final full workspace test, cargo deny and cargo machete.

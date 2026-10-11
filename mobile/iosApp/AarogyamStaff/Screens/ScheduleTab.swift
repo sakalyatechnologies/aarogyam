@@ -33,6 +33,7 @@ struct ScheduleTab: View {
                 }
                 .padding(.horizontal, SkSpacing.l)
                 .padding(.vertical, SkSpacing.s)
+                RoutesDesk.boardEntry(graph: graph, clinic: clinic, visible: segment == 0, onOpenPatient: onOpenPatient)
                 Group {
                     switch segment {
                     case 1:

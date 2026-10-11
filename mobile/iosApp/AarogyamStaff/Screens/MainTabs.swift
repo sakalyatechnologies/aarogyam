@@ -36,11 +36,7 @@ struct MainTabs: View {
             }
         }
         .minimizingTabBar()
-        .sheet(isPresented: $walkIn) {
-            ScreenHost(make: { graph.walkIn(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
-                WalkInScreen(holder: holder, state: state)
-            }
-        }
+        .sheet(isPresented: $walkIn) { RoutesDesk.sheet(graph: graph, clinic: clinic) }
         .sheet(isPresented: $addExpense, onDismiss: { expenseRevision += 1 }) { ExpenseSheetHost(graph: graph, clinic: clinic) }
         .devClinicalHooks(graph: graph, clinic: clinic, selected: $selected, morePath: $morePath)
         .task { clinicCount = await countClinics() }

@@ -38,4 +38,8 @@ suspend fun deskProfileNames(
     clinic: ClinicContext,
     phone: String,
 ): Map<String, String> =
-    (clinic.api.lookupByPhone(phone) as? Outcome.Success)?.value?.items?.associate { it.id to it.fullName }.orEmpty()
+    (clinic.api.lookupByPhone(phone) as? Outcome.Success)
+        ?.value
+        ?.items
+        ?.associate { it.id to it.fullName }
+        .orEmpty()

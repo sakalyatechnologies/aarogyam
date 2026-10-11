@@ -72,9 +72,22 @@ class DeskBoardStateHolder(
     fun refresh() {
         val current = mutableState.value
         when (current) {
-            DeskBoardState.NotAllowed -> return
-            is DeskBoardState.Loaded -> if (current.refreshing) return else mutableState.value = current.copy(refreshing = true)
-            else -> mutableState.value = DeskBoardState.Loading
+            DeskBoardState.NotAllowed -> {
+                return
+            }
+
+            is DeskBoardState.Loaded -> {
+                if (current.refreshing) {
+                    return
+                } else {
+                    mutableState.value =
+                        current.copy(refreshing = true)
+                }
+            }
+
+            else -> {
+                mutableState.value = DeskBoardState.Loading
+            }
         }
         load()
     }
@@ -108,7 +121,8 @@ class DeskBoardStateHolder(
                     log.warn("deskboard.load_failed") { code("error", result.error.code.value) }
                     val error = ScreenError.of(result.error)
                     val current = mutableState.value as? DeskBoardState.Loaded
-                    mutableState.value = current?.copy(refreshing = false, error = error) ?: DeskBoardState.Failed(error)
+                    mutableState.value =
+                        current?.copy(refreshing = false, error = error) ?: DeskBoardState.Failed(error)
                 }
             }
         }

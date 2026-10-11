@@ -15,6 +15,7 @@ struct DeskPaymentSheet: View {
         ScreenHost(make: { graph.deskPayment(clinic: clinic, patientId: target.patientId, screen: $0) }, state: { $0.state }) { holder, state in
             DeskPaymentScreen(holder: holder, state: state, target: target)
         }
+        .presentationDetents([.large])
     }
 }
 

@@ -102,13 +102,17 @@ internal suspend fun deliver(
     log: Logger,
 ): Delivery {
     val idempotency = IdempotencyKey.parse(key) ?: return Delivery.Rejected(ScreenError.Unknown, "bad_key")
-    val method = PayMethod.entries.firstOrNull { it.name == job.method } ?: return Delivery.Rejected(ScreenError.Unknown, "bad_method")
+    val method =
+        PayMethod.entries.firstOrNull { it.name == job.method }
+            ?: return Delivery.Rejected(ScreenError.Unknown, "bad_method")
     val payment =
         NewPayment(
             patientId = job.patientId,
             method = method.wire,
             amountPaise = job.amountPaise,
-            allocations = job.invoiceId?.let { listOf(Allocation(invoiceId = it, amountPaise = job.allocatedPaise)) } ?: emptyList(),
+            allocations =
+                job.invoiceId?.let { listOf(Allocation(invoiceId = it, amountPaise = job.allocatedPaise)) }
+                    ?: emptyList(),
         )
     val paid = api.recordPayment(payment, idempotency)
     if (paid is Outcome.Failure) {
@@ -122,7 +126,15 @@ internal suspend fun deliver(
     val number = (paid as Outcome.Success).value.number
     val photo = job.proofJpegBase64 ?: return Delivery.Done(number, ProofStatus.None)
     val proofId = job.proofId ?: return Delivery.Done(number, ProofStatus.NotSent)
-    val uploaded = api.uploadAttachment(job.patientId, proofId, kindFor(job.proofLabel), Base64.decode(photo), job.proofLabel, null)
+    val uploaded =
+        api.uploadAttachment(
+            job.patientId,
+            proofId,
+            kindFor(job.proofLabel),
+            Base64.decode(photo),
+            job.proofLabel,
+            null,
+        )
     return when (uploaded) {
         is Outcome.Success -> {
             Delivery.Done(number, ProofStatus.Sent)
@@ -130,7 +142,13 @@ internal suspend fun deliver(
 
         is Outcome.Failure -> {
             log.warn("deskpay.proof_failed") { code("error", uploaded.error.code.value) }
-            if (uploaded.toSendResult() is SendResult.Retry) Delivery.Retry(uploaded.error.code.value) else Delivery.Done(number, ProofStatus.NotSent)
+            if (uploaded.toSendResult() is SendResult.Retry) {
+                Delivery.Retry(
+                    uploaded.error.code.value,
+                )
+            } else {
+                Delivery.Done(number, ProofStatus.NotSent)
+            }
         }
     }
 }
@@ -140,7 +158,9 @@ private fun paymentSender(
     log: Logger,
 ) = OutboxSender { entry: OutboxEntry ->
     if (entry.kind != OutboxKind.Payment) return@OutboxSender SendResult.Rejected("unsupported_kind")
-    val job = runCatching { jobJson.decodeFromString<PaymentJob>(entry.payload) }.getOrNull() ?: return@OutboxSender SendResult.Rejected("bad_payload")
+    val job =
+        runCatching { jobJson.decodeFromString<PaymentJob>(entry.payload) }.getOrNull()
+            ?: return@OutboxSender SendResult.Rejected("bad_payload")
     when (val delivery = deliver(api, job, entry.id, log)) {
         is Delivery.Done -> SendResult.Delivered
         is Delivery.Retry -> SendResult.Retry(delivery.code)

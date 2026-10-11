@@ -78,7 +78,8 @@ class DeskPaymentStateHolder(
     private val allowed = BILLING_READ in clinic.permissions && BILLING_WRITE in clinic.permissions
     private val canProof = CLINICAL_WRITE in clinic.permissions
     private val runner = DeskOutbox.runner(graph, clinic)
-    private val mutableState = MutableStateFlow<DeskPayState>(if (allowed) DeskPayState.Loading else DeskPayState.NotAllowed)
+    private val mutableState =
+        MutableStateFlow<DeskPayState>(if (allowed) DeskPayState.Loading else DeskPayState.NotAllowed)
     private val mutableOutcome = MutableStateFlow<DeskPayOutcome>(DeskPayOutcome.Idle)
 
     // One key per submission: kept while the same payment is retried, replaced when it changes.
@@ -187,7 +188,8 @@ class DeskPaymentStateHolder(
     }
 
     private fun dueOf(invoiceId: String): Long =
-        (mutableState.value as? DeskPayState.Ready)?.dues?.firstOrNull { it.id == invoiceId }?.balancePaise ?: Long.MAX_VALUE
+        (mutableState.value as? DeskPayState.Ready)?.dues?.firstOrNull { it.id == invoiceId }?.balancePaise
+            ?: Long.MAX_VALUE
 
     private companion object {
         const val BILLING_READ = "billing.read"

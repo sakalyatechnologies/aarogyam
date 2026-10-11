@@ -466,6 +466,18 @@ describe("createHttpClient settings v2", () => {
     recall: null,
   };
 
+  it("sets and removes the caller's avatar on /me/avatar, sending the form as it is", async () => {
+    const bodies = [json(200, { preset: "tooth_3" }), new Response(null, { status: 204 })];
+    const { calls, fetch } = stubFetch(() => Promise.resolve(bodies.shift() ?? json(500, {})));
+    const client = createHttpClient("http://sunrise.localtest.me", () => "token", { fetch });
+    const form = new FormData();
+    form.set("preset", "tooth_3");
+    expect((await unwrap(client.putMyAvatar(form))).preset).toBe("tooth_3");
+    await unwrap(client.deleteMyAvatar());
+    expect(calls.map((c) => `${c.init?.method ?? ""} ${new URL(c.url).pathname}`)).toEqual(["PUT /api/v1/me/avatar", "DELETE /api/v1/me/avatar"]);
+    expect(calls[0]?.init?.body).toBe(form);
+  });
+
   it("decodes the profile, other-session sign-out and notification switches, on the routes the API serves", async () => {
     const bodies = [
       json(200, { display_name: "Asha Rao", phone: "+919876543210" }),

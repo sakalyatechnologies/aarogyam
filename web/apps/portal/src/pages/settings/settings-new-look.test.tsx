@@ -37,10 +37,9 @@ describe("Settings in the new look", () => {
     renderPortal("/settings", { as: PEOPLE.asha });
     expect(await sections()).toEqual([
       "My profile",
-      "Dashboard studio",
+      "Appearance",
       "Clinic profile",
       "Letterhead",
-      "Theme",
       "Chairs & doctors",
       "Price list",
       "Team & roles",
@@ -59,10 +58,10 @@ describe("Settings in the new look", () => {
     const { router } = renderPortal("/settings?tab=website", { as: PEOPLE.asha });
     await screen.findByRole("heading", { name: /Your website/ });
     expect(current()).toBe("Website");
-    await user.click(screen.getByRole("button", { name: "Theme" }));
-    expect(router.state.location.search).toBe("?tab=theme");
+    await user.click(screen.getByRole("button", { name: "Appearance" }));
+    expect(router.state.location.search).toBe("?tab=appearance");
     await screen.findByRole("radiogroup", { name: "Palette" });
-    expect(current()).toBe("Theme");
+    expect(current()).toBe("Appearance");
     await router.navigate(-1);
     await waitFor(() => { expect(current()).toBe("Website"); });
   });
@@ -79,7 +78,7 @@ describe("Settings in the new look", () => {
 
   it("shows only the sections a role may open, and calls the account My profile", async () => {
     renderPortal("/settings", { as: PEOPLE.farah, backend: farahWith(["patients.read"]) });
-    expect(await sections()).toEqual(["My profile", "Dashboard studio", "Booking & notifications", "Sessions"]);
+    expect(await sections()).toEqual(["My profile", "Appearance", "Booking & notifications", "Sessions"]);
     await screen.findByText("Only the clinic owner can change the clinic profile.");
     expect(screen.getByText("Your profile and look")).toBeTruthy();
   });

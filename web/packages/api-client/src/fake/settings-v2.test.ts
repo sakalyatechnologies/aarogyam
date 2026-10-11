@@ -54,6 +54,36 @@ describe("the person's own profile", () => {
   });
 });
 
+describe("the person's own avatar", () => {
+  it("sets a preset, shows it on the session, replaces it with a photo and removes it", async () => {
+    const { as } = setup();
+    const asha = as(ASHA);
+    const preset = new FormData();
+    preset.set("preset", "tooth_3");
+    expect(value(await asha.putMyAvatar(preset)).preset).toBe("tooth_3");
+    expect(value(await asha.getSession()).user.avatar?.preset).toBe("tooth_3");
+    const photo = new FormData();
+    photo.set("file", new File([new Uint8Array(8)], "me.png", { type: "image/png" }));
+    expect(value(await asha.putMyAvatar(photo)).photo_url).toBeTruthy();
+    value(await asha.deleteMyAvatar());
+    expect(value(await asha.getSession()).user.avatar ?? null).toBeNull();
+  });
+
+  it("refuses neither, both, a bad preset and a non-image with 400", async () => {
+    const { as } = setup();
+    const both = new FormData();
+    both.set("preset", "tooth_1");
+    both.set("file", new File([new Uint8Array(8)], "me.png", { type: "image/png" }));
+    const bad = new FormData();
+    bad.set("preset", "Not Valid");
+    const text = new FormData();
+    text.set("file", new File(["hi"], "me.txt", { type: "text/plain" }));
+    for (const form of [new FormData(), both, bad, text]) {
+      expect(errorOf(await as(ASHA).putMyAvatar(form))?.status).toBe(400);
+    }
+  });
+});
+
 describe("signing out other sessions", () => {
   it("ends every session but the current one and says how many", async () => {
     const { as } = setup();

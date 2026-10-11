@@ -59,3 +59,28 @@
   .st-nl-nav { position: static; flex-direction: row; overflow-x: auto; padding: 6px; border-radius: var(--nl-pill-r, 999px); scrollbar-width: thin; }
   .st-nl-item { flex: none; }
 }
+
+/* New look, Chairs & doctors: the two cards side by side from 1100px; upcoming leave stays full width below. */
+.st-cd-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+@media (min-width: 1100px) {
+  .st-nl .st-cd-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+
+/* New look, My profile: the picture with its presets, then name and phone. */
+.st-me { display: grid; gap: 16px; width: 810px; max-width: 100%; }
+.st-me-head { display: flex; align-items: center; gap: 16px; }
+.st-me-photo { position: relative; display: inline-flex; }
+.st-me-face { display: inline-grid; place-items: center; border-radius: 50%; object-fit: cover; color: #fff; flex: none; }
+.st-me-camera { position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--surface); background: var(--ink); color: var(--surface); cursor: pointer; }
+.st-me-camera:focus-visible, .st-me-pick:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.st-me-who { display: grid; gap: 2px; }
+.st-me-presets { display: flex; flex-flow: row wrap; align-items: center; gap: 8px; }
+.st-me-pick { padding: 3px; border-radius: 50%; border: 2px solid transparent; background: transparent; cursor: pointer; }
+.st-me-pick[aria-pressed="true"] { border-color: var(--brand); }
+.st-me-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+@media (max-width: 640px) { .st-me-fields { grid-template-columns: minmax(0, 1fr); } }
+
+/* New look, Appearance: the clinic theme above the member's dashboard. */
+.st-appearance { display: grid; gap: 16px; }
+.st-appearance-section { scroll-margin-top: 84px; min-width: 0; }
+.st-nl { width: 100%; }

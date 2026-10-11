@@ -810,7 +810,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({
             clinic: { id: clinic.id, slug: clinic.slug, name: clinic.name, timezone: clinic.timezone, branding: clinic.branding },
             membership: { id: membership.id, role_key: membership.role.key, permissions: [...membership.role.permissions] },
-            user: { id: user.id, display_name: user.display_name },
+            user: { id: user.id, display_name: user.display_name, ...(user.avatar === undefined ? {} : { avatar: user.avatar }) },
           } satisfies C.Session);
         }),
 
@@ -3867,6 +3867,47 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             user.phone = phone;
           }
           return reply({ display_name: user.display_name, phone: user.phone ?? null } satisfies C.Profile);
+        }),
+
+      putMyAvatar: (form, opts) =>
+        respond(S.avatar, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const file = form.get("file");
+          const preset = form.get("preset");
+          const hasFile = file instanceof File && file.size > 0;
+          const hasPreset = typeof preset === "string" && preset !== "";
+          if (hasFile === hasPreset) {
+            return refuse(400, "invalid_request", "send exactly one of preset and file");
+          }
+          if (hasPreset) {
+            if (!/^[a-z][a-z0-9_]{0,31}$/.test(preset)) {
+              return refuse(400, "invalid_request", "preset is not a valid preset id");
+            }
+            caller.user.avatar = { preset };
+          } else if (file instanceof File) {
+            if (file.type !== "image/png" && file.type !== "image/jpeg") {
+              return refuse(400, "invalid_request", "the photo must be a PNG or JPEG");
+            }
+            if (file.size > 2 * 1024 * 1024) {
+              return refuse(400, "invalid_request", "the photo must be at most 2 MB");
+            }
+            const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : `blob:fake/${fakeUuid(random, clock())}`;
+            caller.user.avatar = { photo_url: url };
+          }
+          return reply({ ...caller.user.avatar } satisfies C.Avatar);
+        }),
+
+      deleteMyAvatar: (opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          delete caller.user.avatar;
+          return reply(undefined);
         }),
 
       revokeOtherSessions: (opts) =>

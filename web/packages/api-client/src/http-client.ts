@@ -60,6 +60,7 @@ import {
   joined,
   leave,
   leaveList,
+  avatar,
   meResponse,
   member,
   metricsResponse,
@@ -543,6 +544,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     revokeOtherSessions: (opts) =>
       call({ method: "POST", path: "/api/v1/me/sessions/revoke-others", schema: revokedSessions, signal: opts?.signal }),
     updateMe: (changes, opts) => call({ method: "PATCH", path: "/api/v1/me", schema: profile, body: changes, signal: opts?.signal }),
+    putMyAvatar: (form, opts) => call({ method: "PUT", path: "/api/v1/me/avatar", schema: avatar, body: form, signal: opts?.signal }),
+    deleteMyAvatar: (opts) => call({ method: "DELETE", path: "/api/v1/me/avatar", schema: voidResponse, signal: opts?.signal }),
 
     listClinics: (opts) =>
       call({ method: "GET", path: "/api/v1/console/clinics", schema: consoleClinics, signal: opts?.signal }),

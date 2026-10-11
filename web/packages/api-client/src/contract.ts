@@ -81,6 +81,7 @@ export type LetterheadClinic = Schemas["LetterheadClinic"];
 
 export type MySession = Schemas["MySession"];
 export type MySessions = Schemas["MySessions"];
+export type Avatar = Schemas["Avatar"];
 export type Profile = Schemas["Profile"];
 export type ProfileUpdate = Schemas["ProfileUpdate"];
 export type RevokedSessions = Schemas["RevokedSessions"];

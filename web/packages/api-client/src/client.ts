@@ -8,6 +8,7 @@ import type {
   NotificationList,
   NotificationSettings,
   NotificationSettingsChanges,
+  Avatar,
   Profile,
   ProfileUpdate,
   RevokedSessions,
@@ -440,6 +441,10 @@ export interface ApiClient {
   revokeOtherSessions(options?: RequestOptions): Promise<ApiResult<RevokedSessions>>;
   /** Any host: changes the person's own name and phone (across every clinic they belong to). `400` names the field; `409` when another account holds the phone. */
   updateMe(changes: ProfileUpdate, options?: RequestOptions): Promise<ApiResult<Profile>>;
+  /** Clinic host: sets the caller's own avatar from a form with exactly one of `preset` (an id such as `tooth_3`) or `file` (PNG or JPEG, up to 2 MB). `400` for neither, both, a bad preset or another file type. */
+  putMyAvatar(form: FormData, options?: RequestOptions): Promise<ApiResult<Avatar>>;
+  /** Clinic host: removes the caller's own avatar. */
+  deleteMyAvatar(options?: RequestOptions): Promise<ApiResult<void>>;
 
   /** Console host. */
   listClinics(options?: RequestOptions): Promise<ApiResult<ConsoleClinicPage>>;

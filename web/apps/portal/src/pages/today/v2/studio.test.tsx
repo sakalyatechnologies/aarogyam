@@ -4,10 +4,10 @@ import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient, DashboardCatalogue, DashboardLayout } from "@aarogyam/api-client";
-import { ROLES } from "@aarogyam/api-client/fake";
+import { ROLES, fakeTokenFor } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../../../lib/new-look.js";
-import { PEOPLE, fakeApi, renderPortal } from "../../../test/render.js";
+import { NOW, PEOPLE, fakeApi, renderPortal } from "../../../test/render.js";
 import { WIDGET_KEYS } from "./registry.js";
 
 beforeEach(() => {
@@ -61,16 +61,45 @@ describe("the widget registry", () => {
   });
 });
 
-describe("Settings, Dashboard studio tab", () => {
+/** The Studio keeps density, card style, rail side and the widget list in a fold; opens it. */
+const openMore = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole("button", { name: "More options" }));
+};
+
+describe("Settings, Appearance tab, My dashboard section", () => {
   it("is there with the New look and gone without it", async () => {
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
-    expect(await screen.findByRole("button", { name: "Dashboard studio" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Appearance" })).toBeTruthy();
     expect(await screen.findByRole("group", { name: "Live preview of Today" })).toBeTruthy();
     cleanup();
     localStorage.setItem(NEW_LOOK_KEY, "0");
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
     await screen.findByRole("tab", { name: "Sessions" });
+    expect(screen.queryByRole("tab", { name: "Appearance" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Dashboard studio" })).toBeNull();
+  });
+
+  it("offers MedSync, Executive, Care, Compact and Front desk with Soft and Outline, and shows a saved focus or flat layout as MedSync and Soft", async () => {
+    const backend = fakeApi();
+    const api = backend.client({ host: "sunrise.localtest.me", getToken: () => fakeTokenFor({ id: PEOPLE.asha }), now: () => NOW });
+    const got = await api.getMyDashboardLayout();
+    if (!got.ok) throw new Error("expected a layout");
+    // The API still accepts both retired choices, so one can be saved by an older client or the mobile apps.
+    expect((await api.saveMyDashboardLayout({ ...got.value.layout, tpl: "focus", card: "flat" })).ok).toBe(true);
+    const user = userEvent.setup();
+    renderPortal("/settings?tab=studio", { as: PEOPLE.asha, backend });
+    await screen.findByRole("group", { name: "Live preview of Today" });
+    const cards = within(screen.getByRole("group", { name: "Template" }) ).getAllByRole("button").map((b) => b.querySelector("b")?.textContent);
+    expect(cards).toEqual(["MedSync", "Executive", "Care", "Compact", "Front desk"]);
+    expect(screen.getByRole("button", { name: /MedSync/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByRole("button", { name: /Focus/ })).toBeNull();
+    // The fold is closed until asked for, and nothing is unsaved yet.
+    expect(screen.queryByRole("button", { name: "Soft" })).toBeNull();
+    await openMore(user);
+    expect(screen.getByRole("button", { name: "Soft" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Outline" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Flat" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Save" }).hasAttribute("disabled")).toBe(true);
   });
 
   it("saves the member's layout through the API and Today draws it after a reload", async () => {
@@ -87,6 +116,7 @@ describe("Settings, Dashboard studio tab", () => {
     const { router } = renderPortal("/settings?tab=studio", { as: PEOPLE.asha, backend, wrap });
     await screen.findByRole("group", { name: "Live preview of Today" });
     await user.click(screen.getByRole("button", { name: /Executive/ }));
+    await openMore(user);
     await user.click(screen.getByRole("button", { name: "Compact" }));
     await user.click(screen.getByRole("button", { name: "Remove Busy hours" }));
     expect(order(preview())).not.toContain("busy_hours");
@@ -119,7 +149,7 @@ describe("Settings, Dashboard studio tab", () => {
     expect(screen.queryByRole("button", { name: "Customise" })).toBeNull();
     cleanup();
     const { router } = renderPortal("/settings?tab=studio", { as: PEOPLE.asha, backend });
-    await within(await screen.findByRole("navigation", { name: "Settings sections" })).findByRole("button", { name: "Dashboard studio" });
+    await within(await screen.findByRole("navigation", { name: "Settings sections" })).findByRole("button", { name: "Appearance" });
     await screen.findByRole("group", { name: "Live preview of Today" });
     expect(router.state.location.pathname + router.state.location.search).toBe("/settings?tab=studio");
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -141,6 +171,7 @@ describe("Settings, Dashboard studio tab", () => {
     const user = userEvent.setup();
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
     await screen.findByRole("group", { name: "Live preview of Today" });
+    await openMore(user);
     const before = order(preview()).filter((key) => ["appointments", "attention", "chairs"].includes(key ?? ""));
     expect(before[0]).toBe("appointments");
     await user.click(screen.getByRole("button", { name: "Move Appointments down" }));
@@ -160,6 +191,7 @@ describe("Settings, Dashboard studio tab", () => {
     const user = userEvent.setup();
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
     await screen.findByRole("group", { name: "Live preview of Today" });
+    await openMore(user);
     await user.click(screen.getByRole("button", { name: "Settings for Appointments" }));
     await user.click(screen.getByRole("button", { name: "List" }));
     await waitFor(() => { expect(within(preview()).queryByRole("table")).toBeNull(); });
@@ -181,6 +213,7 @@ describe("Settings, Dashboard studio tab", () => {
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
     await screen.findByRole("group", { name: "Live preview of Today" });
     const first = order(preview());
+    await openMore(user);
     await user.click(screen.getByRole("button", { name: "Remove Appointments" }));
     expect(order(preview())).not.toEqual(first);
     await user.click(screen.getByRole("button", { name: "Reset to template" }));
@@ -192,7 +225,7 @@ describe("Settings, Dashboard studio tab", () => {
     const user = userEvent.setup();
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha, backend });
     await screen.findByRole("group", { name: "Live preview of Today" });
-    await user.click(screen.getByRole("button", { name: /Focus/ }));
+    await user.click(screen.getByRole("button", { name: /Front desk/ }));
     await user.click(screen.getByRole("button", { name: "Save as clinic default" }));
     await waitFor(() => { expect(screen.getByText("Saved as the clinic's default")).toBeTruthy(); });
     cleanup();
@@ -200,8 +233,9 @@ describe("Settings, Dashboard studio tab", () => {
     renderPortal("/settings?tab=studio", { as: PEOPLE.farah, backend });
     await screen.findByRole("group", { name: "Live preview of Today" });
     expect(screen.queryByRole("button", { name: "Save as clinic default" })).toBeNull();
-    // The assistant gets the clinic's Focus layout, and cannot add what her role may not see.
-    expect(order(preview())).toContain("nextup");
+    // The assistant gets the clinic's Front desk layout, and cannot add what her role may not see.
+    await openMore(userEvent.setup());
+    expect(order(preview())).toContain("queue");
     expect(screen.queryByRole("button", { name: "Add Collections" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Add Revenue mix" })).toBeNull();
   });
@@ -369,7 +403,9 @@ describe("Accessibility of the studio", () => {
   it("the Settings tab has no axe violations", async () => {
     renderPortal("/settings?tab=studio", { as: PEOPLE.asha });
     await screen.findByRole("group", { name: "Live preview of Today" });
-    await userEvent.setup().click(screen.getByRole("button", { name: "Settings for Appointments" }));
+    const user = userEvent.setup();
+    await openMore(user);
+    await user.click(screen.getByRole("button", { name: "Settings for Appointments" }));
     expect(problems(await axe.run(document.body, AXE))).toEqual([]);
   });
 

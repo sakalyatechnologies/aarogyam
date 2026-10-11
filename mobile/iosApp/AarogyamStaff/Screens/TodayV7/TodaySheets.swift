@@ -81,12 +81,7 @@ struct NotificationsSheet: View {
                 } else {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(Array(items.prefix(30).enumerated()), id: \.offset) { _, row in
-                            HStack(spacing: 10) {
-                                if !row.read { SkBadgeDot() }
-                                Text(TodayV7.notificationTitle(kind: row.kind)).skTextStyle(SkTypeScale.bodyStrong)
-                                    .foregroundStyle(r.onSurface.color)
-                                Spacer(minLength: 0)
-                            }
+                            DeskAlertRow(row: row)
                         }
                         if items.contains(where: { !$0.read }) {
                             SkPillButton(String(localized: "t7.notifications.read_all", table: "TodayV7"), variant: .tonal, wide: true) { holder.readAll() }

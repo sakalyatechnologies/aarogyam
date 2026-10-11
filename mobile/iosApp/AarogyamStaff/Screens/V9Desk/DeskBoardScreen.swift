@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The waiting-room board: today's patients grouped by where they are (Waiting, Called, In consult,
 /// In chair, Ready to bill). It refreshes every 20 seconds while it is on screen and on pull.
-/// A doctor's "Send in" and the Ready to bill column wait for the server (BE2) and are Previews.
+/// A doctor's "Send in" calls the patient in; "My patients" filters to their own.
 struct DeskBoardScreen: View {
     let holder: DeskBoardStateHolder
     let state: DeskBoardState
@@ -51,11 +51,17 @@ struct DeskBoardScreen: View {
         let tickets = loaded.tickets
         let groups = DeskBoard.groups(tickets, state: { $0.state })
         let called = tickets.filter { $0.state == .called }
-        if let error = loaded.error { notice(net.online ? dv("d9.board.refresh_failed") : dv("d9.board.offline"), error: true, detail: error) }
+        if loaded.canFilterMine {
+            Toggle(isOn: Binding(get: { loaded.mine }, set: { holder.setMine(on: $0) })) {
+                Text(dv("d9.board.mine")).v7Text(14, .semibold)
+            }
+            .tint(theme.roles.primary.color).frame(minHeight: SkSpacing.minTouchTarget)
+        }
+        if let error = loaded.error { notice(net.online ? error.message : dv("d9.board.offline"), error: true, detail: error) }
         else if !net.online { notice(dv("d9.board.offline"), error: true, detail: nil) }
         if DeskBoard.showsCalledBanner(roleKey: roleKey, called: called.count) { calledBanner(called) }
         ForEach(groups, id: \.state) { group in
-            section(group.state, group.items)
+            section(group.state, group.items, loaded)
         }
         Text(dv("d9.board.live")).v7Text(11.5).foregroundStyle(theme.roles.onSurfaceVariant.color).padding(.top, 4)
     }
@@ -86,7 +92,7 @@ struct DeskBoardScreen: View {
         .accessibilityAddTraits(.isStaticText)
     }
 
-    private func section(_ group: PatientState, _ items: [BoardTicket]) -> some View {
+    private func section(_ group: PatientState, _ items: [BoardTicket], _ loaded: DeskBoardStateLoaded) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 8) {
                 Text(group.title).skTextStyle(SkTypeScale.headline).foregroundStyle(theme.roles.onSurface.color)
@@ -94,16 +100,15 @@ struct DeskBoardScreen: View {
                     .padding(.horizontal, 9).frame(minHeight: 22).background(theme.roles.surface3.color, in: Capsule())
             }
             .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
-            if DeskBoard.isPreview(group) { PreviewNotice() }
             if items.isEmpty {
                 Text(dv("d9.board.empty")).v7Text(12.5).foregroundStyle(theme.roles.onSurfaceVariant.color).padding(.horizontal, 2)
             }
-            ForEach(items, id: \.id) { ticket($0) }
+            ForEach(items, id: \.id) { ticket($0, loaded) }
         }
         .padding(.top, 6)
     }
 
-    private func ticket(_ row: BoardTicket) -> some View {
+    private func ticket(_ row: BoardTicket, _ loaded: DeskBoardStateLoaded) -> some View {
         let r = theme.roles
         let highlighted = row.state == .called
         return SkTicket(
@@ -112,9 +117,8 @@ struct DeskBoardScreen: View {
             badge: dvf("d9.board.wait", Int(row.waitMinutes))
         ) {
             if DeskBoard.showsSendIn(roleKey: roleKey, state: row.state) {
-                // Preview: POST /queue/{id}/call does not exist yet (BE2), so the button is drawn but off.
-                SkPillButton(dv("d9.board.send_in"), variant: .tonal) {}
-                    .disabled(true).accessibilityLabel(dvf("d9.board.send_in.a11y", row.name))
+                SkPillButton(dv("d9.board.send_in"), variant: .tonal) { holder.sendIn(tokenId: row.id) }
+                    .disabled(loaded.calling.contains(row.id)).accessibilityLabel(dvf("d9.board.send_in.a11y", row.name))
             } else if row.state == .readyToBill, clinic.permissions.contains("billing.write") {
                 SkPillButton(dv("d9.board.collect"), variant: .tonal) { onCollect(DeskPayTarget(patientId: row.patientId, name: row.name)) }
             }

@@ -3,13 +3,15 @@ import SakalyaUI
 import SwiftUI
 
 /// Close visit: optional follow-up and fee, then the button; with an unsigned prescription the
-/// button turns into a confirm card. The server takes the follow-up and fee with the close
-/// (BE5); until then they are Preview.
+/// button turns into a confirm card. The server plans the follow-up and starts the draft bill
+/// with the close (BE5). The fee shows only for roles that may bill (`billing.write`).
 struct V9CloseArea: View {
     @Binding var confirm: Bool
     @Binding var followUpOn: Bool
     @Binding var followUpDate: Date
     @Binding var feeText: String
+    let canBill: Bool
+    let canFollowUp: Bool
     let closing: Bool
     let error: String?
     let onClose: () -> Void
@@ -25,16 +27,19 @@ struct V9CloseArea: View {
                     HStack {
                         Text("v9v.close.after", tableName: "VisitV9").v7Text(16, .heavy).foregroundStyle(r.onSurface.color)
                     }
-                    Toggle(isOn: $followUpOn.animation()) {
-                        Text("v9v.close.follow_up", tableName: "VisitV9").v7Text(15)
+                    if canFollowUp {
+                        Toggle(isOn: $followUpOn.animation()) {
+                            Text("v9v.close.follow_up", tableName: "VisitV9").v7Text(15)
+                        }
+                        .tint(r.primary.color).frame(minHeight: 44)
                     }
-                    .tint(r.primary.color).frame(minHeight: 44)
-                    if followUpOn {
+                    if followUpOn && canFollowUp {
                         DatePicker(V9("v9v.close.follow_up.date"), selection: $followUpDate, in: Date.now..., displayedComponents: .date)
                             .v7Text(15).frame(minHeight: 44)
                     }
-                    SkField(V9("v9v.close.fee"), text: $feeText, placeholder: V9("v9v.close.fee.hint"), keyboard: .numberPad)
-                    Text("v9v.close.preview", tableName: "VisitV9").v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
+                    if canBill {
+                        SkField(V9("v9v.close.fee"), text: $feeText, placeholder: V9("v9v.close.fee.hint"), keyboard: .numberPad)
+                    }
                 }
             }
             if confirm {
@@ -63,6 +68,10 @@ struct V9CloseArea: View {
 
 /// After the visit closed: what was done, the bill and the way back to the patient.
 struct V9Summary: View {
+    let graph: AppGraph
+    let clinic: ClinicContext
+    let visitId: String
+    let phone: String?
     let firstName: String
     let patientNumber: String
     let snapshot: V9Snapshot
@@ -94,6 +103,7 @@ struct V9Summary: View {
                     .accessibilityElement(children: .combine)
                 }
             }
+            if clinic.permissions.contains("clinical.read") { V9ShareSummary(graph: graph, clinic: clinic, visitId: visitId, phone: phone) }
             SkPillButton(V9f("v9v.sum.back", firstName), variant: .fill, wide: true, action: onBack)
         }
     }

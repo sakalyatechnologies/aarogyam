@@ -7,12 +7,13 @@ import SwiftUI
 struct DeskLookupScreen: View {
     let holder: DeskLookupStateHolder
     let state: DeskLookupState
+    let graph: AppGraph
     let clinic: ClinicContext
     let onNewPatient: (String) -> Void
-    let onFamily: (String) -> Void
+    let onFamily: (String, [DeskFamilyAnchor]) -> Void
     let onCollect: (DeskPayTarget) -> Void
     @State private var typed = DeskLaunch.firstPhone
-    @State private var names: [String: String] = [:]
+    @State private var relatives: DeskPayTarget?
     @State private var net = V9Connectivity()
     @Environment(\.dismiss) private var dismiss
     @Environment(\.skTheme) private var theme
@@ -42,7 +43,7 @@ struct DeskLookupScreen: View {
         .scrollDismissesKeyboard(.interactively)
         .skSheet()
         .onAppear { if !typed.isEmpty { change(typed) } }
-        .task(id: matchKey) { await loadNames() }
+        .sheet(item: $relatives) { DeskFamilySheet(graph: graph, clinic: clinic, target: $0) }
     }
 
     private func change(_ text: String) {
@@ -82,12 +83,16 @@ struct DeskLookupScreen: View {
             V7Label(text: dvf("d9.lookup.profiles", found.profiles.count))
             VStack(spacing: 8) {
                 ForEach(found.profiles, id: \.id) { profile in
-                    DeskProfileRow(profile: profile, name: names[profile.id], canCollect: canCollect,
+                    DeskProfileRow(profile: profile, ofName: found.profiles.first { $0.id == profile.familyOf }?.name,
+                                   canCollect: canCollect, canFamily: clinic.permissions.contains("patients.read"),
                                    onCheckIn: { holder.checkIn(patientId: profile.id) },
-                                   onCollect: { onCollect(DeskPayTarget(patientId: profile.id, name: names[profile.id] ?? profile.initials)) })
+                                   onCollect: { onCollect(DeskPayTarget(patientId: profile.id, name: profile.name)) },
+                                   onFamily: { relatives = DeskPayTarget(patientId: profile.id, name: profile.name) })
                 }
             }
-            SkPillButton(dv("d9.lookup.family"), variant: .tonal, wide: true) { onFamily(found.phone) }
+            SkPillButton(dv("d9.lookup.family"), variant: .tonal, wide: true) {
+                onFamily(found.phone, found.profiles.filter { $0.familyOf == nil }.map { DeskFamilyAnchor(id: $0.id, name: $0.name) })
+            }
             SkPillButton(dv("d9.lookup.new"), variant: .warm, wide: true) { onNewPatient(found.phone) }
         case .notAllowed, .checkedIn:
             EmptyView()
@@ -103,26 +108,20 @@ struct DeskLookupScreen: View {
             SkPillButton(dv("d9.done"), wide: true) { dismiss() }
         }
     }
-
-    /// Changes when the matches do, so the names are fetched once for them.
-    private var matchKey: String {
-        if case .matches(let found) = onEnum(of: state) { found.phone + found.profiles.map(\.id).joined() } else { "" }
-    }
-
-    private func loadNames() async {
-        guard case .matches(let found) = onEnum(of: state) else { return }
-        names = (try? await IosDeskKt.deskProfileNames(clinic: clinic, phone: found.phone)) ?? [:]
-    }
 }
 
 /// One profile on the number: initials avatar, name, age and sex, last visit, a "checked in" badge
 /// and the actions that fit.
 struct DeskProfileRow: View {
     let profile: DeskProfile
-    let name: String?
+    /// The person this relative is linked to, when the profile is a relative.
+    let ofName: String?
     let canCollect: Bool
+    let canFamily: Bool
     let onCheckIn: () -> Void
     let onCollect: () -> Void
+    let onFamily: () -> Void
+    private var name: String { profile.name.isEmpty ? profile.initials : profile.name }
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -135,9 +134,13 @@ struct DeskProfileRow: View {
                     .background((profile.checkedInToday ? r.primary : r.primaryContainer).color, in: Circle())
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(name ?? profile.initials).v7Text(15, .bold).foregroundStyle(r.onSurface.color)
+                    Text(name).v7Text(15, .bold).foregroundStyle(r.onSurface.color)
                     Text(patientLine(number: profile.number, ageYears: profile.ageYears?.intValue, sex: profile.sex))
                         .v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
+                    if let relation = profile.relation, let ofName {
+                        Text(dvf("d9.lookup.relation_of", DeskRelation.title(wire: relation), ofName)).v7Text(12, .semibold)
+                            .foregroundStyle(r.primary.color)
+                    }
                     Text(lastVisitText).v7Text(11.5).foregroundStyle(r.onSurfaceVariant.color)
                 }
                 Spacer(minLength: 0)
@@ -151,9 +154,10 @@ struct DeskProfileRow: View {
             FlowLayout(spacing: 8) {
                 if !profile.checkedInToday {
                     SkPillButton(dv("d9.lookup.check_in"), action: onCheckIn)
-                        .accessibilityLabel(dvf("d9.lookup.check_in.a11y", name ?? profile.initials))
+                        .accessibilityLabel(dvf("d9.lookup.check_in.a11y", name))
                 }
                 if canCollect { SkPillButton(dv("d9.lookup.collect"), variant: .tonal, action: onCollect) }
+                if canFamily && profile.familyOf == nil { SkPillButton(dv("d9.family.section"), variant: .ghost, action: onFamily) }
             }
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)

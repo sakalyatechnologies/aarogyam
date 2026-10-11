@@ -1451,75 +1451,6 @@
         }
       }
     },
-    "d9.pay.proof.label": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save the photo as"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "फ़ोटो को इस नाम से सहेजें"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "फोटो या नावाने जतन करा"
-          }
-        }
-      }
-    },
-    "d9.label.report": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Report"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "रिपोर्ट"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अहवाल"
-          }
-        }
-      }
-    },
-    "d9.label.other": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Other"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अन्य"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "इतर"
-          }
-        }
-      }
-    },
     "d9.pay.proof.remove": {
       "extractionState": "manual",
       "localizations": {
@@ -1543,48 +1474,25 @@
         }
       }
     },
-    "d9.pay.proof.preview": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The photo is saved in the patient's files for now."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "फ़ोटो अभी मरीज़ की फ़ाइलों में सहेजी जाती है।"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "फोटो सध्या रुग्णाच्या फाइल्समध्ये जतन होतो."
-          }
-        }
-      }
-    },
     "d9.pay.proof.locked": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your role cannot add photos to a patient's files."
+            "value": "Your role cannot attach a proof photo."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "आपकी भूमिका मरीज़ की फ़ाइलों में फ़ोटो नहीं जोड़ सकती।"
+            "value": "आपकी भूमिका प्रमाण फ़ोटो नहीं जोड़ सकती।"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "तुमची भूमिका रुग्णाच्या फाइल्समध्ये फोटो जोडू शकत नाही."
+            "value": "तुमची भूमिका पुरावा फोटो जोडू शकत नाही."
           }
         }
       }
@@ -1907,6 +1815,305 @@
           "stringUnit": {
             "state": "translated",
             "value": "पेमेंट नोंदवण्यासाठी तुमच्या भूमिकेला बिलिंगची परवानगी हवी."
+          }
+        }
+      }
+    },
+    "d9.alert.patient_waiting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Patient waiting"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मरीज़ इंतज़ार में है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्ण प्रतीक्षेत आहे"
+          }
+        }
+      }
+    },
+    "d9.alert.send_in": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send the patient in"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मरीज़ को अंदर भेजें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्णाला आत पाठवा"
+          }
+        }
+      }
+    },
+    "d9.alert.collect_payment": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collect payment"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भुगतान लें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पेमेंट घ्या"
+          }
+        }
+      }
+    },
+    "d9.board.mine": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My patients"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मेरे मरीज़"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "माझे रुग्ण"
+          }
+        }
+      }
+    },
+    "d9.rel.parent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parent"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "माता-पिता"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पालक"
+          }
+        }
+      }
+    },
+    "d9.rel.sibling": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sibling"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भाई-बहन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भावंड"
+          }
+        }
+      }
+    },
+    "d9.family.section": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Family"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "परिवार"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कुटुंब"
+          }
+        }
+      }
+    },
+    "d9.family.none": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No relatives linked yet."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी कोई रिश्तेदार जुड़ा नहीं है।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अजून कोणी नातेवाईक जोडलेले नाहीत."
+          }
+        }
+      }
+    },
+    "d9.family.remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हटाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "काढा"
+          }
+        }
+      }
+    },
+    "d9.family.remove.a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %@ from the family"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ को परिवार से हटाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ला कुटुंबातून काढा"
+          }
+        }
+      }
+    },
+    "d9.family.of": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Family of %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ का परिवार"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ चे कुटुंब"
+          }
+        }
+      }
+    },
+    "d9.family.of_whom": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Family of"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "किसके परिवार में"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोणाच्या कुटुंबात"
+          }
+        }
+      }
+    },
+    "d9.lookup.relation_of": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ of %2$@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$@ के %1$@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$@ चे %1$@"
           }
         }
       }

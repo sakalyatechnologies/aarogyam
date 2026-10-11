@@ -278,29 +278,6 @@
         }
       }
     },
-    "v9v.close.preview": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The fee is saved with the visit once the server supports it. Until then it stays on this screen."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "शुल्क सर्वर के समर्थन के बाद विज़िट के साथ सेव होगा। तब तक वह इसी स्क्रीन पर रहता है।"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "शुल्क सर्व्हरच्या समर्थनानंतर भेटीसोबत सेव्ह होईल. तोपर्यंत ते याच स्क्रीनवर राहते."
-          }
-        }
-      }
-    },
     "v9v.close.procedures_failed": {
       "extractionState": "manual",
       "localizations": {
@@ -2229,6 +2206,167 @@
           "stringUnit": {
             "state": "translated",
             "value": "गरज पडल्यास (SOS)"
+          }
+        }
+      }
+    },
+    "v9v.share.action": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share visit summary"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विज़िट सारांश साझा करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भेटीचा सारांश शेअर करा"
+          }
+        }
+      }
+    },
+    "v9v.share.creating": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Making the link…"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लिंक बन रहा है…"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लिंक तयार होत आहे…"
+          }
+        }
+      }
+    },
+    "v9v.share.pin": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PIN for the patient"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मरीज़ के लिए पिन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्णासाठी पिन"
+          }
+        }
+      }
+    },
+    "v9v.share.note": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shown once. The link works for 7 days. The message carries the link and PIN only."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक बार दिखता है। लिंक 7 दिन चलता है। संदेश में केवल लिंक और पिन होते हैं।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एकदाच दिसतो. लिंक ७ दिवस चालते. संदेशात फक्त लिंक आणि पिन असतो."
+          }
+        }
+      }
+    },
+    "v9v.share.whatsapp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send on WhatsApp"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "व्हाट्सऐप पर भेजें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "व्हॉट्सअॅपवर पाठवा"
+          }
+        }
+      }
+    },
+    "v9v.share.cannot": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WhatsApp could not be opened."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "व्हाट्सऐप नहीं खुल सका।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "व्हॉट्सअॅप उघडता आले नाही."
+          }
+        }
+      }
+    },
+    "v9v.share.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your visit summary: %1$@ . PIN: %2$@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपकी विज़िट का सारांश: %1$@ . पिन: %2$@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमच्या भेटीचा सारांश: %1$@ . पिन: %2$@"
           }
         }
       }

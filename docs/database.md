@@ -65,7 +65,7 @@ flowchart LR
   scheduling -->|4| tenancy
   tenancy -->|3| iam
   trust -->|1| billing
-  trust -->|1| clinical
+  trust -->|2| clinical
   trust -->|7| people
   trust -->|4| tenancy
   web -->|1| people
@@ -1270,7 +1270,7 @@ One visit. Visit-level clinical data (complaint, vitals, notes, procedures, file
 
 Unique (org_id, id, patient_id): every child row carries patient_id and a composite foreign key (org_id, encounter_id, patient_id), so a visit's notes, vitals, procedures and files can't belong to another patient. Patient-level facts (allergies, active conditions, history) live on the patient and may be updated during a visit; they do not require one. Opening a visit writes access_log.
 
-Referenced by: `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `invoices.encounter_id`, `lab_orders.encounter_id`, `observations.encounter_id`, `prescriptions.encounter_id`, `procedures.encounter_id`, `recalls.source_encounter_id`, `specialty_records.encounter_id`, `treatment_plans.encounter_id`, `voice_notes.encounter_id`
+Referenced by: `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `invoices.encounter_id`, `lab_orders.encounter_id`, `observations.encounter_id`, `prescriptions.encounter_id`, `procedures.encounter_id`, `recalls.source_encounter_id`, `share_links.encounter_id`, `specialty_records.encounter_id`, `treatment_plans.encounter_id`, `voice_notes.encounter_id`
 
 ### `clinical_notes` (★ foundation)
 
@@ -2964,8 +2964,9 @@ Expiring links that let a patient open a prescription, bill or report on the cli
 |---|---|---|
 | `token_hash` | `text` | the link holds a 256-bit token; only its hash is stored |
 | `pin_hash` | `text` | SHA-256 of token and the six-digit PIN printed on the paper |
-| `resource` | `share_resource` | prescription, invoice, report, upload_request, records |
+| `resource` | `share_resource` | prescription, invoice, report, upload_request, records, visit |
 | `record_types` | `text[]?` | for resource records: a subset of chart, xrays, bills (migration 0387) |
+| `encounter_id` | `uuid?` | → `encounters`. for resource visit (migration 0425) |
 | `prescription_id` | `uuid?` | → `prescriptions` |
 | `invoice_id` | `uuid?` | → `invoices` |
 | `patient_id` | `uuid` | → `patients` |
@@ -2977,7 +2978,7 @@ Expiring links that let a patient open a prescription, bill or report on the cli
 | `open_count` | `int` |  |
 | `revoked_at` | `timestamptz?` |  |
 
-Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self. A records link (POST /patients/{id}/record-shares) has no document column: it shows the patient's own chart, X-rays and issued bills as chosen, and writes access_log for the share, each open and each X-ray download.
+Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self. A records link (POST /patients/{id}/record-shares) has no document column: it shows the patient's own chart, X-rays and issued bills as chosen, and writes access_log for the share, each open and each X-ray download. A visit link (POST /visits/{id}/share) shows one visit: treatments done, the Plan section of signed notes as advice, the next follow-up and the last five visits.
 
 ### `access_log` (★ foundation, partitioned)
 

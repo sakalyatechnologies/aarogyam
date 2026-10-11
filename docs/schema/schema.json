@@ -3681,6 +3681,7 @@
     "prescriptions.encounter_id",
     "procedures.encounter_id",
     "recalls.source_encounter_id",
+    "share_links.encounter_id",
     "specialty_records.encounter_id",
     "treatment_plans.encounter_id",
     "voice_notes.encounter_id"
@@ -9650,7 +9651,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self. A records link (POST /patients/{id}/record-shares) has no document column: it shows the patient's own chart, X-rays and issued bills as chosen, and writes access_log for the share, each open and each X-ray download.",
+   "notes": "Typed, tenant-aware foreign keys instead of a generic resource id: a check constraint requires exactly the column matching resource, so a link can only ever open a record of the same clinic and patient. Every open is written to access_log with purpose patient_self. A records link (POST /patients/{id}/record-shares) has no document column: it shows the patient's own chart, X-rays and issued bills as chosen, and writes access_log for the share, each open and each X-ray download. A visit link (POST /visits/{id}/share) shows one visit: treatments done, the Plan section of signed notes as advice, the next follow-up and the last five visits.",
    "cols": [
     {
      "name": "token_hash",
@@ -9671,7 +9672,7 @@
      "type": "share_resource",
      "nullable": false,
      "ref": null,
-     "note": "prescription, invoice, report, upload_request, records"
+     "note": "prescription, invoice, report, upload_request, records, visit"
     },
     {
      "name": "record_types",
@@ -9679,6 +9680,13 @@
      "nullable": true,
      "ref": null,
      "note": "for resource records: a subset of chart, xrays, bills (migration 0387)"
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": "for resource visit (migration 0425)"
     },
     {
      "name": "prescription_id",

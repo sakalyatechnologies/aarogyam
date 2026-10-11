@@ -141,7 +141,7 @@ pub async fn access(
 }
 
 /// Reads one linked clinic in the patient account's scope.
-async fn read_clinic<T>(
+pub(crate) async fn read_clinic<T>(
     db: &Db,
     access: &PatientAccess,
     clinic: &LinkedClinic,

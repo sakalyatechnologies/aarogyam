@@ -73,6 +73,7 @@ pub mod tabular;
 pub mod today;
 pub mod tokens;
 pub mod treatment;
+pub mod visit_share;
 pub mod visits;
 pub mod vitals;
 pub mod walk_ins;

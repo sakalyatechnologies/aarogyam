@@ -1603,8 +1603,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!queueMoves[found.status].includes(parsed.data)) {
             return refuse(409, "conflict", `A ${found.status} token cannot become ${parsed.data}.`);
           }
+          const chair = parsed.data === "in_chair" && change.room_id != null ? state.rooms.find((r) => r.id === change.room_id && r.clinic_id === caller.clinic.id && r.branch_id === found.branch_id) : undefined;
+          if (parsed.data === "in_chair" && change.room_id != null && chair === undefined) {
+            return invalid("room_id", "must be a chair of this branch");
+          }
           const now = clock();
           found.status = parsed.data;
+          if (chair !== undefined) found.room_id = chair.id;
           if (parsed.data === "in_chair" && found.called_at == null) found.called_at = now.toISOString();
           if (parsed.data === "done" || parsed.data === "left") found.done_at = now.toISOString();
           if (found.appointment_id != null) {
@@ -1613,6 +1618,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               if (parsed.data === "in_chair" && appt.status === "arrived") {
                 appt.status = "in_chair";
                 appt.seated_at = now.toISOString();
+                if (chair !== undefined) appt.room_id = chair.id;
               } else if (parsed.data === "done" && appt.status !== "completed") {
                 appt.status = "completed";
                 appt.completed_at = now.toISOString();
@@ -6888,6 +6894,7 @@ function wireQueueToken(token: FakeQueueToken, state: Fixtures, now: Date): C.Qu
     issued_at: token.issued_at,
     called_at: token.called_at ?? null,
     done_at: token.done_at ?? null,
+    room_id: token.room_id ?? null,
     wait_minutes: waitMinutes,
   };
 }

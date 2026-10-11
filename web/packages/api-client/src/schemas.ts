@@ -694,6 +694,7 @@ export const queueToken = z.object({
   issued_at: timestamp,
   called_at: optionalTimestamp,
   done_at: optionalTimestamp,
+  room_id: roomId.nullable().exactOptional(),
   wait_minutes: z.number().int().nonnegative(),
 }) satisfies z.ZodType<C.QueueToken>;
 export type QueueToken = z.output<typeof queueToken>;

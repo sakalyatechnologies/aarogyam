@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import "./calendar.css";
 import { Link, useSearchParams } from "react-router";
 
-import { apiErrorOf, type AppointmentStatus } from "@aarogyam/api-client";
+import { apiErrorOf, type AppointmentStatus, type PractitionerId } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
 import { Select } from "@sakalya/ui";
 
 import { DatePicker } from "../../components/mk/date-picker.js";
 import { MkCard, EmptyState, PageHeader } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
+import { useNewLook } from "../../lib/new-look.js";
 import { gridHours, nowMinutes, placementOf } from "../../lib/time-grid.js";
 import { shiftsOn } from "../../lib/slots.js";
 import { addDays, addMonths, mondayOf, monthStartOf, monthWeeks, todayIn } from "../../lib/time.js";
@@ -99,6 +100,9 @@ export function CalendarPage() {
   // Phones start on the day view; a seven-column week does not fit there.
   const [view, setView] = useState<View>(() => (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 640px)").matches ? "day" : "week"));
   const [lane, setLane] = useState<Lane>("chair");
+  // New look only: narrow the whole schedule to one doctor (`practitioner_id` on the request).
+  const [newLook] = useNewLook();
+  const [doctorId, setDoctorId] = useState<PractitionerId | undefined>(undefined);
   // `?patient=<id>` (Patient 360's Follow-up) prefills the booking form. The range sync below rewrites the URL, so keep it here.
   const [bookPatient, setBookPatient] = useState(() => searchParams.get("patient"));
   const [bookingOpen, setBookingOpen] = useState(searchParams.get("book") === "1");
@@ -137,7 +141,7 @@ export function CalendarPage() {
       { replace: true },
     );
   }, [from, to, setSearchParams]);
-  const appointments = useAppointments({ from, to });
+  const appointments = useAppointments({ from, to, ...(newLook && doctorId !== undefined ? { practitionerId: doctorId } : {}) });
   const rooms = useRooms();
   const practitioners = usePractitioners();
   const canWrite = can("appointments.write");
@@ -156,10 +160,12 @@ export function CalendarPage() {
         })
       : (lane === "chair"
           ? (rooms.data?.items ?? []).map((room) => ({ id: room.id, label: room.name }))
-          : (practitioners.data?.items ?? []).map((p, i) => {
-              const spans = workingHoursResults[i]?.data ? shiftsOn(workingHoursResults[i].data.shifts, anchor) : undefined;
-              return { id: p.id, label: p.display_name, ...(spans !== undefined ? { working: spans } : {}) };
-            })
+          : (practitioners.data?.items ?? [])
+              .map((p, i) => {
+                const spans = workingHoursResults[i]?.data ? shiftsOn(workingHoursResults[i].data.shifts, anchor) : undefined;
+                return { id: p.id, label: p.display_name, ...(spans !== undefined ? { working: spans } : {}) };
+              })
+              .filter((c) => !newLook || doctorId === undefined || c.id === doctorId)
         ).map((c) => ({ ...c, showNow: anchor === today }));
 
   const placed = items
@@ -203,7 +209,7 @@ export function CalendarPage() {
   const rangeLabel = view === "month" ? new Date(`${monthStartOf(anchor)}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }) : view === "week" ? `${shortDate(from)} – ${shortDate(to, true)}` : shortDate(from, true);
 
   return (
-    <div className="mk-panel">
+    <div className={`mk-panel${newLook ? " cal2" : ""}`}>
       <PageHeader
         eyebrow={`Schedule · ${new Date(`${anchor}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })}`}
         title="Calendar"
@@ -217,7 +223,7 @@ export function CalendarPage() {
                 setBookingOpen(true);
               }}
             >
-              <Plus aria-hidden="true" /> Book appointment
+              <Plus aria-hidden="true" /> {newLook ? "Book" : "Book appointment"}
             </button>
           ) : undefined
         }
@@ -282,6 +288,33 @@ export function CalendarPage() {
           />
         ) : null}
       </div>
+      {newLook ? (
+        <div className="cal2-docs" role="group" aria-label="Filter by doctor">
+          <button
+            type="button"
+            className="mk-chipf"
+            aria-pressed={doctorId === undefined}
+            onClick={() => {
+              setDoctorId(undefined);
+            }}
+          >
+            All doctors
+          </button>
+          {(practitioners.data?.items ?? []).map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className="mk-chipf"
+              aria-pressed={doctorId === p.id}
+              onClick={() => {
+                setDoctorId(p.id);
+              }}
+            >
+              {p.display_name}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <MkCard title={view === "week" ? "Week view" : view === "month" ? "Month view" : "Day view"} action={<Legend />}>
         {appointments.isPending ? (
           <SkeletonRows count={8} tall label="Loading the schedule" />

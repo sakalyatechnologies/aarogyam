@@ -6,14 +6,22 @@ import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
+import { useNewLook } from "../../lib/new-look.js";
+import { QueueV2 } from "./queue-v2.js";
 import { WalkInDialog } from "./walk-in-dialog.js";
 import { StartVisitButton } from "../../components/start-visit-button.js";
 import { ageSex, patientPath } from "../../lib/patients.js";
 import { usePractitioners, useQueue, useSetQueueStatus } from "../../queries.js";
 import { Empty, EmptyState, MkCard, PageHeader, Skeleton, StatTile, StatusChip } from "../../components/mk/index.js";
 
-/** Today's waiting room: wait times, walk-ins and moving tokens along. Built for a tablet at the counter. */
+/** `/queue`: the Front desk board with the New look on, the original waiting room otherwise. */
 export function QueuePage() {
+  const [newLook] = useNewLook();
+  return newLook ? <QueueV2 /> : <QueuePageClassic />;
+}
+
+/** Today's waiting room: wait times, walk-ins and moving tokens along. Built for a tablet at the counter. */
+function QueuePageClassic() {
   const { session, can } = useClinic();
   useDocumentTitle("Queue", session.clinic.name);
   const queue = useQueue();

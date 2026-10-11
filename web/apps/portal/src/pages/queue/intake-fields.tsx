@@ -12,6 +12,16 @@ export interface Intake {
 export const EMPTY_INTAKE: Intake = { allergies: [], noKnownAllergies: false, reminders: true };
 
 export function IntakeFields({ value, onChange }: { value: Intake; onChange: (next: Intake) => void }) {
+  return (
+    <>
+      <AllergyFields value={value} onChange={onChange} />
+      <ConsentFields value={value} onChange={onChange} />
+    </>
+  );
+}
+
+/** The allergy chips: none known, or the common ones the patient reports. */
+export function AllergyFields({ value, onChange }: { value: Intake; onChange: (next: Intake) => void }) {
   const picks = useQuickPicks();
   const common = picks.data?.allergies ?? [];
   const toggle = (label: string) => {
@@ -44,6 +54,14 @@ export function IntakeFields({ value, onChange }: { value: Intake; onChange: (ne
           <p className="qp-hint">Recorded as patient-reported. The doctor confirms them at the visit.</p>
         </div>
       </div>
+    </>
+  );
+}
+
+/** What the patient agrees to aloud: care and record keeping, and reminders. */
+export function ConsentFields({ value, onChange }: { value: Intake; onChange: (next: Intake) => void }) {
+  return (
+    <>
       <div className="wi-section">
         <p className="qp-label">Consent</p>
         <p className="wi-read">

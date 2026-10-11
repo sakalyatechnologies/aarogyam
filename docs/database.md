@@ -666,6 +666,7 @@ One row per clinic: branding, bill and prescription settings, defaults.
 | `notifications` | `jsonb` | quiet hours, sender |
 | `booking` | `jsonb` | online booking: enabled, slot_minutes, buffer_minutes, auto_confirm, horizon_days, min_notice_minutes |
 | `patient_retention_years` | `smallint?` | 7 to 50; null keeps the default 7 years |
+| `staff_ops` | `jsonb` | staff to-dos, time off: time_off.requires_approval (default true), tasks.remind_every_minutes (default 60) |
 
 Primary key (org_id): exactly one row per clinic.
 
@@ -2430,12 +2431,20 @@ Something clinic staff are told about: an online booking waiting for an answer, 
 
 | Column | Type | Notes |
 |---|---|---|
-| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment |
+| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert |
 | `appointment_id` | `uuid?` | → `appointments`. booking kinds and arrival |
 | `lab_order_id` | `uuid?` | → `lab_orders`. lab_overdue |
 | `invoice_id` | `uuid?` | → `invoices`. payment_due and collect_payment |
 | `recall_id` | `uuid?` | → `recalls`. recall_due |
-| `queue_token_id` | `uuid?` | → `queue_tokens`. patient_waiting and send_in; exactly one of the five subjects is set |
+| `queue_token_id` | `uuid?` | → `queue_tokens`. patient_waiting and send_in |
+| `task_occurrence_id` | `uuid?` | task_due, task_reminder and task_escalated; the foreign key comes with the task tables |
+| `time_off_request_id` | `uuid?` | time_off_requested and time_off_decided; the foreign key comes with the time-off table |
+| `inventory_item_id` | `uuid?` | stock_alert; exactly one of the eight subjects is set |
+| `step_no` | `int?` | which notice of a task occurrence: 0 is the first, then one per reminder |
+| `alert_on` | `date?` | the day of a stock alert; one per item and day |
+| `stock_on_hand` | `numeric?` | units on hand when a stock alert was written |
+| `stock_days_cover` | `numeric?` | days of stock left at the recent rate of use |
+| `stock_reason` | `text?` | low (at or under the reorder level) or projected (runs out within the lead time) |
 | `href` | `text?` | a path inside the portal that opens what it is about, such as /queue; never a name or a diagnosis |
 | `lab_due_on` | `date?` | the due date the order was overdue on; one alert per order and due date |
 | `handled_at` | `timestamptz?` | set when the appointment is confirmed, declined or cancelled |

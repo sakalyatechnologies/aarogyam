@@ -40,6 +40,14 @@ export const PERMISSIONS = [
   "campaigns.manage",
   /** Send patients email messages from the clinic (owner, doctor and front desk by default). */
   "messages.send",
+  /** See and complete the daily tasks assigned to you or your role (every standard role). */
+  "tasks.use",
+  /** Create, edit and switch off recurring tasks; see their history (owner and doctor). */
+  "tasks.manage",
+  /** Ask for time off and see who is away (every standard role). */
+  "time_off.request",
+  /** Approve or decline time off, and record it for others (owner). */
+  "time_off.manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

@@ -63,7 +63,11 @@ pub(crate) mod settings;
 pub(crate) mod setup;
 pub(crate) mod smart_import;
 pub(crate) mod staff;
+pub(crate) mod staff_ops;
+pub(crate) mod stock_insights;
 pub(crate) mod support_grants;
+pub(crate) mod tasks;
+pub(crate) mod time_off;
 pub(crate) mod today;
 pub(crate) mod treatment;
 pub(crate) mod visit_summary;
@@ -680,7 +684,12 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/verify/prescriptions/{verify_token}",
             get(prescriptions::verify),
-        );
+        )
+        // Staff to-dos, time off and stock alerts: each module owns its routes.
+        .merge(tasks::routes())
+        .merge(time_off::routes())
+        .merge(stock_insights::routes())
+        .merge(staff_ops::routes());
     if local_dev {
         router
             .route("/dev/token", post(crate::dev::token))

@@ -1727,6 +1727,13 @@
      "nullable": true,
      "ref": null,
      "note": "7 to 50; null keeps the default 7 years"
+    },
+    {
+     "name": "staff_ops",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "staff to-dos, time off: time_off.requires_approval (default true), tasks.remind_every_minutes (default 60)"
     }
    ],
    "referenced_by": [],
@@ -7898,7 +7905,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment"
+     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert"
     },
     {
      "name": "appointment_id",
@@ -7933,7 +7940,63 @@
      "type": "uuid",
      "nullable": true,
      "ref": "queue_tokens",
-     "note": "patient_waiting and send_in; exactly one of the five subjects is set"
+     "note": "patient_waiting and send_in"
+    },
+    {
+     "name": "task_occurrence_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "task_due, task_reminder and task_escalated; the foreign key comes with the task tables"
+    },
+    {
+     "name": "time_off_request_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "time_off_requested and time_off_decided; the foreign key comes with the time-off table"
+    },
+    {
+     "name": "inventory_item_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "stock_alert; exactly one of the eight subjects is set"
+    },
+    {
+     "name": "step_no",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": "which notice of a task occurrence: 0 is the first, then one per reminder"
+    },
+    {
+     "name": "alert_on",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": "the day of a stock alert; one per item and day"
+    },
+    {
+     "name": "stock_on_hand",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": "units on hand when a stock alert was written"
+    },
+    {
+     "name": "stock_days_cover",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": "days of stock left at the recent rate of use"
+    },
+    {
+     "name": "stock_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "low (at or under the reorder level) or projected (runs out within the lead time)"
     },
     {
      "name": "href",

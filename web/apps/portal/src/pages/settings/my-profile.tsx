@@ -9,7 +9,7 @@ import { Initials, MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 
 /** The pictures this portal draws for a preset id. The server stores only the id; each app ships its own pictures. */
-const PRESETS: readonly { id: string; label: string; Icon: LucideIcon; tone: string }[] = [
+export const PRESETS: readonly { id: string; label: string; Icon: LucideIcon; tone: string }[] = [
   { id: "tooth_1", label: "Smile", Icon: Smile, tone: "#0f766e" },
   { id: "tooth_2", label: "Heart", Icon: Heart, tone: "#be185d" },
   { id: "tooth_3", label: "Star", Icon: Star, tone: "#b45309" },

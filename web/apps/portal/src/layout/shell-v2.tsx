@@ -1,15 +1,22 @@
 import { Bell, ChevronsLeft, ChevronsRight, Menu as MenuIcon, Plus, Search, X } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { LegalLinks } from "../components/legal-links.js";
+import { unwrap } from "@aarogyam/api-client";
+
 import { useClinic } from "../clinic.js";
+import { initials } from "../components/mk/index.js";
+import { REFERENCE } from "../lib/cache-policy.js";
 import { useNewLook } from "../lib/new-look.js";
+import { PRESETS } from "../pages/settings/my-profile.js";
 import { useClinicSetup } from "../pages/setup/queries.js";
 import { ClinicMark } from "./clinic-mark.js";
 import { CommandPalette } from "./command-palette.js";
 import { badgeLabel, NotificationsDrawer, useBadges } from "./notifications.js";
+import { glyphFor, SpecialtyEmblem } from "./specialty-emblem.js";
 import { PageTransition } from "./page-transition.js";
 import { PeekProvider } from "./peek.js";
 import { ProgressBar } from "./progress-bar.js";
@@ -66,8 +73,28 @@ export function ShellV2() {
   );
 }
 
+/** The person's own picture in the top-bar button: their photo, a preset, or their initials. */
+function AccountFace() {
+  const { session } = useClinic();
+  const { display_name: name, avatar } = session.user;
+  const photo = avatar?.photo_url ?? "";
+  const [failed, setFailed] = useState<string | undefined>(undefined);
+  if (photo !== "" && failed !== photo) {
+    return <img className="mk2-avatar-img" src={photo} alt="" onError={() => { setFailed(photo); }} />;
+  }
+  const preset = PRESETS.find((p) => p.id === avatar?.preset);
+  if (preset !== undefined) {
+    return (
+      <span className="mk2-avatar-img mk2-avatar-preset" style={{ background: preset.tone }} aria-hidden="true">
+        <preset.Icon />
+      </span>
+    );
+  }
+  return <>{initials(name)}</>;
+}
+
 function FrameV2() {
-  const { can, session } = useClinic();
+  const { can, session, api, access } = useClinic();
   const navigate = useNavigate();
   const { workspace, system, activeId, palettePages } = useShellNav();
   const [collapsed, setCollapsed] = useStoredFlag(COLLAPSED_KEY, true);
@@ -81,6 +108,14 @@ function FrameV2() {
   const unread = badges.data?.notifications_unread ?? null;
   const bellBadge = badgeLabel(unread);
   const setup = useSetupProgress();
+  // The specialty comes from clinic settings, which only people who manage settings may read; others see initials.
+  const settings = useQuery({
+    queryKey: ["clinic-settings", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.getClinicSettings({ signal })),
+    enabled: can("settings.manage"),
+    ...REFERENCE,
+  });
+  const specialty = settings.data?.specialty;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -144,7 +179,7 @@ function FrameV2() {
       <aside className={`mk2-rail ${menuOpen ? "open" : ""}`} aria-label="Sidebar">
         <div className="mk2-head">
           <Link to="/today" className="mk2-mark" aria-label={`${session.clinic.name}: Today`} onClick={closeMenu}>
-            <ClinicMark name={session.clinic.name} />
+            <ClinicMark name={session.clinic.name} fallback={glyphFor(specialty) === undefined ? undefined : <SpecialtyEmblem specialty={specialty} />} />
           </Link>
           <div className="mk2-brand">
             <b>Aarogyam</b>
@@ -242,7 +277,7 @@ function FrameV2() {
                 </span>
               )}
             </button>
-            <Account />
+            <Account avatar={<AccountFace />} />
           </div>
         </div>
         <CommandPalette

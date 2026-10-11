@@ -122,3 +122,10 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
   - outbox2: a persistent outbox wired into AppGraph, cleared on sign-out
   - concepts: the v8.1 HTML mockup of C1–C5
   - the gates for 047c6dc, run by the coordinator
+- 047c6dc: gates green (gradle check and ios-check).
+- **Usage limit hit, then reset.** All 3 workers were resumed.
+- be-int progress on feat/v9-backend:
+  - be-queue: finished (2800066)
+  - be-close: finished, including the `payment_proof` upload permission fix, which now needs billing.write (91611e2, b143a20)
+  - be-family: merged (8d2e428); API in progress
+  - be-share: still to do

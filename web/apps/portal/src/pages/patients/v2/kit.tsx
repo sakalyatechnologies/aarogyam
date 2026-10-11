@@ -9,11 +9,11 @@ import { useEffect, useId, useRef, useState, type ComponentProps, type KeyboardE
 import "./p360.css";
 
 /** A rounded card with a title and, only where an action is unclear, a short hint. */
-export function Bento({ title, sub, action, children, label, level = 3 }: { title?: ReactNode; sub?: ReactNode; action?: ReactNode; children: ReactNode; label?: string; /** Heading level: 3 under a page section, 2 when the card is itself a section of the page. */ level?: 2 | 3 }) {
+export function Bento({ title, sub, action, children, label, level = 3, flat = false }: { title?: ReactNode; sub?: ReactNode; action?: ReactNode; children: ReactNode; label?: string; /** Heading level: 3 under a page section, 2 when the card is itself a section of the page. */ level?: 2 | 3; /** No card of its own: a section inside another card. */ flat?: boolean }) {
   const id = useId();
   const Heading = level === 2 ? "h2" : "h3";
   return (
-    <section className="p360-bento" aria-labelledby={title === undefined ? undefined : id} aria-label={title === undefined ? label : undefined}>
+    <section className={flat ? "p360-bento flat" : "p360-bento"} aria-labelledby={title === undefined ? undefined : id} aria-label={title === undefined ? label : undefined}>
       {title === undefined && action === undefined ? null : (
         <header>
           <div>
@@ -126,6 +126,50 @@ export function PillTabs<V extends string>({ label, options, value, onChange, pa
           {panels[option.value]}
         </div>
       ))}
+    </>
+  );
+}
+
+/**
+ * Small tabs for one card. Unlike PillTabs only the chosen panel is mounted, so a card of five records fetches one at a time.
+ * Arrow keys move and choose.
+ */
+export function CardTabs<V extends string>({ label, options, value, onChange, children }: { label: string; options: readonly PillOption<V>[]; value: V; onChange: (next: V) => void; children: ReactNode }) {
+  const base = useId();
+  const list = useRef<HTMLDivElement>(null);
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const next = move(options, value, event.key);
+    if (next === undefined) return;
+    event.preventDefault();
+    onChange(next);
+    requestAnimationFrame(() => {
+      list.current?.querySelector<HTMLElement>(`[data-value="${next}"]`)?.focus();
+    });
+  };
+  return (
+    <>
+      <div ref={list} className="p360-pills sm" role="tablist" aria-label={label} onKeyDown={onKeyDown}>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="tab"
+            id={`${base}-tab-${option.value}`}
+            data-value={option.value}
+            aria-selected={value === option.value}
+            aria-controls={`${base}-panel`}
+            tabIndex={value === option.value ? 0 : -1}
+            onClick={() => {
+              onChange(option.value);
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`${base}-panel`} aria-labelledby={`${base}-tab-${value}`} className="p360-records-body">
+        {children}
+      </div>
     </>
   );
 }

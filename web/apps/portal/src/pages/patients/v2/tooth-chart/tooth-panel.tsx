@@ -1,4 +1,4 @@
-import { Pencil, Plus, X } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { apiErrorOf, randomUuid, visitId as visitIdSchema, type DentalTerm, type ToothSurface, type PatientId, type PlanItem, type Procedure, type VisitId } from "@aarogyam/api-client";
@@ -9,9 +9,9 @@ import { Tag, statusTone } from "../../../../components/mk/index.js";
 import { useAddDentalTerm, useRecordChartEntries, useRecordProcedure } from "../../../../queries.js";
 import { useCreatePlan, useSetPlanItemStatus } from "../../../treatment-plans/queries.js";
 import { useToothHistory } from "../../../visits/queries.js";
-import { kindName, surfaceLabel } from "../../../visits/odontogram/model.js";
+import { surfaceLabel } from "../../../visits/odontogram/model.js";
 import { PillButton } from "../kit.js";
-import { allowsSurfaces, blankDraft, buildEntries, defaultMaterial, buildPlan, correctionBatch, draftFromRow, historyRows, treatmentOf, type Draft, type HistoryRow, type RowStatus } from "./model.js";
+import { allowsSurfaces, blankDraft, buildEntries, defaultMaterial, buildPlan, correctionBatch, draftFromRow, historyRows, toothName, treatmentOf, type Draft, type HistoryRow, type RowStatus } from "./model.js";
 import { TreatmentForm } from "./treatment-form.js";
 
 const TONE: Readonly<Record<RowStatus, "success" | "info" | "warning" | "neutral" | "danger">> = {
@@ -134,12 +134,9 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, starting,
     <aside className="tc-panel" aria-label={`Tooth ${String(tooth)} panel`} aria-live="polite">
       <div className="tc-head">
         <div>
-          <h3>{`Tooth ${String(tooth)}, ${kindName(tooth)}`}</h3>
+          <h3>{`${String(tooth)} · ${toothName(tooth)}`}</h3>
           {mode === "view" ? <p className="tc-sub">{`${String(rows.length)} ${rows.length === 1 ? "entry" : "entries"}`}</p> : null}
         </div>
-        <button type="button" className="p360-chip" aria-label="Close tooth" onClick={onClose}>
-          <X aria-hidden="true" className="size-4" />
-        </button>
       </div>
 
       {mode === "view" ? (
@@ -187,7 +184,13 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, starting,
               </li>
             ))}
           </ol>
-          {!canWrite ? null : visitId === undefined ? (
+          {!canWrite ? (
+            <div className="tc-actions">
+              <Button variant="secondary" onClick={onClose}>
+                Close
+              </Button>
+            </div>
+          ) : visitId === undefined ? (
             <div className="tc-actions">
               <p className="tc-meta" style={{ width: "100%" }}>
                 Start a visit to record treatment.

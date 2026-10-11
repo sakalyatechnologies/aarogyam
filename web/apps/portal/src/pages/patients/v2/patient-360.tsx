@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
+import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
 import { Menu, type MenuItem } from "@sakalya/ui";
 
 import { AppointmentActionButton, isOpenAppointment } from "../../../components/appointment-action.js";
@@ -17,6 +17,7 @@ import { NotFoundPage } from "../../not-found-page.js";
 import { ConsentLine } from "../patient-page.js";
 import { Celebration } from "./celebration.js";
 import { Pills } from "./kit.js";
+import { PatientFacts } from "./patient-facts.js";
 import { ConsoleLayout, StageLayout, TabsLayout, type LayoutProps } from "./layouts.js";
 import { P360_LAYOUTS, useP360Layout, type P360Layout } from "./use-layout.js";
 import { VisitBar } from "./visit-bar.js";
@@ -113,15 +114,11 @@ function Patient360View({ patient }: { patient: Patient }) {
           <div className="p360-meta">
           <p className="p360-line">
             {ageSex(patient.age_years ?? null, patient.sex, patient.birth_date_estimated)}
-            {" · "}
-            <span className="mk-mono">{patient.number}</span>
           </p>
           <div className="p360-tags">
             <AllergyTag patientId={patient.id} />
             <ConsentLine patientId={patient.id} />
             {patient.status === "active" ? null : <Tag tone="wait">{patient.status === "inactive" ? "Inactive" : patient.status}</Tag>}
-            {/* Money only with billing.read; a missing balance shows nothing rather than a made-up zero. */}
-            {can("billing.read") && patient.balance_paise != null && patient.balance_paise > 0 ? <Tag tone="wait">Due {formatRupees(patient.balance_paise)}</Tag> : null}
           </div>
           </div>
         </div>
@@ -129,6 +126,7 @@ function Patient360View({ patient }: { patient: Patient }) {
           {todayAppointment === undefined ? null : <AppointmentActionButton appointment={todayAppointment} />}
           <Menu label="More" items={moreItems} onSelect={onMore} />
         </div>
+        <PatientFacts patient={patient} />
       </section>
 
       <VisitBar />

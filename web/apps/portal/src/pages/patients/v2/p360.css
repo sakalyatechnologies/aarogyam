@@ -200,3 +200,29 @@
 .p360-wrap .p360-label { margin: 10px 0 6px; }
 .p360-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 2px; }
 .p360-meta .p360-tags, .p360-meta .p360-line { margin: 0; }
+
+/* Today and Records: sections inside one card each. */
+.p360-bento.flat { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.p360-today { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.p360-today > .p360-bento.flat, .p360-today > .p360-grid2 > .p360-bento.flat { padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
+.p360-today > .p360-bento.flat:first-child, .p360-today > .p360-grid2 { padding-top: 0; border-top: 0; }
+.p360-today > .p360-grid2 > .p360-bento.flat { padding-top: 0; border-top: 0; }
+.p360-bento .p360-pills.sm { margin-bottom: 12px; }
+.p360-records-body { min-width: 0; }
+
+/* Header facts */
+.p360-head { align-items: flex-start; }
+.p360-facts { flex: 1 0 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 20px; margin: 4px 0 0; padding: 12px 0 0; border-top: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
+.p360-fact { min-width: 0; margin: 0; }
+.p360-fact.wide { grid-column: span 2; }
+@media (max-width: 520px) { .p360-fact.wide { grid-column: auto; } }
+.p360-fact dt { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.p360-fact dd { margin: 2px 0 0; font-size: 13.5px; color: var(--ink); overflow-wrap: anywhere; }
+.p360-fact-line { display: inline-flex; align-items: center; gap: 6px; }
+.p360-fact-line svg { width: 14px; height: 14px; color: var(--muted); flex: none; }
+.p360-due { color: var(--red); font-weight: 600; }
+.p360-eye { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
+.p360-eye:hover { background: var(--hover); color: var(--ink); }
+.p360-eye:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+/* The list inside Done today carries its own heading; the section already has one, so it is kept for screen readers only. */
+.p360-today .mk-card-h h2 { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

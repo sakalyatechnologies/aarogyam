@@ -346,7 +346,7 @@ export const onlineBooking = z.object({
 }) satisfies z.ZodType<C.OnlineBooking>;
 export type OnlineBooking = z.output<typeof onlineBooking>;
 
-export const letterheadTemplate = z.enum(["logo_left", "classic", "modern_band", "minimal_line", "two_doctor", "bilingual"]);
+export const letterheadTemplate = z.enum(["logo_left", "classic", "modern_band", "minimal_line", "two_doctor", "bilingual", "heritage_serif", "modern_split", "monogram", "clinical_clean", "bilingual_elegant", "signature"]);
 export type LetterheadTemplate = z.output<typeof letterheadTemplate>;
 
 export const letterheadShown = z.object({

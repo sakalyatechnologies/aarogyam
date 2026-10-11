@@ -57,7 +57,7 @@ function Harness({
 }
 
 describe("LetterheadPicker", () => {
-  it("offers the six designs and marks the chosen one", async () => {
+  it("offers the twelve designs and marks the chosen one", async () => {
     const user = userEvent.setup();
     let latest: LetterheadDraft | undefined;
     render(<Harness onDraft={(d) => (latest = d)} />);
@@ -69,6 +69,12 @@ describe("LetterheadPicker", () => {
       "Minimal line",
       "Two doctors",
       "Bilingual",
+      "Heritage serif",
+      "Modern split",
+      "Monogram",
+      "Clinical clean",
+      "Bilingual elegant",
+      "Signature",
     ]);
     expect(screen.getByRole("radio", { name: "Classic centred" }).getAttribute("aria-checked")).toBe("true");
     await user.click(screen.getByRole("radio", { name: "Modern band" }));

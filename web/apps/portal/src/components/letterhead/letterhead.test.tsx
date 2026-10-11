@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import axe from "axe-core";
 import { describe, expect, it } from "vitest";
 
 import type { LetterheadDocument, LetterheadTemplate } from "@aarogyam/api-client";
@@ -100,6 +101,56 @@ describe("LetterheadSheet designs", () => {
   it("is hidden from assistive technology as a thumbnail", () => {
     const { container } = render(<LetterheadSheet thumbnail document={documentWith()} />);
     expect(container.querySelector("article")?.getAttribute("aria-hidden")).toBe("true");
+  });
+});
+
+const NEW_DESIGNS = ["heritage_serif", "modern_split", "monogram", "clinical_clean", "bilingual_elegant", "signature"] as const;
+
+describe("premium designs", () => {
+  it("are offered after the original six, and the originals are still offered", () => {
+    const ids = LETTERHEAD_TEMPLATES.map((design) => design.id);
+    expect(ids.slice(0, 6)).toEqual(["logo_left", "classic", "modern_band", "minimal_line", "two_doctor", "bilingual"]);
+    expect(ids.slice(6)).toEqual([...NEW_DESIGNS]);
+  });
+
+  it.each(NEW_DESIGNS)("%s has no axe violations in the live preview", async (template) => {
+    const { container } = render(<LetterheadPreview document={documentWith({ template })} />);
+    const result = await axe.run(container, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
+    expect(result.violations.map((violation) => violation.id)).toEqual([]);
+  });
+
+  it.each(NEW_DESIGNS)("%s drops everything the clinic switched off and keeps the name", (template) => {
+    const off = { logo: false, doctors: false, registration: false, address: false, phone: false, email: false, timings: false, gstin: false };
+    const { container } = render(<LetterheadSheet document={documentWith({ template, show: off })} />);
+    expect(screen.getByRole("heading", { name: "Sunrise Dental" })).toBeTruthy();
+    expect(screen.queryByText("Dr Asha Rao")).toBeNull();
+    expect(screen.queryByText(/GSTIN|MG Road/)).toBeNull();
+    expect(container.querySelector(".lh-signoff")).toBeNull();
+  });
+
+  it.each(NEW_DESIGNS)("%s follows the accent colour", (template) => {
+    const { container } = render(<LetterheadSheet document={documentWith({ template, accent: "#8B1E3F" })} />);
+    expect(container.querySelector<HTMLElement>(".lh-sheet")?.style.getPropertyValue("--lh-accent")).toBe("#8B1E3F");
+  });
+
+  it("shows the Hindi name on both bilingual designs", () => {
+    render(<LetterheadSheet document={documentWith({ template: "bilingual_elegant" })} />);
+    expect(screen.getByText("सनराइज़ डेंटल").getAttribute("lang")).toBe("hi");
+  });
+
+  it("puts initials in the monogram watermark, hidden from assistive technology", () => {
+    const { container } = render(<LetterheadSheet document={documentWith({ template: "monogram" })} />);
+    const watermark = container.querySelector(".lh-water");
+    expect(watermark?.textContent).toBe("SD");
+    expect(watermark?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("prints a signature line at the foot only on the signature design", () => {
+    const { container, unmount } = render(<LetterheadSheet document={documentWith({ template: "signature" })} />);
+    expect(container.querySelector(".lh-signoff")?.textContent).toBe("Signature");
+    unmount();
+    const other = render(<LetterheadSheet document={documentWith({ template: "classic" })} />);
+    expect(other.container.querySelector(".lh-signoff")).toBeNull();
   });
 });
 

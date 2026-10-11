@@ -7031,7 +7031,7 @@ function wireClinicSettings(clinic: FakeClinic): C.ClinicSettings {
   };
 }
 
-const LETTERHEAD_TEMPLATES = ["logo_left", "classic", "modern_band", "minimal_line", "two_doctor", "bilingual"] as const;
+const LETTERHEAD_TEMPLATES = ["logo_left", "classic", "modern_band", "minimal_line", "two_doctor", "bilingual", "heritage_serif", "modern_split", "monogram", "clinical_clean", "bilingual_elegant", "signature"] as const;
 const LETTERHEAD_DEFAULTS: Omit<C.Letterhead, "has_image" | "has_logo"> = {
   mode: "template",
   template: "classic",

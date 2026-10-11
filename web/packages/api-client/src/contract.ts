@@ -588,6 +588,29 @@ export type UnreadCount = Schemas["UnreadCount"];
 export type MarkedRead = Schemas["MarkedRead"];
 export type Badges = Schemas["Badges"];
 
+// Patient messages, campaigns and staff chat -------------------------------------------------------
+export type SendMessages = Schemas["SendMessages"];
+export type MessagesQueued = Schemas["MessagesQueued"];
+export type MessageSummary = Schemas["MessageSummary"];
+export type MessageList = Schemas["MessageList"];
+export type MessageTemplate = Schemas["MessageTemplate"];
+export type MessageTemplates = Schemas["MessageTemplates"];
+export type AudienceFilter = Schemas["AudienceFilterBody"];
+export type AudiencePreview = Schemas["AudiencePreview"];
+export type NewAudience = Schemas["SaveAudience"];
+export type Audience = Schemas["Audience"];
+export type Campaign = Schemas["Campaign"];
+export type Campaigns = Schemas["Campaigns"];
+export type NewCampaign = Schemas["CreateCampaign"];
+export type ScheduleCampaign = Schemas["ScheduleCampaign"];
+export type ConversationItem = Schemas["ConversationItem"];
+export type ConversationList = Schemas["ConversationList"];
+export type NewConversation = Schemas["NewConversationBody"];
+export type ConversationStarted = Schemas["ConversationStarted"];
+export type ChatMessage = Schemas["ChatMessage"];
+export type ChatMessageList = Schemas["ChatMessageList"];
+export type NewChatMessage = Schemas["NewChatMessageBody"];
+
 // First-run setup ---------------------------------------------------------------------------------
 export type Setup = Schemas["Setup"];
 export type SetupStep = Schemas["SetupStep"];

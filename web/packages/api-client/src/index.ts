@@ -1,4 +1,5 @@
 export type { AnalyticsQuery, ApiClient, AppointmentFilter, DateRange, NotificationQuery, PatientFilter, PatientSearch, QueueOptions, RequestOptions, TodayOptions } from "./client.js";
+export type { NewAudience, NewCampaign, NewChatMessage, NewConversation, ScheduleCampaign, SendMessages } from "./contract.js";
 export { randomUuid } from "./uuid.js";
 export { createDevTokenSource, createHttpClient, type HttpClientOptions, type TokenSource } from "./http-client.js";
 export { PERMISSIONS, hasPermission, type Permission } from "./permissions.js";

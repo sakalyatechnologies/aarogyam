@@ -52,7 +52,7 @@ describe("Today v2", () => {
     expect(await screen.findByRole("heading", { name: "Lab work" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Collections" })).toBeTruthy();
     expect(screen.getByRole("complementary", { name: "Side panel" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Customise" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Customise" })).toBeNull();
   });
 
   it("shows no money or lab widgets to an assistant, who lacks finance.view and labs.read", async () => {

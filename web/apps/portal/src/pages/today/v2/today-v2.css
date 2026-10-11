@@ -104,7 +104,7 @@
 .tv2-cell-btn { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; padding: 4px 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
 .tv2-cell-btn:hover { text-decoration: underline; }
 
-/* Today's header row: the Back to today chip and the Customise button */
+/* Today's header row: the Back to today chip */
 .tv2-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .tv2-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--sk-border); background: var(--sk-surface); font: inherit; font-size: 13px; color: var(--sk-text); cursor: pointer; min-height: 36px; }
 .tv2-chip:hover { background: var(--sk-surface-muted); }

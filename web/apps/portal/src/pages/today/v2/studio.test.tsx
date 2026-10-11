@@ -110,13 +110,15 @@ describe("Settings, Dashboard studio tab", () => {
     expect(order(board)).not.toContain("busy_hours");
   });
 
-  it("Customise opens Settings, where the preview matches Today and a saved template shows on Today", async () => {
+  it("Settings → Dashboard studio previews Today as it is, and a saved template shows on Today", async () => {
     const backend = fakeApi();
     const user = userEvent.setup();
-    const { router } = renderPortal("/today", { as: PEOPLE.asha, backend });
+    renderPortal("/today", { as: PEOPLE.asha, backend });
     await screen.findByRole("list", { name: "Key numbers" });
     const before = order(today());
-    await user.click(screen.getByRole("button", { name: "Customise" }));
+    expect(screen.queryByRole("button", { name: "Customise" })).toBeNull();
+    cleanup();
+    const { router } = renderPortal("/settings?tab=studio", { as: PEOPLE.asha, backend });
     await within(await screen.findByRole("navigation", { name: "Settings sections" })).findByRole("button", { name: "Dashboard studio" });
     await screen.findByRole("group", { name: "Live preview of Today" });
     expect(router.state.location.pathname + router.state.location.search).toBe("/settings?tab=studio");

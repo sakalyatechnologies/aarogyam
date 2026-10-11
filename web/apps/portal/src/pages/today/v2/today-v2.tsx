@@ -1,5 +1,5 @@
-import { CalendarDays, LayoutTemplate, Undo2 } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router";
+import { CalendarDays, Undo2 } from "lucide-react";
+import { useSearchParams } from "react-router";
 
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
 import { PageHeader, Skeleton } from "@sakalya/ui";
@@ -18,7 +18,7 @@ function dayWords(date: string): string {
 }
 
 /**
- * Today (new look): the saved layout drawn by the Board (Customise opens Settings → Dashboard studio), with a mini calendar that shows any day's queue and completed
+ * Today (new look): the saved layout drawn by the Board, with a mini calendar that shows any day's queue and completed
  * visits in place. The chosen day is `?date=` so refresh and back keep it; "Back to today" drops it.
  */
 export function TodayV2() {
@@ -27,7 +27,6 @@ export function TodayV2() {
   const [params, setParams] = useSearchParams();
   const asked = params.get("date");
   const date = asked !== null && ISO_DAY.test(asked) ? asked : undefined;
-  const navigate = useNavigate();
   const layout = useMyLayout();
   const now = useDayToday(undefined);
 
@@ -51,18 +50,6 @@ export function TodayV2() {
         variant="display"
         title="Today"
         subtitle={`${session.clinic.name} · ${now.data === undefined ? "" : longDate(now.data.as_of, session.clinic.timezone)}`}
-        end={
-          <button
-            type="button"
-            className="mk-btn mk-btn-ghost"
-            onClick={() => {
-              void navigate("/settings?tab=studio");
-            }}
-          >
-            <LayoutTemplate aria-hidden="true" className="size-4" />
-            Customise
-          </button>
-        }
       />
       {viewing ? (
         <div className="tv2-head" style={{ marginBottom: 16 }}>

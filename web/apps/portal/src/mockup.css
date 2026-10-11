@@ -745,7 +745,6 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
 }
 .mk-newlook .mk-card, .mk-newlook .mk-kpi, .mk-newlook .mk-list, .mk-newlook .mk-stat { border-color: var(--nl-line); border-radius: var(--nl-card-r); }
 .mk-newlook .mk-btn, .mk-newlook .mk-tag, .mk-newlook .mk-pill, .mk-newlook .mk-chipf, .mk-newlook .mk-mini { border-radius: var(--nl-pill-r); }
-=======
 /* ---- Shell v2 (New look): a floating rail that expands, and a top bar with search, setup chip and bell ---- */
 .mk2 { display: block; --rail2-w: 72px; }
 .mk2-rail { position: fixed; z-index: 60; left: 16px; top: 16px; bottom: 16px; width: var(--rail2-w); display: flex; flex-direction: column; gap: 6px; padding: 16px 14px; border-radius: 28px; color: var(--rail-ink);
@@ -772,7 +771,7 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
 .mk2-tip { position: absolute; left: calc(100% + 14px); top: 50%; transform: translateY(-50%); padding: 5px 10px; border-radius: 9px; background: var(--rail-base); color: var(--rail-on); font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: var(--sh); opacity: 0; pointer-events: none; transition: opacity .15s; display: none; }
 .mk2-rail :focus-visible { outline: 2px solid var(--rail-ink-strong); outline-offset: 2px; }
 .mk2-toggle .mk2-lbl { flex: 1; text-align: left; }
-.mk2-main { width: auto; margin-left: calc(var(--rail2-w) + 32px); padding-left: 8px; }
+.mk2-main { width: auto; margin-left: calc(var(--rail2-w) + 32px); padding-left: 8px; padding-right: 24px; }
 .mk2-clinic-name { margin: 0; font-size: 13.5px; white-space: nowrap; color: var(--ink); }
 .mk2-search { flex: 1 1 auto; max-width: 460px; min-width: 42px; height: 42px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); color: var(--muted); box-shadow: var(--sh); font-size: 13.5px; cursor: pointer; text-align: left; }
 .mk2-search:hover { border-color: var(--border-strong, var(--rule)); color: var(--ink); }
@@ -803,7 +802,7 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
   .mk2-rail.open { transform: none; visibility: visible; }
   .mk2-close { display: grid; }
   .mk2-toggle { display: none; }
-  .mk2-main { margin-left: 0; padding-left: 0; }
+  .mk2-main { margin-left: 0; padding-left: 20px; padding-right: 24px; }
   .mk2-scrim { z-index: 55; }
 }
 @media (max-width: 900px) { .mk2-clinic-name { display: none; } }

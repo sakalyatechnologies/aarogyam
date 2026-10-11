@@ -2866,3 +2866,10 @@ export type UnreadCount = z.output<typeof unreadCount>;
 
 export const markedRead = z.object({ marked: z.number().int() }) satisfies z.ZodType<C.MarkedRead>;
 export type MarkedRead = z.output<typeof markedRead>;
+
+/** What the apps poll every minute: unread chat messages and unread notifications. */
+export const badges = z.object({
+  chat_unread: z.number().int(),
+  notifications_unread: z.number().int().nullable().exactOptional(),
+}) satisfies z.ZodType<C.Badges>;
+export type Badges = z.output<typeof badges>;

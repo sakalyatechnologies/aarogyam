@@ -88,16 +88,12 @@ export type NotificationSettings = Schemas["NotificationSettings"];
 export type NotificationSettingsChanges = Schemas["NotificationSettingsChanges"];
 export type QuietHoursView = Schemas["QuietHoursView"];
 export type QuietHoursChangesBody = Schemas["QuietHoursChangesBody"];
-export type Notification = Schemas["Notification"];
-export type NotificationList = Schemas["NotificationList"];
 export type NotifiedAppointment = Schemas["NotifiedAppointment"];
 export type NotifiedLabOrder = Schemas["NotifiedLabOrder"];
 export type NotifiedQueueToken = Schemas["NotifiedQueueToken"];
 export type NotifiedInvoice = Schemas["NotifiedInvoice"];
 export type NotifiedRecall = Schemas["NotifiedRecall"];
 export type NotificationHandledBy = Schemas["HandledBy"];
-export type UnreadCount = Schemas["UnreadCount"];
-export type MarkedRead = Schemas["MarkedRead"];
 
 // Refinements of untyped parts of the spec ----------------------------------------------------
 
@@ -581,6 +577,14 @@ export type WebsiteContent = Schemas["WebsiteContent"];
 export type WebsiteSettings = Schemas["WebsiteSettings"];
 export type WebsiteChanges = Schemas["WebsiteChanges"];
 export type PhotoChanges = Schemas["PhotoChanges"];
+
+// Staff notifications and the bell ---------------------------------------------------------------
+/** `href` is a path inside the portal that opens what a notification is about; older servers do not send it. */
+export type Notification = Schemas["Notification"] & { href?: string | null };
+export type NotificationList = { items: Notification[] };
+export type UnreadCount = Schemas["UnreadCount"];
+export type MarkedRead = Schemas["MarkedRead"];
+export type Badges = Schemas["Badges"];
 
 // First-run setup ---------------------------------------------------------------------------------
 export type Setup = Schemas["Setup"];

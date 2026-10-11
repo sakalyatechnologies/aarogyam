@@ -45,7 +45,7 @@ const RAIL_OPEN = "248px";
 const RAIL_SHUT = "72px";
 const RAIL_SPRING = { type: "spring", stiffness: 300, damping: 26 } as const;
 
-interface NavItem {
+export interface NavItem {
   id: string;
   label: string;
   icon: ReactNode;
@@ -54,7 +54,7 @@ interface NavItem {
 }
 
 /** Closes a popover on Escape or a click outside it. */
-function useDismiss(open: boolean, close: () => void) {
+export function useDismiss(open: boolean, close: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) {
@@ -127,7 +127,7 @@ function NavGroup({
   );
 }
 
-function ClinicSwitch() {
+export function ClinicSwitch() {
   const { access, me, switchClinic } = useClinic();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -187,7 +187,7 @@ function PhoneSearchButton({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function Account() {
+export function Account() {
   const { session, access } = useClinic();
   const auth = useAuth();
   const [open, setOpen] = useState(false);
@@ -253,29 +253,14 @@ function Account() {
   );
 }
 
-/** The mock-up's shell: dark sidebar, sticky top bar (search, actions, profile), page area. */
-export function MockShell() {
-  return (
-    <PeekProvider>
-      <ShellFrame />
-    </PeekProvider>
-  );
-}
-
-function ShellFrame() {
-  const [newLook] = useNewLook();
-  const { can, session } = useClinic();
+/**
+ * The rail's items, filtered by what the role may open, the one for the current address, and the pages the
+ * command palette jumps to. Shared by both shells, so the routes and `can()` filtering are the same in each.
+ */
+export function useShellNav() {
+  const { can } = useClinic();
   const location = useLocation();
-  const navigate = useNavigate();
-  const toast = useToast();
   const today = useToday();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const [collapsed, setCollapsed] = useStoredFlag("aarogyam.portal.sidebar-collapsed");
-  const sideRef = useRef<HTMLElement>(null);
-  const reduceMotion = useReducedMotion();
-  const mainId = useId();
-  const mainRef = useRef<HTMLElement>(null);
   const appointmentsToday = today.data?.counts.total;
 
   const workspace: NavItem[] = [
@@ -349,6 +334,32 @@ function ShellFrame() {
     ...(can("finance.view") ? [{ id: "expenses", label: "Expenses", href: "/billing?tab=expenses", icon: <ReceiptIndianRupee /> }] : []),
     ...(can("staff.manage") || can("roles.manage") ? [{ id: "team", label: "Team & roles", href: "/settings?tab=team", icon: <UserCog /> }] : []),
   ].map((item) => ({ id: item.id, label: item.label, href: item.href, icon: item.icon }));
+  return { workspace, system, activeId, palettePages };
+}
+
+/** The mock-up's shell: dark sidebar, sticky top bar (search, actions, profile), page area. */
+export function MockShell() {
+  return (
+    <PeekProvider>
+      <ShellFrame />
+    </PeekProvider>
+  );
+}
+
+function ShellFrame() {
+  const [newLook] = useNewLook();
+  const { can, session } = useClinic();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [collapsed, setCollapsed] = useStoredFlag("aarogyam.portal.sidebar-collapsed");
+  const sideRef = useRef<HTMLElement>(null);
+  const reduceMotion = useReducedMotion();
+  const mainId = useId();
+  const mainRef = useRef<HTMLElement>(null);
+
+  const { workspace, system, activeId, palettePages } = useShellNav();
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

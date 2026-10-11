@@ -32,6 +32,7 @@ import {
   type FakeInvoiceLine,
   type FakeLeave,
   type FakeMembership,
+  type FakeNotification,
   type FakeNote,
   type FakeSummaryNote,
   type FakeObservation,
@@ -3562,6 +3563,70 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(undefined);
         }),
 
+      listNotifications: (params, opts) =>
+        respond(S.notificationList, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!canSeeNotifications(caller)) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const limit = Math.min(Math.max(params?.limit ?? 30, 1), 100);
+          const items = visibleNotifications(state, caller)
+            .filter((n) => params?.before === undefined || n.id < params.before)
+            .filter((n) => params?.unreadOnly !== true || !isRead(n, caller))
+            .sort((a, b) => (a.id < b.id ? 1 : -1))
+            .slice(0, limit)
+            .map((n): C.Notification => {
+              const read = isRead(n, caller);
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the clinic and the readers stay on the server
+              const { clinic_id, read_by, ...wire } = n;
+              return { ...wire, read, read_at: read ? n.created_at : null };
+            });
+          return reply({ items } satisfies C.NotificationList);
+        }),
+
+      countUnreadNotifications: (opts) =>
+        respond(S.unreadCount, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!canSeeNotifications(caller)) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const unread = visibleNotifications(state, caller).filter((n) => !isRead(n, caller)).length;
+          return reply({ unread: Math.min(unread, 100) } satisfies C.UnreadCount);
+        }),
+
+      markNotificationRead: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = visibleNotifications(state, caller).find((n) => n.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          found.read_by = [...new Set([...(found.read_by ?? []), caller.membership.id])];
+          return { ok: true, body: undefined };
+        }),
+
+      markAllNotificationsRead: (opts) =>
+        respond(S.markedRead, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const unread = visibleNotifications(state, caller).filter((n) => !isRead(n, caller));
+          for (const n of unread) {
+            n.read_by = [...(n.read_by ?? []), caller.membership.id];
+          }
+          return reply({ marked: unread.length } satisfies C.MarkedRead);
+        }),
+
       getMyDashboardLayout: (opts) =>
         respond(S.dashboardLayoutView, opts?.signal, async () => {
           const caller = await inClinic();
@@ -3771,72 +3836,6 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : `blob:fake/${fakeUuid(random, clock())}`;
           caller.clinic.letterhead_images = { ...caller.clinic.letterhead_images, logo: url };
           return reply(wireClinicSettings(caller.clinic) satisfies C.ClinicSettings);
-        }),
-
-      listNotifications: (params, opts) =>
-        respond(S.notificationList, opts?.signal, async () => {
-          const caller = await inClinic();
-          if (!isCaller(caller)) {
-            return caller;
-          }
-          const permissions = caller.membership.role.permissions;
-          if (!NOTIFICATION_PERMISSIONS.some((permission) => hasPermission(permissions, permission))) {
-            return refuse(403, "forbidden", "You don't have permission to do that.");
-          }
-          const limit = Math.min(Math.max(params?.limit ?? 30, 1), 100);
-          const items = visibleNotifications(state, caller)
-            .filter((n) => params?.before === undefined || n.id < params.before)
-            .filter((n) => params?.unreadOnly !== true || !(n.read_by ?? []).includes(caller.membership.id))
-            .sort((a, b) => (a.id < b.id ? 1 : -1))
-            .slice(0, limit)
-            .map((n): C.Notification => {
-              const read = (n.read_by ?? []).includes(caller.membership.id);
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the clinic and the readers stay on the server
-              const { clinic_id, read_by, ...wire } = n;
-              return { ...wire, read, read_at: read ? n.created_at : null };
-            });
-          return reply({ items } satisfies C.NotificationList);
-        }),
-
-      countUnreadNotifications: (opts) =>
-        respond(S.unreadCount, opts?.signal, async () => {
-          const caller = await inClinic();
-          if (!isCaller(caller)) {
-            return caller;
-          }
-          const permissions = caller.membership.role.permissions;
-          if (!NOTIFICATION_PERMISSIONS.some((permission) => hasPermission(permissions, permission))) {
-            return refuse(403, "forbidden", "You don't have permission to do that.");
-          }
-          const unread = visibleNotifications(state, caller).filter((n) => !(n.read_by ?? []).includes(caller.membership.id)).length;
-          return reply({ unread: Math.min(unread, 100) } satisfies C.UnreadCount);
-        }),
-
-      markNotificationRead: (id, opts) =>
-        respond(S.voidResponse, opts?.signal, async () => {
-          const caller = await inClinic();
-          if (!isCaller(caller)) {
-            return caller;
-          }
-          const found = visibleNotifications(state, caller).find((n) => n.id === id);
-          if (found === undefined) {
-            return notFound;
-          }
-          found.read_by = [...new Set([...(found.read_by ?? []), caller.membership.id])];
-          return { ok: true, body: undefined };
-        }),
-
-      markAllNotificationsRead: (opts) =>
-        respond(S.markedRead, opts?.signal, async () => {
-          const caller = await inClinic();
-          if (!isCaller(caller)) {
-            return caller;
-          }
-          const unread = visibleNotifications(state, caller).filter((n) => !(n.read_by ?? []).includes(caller.membership.id));
-          for (const n of unread) {
-            n.read_by = [...(n.read_by ?? []), caller.membership.id];
-          }
-          return reply({ marked: unread.length } satisfies C.MarkedRead);
         }),
 
       updateMe: (changes, opts) =>
@@ -6641,7 +6640,15 @@ const NOTIFICATION_PERMISSION: Readonly<Record<string, Permission>> = {
   collect_payment: "billing.read",
   recall_due: "patients.read",
 };
-const NOTIFICATION_PERMISSIONS: readonly Permission[] = ["appointments.read", "labs.read", "billing.read", "patients.read"];
+
+function canSeeNotifications(caller: { membership: FakeMembership }): boolean {
+  const permissions = caller.membership.role.permissions;
+  return hasPermission(permissions, "appointments.read") || hasPermission(permissions, "labs.read");
+}
+
+function isRead(n: FakeNotification, caller: { membership: FakeMembership }): boolean {
+  return (n.read_by ?? []).includes(caller.membership.id);
+}
 
 function validateNewClinic(input: C.NewClinic, slug: string, clinics: readonly FakeClinic[]): Outcome | null {
   if (input.name.trim().length < 2) {

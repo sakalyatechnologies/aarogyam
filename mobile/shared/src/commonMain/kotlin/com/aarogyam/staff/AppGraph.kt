@@ -11,6 +11,7 @@ import com.aarogyam.staff.clinic.ClinicDirectory
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.Hosts
+import com.aarogyam.staff.desk.DeskLookupStateHolder
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.MemoryPreferences
 import com.aarogyam.staff.device.Preferences
@@ -195,6 +196,11 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): WalkInStateHolder = WalkInStateHolder(clinic, scope, logger("aarogyam.walkin"))
+
+    fun desk(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): DeskLookupStateHolder = DeskLookupStateHolder(clinic, scope, logger("aarogyam.desk"))
 
     fun queue(
         clinic: ClinicContext,

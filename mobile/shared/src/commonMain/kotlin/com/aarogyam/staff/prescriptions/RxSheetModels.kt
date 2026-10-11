@@ -98,6 +98,8 @@ data class RxSheetState(
     val error: ScreenError? = null,
     val issued: IssuedRx? = null,
     val share: ShareState? = null,
+    /** The server draft (`saveDraft`); none until the doctor saves. */
+    val draft: DraftSave = DraftSave.None,
 ) {
     /** Issuing needs an override reason while any allergy alert stands. */
     val needsOverride: Boolean get() = warnings.isNotEmpty() || serverAlert

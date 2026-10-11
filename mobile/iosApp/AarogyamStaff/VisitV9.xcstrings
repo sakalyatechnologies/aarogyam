@@ -284,19 +284,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The follow-up and fee are saved with the visit once the server supports it. Until then they stay on this screen."
+            "value": "The fee is saved with the visit once the server supports it. Until then it stays on this screen."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "फ़ॉलो-अप और शुल्क सर्वर के समर्थन के बाद विज़िट के साथ सेव होंगे। तब तक वे इसी स्क्रीन पर रहते हैं।"
+            "value": "शुल्क सर्वर के समर्थन के बाद विज़िट के साथ सेव होगा। तब तक वह इसी स्क्रीन पर रहता है।"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "फॉलो-अप आणि शुल्क सर्व्हरला सपोर्ट आल्यावर भेटीसोबत सेव होतील. तोपर्यंत ते याच स्क्रीनवर राहतात."
+            "value": "शुल्क सर्व्हरच्या समर्थनानंतर भेटीसोबत सेव्ह होईल. तोपर्यंत ते याच स्क्रीनवर राहते."
           }
         }
       }

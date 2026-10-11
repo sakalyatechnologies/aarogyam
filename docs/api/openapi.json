@@ -17192,7 +17192,8 @@
           "finding",
           "status",
           "effective_at",
-          "canals"
+          "canals",
+          "in_progress"
         ],
         "properties": {
           "canals": {
@@ -17213,6 +17214,10 @@
           "id": {
             "type": "string",
             "description": "Identifier."
+          },
+          "in_progress": {
+            "type": "boolean",
+            "description": "The treatment is started but not finished (for example a root canal between sittings)."
           },
           "material": {
             "oneOf": [
@@ -24077,6 +24082,10 @@
           "finding": {
             "type": "string",
             "description": "`sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`."
+          },
+          "in_progress": {
+            "type": "boolean",
+            "description": "The treatment is started but not finished. Defaults to false; ignored with `sound`."
           },
           "material": {
             "type": [

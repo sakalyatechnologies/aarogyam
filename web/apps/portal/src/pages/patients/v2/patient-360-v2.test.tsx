@@ -301,7 +301,7 @@ describe("History is never overwritten", () => {
     const { path, backend } = visitedPatient();
     renderPortal(path, { as: PEOPLE.asha, backend });
     await screen.findByRole("heading", { name: "Dental chart" });
-    // The chart is the existing append-only panel: no control here edits or deletes an entry.
+    // Nothing here edits or deletes an entry in place: Edit (in the tooth panel) records a correction that supersedes it.
     expect(screen.queryByRole("button", { name: /delete (entry|finding)/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /edit (entry|finding)/i })).toBeNull();
   });

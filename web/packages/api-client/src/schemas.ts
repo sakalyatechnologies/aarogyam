@@ -1681,6 +1681,7 @@ export const visitDetail = z.object({
       visit_id: visitId.nullable().exactOptional(),
       canals: z.array(rootCanal).default([]),
       sitting: count.nullable().exactOptional(),
+      in_progress: z.boolean().default(false),
     }),
   ),
   attachments: z.array(attachment),
@@ -1723,6 +1724,8 @@ export const chartEntry = z.object({
   canals: z.array(rootCanal).default([]),
   /** A root canal's sitting (visit) number. */
   sitting: count.nullable().exactOptional(),
+  /** Started but not finished; older servers don't send it. */
+  in_progress: z.boolean().default(false),
 }) satisfies z.ZodType<C.ChartEntry>;
 export type ChartEntry = z.output<typeof chartEntry>;
 
@@ -1735,6 +1738,7 @@ export type DentalChart = z.output<typeof dentalChart>;
 
 /** Body of `POST /api/v1/patients/{id}/dental-chart`. */
 export type NewChartEntries = C.NewChartEntries;
+export type NewChartEntry = C.NewChartEntry;
 
 // Patient files (M4) ------------------------------------------------------------------------------
 

@@ -9,14 +9,15 @@ import { useId, useRef, type ComponentProps, type KeyboardEvent, type ReactNode 
 import "./p360.css";
 
 /** A rounded card with a title and a one-line hint. */
-export function Bento({ title, sub, action, children, label }: { title?: ReactNode; sub?: ReactNode; action?: ReactNode; children: ReactNode; label?: string }) {
+export function Bento({ title, sub, action, children, label, level = 3 }: { title?: ReactNode; sub?: ReactNode; action?: ReactNode; children: ReactNode; label?: string; /** Heading level: 3 under a page section, 2 when the card is itself a section of the page. */ level?: 2 | 3 }) {
   const id = useId();
+  const Heading = level === 2 ? "h2" : "h3";
   return (
     <section className="p360-bento" aria-labelledby={title === undefined ? undefined : id} aria-label={title === undefined ? label : undefined}>
       {title === undefined && action === undefined ? null : (
         <header>
           <div>
-            {title === undefined ? null : <h3 id={id}>{title}</h3>}
+            {title === undefined ? null : <Heading id={id}>{title}</Heading>}
             {sub === undefined ? null : <p className="p360-sub">{sub}</p>}
           </div>
           {action}

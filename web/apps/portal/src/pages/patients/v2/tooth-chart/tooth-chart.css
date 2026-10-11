@@ -1,0 +1,86 @@
+/* The New look tooth chart. Colours come from the odontogram's finding variables (--odo-*), so one palette serves both charts. */
+.tc { gap: 12px; }
+/* The finding sets the colour: the same variables as the odontogram's FINDING_STYLE. */
+.tc [data-finding="sound"] { --tc: var(--odo-muted); }
+.tc [data-finding="caries"] { --tc: var(--odo-danger); }
+.tc [data-finding="filled"] { --tc: var(--odo-info); }
+.tc [data-finding="crown"] { --tc: var(--odo-warning); }
+.tc [data-finding="root_canal"] { --tc: var(--odo-warning); }
+.tc [data-finding="missing"] { --tc: var(--odo-muted); }
+.tc [data-finding="implant"] { --tc: var(--odo-primary); }
+.tc [data-finding="bridge"] { --tc: var(--odo-primary); }
+.tc [data-finding="fractured"] { --tc: var(--odo-danger); }
+.tc [data-finding="watch"] { --tc: var(--odo-warning); }
+.tc-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.tc-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 0 auto 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--odo-muted); }
+.tc-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.tc-legend i { width: 11px; height: 11px; border-radius: 50%; background: var(--tc); }
+.tc-legend i[data-finding="sound"] { background: var(--odo-surface); border: 1px solid var(--odo-border); }
+.tc-legend i[data-finding="missing"] { background: transparent; border: 1px dashed var(--odo-muted); }
+.tc-legend i[data-planned] { background: transparent; border: 1.5px dashed var(--odo-primary); }
+.tc-legend i[data-progress] { background: var(--odo-warning); }
+
+.tc-rows { overflow-x: auto; border-radius: 20px; background: color-mix(in srgb, var(--odo-text) 3%, var(--odo-surface)); padding: 18px 8px; }
+.tc-rows-inner { min-width: 520px; display: grid; gap: 12px; }
+.tc-rows hr { width: 80%; height: 1px; margin: 0 auto; border: 0; background: var(--odo-border); }
+.tc-row { display: flex; justify-content: center; gap: 3px; }
+.tc-tooth { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 28px; min-height: 44px; padding: 2px 1px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; color: var(--odo-text); transition: transform .15s, background-color .15s; font: inherit; }
+.tc-rows-inner .tc-row:last-child .tc-tooth { flex-direction: column-reverse; }
+.tc-tooth:hover { transform: translateY(-2px); }
+.tc-tooth[aria-pressed="true"] { background: color-mix(in srgb, var(--odo-primary) 16%, var(--odo-surface)); }
+.tc-tooth:focus-visible, .tc-bead:focus-visible { outline: 2px solid var(--odo-focus); outline-offset: 2px; }
+.tc-num { font-size: 10px; font-variant-numeric: tabular-nums; color: var(--odo-muted); }
+.tc-tooth[aria-pressed="true"] .tc-num { color: var(--odo-text); font-weight: 700; }
+.tc-shape { width: 22px; height: 32px; }
+.tc-tooth[data-kind="molar"] .tc-shape { width: 28px; }
+.tc-rows-inner .tc-row:last-child .tc-shape { transform: rotate(180deg); }
+.tc-shape path:first-child { fill: color-mix(in srgb, var(--tc) 38%, var(--odo-surface)); stroke: var(--tc); stroke-width: 1.6; }
+.tc-tooth[data-finding="sound"] .tc-shape path:first-child { fill: var(--odo-surface); stroke: var(--odo-line); }
+.tc-tooth[data-finding="missing"] .tc-shape path:first-child { fill: transparent; stroke: var(--odo-muted); stroke-dasharray: 3 3; opacity: .7; }
+.tc-ink { fill: none; stroke: var(--odo-text); stroke-width: 1.4; }
+.tc-plan { fill: var(--odo-surface); stroke: var(--odo-primary); stroke-width: 1.4; stroke-dasharray: 2 1.5; }
+.tc-busy { fill: var(--odo-warning); stroke: var(--odo-surface); stroke-width: 1; }
+
+.tc-arch-stage { border-radius: 20px; background: color-mix(in srgb, var(--odo-text) 3%, var(--odo-surface)); padding: 12px 16px; perspective: 700px; }
+.tc-arch { position: relative; height: 290px; max-width: 440px; margin: 0 auto; transform: rotateX(22deg); transition: transform .6s; }
+.tc-arch-stage:hover .tc-arch, .tc-arch-stage:focus-within .tc-arch { transform: rotateX(6deg); }
+.tc-gum { position: absolute; left: 50%; top: 50%; width: 84%; height: 92%; transform: translate(-50%, -50%); border-radius: 50%; border: 18px solid color-mix(in srgb, var(--odo-danger) 14%, transparent); }
+.tc-bead { position: absolute; display: grid; place-items: center; width: 32px; height: 32px; margin: -16px 0 0 -16px; padding: 0; border: 1px solid color-mix(in srgb, var(--tc) 70%, var(--odo-border)); border-radius: 44% 44% 48% 48%; cursor: pointer; font: inherit; color: var(--odo-text); background: radial-gradient(circle at 35% 30%, var(--odo-surface), color-mix(in srgb, var(--tc) 45%, var(--odo-surface)) 70%); box-shadow: 0 5px 0 -1px color-mix(in srgb, var(--odo-text) 18%, var(--odo-surface)), 0 9px 12px -5px rgba(0, 0, 0, .3); transition: transform .25s; }
+.tc-bead .tc-num { font-size: 10px; font-weight: 700; color: var(--odo-text); }
+.tc-bead:hover { transform: translateY(-4px) scale(1.1); }
+.tc-bead[aria-pressed="true"] { transform: translateY(-6px) scale(1.25); box-shadow: 0 0 0 3px var(--odo-primary); }
+.tc-bead[data-finding="sound"] { background: radial-gradient(circle at 35% 30%, #fff, color-mix(in srgb, var(--odo-text) 8%, var(--odo-surface))); }
+.tc-bead[data-finding="missing"] { background: transparent; border-style: dashed; box-shadow: none; }
+.tc-bead[data-planned] { outline: 2px dashed var(--odo-primary); outline-offset: 2px; }
+.tc-bead[data-progress]::after { content: ""; position: absolute; right: -3px; top: -3px; width: 9px; height: 9px; border-radius: 50%; background: var(--odo-warning); border: 1.5px solid var(--odo-surface); }
+.tc-centre { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; text-align: center; font-size: 11px; font-weight: 600; color: var(--odo-muted); pointer-events: none; }
+.tc-centre span { font-weight: 400; }
+.tc-hint { margin: 0; font-size: 12px; color: var(--odo-muted); }
+@media (prefers-reduced-motion: reduce) { .tc-arch, .tc-bead, .tc-tooth { transition: none; } }
+
+/* Panel. Beside the chart when the card is wide, below it when it is not (the card can be a narrow column in some layouts). */
+.tc-wrap { container-type: inline-size; }
+.tc-split { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@container (min-width: 900px) { .tc-split { grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr); } }
+.tc-panel { border-radius: 24px; border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); background: color-mix(in srgb, var(--ink) 3%, var(--surface)); padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.tc-panel h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.tc-panel .tc-sub { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.tc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.tc-empty { margin: 0; padding: 28px 8px; text-align: center; font-size: 14px; color: var(--muted); }
+.tc-history { display: grid; gap: 10px; max-height: 360px; overflow-y: auto; margin: 0; padding: 0 4px 0 0; list-style: none; }
+.tc-card { border-radius: 16px; border: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); background: var(--surface); padding: 12px 14px; display: grid; gap: 6px; }
+.tc-card[data-old] { opacity: .72; }
+.tc-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.tc-card strong { font-size: 14px; }
+.tc-meta { margin: 0; font-size: 12px; color: var(--muted); }
+.tc-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tc-card p { margin: 0; font-size: 13.5px; }
+.tc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tc-form { display: grid; gap: 4px; max-height: 640px; overflow-y: auto; padding-right: 4px; }
+.tc-label { margin: 12px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.tc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tc-rct { margin-top: 12px; padding: 12px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--odo-warning) 40%, transparent); background: color-mix(in srgb, var(--odo-warning) 8%, var(--surface)); display: grid; gap: 6px; }
+.tc-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tc-add { display: flex; gap: 8px; align-items: end; margin-top: 8px; }
+.tc-add > div { flex: 1; }
+.tc-error { margin: 8px 0 0; font-size: 13px; font-weight: 500; color: var(--sk-danger-text, #b3261e); }

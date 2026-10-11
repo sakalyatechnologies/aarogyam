@@ -159,3 +159,28 @@ describe("root canal entries and client_id replays (fake)", () => {
     });
   });
 });
+
+describe("in progress and corrections (fake)", () => {
+  it("stores in_progress (never on sound), and supersedes_id corrects a named entry, even on another surface", async () => {
+    const { as } = setup();
+    const owner = as(ASHA);
+    const patient = (await openVisit(as, "Meera Kulkarni")).patient_id;
+    const first = value(await owner.recordChartEntries(patient, { entries: [{ tooth: 16, surface: "M", finding: "filled", in_progress: true }, { tooth: 16, surface: "O", finding: "filled" }] }));
+    const m = first.current.find((c) => c.surface === "M");
+    const o = first.current.find((c) => c.surface === "O");
+    expect(m?.in_progress).toBe(true);
+    expect(o?.in_progress).toBe(false);
+
+    // Corrects the O entry from a new D entry; the old one is superseded and the new one links to it.
+    const next = value(await owner.recordChartEntries(patient, { entries: [{ tooth: 16, surface: "D", finding: "filled", supersedes_id: o?.id ?? "" }] }));
+    expect(next.current.map((c) => c.surface).sort()).toEqual(["D", "M"]);
+    expect(next.current.find((c) => c.surface === "D")?.supersedes_id).toBe(o?.id);
+    // The replaced entry is no longer current: correcting it again is a conflict; an unknown id is a 400; another clinic's patient is a 404.
+    expect(errorOf(await owner.recordChartEntries(patient, { entries: [{ tooth: 16, surface: "B", finding: "caries", supersedes_id: o?.id ?? "" }] }))?.status).toBe(409);
+    expect(errorOf(await owner.recordChartEntries(patient, { entries: [{ tooth: 16, finding: "caries", supersedes_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405111" }] }))?.status).toBe(400);
+    expect(errorOf(await as(BINA, LOTUS).recordChartEntries(patient, { entries: [{ tooth: 16, finding: "caries" }] }))?.status).toBe(404);
+
+    const cleared = value(await owner.recordChartEntries(patient, { entries: [{ tooth: 16, surface: "M", finding: "sound", in_progress: true, supersedes_id: m?.id ?? "" }] }));
+    expect(cleared.current.find((c) => c.surface === "M")?.in_progress).toBe(false);
+  });
+});

@@ -336,3 +336,15 @@ export function draftFromRow(row: HistoryRow): Draft {
 export function inProgressTeeth(current: readonly ChartEntry[]): ReadonlySet<number> {
   return new Set(current.filter((e) => e.status === "current" && e.in_progress).map((e) => e.tooth));
 }
+
+const QUADRANT: Readonly<Record<number, string>> = { 1: "Upper right", 2: "Upper left", 3: "Lower left", 4: "Lower right", 5: "Upper right", 6: "Upper left", 7: "Lower left", 8: "Lower right" };
+const PERMANENT = ["", "central incisor", "lateral incisor", "canine", "first premolar", "second premolar", "first molar", "second molar", "third molar"];
+const PRIMARY = ["", "central incisor", "lateral incisor", "canine", "first molar", "second molar"];
+
+/** "Upper right second premolar" for 15; "Lower left primary canine" for 73. */
+export function toothName(tooth: number): string {
+  const quadrant = QUADRANT[Math.floor(tooth / 10)] ?? "";
+  const position = tooth % 10;
+  const name = isPrimary(tooth) ? PRIMARY[position] : PERMANENT[position];
+  return `${quadrant} ${isPrimary(tooth) ? "primary " : ""}${name ?? ""}`.replace(/\s+/g, " ").trim();
+}

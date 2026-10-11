@@ -132,15 +132,22 @@ export function TreatmentForm({
                 }}
               />
             </Field>
-            <Field label="Working length" error={lengthError} hint={lengthError === undefined ? "In mm, for every canal chosen" : undefined}>
+            {/* The hint sits under the input, so both inputs start on the same line. */}
+            <Field label="Working length (mm)" error={lengthError}>
               <TextInput
                 value={draft.length}
-                placeholder="21 mm"
+                placeholder="21"
                 inputMode="decimal"
+                aria-describedby={lengthError === undefined ? "tc-length-hint" : undefined}
                 onChange={(event) => {
                   onChange({ ...draft, length: event.target.value });
                 }}
               />
+              {lengthError === undefined ? (
+                <p id="tc-length-hint" className="tc-hint">
+                  For every canal chosen
+                </p>
+              ) : null}
             </Field>
           </div>
         </div>

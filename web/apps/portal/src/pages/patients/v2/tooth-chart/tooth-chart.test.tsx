@@ -145,7 +145,7 @@ describe("the Classic view", () => {
       expect(calls.chart).toHaveLength(1);
     });
     expect(calls.chart[0]?.entries[0]).toMatchObject({ tooth: 16, finding: "crown" });
-    await user.click(within(panel).getByRole("button", { name: "Close tooth" }));
+    await user.click(within(panel).getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("complementary", { name: "Tooth 16 panel" })).toBeNull();
   });
 });
@@ -190,7 +190,7 @@ describe("the tooth panel", () => {
     await user.click(within(panel).getByRole("button", { name: "Root canal" }));
     await user.click(within(panel).getByRole("button", { name: "MB1" }));
     await user.click(within(panel).getByRole("button", { name: "MB2" }));
-    await user.type(within(panel).getByLabelText("Working length"), "20 mm");
+    await user.type(within(panel).getByLabelText(/^Working length/), "20 mm");
     await user.selectOptions(within(panel).getByLabelText("Sitting"), "2");
     await user.selectOptions(within(panel).getByLabelText("Material"), "Gutta percha");
     await user.type(within(panel).getByLabelText("Note"), "obturation done");
@@ -306,6 +306,65 @@ describe("the tooth panel", () => {
     const { path, backend } = patient();
     renderPortal(path, { as: PEOPLE.asha, backend });
     const panel = await openTooth(user, 46);
+    await user.click(within(panel).getByRole("button", { name: "Add treatment" }));
+    await user.click(within(panel).getByRole("button", { name: "Root canal" }));
+    const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+  });
+});
+
+describe("the tooth panel title, buttons and root canal alignment", () => {
+  it("names the tooth by position, says Add treatment, and has only a text Close (no x)", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = patient();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    const panel = await openTooth(user, 15);
+    expect(within(panel).getByRole("heading", { name: "15 · Upper right second premolar" })).toBeTruthy();
+    expect(within(panel).getByRole("button", { name: "Add treatment" })).toBeTruthy();
+    expect(within(panel).queryByRole("button", { name: "Close tooth" })).toBeNull();
+    expect(within(panel).getAllByRole("button", { name: "Close" })).toHaveLength(1);
+    expect(within(panel).queryByText("Start with it")).toBeNull();
+    // Every button is text: the only icon-only control a panel used to have was the x.
+    for (const button of within(panel).getAllByRole("button")) expect(button.textContent.trim()).not.toBe("");
+  });
+
+  it("names teeth in every quadrant and in the child dentition", async () => {
+    const { toothName } = await import("./model.js");
+    expect([11, 26, 38, 47, 18].map(toothName)).toEqual(["Upper right central incisor", "Upper left first molar", "Lower left third molar", "Lower right second molar", "Upper right third molar"]);
+    expect([51, 64, 73, 85].map(toothName)).toEqual(["Upper right primary central incisor", "Upper left primary first molar", "Lower left primary canine", "Lower right primary second molar"]);
+  });
+
+  it("lines up Sitting and Working length: two equal columns, same label row, hint under the input", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = patient();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    const panel = await openTooth(user, 26);
+    await user.click(within(panel).getByRole("button", { name: "Add treatment" }));
+    await user.click(within(panel).getByRole("button", { name: "Root canal" }));
+    const sitting = within(panel).getByLabelText("Sitting");
+    const length = within(panel).getByLabelText(/^Working length \(mm\)/);
+    const row = length.closest(".tc-two");
+    expect(row).not.toBeNull();
+    expect(row?.contains(sitting)).toBe(true);
+    // Two fields, side by side as direct children of the two-column row.
+    expect(row?.children).toHaveLength(2);
+    const [left, right] = Array.from(row?.children ?? []);
+    expect(left?.querySelector("label")?.textContent).toBe("Sitting");
+    expect(right?.querySelector("label")?.textContent).toBe("Working length (mm)");
+    // Nothing sits between a label and its input; the hint comes after the input.
+    expect(right?.querySelector("label")?.nextElementSibling?.contains(length)).toBe(true);
+    const hint = within(panel).getByText("For every canal chosen");
+    expect(length.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(length.getAttribute("aria-describedby")).toBe(hint.id);
+    // The panel stacks them when narrow: the stylesheet has a container rule for it.
+    expect(row?.closest(".tc-rct")).not.toBeNull();
+  });
+
+  it("has no axe violations on the root canal form", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = patient();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    const panel = await openTooth(user, 26);
     await user.click(within(panel).getByRole("button", { name: "Add treatment" }));
     await user.click(within(panel).getByRole("button", { name: "Root canal" }));
     const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });

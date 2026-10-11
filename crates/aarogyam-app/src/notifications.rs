@@ -16,7 +16,7 @@ use aarogyam_domain::notification::{
     Audience, InboxKind, NotificationKind, UNREAD_CAP, UNREAD_WINDOW_DAYS, addressed_to, page_size,
 };
 use aarogyam_domain::permission::Permission;
-use aarogyam_domain::schedule::{AppointmentStatus, BookingSource};
+use aarogyam_domain::schedule::{AppointmentStatus, BookingSource, QueueStatus};
 use sakalya_db::{Db, ScopedTx};
 use time::{Date, OffsetDateTime, UtcOffset};
 use uuid::Uuid;
@@ -34,6 +34,56 @@ pub(crate) async fn notify(
     let id = StaffNotificationId::new_v7();
     dal::insert(tx.conn(), id.uuid(), kind.as_str(), appointment_id.uuid()).await?;
     Ok(id)
+}
+
+/// Writes a queue notification about a token, for the audience its kind is addressed to.
+/// IDs only: the clinic number is read from the token's patient when it is shown.
+pub(crate) async fn notify_queue(
+    tx: &mut ScopedTx,
+    kind: NotificationKind,
+    token_id: Uuid,
+) -> Result<(), AppError> {
+    let audience = kind
+        .queue_audience()
+        .ok_or(AppError::Internal("not a queue notification"))?;
+    dal::insert_queue(
+        tx.conn(),
+        StaffNotificationId::new_v7().uuid(),
+        kind.as_str(),
+        token_id,
+        audience.as_str(),
+    )
+    .await?;
+    Ok(())
+}
+
+/// Marks the token's open notifications that its move to `to` answers as handled: a patient
+/// called is no longer waiting for the doctor; one seated needs no sending in; one done or
+/// gone needs nothing more; one sent back to waiting needs no sending in.
+pub(crate) async fn on_queue_move(
+    tx: &mut ScopedTx,
+    token_id: Uuid,
+    to: QueueStatus,
+    by: MembershipId,
+    now: OffsetDateTime,
+) -> Result<(), AppError> {
+    let kinds: &[NotificationKind] = match to {
+        QueueStatus::Called => &[NotificationKind::PatientWaiting],
+        QueueStatus::InChair => &[NotificationKind::PatientWaiting, NotificationKind::SendIn],
+        QueueStatus::Waiting => &[NotificationKind::SendIn],
+        QueueStatus::ReadyToBill => &[],
+        QueueStatus::Done | QueueStatus::Left => &[
+            NotificationKind::PatientWaiting,
+            NotificationKind::SendIn,
+            NotificationKind::CollectPayment,
+        ],
+    };
+    if kinds.is_empty() {
+        return Ok(());
+    }
+    let kinds: Vec<&str> = kinds.iter().map(|kind| kind.as_str()).collect();
+    dal::handle_queue(tx.conn(), token_id, &kinds, Some(by.uuid()), now).await?;
+    Ok(())
 }
 
 /// Marks the appointment's open notifications handled when staff confirm, decline or cancel an

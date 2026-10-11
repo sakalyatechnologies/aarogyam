@@ -7,6 +7,7 @@ use aarogyam_domain::access::{ClinicActor, Reach};
 use aarogyam_domain::ids::{
     BranchId, EncounterId, MembershipId, PatientId, PractitionerId, QueueTokenId, RoomId,
 };
+use aarogyam_domain::notification::NotificationKind;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::{QueueStatus, minutes_between};
 use sakalya_db::{Db, ScopedTx};
@@ -86,6 +87,10 @@ pub(crate) async fn issue_token(
         },
     )
     .await?;
+    // Check-in or walk-in: tell the doctor a patient is waiting.
+    if practitioner_id.is_some() {
+        crate::notifications::notify_queue(tx, NotificationKind::PatientWaiting, id).await?;
+    }
     Ok(id)
 }
 
@@ -110,7 +115,7 @@ pub struct Queue {
     pub tokens: Vec<TokenView>,
 }
 
-/// The tokens of a clinic day, optionally one branch.
+/// The tokens of a clinic day, optionally one branch or one doctor.
 ///
 /// # Errors
 /// [`AppError::Db`] on failures.
@@ -120,6 +125,7 @@ pub async fn list(
     request_id: Option<Uuid>,
     date: Option<Date>,
     branch_id: Option<BranchId>,
+    practitioner_id: Option<PractitionerId>,
     now: OffsetDateTime,
 ) -> Result<Queue, AppError> {
     actor.require(Permission::AppointmentsRead)?;
@@ -131,6 +137,7 @@ pub async fn list(
             date,
             branch_id.map(BranchId::uuid),
             actor.reach(Permission::AppointmentsRead).member(),
+            practitioner_id.map(PractitionerId::uuid),
         )
         .await?;
         Ok(Queue {
@@ -219,7 +226,7 @@ pub(crate) async fn check_doctor(
     Ok(())
 }
 
-/// Moves a token along: `in_chair`, `done` or `left`. A token with an appointment moves the
+/// Moves a token along: `called`, `waiting` (undoing a call), `in_chair`, `ready_to_bill`, `done` or `left`. A token with an appointment moves the
 /// appointment too (in the chair, completed, or cancelled as left without being seen). Asking
 /// for the status the token already has changes nothing and returns it; a move the table
 /// doesn't allow is refused with the token as it is. With `room_id` (only for `in_chair`) the
@@ -286,6 +293,53 @@ pub async fn set_status(
         if let Some(room) = room_id {
             seat(tx, token.id, room, now).await?;
         }
+        Ok(Moved::Done(view(tx, token.id, now, today).await?))
+    })
+    .await
+}
+
+/// The doctor calls a waiting patient in: the token becomes `called` (stamping `called_at`) and
+/// the front desk is told to send them through (`send_in`). Calling a token already called
+/// changes nothing and returns it, so a repeat is safe.
+///
+/// # Errors
+/// [`AppError::NotFound`] when the token isn't in this clinic or out of the member's reach
+/// (the patient isn't theirs and the token doesn't name them).
+pub async fn call(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    token_id: QueueTokenId,
+    now: OffsetDateTime,
+) -> Result<Moved<TokenView>, AppError> {
+    actor.require(Permission::ClinicalWrite)?;
+    let reach = actor.reach(Permission::ClinicalWrite).member();
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let today = clinic_today(&actor.timezone, now);
+        let token = dal::lock_for_visit(tx.conn(), token_id.uuid(), reach)
+            .await?
+            .ok_or(AppError::NotFound("queue token"))?
+            .state;
+        let from = QueueStatus::parse(&token.status)
+            .map_err(|_| AppError::Internal("unknown token status"))?;
+        if from == QueueStatus::Called {
+            return Ok(Moved::AlreadyDone(view(tx, token.id, now, today).await?));
+        }
+        if let Err(error) = from.check(QueueStatus::Called) {
+            return Ok(Moved::Refused {
+                reason: error.to_string(),
+                current: view(tx, token.id, now, today).await?,
+            });
+        }
+        move_token(
+            tx,
+            &actor.timezone,
+            &token,
+            QueueStatus::Called,
+            actor.membership_id,
+            now,
+        )
+        .await?;
         Ok(Moved::Done(view(tx, token.id, now, today).await?))
     })
     .await
@@ -362,6 +416,17 @@ pub(crate) async fn move_token(
             }
         }
         _ => dal::set_status(tx.conn(), token.id, to.as_str(), now).await?,
+    }
+    crate::notifications::on_queue_move(tx, token.id, to, by, now).await?;
+    match to {
+        QueueStatus::Called => {
+            crate::notifications::notify_queue(tx, NotificationKind::SendIn, token.id).await?;
+        }
+        QueueStatus::ReadyToBill => {
+            crate::notifications::notify_queue(tx, NotificationKind::CollectPayment, token.id)
+                .await?;
+        }
+        _ => {}
     }
     Ok(None)
 }

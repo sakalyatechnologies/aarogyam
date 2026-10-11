@@ -31,6 +31,56 @@ pub async fn insert(
     Ok(())
 }
 
+/// Writes a queue notification (`patient_waiting`, `send_in`, `collect_payment`) about a token
+/// for an audience (`doctor`, `front_desk`, `billing`) in the current clinic transaction.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn insert_queue(
+    conn: &mut PgConnection,
+    id: Uuid,
+    kind: &str,
+    queue_token_id: Uuid,
+    audience: &str,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        "insert into aarogyam.staff_notifications (id, kind, queue_token_id, audience)
+         values ($1, $2, $3, $4)",
+        id,
+        kind,
+        queue_token_id,
+        audience
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// Marks a token's open notifications of the given kinds handled by `by`; returns how many.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn handle_queue(
+    conn: &mut PgConnection,
+    queue_token_id: Uuid,
+    kinds: &[&str],
+    by: Option<Uuid>,
+    at: OffsetDateTime,
+) -> Result<u64, DbError> {
+    let kinds: Vec<String> = kinds.iter().map(|kind| (*kind).to_owned()).collect();
+    let done = sqlx::query!(
+        r#"update aarogyam.staff_notifications set handled_at = $4, handled_by = $3
+           where queue_token_id = $1 and kind = any($2) and handled_at is null"#,
+        queue_token_id,
+        &kinds,
+        by,
+        at
+    )
+    .execute(conn)
+    .await?;
+    Ok(done.rows_affected())
+}
+
 /// Marks an appointment's open notifications handled by `by` (a membership); returns how many.
 ///
 /// # Errors

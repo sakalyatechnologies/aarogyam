@@ -199,3 +199,15 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
   - New `AAROGYAM_DEV_SIGN_OUT`.
   - Family sheet: "Link existing patient".
   - Remaining server gap: the invoice list reports total 0 for drafts. That goes to be-fix, with D2 and D3.
+- The disk filled up completely (ENOSPC). With the founder's OK, the coordinator deleted the Rust caches `~/project/.targets/v9-be` (its own), `wt-t4b/target` and `sakalya-backend/target` (both idle). It left alone the caches in use: `aarogyam/target` and be-msg. Free space is now 62 GB.
+- be-msg merged (58b3cad4):
+  - welcome, visit_summary (with the PIN in a second message) and follow_up_booking, in en/hi/mr
+  - honours opt-outs; a per-clinic switch (migration 0427)
+  - the hook passed (fmt, clippy, workspace tests, machete); deny is ok
+  - Gaps:
+    - the PIN goes on the same channel as the link
+    - no wait-time line
+    - no web UI for the switches
+- Running:
+  - be-fix: D1–D4, D7, cancelling follow-ups on booking, then the full final check
+  - the mobile gate after the be-msg spec change

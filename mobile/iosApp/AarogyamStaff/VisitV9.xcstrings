@@ -1595,19 +1595,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$lld medicines · %2$@"
+            "value": "Medicines: %1$lld · %2$@"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$lld दवाएँ · %2$@"
+            "value": "दवाएँ: %1$lld · %2$@"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$lld औषधे · %2$@"
+            "value": "औषधे: %1$lld · %2$@"
           }
         }
       }
@@ -2032,19 +2032,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ · %2$lld medicines"
+            "value": "%1$@ · medicines: %2$lld"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ · %2$lld दवाएँ"
+            "value": "%1$@ · दवाएँ: %2$lld"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ · %2$lld औषधे"
+            "value": "%1$@ · औषधे: %2$lld"
           }
         }
       }

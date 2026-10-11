@@ -28,6 +28,9 @@ struct V9VisitContent: View {
     @State private var feeText = ""
     @State private var snapshot = V9Snapshot()
     @State private var connectivity = V9Connectivity()
+    #if DEBUG && AARO_ENV_Local
+    @State private var devAction: String?
+    #endif
     @Environment(\.skTheme) private var theme
     @Environment(\.dismiss) private var dismiss
 
@@ -41,13 +44,13 @@ struct V9VisitContent: View {
                             V9Summary(firstName: firstName, patientNumber: view.number, snapshot: snapshot, minutes: minutes) { dismiss() }
                         } else {
                             if !connectivity.online { V9OfflineBanner() }
-                            V9Notes(holder: holder, view: view)
+                            V9Notes(holder: holder, view: view).id("notes")
                             V9RxCard(
                                 rx: rx, state: rxState, phone: person?.phone, canIssue: clinic.permissions.contains("prescriptions.issue"),
                                 open: $rxOpen, draftKept: $rxDraftKept
                             )
                             .id("rx")
-                            V9Procedures(chart: chart, state: chartState, staged: $staged, locked: closing || view.closing)
+                            V9Procedures(chart: chart, state: chartState, staged: $staged, locked: closing || view.closing).id("procs")
                             V9CloseArea(
                                 confirm: $confirmClose, followUpOn: $followUpOn, followUpDate: $followUpDate, feeText: $feeText,
                                 closing: closing || view.closing, error: closeError ?? view.error?.message,
@@ -64,6 +67,19 @@ struct V9VisitContent: View {
             .onChange(of: confirmClose) { _, on in
                 if on { withAnimation { scroller.scrollTo("close", anchor: .center) } }
             }
+            #if DEBUG && AARO_ENV_Local
+            .task { await devSteps(scroller) }
+            .onChange(of: devAction) { _, action in
+                // Read here, where the view's values are current, not in the long-running task.
+                switch action {
+                case "confirm": requestClose()
+                case "close": performClose()
+                case "sign": rx.issue()
+                default: break
+                }
+                devAction = nil
+            }
+            #endif
         }
     }
 
@@ -151,3 +167,42 @@ struct V9VisitContent: View {
         return false
     }
 }
+
+#if DEBUG && AARO_ENV_Local
+extension V9VisitContent {
+    /// Local debug builds only, for screenshot runs: `SIMCTL_CHILD_AAROGYAM_DEV_VISIT_STEPS` is a
+    /// `;`-separated list of `notes`, `rx`, `add:<drug search>`, `proc`, `sign`, `confirm`, `close`,
+    /// `scroll:<id>` and `wait:<seconds>`, run in order once the visit is open.
+    func devSteps(_ scroller: ScrollViewProxy) async {
+        guard let steps = ProcessInfo.processInfo.environment["AAROGYAM_DEV_VISIT_STEPS"] else { return }
+        for step in steps.split(separator: ";").map(String.init) {
+            try? await Task.sleep(for: .seconds(1.2))
+            let parts = step.split(separator: ":", maxSplits: 1).map(String.init)
+            switch parts[0] {
+            case "notes":
+                holder.addBullet(kind: .complaint, text: "Pain in the lower right molar for two days, worse with cold")
+                holder.addBullet(kind: .finding, text: "Deep caries on 46, tender to percussion")
+                holder.addBullet(kind: .advice, text: "Root canal treatment advised; avoid hot food today")
+            case "rx": withAnimation { rxOpen = true }
+            case "add":
+                rx.search(query: parts.count > 1 ? parts[1] : "a")
+                for _ in 0..<12 {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    if let drug = rx.state.value.results.first { rx.add(drug: drug); break }
+                }
+            case "proc":
+                if case .loaded(let loaded) = onEnum(of: chart.state.value) {
+                    let terms = ChartModelKt.matchTerms(terms: loaded.terms, kind: .procedure, text: "")
+                    let tooth = (loaded.upper + loaded.lower).first { !$0.findings.isEmpty }.map { Int($0.number) } ?? 46
+                    for term in terms.prefix(2) { staged.append(StagedProcedure(tooth: tooth, term: term)) }
+                }
+            case "sign", "confirm", "close": devAction = parts[0]
+            case "fee": feeText = "1500"; followUpOn = true
+            case "scroll": withAnimation { scroller.scrollTo(parts.count > 1 ? parts[1] : "close", anchor: .center) }
+            case "wait": try? await Task.sleep(for: .seconds(Double(parts.count > 1 ? parts[1] : "1") ?? 1))
+            default: break
+            }
+        }
+    }
+}
+#endif

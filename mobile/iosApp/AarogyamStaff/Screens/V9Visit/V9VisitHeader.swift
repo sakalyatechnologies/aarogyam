@@ -16,9 +16,11 @@ struct V9Header: View {
         let r = theme.roles
         let ink = r.onPrimaryContainer.color
         VStack(spacing: SkSpacing.m) {
-            HStack {
-                livePill
-                Spacer(minLength: 0)
+            if !closed {
+                HStack {
+                    livePill
+                    Spacer(minLength: 0)
+                }
             }
             HStack(spacing: SkSpacing.ml) {
                 V7Initials(name: person?.name ?? "?", size: 46, strong: true)

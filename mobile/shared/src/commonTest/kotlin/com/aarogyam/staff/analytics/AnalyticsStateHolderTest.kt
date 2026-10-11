@@ -37,7 +37,7 @@ class AnalyticsStateHolderTest {
            "procedures_by_category":[],"chair_time":{"treatment":0,"consult":0,"admin":0},
            "visit_sources":{"booked":0,"walk_in":0},
            "busy_hours":[{"weekday":1,"hour":10,"visits":4}],"lab_turnaround":{"orders_received":0,"average_days":null},
-           "patients":{"age_bands":[{"key":"18_34","count":9}],"visit_kinds":[{"key":"new","count":3},{"key":"procedure","count":5}],
+           "patients":{"age_bands":[{"key":"18_34","count":9}],"sex":[],"visit_kinds":[{"key":"new","count":3},{"key":"procedure","count":5}],
            "referral_sources":[]}}"""
 
     @Test

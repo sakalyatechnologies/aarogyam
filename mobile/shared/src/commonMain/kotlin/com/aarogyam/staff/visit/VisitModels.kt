@@ -1,7 +1,7 @@
 package com.aarogyam.staff.visit
 
-import com.aarogyam.staff.api.model.CloseVisit
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.model.CloseVisit
 import com.aarogyam.staff.device.DictationLanguage
 import kotlin.time.Instant
 

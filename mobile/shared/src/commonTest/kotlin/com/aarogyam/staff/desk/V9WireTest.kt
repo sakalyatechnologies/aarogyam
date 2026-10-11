@@ -110,11 +110,11 @@ class V9WireTest {
             val board = DeskBoardStateHolder(clinic(backend), backgroundScope)
             board.state.first { it is DeskBoardState.Loaded }
             board.setMine(true)
-            val loaded = board.state.first { (it as? DeskBoardState.Loaded)?.mine == true } as DeskBoardState.Loaded
+            val loaded = board.state.first { (it as? DeskBoardState.Loaded)?.let { l -> l.mine && !l.refreshing } == true } as DeskBoardState.Loaded
             assertTrue(loaded.canFilterMine)
             assertEquals("d1", backend.requests.last { it.url.encodedPath.endsWith("/queue") }.url.parameters["practitioner_id"])
             board.setMine(false)
-            board.state.first { (it as? DeskBoardState.Loaded)?.mine == false }
+            board.state.first { (it as? DeskBoardState.Loaded)?.let { l -> !l.mine && !l.refreshing } == true }
             assertNull(backend.requests.last { it.url.encodedPath.endsWith("/queue") }.url.parameters["practitioner_id"])
         }
 
@@ -185,17 +185,20 @@ class V9WireTest {
             val loaded = holder.state.first { it is FamilyState.Loaded } as FamilyState.Loaded
             assertEquals(Relative("l1", "p5", "SD-1050", "Tara Shah", "child", false), loaded.items.single())
             assertTrue(loaded.canEdit)
+            val second = link.replace("l1", "l2").replace("p5", "p6")
             backend.on(family, { request ->
-                if (request.method.value == "POST") json(link, HttpStatusCode.Created) else json("""{"items":[$link]}""")
+                if (request.method.value == "POST") json(second, HttpStatusCode.Created) else json("""{"items":[$link,$second]}""")
             })
-            holder.add("p5", "child")
-            holder.state.first { backend.count(family) >= 3 }
+            holder.add("p6", "child")
+            val grown = holder.state.first { (it as? FamilyState.Loaded)?.items?.size == 2 } as FamilyState.Loaded
+            assertEquals(2, grown.items.size)
             val post = backend.requests.last { it.method.value == "POST" && it.url.encodedPath.endsWith("/family") }.text()
-            assertTrue(""""related_patient_id":"p5"""" in post && """"relation":"child"""" in post, post)
-            backend.on("$family/l1", { json("{}", HttpStatusCode.NoContent) })
-            holder.remove("l1")
-            holder.state.first { backend.count("$family/l1") == 1 }
-            assertEquals("DELETE", backend.requests.last { it.url.encodedPath.endsWith("/l1") }.method.value)
+            assertTrue(""""related_patient_id":"p6"""" in post && """"relation":"child"""" in post, post)
+            backend.on("$family/l2", { json("{}", HttpStatusCode.NoContent) })
+            backend.on(family, { json("""{"items":[$link]}""") })
+            holder.remove("l2")
+            holder.state.first { (it as? FamilyState.Loaded)?.items?.size == 1 }
+            assertEquals("DELETE", backend.requests.last { it.url.encodedPath.endsWith("/l2") }.method.value)
         }
 
     @Test
@@ -262,7 +265,7 @@ class V9WireTest {
                 "$SUNRISE/api/v1/payments",
                 {
                     json(
-                        """{"id":"pay1","number":"RC/26-27/000042","patient":{"id":"p1","number":"SD-1042","full_name":"Meera Shah"},
+                        """{"id":"pay1","number":"RC/26-27/000042","patient":{"id":"p1","number":"SD-1042","name":"Meera Shah"},
                           "received_at":"2026-10-08T04:00:00Z","amount_paise":50000,"method":"upi","status":"received",
                           "allocated_paise":0,"unallocated_paise":50000,"allocations":[],"attachment_id":"a1"}""",
                         HttpStatusCode.Created,
@@ -288,7 +291,7 @@ class V9WireTest {
                 "$SUNRISE/api/v1/payments",
                 {
                     json(
-                        """{"id":"pay1","number":"RC/1","patient":{"id":"p1","number":"SD-1042","full_name":"Meera Shah"},
+                        """{"id":"pay1","number":"RC/1","patient":{"id":"p1","number":"SD-1042","name":"Meera Shah"},
                           "received_at":"2026-10-08T04:00:00Z","amount_paise":50000,"method":"cash","status":"received",
                           "allocated_paise":0,"unallocated_paise":50000,"allocations":[]}""",
                         HttpStatusCode.Created,

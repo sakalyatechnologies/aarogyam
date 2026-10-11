@@ -113,7 +113,13 @@ class DeskBoardStateHolder(
     fun setMine(on: Boolean) {
         if (!canFilterMine || on == mine) return
         mine = on
-        (mutableState.value as? DeskBoardState.Loaded)?.let { mutableState.value = it.copy(mine = on, refreshing = true) }
+        (mutableState.value as? DeskBoardState.Loaded)?.let {
+            mutableState.value =
+                it.copy(
+                    mine = on,
+                    refreshing = true,
+                )
+        }
         load()
     }
 
@@ -168,7 +174,8 @@ class DeskBoardStateHolder(
                                 waitMinutes = token.waitMinutes,
                             )
                         }
-                    mutableState.value = DeskBoardState.Loaded(tickets, mine = mine && filter != null, canFilterMine = canFilterMine)
+                    mutableState.value =
+                        DeskBoardState.Loaded(tickets, mine = mine && filter != null, canFilterMine = canFilterMine)
                 }
 
                 is Outcome.Failure -> {
@@ -176,7 +183,8 @@ class DeskBoardStateHolder(
                     val error = ScreenError.of(result.error)
                     val current = mutableState.value as? DeskBoardState.Loaded
                     mutableState.value =
-                        current?.copy(refreshing = false, error = error, calling = emptySet()) ?: DeskBoardState.Failed(error)
+                        current?.copy(refreshing = false, error = error, calling = emptySet())
+                            ?: DeskBoardState.Failed(error)
                 }
             }
         }

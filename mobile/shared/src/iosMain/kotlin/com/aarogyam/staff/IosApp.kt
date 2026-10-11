@@ -10,6 +10,7 @@ import com.aarogyam.staff.clinic.ClinicBranding
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
+import com.aarogyam.staff.desk.FamilyStateHolder
 import com.aarogyam.staff.desk.registerDeskPayments
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.UserDefaultsPreferences
@@ -40,7 +41,6 @@ import com.aarogyam.staff.team.NotificationsStateHolder
 import com.aarogyam.staff.team.StockStateHolder
 import com.aarogyam.staff.team.TeamStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
-import com.aarogyam.staff.desk.FamilyStateHolder
 import com.aarogyam.staff.visit.RecallsStateHolder
 import com.aarogyam.staff.visit.VisitShareStateHolder
 import com.aarogyam.staff.visit.VisitStateHolder

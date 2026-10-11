@@ -1,10 +1,10 @@
 package com.aarogyam.staff.visit
 
 import com.aarogyam.staff.ScreenError
-import com.aarogyam.staff.api.model.CloseVisit
 import com.aarogyam.staff.api.closeVisit
 import com.aarogyam.staff.api.createNote
 import com.aarogyam.staff.api.editNote
+import com.aarogyam.staff.api.model.CloseVisit
 import com.aarogyam.staff.api.model.NewNote
 import com.aarogyam.staff.api.model.NewVisit
 import com.aarogyam.staff.api.model.Note

@@ -40,7 +40,8 @@ class VisitCloseWithTest {
 
     private fun VisitStateHolder.view() = (state.value as VisitState.Open).view
 
-    private fun FakeBackend.closeBody() = (requests.last { it.url.encodedPath.endsWith("/close") }.body as TextContent).text
+    private fun FakeBackend.closeBody() =
+        (requests.last { it.url.encodedPath.endsWith("/close") }.body as TextContent).text
 
     @Test
     fun closing_without_a_follow_up_or_fee_sends_no_body_and_makes_no_recall() =

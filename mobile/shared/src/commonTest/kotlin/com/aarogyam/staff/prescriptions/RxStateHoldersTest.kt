@@ -210,6 +210,19 @@ class RxSheetStateHolderTest {
         }
 
     @Test
+    fun an_issued_prescription_can_be_sent_again_without_a_new_draft() =
+        runTest {
+            val backend = FakeBackend().also { it.serve() }
+            val sheet = holder(backend)
+            sheet.shareIssued("r1", "RX-9")
+            val done = sheet.state.first { it.share is ShareState.Ready }
+            assertEquals(RxPhase.Issued, done.phase)
+            assertEquals("RX-9", done.issued?.number)
+            assertEquals(1, backend.count(share))
+            assertEquals(0, backend.count(issue), "nothing is issued twice")
+        }
+
+    @Test
     fun issuing_creates_one_draft_issues_it_and_makes_the_link_with_its_pin() =
         runTest {
             val backend = FakeBackend().also { it.serve() }

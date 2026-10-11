@@ -1,6 +1,7 @@
 package com.aarogyam.staff.visit
 
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.CloseBody
 import com.aarogyam.staff.api.closeVisit
 import com.aarogyam.staff.api.createNote
 import com.aarogyam.staff.api.editNote
@@ -29,39 +30,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Instant
-
-/** Where the note stands on the server. */
-enum class NoteSave { Empty, Unsaved, Saving, Saved, Signed, Failed }
-
-/** The Visit screen's data. Clinical text is for the screen only, never for logs. */
-data class VisitView(
-    val visitId: String,
-    val number: String,
-    val startedAt: Instant?,
-    val bullets: List<Bullet> = emptyList(),
-    val save: NoteSave = NoteSave.Empty,
-    /** Words the recogniser is still hearing; becomes a bullet when final. */
-    val liveText: String? = null,
-    val listening: DictationLanguage? = null,
-    val closing: Boolean = false,
-    val closed: Boolean = false,
-    val error: ScreenError? = null,
-)
-
-sealed interface VisitState {
-    data object Starting : VisitState
-
-    /** The role lacks `clinical.write`. */
-    data object NotAllowed : VisitState
-
-    data class Failed(
-        val error: ScreenError,
-    ) : VisitState
-
-    data class Open(
-        val view: VisitView,
-    ) : VisitState
-}
 
 /**
  * Start treatment and the Visit screen. Starts from the queue token when there is one
@@ -170,24 +138,45 @@ class VisitStateHolder(
     }
 
     /** Saves any unsaved note, then closes the visit. */
-    fun close() {
-        val view = open() ?: return
-        if (view.closing || view.closed) return
-        saveJob?.cancel()
-        update { it.copy(closing = true) }
-        scope.launch {
-            if (view.save == NoteSave.Unsaved && !save()) return@launch update { it.copy(closing = false) }
-            when (val answer = clinic.api.closeVisit(view.visitId)) {
-                is Outcome.Success -> {
-                    log.info("visit.closed") { id("visit", view.visitId) }
-                    update { it.copy(closing = false, closed = true) }
-                }
+    fun close() = closeWith(null, null, null)
 
-                is Outcome.Failure -> {
+    /**
+     * Saves any unsaved note, closes the visit, then plans the follow-up on [followUpOn]
+     * (`YYYY-MM-DD`) with [reason]. A failed follow-up keeps the visit closed, sets
+     * `followUpFailed` and the error; call again to retry only the follow-up. [feePaise] is kept
+     * as `pendingFeePaise` until the server takes it.
+     */
+    fun closeWith(
+        followUpOn: String?,
+        reason: String?,
+        feePaise: Long?,
+    ) {
+        val view = open() ?: return
+        if (view.closing || (view.closed && !view.followUpFailed)) return
+        saveJob?.cancel()
+        update { it.copy(closing = true, error = null, pendingFeePaise = feePaise ?: it.pendingFeePaise) }
+        scope.launch {
+            if (!view.closed) {
+                if (view.save == NoteSave.Unsaved && !save()) return@launch update { it.copy(closing = false) }
+                // BE5 switch point: with SERVER_CLOSE_BODY the server takes the follow-up and fee.
+                val body = CloseBody(followUpOn, feePaise, reason)
+                val answer =
+                    if (SERVER_CLOSE_BODY) clinic.api.closeVisit(view.visitId, body) else clinic.api.closeVisit(view.visitId)
+                if (answer is Outcome.Failure) {
                     failed("visit.close_failed", answer.error)
-                    update { it.copy(closing = false) }
+                    return@launch update { it.copy(closing = false) }
                 }
+                log.info("visit.closed") { id("visit", view.visitId) }
+                update { it.copy(closed = true) }
             }
+            val failure =
+                if (SERVER_CLOSE_BODY || followUpOn == null) {
+                    null
+                } else {
+                    createRecallFor(clinic, patientId, followUpOn, reason ?: FOLLOW_UP)
+                }
+            failure?.let { failed("visit.follow_up_failed", it) }
+            update { it.copy(closing = false, followUpFailed = failure != null) }
         }
     }
 
@@ -280,6 +269,9 @@ class VisitStateHolder(
     companion object {
         /** How long after the last change the note is saved. */
         const val SAVE_DELAY_MS: Long = 800
+        /** BE5: flip to true once the server's close body (`follow_up_on`, `fee_paise`, `note`) ships. */
+        private const val SERVER_CLOSE_BODY = false
+        private const val FOLLOW_UP = "follow_up"
         private const val CLINICAL_WRITE = "clinical.write"
         private const val SOAP = "soap"
     }

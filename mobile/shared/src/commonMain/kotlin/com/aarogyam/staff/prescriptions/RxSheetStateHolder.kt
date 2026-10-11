@@ -5,8 +5,6 @@ import com.aarogyam.staff.api.model.Drug
 import com.aarogyam.staff.api.model.RxValues
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.AllergyView
-import com.aarogyam.staff.patients.ClinicMoment
-import com.aarogyam.staff.today.parseInstant
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
@@ -18,7 +16,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.datetime.toLocalDateTime
 
 /**
  * Writing and issuing one prescription. Issuing is a draft (`createPrescription`, once), the issue
@@ -42,7 +39,8 @@ class RxSheetStateHolder(
 
     private var searchJob: Job? = null
     private var nextKey = 0
-    private var draftId: String? = null
+    private val sync = RxDraftSync(clinic, patientId, visitId)
+    private var frozen = false
 
     /** Searches the catalogue as the doctor types. */
     fun search(query: String) {
@@ -93,13 +91,13 @@ class RxSheetStateHolder(
                 timing = drug.defaultTiming,
             )
         mutableState.update {
-            recompute(it.copy(lines = it.lines + line, query = "", results = emptyList(), searching = false))
+            recompute(it.copy(draft = dirty(it), lines = it.lines + line, query = "", results = emptyList(), searching = false))
         }
     }
 
     fun remove(key: Int) {
         if (!editable()) return
-        mutableState.update { recompute(it.copy(lines = it.lines.filterNot { line -> line.key == key })) }
+        mutableState.update { recompute(it.copy(draft = dirty(it), lines = it.lines.filterNot { line -> line.key == key })) }
     }
 
     fun setDose(
@@ -116,6 +114,47 @@ class RxSheetStateHolder(
         key: Int,
         days: Int,
     ) = change(key) { it.copy(durationDays = days.coerceIn(1, MAX_DAYS)) }
+
+    /** The dose cells (morning, afternoon, night) become the line's frequency text, e.g. "1-0-1". */
+    fun setDose(
+        key: Int,
+        dose: RxDose,
+    ) = change(key) { it.copy(frequency = dose.format()) }
+
+    /** Timing chip; null clears it. */
+    fun setTiming(
+        key: Int,
+        timing: RxTiming?,
+    ) = change(key) { it.copy(timing = timing?.api) }
+
+    fun setDays(
+        key: Int,
+        days: Int,
+    ) = setDuration(key, days)
+
+    /**
+     * Keeps what is on screen as a server draft (created once, then edited), so it can be issued
+     * later. Lines stay editable; a change after saving marks the draft unsaved again.
+     */
+    fun saveDraft() {
+        val current = mutableState.value
+        if (!current.allowed || current.phase != RxPhase.Composing || current.lines.isEmpty()) return
+        if (current.draft == DraftSave.Saving) return
+        mutableState.update { it.copy(draft = DraftSave.Saving, error = null) }
+        scope.launch {
+            when (val result = sync.push(mutableState.value.lines)) {
+                is Outcome.Success -> {
+                    log.info("rxsheet.draft_saved") { id("prescription", result.value) }
+                    mutableState.update { it.copy(draft = DraftSave.Saved) }
+                }
+
+                is Outcome.Failure -> {
+                    log.warn("rxsheet.draft_failed") { code("error", result.error.code.value) }
+                    mutableState.update { it.copy(draft = DraftSave.Failed, error = ScreenError.of(result.error)) }
+                }
+            }
+        }
+    }
 
     fun setOverrideReason(text: String) {
         // Still allowed once the draft exists: the clinic's own check may ask for the reason late.
@@ -147,9 +186,10 @@ class RxSheetStateHolder(
     fun issue() {
         val current = mutableState.value
         if (!current.canIssue) return
+        frozen = true
         mutableState.update { it.copy(phase = RxPhase.Issuing, error = null) }
         scope.launch {
-            val id = draftId ?: createDraft() ?: return@launch
+            val id = sync.id ?: createDraft() ?: return@launch
             val reason = current.overrideReason.trim().takeIf { current.needsOverride }
             when (val result = clinic.api.issuePrescription(id, reason)) {
                 is Outcome.Success -> {
@@ -185,20 +225,8 @@ class RxSheetStateHolder(
         if (mutableState.value.share is ShareState.Creating) return
         mutableState.update { it.copy(share = ShareState.Creating) }
         scope.launch {
-            when (val result = clinic.api.sharePrescription(issued.id)) {
-                is Outcome.Success -> {
-                    val link = result.value
-                    val view =
-                        ShareView(
-                            url = "${clinic.api.origin}/shared/${link.token}",
-                            pin = link.pin,
-                            expiresAt =
-                                parseInstant(
-                                    link.expiresAt,
-                                )?.toLocalDateTime(clinic.timeZone)?.let { ClinicMoment(it.date, it.time) },
-                        )
-                    mutableState.update { it.copy(share = ShareState.Ready(view)) }
-                }
+            when (val result = shareView(clinic, issued.id)) {
+                is Outcome.Success -> mutableState.update { it.copy(share = ShareState.Ready(result.value)) }
 
                 is Outcome.Failure -> {
                     log.warn("rxsheet.share_failed") {
@@ -211,25 +239,14 @@ class RxSheetStateHolder(
         }
     }
 
-    private suspend fun createDraft(): String? {
-        val items = mutableState.value.lines.map { it.toItem() }
-        return when (
-            val result =
-                clinic.api.createPrescription(
-                    patientId,
-                    RxValues(items = items, encounterId = visitId),
-                )
-        ) {
-            is Outcome.Success -> {
-                result.value.id.also { draftId = it }
-            }
-
+    private suspend fun createDraft(): String? =
+        when (val result = sync.push(mutableState.value.lines)) {
+            is Outcome.Success -> result.value
             is Outcome.Failure -> {
                 fail(result.error)
                 null
             }
         }
-    }
 
     private fun fail(error: ApiError) {
         log.warn("rxsheet.issue_failed") {
@@ -242,7 +259,7 @@ class RxSheetStateHolder(
     /** Lines are frozen once a draft exists on the server; a retry only resumes. */
     private fun editable(): Boolean {
         val state = mutableState.value
-        return state.allowed && state.phase == RxPhase.Composing && draftId == null
+        return state.allowed && state.phase == RxPhase.Composing && !frozen
     }
 
     private fun change(
@@ -252,6 +269,7 @@ class RxSheetStateHolder(
         if (editable()) {
             mutableState.update {
                 it.copy(
+                    draft = dirty(it),
                     lines =
                         it.lines.map { line ->
                             if (line.key ==
@@ -266,6 +284,8 @@ class RxSheetStateHolder(
             }
         }
     }
+
+    private fun dirty(state: RxSheetState) = if (state.draft == DraftSave.Saved) DraftSave.None else state.draft
 
     private fun recompute(state: RxSheetState): RxSheetState =
         state.copy(warnings = warningsFor(state.lines, allergies))

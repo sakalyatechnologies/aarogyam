@@ -35,6 +35,7 @@ import com.aarogyam.staff.team.NotificationsStateHolder
 import com.aarogyam.staff.team.StockStateHolder
 import com.aarogyam.staff.team.TeamStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
+import com.aarogyam.staff.visit.RecallsStateHolder
 import com.aarogyam.staff.visit.VisitStateHolder
 import com.aarogyam.staff.walkin.WalkInStateHolder
 import com.sakalya.mobile.design.ThemeMode
@@ -232,6 +233,13 @@ fun AppGraph.visit(
     appointmentId: String?,
     screen: ScreenScope,
 ): VisitStateHolder = visit(clinic, patientId, tokenId, appointmentId, screen.scope)
+
+/** A patient's follow-ups, living as long as [screen]. */
+fun AppGraph.recalls(
+    clinic: ClinicContext,
+    patientId: String,
+    screen: ScreenScope,
+): RecallsStateHolder = RecallsStateHolder(clinic, patientId, screen.scope)
 
 /** Joining from an invitation [link], living as long as [screen]. */
 fun AppGraph.invite(

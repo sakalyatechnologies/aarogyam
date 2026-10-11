@@ -827,7 +827,7 @@ button.tag{min-height:28px}
 /* C2 arch */
 .ph .cx-stage{height:262px;perspective:720px;perspective-origin:50% 30%;display:grid;place-items:center;touch-action:none;cursor:grab;position:relative;overflow:hidden;border-radius:20px;background:radial-gradient(120% 90% at 50% 20%,color-mix(in srgb,var(--p) 10%,var(--s2)),var(--s2))}
 .ph .cx-stage:active{cursor:grabbing}
-.ph .cx-scene{position:relative;width:0;height:0;transform-style:preserve-3d;transform:translateY(26px) rotateX(var(--rx)) rotateY(var(--ry))}
+.ph .cx-scene{position:relative;width:0;height:0;transform-style:preserve-3d;transform:translateY(6px) scale(var(--sc,.94)) rotateX(var(--rx)) rotateY(var(--ry))}
 .ph .cx-gum{position:absolute;left:0;top:0;width:268px;height:236px;border-radius:50%;border:22px solid color-mix(in srgb,#e7788f 55%,var(--s2));transform:translate3d(-134px,-118px,0) translate3d(0,0,var(--gz)) rotateX(90deg);transform-origin:50% 50%;clip-path:inset(50% 0 0 0);opacity:.9}
 .ph .cx-t{position:absolute;left:0;top:0;transform-style:preserve-3d;transform:translate3d(var(--x),var(--lift,0px),var(--z)) rotateY(var(--th));cursor:pointer;transition:transform .3s var(--spring)}
 .ph .cx-t.sel{--lift:-12px}
@@ -2150,7 +2150,7 @@ const LOWER = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
 function archTeeth() {
   const A = 124, B = 112;
   return LOWER.map((n, i) => {
-    const f = i + .5, ph_ = Math.PI * f / 16, x = -A * Math.cos(ph_), z = B * (Math.sin(ph_) - .55), th = Math.atan2(-Math.cos(ph_) / A, Math.sin(ph_) / B) * 180 / Math.PI, k = n % 10;
+    const f = i + .5, ph_ = Math.PI * f / 16, x = -A * Math.cos(ph_), z = B * (Math.sin(ph_) - .5), th = Math.atan2(-Math.cos(ph_) / A, Math.sin(ph_) / B) * 180 / Math.PI, k = n % 10;
     const cls = k >= 6 ? 'molar' : k >= 4 ? 'pre' : k === 3 ? 'can' : 'inc';
     return `<div class="cx-t ${cls} ${S.states[n] || ''} ${S.tooth == n ? 'sel' : ''}" data-cxt="${n}" role="button" tabindex="0" aria-label="Tooth ${n}${S.states[n] ? ', ' + S.states[n] : ''}" style="--x:${x.toFixed(1)}px;--z:${z.toFixed(1)}px;--th:${th.toFixed(1)}deg;--fx:${x.toFixed(1)}px;--fy:${(z * .95 + 20).toFixed(1)}px"><i></i><i></i><i></i><i></i><i></i><i></i><span class="cx-n">${n}</span></div>`;
   }).join('');
@@ -2165,7 +2165,7 @@ function surfSVG(n) {
 }
 function archHTML() {
   return `<section class="cx-sec cx-arch" aria-label="Dental arch"><div class="cx-h"><b class="disp">Arch view</b><small>Drag to tilt</small></div>
-    <div class="cx-stage" role="group" aria-label="Lower dental arch in 3D. Drag to tilt, or use the buttons below"><div class="cx-scene" style="--rx:-56deg;--ry:0deg;--gz:${(-112 * .55).toFixed(1)}px"><div class="cx-gum"></div>${archTeeth()}</div></div>
+    <div class="cx-stage" role="group" aria-label="Lower dental arch in 3D. Drag to tilt, or use the buttons below"><div class="cx-scene" style="--rx:-56deg;--ry:0deg;--gz:${(-112 * .5).toFixed(1)}px"><div class="cx-gum"></div>${archTeeth()}</div></div>
     <div class="cx-tilt"><button class="cx-b rm-hide" data-cxa="tl" aria-label="Tilt left">${svg('left')} Tilt</button><button class="cx-b rm-hide" data-cxa="tr" aria-label="Tilt right">Tilt ${svg('right')}</button><button class="cx-b rm-hide" data-cxa="flat">Flat view</button><span class="cx-fine" style="flex:1">Gloves on? Use the buttons.</span></div>
     <div class="cx-step"><button class="cx-b sq" data-cxa="prev" aria-label="Previous tooth">${svg('left')}</button><div><b class="cx-tn">Pick a tooth</b><small class="cx-tl2">Tap a tooth or use the arrows</small></div><button class="cx-b sq" data-cxa="next" aria-label="Next tooth">${svg('right')}</button></div>
     <div class="cx-surf" hidden><div class="cx-sv2">${''}</div><div class="cx-fine">Pick a surface. The diagnosis sheet opens straight away.</div><div class="cx-sbtn">${[['M', 'Mesial'], ['D', 'Distal'], ['O', 'Occlusal'], ['B', 'Buccal'], ['L', 'Lingual']].map(([k, nm]) => `<button data-s="${k}" aria-pressed="false" aria-label="${nm}">${k}</button>`).join('')}</div></div>
@@ -2173,14 +2173,14 @@ function archHTML() {
 }
 function wireArch(sec) {
   const stage = $('.cx-stage', sec), scene = $('.cx-scene', sec); let rx = -56, ry = 0, d = null, moved = false;
-  const apply = () => { scene.style.setProperty('--rx', rx + 'deg'); scene.style.setProperty('--ry', ry + 'deg'); };
+  const apply = () => { scene.style.setProperty('--rx', rx + 'deg'); scene.style.setProperty('--ry', ry + 'deg'); scene.style.setProperty('--sc', (.94 - Math.abs(ry) / 22 * .12 - Math.max(0, -56 - rx) / 28 * .05 - Math.max(0, rx + 56) / 28 * .06).toFixed(3)); };
   const ease = (nrx, nry) => { if (RM()) return; const f = [rx, ry]; const t0 = performance.now(); (function st(t) { const k = Math.min(1, (t - t0) / 420), e = 1 - Math.pow(1 - k, 3); rx = f[0] + (nrx - f[0]) * e; ry = f[1] + (nry - f[1]) * e; apply(); if (k < 1) requestAnimationFrame(st); })(t0); };
   stage.addEventListener('pointerdown', e => { if (RM()) return; d = { x: e.clientX, y: e.clientY, rx, ry }; moved = false; });
-  window.addEventListener('pointermove', e => { if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (!moved && Math.hypot(dx, dy) > 6) { moved = true; stage.setPointerCapture && stage.setPointerCapture(e.pointerId); } if (!moved) return; ry = Math.max(-45, Math.min(45, d.ry + dx * .45)); rx = Math.max(-84, Math.min(-28, d.rx + dy * .3)); apply(); });
+  window.addEventListener('pointermove', e => { if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (!moved && Math.hypot(dx, dy) > 6) { moved = true; stage.setPointerCapture && stage.setPointerCapture(e.pointerId); } if (!moved) return; ry = Math.max(-22, Math.min(22, d.ry + dx * .3)); rx = Math.max(-72, Math.min(-42, d.rx + dy * .2)); apply(); });
   window.addEventListener('pointerup', () => { d = null; setTimeout(() => moved = false, 0); });
   sec.addEventListener('click', e => {
     const a = e.target.closest('[data-cxa]'); if (a) {
-      const k = a.dataset.cxa; if (k === 'tl') ease(rx, Math.max(-45, ry - 25)); if (k === 'tr') ease(rx, Math.min(45, ry + 25)); if (k === 'flat') ease(-56, 0);
+      const k = a.dataset.cxa; if (k === 'tl') ease(rx, Math.max(-22, ry - 15)); if (k === 'tr') ease(rx, Math.min(22, ry + 15)); if (k === 'flat') ease(-56, 0);
       if (k === 'prev' || k === 'next') { const i = LOWER.indexOf(+S.tooth); pickTooth(LOWER[(i < 0 ? (k === 'next' ? 0 : 15) : (i + (k === 'next' ? 1 : -1) + 16) % 16)], sec); } return;
     }
     const t = e.target.closest('[data-cxt]'); if (t && !moved) { pickTooth(+t.dataset.cxt, sec); return; }

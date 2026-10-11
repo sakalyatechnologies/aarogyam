@@ -93,6 +93,15 @@ import {
   queueDay,
   queueToken,
   monthSummary,
+  labBalance,
+  labContact,
+  labOrder,
+  labOrderList,
+  labPayment,
+  labPaymentList,
+  labReminderQueued,
+  labVendor,
+  labVendorList,
   openLabOrderPage,
   registrationReceived,
   requestId,
@@ -258,6 +267,45 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: "/api/v1/appointments/month-summary", schema: monthSummary, query: { month }, signal: opts?.signal }),
     listOpenLabOrders: (opts) =>
       call({ method: "GET", path: "/api/v1/lab-orders", schema: openLabOrderPage, query: { open: "1" }, signal: opts?.signal }),
+    listLabOrders: (filter, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/lab-orders",
+        schema: labOrderList,
+        query: {
+          status: filter?.status,
+          vendor_id: filter?.vendorId,
+          patient_id: filter?.patientId,
+          overdue: filter?.overdue === true ? "true" : undefined,
+          open: filter?.open === true ? "1" : undefined,
+        },
+        signal: opts?.signal,
+      }),
+    getLabOrder: (id, opts) => call({ method: "GET", path: `/api/v1/lab-orders/${encodeURIComponent(id)}`, schema: labOrder, signal: opts?.signal }),
+    createLabOrder: (input, opts) => call({ method: "POST", path: "/api/v1/lab-orders", schema: labOrder, body: input, signal: opts?.signal }),
+    updateLabOrder: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/lab-orders/${encodeURIComponent(id)}`, schema: labOrder, body: changes, signal: opts?.signal }),
+    setLabOrderStatus: (id, change, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-orders/${encodeURIComponent(id)}/status`, schema: labOrder, body: change, signal: opts?.signal }),
+    remindLab: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-orders/${encodeURIComponent(id)}/remind`, schema: labReminderQueued, signal: opts?.signal }),
+    logLabContact: (id, entry, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-orders/${encodeURIComponent(id)}/contacts-log`, schema: labOrder, body: entry, signal: opts?.signal }),
+    listLabVendors: (opts) => call({ method: "GET", path: "/api/v1/lab-vendors", schema: labVendorList, signal: opts?.signal }),
+    createLabVendor: (input, opts) => call({ method: "POST", path: "/api/v1/lab-vendors", schema: labVendor, body: input, signal: opts?.signal }),
+    updateLabVendor: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/lab-vendors/${encodeURIComponent(id)}`, schema: labVendor, body: changes, signal: opts?.signal }),
+    createLabContact: (vendorId, input, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-vendors/${encodeURIComponent(vendorId)}/contacts`, schema: labContact, body: input, signal: opts?.signal }),
+    updateLabContact: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/lab-contacts/${encodeURIComponent(id)}`, schema: labContact, body: changes, signal: opts?.signal }),
+    getLabBalance: (vendorId, opts) =>
+      call({ method: "GET", path: `/api/v1/lab-vendors/${encodeURIComponent(vendorId)}/balance`, schema: labBalance, signal: opts?.signal }),
+    listLabPayments: (vendorId, opts) =>
+      call({ method: "GET", path: "/api/v1/lab-payments", schema: labPaymentList, query: { vendor_id: vendorId }, signal: opts?.signal }),
+    recordLabPayment: (input, opts) => call({ method: "POST", path: "/api/v1/lab-payments", schema: labPayment, body: input, signal: opts?.signal }),
+    voidLabPayment: (id, reason, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-payments/${encodeURIComponent(id)}/void`, schema: labPayment, body: reason, signal: opts?.signal }),
     updatePatient: (id, changes, opts) =>
       call({ method: "PATCH", path: `/api/v1/patients/${encodeURIComponent(id)}`, schema: patient, body: changes, signal: opts?.signal }),
 

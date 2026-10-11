@@ -68,9 +68,17 @@ describe("fake client: Today for a chosen day", () => {
     expect(status(await as(ASHA).getMonthSummary("2026-13"))).toBe(400);
   });
 
-  it("needs labs.read, which no fake role holds yet because the fake keeps no lab orders", async () => {
+  it("lists open lab work with its stage and late flag, and needs labs.read", async () => {
     const { as } = setup();
-    expect(status(await as(ASHA).listOpenLabOrders())).toBe(403);
+    const open = value(await as(ASHA).listOpenLabOrders()).items;
+    expect(open.length).toBeGreaterThan(0);
+    expect(open.some((o) => o.late && o.pipeline_stage === "sent")).toBe(true);
+    expect(open.every((o) => o.status !== "fitted" && o.status !== "cancelled")).toBe(true);
+    const narrow = createFixtures({ now: NOW });
+    const membership = narrow.memberships.find((m) => m.user_id === FARAH);
+    if (membership !== undefined) membership.role = { key: "reader", name: "Reader", permissions: ["patients.read"] };
+    const reader = createFakeBackend(narrow).client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: FARAH }), now: () => NOW });
+    expect(status(await reader.listOpenLabOrders())).toBe(403);
   });
 });
 

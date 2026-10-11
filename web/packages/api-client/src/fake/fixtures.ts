@@ -8,6 +8,7 @@
 import type * as C from "../contract.js";
 import type { Permission } from "../permissions.js";
 import { seedExpenses } from "./analytics.js";
+import { seedLabs } from "./labs.js";
 import { DENTAL_REASONS, FEMALE_NAMES, MALE_NAMES, SURNAMES } from "./names.js";
 import { createQualityReport } from "./quality.js";
 import { createRandom, fakeUuid, type Random } from "./random.js";
@@ -650,6 +651,8 @@ export interface Fixtures {
   stockMovements: FakeStockMovement[];
   /** Clinic expenses (stock deliveries count as material on their own). */
   expenses?: import("./analytics.js").FakeExpense[];
+  /** Labs, lab orders and lab payments. */
+  labs?: import("./labs.js").FakeLabs;
   invoices: FakeInvoice[];
   payments: FakePayment[];
   drugs: FakeDrug[];
@@ -702,6 +705,8 @@ export const ROLES = {
       "inventory.manage",
       "expenses.write",
       "analytics.view",
+      "labs.read",
+      "labs.write",
     ],
   },
   doctor: {
@@ -718,6 +723,8 @@ export const ROLES = {
       "clinical.write",
       "prescriptions.issue",
       "inventory.read",
+      "labs.read",
+      "labs.write",
     ],
   },
   frontDesk: {
@@ -734,6 +741,8 @@ export const ROLES = {
       "billing.write",
       "inventory.read",
       "inventory.manage",
+      "labs.read",
+      "labs.write",
     ],
   },
   assistant: { key: "assistant", name: "Assistant", permissions: ["patients.read", "intake.write", "appointments.read", "clinical.read", "inventory.read"] },
@@ -757,6 +766,8 @@ export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; d
   { key: "clinical.write", module: "clinical", description: "Record visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
   { key: "expenses.write", module: "expenses", description: "Record clinic expenses", scopes: ["all"] },
   { key: "finance.view", module: "finance", description: "See revenue, expenses and salaries", scopes: ["all"] },
+  { key: "labs.read", module: "labs", description: "See labs, their contacts and lab orders", scopes: ["all", "own", "assigned"] },
+  { key: "labs.write", module: "labs", description: "Keep labs and contacts, record lab orders and remind labs", scopes: ["all", "own", "assigned"] },
   { key: "intake.write", module: "intake", description: "Record patient-reported allergies and \"No known allergies\" at registration", scopes: ["all"] },
   { key: "inventory.manage", module: "inventory", description: "Receive, use and adjust stock; edit items and suppliers", scopes: ["all"] },
   { key: "inventory.read", module: "inventory", description: "See stock levels, suppliers and expiry dates", scopes: ["all"] },
@@ -1390,6 +1401,7 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     stockBatches,
     stockMovements,
     expenses: seedExpenses(sunrise.id, sunriseOwnerMembership.id, now),
+    labs: seedLabs(sunrise.id, sunrisePatients, sunriseAsha, sunriseOwnerMembership.id, now),
     invoices,
     payments,
     drugs,

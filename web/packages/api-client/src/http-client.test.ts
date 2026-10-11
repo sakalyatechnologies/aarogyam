@@ -576,3 +576,58 @@ describe("createHttpClient settings v2", () => {
     expect(conflict.ok ? null : conflict.error.status).toBe(409);
   });
 });
+
+describe("createHttpClient lab requests", () => {
+  it("sends the order filters, the status and stage changes, the reminder, the log and the payment calls", async () => {
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, {})));
+    const client = createHttpClient("", () => "abc", { fetch });
+
+    await client.listLabOrders({ open: true, vendorId: "v1" });
+    await client.listLabOrders({ overdue: true });
+    await client.setLabOrderStatus("o1", { status: "received", stage: "Final" });
+    await client.updateLabOrder("o1", { stage: "Trial" });
+    await client.remindLab("o1");
+    await client.logLabContact("o1", { channel: "call", outcome: "no_answer" });
+    await client.getLabBalance("v1");
+    await client.listLabPayments("v1");
+    await client.voidLabPayment("p1", { reason: "Entered twice" });
+
+    expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
+      "GET /api/v1/lab-orders?vendor_id=v1&open=1",
+      "GET /api/v1/lab-orders?overdue=true",
+      "POST /api/v1/lab-orders/o1/status",
+      "PATCH /api/v1/lab-orders/o1",
+      "POST /api/v1/lab-orders/o1/remind",
+      "POST /api/v1/lab-orders/o1/contacts-log",
+      "GET /api/v1/lab-vendors/v1/balance",
+      "GET /api/v1/lab-payments?vendor_id=v1",
+      "POST /api/v1/lab-payments/p1/void",
+    ]);
+    const sentBody = calls[2]?.init?.body;
+    expect(JSON.parse(typeof sentBody === "string" ? sentBody : "{}")).toEqual({ status: "received", stage: "Final" });
+  });
+
+  it("decodes an order and refuses one the contract doesn't allow", async () => {
+    const order = {
+      id: "o1",
+      number: "LAB-1",
+      vendor_id: "v1",
+      contact_whatsapp: false,
+      patient_id: "p1",
+      patient_number: "SD-9",
+      patient_name: "Test Patient",
+      doctor_id: "d1",
+      status: "sent",
+      pipeline_stage: "sent",
+      late: false,
+      created_at: "2026-10-01T04:30:00Z",
+      costs_visible: false,
+      items: [{ id: "i1", line_no: 1, work_type: "Zirconia crown", teeth: [36], qty: 1 }],
+      events: [],
+    };
+    const ok = createHttpClient("", () => "abc", { fetch: stubFetch(json(200, order)).fetch });
+    expect((await unwrap(ok.getLabOrder("o1"))).items[0]?.work_type).toBe("Zirconia crown");
+    const bad = createHttpClient("", () => "abc", { fetch: stubFetch(json(200, { ...order, pipeline_stage: "somewhere" })).fetch });
+    expect((await bad.getLabOrder("o1")).ok).toBe(false);
+  });
+});

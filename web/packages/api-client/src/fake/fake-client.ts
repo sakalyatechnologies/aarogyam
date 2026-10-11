@@ -60,6 +60,26 @@ import {
 import { EXPENSE_NAMES, buildAnalytics, daysInclusive, wireExpense, type FakeExpense } from "./analytics.js";
 import { DASHBOARD_CATALOGUE, builtInLayout, validateLayout } from "./dashboard-layout.js";
 import { clinicTerms } from "./dental-terms.js";
+import {
+  atLab,
+  byDue,
+  canMove,
+  checkContact,
+  checkItems,
+  checkVendor,
+  emptyLabs,
+  isOpen,
+  labBalance,
+  nextOrderNumber,
+  trimmedOrNull,
+  wireLabOrder,
+  wireLabPayment,
+  wireVendor,
+  type FakeLabOrder,
+  type FakeLabPayment,
+  type FakeLabs,
+  type FakeLabVendor,
+} from "./labs.js";
 import { createMetrics } from "./metrics.js";
 import { QUICK_PICKS } from "./quick-picks.js";
 import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photosOf, siteOf, wirePhoto, wireSettings, type FakePhoto } from "./website.js";
@@ -704,6 +724,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
     const clinicPatients = (caller: Caller) => state.patients.filter((p) => p.clinic_id === caller.clinic.id && p.status !== "merged");
 
+    const labsOf = (): FakeLabs => (state.labs ??= emptyLabs());
+    /** What a lab order's names, late flag and costs depend on for this caller. */
+    const labContext = (caller: Caller) => ({
+      today: clinicToday(caller.clinic),
+      costs: hasPermission(caller.membership.role.permissions, "finance.view"),
+      vendors: labsOf().vendors.filter((v) => v.clinic_id === caller.clinic.id),
+      patients: clinicPatients(caller),
+      doctors: state.practitioners.filter((p) => p.clinic_id === caller.clinic.id),
+    });
+
     const api: ApiClient = {
       getMe: (opts) =>
         respond(S.meResponse, opts?.signal, async () => {
@@ -939,14 +969,483 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ month, days } satisfies C.MonthSummary);
         }),
 
-      // The fake keeps no lab orders yet, so open lab work is always empty.
       listOpenLabOrders: (opts) =>
         respond(S.openLabOrderPage, opts?.signal, async () => {
           const caller = await inClinic("labs.read");
           if (!isCaller(caller)) {
             return caller;
           }
-          return reply({ items: [] });
+          const ctx = labContext(caller);
+          const items = labsOf()
+            .orders.filter((o) => o.clinic_id === caller.clinic.id && isOpen(o.status))
+            .sort(byDue)
+            .map((o) => wireLabOrder(o, ctx));
+          return reply({ items });
+        }),
+
+      listLabOrders: (filter, opts) =>
+        respond(S.labOrderList, opts?.signal, async () => {
+          const caller = await inClinic("labs.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const ctx = labContext(caller);
+          const items = labsOf()
+            .orders.filter((o) => o.clinic_id === caller.clinic.id)
+            .map((o) => wireLabOrder(o, ctx))
+            .filter(
+              (o) =>
+                (filter?.status === undefined || o.status === filter.status) &&
+                (filter?.vendorId === undefined || o.vendor_id === filter.vendorId) &&
+                (filter?.patientId === undefined || o.patient_id === filter.patientId) &&
+                (filter?.overdue !== true || o.late) &&
+                (filter?.open !== true || isOpen(o.status)),
+            );
+          items.sort(filter?.open === true ? (a, b) => byDue(a, b) : (a, b) => b.created_at.localeCompare(a.created_at));
+          return reply({ items } satisfies C.LabOrderList);
+        }),
+
+      getLabOrder: (id, opts) =>
+        respond(S.labOrder, opts?.signal, async () => {
+          const caller = await inClinic("labs.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = labsOf().orders.find((o) => o.id === id && o.clinic_id === caller.clinic.id);
+          return found === undefined ? notFound : reply(wireLabOrder(found, labContext(caller)));
+        }),
+
+      createLabOrder: (input, opts) =>
+        respond(S.labOrder, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const labs = labsOf();
+          const vendor = labs.vendors.find((v) => v.id === input.vendor_id && v.clinic_id === caller.clinic.id);
+          const patient = clinicPatients(caller).find((p) => p.id === input.patient_id);
+          if (vendor === undefined || patient === undefined) {
+            return notFound;
+          }
+          if (input.contact_id != null && !vendor.contacts.some((c) => c.id === input.contact_id)) {
+            return invalid("contact_id", "choose someone at this lab");
+          }
+          const itemsProblem = checkItems(input.items);
+          if (itemsProblem !== null) {
+            return invalid(itemsProblem.field, itemsProblem.problem);
+          }
+          if (input.due_on != null && !/^\d{4}-\d{2}-\d{2}$/.test(input.due_on)) {
+            return invalid("due_on", "use YYYY-MM-DD");
+          }
+          const instructions = trimmedOrNull(input.instructions);
+          if (instructions !== null && instructions.length > 1000) {
+            return invalid("instructions", "at most 1000 characters");
+          }
+          const doctor =
+            state.practitioners.find((p) => p.id === input.doctor_id && p.clinic_id === caller.clinic.id) ??
+            state.practitioners.find((p) => p.clinic_id === caller.clinic.id && p.active);
+          if (doctor === undefined) {
+            return invalid("doctor_id", "no doctor to attach the order to");
+          }
+          const now = clock().toISOString();
+          const status: C.LabOrderState = input.send === true ? "sent" : "draft";
+          const row: FakeLabOrder = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            number: nextOrderNumber(labs),
+            vendor_id: vendor.id,
+            contact_id: input.contact_id ?? null,
+            patient_id: patient.id,
+            doctor_id: doctor.id,
+            status,
+            stage: trimmedOrNull(input.stage),
+            instructions,
+            sent_at: status === "sent" ? now : null,
+            due_on: input.due_on ?? null,
+            received_at: null,
+            rework_of_id: input.rework_of_id ?? null,
+            last_contacted_at: null,
+            last_contacted_by: null,
+            created_at: now,
+            items: input.items.map((item, i) => ({
+              id: fakeUuid(random, clock()),
+              line_no: i + 1,
+              work_type: item.work_type.trim(),
+              teeth: item.teeth ?? [],
+              shade: trimmedOrNull(item.shade),
+              material: trimmedOrNull(item.material),
+              qty: item.qty ?? 1,
+              unit_cost_paise: item.unit_cost_paise ?? null,
+            })),
+            events: [{ kind: "created", to_status: status, at: now, actor_id: caller.membership.id }],
+          };
+          labs.orders.push(row);
+          return reply(wireLabOrder(row, labContext(caller)));
+        }),
+
+      updateLabOrder: (id, changes, opts) =>
+        respond(S.labOrder, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = labsOf().orders.find((o) => o.id === id && o.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const vendor = labsOf().vendors.find((v) => v.id === found.vendor_id);
+          if (changes.contact_id != null && changes.contact_id !== "" && vendor?.contacts.some((c) => c.id === changes.contact_id) !== true) {
+            return invalid("contact_id", "choose someone at this lab");
+          }
+          if (changes.due_on != null && changes.due_on !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(changes.due_on)) {
+            return invalid("due_on", "use YYYY-MM-DD");
+          }
+          if ((changes.stage?.length ?? 0) > 80) {
+            return invalid("stage", "at most 80 characters");
+          }
+          const now = clock().toISOString();
+          if (changes.contact_id != null) {
+            found.contact_id = changes.contact_id === "" ? null : changes.contact_id;
+          }
+          if (changes.instructions != null) {
+            found.instructions = trimmedOrNull(changes.instructions);
+          }
+          if (changes.stage != null) {
+            found.stage = trimmedOrNull(changes.stage);
+            found.events.push({ kind: "stage_changed", stage: found.stage, at: now, actor_id: caller.membership.id });
+          }
+          if (changes.due_on != null) {
+            found.due_on = changes.due_on === "" ? null : changes.due_on;
+            found.events.push({ kind: "due_changed", due_on: found.due_on, at: now, actor_id: caller.membership.id });
+          }
+          return reply(wireLabOrder(found, labContext(caller)));
+        }),
+
+      setLabOrderStatus: (id, change, opts) =>
+        respond(S.labOrder, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = labsOf().orders.find((o) => o.id === id && o.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (!canMove(found.status, change.status)) {
+            return refuse(409, "conflict", "The order's status doesn't allow that move.");
+          }
+          const now = clock().toISOString();
+          const from = found.status;
+          found.status = change.status;
+          if (change.stage != null) {
+            found.stage = trimmedOrNull(change.stage);
+          }
+          if (change.status === "sent") {
+            found.sent_at = now;
+          }
+          if (change.status === "received") {
+            found.received_at = now;
+          }
+          found.events.push({
+            kind: "status_changed",
+            from_status: from,
+            to_status: change.status,
+            stage: found.stage,
+            note: trimmedOrNull(change.note),
+            at: now,
+            actor_id: caller.membership.id,
+          });
+          return reply(wireLabOrder(found, labContext(caller)));
+        }),
+
+      remindLab: (id, opts) =>
+        respond(S.labReminderQueued, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = labsOf().orders.find((o) => o.id === id && o.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const vendor = labsOf().vendors.find((v) => v.id === found.vendor_id);
+          const email = vendor?.contacts.find((c) => c.id === found.contact_id)?.email ?? vendor?.email ?? null;
+          if (!atLab(found.status) || email === null) {
+            return refuse(409, "conflict", "The work isn't at the lab, or the lab has no email.");
+          }
+          found.events.push({ kind: "reminded", reminder: "email", at: clock().toISOString(), actor_id: caller.membership.id });
+          return reply({ message_id: fakeUuid(random, clock()) } satisfies C.LabReminderQueued);
+        }),
+
+      logLabContact: (id, entry, opts) =>
+        respond(S.labOrder, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = labsOf().orders.find((o) => o.id === id && o.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const vendor = labsOf().vendors.find((v) => v.id === found.vendor_id);
+          if (entry.contact_id != null && vendor?.contacts.some((c) => c.id === entry.contact_id) !== true) {
+            return invalid("contact_id", "choose someone at this lab");
+          }
+          const note = trimmedOrNull(entry.note);
+          if (note !== null && note.length > 500) {
+            return invalid("note", "at most 500 characters");
+          }
+          if (entry.promised_on != null && !/^\d{4}-\d{2}-\d{2}$/.test(entry.promised_on)) {
+            return invalid("promised_on", "use YYYY-MM-DD");
+          }
+          const now = clock().toISOString();
+          found.last_contacted_at = now;
+          found.last_contacted_by = caller.membership.id;
+          found.events.push({
+            kind: "contacted",
+            channel: entry.channel,
+            outcome: entry.outcome ?? null,
+            note,
+            contact_id: entry.contact_id ?? null,
+            at: now,
+            actor_id: caller.membership.id,
+          });
+          if (entry.promised_on != null) {
+            found.due_on = entry.promised_on;
+            found.events.push({ kind: "due_changed", due_on: entry.promised_on, at: now, actor_id: caller.membership.id });
+          }
+          return reply(wireLabOrder(found, labContext(caller)));
+        }),
+
+      listLabVendors: (opts) =>
+        respond(S.labVendorList, opts?.signal, async () => {
+          const caller = await inClinic("labs.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = labsOf()
+            .vendors.filter((v) => v.clinic_id === caller.clinic.id)
+            .map(wireVendor)
+            .sort((a, b) => a.name.localeCompare(b.name));
+          return reply({ items } satisfies C.LabVendorList);
+        }),
+
+      createLabVendor: (input, opts) =>
+        respond(S.labVendor, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const problem = checkVendor(input, true);
+          if (problem !== null) {
+            return invalid(problem.field, problem.problem);
+          }
+          const row: FakeLabVendor = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            name: (input.name ?? "").trim(),
+            kind: input.kind ?? "dental_lab",
+            phone: trimmedOrNull(input.phone),
+            email: trimmedOrNull(input.email),
+            address: trimmedOrNull(input.address),
+            note: trimmedOrNull(input.note),
+            contacts: [],
+            created_at: clock().toISOString(),
+          };
+          labsOf().vendors.push(row);
+          return reply(wireVendor(row));
+        }),
+
+      updateLabVendor: (id, changes, opts) =>
+        respond(S.labVendor, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = labsOf().vendors.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const problem = checkVendor(changes, false);
+          if (problem !== null) {
+            return invalid(problem.field, problem.problem);
+          }
+          if (changes.name != null) found.name = changes.name.trim();
+          if (changes.kind != null) found.kind = changes.kind;
+          if (changes.phone !== undefined) found.phone = trimmedOrNull(changes.phone);
+          if (changes.email !== undefined) found.email = trimmedOrNull(changes.email);
+          if (changes.address !== undefined) found.address = trimmedOrNull(changes.address);
+          if (changes.note !== undefined) found.note = trimmedOrNull(changes.note);
+          return reply(wireVendor(found));
+        }),
+
+      createLabContact: (vendorId, input, opts) =>
+        respond(S.labContact, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const vendor = labsOf().vendors.find((v) => v.id === vendorId && v.clinic_id === caller.clinic.id);
+          if (vendor === undefined) {
+            return notFound;
+          }
+          const problem = checkContact(input, true);
+          if (problem !== null) {
+            return invalid(problem.field, problem.problem);
+          }
+          const row: C.LabContact = {
+            id: fakeUuid(random, clock()),
+            vendor_id: vendor.id,
+            name: (input.name ?? "").trim(),
+            role: trimmedOrNull(input.role),
+            phone: trimmedOrNull(input.phone),
+            email: trimmedOrNull(input.email),
+            whatsapp: input.whatsapp ?? false,
+            preferred_channel: input.preferred_channel ?? "phone",
+          };
+          vendor.contacts.push(row);
+          return reply(row);
+        }),
+
+      updateLabContact: (id, changes, opts) =>
+        respond(S.labContact, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const contact = labsOf()
+            .vendors.filter((v) => v.clinic_id === caller.clinic.id)
+            .flatMap((v) => v.contacts)
+            .find((c) => c.id === id);
+          if (contact === undefined) {
+            return notFound;
+          }
+          const problem = checkContact(changes, false);
+          if (problem !== null) {
+            return invalid(problem.field, problem.problem);
+          }
+          if (changes.name != null) contact.name = changes.name.trim();
+          if (changes.role !== undefined) contact.role = trimmedOrNull(changes.role);
+          if (changes.phone !== undefined) contact.phone = trimmedOrNull(changes.phone);
+          if (changes.email !== undefined) contact.email = trimmedOrNull(changes.email);
+          if (changes.whatsapp != null) contact.whatsapp = changes.whatsapp;
+          if (changes.preferred_channel != null) contact.preferred_channel = changes.preferred_channel;
+          return reply(contact);
+        }),
+
+      getLabBalance: (vendorId, opts) =>
+        respond(S.labBalance, opts?.signal, async () => {
+          const caller = await inClinic("finance.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const vendor = labsOf().vendors.find((v) => v.id === vendorId && v.clinic_id === caller.clinic.id);
+          return vendor === undefined ? notFound : reply(labBalance(vendor, labsOf()));
+        }),
+
+      listLabPayments: (vendorId, opts) =>
+        respond(S.labPaymentList, opts?.signal, async () => {
+          const caller = await inClinic("finance.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = labsOf()
+            .payments.filter((p) => p.clinic_id === caller.clinic.id && (vendorId === undefined || p.vendor_id === vendorId))
+            .sort((a, b) => b.paid_on.localeCompare(a.paid_on) || b.created_at.localeCompare(a.created_at))
+            .map(wireLabPayment);
+          return reply({ items } satisfies C.LabPaymentList);
+        }),
+
+      recordLabPayment: (input, opts) =>
+        respond(S.labPayment, opts?.signal, async () => {
+          const caller = await inClinic("expenses.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!hasPermission(caller.membership.role.permissions, "finance.view")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const labs = labsOf();
+          const vendor = labs.vendors.find((v) => v.id === input.vendor_id && v.clinic_id === caller.clinic.id);
+          if (vendor === undefined) {
+            return notFound;
+          }
+          if (!Number.isInteger(input.amount_paise) || input.amount_paise <= 0 || input.amount_paise > 1_000_000_000) {
+            return invalid("amount_paise", "must be more than zero and at most 1,00,00,000 rupees");
+          }
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(input.paid_on) || input.paid_on > clinicToday(caller.clinic)) {
+            return invalid("paid_on", "must be today or earlier");
+          }
+          if (input.lab_order_id != null && !labs.orders.some((o) => o.id === input.lab_order_id && o.vendor_id === vendor.id)) {
+            return invalid("lab_order_id", "choose an order at this lab");
+          }
+          const note = trimmedOrNull(input.note);
+          if (note !== null && note.length > 300) {
+            return invalid("note", "at most 300 characters");
+          }
+          const ref = trimmedOrNull(input.lab_invoice_ref);
+          if (ref !== null && ref.length > 60) {
+            return invalid("lab_invoice_ref", "at most 60 characters");
+          }
+          const now = clock();
+          const expense: FakeExpense = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            category: "lab",
+            spent_on: input.paid_on,
+            amount_paise: input.amount_paise,
+            note: `Lab: ${vendor.name}`,
+            recorded_by: caller.membership.id,
+            created_at: now.toISOString(),
+          };
+          (state.expenses ??= []).push(expense);
+          const row: FakeLabPayment = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            vendor_id: vendor.id,
+            lab_order_id: input.lab_order_id ?? null,
+            paid_on: input.paid_on,
+            amount_paise: input.amount_paise,
+            lab_invoice_ref: ref,
+            note,
+            expense_id: expense.id,
+            status: "recorded",
+            void_reason: null,
+            voided_at: null,
+            recorded_by: caller.membership.id,
+            created_at: now.toISOString(),
+          };
+          labs.payments.push(row);
+          return reply(wireLabPayment(row));
+        }),
+
+      voidLabPayment: (id, reason, opts) =>
+        respond(S.labPayment, opts?.signal, async () => {
+          const caller = await inClinic("expenses.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = labsOf().payments.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const why = reason.reason.trim();
+          if (why.length < 3 || why.length > 500) {
+            return invalid("reason", "3 to 500 characters");
+          }
+          if (found.status === "void") {
+            return refuse(409, "conflict", "The payment is already void.");
+          }
+          const now = clock().toISOString();
+          found.status = "void";
+          found.void_reason = why;
+          found.voided_at = now;
+          const expense = (state.expenses ?? []).find((e) => e.id === found.expense_id);
+          if (expense !== undefined) {
+            expense.voided_at = now;
+            expense.void_reason = why;
+          }
+          return reply(wireLabPayment(found));
         }),
 
       updatePatient: (id, changes, opts) =>

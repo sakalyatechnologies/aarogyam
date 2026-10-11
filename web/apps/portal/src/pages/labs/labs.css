@@ -1,0 +1,65 @@
+/* Lab work (New look): case cards with the five-step tracker, the labs directory and the drawers. Portal colour variables only. */
+
+.lb-bar-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 14px; }
+.lb-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.lb-list, .lb-labs { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.lb-labs { grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
+.lb-card { background: var(--bg); border: 1px solid var(--rule); border-radius: 18px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.lb-card-h { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lb-card-t { display: grid; gap: 2px; min-width: 0; flex: 1 1 160px; }
+.lb-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.lb-open { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; font-size: 15px; color: var(--ink); text-align: left; cursor: pointer; border-radius: 6px; }
+.lb-open:hover { color: var(--brand-text); text-decoration: underline; }
+.lb-open:focus-visible, .lb-btn:focus-visible, .lb-iconbtn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.lb-sub { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.lb-note { margin: 0; font-size: 13px; color: var(--ink2); line-height: 1.5; }
+.lb-items { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+
+.lb-track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.lb-bar { display: block; height: 6px; border-radius: 999px; background: var(--rule); }
+.lb-track .on .lb-bar { background: var(--brand); }
+.lb-track.off .lb-bar { background: var(--rule); }
+.lb-step { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
+.lb-track .on[aria-current="step"] .lb-step { color: var(--ink); font-weight: 700; }
+@media (max-width: 520px) { .lb-step { font-size: 10px; } }
+
+.lb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.lb-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; text-decoration: none; }
+.lb-btn:hover:not([disabled]) { background: var(--brand-soft); }
+.lb-btn[disabled] { opacity: .5; cursor: not-allowed; }
+.lb-btn.dark { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.lb-btn svg { width: 14px; height: 14px; }
+.lb-iconbtn { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink2); border-radius: 999px; cursor: pointer; }
+.lb-iconbtn:hover { background: var(--brand-soft); }
+
+.lb-contacts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.lb-contact { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.lb-icons { display: flex; gap: 6px; }
+
+.lb-drawer { display: grid; gap: 8px; }
+.lb-drawer h3.mk-flabel { margin-top: 20px; }
+.lb-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.lb-table th, .lb-table td { text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.lb-table thead th { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.lb-table tbody th { font-weight: 600; }
+
+.lb-form { display: grid; gap: 12px; }
+.lb-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 520px) { .lb-two { grid-template-columns: minmax(0, 1fr); } }
+.lb-rows { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; min-width: 0; }
+.lb-row { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; border: 1px solid var(--rule); border-radius: 16px; padding: 12px 44px 12px 12px; }
+.lb-row .lb-iconbtn { position: absolute; top: 8px; right: 8px; }
+.lb-picked { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border: 1px solid var(--rule); border-radius: 14px; padding: 10px 14px; }
+.lb-error { margin: 0; font-size: 12.5px; color: var(--red); }
+.lb-result { margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; font-size: 13px; background: var(--amber-soft); color: var(--ink); }
+.lb-result.ok { background: var(--green-soft); }
+.lb-result a { color: var(--brand-text); font-weight: 700; }
+
+.lb-balance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
+.lb-balance div { border: 1px solid var(--rule); border-radius: 14px; padding: 10px 12px; }
+.lb-balance dt { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.lb-balance dd { margin: 2px 0 0; font-size: 16px; font-weight: 800; color: var(--ink); }
+.lb-balance .due dd { color: var(--red); }
+.lb-pays { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.lb-pays > li { display: grid; gap: 6px; border-bottom: 1px solid var(--rule); padding-bottom: 8px; font-size: 13px; }
+.lb-void { display: grid; gap: 8px; }

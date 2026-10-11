@@ -160,13 +160,13 @@ describe("Notifications drawer", () => {
     const user = userEvent.setup();
     const backend = fakeApi();
     renderPortal("/today", { as: PEOPLE.asha, backend });
-    const bell = await screen.findByRole("button", { name: /^Notifications, 3 unread/ });
+    const bell = await screen.findByRole("button", { name: /^Notifications, 4 unread/ });
     await user.click(bell);
     const dialog = await screen.findByRole("dialog", { name: "Notifications" });
     const items = await within(dialog).findAllByRole("button", { name: /Booking/ });
     expect(items).toHaveLength(3);
     expect(items.every((item) => item.dataset.unread === "true")).toBe(true);
-    expect(within(dialog).getByText("3 unread")).toBeTruthy();
+    expect(within(dialog).getByText("4 unread")).toBeTruthy();
     await user.click(within(dialog).getByRole("button", { name: "Mark all read" }));
     await waitFor(() => {
       expect(within(dialog).getByText("All caught up")).toBeTruthy();
@@ -191,14 +191,14 @@ describe("Notifications drawer", () => {
   it("marks one read and opens what it is about when it has a link", async () => {
     const user = userEvent.setup();
     const { router } = renderPortal("/today", { as: PEOPLE.asha });
-    await user.click(await screen.findByRole("button", { name: /^Notifications, 3 unread/ }));
+    await user.click(await screen.findByRole("button", { name: /^Notifications, 4 unread/ }));
     const dialog = await screen.findByRole("dialog", { name: "Notifications" });
     await user.click(await within(dialog).findByRole("button", { name: /Booking request/ }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/calendar");
     });
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /^Notifications, 2 unread/ })).toBeTruthy();
+      expect(screen.getByRole("button", { name: /^Notifications, 3 unread/ })).toBeTruthy();
     });
   });
 
@@ -247,7 +247,7 @@ describe("Notifications drawer", () => {
   it("has no axe violations with the drawer open", async () => {
     const user = userEvent.setup();
     renderPortal("/today", { as: PEOPLE.asha });
-    await user.click(await screen.findByRole("button", { name: /^Notifications, 3 unread/ }));
+    await user.click(await screen.findByRole("button", { name: /^Notifications, 4 unread/ }));
     await screen.findByRole("dialog", { name: "Notifications" });
     const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
     expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);

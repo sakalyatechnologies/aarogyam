@@ -77,6 +77,7 @@ export const routes: RouteObject[] = [
                   { path: "billing/invoices/new", lazy: lazyPage(() => import("./pages/billing/new-invoice-page.js"), (m) => m.NewInvoicePage) },
                 ],
               },
+              { path: "labs", lazy: lazyPage(() => import("./pages/labs/labs-page.js"), (m) => m.LabsPage) },
               { path: "stock", lazy: lazyPage(() => import("./pages/stock/stock-page.js"), (m) => m.StockPage) },
               {
                 element: <RequireCan permission="analytics.view" what="Analytics" />,

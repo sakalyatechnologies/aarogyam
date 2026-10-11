@@ -15,7 +15,7 @@ import type {
   UnreadCount,
 } from "./schemas.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
-import type { Allergy, MonthSummary, OpenLabOrderPage, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
+import type { Allergy, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -214,6 +214,17 @@ import type {
   WorkingHours,
 } from "./schemas.js";
 
+/** Filters for the lab order list. */
+export interface LabOrderFilter {
+  status?: LabOrderState;
+  vendorId?: string;
+  patientId?: string;
+  /** Only work at the lab and past its due date. */
+  overdue?: boolean;
+  /** Only work that still needs something done. */
+  open?: boolean;
+}
+
 export interface RequestOptions {
   /** Cancels the request, for example when a search term changes. */
   signal?: AbortSignal | undefined;
@@ -308,6 +319,38 @@ export interface ApiClient {
   getMonthSummary(month: string, options?: RequestOptions): Promise<ApiResult<MonthSummary>>;
   /** Clinic host: lab work that still needs something done, soonest due first, with its derived stage and late flag. Needs `labs.read`. */
   listOpenLabOrders(options?: RequestOptions): Promise<ApiResult<OpenLabOrderPage>>;
+  /** Clinic host: lab orders with items, stage and late flag, soonest due first; `open` keeps work that still needs something done. Costs show only with `finance.view`. Needs `labs.read`. */
+  listLabOrders(filter?: LabOrderFilter, options?: RequestOptions): Promise<ApiResult<LabOrderList>>;
+  /** Clinic host: one lab order with its items and history. Needs `labs.read`. */
+  getLabOrder(id: string, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: sends work to a lab (`send` hands it over now, otherwise it stays a draft). Needs `labs.write`. */
+  createLabOrder(input: NewLabOrder, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: changes an order's contact, stage text, instructions or due date. Needs `labs.write`. */
+  updateLabOrder(id: string, changes: LabOrderChanges, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: moves an order along (409 when the move isn't allowed). Needs `labs.write`. */
+  setLabOrderStatus(id: string, change: LabOrderStatusChange, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: emails the lab a reminder, never naming the patient; 409 when the work isn't at the lab or the lab has no email. Needs `labs.write`. */
+  remindLab(id: string, options?: RequestOptions): Promise<ApiResult<LabReminderQueued>>;
+  /** Clinic host: logs a call, message or visit to the lab; a promised date becomes the due date. Needs `labs.write`. */
+  logLabContact(id: string, entry: LabContactLogEntry, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: the labs with their contacts. Needs `labs.read`. */
+  listLabVendors(options?: RequestOptions): Promise<ApiResult<LabVendorList>>;
+  /** Clinic host: adds a lab. Needs `labs.write`. */
+  createLabVendor(input: LabVendorValues, options?: RequestOptions): Promise<ApiResult<LabVendor>>;
+  /** Clinic host: changes a lab. Needs `labs.write`. */
+  updateLabVendor(id: string, changes: LabVendorValues, options?: RequestOptions): Promise<ApiResult<LabVendor>>;
+  /** Clinic host: adds a person at a lab. Needs `labs.write`. */
+  createLabContact(vendorId: string, input: LabContactValues, options?: RequestOptions): Promise<ApiResult<LabContact>>;
+  /** Clinic host: changes a person at a lab. Needs `labs.write`. */
+  updateLabContact(id: string, changes: LabContactValues, options?: RequestOptions): Promise<ApiResult<LabContact>>;
+  /** Clinic host: what a lab has billed, been paid and is still owed. Needs `finance.view`. */
+  getLabBalance(vendorId: string, options?: RequestOptions): Promise<ApiResult<LabBalance>>;
+  /** Clinic host: payments to labs, newest first, voided ones included. Needs `finance.view`. */
+  listLabPayments(vendorId?: string, options?: RequestOptions): Promise<ApiResult<LabPaymentList>>;
+  /** Clinic host: records a payment to a lab and its lab expense. Needs `expenses.write` and `finance.view`. */
+  recordLabPayment(input: NewLabPayment, options?: RequestOptions): Promise<ApiResult<LabPayment>>;
+  /** Clinic host: voids a payment (and its expense) with a reason. Needs `expenses.write`. */
+  voidLabPayment(id: string, reason: Reason, options?: RequestOptions): Promise<ApiResult<LabPayment>>;
   /** Clinic host: edits a patient's details. Needs `patients.write`, and `patients.contact` to change phone or email. */
   updatePatient(id: PatientId, changes: PatientChanges, options?: RequestOptions): Promise<ApiResult<Patient>>;
 

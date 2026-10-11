@@ -586,6 +586,8 @@ export const appointment = z.object({
   completed_at: optionalTimestamp,
   cancel_reason: optionalText,
   token_number: count.nullable().exactOptional(),
+  /** `new` without an earlier completed visit or appointment at this clinic, else `follow_up`. */
+  patient_type: z.enum(["new", "follow_up"]).default("new"),
 }) satisfies z.ZodType<C.Appointment>;
 export type Appointment = z.output<typeof appointment>;
 

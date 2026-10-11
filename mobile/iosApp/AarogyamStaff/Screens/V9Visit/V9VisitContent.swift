@@ -96,6 +96,12 @@ struct V9VisitContent: View {
         return max(1, (Int(Date.now.timeIntervalSince1970) - Int(start.epochSeconds)) / 60)
     }
 
+    /// `YYYY-MM-DD` in the device calendar, the day the recall falls due.
+    private static func isoDay(_ date: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
+    }
+
     private func requestClose() {
         switch CloseGuard.decide(medicines: rxState.lines.count, signed: rxState.phase == .issued) {
         case .close: performClose()
@@ -130,7 +136,7 @@ struct V9VisitContent: View {
                 holder.sign()
                 if !(await waitSigned()) { closing = false; return closeError = V9("v9v.close.sign_failed") }
             }
-            holder.close()
+            holder.closeWith(followUpOn: followUpOn ? Self.isoDay(followUpDate) : nil, reason: nil, feePaise: V9Close.paise(fromRupees: feeText).map { KotlinLong(value: $0) })
             closing = false
         }
     }

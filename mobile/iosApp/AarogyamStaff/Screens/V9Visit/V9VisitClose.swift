@@ -24,8 +24,6 @@ struct V9CloseArea: View {
                 VStack(alignment: .leading, spacing: SkSpacing.m) {
                     HStack {
                         Text("v9v.close.after", tableName: "VisitV9").v7Text(16, .heavy).foregroundStyle(r.onSurface.color)
-                        Spacer(minLength: 8)
-                        V7Pill(text: V9("v9v.preview"), kind: .warm)
                     }
                     Toggle(isOn: $followUpOn.animation()) {
                         Text("v9v.close.follow_up", tableName: "VisitV9").v7Text(15)
@@ -81,7 +79,7 @@ struct V9Summary: View {
                     row(V9("v9v.sum.notes"), snapshot.notes == 0 ? V9("v9v.sum.none") : V9f("v9v.sum.notes.value", snapshot.notes))
                     row(V9("v9v.sum.rx"), snapshot.medicines == 0 ? V9("v9v.sum.none") : V9f("v9v.sum.rx.value", snapshot.rxNumber ?? "", snapshot.medicines))
                     if let date = snapshot.followUp {
-                        row(V9("v9v.sum.follow_up"), date.formatted(date: .abbreviated, time: .omitted) + " · " + V9("v9v.preview"))
+                        row(V9("v9v.sum.follow_up"), date.formatted(date: .abbreviated, time: .omitted))
                     }
                     Divider()
                     HStack(alignment: .firstTextBaseline) {

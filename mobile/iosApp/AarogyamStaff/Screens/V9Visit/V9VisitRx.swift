@@ -71,7 +71,7 @@ struct V9RxCard: View {
         if !canIssue || !state.allowed { return V9("v9v.rx.not_allowed.short") }
         if signed { return state.issued?.number.map { V9f("v9v.rx.signed.sub", $0) } ?? V9("v9v.rx.signed.plain") }
         if state.lines.isEmpty { return V9("v9v.rx.hint") }
-        return V9f("v9v.rx.sub.count", state.lines.count, draftKept ? V9("v9v.rx.draft.kept") : V9("v9v.rx.draft"))
+        return V9f("v9v.rx.sub.count", state.lines.count, state.draft == .saved ? V9("v9v.rx.draft.kept") : V9("v9v.rx.draft"))
     }
 
     @ViewBuilder private var content: some View {
@@ -121,7 +121,8 @@ struct V9RxCard: View {
         }
         if !state.lines.isEmpty {
             HStack(spacing: SkSpacing.sm) {
-                SkPillButton(draftKept ? V9("v9v.rx.draft.saved") : V9("v9v.rx.save_draft"), variant: .tonal, wide: true) {
+                SkPillButton(state.draft == .saved ? V9("v9v.rx.draft.saved") : V9("v9v.rx.save_draft"), variant: .tonal, wide: true) {
+                    rx.saveDraft()
                     draftKept = true
                     open = false
                 }
@@ -213,12 +214,11 @@ private struct V9MedCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     V7Label(text: V9("v9v.timing.label"))
-                    V7Pill(text: V9("v9v.preview"), kind: .warm)
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: SkSpacing.sm) {
                         ForEach(Self.timings, id: \.key) { option in
-                            SkChoiceChip(V9(option.label), selected: timing == option.key) { if editable { timing = timing == option.key ? nil : option.key } }
+                            SkChoiceChip(V9(option.label), selected: timing == option.key) { if editable { pick(option.key) } }
                         }
                     }
                     .padding(.horizontal, 12)
@@ -236,6 +236,12 @@ private struct V9MedCard: View {
         .padding(12)
         .background(r.surface2.color, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay { if warned { RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(r.error.color, lineWidth: 2) } }
+    }
+
+    private func pick(_ key: String) {
+        let next: String? = timing == key ? nil : key
+        timing = next
+        rx.setTiming(key: line.key, timing: next.flatMap { RxTiming.Companion.shared.fromApi(text: $0) })
     }
 
     private func slotName(_ slot: DoseSlot) -> String {

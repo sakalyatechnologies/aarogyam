@@ -25,6 +25,9 @@ struct RootView: View {
             SkEmptyState(String(localized: "not_configured.title"), message: String(localized: "not_configured.message"))
         case .ready(let graph):
             signed(graph)
+            #if DEBUG && AARO_ENV_Local
+            .task { await DevSession.applyLaunchEnv(graph: graph) }
+            #endif
         }
     }
 

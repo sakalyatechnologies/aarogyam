@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select auto_messages as \"auto_messages!\" from aarogyam.org_settings\n           where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "auto_messages!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_settings",
+            "name": "auto_messages"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8533f474b43a208b166ad0b5e8c9210cd268a14d3679fc720b6a8f55722c4b57"
+}

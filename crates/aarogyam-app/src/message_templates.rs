@@ -24,6 +24,10 @@ pub const KEYS: &[&str] = &[
     "booking.declined",
     "prescription.shared",
     "patient_app.invited",
+    "patient.welcome",
+    "visit.summary",
+    "visit.summary_pin",
+    "visit.follow_up_booking",
 ];
 
 /// A template to add.

@@ -9,6 +9,7 @@ use aarogyam_domain::clinic::{
     legal_name, prescription_footer,
 };
 use aarogyam_domain::letterhead::{Letterhead, LetterheadChanges};
+use aarogyam_domain::messaging::AutoMessages;
 use aarogyam_domain::permission::Permission;
 use sakalya_db::Db;
 use sakalya_types::{CallingCode, PhoneE164};
@@ -48,6 +49,8 @@ pub struct ClinicSettings {
     pub booking: BookingSettings,
     /// The letterhead printed on the clinic's documents.
     pub letterhead: Letterhead,
+    /// Which automatic patient messages are on.
+    pub auto_messages: AutoMessages,
 }
 
 /// Address parts as received; each replaces the stored part, and empty clears it.
@@ -93,6 +96,19 @@ pub struct SettingsChanges {
     pub booking: BookingChanges,
     /// Letterhead changes.
     pub letterhead: Option<LetterheadChanges>,
+    /// Automatic message switches.
+    pub auto_messages: AutoMessagesChanges,
+}
+
+/// Changes to the automatic message switches; `None` leaves a switch as it is.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct AutoMessagesChanges {
+    /// The welcome after a walk-in registers.
+    pub welcome: Option<bool>,
+    /// The visit summary link after a visit closes.
+    pub visit_summary: Option<bool>,
+    /// The follow-up booking message.
+    pub follow_up_booking: Option<bool>,
 }
 
 /// Changes to the online booking settings; `None` leaves a value as it is.
@@ -171,6 +187,7 @@ fn view(row: &SettingsRow) -> ClinicSettings {
         upi_id: text(&row.billing, "upi_id"),
         booking: read_settings(&row.booking),
         letterhead: Letterhead::from_value(row.branding.get("letterhead").unwrap_or(&Value::Null)),
+        auto_messages: AutoMessages::from_value(&row.auto_messages),
     }
 }
 
@@ -184,6 +201,15 @@ fn optional<T>(
     } else {
         parse(input).map(Some).map_err(AppError::settings)
     }
+}
+
+/// Applies the automatic message switches given, keeping the others.
+fn apply_auto_messages(stored: &mut Value, changes: AutoMessagesChanges) {
+    let mut auto = AutoMessages::from_value(stored);
+    auto.welcome = changes.welcome.unwrap_or(auto.welcome);
+    auto.visit_summary = changes.visit_summary.unwrap_or(auto.visit_summary);
+    auto.follow_up_booking = changes.follow_up_booking.unwrap_or(auto.follow_up_booking);
+    *stored = auto.to_value();
 }
 
 /// Applies letterhead changes to the branding object, keeping its other keys.
@@ -203,7 +229,13 @@ fn apply_letterhead(
 }
 
 /// Applies `changes` to the stored row, validating each given setting.
-fn apply(mut row: SettingsRow, changes: &SettingsChanges) -> Result<SettingsRow, AppError> {
+fn apply(row: SettingsRow, changes: &SettingsChanges) -> Result<SettingsRow, AppError> {
+    let mut row = apply_fields(row, changes)?;
+    apply_auto_messages(&mut row.auto_messages, changes.auto_messages);
+    Ok(row)
+}
+
+fn apply_fields(mut row: SettingsRow, changes: &SettingsChanges) -> Result<SettingsRow, AppError> {
     if let Some(name) = &changes.name {
         ClinicName::parse(name)
             .map_err(AppError::settings)?
@@ -381,6 +413,7 @@ mod tests {
             billing: json!({}),
             prescription: json!({ "footer": "Old footer" }),
             booking: json!({}),
+            auto_messages: json!({}),
             branch_id: Some(Uuid::nil()),
             address: Some(json!({})),
             phone_e164: None,

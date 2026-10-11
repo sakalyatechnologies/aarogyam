@@ -29,6 +29,9 @@ pub struct SettingsRow {
     pub prescription: Value,
     /// Online booking settings (`slot_minutes`, `auto_confirm`, …); missing keys use defaults.
     pub booking: Value,
+    /// Which automatic patient messages are on (`welcome`, `visit_summary`,
+    /// `follow_up_booking`); missing keys use the defaults.
+    pub auto_messages: Value,
     /// The default branch, if the clinic has one.
     pub branch_id: Option<Uuid>,
     /// The default branch's address (`line1`, `line2`, `city`, `state`, `pincode`).
@@ -44,7 +47,7 @@ pub struct SettingsRow {
 pub async fn get(conn: &mut PgConnection) -> Result<Option<SettingsRow>, DbError> {
     let row = sqlx::query_as!(
         SettingsRow,
-        r#"select o.name, o.specialty, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription, s.booking,
+        r#"select o.name, o.specialty, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription, s.booking, s.auto_messages,
                   b.id as "branch_id?", b.address as "address?", b.phone_e164
            from aarogyam.organizations o
            join aarogyam.org_settings s on s.org_id = o.id
@@ -65,7 +68,7 @@ pub async fn get_with_doctors(
 ) -> Result<Option<(SettingsRow, Vec<PractitionerRow>)>, DbError> {
     let row = sqlx::query!(
         r#"select o.name, o.specialty, o.legal_name, o.gstin, o.timezone, s.branding, s.billing,
-                  s.prescription, s.booking, b.id as "branch_id?", b.address as "address?",
+                  s.prescription, s.booking, s.auto_messages, b.id as "branch_id?", b.address as "address?",
                   b.phone_e164,
                   coalesce((
                     select jsonb_agg(to_jsonb(d) order by d.display_name)
@@ -93,6 +96,7 @@ pub async fn get_with_doctors(
                 billing: row.billing,
                 prescription: row.prescription,
                 booking: row.booking,
+                auto_messages: row.auto_messages,
                 branch_id: row.branch_id,
                 address: row.address,
                 phone_e164: row.phone_e164,
@@ -110,7 +114,7 @@ pub async fn get_with_doctors(
 pub async fn get_for_update(conn: &mut PgConnection) -> Result<Option<SettingsRow>, DbError> {
     let row = sqlx::query_as!(
         SettingsRow,
-        r#"select o.name, o.specialty, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription, s.booking,
+        r#"select o.name, o.specialty, o.legal_name, o.gstin, o.timezone, s.branding, s.billing, s.prescription, s.booking, s.auto_messages,
                   b.id as "branch_id?", b.address as "address?", b.phone_e164
            from aarogyam.organizations o
            join aarogyam.org_settings s on s.org_id = o.id
@@ -141,11 +145,13 @@ pub async fn save(conn: &mut PgConnection, row: &SettingsRow) -> Result<(), DbEr
     .await?;
     sqlx::query!(
         r#"update aarogyam.org_settings
-           set branding = $1, billing = $2, prescription = $3, booking = $4"#,
+           set branding = $1, billing = $2, prescription = $3, booking = $4,
+               auto_messages = $5"#,
         row.branding,
         row.billing,
         row.prescription,
-        row.booking
+        row.booking,
+        row.auto_messages
     )
     .execute(&mut *conn)
     .await?;

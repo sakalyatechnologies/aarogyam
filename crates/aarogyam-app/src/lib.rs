@@ -8,6 +8,7 @@
 pub mod accounts;
 pub mod analytics;
 pub mod appointments;
+pub mod auto_messages;
 pub mod avatars;
 pub mod billing;
 pub mod campaigns;

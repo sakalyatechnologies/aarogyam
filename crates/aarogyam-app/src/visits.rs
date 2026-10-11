@@ -607,6 +607,19 @@ pub async fn close(
             )
             .await?;
         }
+        // The thank-you messages go out with the close; a repeat close returned above.
+        crate::auto_messages::visit_closed(
+            tx,
+            actor,
+            request_id,
+            &crate::auto_messages::ClosedVisit {
+                visit_id: row.id,
+                patient_id: row.patient_id,
+                follow_up_on: input.follow_up_on,
+            },
+            now,
+        )
+        .await?;
         let names = Names::load(tx, [row.clinician_id]).await?;
         Ok(ClosedVisit {
             visit: visit_view(row, &names)?,

@@ -477,6 +477,8 @@ async fn every_route_requires_sign_in_and_a_permission() {
             // A link to records: the PIN opens it, a signed token serves an X-ray from it
             // (tests/mobile_records.rs).
             "/api/v1/shared/{token}/records",
+            // A link to a visit: the PIN opens it (tests/visit_shares.rs).
+            "/api/v1/shared/{token}/visit",
             "/api/v1/shared/{token}/records/xrays/{id}",
             // The clinic's letterhead for that page: no patient data, needs the link's token.
             "/api/v1/shared/{token}/letterhead",

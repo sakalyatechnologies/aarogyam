@@ -883,8 +883,12 @@ pub async fn lookup_phone(
                 age_years: age_on(row.date_of_birth, row.birth_date_estimated, today),
             })
             .collect();
-        let family_group = aarogyam_dal::family::groups(tx.conn(), &ids, reach)
-            .await?
+        let linked = if ids.is_empty() {
+            Vec::new()
+        } else {
+            aarogyam_dal::family::groups(tx.conn(), &ids, reach).await?
+        };
+        let family_group = linked
             .into_iter()
             .filter(|row| !ids.contains(&row.related_patient_id))
             .map(|row| FamilyMember {

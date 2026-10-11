@@ -2195,6 +2195,7 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Some(json!({ "body": "## History\n- **Diabetic**" })),
         ),
         (Method::POST, format!("/api/v1/visits/{visit}/close"), None),
+        (Method::POST, format!("/api/v1/visits/{visit}/share"), None),
         (
             Method::PATCH,
             format!("/api/v1/dental-terms/{term}"),
@@ -2315,6 +2316,19 @@ async fn clinical_routes_need_their_permission() {
                 status_of(&app, method.clone(), ALPHA, &path, &assistant, None).await,
                 StatusCode::OK,
                 "assistant {method} {path}"
+            );
+        } else if path.ends_with("/share") {
+            // A visit link is a read of the visit (clinical.read): the assistant may make one,
+            // the front desk may not.
+            assert_eq!(
+                status_of(&app, method.clone(), ALPHA, &path, &assistant, body.clone()).await,
+                StatusCode::CREATED,
+                "assistant {method} {path}"
+            );
+            assert_eq!(
+                status_of(&app, method.clone(), ALPHA, &path, &desk, body).await,
+                StatusCode::FORBIDDEN,
+                "front desk {method} {path}"
             );
         } else {
             assert_eq!(

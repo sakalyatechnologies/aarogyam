@@ -25,5 +25,7 @@ internal suspend fun shareView(
             )
         }
 
-        is Outcome.Failure -> result
+        is Outcome.Failure -> {
+            result
+        }
     }

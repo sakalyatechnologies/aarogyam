@@ -51,13 +51,17 @@ class RecallsStateHolder(
         mutableState.update { it.copy(loading = true, error = null) }
         scope.launch {
             when (val answer = clinic.api.listRecalls()) {
-                is Outcome.Success ->
+                is Outcome.Success -> {
                     mutableState.update {
                         it.copy(
                             loading = false,
-                            items = answer.value.items.filter { r -> r.patient.id == patientId }.map(Recall::toView),
+                            items =
+                                answer.value.items
+                                    .filter { r -> r.patient.id == patientId }
+                                    .map(Recall::toView),
                         )
                     }
+                }
 
                 is Outcome.Failure -> {
                     log.warn("recalls.load_failed") { code("error", answer.error.code.value) }

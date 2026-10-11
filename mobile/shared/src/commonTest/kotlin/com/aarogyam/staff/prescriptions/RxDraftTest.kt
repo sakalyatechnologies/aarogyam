@@ -43,7 +43,9 @@ class RxDraftTest {
     private suspend fun RxSheetStateHolder.addOne(): Int {
         search("amox")
         add(state.first { it.results.isNotEmpty() }.results.first())
-        return state.value.lines.single().key
+        return state.value.lines
+            .single()
+            .key
     }
 
     @Test
@@ -58,7 +60,12 @@ class RxDraftTest {
             backend.on("$edit/issue", { json(draft.replace("draft", "issued")) })
             sheet.issue()
             sheet.state.first { it.phase == RxPhase.Issued }
-            val body = backend.requests.first { it.method == HttpMethod.Post && it.url.encodedPath.endsWith("/prescriptions") }.text()
+            val body =
+                backend.requests
+                    .first {
+                        it.method == HttpMethod.Post &&
+                            it.url.encodedPath.endsWith("/prescriptions")
+                    }.text()
             assertTrue(""""timing":"after_food"""" in body && """"frequency":"1-0-2"""" in body, body)
             assertTrue(""""duration_days":9""" in body && """"encounter_id":"v1"""" in body, body)
         }

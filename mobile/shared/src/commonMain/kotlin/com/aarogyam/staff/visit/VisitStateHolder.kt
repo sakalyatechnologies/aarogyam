@@ -161,7 +161,14 @@ class VisitStateHolder(
                 // BE5 switch point: with SERVER_CLOSE_BODY the server takes the follow-up and fee.
                 val body = CloseBody(followUpOn, feePaise, reason)
                 val answer =
-                    if (SERVER_CLOSE_BODY) clinic.api.closeVisit(view.visitId, body) else clinic.api.closeVisit(view.visitId)
+                    if (SERVER_CLOSE_BODY) {
+                        clinic.api.closeVisit(
+                            view.visitId,
+                            body,
+                        )
+                    } else {
+                        clinic.api.closeVisit(view.visitId)
+                    }
                 if (answer is Outcome.Failure) {
                     failed("visit.close_failed", answer.error)
                     return@launch update { it.copy(closing = false) }
@@ -269,6 +276,7 @@ class VisitStateHolder(
     companion object {
         /** How long after the last change the note is saved. */
         const val SAVE_DELAY_MS: Long = 800
+
         /** BE5: flip to true once the server's close body (`follow_up_on`, `fee_paise`, `note`) ships. */
         private const val SERVER_CLOSE_BODY = false
         private const val FOLLOW_UP = "follow_up"

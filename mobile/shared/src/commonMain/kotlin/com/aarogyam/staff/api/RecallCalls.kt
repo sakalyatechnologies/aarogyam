@@ -1,10 +1,10 @@
 package com.aarogyam.staff.api
 
 import com.aarogyam.staff.api.model.NewRecall
+import com.aarogyam.staff.api.model.Prescription
 import com.aarogyam.staff.api.model.Recall
 import com.aarogyam.staff.api.model.RecallList
 import com.aarogyam.staff.api.model.RxValues
-import com.aarogyam.staff.api.model.Prescription
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.http.call

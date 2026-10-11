@@ -71,13 +71,23 @@ class VisitCloseWithTest {
         runTest {
             val backend = FakeBackend()
             val holder = open(backend)
-            backend.on(recalls, { apiError(HttpStatusCode.InternalServerError, "internal") }, { json(recall, HttpStatusCode.Created) })
+            backend.on(recalls, {
+                apiError(HttpStatusCode.InternalServerError, "internal")
+            }, { json(recall, HttpStatusCode.Created) })
             holder.state.first { it is VisitState.Open }
             holder.closeWith("2026-10-20", null, null)
-            val failed = (holder.state.first { (it as? VisitState.Open)?.view?.followUpFailed == true } as VisitState.Open).view
+            val failed =
+                (
+                    holder.state.first {
+                        (it as? VisitState.Open)?.view?.followUpFailed == true
+                    } as VisitState.Open
+                ).view
             assertTrue(failed.closed && failed.error != null)
             holder.closeWith("2026-10-20", null, null)
-            holder.state.first { (it as? VisitState.Open)?.view?.let { v -> v.closed && !v.followUpFailed && !v.closing } == true }
+            holder.state.first {
+                (it as? VisitState.Open)?.view?.let { v -> v.closed && !v.followUpFailed && !v.closing } ==
+                    true
+            }
             assertEquals(1, backend.count(close), "the visit is not closed twice")
             assertEquals(2, backend.count(recalls))
         }

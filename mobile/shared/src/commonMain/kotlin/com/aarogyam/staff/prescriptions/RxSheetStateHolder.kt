@@ -91,13 +91,31 @@ class RxSheetStateHolder(
                 timing = drug.defaultTiming,
             )
         mutableState.update {
-            recompute(it.copy(draft = dirty(it), lines = it.lines + line, query = "", results = emptyList(), searching = false))
+            recompute(
+                it.copy(
+                    draft = dirty(it),
+                    lines = it.lines + line,
+                    query = "",
+                    results = emptyList(),
+                    searching = false,
+                ),
+            )
         }
     }
 
     fun remove(key: Int) {
         if (!editable()) return
-        mutableState.update { recompute(it.copy(draft = dirty(it), lines = it.lines.filterNot { line -> line.key == key })) }
+        mutableState.update {
+            recompute(
+                it.copy(
+                    draft = dirty(it),
+                    lines =
+                        it.lines.filterNot { line ->
+                            line.key == key
+                        },
+                ),
+            )
+        }
     }
 
     fun setDose(
@@ -226,7 +244,9 @@ class RxSheetStateHolder(
         mutableState.update { it.copy(share = ShareState.Creating) }
         scope.launch {
             when (val result = shareView(clinic, issued.id)) {
-                is Outcome.Success -> mutableState.update { it.copy(share = ShareState.Ready(result.value)) }
+                is Outcome.Success -> {
+                    mutableState.update { it.copy(share = ShareState.Ready(result.value)) }
+                }
 
                 is Outcome.Failure -> {
                     log.warn("rxsheet.share_failed") {
@@ -241,7 +261,10 @@ class RxSheetStateHolder(
 
     private suspend fun createDraft(): String? =
         when (val result = sync.push(mutableState.value.lines)) {
-            is Outcome.Success -> result.value
+            is Outcome.Success -> {
+                result.value
+            }
+
             is Outcome.Failure -> {
                 fail(result.error)
                 null

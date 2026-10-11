@@ -163,3 +163,12 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
   - Not run yet, because free disk was 4.8 GB: the final workspace test, cargo deny/machete, and the re-test after the clippy fix.
 - sh-wire's handoff is written and its final tests are running.
 - Blocked: the disk. I asked the founder whether to clear other sessions' idle Rust caches.
+- sh-wire merged into feat/v9 (fe2f11e, one VisitCalls conflict: both functions kept).
+- **Gates on feat/v9 green: `gradlew check` and `ios-check.sh`.** That includes the sh-wire Swift, which had not been compiled before.
+- Removed the merged worktrees sh-wire and ios-polish, plus the iOS build dirs. Disk: 12 GB free.
+
+## Next (coordinator)
+1. Merge feat/v9-backend (main-based) into feat/v9 so the spec and server match. Leave web/ exactly as it is on main.
+2. Run the final backend workspace test, cargo deny and machete. This needs about 15 GB of disk.
+3. End-to-end on a v9 server (DB aarogyam_v9be) with two simulators, desk and doctor.
+4. be-msg (BE7): WhatsApp/SMS with a fake provider.

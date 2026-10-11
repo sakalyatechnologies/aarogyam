@@ -177,3 +177,18 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
   - web/ differs from main only by the v7 reference scripts under `web/e2e/v7`.
   - `gradlew check` is green; `ios-check.sh` is running.
 - Main already sends WhatsApp through Meta's Cloud API (off by default), so BE7 shrinks to templates and triggers. be-msg started from feat/v9: welcome, visit_summary and follow_up_booking, plus a final full workspace test, cargo deny and cargo machete.
+- **E2E: all 12 flow steps PASS on v9** (report: `docs/plans/v9/e2e/report.md`; screenshots in `mobile/docs/screenshots/v9/e2e/`).
+  - SSE: 12 events, IDs only.
+  - Lotus is isolated.
+  - No patient data in the logs.
+  - The app shows the real visit with its Rx and bill.
+  - The v9 server is now running on :8080 against `aarogyam_v9e2e`; the old pid 14767 was stopped.
+- **Defects to fix (be-fix, after be-msg):**
+
+| ID | Defect | Severity |
+|---|---|---|
+| D3 | `GET /payments?patient_id=` ignores the filter and returns every payment | privacy, high |
+| D2 | Cross-clinic invoice/payment ids return 403 instead of 404 (rule 5) | — |
+| D1 + D4 | A draft invoice shows balance 0, and a payment can't apply until the invoice is issued. Fix: close issues the invoice, or the collect step issues it first. | — |
+| D5 | Dev sign-in is ignored while a session is stored | add `AAROGYAM_DEV_SIGN_OUT` |
+| D6 | The share link opens only on the clinic host | this is by design (rule 1); document it |

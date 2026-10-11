@@ -6,21 +6,15 @@ import com.aarogyam.staff.api.ClinicApi
 import com.aarogyam.staff.api.model.Allocation
 import com.aarogyam.staff.api.model.NewPayment
 import com.aarogyam.staff.billing.PayMethod
-import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.files.kindFor
-import com.aarogyam.staff.outbox.MemoryOutboxStore
 import com.aarogyam.staff.outbox.OutboxEntry
 import com.aarogyam.staff.outbox.OutboxKind
-import com.aarogyam.staff.outbox.OutboxRunner
 import com.aarogyam.staff.outbox.OutboxSender
 import com.aarogyam.staff.outbox.SendResult
 import com.aarogyam.staff.outbox.toSendResult
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -29,28 +23,13 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Clock
 
 /**
- * The desk's offline write queue: one [OutboxRunner] per clinic, started once for the life of the
- * app, sending [OutboxKind.Payment] entries. It has its own store (in memory; the shared
- * persistence hook is still a TODO, so unsent payments are lost if the app is killed) and uses the
- * app's connectivity. The entry id is the payment's Idempotency-Key.
+ * Registers the desk's payment sender on the app's one outbox ([AppGraph.outbox]). The entry id is
+ * the payment's Idempotency-Key. The job names its clinic; after an app restart the clinic is not
+ * open until the person opens it, so the entry waits (and is retried the moment a clinic opens).
  */
-object DeskOutbox {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val runners = mutableMapOf<String, OutboxRunner>()
-
-    fun runner(
-        graph: AppGraph,
-        clinic: ClinicContext,
-    ): OutboxRunner =
-        runners.getOrPut(clinic.slug) {
-            val log = Logger("aarogyam.deskoutbox")
-            OutboxRunner(
-                store = MemoryOutboxStore(),
-                sender = paymentSender(clinic.api, log),
-                connectivity = graph.connectivity,
-                now = { Clock.System.now().toEpochMilliseconds() },
-            ).also { it.start(scope) }
-        }
+fun AppGraph.registerDeskPayments() {
+    val log = Logger("aarogyam.deskoutbox")
+    registerSender(OutboxKind.Payment, paymentSender(this, log))
 }
 
 private val jobJson = Json { ignoreUnknownKeys = true }
@@ -58,6 +37,7 @@ private val jobJson = Json { ignoreUnknownKeys = true }
 /** What an offline payment carries. Holds patient data: never logged. */
 @Serializable
 internal data class PaymentJob(
+    val clinicSlug: String,
     val patientId: String,
     val method: String,
     val amountPaise: Long,
@@ -154,14 +134,15 @@ internal suspend fun deliver(
 }
 
 private fun paymentSender(
-    api: ClinicApi,
+    graph: AppGraph,
     log: Logger,
 ) = OutboxSender { entry: OutboxEntry ->
     if (entry.kind != OutboxKind.Payment) return@OutboxSender SendResult.Rejected("unsupported_kind")
     val job =
         runCatching { jobJson.decodeFromString<PaymentJob>(entry.payload) }.getOrNull()
             ?: return@OutboxSender SendResult.Rejected("bad_payload")
-    when (val delivery = deliver(api, job, entry.id, log)) {
+    val clinic = graph.directory.opened(job.clinicSlug) ?: return@OutboxSender SendResult.Retry("clinic_not_open")
+    when (val delivery = deliver(clinic.api, job, entry.id, log)) {
         is Delivery.Done -> SendResult.Delivered
         is Delivery.Retry -> SendResult.Retry(delivery.code)
         is Delivery.Rejected -> SendResult.Rejected(delivery.code)

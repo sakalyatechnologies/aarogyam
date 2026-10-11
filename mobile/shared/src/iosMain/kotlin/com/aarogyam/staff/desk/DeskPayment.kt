@@ -64,7 +64,7 @@ sealed interface DeskPayOutcome {
 /**
  * Collect payment for one patient: their issued bills with a balance, then `POST /payments` with an
  * Idempotency-Key kept across retries of one submission. When the phone is offline, or the network
- * drops mid-send, the payment goes to the desk outbox ([DeskOutbox]) with the same key and the
+ * drops mid-send, the payment goes to the app outbox ([AppGraph.outbox], kept on the phone) with the same key and the
  * sheet shows "Saved, will send". An optional proof photo is uploaded as a patient attachment
  * labelled Report or Other until BE6 adds `attachment_id` to payments.
  */
@@ -77,7 +77,7 @@ class DeskPaymentStateHolder(
 ) {
     private val allowed = BILLING_READ in clinic.permissions && BILLING_WRITE in clinic.permissions
     private val canProof = CLINICAL_WRITE in clinic.permissions
-    private val runner = DeskOutbox.runner(graph, clinic)
+    private val runner = graph.outbox
     private val mutableState =
         MutableStateFlow<DeskPayState>(if (allowed) DeskPayState.Loading else DeskPayState.NotAllowed)
     private val mutableOutcome = MutableStateFlow<DeskPayOutcome>(DeskPayOutcome.Idle)
@@ -140,6 +140,7 @@ class DeskPaymentStateHolder(
         val proof = proofJpeg?.takeIf { canProof && it.isNotEmpty() }
         val job =
             PaymentJob(
+                clinicSlug = clinic.slug,
                 patientId = patientId,
                 method = method.name,
                 amountPaise = amountPaise,

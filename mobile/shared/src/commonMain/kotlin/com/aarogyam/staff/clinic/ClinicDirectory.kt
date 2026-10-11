@@ -90,6 +90,9 @@ class ClinicDirectory(
         }
     }
 
+    /** The clinic already opened this run, or null (after a restart, until the person opens it). */
+    fun opened(slug: String): ClinicContext? = contexts[slug]
+
     /** Leaves the open clinic and returns to the picker, keeping the caches. */
     fun leave() {
         mutableCurrent.value = null

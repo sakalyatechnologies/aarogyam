@@ -2,6 +2,8 @@ package com.aarogyam.staff
 
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.AppEnvironment
+import com.aarogyam.staff.outbox.MemoryOutboxStore
+import com.aarogyam.staff.outbox.OutboxStore
 import com.sakalya.mobile.auth.EmailAddress
 import com.sakalya.mobile.auth.OneTimeCode
 import com.sakalya.mobile.core.MemoryLogSink
@@ -90,6 +92,7 @@ suspend fun testGraph(
     scope: CoroutineScope,
     environment: AppEnvironment = AppEnvironment.Demo,
     logs: MemoryLogSink = MemoryLogSink(),
+    outboxStore: OutboxStore = MemoryOutboxStore(),
 ): AppGraph {
     val graph =
         assertIs<AppGraph>(
@@ -99,6 +102,7 @@ suspend fun testGraph(
                 scope,
                 engine = backend.engine,
                 logSink = logs,
+                outboxStore = outboxStore,
             ),
         )
     graph.sessions.state.first { it !is com.sakalya.mobile.auth.SessionState.Restoring }

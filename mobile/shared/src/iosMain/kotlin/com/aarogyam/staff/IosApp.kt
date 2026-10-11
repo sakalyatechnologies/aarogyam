@@ -10,6 +10,7 @@ import com.aarogyam.staff.clinic.ClinicBranding
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
+import com.aarogyam.staff.desk.registerDeskPayments
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.UserDefaultsPreferences
 import com.aarogyam.staff.expenses.ExpensesStateHolder
@@ -17,6 +18,9 @@ import com.aarogyam.staff.files.FilesStateHolder
 import com.aarogyam.staff.labs.LabsStateHolder
 import com.aarogyam.staff.labs.NewLabCaseStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
+import com.aarogyam.staff.outbox.JsonOutboxPersistence
+import com.aarogyam.staff.outbox.PersistentOutboxStore
+import com.aarogyam.staff.outbox.ProtectedOutboxFile
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
 import com.aarogyam.staff.patients.PatientsStateHolder
@@ -62,14 +66,16 @@ suspend fun createAppGraph(
     config: AppConfig,
     dictation: Dictation = Dictation.None,
 ): AppGraph? =
-    AppGraph.create(
-        config,
-        PlatformSecureStore(KEYCHAIN_SERVICE),
-        appScope,
-        PathNetworkMonitor(),
-        preferences = UserDefaultsPreferences(),
-        dictation = dictation,
-    )
+    AppGraph
+        .create(
+            config,
+            PlatformSecureStore(KEYCHAIN_SERVICE),
+            appScope,
+            PathNetworkMonitor(),
+            preferences = UserDefaultsPreferences(),
+            dictation = dictation,
+            outboxStore = PersistentOutboxStore(JsonOutboxPersistence(ProtectedOutboxFile())),
+        )?.also { it.registerDeskPayments() }
 
 /** One screen's coroutine scope: the SwiftUI view that owns a state holder closes it when it goes. */
 class ScreenScope {

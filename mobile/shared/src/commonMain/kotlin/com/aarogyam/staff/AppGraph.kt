@@ -25,7 +25,11 @@ import com.aarogyam.staff.labs.NewLabCaseStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.outbox.Connectivity
 import com.aarogyam.staff.outbox.MemoryOutboxStore
+import com.aarogyam.staff.outbox.OutboxKind
+import com.aarogyam.staff.outbox.OutboxRunner
+import com.aarogyam.staff.outbox.OutboxSender
 import com.aarogyam.staff.outbox.OutboxStore
+import com.aarogyam.staff.outbox.SendResult
 import com.aarogyam.staff.outbox.asConnectivity
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
@@ -73,6 +77,7 @@ import com.sakalya.mobile.securestorage.deviceId
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
@@ -94,7 +99,8 @@ class AppGraph private constructor(
     /** Whether the phone has a network; the outbox sends only while it does. */
     val connectivity: Connectivity,
     /** Writes saved on the phone, waiting to be sent. */
-    val outboxStore: OutboxStore,
+    outboxStore: OutboxStore,
+    private val clock: Clock,
 ) {
     private val clients = mutableMapOf<BaseUrl, HttpClient>()
 
@@ -105,9 +111,65 @@ class AppGraph private constructor(
     /** Restoring, signed out or signed in. */
     val sessionState: StateFlow<SessionState> get() = sessions.state
 
+    private val senders = mutableMapOf<OutboxKind, OutboxSender>()
+
+    /**
+     * The one offline write queue: saved on the device, sent when online, never twice (the entry id
+     * is the idempotency key). Exposes `pending` and `failed` for the "Saved, will send" badge.
+     * Started when the graph is built and again at every sign-in; on sign-out it is stopped and
+     * emptied, so unsent writes of the previous person never go out under the next person's session.
+     * That includes a session that ended by itself (refresh rejected): those writes are dropped too.
+     */
+    val outbox: OutboxRunner =
+        OutboxRunner(
+            store = outboxStore,
+            // A kind nobody registered a sender for waits (it is not rejected), so no write is lost.
+            sender = { entry -> senders[entry.kind]?.send(entry) ?: SendResult.Retry("no_sender") },
+            connectivity = connectivity,
+            now = { clock.now().toEpochMilliseconds() },
+        )
+
+    private var outboxJob: Job? = null
+
     init {
-        // A session that ends (refresh rejected, or sign-out) drops every clinic's cached data.
-        scope.launch { sessions.state.collect { if (it is SessionState.SignedOut) directory.clear() } }
+        startOutbox()
+        scope.launch {
+            sessions.state.collect {
+                when (it) {
+                    is SessionState.SignedIn -> {
+                        startOutbox()
+                    }
+
+                    // A session that ends (refresh rejected, or sign-out) drops every clinic's cached data.
+                    is SessionState.SignedOut -> {
+                        directory.clear()
+                        endOutbox()
+                    }
+
+                    else -> {}
+                }
+            }
+        }
+        // A clinic opening may be what a waiting write needs (its API); try again now, not after backoff.
+        scope.launch { directory.current.collect { if (it != null) outbox.retryNow() } }
+    }
+
+    /** Sends [kind] entries with [sender], the only place that calls the API for that kind. */
+    fun registerSender(
+        kind: OutboxKind,
+        sender: OutboxSender,
+    ) {
+        senders[kind] = sender
+    }
+
+    private fun startOutbox() {
+        if (outboxJob?.isActive != true) outboxJob = outbox.start(scope)
+    }
+
+    private suspend fun endOutbox() {
+        outboxJob?.cancel()
+        outboxJob = null
+        outbox.clear()
     }
 
     fun signIn(scope: CoroutineScope): SignInStateHolder = SignInStateHolder(sessions, scope)
@@ -328,6 +390,7 @@ class AppGraph private constructor(
         scope.launch {
             sessions.signOut()
             directory.clear()
+            endOutbox()
         }
     }
 
@@ -338,8 +401,8 @@ class AppGraph private constructor(
         /**
          * Builds the graph and starts restoring the session. Fails only when this build has no
          * valid Supabase URL. [store] holds the session and the device ID; every log line goes to
-         * [logSink] (tests pass a `MemoryLogSink`). [preferences] and [dictation] are the platform's
-         * (in memory and none by default).
+         * [logSink] (tests pass a `MemoryLogSink`). [preferences], [dictation] and [outboxStore] are the
+         * platform's (in memory and none by default; the platform passes a file-backed outbox store).
          */
         suspend fun create(
             config: AppConfig,
@@ -387,6 +450,7 @@ class AppGraph private constructor(
                     dictation,
                     network.asConnectivity(),
                     outboxStore,
+                    clock,
                 )
             scope.launch { sessions.restore() }
             return graph

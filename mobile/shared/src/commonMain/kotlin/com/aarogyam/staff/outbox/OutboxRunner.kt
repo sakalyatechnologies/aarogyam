@@ -76,6 +76,25 @@ class OutboxRunner(
         publish()
     }
 
+    /**
+     * Sign-out: drops every saved write, so one person's unsent writes never go out under the next
+     * person's session. Waits for a send in progress to finish (it may still reach the server once).
+     */
+    suspend fun clear() {
+        mutex.withLock {
+            store.clear()
+            publish()
+        }
+    }
+
+    /** Makes every waiting entry due now (the clinic it needs has just opened, or the person asked). */
+    fun retryNow() {
+        store.all().filter { it.status == OutboxStatus.Pending && it.nextAttemptAt > 0 }.forEach {
+            store.put(it.copy(nextAttemptAt = 0))
+        }
+        wake.trySend(Unit)
+    }
+
     /** Sends everything due, if online. Returns how many were delivered. */
     suspend fun drain(): Int =
         mutex.withLock {

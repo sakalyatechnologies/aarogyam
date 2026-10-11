@@ -2,6 +2,7 @@ package com.aarogyam.staff.desk
 
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.invoice
 import com.aarogyam.staff.billing.PayMethod
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.outbox.OutboxKind
@@ -109,9 +110,17 @@ class DeskPaymentStateHolder(
         scope.launch {
             when (val result = clinic.api.invoices(patientId)) {
                 is Outcome.Success -> {
+                    // The list has no lines, so a draft reads a total of 0 there: ask for the bill itself.
                     val dues =
-                        result.value.items
-                            .mapNotNull { dueBillOf(it.id, it.number, it.status, it.totalPaise, it.balancePaise) }
+                        result.value.items.mapNotNull { row ->
+                            if (row.status == "draft") {
+                                (clinic.api.invoice(row.id) as? Outcome.Success)?.value?.let {
+                                    dueBillOf(it.id, it.number ?: row.number, it.status, it.totalPaise, it.balancePaise)
+                                }
+                            } else {
+                                dueBillOf(row.id, row.number, row.status, row.totalPaise, row.balancePaise)
+                            }
+                        }
                     mutableState.value = DeskPayState.Ready(dues, canProof)
                 }
 

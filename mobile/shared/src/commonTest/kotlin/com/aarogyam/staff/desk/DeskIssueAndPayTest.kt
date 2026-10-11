@@ -161,12 +161,14 @@ class DeskIssueAndPayTest {
     fun the_sheet_lists_a_draft_with_its_total_as_the_amount_due() =
         runTest {
             val backend = FakeBackend()
+            // The list carries no lines, so it reads the draft's total as 0; the bill itself has the preview.
+            backend.on("$SUNRISE/api/v1/invoices/d1", { json(draftJson()) })
             backend.on(
                 "$SUNRISE/api/v1/invoices",
                 {
                     json(
                         items(
-                            draftJson(),
+                            draftJson().replace("\"total_paise\":240000", "\"total_paise\":0"),
                             invoiceJson("i2", "v2", 5000, 5000),
                             invoiceJson("i3", "v3", 7000, 2000, "void"),
                         ),

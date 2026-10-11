@@ -59,3 +59,7 @@ suspend fun ClinicApi.issueInvoice(id: String): Outcome<Invoice, ApiError> =
         method = HttpMethod.Post
         url("api/v1/invoices/${id.encodeURLPathPart()}/issue")
     }
+
+/** `GET /api/v1/invoices/{id}` (`getInvoice`): one bill with its lines; a draft's amounts are a preview of the lines. */
+suspend fun ClinicApi.invoice(id: String): Outcome<Invoice, ApiError> =
+    client.call { url("api/v1/invoices/${id.encodeURLPathPart()}") }

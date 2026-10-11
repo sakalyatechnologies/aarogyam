@@ -1,0 +1,57 @@
+/*
+ * Analytics in the New look. Full width, rounded cards (the shell sets --nl-card-r), twelve columns that
+ * fall to one under 900px of the page's own width. Colours are the theme's; the chart series come from .an-page.
+ */
+.an2 { container-type: inline-size; display: grid; gap: 16px; align-content: start; min-width: 0; max-width: none; }
+.an2-panel { padding-top: 16px; }
+.an2-stack { display: grid; gap: 16px; min-width: 0; }
+.an2-kpis { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.an2-kpi { position: relative; min-width: 0; padding: 16px 18px; border-radius: var(--nl-card-r, 24px); border: 1px solid var(--sk-border); background: var(--sk-surface); box-shadow: var(--sk-shadow-card, none); display: grid; gap: 2px; align-content: start; }
+.an2-kpi-top { display: flex; align-items: center; justify-content: space-between; min-height: 32px; }
+.an2-kpi-ico { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; background: var(--sk-surface-muted); color: var(--sk-text-muted); }
+.an2-kpi-label { margin: 0; font-size: 12px; color: var(--sk-text-muted); }
+.an2-kpi-value { margin: 0; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--sk-text); }
+.an2-kpi-hint { margin: 0; font-size: 12px; color: var(--sk-text-muted); }
+.an2-meter { position: static; display: block; margin-top: 8px; }
+.an2-eye { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 999px; background: transparent; color: var(--sk-text-muted); cursor: pointer; }
+.an2-eye:hover { background: var(--sk-surface-muted); color: var(--sk-text); }
+.an2-eye:focus-visible { outline: 2px solid var(--sk-primary); outline-offset: 2px; }
+
+.an2-grid { display: grid; gap: 16px; grid-template-columns: repeat(12, minmax(0, 1fr)); min-width: 0; }
+.an2-grid > * { min-width: 0; margin: 0; grid-column: span 12; }
+.an2 .an2-grid > .an2-w4 { grid-column: span 4; }
+.an2 .an2-grid > .an2-w5 { grid-column: span 5; }
+.an2 .an2-grid > .an2-w6 { grid-column: span 6; }
+.an2 .an2-grid > .an2-w7 { grid-column: span 7; }
+.an2 .an2-grid > .an2-w8 { grid-column: span 8; }
+.an2-cell { display: block; min-width: 0; }
+.an2-cell > section { height: 100%; width: 100%; box-sizing: border-box; min-width: 0; margin: 0; border-radius: var(--nl-card-r, 24px); }
+.an2-cell > .mk-card { border-radius: var(--nl-card-r, 24px); }
+.an2-veil { margin: 0; padding: 28px 0; text-align: center; font-size: 13px; color: var(--sk-text-muted); }
+
+.an2-heat { overflow-x: auto; }
+.an2-flow, .an2-bars { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.an2-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin-bottom: 4px; }
+.an2-row b { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+.an2-track { height: 10px; border-radius: 999px; background: var(--heat-0); overflow: hidden; }
+.an2-track > span { display: block; height: 100%; border-radius: inherit; }
+.an2-rate { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-radius: 16px; background: var(--sk-surface-muted); font-size: 13px; }
+.an2-rate b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.an2-ages { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; font-size: 12px; color: var(--sk-text-muted); }
+.an2-ages li { display: flex; justify-content: space-between; gap: 8px; }
+.an2-ages b { color: var(--sk-text); font-variant-numeric: tabular-nums; }
+
+.an2-scroll { overflow-x: auto; }
+.an2-table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 13px; }
+.an2-table th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--sk-text-muted); padding: 0 8px 8px 0; }
+.an2-table td { padding: 9px 8px 9px 0; border-top: 1px solid var(--sk-border); vertical-align: middle; }
+.an2-table .num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+.an2-table tr[data-void] td { color: var(--sk-text-muted); text-decoration: line-through; }
+
+@container (max-width: 1000px) {
+  .an2 .an2-grid > .an2-w4, .an2 .an2-grid > .an2-w5, .an2 .an2-grid > .an2-w6, .an2 .an2-grid > .an2-w7, .an2 .an2-grid > .an2-w8 { grid-column: span 12; }
+  .an2-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 520px) {
+  .an2-kpis { grid-template-columns: minmax(0, 1fr); }
+}

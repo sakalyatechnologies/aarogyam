@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { EXPENSE_CATEGORIES } from "@aarogyam/api-client";
 
@@ -10,6 +10,8 @@ import type { PeriodRow } from "./analytics-data.js";
 import { ChartTooltip, Legend, series } from "./chart-tooltip.js";
 
 const rupees = (value: number) => compactRupees(Math.round(value * 100));
+/** Like `rupees`, with a proper minus for a net below zero (New look charts). */
+const signed = (value: number) => (value < 0 ? `−${rupees(-value)}` : rupees(value));
 const AXIS = { tickLine: false, axisLine: false, stroke: "var(--chart-axis)", fontSize: 11 } as const;
 
 /** Income received per period: an area with a soft gradient under the line. */
@@ -90,5 +92,61 @@ export function ExpensesChart({ rows, animate }: { rows: readonly PeriodRow[]; a
         </>
       )}
     </MkCard>
+  );
+}
+
+/** New look: income and expenses over the range as two soft areas, with the net as a dashed line. */
+export function IncomeVsExpensesChart({ rows, animate }: { rows: readonly PeriodRow[]; animate: boolean }) {
+  const id = useId().replaceAll(":", "");
+  const data = rows.map((r) => ({ ...r, net: (r.income ?? 0) - (r.expenses ?? 0) }));
+  const items = [
+    { key: "income", label: "Income", color: series(1) },
+    { key: "expenses", label: "Expenses", color: series(2) },
+    { key: "net", label: "Net", color: series(3) },
+  ];
+  return (
+    <div>
+      <div className="an-chart" role="img" aria-label={`Income and expenses by period, ${rows.map((r) => `${r.label} ${rupees(r.income ?? 0)} in, ${rupees(r.expenses ?? 0)} out`).join("; ")}`}>
+        <ResponsiveContainer>
+          <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id={`${id}i`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.32} />
+                <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.02} />
+              </linearGradient>
+              <linearGradient id={`${id}e`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.28} />
+                <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+            <XAxis dataKey="label" {...AXIS} minTickGap={12} />
+            <YAxis {...AXIS} width={52} tickFormatter={signed} />
+            <Tooltip cursor={{ stroke: "var(--chart-axis)", strokeDasharray: "3 3" }} content={<ChartTooltip format={signed} />} />
+            <Area type="monotone" dataKey="income" name="Income" stroke="var(--chart-1)" strokeWidth={2} fill={`url(#${id}i)`} isAnimationActive={animate} />
+            <Area type="monotone" dataKey="expenses" name="Expenses" stroke="var(--chart-2)" strokeWidth={2} fill={`url(#${id}e)`} isAnimationActive={animate} />
+            <Line type="monotone" dataKey="net" name="Net" stroke="var(--chart-3)" strokeWidth={2} strokeDasharray="6 4" dot={false} isAnimationActive={animate} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <Legend items={items} />
+    </div>
+  );
+}
+
+/** New look: money collected per week, from the collections report. `weeks` rows are `{ label, tip, value }` in rupees. */
+export function WeeklyCollectionsChart({ rows, animate }: { rows: readonly { label: string; tip: string; value: number }[]; animate: boolean }) {
+  return (
+    <div className="an-chart" role="img" aria-label={`Collected per week, ${rows.map((r) => `${r.label} ${rupees(r.value)}`).join(", ")}`}>
+      <ResponsiveContainer>
+        <BarChart data={[...rows]} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap="20%">
+          <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+          <XAxis dataKey="label" {...AXIS} minTickGap={14} />
+          <YAxis {...AXIS} width={52} tickFormatter={signed} />
+          <Tooltip cursor={{ fill: "var(--hover)" }} content={<ChartTooltip format={signed} />} />
+          <Bar dataKey="value" name="Collected" fill="var(--chart-1)" radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={animate} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

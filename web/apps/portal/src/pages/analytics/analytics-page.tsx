@@ -9,6 +9,7 @@ import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
 import { AlertBanner, Empty, PageHeader, Segments, Skeleton, StatTile } from "../../components/mk/index.js";
 import { StaggerItem, StaggerList } from "../../components/mk/motion.js";
 import { useClinic } from "../../clinic.js";
+import { useNewLook } from "../../lib/new-look.js";
 import { compactRupees } from "../../lib/money.js";
 import { useTodayDate } from "../../lib/patients.js";
 import { AGE_LABEL, REFERRAL_LABEL, VISIT_LABEL, isEmpty, periodRows, rangeStart, totals, type Months } from "./analytics-data.js";
@@ -16,6 +17,7 @@ import { BusyHours, DonutCard } from "./breakdown-charts.js";
 import { ChairChart, PatientMixChart } from "./chair-charts.js";
 import { ExpensesChart, IncomeChart } from "./money-charts.js";
 import { useAnalytics } from "./queries.js";
+import { AnalyticsV2 } from "./v2/analytics-v2.js";
 import "./analytics.css";
 
 type MonthsKey = "3" | "6" | "12";
@@ -35,6 +37,11 @@ const BUCKETS: readonly { value: AnalyticsBucket; label: string }[] = [
  * out otherwise). The range lives in the URL (`?months=6&by=week`).
  */
 export function AnalyticsPage() {
+  const [newLook] = useNewLook();
+  return newLook ? <AnalyticsV2 /> : <AnalyticsOldLook />;
+}
+
+function AnalyticsOldLook() {
   const { session } = useClinic();
   useDocumentTitle("Analytics", session.clinic.name);
   const today = useTodayDate();

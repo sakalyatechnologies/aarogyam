@@ -6,7 +6,7 @@
 use std::fmt::Write as _;
 
 use aarogyam_dal::outbox::Claimed;
-use aarogyam_domain::messaging::Template;
+use aarogyam_domain::messaging::{Template, placeholders};
 use aarogyam_domain::outbox::MessageKind;
 use serde_json::Value;
 use time::{OffsetDateTime, UtcOffset};
@@ -30,6 +30,65 @@ pub(crate) struct PatientMail<'a> {
     pub(crate) appointment: Option<(OffsetDateTime, &'a str)>,
     /// The one-click unsubscribe address, for reminders and promotional email.
     pub(crate) unsubscribe: Option<String>,
+    /// The clinic's template text for the message, in the patient's language (the automatic
+    /// messages are written from it).
+    pub(crate) template_body: Option<&'a str>,
+}
+
+/// The values the automatic messages' `{{variables}}` take: links built from the clinic's portal
+/// address and the one-time secret (a visit link's token, or its PIN), and the payload's few
+/// values. Never anything about the patient.
+pub(crate) struct AutoValues<'a> {
+    pub(crate) clinic_name: &'a str,
+    pub(crate) portal_host: Option<&'a str>,
+    pub(crate) variables: &'a Value,
+    pub(crate) secret: Option<&'a str>,
+    pub(crate) links: &'a PortalLinks,
+}
+
+impl AutoValues<'_> {
+    /// The value of one variable, if it has one.
+    pub(crate) fn get(&self, name: &str) -> Option<String> {
+        let host = self.portal_host;
+        match name {
+            "clinic_name" => Some(self.clinic_name.to_owned()),
+            "app_link" => host.map(|host| self.links.home(host)),
+            "website_link" => self
+                .variables
+                .get("website_link")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .or_else(|| host.map(|host| self.links.home(host))),
+            "booking_link" => host.map(|host| self.links.book(host)),
+            "share_link" => match (host, self.secret) {
+                (Some(host), Some(token)) => Some(self.links.shared(host, token)),
+                _ => None,
+            },
+            "pin" => self.secret.map(str::to_owned),
+            other => self
+                .variables
+                .get(other)
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+        }
+        .filter(|text| !text.trim().is_empty())
+    }
+}
+
+/// A template body with each `{{variable}}` replaced; a permanent failure for a variable that
+/// isn't allowed for the key or has no value.
+pub(crate) fn fill(key: &str, body: &str, values: &AutoValues<'_>) -> Result<String, Failure> {
+    let names = placeholders(key, body)
+        .map_err(|_| Failure::permanent("template names a variable it may not"))?;
+    let mut text = body.to_owned();
+    for name in names {
+        let value = values
+            .get(&name)
+            .ok_or_else(|| Failure::permanent("a template variable has no value"))?;
+        // Every occurrence at once; a later pass finds none.
+        text = text.replace(&format!("{{{{{name}}}}}"), &value);
+    }
+    Ok(text)
 }
 
 /// The clinic's offset: India's (no daylight saving); other zones are shown in UTC until a
@@ -93,6 +152,10 @@ pub(crate) fn render(mail: &PatientMail<'_>, portal: &PortalLinks) -> Result<Ema
             )
         }
         MessageKind::ClinicMessage => staff_message(mail, portal)?,
+        MessageKind::Welcome
+        | MessageKind::VisitSummary
+        | MessageKind::VisitSummaryPin
+        | MessageKind::FollowUpBooking => automatic_message(mail, portal)?,
         _ => {
             // The wording from the outbox days: rendered from the stored payload.
             let claimed = Claimed {
@@ -118,6 +181,36 @@ pub(crate) fn render(mail: &PatientMail<'_>, portal: &PortalLinks) -> Result<Ema
         html,
         list_unsubscribe: mail.unsubscribe.clone(),
     })
+}
+
+/// An automatic message (welcome, visit summary and its PIN, follow-up booking): the clinic's
+/// template text for the patient's language, filled with links and a date.
+fn automatic_message(
+    mail: &PatientMail<'_>,
+    portal: &PortalLinks,
+) -> Result<(String, Vec<String>), Failure> {
+    let body = mail
+        .template_body
+        .filter(|text| !text.trim().is_empty())
+        .ok_or_else(|| Failure::permanent("the clinic has no template for this message"))?;
+    let text = fill(
+        mail.kind.as_str(),
+        body,
+        &AutoValues {
+            clinic_name: mail.clinic_name,
+            portal_host: mail.portal_host,
+            variables: mail.variables,
+            secret: mail.secret,
+            links: portal,
+        },
+    )?;
+    let subject = match mail.kind {
+        MessageKind::Welcome => format!("Welcome to {}", mail.clinic_name),
+        MessageKind::VisitSummary => format!("Your visit summary from {}", mail.clinic_name),
+        MessageKind::VisitSummaryPin => "Your PIN for the visit summary".to_owned(),
+        _ => format!("Time to book your follow-up at {}", mail.clinic_name),
+    };
+    Ok((subject, vec![text]))
 }
 
 /// A message staff sent (`clinic.message`): its template's subject and the staff member's text.
@@ -179,6 +272,7 @@ mod tests {
             portal_host: Some("alpha.localtest.me"),
             appointment: None,
             unsubscribe: None,
+            template_body: None,
         }
     }
 
@@ -228,5 +322,65 @@ mod tests {
         assert!(email.text.contains("https://alpha.localtest.me/book"));
         let unknown = mail(MessageKind::ClinicMessage, "promo.spam", &due);
         assert!(render(&unknown, &PortalLinks::default()).is_err());
+    }
+
+    #[test]
+    fn automatic_messages_carry_links_a_date_and_a_pin_only() {
+        let links = PortalLinks::default();
+        let none = json!({});
+        let summary = PatientMail {
+            template_body: Some("Thanks {{clinic_name}}! {{share_link}} ."),
+            secret: Some("t0ken"),
+            ..mail(MessageKind::VisitSummary, "visit.summary", &none)
+        };
+        let email = render(&summary, &links).unwrap();
+        assert!(
+            email
+                .text
+                .contains("https://alpha.localtest.me/shared/t0ken")
+        );
+        assert!(!email.subject.contains("t0ken"));
+        let pin = PatientMail {
+            template_body: Some("PIN {{pin}} 🔒"),
+            secret: Some("482913"),
+            ..mail(MessageKind::VisitSummaryPin, "visit.summary_pin", &none)
+        };
+        assert!(render(&pin, &links).unwrap().text.contains("PIN 482913"));
+        let due = json!({ "due_on": "12 November 2026" });
+        let follow_up = PatientMail {
+            template_body: Some("Due {{due_on}}: {{booking_link}} ."),
+            ..mail(
+                MessageKind::FollowUpBooking,
+                "visit.follow_up_booking",
+                &due,
+            )
+        };
+        let text = render(&follow_up, &links).unwrap().text;
+        assert!(text.contains("Due 12 November 2026: https://alpha.localtest.me/book"));
+        // The welcome's website falls back to the portal home.
+        let welcome = PatientMail {
+            template_body: Some("{{app_link}} {{website_link}}"),
+            ..mail(MessageKind::Welcome, "patient.welcome", &none)
+        };
+        let text = render(&welcome, &links).unwrap().text;
+        assert!(text.contains("https://alpha.localtest.me/ https://alpha.localtest.me/"));
+    }
+
+    #[test]
+    fn automatic_messages_refuse_what_a_template_may_not_name_or_cannot_fill() {
+        let links = PortalLinks::default();
+        let none = json!({});
+        let name = PatientMail {
+            template_body: Some("Hello {{patient_name}}"),
+            ..mail(MessageKind::Welcome, "patient.welcome", &none)
+        };
+        assert!(render(&name, &links).is_err());
+        let no_secret = PatientMail {
+            template_body: Some("{{share_link}}"),
+            ..mail(MessageKind::VisitSummary, "visit.summary", &none)
+        };
+        assert!(render(&no_secret, &links).is_err());
+        let no_template = mail(MessageKind::Welcome, "patient.welcome", &none);
+        assert!(render(&no_template, &links).is_err());
     }
 }

@@ -1,6 +1,8 @@
 //! The clinic's own settings.
 
-use aarogyam_app::settings::{self as app, AddressInput, BookingChanges, SettingsChanges};
+use aarogyam_app::settings::{
+    self as app, AddressInput, AutoMessagesChanges as AutoChanges, BookingChanges, SettingsChanges,
+};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::letterhead::{
     Letterhead as DomainLetterhead, LetterheadChanges as DomainChanges, ShownChanges,
@@ -214,6 +216,30 @@ pub struct OnlineBooking {
     pub reminder_minutes: u16,
 }
 
+/// Which messages the system sends to patients on its own. Sending also needs the patient's
+/// consent and a working channel (`WhatsApp` is off server-wide until the platform enables it).
+#[derive(Debug, Serialize, ToSchema)]
+pub struct AutoMessages {
+    /// A thank-you with the app and website links after a walk-in registers (default on).
+    pub welcome: bool,
+    /// The visit summary link, then its PIN in a second message, after a visit closes
+    /// (default on).
+    pub visit_summary: bool,
+    /// The booking link two days before a follow-up planned at close is due (default off).
+    pub follow_up_booking: bool,
+}
+
+/// Changes to the automatic messages; switches left out stay as they are.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct AutoMessagesChanges {
+    /// The welcome after a walk-in registers.
+    pub welcome: Option<bool>,
+    /// The visit summary link and PIN after a visit closes.
+    pub visit_summary: Option<bool>,
+    /// The follow-up booking message.
+    pub follow_up_booking: Option<bool>,
+}
+
 /// Changes to online booking; settings left out stay as they are.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct OnlineBookingChanges {
@@ -260,6 +286,8 @@ pub struct ClinicSettings {
     pub online_booking: OnlineBooking,
     /// The letterhead printed on the clinic's documents.
     pub letterhead: Letterhead,
+    /// The messages sent to patients automatically.
+    pub auto_messages: AutoMessages,
 }
 
 impl From<app::ClinicSettings> for ClinicSettings {
@@ -294,6 +322,11 @@ impl From<app::ClinicSettings> for ClinicSettings {
                 reminder_minutes: settings.booking.reminder_minutes,
             },
             letterhead: settings.letterhead.into(),
+            auto_messages: AutoMessages {
+                welcome: settings.auto_messages.welcome,
+                visit_summary: settings.auto_messages.visit_summary,
+                follow_up_booking: settings.auto_messages.follow_up_booking,
+            },
         }
     }
 }
@@ -325,6 +358,8 @@ pub struct ClinicSettingsChanges {
     pub online_booking: Option<OnlineBookingChanges>,
     /// The letterhead: design, accent, details shown, footer and doctors.
     pub letterhead: Option<LetterheadChanges>,
+    /// The automatic patient messages: switch each on or off.
+    pub auto_messages: Option<AutoMessagesChanges>,
 }
 
 /// The clinic's settings: profile, GSTIN, time zone, branding, prescription footer, address,
@@ -403,6 +438,13 @@ pub(crate) async fn update_clinic(
                 reminder_minutes: b.reminder_minutes,
             }),
         letterhead: body.letterhead.map(Into::into),
+        auto_messages: body
+            .auto_messages
+            .map_or_else(AutoChanges::default, |a| AutoChanges {
+                welcome: a.welcome,
+                visit_summary: a.visit_summary,
+                follow_up_booking: a.follow_up_booking,
+            }),
     };
     let settings = app::update(state.db(), &request.actor, request.request_id, changes).await?;
     // The host lookup carries the time zone; a change applies to this instance's next request.

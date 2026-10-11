@@ -48,46 +48,62 @@ pub async fn create(
         let visit = visits::get_encounter(tx.conn(), encounter_id.uuid(), false, reach.member())
             .await?
             .ok_or(AppError::NotFound("visit"))?;
-        let (token, token_hash) = new_token()?;
-        let pin = new_pin()?;
-        let id = ShareLinkId::new_v7();
-        let expires_at = now + LINK_LIFETIME;
-        dal::insert(
-            tx.conn(),
-            &dal::NewVisitLink {
-                id: id.uuid(),
-                token_hash: &token_hash,
-                pin_hash: &pin_hash(&token, &pin),
-                encounter_id: visit.id,
-                patient_id: visit.patient_id,
-                expires_at,
-            },
-        )
-        .await?;
-        let request_text = request_id.map(|id| id.to_string());
-        access::record(
-            tx.conn(),
-            &access::DocumentAccess {
-                actor_user_id: Some(actor.user_id.uuid()),
-                actor_kind: crate::scope::actor_kind(actor).as_str(),
-                patient_id: visit.patient_id,
-                share_link_id: Some(id.uuid()),
-                resource: "chart",
-                resource_id: visit.id,
-                action: "share",
-                purpose: actor.access_purpose(),
-                request_id: request_text.as_deref(),
-            },
-        )
-        .await?;
-        Ok::<_, AppError>(NewLink {
-            id,
-            token,
-            pin,
-            expires_at,
-        })
+        create_in(tx, actor, request_id, visit.id, visit.patient_id, now).await
     })
     .await
+}
+
+/// Makes the link inside the caller's transaction, for a visit the caller already loaded (the
+/// automatic summary at close, `crate::auto_messages`).
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub(crate) async fn create_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    visit_id: Uuid,
+    patient_id: Uuid,
+    now: OffsetDateTime,
+) -> Result<NewLink, AppError> {
+    let (token, token_hash) = new_token()?;
+    let pin = new_pin()?;
+    let id = ShareLinkId::new_v7();
+    let expires_at = now + LINK_LIFETIME;
+    dal::insert(
+        tx.conn(),
+        &dal::NewVisitLink {
+            id: id.uuid(),
+            token_hash: &token_hash,
+            pin_hash: &pin_hash(&token, &pin),
+            encounter_id: visit_id,
+            patient_id,
+            expires_at,
+        },
+    )
+    .await?;
+    let request_text = request_id.map(|id| id.to_string());
+    access::record(
+        tx.conn(),
+        &access::DocumentAccess {
+            actor_user_id: Some(actor.user_id.uuid()),
+            actor_kind: crate::scope::actor_kind(actor).as_str(),
+            patient_id,
+            share_link_id: Some(id.uuid()),
+            resource: "chart",
+            resource_id: visit_id,
+            action: "share",
+            purpose: actor.access_purpose(),
+            request_id: request_text.as_deref(),
+        },
+    )
+    .await?;
+    Ok(NewLink {
+        id,
+        token,
+        pin,
+        expires_at,
+    })
 }
 
 /// A procedure done in the visit.

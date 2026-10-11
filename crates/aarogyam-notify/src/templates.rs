@@ -40,6 +40,12 @@ impl PortalLinks {
         format!("{}/invite#{token}", self.pattern.replace("{host}", host))
     }
 
+    /// The clinic's portal home, where patients find the app and sign in.
+    #[must_use]
+    pub fn home(&self, host: &str) -> String {
+        format!("{}/", self.pattern.replace("{host}", host))
+    }
+
     /// The clinic's public booking page.
     #[must_use]
     pub fn book(&self, host: &str) -> String {
@@ -219,6 +225,10 @@ fn render_app_invitation(
 }
 
 /// Renders a claimed email message.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one arm per message kind, so a new kind can't be forgotten"
+)]
 pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Failure> {
     let to = message
         .recipient
@@ -313,9 +323,15 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
         Some(MessageKind::LabOrderReminder) => crate::lab::render_reminder(to, &message.payload),
         Some(MessageKind::CampaignTest) => render_campaign_test(to, &message.payload),
         // Rendered by the patient message step (`patient_templates`), never from the outbox.
-        Some(MessageKind::AppointmentReminder | MessageKind::ClinicMessage) | None => {
-            Err(Failure::permanent("unknown message kind"))
-        }
+        Some(
+            MessageKind::AppointmentReminder
+            | MessageKind::ClinicMessage
+            | MessageKind::Welcome
+            | MessageKind::VisitSummary
+            | MessageKind::VisitSummaryPin
+            | MessageKind::FollowUpBooking,
+        )
+        | None => Err(Failure::permanent("unknown message kind")),
     }
 }
 

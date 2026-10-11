@@ -290,6 +290,7 @@ impl Notifier {
                 portal_host: message.portal_host.as_deref(),
                 appointment,
                 unsubscribe,
+                template_body: message.template_body.as_deref(),
             },
             &self.links,
         )?;

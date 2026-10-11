@@ -65,6 +65,7 @@ pub async fn enqueue_patient_email(
             secret: email.secret,
             appointment_id: email.appointment_id,
             dedupe_key: None,
+            scheduled_for: None,
         },
     )
     .await?;

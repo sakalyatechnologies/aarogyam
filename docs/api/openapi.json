@@ -16033,6 +16033,56 @@
           }
         }
       },
+      "AutoMessages": {
+        "type": "object",
+        "description": "Which messages the system sends to patients on its own. Sending also needs the patient's\nconsent and a working channel (`WhatsApp` is off server-wide until the platform enables it).",
+        "required": [
+          "welcome",
+          "visit_summary",
+          "follow_up_booking"
+        ],
+        "properties": {
+          "follow_up_booking": {
+            "type": "boolean",
+            "description": "The booking link two days before a follow-up planned at close is due (default off)."
+          },
+          "visit_summary": {
+            "type": "boolean",
+            "description": "The visit summary link, then its PIN in a second message, after a visit closes\n(default on)."
+          },
+          "welcome": {
+            "type": "boolean",
+            "description": "A thank-you with the app and website links after a walk-in registers (default on)."
+          }
+        }
+      },
+      "AutoMessagesChanges": {
+        "type": "object",
+        "description": "Changes to the automatic messages; switches left out stay as they are.",
+        "properties": {
+          "follow_up_booking": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The follow-up booking message."
+          },
+          "visit_summary": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The visit summary link and PIN after a visit closes."
+          },
+          "welcome": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The welcome after a walk-in registers."
+          }
+        }
+      },
       "Availability": {
         "type": "object",
         "description": "Free slots.",
@@ -17324,12 +17374,17 @@
           "branding",
           "address",
           "online_booking",
-          "letterhead"
+          "letterhead",
+          "auto_messages"
         ],
         "properties": {
           "address": {
             "$ref": "#/components/schemas/Address",
             "description": "The main branch's address."
+          },
+          "auto_messages": {
+            "$ref": "#/components/schemas/AutoMessages",
+            "description": "The messages sent to patients automatically."
           },
           "branding": {
             "$ref": "#/components/schemas/Branding",
@@ -17401,6 +17456,17 @@
               {
                 "$ref": "#/components/schemas/Address",
                 "description": "The main branch's address."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "auto_messages": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AutoMessagesChanges",
+                "description": "The automatic patient messages: switch each on or off."
               },
               {
                 "type": "null"

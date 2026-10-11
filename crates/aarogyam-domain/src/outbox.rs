@@ -53,6 +53,14 @@ pub enum MessageKind {
     LabOrderReminder,
     /// A campaign emailed to the staff member who asked for a test (never a patient).
     CampaignTest,
+    /// The thank-you with the app and website links, after a walk-in registers.
+    Welcome,
+    /// The link to the visit summary, after a visit closes.
+    VisitSummary,
+    /// The PIN of that link, in a message of its own.
+    VisitSummaryPin,
+    /// The booking link for a follow-up that is due.
+    FollowUpBooking,
 }
 
 impl MessageKind {
@@ -70,6 +78,10 @@ impl MessageKind {
             Self::ClinicMessage => "clinic.message",
             Self::LabOrderReminder => "lab_order.reminder",
             Self::CampaignTest => "campaign.test",
+            Self::Welcome => "patient.welcome",
+            Self::VisitSummary => "visit.summary",
+            Self::VisitSummaryPin => "visit.summary_pin",
+            Self::FollowUpBooking => "visit.follow_up_booking",
         }
     }
 
@@ -87,6 +99,10 @@ impl MessageKind {
             "clinic.message" => Some(Self::ClinicMessage),
             "lab_order.reminder" => Some(Self::LabOrderReminder),
             "campaign.test" => Some(Self::CampaignTest),
+            "patient.welcome" => Some(Self::Welcome),
+            "visit.summary" => Some(Self::VisitSummary),
+            "visit.summary_pin" => Some(Self::VisitSummaryPin),
+            "visit.follow_up_booking" => Some(Self::FollowUpBooking),
             _ => None,
         }
     }

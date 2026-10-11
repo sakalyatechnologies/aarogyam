@@ -40,6 +40,7 @@ import { useStaff } from "../../../queries.js";
 import { useTodayMoney } from "../../billing/queries.js";
 import { DayTimeline } from "../day-timeline.js";
 import { AttentionSection, ChairStatus, PendingPayments, RecentPatients, RevenueMix, TeamToday, waitingMinutes } from "../today-page.js";
+import { AppointmentsTable } from "./appointments-table.js";
 import { useBoard } from "./board-context.js";
 import { allowed, type LayoutOpts, type WidgetSpec, type Zone } from "./layout-model.js";
 import { useDayToday, useMonthSummary, useOpenLabs, useWeeklyCollections } from "./queries.js";
@@ -298,40 +299,7 @@ function AppointmentsWidget({ opts, spec }: WidgetProps) {
             peek({ id: a.patient.id, name: a.patient.full_name, number: a.patient.number });
           };
           return asTable ? (
-            <div className="tv2-scroll">
-              <table className="tv2-table">
-                <caption className="tv2-sr">Appointments</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Time</th>
-                    <th scope="col">Patient</th>
-                    <th scope="col" className="tv2-opt">Type</th>
-                    <th scope="col" className="tv2-opt2">Visit</th>
-                    <th scope="col" className="tv2-opt">Chair</th>
-                    <th scope="col">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((a) => (
-                    <tr key={a.id}>
-                      <td className="tv2-mono">{formatTime(a.starts_at, zone)}</td>
-                      <td>
-                        <button type="button" className="tv2-cell-btn" onClick={() => { open(a); }}>
-                          <MkAvatar name={a.patient.full_name} />
-                          {displayName(a.patient.full_name)}
-                        </button>
-                      </td>
-                      <td className="tv2-opt">{a.kind === "new" ? <Tag tone="warning">New</Tag> : <Tag>{KIND_LABEL[a.kind]}</Tag>}</td>
-                      <td className="tv2-opt2">{a.reason ?? "—"}</td>
-                      <td className="tv2-opt">{a.room ?? "—"}</td>
-                      <td>
-                        <StatusChip tone={APPOINTMENT_CHIP[a.status].tone}>{APPOINTMENT_CHIP[a.status].label}</StatusChip>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <AppointmentsTable rows={rows} zone={zone} onOpen={open} />
           ) : (
             <ul aria-label="Appointments" className="tv2-list">
               {rows.map((a) => (

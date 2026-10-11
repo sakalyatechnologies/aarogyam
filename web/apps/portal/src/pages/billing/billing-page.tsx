@@ -1,4 +1,5 @@
 import { FileWarning, HandCoins, Plus, Smartphone, Stethoscope, Wallet } from "lucide-react";
+import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import type { Invoice } from "@aarogyam/api-client";
@@ -13,6 +14,8 @@ import { useCollections, useInvoices, usePendingReport } from "./queries.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 import { computeMonthFigures } from "./month-figures.js";
 import { ExpensesPanel } from "./expenses-panel.js";
+import { SortHeader } from "../../components/sort-header.js";
+import { useSortable, type SortColumn } from "../../components/use-sortable.js";
 import { invoiceStatus, type InvoiceStatusKey } from "../../lib/invoice-status.js";
 
 const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? "" : "s"}`;
@@ -31,6 +34,14 @@ function invoiceTag(invoice: Invoice): { label: string; tone: ChipTone } {
 }
 
 const modeOf = (invoice: Invoice): string => (invoice.methods.length === 0 ? "—" : invoice.methods.map((m) => METHOD_LABEL[m] ?? m).join(", "));
+
+const SORT_COLUMNS: readonly SortColumn<Invoice>[] = [
+  { id: "bill", kind: "text", value: (i) => i.number ?? "Draft" },
+  { id: "patient", kind: "text", value: (i) => i.patient.name },
+  { id: "amount", kind: "money", value: (i) => i.total_paise },
+  { id: "mode", kind: "text", value: (i) => modeOf(i) },
+  { id: "status", kind: "text", value: (i) => invoiceStatus(i).label },
+];
 
 /** Downloads the listed bills as a spreadsheet-ready CSV. */
 function exportCsv(rows: readonly Invoice[]) {
@@ -66,6 +77,12 @@ export function BillingPage() {
   const monthName = new Date(`${today}T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
   const upiShare = monthFigures?.by_method.find((m) => m.method === "upi")?.share_bps ?? 0;
   const rows = invoices.data?.items ?? [];
+  // The twelve newest bills; a header click then reorders those. TODO: the invoices API has no sort parameter yet, so this sorts only the loaded bills.
+  const newest = useMemo(
+    () => rows.toSorted((a, b) => (b.issued_at ?? b.created_at).localeCompare(a.issued_at ?? a.created_at)).slice(0, 12),
+    [rows],
+  );
+  const sortable = useSortable(newest, SORT_COLUMNS);
   const weeks = (collections.data?.by_week ?? []).slice(-8);
 
   const bills = (
@@ -151,18 +168,15 @@ export function BillingPage() {
                 <caption className="mk-sr">Invoices</caption>
                 <thead>
                   <tr>
-                    <th scope="col">Bill</th>
-                    <th scope="col">Patient</th>
-                    <th scope="col">Amount</th>
-                    <th scope="col">Mode</th>
-                    <th scope="col">Status</th>
+                    <SortHeader id="bill" sortable={sortable}>Bill</SortHeader>
+                    <SortHeader id="patient" sortable={sortable}>Patient</SortHeader>
+                    <SortHeader id="amount" sortable={sortable}>Amount</SortHeader>
+                    <SortHeader id="mode" sortable={sortable}>Mode</SortHeader>
+                    <SortHeader id="status" sortable={sortable}>Status</SortHeader>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...rows]
-                    .sort((a, b) => (b.issued_at ?? b.created_at).localeCompare(a.issued_at ?? a.created_at))
-                    .slice(0, 12)
-                    .map((i) => {
+                  {sortable.rows.map((i) => {
                       const tag = invoiceTag(i);
                       return (
                         <tr key={i.id}>

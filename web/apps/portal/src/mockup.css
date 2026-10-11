@@ -815,3 +815,7 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
 }
 @media (prefers-reduced-motion: reduce) { .mk2-rail, .mk2-brand, .mk2-lbl, .mk2-item { transition: none; } }
 @media print { .mk2-rail { display: none !important; } .mk2-main { margin-left: 0; } }
+.mk-sorth { display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; margin: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; border-radius: 4px; }
+.mk-sorth:hover, th[aria-sort="ascending"] .mk-sorth, th[aria-sort="descending"] .mk-sorth { color: var(--ink); }
+.mk-sorth:focus-visible { outline: 2px solid var(--blue, currentColor); outline-offset: 2px; }
+.mk-sorth svg { opacity: .6; flex: none; }

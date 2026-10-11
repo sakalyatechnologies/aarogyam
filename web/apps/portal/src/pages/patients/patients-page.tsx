@@ -11,11 +11,19 @@ import { StaggerItem, StaggerList } from "../../components/mk/motion.js";
 import { useClinic } from "../../clinic.js";
 import { displayName, patientPath } from "../../lib/patients.js";
 import { recentPatientIds } from "../../lib/recent-patients.js";
+import { SortHeader } from "../../components/sort-header.js";
+import { useSortable, type SortColumn } from "../../components/use-sortable.js";
 import { usePatientList } from "./queries.js";
 
+const SORT_COLUMNS: readonly SortColumn<Patient>[] = [
+  { id: "name", kind: "text", value: (p) => p.full_name },
+  { id: "number", kind: "text", value: (p) => p.number },
+  { id: "last_visit", kind: "date", value: (p) => p.last_visit_at },
+  { id: "next", kind: "date", value: (p) => p.next_appointment?.starts_at },
+  { id: "balance", kind: "money", value: (p) => p.balance_paise },
+];
+
 type QuickFilter = "all" | "active_care" | "with_balance" | "recalls_due" | "new_this_month";
-const SORTS = ["recent", "name", "last_visit"] as const;
-type Sort = (typeof SORTS)[number];
 
 const PAGE = 20;
 
@@ -51,17 +59,12 @@ export function PatientsPage() {
     recallsDue: filter === "recalls_due",
     newThisMonth: filter === "new_this_month",
   });
-  const [sort, setSort] = useState<Sort>("recent");
   const loaded = search.data?.items;
-  // Active care (an upcoming visit booked) and the sort narrow the loaded page here; the rest is the server's.
-  const rows = useMemo(() => {
-    const list = (loaded ?? []).filter((row) => filter !== "active_care" || row.next_appointment != null);
-    return sort === "name"
-      ? [...list].sort((a, b) => a.full_name.localeCompare(b.full_name))
-      : sort === "last_visit"
-        ? [...list].sort((a, b) => (b.last_visit_at ?? "").localeCompare(a.last_visit_at ?? ""))
-        : list;
-  }, [loaded, filter, sort]);
+  // Active care (an upcoming visit booked) narrows the loaded page here; the rest is the server's.
+  const filtered = useMemo(() => (loaded ?? []).filter((row) => filter !== "active_care" || row.next_appointment != null), [loaded, filter]);
+  // TODO: the patients API has no sort parameter yet. When it does, send the sort with the request so it covers every page, not only the loaded one.
+  const sortable = useSortable(filtered, SORT_COLUMNS);
+  const rows = sortable.rows;
   const canWrite = can("patients.write");
   const register = canWrite ? (
     <button
@@ -144,21 +147,6 @@ export function PatientsPage() {
             </button>
           ))}
         </div>
-        <label className="mk-sort">
-          <span>Sort</span>
-          <select
-            className="mk-tin"
-            value={sort}
-            onChange={(event) => {
-              const next = SORTS.find((option) => option === event.target.value);
-              if (next !== undefined) setSort(next);
-            }}
-          >
-            <option value="recent">Recent first</option>
-            <option value="name">Name A–Z</option>
-            <option value="last_visit">Last visit</option>
-          </select>
-        </label>
       </div>
       <MkCard
         title={q === "" && filter === "all" ? "Recent patients" : "Results"}
@@ -180,11 +168,11 @@ export function PatientsPage() {
                 <caption className="mk-sr">Patients</caption>
                 <thead>
                   <tr>
-                    <th scope="col">Patient</th>
-                    <th scope="col">Patient ID</th>
-                    <th scope="col">Last visit</th>
-                    <th scope="col">Next</th>
-                    {can("billing.read") ? <th scope="col">Balance</th> : null}
+                    <SortHeader id="name" sortable={sortable}>Patient</SortHeader>
+                    <SortHeader id="number" sortable={sortable}>Patient ID</SortHeader>
+                    <SortHeader id="last_visit" sortable={sortable}>Last visit</SortHeader>
+                    <SortHeader id="next" sortable={sortable}>Next</SortHeader>
+                    {can("billing.read") ? <SortHeader id="balance" sortable={sortable}>Balance</SortHeader> : null}
                     <th scope="col">Status</th>
                   </tr>
                 </thead>

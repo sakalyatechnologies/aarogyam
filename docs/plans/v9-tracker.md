@@ -252,5 +252,8 @@ Main gained 93 commits from the portal agent. Those commits built the same backe
 ## v10 staff journeys (plan `docs/plans/v10-staff-journeys.md`, approved 12 Oct 2026)
 | Task | State |
 |---|---|
-| T0 retarget and seams (branch `feat/v10` = origin/main + feat/v9 mobile, merge 9a1a6861; pb and sse merged on top later) | worker t0 running |
-| T1–T13 | waiting for T0 |
+| T0 retarget and seams (`feat/v10` = origin/main + the feat/v9 mobile code) | **done** 5bb70e0a, both gates green; the sse client was cherry-picked onto it as fa30ab32 |
+| T5 shared finish-visit holder + audio sender | running (v10-t5) |
+| T3 shared intake form + patient-file sender | running (v10-t3) |
+| T4, T1, T2, T6, then T7–T11, then T12 | queued |
+| Follow-ups from T0 | the iOS family controls must hide when the flag is off (goes to T7/T8); `ServerCaps` is per process, not per clinic; `VisitHistoryStateHolderTest` is flaky under load |

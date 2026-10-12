@@ -9,7 +9,7 @@ Notifications come from the one backend and are shown on both sides, so the two 
 **Status:**
 - Rev 1 was reviewed by an independent principal engineer: approve with changes, with 2 blockers and 9 majors.
 - Rev 2 addresses every finding (R1–R16, marked inline). Rev 2.1 fixes the 7 re-review findings, marked "re-review N".
-- Rev 2 needs that reviewer's approval before T0.
+- **APPROVED** by the independent principal reviewer on 12 Oct 2026, on rev 2.1 (d60ca3af), after two review rounds.
 
 ## 0. Ground truth and ownership
 - **Single-backend rule.** Founder, 12 Oct; the full text is in `~/project/coordination/mobile-to-backend.md`.
@@ -69,7 +69,7 @@ Notifications come from the one backend and are shown on both sides, so the two 
 | A7 Waiting | "Waiting for Dr X · 0:42" on an injected clock (R11). At 60 s with no `called`, the card turns amber with **"Check with Dr X"**; a **Remind** button shows only when the G1 flag is on | 0–1 | G1 |
 | A8 Welcome | A message status chip, only when the G8 flag is on (R7) | 0 | G8 |
 | A9 Send in | A `send_in` notification (SSE or poll) brings a banner ("Token 12 is called", no names, R12), a haptic and a sound. The card moves to Called. "Sent in" only acknowledges on this device and writes nothing, because start-visit seats the token (re-review 6) | 1 | — |
-| A10 Collect | A `collect_payment` notification brings a To pay card. The sheet **re-GETs the invoice** for the current balance (R8), then: issue it if it's a draft, UPI QR / cash / card, the proof photo (when that flag is on), and **Paid**. Then a celebration. A 409 refetches and shows the server's state. The card closes when the notification is `handled` or the balance is 0 | 2–3 | `GET /invoices/{id}`, `POST /invoices/{id}/issue`, `/invoices/{id}/upi-link`, `POST /payments` |
+| A10 Collect | A `collect_payment` notification brings a To pay card. The sheet **re-GETs the invoice** for the current balance (R8), then: issue it if it's a draft, UPI QR / cash / card, the proof photo (when that flag is on), and **Paid**. Then a celebration. A 409 refetches and shows the server's state. The card closes when the notification is `handled` or the balance is 0. While a token is `ready_to_bill` and its visit closed in the last 2 minutes, the card says "Doctor may be collecting" (display only) | 2–3 | `GET /invoices/{id}`, `POST /invoices/{id}/issue`, `/invoices/{id}/upi-link`, `POST /payments` |
 | A11 My tasks | Overdue first. **Done** asks for an optional note (a proof photo once G4 lands), then confetti. `record_usage` gets an item picker or "nothing used"; `confirm_photos` shows `patients_without_photos_today` | 1–2 | `/tasks/mine`, `/tasks/occurrences/{id}/complete` (`client_id`) |
 | A12 Bell | All kinds from main's contract, through the existing mapping, which moves from `DeskV9Logic.swift` into shared (R5). Unknown kinds get a generic row. De-duplicated by notification id (R8) | — | `/notifications` |
 

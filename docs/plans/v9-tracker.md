@@ -248,3 +248,9 @@ Main gained 93 commits from the portal agent. Those commits built the same backe
 | and | v9-and | Android `OutboxFiles` | — | merged (e3863535) |
 | (me) | feat/v9-port | merge pa and pb; mobile retarget (CloseVisit→CloseRequest, VisitShare→VisitLink, regenerate models); merge the feat/v9 mobile work; gates; push main | — | waiting |
 | sse | v9-sse | mobile live-updates client (SSE, Last-Event-ID, reset, poll at 120 s while connected) plus `OutboxFiles.clear()` on sign-out | — | running |
+
+## v10 staff journeys (plan `docs/plans/v10-staff-journeys.md`, approved 12 Oct 2026)
+| Task | State |
+|---|---|
+| T0 retarget and seams (branch `feat/v10` = origin/main + feat/v9 mobile; pb and sse merged on top later) | in progress (coordinator) |
+| T1–T13 | waiting for T0 |

@@ -19,6 +19,7 @@ pub(crate) mod console_support;
 pub(crate) mod dashboard;
 pub(crate) mod dental_terms;
 pub(crate) mod duplicates;
+pub(crate) mod events;
 pub(crate) mod expenses;
 pub(crate) mod facts;
 pub(crate) mod files;
@@ -222,6 +223,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/appointments/{id}", patch(appointments::change))
         .route("/appointments/{id}/status", post(appointments::set_status))
         .route("/appointments/{id}/check-in", post(check_in::check_in))
+        .route("/events", get(events::stream))
         .route("/queue", get(queue::list).post(queue::walk_in))
         .route("/queue/{id}/status", post(queue::set_status))
         .route("/queue/{id}/call", post(queue::call))

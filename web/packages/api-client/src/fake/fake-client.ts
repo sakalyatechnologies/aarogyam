@@ -18,6 +18,7 @@ import {
   ROLES,
   type FakeAllergy,
   type FakeConsent,
+  type FakeConsentRequest,
   type FakePlan,
   type FakePlanItem,
   type FakeAlert,
@@ -37,6 +38,7 @@ import {
   type FakeSummaryNote,
   type FakeObservation,
   type FakePatient,
+  type FakePatientRelation,
   type FakePayment,
   type FakePlatformUser,
   type FakePractitioner,
@@ -145,6 +147,8 @@ export interface FakeBackend {
   users(): readonly FakeUser[];
   /** Fixture Sakalya team members, for the console's dev sign-in screen. */
   platformUsers(): readonly FakePlatformUser[];
+  /** The consent links the fake "emailed", for tests and demos (the API never returns the token). */
+  sentConsentLinks(): readonly { patient_id: string; token: string }[];
 }
 
 type Outcome = { ok: true; body: unknown } | { ok: false; status: number; body: C.ErrorBody | C.IssueBlocked };
@@ -886,6 +890,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         created_at: p.created_at,
         last_visit_at: p.last_visit_at ?? null,
         ...patientSummary(state, p, clock(), hasPermission(caller.membership.role.permissions, "billing.read")),
+        allergy_alert:
+          state.allergies.some((a) => a.patient_id === p.id && a.status === "active") ||
+          state.conditions.some((c) => c.patient_id === p.id && c.status === "active" && c.flagged),
+        consent_pending: (state.consentRequests ?? []).some(
+          (r) => r.patient_id === p.id && r.signed_at === null && new Date(r.expires_at) > clock(),
+        ),
+        has_photo: (state.patientPhotos ?? []).some((x) => x.patient_id === p.id),
       };
     };
 
@@ -7303,6 +7314,22 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (allergies.some((a) => a.length < 1 || a.length > 200) || allergies.length > 20) {
             return invalid("allergies", "must be 1 to 200 characters of text");
           }
+          const conditionTexts = (input.conditions ?? []).map((c) => c.trim());
+          if (conditionTexts.length > 20 || conditionTexts.some((c) => c.length < 1 || c.length > 300)) {
+            return invalid("conditions", "at most 20, each 1 to 300 characters of text");
+          }
+          const relation = input.family_of == null ? undefined : S.familyRelation.safeParse(input.family_of.relation);
+          if (relation !== undefined && !relation.success) {
+            return invalid("family_of.relation", "unknown value");
+          }
+          const relative =
+            input.family_of == null ? undefined : clinicPatients(caller).find((p) => p.id === input.family_of?.patient_id);
+          if (input.family_of != null && relative === undefined) {
+            return notFound;
+          }
+          if (relative !== undefined && input.patient_id != null && relative.id === input.patient_id) {
+            return refuse(409, "conflict", "a patient can't be related to themselves");
+          }
           const consents = input.consents ?? [];
           const purposes: C.ConsentPurpose[] = [];
           for (const c of consents) {
@@ -7378,6 +7405,44 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             });
             allergiesRecorded += 1;
           }
+          let conditionsRecorded = 0;
+          for (const text of conditionTexts) {
+            if (state.conditions.some((c) => c.patient_id === target.id && c.status === "active" && c.display_text.toLowerCase() === text.toLowerCase())) continue;
+            const at = clock().toISOString();
+            state.conditions.push({
+              id: fakeUuid(random, clock()),
+              clinic_id: caller.clinic.id,
+              patient_id: target.id,
+              display_text: text,
+              flagged: true,
+              status: "active",
+              source: "patient",
+              code: null,
+              note: null,
+              onset: null,
+              verified_by: null,
+              visit_id: null,
+              created_at: at,
+              updated_at: at,
+            });
+            conditionsRecorded += 1;
+          }
+          let familyLinkId: string | null = null;
+          if (relative !== undefined && relation?.success === true) {
+            const links = (state.patientRelations ??= []);
+            if (linkBetween(links, caller.clinic.id, relative.id, target.id) !== undefined) {
+              return refuse(409, "conflict", "these patients are already linked");
+            }
+            familyLinkId = fakeUuid(random, clock());
+            links.push({
+              id: familyLinkId,
+              clinic_id: caller.clinic.id,
+              patient_id: relative.id,
+              related_patient_id: target.id,
+              relation: relation.data,
+              is_primary_contact: false,
+            });
+          }
           if (input.no_known_allergies === true) target.allergies_reviewed = "none_known";
           if (active(target.id).length > 0) target.allergies_reviewed = "has_allergies";
           const recorded: C.ConsentPurpose[] = [];
@@ -7431,6 +7496,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             registered,
             token: wired,
             allergies_recorded: allergiesRecorded,
+            conditions_recorded: conditionsRecorded,
+            ...(familyLinkId === null ? {} : { family_link_id: familyLinkId }),
             consents_recorded: recorded,
           } satisfies C.WalkIn);
         }),
@@ -7451,8 +7518,243 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             .filter((p) => p.phone === e164)
             .sort((a, b) => a.full_name.localeCompare(b.full_name))
             .slice(0, 10)
-            .map((p) => ({ id: p.id, number: p.number, full_name: p.full_name, age_years: ageYears(p.date_of_birth, now), sex: p.sex }));
-          return reply({ items } satisfies C.PhoneMatches);
+            .map((p) => ({
+              id: p.id,
+              number: p.number,
+              full_name: p.full_name,
+              age_years: ageYears(p.date_of_birth, now),
+              sex: p.sex,
+            }));
+          const matched = new Set(items.map((m) => m.id));
+          const family_group = items.flatMap((m) =>
+            familyOf(state, caller.clinic.id, m.id)
+              .filter((r) => !matched.has(r.patient_id))
+              .map((r) => ({ of_patient_id: m.id, id: r.patient_id, number: r.number, full_name: r.full_name, relation: r.relation })),
+          );
+          return reply({ items, family_group } satisfies C.PhoneMatches);
+        }),
+
+      getPatientsSummary: (opts) =>
+        respond(S.patientsSummary, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const month = localClock(clock(), caller.clinic.timezone).date.slice(0, 7);
+          const money = hasPermission(caller.membership.role.permissions, "billing.read");
+          const patients = clinicPatients(caller);
+          return reply({
+            total: patients.length,
+            new_this_month: patients.filter((p) => localClock(new Date(p.created_at), caller.clinic.timezone).date.slice(0, 7) === month).length,
+            recalls_due: 0,
+            with_balance: money ? patients.filter((p) => (patientSummary(state, p, clock(), true).balance_paise ?? 0) > 0).length : null,
+          } satisfies C.PatientsSummary);
+        }),
+
+      putPatientPhoto: (id, form, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const file = form.get("file");
+          if (!(file instanceof File)) {
+            return invalid("file", "choose a photo");
+          }
+          if (file.size > 2 * 1024 * 1024) {
+            return refuse(413, "payload_too_large", "That photo is larger than 2 MB.");
+          }
+          if (!["image/jpeg", "image/png"].includes(file.type)) {
+            return invalid("file", "must be a JPEG or PNG photo");
+          }
+          const photos = (state.patientPhotos ??= []);
+          state.patientPhotos = photos.filter((x) => !(x.clinic_id === caller.clinic.id && x.patient_id === id));
+          state.patientPhotos.push({ clinic_id: caller.clinic.id, patient_id: id, file });
+          return reply(undefined);
+        }),
+
+      getPatientPhoto: async (id, opts) => {
+        let found: Blob | undefined;
+        const result = await respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          found = (state.patientPhotos ?? []).find((x) => x.clinic_id === caller.clinic.id && x.patient_id === id)?.file;
+          return found === undefined || !clinicPatients(caller).some((p) => p.id === id) ? notFound : reply(undefined);
+        });
+        return result.ok && found !== undefined ? success(found) : failure(result.ok ? { status: 404, code: "not_found", message: "Not found." } : result.error);
+      },
+
+      deletePatientPhoto: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const photos = state.patientPhotos ?? [];
+          if (!clinicPatients(caller).some((p) => p.id === id) || !photos.some((x) => x.clinic_id === caller.clinic.id && x.patient_id === id)) {
+            return notFound;
+          }
+          state.patientPhotos = photos.filter((x) => !(x.clinic_id === caller.clinic.id && x.patient_id === id));
+          return reply(undefined);
+        }),
+
+      listFamily: (id, opts) =>
+        respond(S.familyList, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          return reply({ items: familyOf(state, caller.clinic.id, id) } satisfies C.FamilyList);
+        }),
+
+      addFamilyLink: (id, input, opts) =>
+        respond(S.familyLink, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const relation = S.familyRelation.safeParse(input.relation);
+          if (!relation.success) {
+            return invalid("relation", "unknown value");
+          }
+          const patients = clinicPatients(caller);
+          if (!patients.some((p) => p.id === id) || !patients.some((p) => p.id === input.related_patient_id)) {
+            return notFound;
+          }
+          if (id === input.related_patient_id) {
+            return refuse(409, "conflict", "a patient can't be related to themselves");
+          }
+          const links = (state.patientRelations ??= []);
+          if (linkBetween(links, caller.clinic.id, id, input.related_patient_id) !== undefined) {
+            return refuse(409, "conflict", "these patients are already linked");
+          }
+          const linkId = fakeUuid(random, clock());
+          links.push({
+            id: linkId,
+            clinic_id: caller.clinic.id,
+            patient_id: id,
+            related_patient_id: input.related_patient_id,
+            relation: relation.data,
+            is_primary_contact: input.is_primary_contact === true,
+          });
+          const made = familyOf(state, caller.clinic.id, id).find((l) => l.id === linkId);
+          return made === undefined ? notFound : reply(made);
+        }),
+
+      removeFamilyLink: (id, linkId, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const links = state.patientRelations ?? [];
+          // A link is listed from either side, so either side may remove it.
+          const found = links.find((l) => l.id === linkId && l.clinic_id === caller.clinic.id && (l.patient_id === id || l.related_patient_id === id));
+          if (!clinicPatients(caller).some((p) => p.id === id) || found === undefined) {
+            return notFound;
+          }
+          state.patientRelations = links.filter((l) => l !== found);
+          return reply(undefined);
+        }),
+
+      requestConsent: (id, input, opts) =>
+        respond(S.consentRequested, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const patient = clinicPatients(caller).find((p) => p.id === id);
+          if (patient === undefined) {
+            return notFound;
+          }
+          const purposes = input?.purposes ?? ["care"];
+          if (purposes.length < 1 || purposes.length > 5 || new Set(purposes).size !== purposes.length || !purposes.every((x) => S.consentPurpose.safeParse(x).success)) {
+            return invalid("purposes", "name 1 to 5 known purposes, each once");
+          }
+          if (patient.email == null) {
+            return refuse(409, "conflict", "this patient has no email address to send the link to");
+          }
+          const now = clock();
+          const request: FakeConsentRequest = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            patient_id: id,
+            token: `${fakeUuid(random, now)}${fakeUuid(random, now)}`.replace(/-/g, ""),
+            purposes,
+            notice_version: "v1 2026-10",
+            expires_at: new Date(now.getTime() + 7 * 24 * 3600 * 1000).toISOString(),
+            signed_at: null,
+          };
+          (state.consentRequests ??= []).push(request);
+          return reply({
+            id: request.id,
+            channel: "email",
+            purposes,
+            notice_version: request.notice_version,
+            expires_at: request.expires_at,
+          } satisfies C.ConsentRequested);
+        }),
+
+      getConsentLink: (token, opts) =>
+        respond(S.consentLink, opts?.signal, () => {
+          const clinic = state.clinics.find((c) => c.host === options.host);
+          const request = clinic === undefined ? undefined : (state.consentRequests ?? []).find((r) => r.clinic_id === clinic.id && r.token === token);
+          if (clinic === undefined || request === undefined) {
+            return notFound;
+          }
+          return reply({
+            clinic_name: clinic.name,
+            state: request.signed_at !== null ? "signed" : new Date(request.expires_at) <= clock() ? "expired" : "pending",
+            purposes: request.purposes,
+            notice: { version: request.notice_version, body: null },
+            expires_at: request.expires_at,
+          } satisfies C.ConsentLink);
+        }),
+
+      signConsentLink: (token, input, opts) =>
+        respond(S.consentSigned, opts?.signal, () => {
+          const clinic = state.clinics.find((c) => c.host === options.host);
+          const request = clinic === undefined ? undefined : (state.consentRequests ?? []).find((r) => r.clinic_id === clinic.id && r.token === token);
+          if (clinic === undefined || request === undefined) {
+            return notFound;
+          }
+          if (!input.agree) {
+            return invalid("agree", "must be true");
+          }
+          const chosen = input.purposes ?? request.purposes;
+          if (chosen.length < 1 || !chosen.every((x) => request.purposes.includes(x))) {
+            return invalid("purposes", "choose from the purposes asked about");
+          }
+          if (request.signed_at !== null || new Date(request.expires_at) <= clock()) {
+            return refuse(409, "conflict", "this link was already used or has expired");
+          }
+          const stored = (state.consents ??= []);
+          const recorded: C.ConsentPurpose[] = [];
+          for (const purpose of chosen) {
+            if (stored.some((x) => x.clinic_id === clinic.id && x.patient_id === request.patient_id && x.purpose === purpose && x.status === "given")) continue;
+            stored.push({
+              id: S.consentId.parse(fakeUuid(random, clock())),
+              clinic_id: clinic.id,
+              patient_id: request.patient_id,
+              purpose,
+              notice_version: request.notice_version,
+              given_at: clock().toISOString(),
+              method: S.consentMethod.parse("app"),
+              recorded_by: "the patient",
+              status: "given",
+            });
+            recorded.push(purpose);
+          }
+          request.signed_at = clock().toISOString();
+          return reply({ recorded } satisfies C.Signed);
         }),
 
       startVisitFromQueue: (id, opts) =>
@@ -7542,7 +7844,12 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     return api;
   }
 
-  return { client, users: () => state.users, platformUsers: () => state.platformUsers };
+  return {
+    client,
+    users: () => state.users,
+    platformUsers: () => state.platformUsers,
+    sentConsentLinks: () => (state.consentRequests ?? []).map((r) => ({ patient_id: r.patient_id, token: r.token })),
+  };
 }
 
 /** A fake client over its own copy of `fixtures`. Use `createFakeBackend` to share data between hosts. */
@@ -8148,10 +8455,40 @@ function patientSummary(
   const paid = state.payments.filter((x) => x.patient_id === p.id && x.status === "received").reduce((sum, x) => sum + x.amount_paise, 0);
   return {
     next_appointment: next === undefined || practitioner === undefined ? null : { starts_at: next.starts_at, practitioner: practitioner.display_name },
+    // Without billing.read the money keys are null.
     balance_paise: money ? balance : null,
     lifetime_paid_paise: money ? paid : null,
     recall_due: false,
   };
+}
+
+const INVERSE_RELATION = { guardian: "child", parent: "child", child: "parent", spouse: "spouse", sibling: "sibling", other: "other" } as const;
+
+function linkBetween(links: FakePatientRelation[], clinicId: string, a: string, b: string): FakePatientRelation | undefined {
+  return links.find(
+    (l) => l.clinic_id === clinicId && ((l.patient_id === a && l.related_patient_id === b) || (l.patient_id === b && l.related_patient_id === a)),
+  );
+}
+
+/** The relatives of a patient, each with what they are to that patient. */
+function familyOf(state: Fixtures, clinicId: string, patientId: string): C.FamilyLink[] {
+  const out: C.FamilyLink[] = [];
+  for (const link of state.patientRelations ?? []) {
+    if (link.clinic_id !== clinicId) continue;
+    const forward = link.patient_id === patientId;
+    const otherId = forward ? link.related_patient_id : link.related_patient_id === patientId ? link.patient_id : undefined;
+    const other = otherId === undefined ? undefined : state.patients.find((p) => p.id === otherId);
+    if (other === undefined) continue;
+    out.push({
+      id: link.id,
+      patient_id: other.id,
+      number: other.number,
+      full_name: other.full_name,
+      relation: forward ? link.relation : INVERSE_RELATION[link.relation],
+      is_primary_contact: forward && link.is_primary_contact,
+    });
+  }
+  return out.sort((x, y) => x.full_name.localeCompare(y.full_name));
 }
 
 function wirePatientBrief(p: FakePatient, now: Date): C.PatientBrief {

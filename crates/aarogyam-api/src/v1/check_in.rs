@@ -98,6 +98,7 @@ pub(crate) async fn check_in(
         intake: Intake {
             allergies: body.allergies,
             no_known_allergies: body.no_known_allergies,
+            conditions: Vec::new(),
             consents: desk_consents(&body.consents)?,
             notice_id: body
                 .notice_id

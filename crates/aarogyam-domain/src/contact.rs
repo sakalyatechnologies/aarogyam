@@ -25,6 +25,9 @@ pub enum PatientMessage {
     Campaign,
     /// A birthday greeting.
     Birthday,
+    /// A link to read the clinic's notice and sign consent: the message that asks for consent,
+    /// so it can't wait for one.
+    ConsentRequest,
 }
 
 impl PatientMessage {
@@ -38,6 +41,7 @@ impl PatientMessage {
         Self::Recall,
         Self::Campaign,
         Self::Birthday,
+        Self::ConsentRequest,
     ];
 
     /// The consent purpose the message needs.
@@ -47,6 +51,7 @@ impl PatientMessage {
             Self::BookingConfirmation
             | Self::PrescriptionLink
             | Self::PatientAppInvite
+            | Self::ConsentRequest
             | Self::PaymentReceipt => Purpose::Care,
             Self::AppointmentReminder | Self::Recall => Purpose::Reminders,
             Self::Campaign | Self::Birthday => Purpose::Promotional,
@@ -76,6 +81,7 @@ impl PatientMessage {
             | MessageKind::BookingConfirmed
             | MessageKind::BookingDeclined => Some(Self::BookingConfirmation),
             MessageKind::PatientAppInvited => Some(Self::PatientAppInvite),
+            MessageKind::ConsentRequested => Some(Self::ConsentRequest),
             MessageKind::PaymentReceipt => Some(Self::PaymentReceipt),
         }
     }
@@ -92,6 +98,7 @@ mod tests {
             M::BookingConfirmation,
             M::PrescriptionLink,
             M::PatientAppInvite,
+            M::ConsentRequest,
             M::PaymentReceipt,
         ];
         let reminders = [M::AppointmentReminder, M::Recall];

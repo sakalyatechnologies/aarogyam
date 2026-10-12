@@ -13,6 +13,7 @@ pub(crate) mod chat;
 pub(crate) mod check_in;
 pub(crate) mod client_errors;
 pub(crate) mod clinic_hours;
+pub(crate) mod consent_requests;
 pub(crate) mod consents;
 pub(crate) mod console;
 pub(crate) mod console_support;
@@ -21,6 +22,7 @@ pub(crate) mod dental_terms;
 pub(crate) mod duplicates;
 pub(crate) mod expenses;
 pub(crate) mod facts;
+pub(crate) mod family;
 pub(crate) mod files;
 pub(crate) mod health;
 pub(crate) mod imports;
@@ -45,6 +47,7 @@ pub(crate) mod onboarding;
 pub(crate) mod patient_app;
 pub(crate) mod patient_links;
 pub(crate) mod patient_notes;
+pub(crate) mod patient_photos;
 pub(crate) mod patient_sessions;
 pub(crate) mod patients;
 pub(crate) mod payments;
@@ -158,6 +161,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/invitations/accept", post(invitations::accept))
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
+        .route("/patients/summary", get(patients::summary))
         .route("/patients/lookup", post(patients::lookup))
         .route("/patients/{id}", get(patients::open).patch(patients::edit))
         .route(
@@ -246,7 +250,20 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/patients/{id}/consents",
             get(consents::list).post(consents::record),
         )
+        .route(
+            "/patients/{id}/consents/request",
+            post(consent_requests::request),
+        )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
+        .route("/patients/{id}/family", get(family::list).post(family::add))
+        .route("/patients/{id}/family/{link_id}", delete(family::remove))
+        .route(
+            "/patients/{id}/photo",
+            get(patient_photos::get)
+                .put(patient_photos::put)
+                .delete(patient_photos::delete)
+                .layer(DefaultBodyLimit::max(patient_photos::MAX_UPLOAD_BODY)),
+        )
         // Messages to patients: staff send, the patient's list and contact preferences.
         .route("/messages", post(messages::send))
         .route("/patients/{id}/messages", get(messages::list))
@@ -523,6 +540,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/registrations", post(registrations::register))
         // Public, on the clinic's host: patients booking for themselves. Reads need no
         // sign-in; booking needs a verified-email sign-in with no clinic membership.
+        .route(
+            "/public/consents/{token}",
+            get(consent_requests::preview).post(consent_requests::sign),
+        )
         .route("/public/booking", get(public_booking::booking_options))
         .route("/public/availability", get(public_booking::free_slots))
         .route("/public/bookings", post(public_booking::book_online))

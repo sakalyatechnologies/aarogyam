@@ -151,6 +151,109 @@ pub async fn get_for_update(
     Ok(row)
 }
 
+/// A patient with the flags the list shows, for responses that carry the patient but no
+/// summary.
+#[derive(Debug, Clone)]
+pub struct FlaggedPatient {
+    /// The patient.
+    pub patient: PatientRow,
+    /// The flags.
+    pub flags: Flags,
+}
+
+/// [`get`], with the patient's flags read in the same statement.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn get_flagged(
+    conn: &mut PgConnection,
+    id: Uuid,
+    member: Option<Uuid>,
+) -> Result<Option<FlaggedPatient>, DbError> {
+    let row = sqlx::query!(
+        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated, p.phone_e164,
+                  p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
+                  f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
+                  f.has_photo as "has_photo!"
+           from aarogyam.patients p
+           cross join lateral app.patient_flags(p.id) f
+           where p.id = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $2)"#,
+        id,
+        member
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.map(|row| FlaggedPatient {
+        patient: PatientRow {
+            id: row.id,
+            number: row.number,
+            full_name: row.full_name,
+            sex: row.sex,
+            date_of_birth: row.date_of_birth,
+            birth_date_estimated: row.birth_date_estimated,
+            phone_e164: row.phone_e164,
+            email: row.email,
+            preferred_language: row.preferred_language,
+            status: row.status,
+            created_at: row.created_at,
+            last_visit_at: row.last_visit_at,
+            row_version: row.row_version,
+        },
+        flags: Flags {
+            allergy_alert: row.allergy_alert,
+            consent_pending: row.consent_pending,
+            has_photo: row.has_photo,
+        },
+    }))
+}
+
+/// [`get_for_update`], with the patient's flags read in the same statement.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn get_for_update_flagged(
+    conn: &mut PgConnection,
+    id: Uuid,
+    member: Option<Uuid>,
+) -> Result<Option<FlaggedPatient>, DbError> {
+    let row = sqlx::query!(
+        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated, p.phone_e164,
+                  p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
+                  f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
+                  f.has_photo as "has_photo!"
+           from aarogyam.patients p
+           cross join lateral app.patient_flags(p.id) f
+           where p.id = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $2)
+           for update of p"#,
+        id,
+        member
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.map(|row| FlaggedPatient {
+        patient: PatientRow {
+            id: row.id,
+            number: row.number,
+            full_name: row.full_name,
+            sex: row.sex,
+            date_of_birth: row.date_of_birth,
+            birth_date_estimated: row.birth_date_estimated,
+            phone_e164: row.phone_e164,
+            email: row.email,
+            preferred_language: row.preferred_language,
+            status: row.status,
+            created_at: row.created_at,
+            last_visit_at: row.last_visit_at,
+            row_version: row.row_version,
+        },
+        flags: Flags {
+            allergy_alert: row.allergy_alert,
+            consent_pending: row.consent_pending,
+            has_photo: row.has_photo,
+        },
+    }))
+}
+
 /// A patient's editable details, all of them, as they should be stored. The caller has
 /// validated them in the domain layer.
 #[derive(Debug, Clone)]
@@ -272,10 +375,27 @@ pub struct SummaryRow {
     pub lifetime_paid_paise: i64,
     /// Whether an open recall is due on or before the clinic's today.
     pub recall_due: bool,
+    /// The flags read beside the summary.
+    pub flags: Flags,
+}
+
+/// What the list shows beside a name (`app.patient_flags`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Flags {
+    /// An allergy is active, whoever recorded it.
+    pub allergy_alert: bool,
+    /// No active consent to care is on record.
+    pub consent_pending: bool,
+    /// The patient has a photo.
+    pub has_photo: bool,
 }
 
 /// A patient with their summary, read in the same statement.
 #[derive(Debug, Clone)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the patient's status flags, each read straight from one statement"
+)]
 pub struct ListedPatient {
     /// Identifier.
     pub id: Uuid,
@@ -313,6 +433,12 @@ pub struct ListedPatient {
     pub lifetime_paid_paise: i64,
     /// See [`SummaryRow::recall_due`].
     pub recall_due: bool,
+    /// See [`Flags::allergy_alert`].
+    pub allergy_alert: bool,
+    /// See [`Flags::consent_pending`].
+    pub consent_pending: bool,
+    /// See [`Flags::has_photo`].
+    pub has_photo: bool,
 }
 
 impl ListedPatient {
@@ -341,6 +467,11 @@ impl ListedPatient {
                 balance_paise: self.balance_paise,
                 lifetime_paid_paise: self.lifetime_paid_paise,
                 recall_due: self.recall_due,
+                flags: Flags {
+                    allergy_alert: self.allergy_alert,
+                    consent_pending: self.consent_pending,
+                    has_photo: self.has_photo,
+                },
             },
         )
     }
@@ -371,12 +502,15 @@ pub async fn recent(
         r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
                   p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
-                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!",
+                  f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
+                  f.has_photo as "has_photo!"
            from (select * from aarogyam.patients
                  where deleted_at is null and app.patient_in_reach(id, $4)
                  order by created_at desc
                  limit $1) p
            cross join lateral app.patient_summary(p.id, $2, $3) s
+           cross join lateral app.patient_flags(p.id) f
            order by p.created_at desc"#,
         limit,
         at.now,
@@ -404,7 +538,9 @@ pub async fn recent_filtered(
         r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
                   p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
-                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!",
+                  f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
+                  f.has_photo as "has_photo!"
            from (select p.* from aarogyam.patients p
                  where p.deleted_at is null and app.patient_in_reach(p.id, $7)
                    and ($4::timestamptz is null or p.created_at >= $4)
@@ -422,6 +558,7 @@ pub async fn recent_filtered(
                  order by p.created_at desc
                  limit $5) p
            cross join lateral app.patient_summary(p.id, $6, $3) s
+           cross join lateral app.patient_flags(p.id) f
            order by p.created_at desc"#,
         filter.with_balance,
         filter.recalls_due,
@@ -451,9 +588,12 @@ pub async fn find_by_number(
         r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
                   p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
-                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!",
+                  f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
+                  f.has_photo as "has_photo!"
            from aarogyam.patients p
            cross join lateral app.patient_summary(p.id, $2, $3) s
+           cross join lateral app.patient_flags(p.id) f
            where p.number = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $4)"#,
         number,
         at.now,
@@ -481,13 +621,16 @@ pub async fn search_phone(
         r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
                   p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
-                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!",
+                  f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
+                  f.has_photo as "has_photo!"
            from (select * from aarogyam.patients
                  where (phone_e164 = $1 or alt_phone_e164 = $1) and deleted_at is null
                    and app.patient_in_reach(id, $5)
                  order by full_name
                  limit $2) p
            cross join lateral app.patient_summary(p.id, $3, $4) s
+           cross join lateral app.patient_flags(p.id) f
            order by p.full_name"#,
         phone_e164,
         limit,
@@ -517,13 +660,16 @@ pub async fn search_phone_tail(
         r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
                   p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
-                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!",
+                  f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
+                  f.has_photo as "has_photo!"
            from (select * from aarogyam.patients
                  where (right(phone_e164, char_length($1)) = $1 or right(alt_phone_e164, char_length($1)) = $1)
                    and deleted_at is null and app.patient_in_reach(id, $5)
                  order by full_name
                  limit $2) p
            cross join lateral app.patient_summary(p.id, $3, $4) s
+           cross join lateral app.patient_flags(p.id) f
            order by p.full_name"#,
         tail,
         limit,
@@ -597,10 +743,13 @@ pub async fn search_name(
            select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
                   p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
-                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!",
+                  f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
+                  f.has_photo as "has_photo!"
            from picked
            join aarogyam.patients p on p.id = picked.id
            cross join lateral app.patient_summary(p.id, $5, $6) s
+           cross join lateral app.patient_flags(p.id) f
            where p.deleted_at is null
            order by picked.source, picked.position
            limit $2"#,
@@ -615,6 +764,65 @@ pub async fn search_name(
     .fetch_all(conn)
     .await?;
     Ok(rows)
+}
+
+/// The directory's headline numbers: how many patients, how many are new this month, how many
+/// have a recall due and, when asked for, how many owe money.
+#[derive(Debug, Clone, Copy)]
+pub struct DirectoryCounts {
+    /// Patients on the list.
+    pub total: i64,
+    /// Registered at or after the month's start.
+    pub new_this_month: i64,
+    /// With an open recall due on or before today.
+    pub recalls_due: i64,
+    /// With a balance on issued bills; zero unless `with_balance` was asked for.
+    pub with_balance: i64,
+}
+
+/// Counts the patients the caller reaches, in one statement. The balance count is worked out
+/// only when `with_balance` is true (the caller has `billing.read`).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn directory_counts(
+    conn: &mut PgConnection,
+    month_start: OffsetDateTime,
+    today: Date,
+    with_balance: bool,
+    member: Option<Uuid>,
+) -> Result<DirectoryCounts, DbError> {
+    let row = sqlx::query!(
+        r#"select count(*) as "total!",
+                  count(*) filter (where p.created_at >= $1) as "new_this_month!",
+                  count(*) filter (where exists (select 1 from aarogyam.recalls r
+                                                 where r.patient_id = p.id and r.status in ('due', 'notified')
+                                                   and r.due_on <= $2)) as "recalls_due!",
+                  count(*) filter (where case when $3 then
+                                     (select coalesce(sum(i.total_paise
+                                            - coalesce((select sum(a.amount_paise)
+                                                        from aarogyam.payment_allocations a
+                                                        join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id
+                                                        where a.invoice_id = i.id and a.org_id = i.org_id
+                                                          and m.status = 'received'), 0)), 0)
+                                      from aarogyam.invoices i
+                                      where i.patient_id = p.id and i.status = 'issued') > 0
+                                   else false end) as "with_balance!"
+           from aarogyam.patients p
+           where p.deleted_at is null and app.patient_in_reach(p.id, $4)"#,
+        month_start,
+        today,
+        with_balance,
+        member
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(DirectoryCounts {
+        total: row.total,
+        new_this_month: row.new_this_month,
+        recalls_due: row.recalls_due,
+        with_balance: row.with_balance,
+    })
 }
 
 /// Opens a patient's record: the patient with their summary, and the access record written
@@ -642,9 +850,12 @@ pub async fn open(
            select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
                   p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
-                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!"
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!",
+                  f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
+                  f.has_photo as "has_photo!"
            from found p
-           cross join lateral app.patient_summary(p.id, $8, $9) s"#,
+           cross join lateral app.patient_summary(p.id, $8, $9) s
+           cross join lateral app.patient_flags(p.id) f"#,
         id,
         access.actor_user_id,
         access.actor_kind,

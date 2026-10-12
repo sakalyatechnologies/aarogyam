@@ -5,7 +5,8 @@
 
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::consent::Purpose;
-use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId};
+use aarogyam_domain::family::Relation;
+use aarogyam_domain::ids::{BranchId, PatientId, PatientRelationId, PractitionerId};
 use aarogyam_domain::permission::Permission;
 use sakalya_db::Db;
 use time::OffsetDateTime;
@@ -13,6 +14,7 @@ use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
+use crate::family::{self, NewRelation};
 use crate::intake::{self, Intake};
 use crate::patients::{PatientView, RegisterPatient, existing, insert_new, validate};
 use crate::queue::{
@@ -30,6 +32,15 @@ pub enum WalkInPatient {
     Existing(PatientId),
 }
 
+/// Adds the walk-in to an existing patient's family.
+#[derive(Debug, Clone, Copy)]
+pub struct FamilyOf {
+    /// The existing patient.
+    pub patient_id: PatientId,
+    /// What the walk-in is to that patient (`child`: the walk-in is their child).
+    pub relation: Relation,
+}
+
 /// A walk-in as received.
 #[derive(Debug, Clone)]
 pub struct NewWalkIn {
@@ -43,6 +54,8 @@ pub struct NewWalkIn {
     pub intake: Intake,
     /// Why the patient came (plain text, at most 200 characters), if the desk noted it.
     pub reason: Option<String>,
+    /// Attach the patient to an existing family.
+    pub family_of: Option<FamilyOf>,
 }
 
 /// What a walk-in did.
@@ -52,10 +65,14 @@ pub struct WalkInView {
     pub patient: PatientView,
     /// Whether the patient was registered by this request.
     pub registered: bool,
+    /// The family link made (the existing patient's side), when `family_of` was given.
+    pub family_link_id: Option<PatientRelationId>,
     /// The queue token.
     pub token: TokenView,
     /// How many allergies were recorded (already active ones are not repeated).
     pub allergies_recorded: u64,
+    /// How many conditions were recorded (already active ones are not repeated).
+    pub conditions_recorded: u64,
     /// The purposes whose consent was recorded (ones already in force are left as they are).
     pub consents_recorded: Vec<Purpose>,
 }
@@ -87,7 +104,7 @@ pub async fn register(
     };
     db.scoped(&scope(actor, request_id), async |tx| {
         check_doctor(tx, actor, input.practitioner_id).await?;
-        let (patient, registered) = match (&input.patient, &new_patient) {
+        let (mut patient, registered) = match (&input.patient, &new_patient) {
             (_, Some(details)) => (
                 insert_new(tx, &actor.number_prefix, details, actor, today).await?,
                 true,
@@ -98,8 +115,26 @@ pub async fn register(
             }
         };
         let patient_id = patient.id.uuid();
-        let (allergies_recorded, consents_recorded) =
-            intake::record(tx, patient_id, &intake, actor.membership_id.uuid()).await?;
+        let family_link_id = match input.family_of {
+            Some(of) => Some(
+                family::link_in(
+                    tx,
+                    actor,
+                    of.patient_id,
+                    NewRelation {
+                        related_patient_id: patient.id,
+                        relation: of.relation,
+                        is_primary_contact: false,
+                    },
+                )
+                .await?,
+            ),
+            None => None,
+        };
+        let recorded = intake::record(tx, patient_id, &intake, actor.membership_id.uuid()).await?;
+        // The patient was read before the intake: bring the flags up to date without a trip.
+        patient.allergy_alert |= recorded.allergies > 0;
+        patient.consent_pending &= !recorded.consents.contains(&Purpose::Care);
         let branch_id = resolve_branch(tx, input.branch_id).await?;
         let token_id = issue_token(
             tx,
@@ -118,9 +153,11 @@ pub async fn register(
         Ok(WalkInView {
             patient,
             registered,
+            family_link_id,
             token,
-            allergies_recorded,
-            consents_recorded,
+            allergies_recorded: recorded.allergies,
+            conditions_recorded: recorded.conditions,
+            consents_recorded: recorded.consents,
         })
     })
     .await
@@ -139,6 +176,7 @@ mod tests {
             branch_id: None,
             intake,
             reason: None,
+            family_of: None,
         }
     }
 

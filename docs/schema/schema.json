@@ -2127,6 +2127,7 @@
     "clinical_notes.signed_by",
     "conditions.verified_by",
     "consent_notices.published_by",
+    "consent_requests.requested_by",
     "conversation_members.membership_id",
     "daily_closings.closed_by",
     "dashboard_layouts.membership_id",
@@ -2542,6 +2543,7 @@
     "clinical_notes.patient_id",
     "conditions.patient_id",
     "consent_forms.patient_id",
+    "consent_requests.patient_id",
     "contact_preferences.patient_id",
     "data_requests.patient_id",
     "document_extractions.patient_id",
@@ -2562,6 +2564,9 @@
     "patient_link_codes.patient_id",
     "patient_links.patient_id",
     "patient_notes.patient_id",
+    "patient_photos.patient_id",
+    "patient_relations.patient_id",
+    "patient_relations.related_patient_id",
     "patients.merged_into_id",
     "patients.referred_by_patient_id",
     "payment_allocations.patient_id",
@@ -8901,6 +8906,166 @@
    "offline": "server_only"
   },
   {
+   "name": "patient_photos",
+   "domain": "people",
+   "purpose": "A patient's photo: one row a patient, the image itself in file storage under <org_id>/<id>.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0620). Erasure step 55; support never reads it. Rides the patient_record retention class; the stored bytes are not yet removed on erasure (backlog).",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "unique"
+    },
+    {
+     "name": "mime_type",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "image/jpeg, image/png"
+    },
+    {
+     "name": "size_bytes",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "up to 2 MB"
+    },
+    {
+     "name": "sha256",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "consent_requests",
+   "domain": "trust",
+   "purpose": "A one-time link a patient opens to read the notice and sign consent without signing in.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0622). Erasure step 45; support never reads it; the change history masks the hash. Retention class consent_requests (30 days after expiry); the signed consent is a consent record.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "token_hash",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "sha256 of the link token; the token is never stored"
+    },
+    {
+     "name": "purposes",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": "care, reminders, promotional, sharing, research"
+    },
+    {
+     "name": "notice_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "consent_notices",
+     "note": ""
+    },
+    {
+     "name": "notice_version",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "requested_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "signed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "patient_relations",
+   "domain": "people",
+   "purpose": "Family under one mobile number: how two patients of a clinic are related. Each link has an inverse row written and removed with it.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0623). Unique (org_id, patient_id, related_patient_id); a patient is never related to themselves. Erasure step 36 deletes both directions. Rides the patient_record retention class.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "related_patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "relation",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "guardian, child, spouse, parent, sibling, other (what the related patient is to patient_id)"
+    },
+    {
+     "name": "is_primary_contact",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "the contact person for patient_id"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
    "name": "promo_codes",
    "domain": "notify",
    "purpose": "Discount codes a clinic can share.",
@@ -10030,6 +10195,7 @@
     }
    ],
    "referenced_by": [
+    "consent_requests.notice_id",
     "patient_consents.notice_id"
    ],
    "sensitivity": "health",

@@ -42,7 +42,7 @@ import type {
 import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview } from "./schemas.js";
 import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
-import type { Allergy, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
+import type { Allergy, FamilyLink, FamilyList, NewFamilyLink, ConsentLink, ConsentRequestInput, ConsentRequested, ConsentSigned, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PatientsSummary, PhoneMatchPage, QuickPicks, SignConsentInput, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -922,6 +922,26 @@ export interface ApiClient {
   registerWalkIn(input: WalkInRequest, options?: RequestOptions): Promise<ApiResult<WalkIn>>;
   /** Clinic host: patients registered with a phone (sent in the body), with only id, number, name, age and sex. Needs `patients.read`. */
   lookupPatientsByPhone(phone: string, options?: RequestOptions): Promise<ApiResult<PhoneMatchPage>>;
+  /** Clinic host: total, new this month and recalls due (and, with `billing.read`, how many owe money). Needs `patients.read`. */
+  getPatientsSummary(options?: RequestOptions): Promise<ApiResult<PatientsSummary>>;
+  /** Clinic host: sets the patient's photo (`FormData` with a PNG or JPEG `file` of at most 2 MB). Needs `patients.write`. */
+  putPatientPhoto(id: PatientId, form: FormData, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: the patient's photo; `404` when there is none. Needs `patients.read`. */
+  getPatientPhoto(id: PatientId, options?: RequestOptions): Promise<ApiResult<Blob>>;
+  /** Clinic host: removes the patient's photo. Needs `patients.write`. */
+  deletePatientPhoto(id: PatientId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** The patient's relatives (`patients.read`). */
+  listFamily(id: PatientId, options?: RequestOptions): Promise<ApiResult<FamilyList>>;
+  /** Links a relative (and the patient back to them); `patients.write`. */
+  addFamilyLink(id: PatientId, input: NewFamilyLink, options?: RequestOptions): Promise<ApiResult<FamilyLink>>;
+  /** Removes a link and its inverse; `patients.write`. */
+  removeFamilyLink(id: PatientId, linkId: string, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: emails the patient a one-time link to read the notice and sign consent (`409` without an email address). Needs `patients.write`. */
+  requestConsent(id: PatientId, input?: ConsentRequestInput, options?: RequestOptions): Promise<ApiResult<ConsentRequested>>;
+  /** Clinic host, public: what a consent link shows; `404` for an unknown token. */
+  getConsentLink(token: string, options?: RequestOptions): Promise<ApiResult<ConsentLink>>;
+  /** Clinic host, public: signs through the link, once (`409` if already signed or expired). */
+  signConsentLink(token: string, input: SignConsentInput, options?: RequestOptions): Promise<ApiResult<ConsentSigned>>;
   /** Clinic host: seats a token and starts (or returns) its visit. Needs `clinical.write`. */
   startVisitFromQueue(id: QueueTokenId, options?: RequestOptions): Promise<ApiResult<StartedVisit>>;
   /** Clinic host: confirms an allergy the patient reported at the desk. Needs `clinical.write`. */

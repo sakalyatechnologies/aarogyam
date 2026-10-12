@@ -247,3 +247,4 @@ Main gained 93 commits from the portal agent. Those commits built the same backe
 | pb | v9-pb | SSE plus Last-Event-ID, auto messages (welcome wait time, PIN in a separate message), follow-up link, recall dismiss, payment moves the token | 0702–0704 | running |
 | and | v9-and | Android `OutboxFiles` | — | merged (e3863535) |
 | (me) | feat/v9-port | merge pa and pb; mobile retarget (CloseVisit→CloseRequest, VisitShare→VisitLink, regenerate models); merge the feat/v9 mobile work; gates; push main | — | waiting |
+| sse | v9-sse | mobile live-updates client (SSE, Last-Event-ID, reset, poll at 120 s while connected) plus `OutboxFiles.clear()` on sign-out | — | running |

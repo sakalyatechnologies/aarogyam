@@ -1,8 +1,9 @@
 /**
- * The three arrangements of the same few blocks: Console (the chart on the left, today's notes and the prescription on a
- * sticky rail), Stage with drawers (a docked toolbar opens Voice, Prescribe, History and More), and Tabs with a ribbon
- * (dictate and add a set from anywhere). They differ only in where blocks sit; each block reads the same data. Everything
- * that is not needed during a visit lives under "More".
+ * The three arrangements of the same few blocks: Console (the chart and Records on the left, Today and Wrap up on a
+ * sticky rail), Stage with drawers (a docked toolbar opens Voice, Prescribe, Records and More), and Tabs with a ribbon
+ * (dictate and add a set from anywhere). Besides the chart there are at most three blocks: Today (notes, prescription,
+ * done today), Records (one card with small tabs) and Wrap up (only while a visit is open). They differ only in where
+ * the blocks sit; each block reads the same data. What is rarely needed lives under "More".
  */
 import { FileText, Mic, PanelRight, Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -11,31 +12,15 @@ import type { Patient } from "@aarogyam/api-client";
 import { Drawer, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
-import { useVisits } from "../../../queries.js";
 import { useQuickPicks } from "../../../walk-in-queries.js";
 import { setItems } from "../../prescriptions/medicine-sets.js";
 import { apiErrorOf } from "@aarogyam/api-client";
 import { ClinicalFlagsPanel } from "../clinical-flags-panel.js";
-import { ConsentPanel } from "../consent-panel.js";
 import { FilesPanel } from "../files-panel.js";
 import { NotesPanel } from "../notes-panel.js";
 import { BillsPanel } from "../records-panels.js";
-import {
-  DetailsBlock,
-  DoneTodayBlock,
-  FlagsBlock,
-  HistoryBlock,
-  ImagesBlock,
-  PastRxBlock,
-  PlanBlock,
-  RxBlock,
-  SaysBlock,
-  ToothBlock,
-  VoiceBlock,
-  WrapBlock,
-} from "./blocks.js";
-import { GalleryBlock } from "./images.js";
-import { Bento, Fold, PillTabs } from "./kit.js";
+import { DetailsBlock, FlagsBlock, RecordsCard, RxBlock, TodayBlock, TodayStageBlock, ToothBlock, VoiceBlock, WrapCard } from "./blocks.js";
+import { Fold, PillTabs } from "./kit.js";
 import { useVisitSession } from "./visit-session.js";
 
 export interface LayoutProps {
@@ -45,100 +30,77 @@ export interface LayoutProps {
   showPastRx: boolean;
 }
 
-/** What is not needed during a visit, each in its own fold. */
-function MoreFolds({ patient, canClinical, pastRx, open = false }: { patient: LayoutProps["patient"]; canClinical: boolean; pastRx: boolean; open?: boolean }) {
+/** What is not needed during a visit, each in its own collapsed fold. */
+function MoreFolds({ patient, canClinical, nested = false }: { patient: LayoutProps["patient"]; canClinical: boolean; /** The folds go inside one "More" fold. */ nested?: boolean }) {
   const { can } = useClinic();
-  return (
+  const rare = (
     <>
-      {canClinical && pastRx ? (
-        <Fold title="Past prescriptions" open={open}>
-          <PastRxBlock />
-        </Fold>
-      ) : null}
-      {canClinical ? (
-        <Fold title="Treatment plans">
-          <PlanBlock />
-        </Fold>
-      ) : null}
-      <Fold title="Consent forms">
-        <ConsentPanel patientId={patient.id} />
-      </Fold>
       {canClinical ? (
         <>
-          <Fold title="Files">
+          <Fold title="Files" quiet={nested}>
             <FilesPanel patientId={patient.id} />
           </Fold>
-          <Fold title="Notes">
+          <Fold title="Notes" quiet={nested}>
             <NotesPanel patientId={patient.id} />
           </Fold>
-          <Fold title="Clinical flags">
+          <Fold title="Clinical flags" quiet={nested}>
             <ClinicalFlagsPanel patientId={patient.id} />
           </Fold>
-          <Fold title="Details">
+          <Fold title="Details" quiet={nested}>
             <DetailsBlock patient={patient} />
           </Fold>
         </>
       ) : null}
       {can("billing.read") ? (
-        <Fold title="Billing">
+        <Fold title="Billing" quiet={nested}>
           <BillsPanel patientId={patient.id} />
         </Fold>
       ) : null}
     </>
   );
+  return nested ? <Fold title="More">{rare}</Fold> : rare;
 }
 
-/** Console: the chart and what the patient says on the left; today's notes, prescription and wrap up on a sticky rail. */
+/** Console: the chart and Records on the left; Today and Wrap up on a sticky rail; the rarely used folded below. */
 export function ConsoleLayout({ patient, canClinical, showPastRx }: LayoutProps) {
-  const session = useVisitSession();
-  const visits = useVisits(canClinical ? patient.id : undefined);
-  const count = visits.data?.items.length;
   return (
-    <div className="p360-console">
-      <div className="p360-stack">
-        {canClinical ? (
-          <>
+    <>
+      <div className="p360-console">
+        <div className="p360-stack">
+          {canClinical ? (
             <ToothBlock patientId={patient.id} />
-            <SaysBlock />
-            <DoneTodayBlock />
-            <ImagesBlock patientId={patient.id} />
-          </>
-        ) : (
-          <>
-            <DetailsBlock patient={patient} />
-            <FlagsBlock patientId={patient.id} />
-          </>
-        )}
+          ) : (
+            <>
+              <DetailsBlock patient={patient} />
+              <FlagsBlock patientId={patient.id} />
+            </>
+          )}
+          <RecordsCard canClinical={canClinical} initial={showPastRx ? "prescriptions" : "history"} />
+        </div>
+        <div className="p360-rail">
+          {canClinical ? <TodayBlock /> : <RxBlock />}
+          <WrapCard />
+        </div>
       </div>
-      <div className="p360-rail">
-        {session.canWrite ? <VoiceBlock /> : null}
-        <RxBlock />
-        {session.canWrite ? <WrapBlock /> : null}
-        {canClinical ? (
-          <Fold title={count === undefined ? "Visit history" : `Visit history · ${String(count)}`}>
-            <HistoryBlock />
-          </Fold>
-        ) : null}
-        <Fold title="More" open={showPastRx && canClinical}>
-          <MoreFolds patient={patient} canClinical={canClinical} pastRx open={showPastRx && canClinical} />
-        </Fold>
+      <div className="p360-folds">
+        <MoreFolds patient={patient} canClinical={canClinical} nested />
       </div>
-    </div>
+    </>
   );
 }
 
-type DrawerKey = "voice" | "prescribe" | "history" | "more";
+type DrawerKey = "voice" | "prescribe" | "records" | "more";
 
 /** Stage with drawers: the chart is the stage; a docked toolbar opens each tool in a drawer. */
 export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
   const session = useVisitSession();
   const toast = useToast();
-  const [drawer, setDrawer] = useState<DrawerKey | null>(showPastRx && canClinical ? "history" : null);
+  const [drawer, setDrawer] = useState<DrawerKey | null>(showPastRx && canClinical ? "records" : null);
   const medicines = session.rx.draft?.items.length ?? 0;
   const dock: { key: DrawerKey; label: string; icon: ReactNode; show: boolean }[] = [
     { key: "voice", label: "Voice", icon: <Mic aria-hidden="true" />, show: canClinical && session.canWrite },
     { key: "prescribe", label: "Prescribe", icon: <FileText aria-hidden="true" />, show: session.canRx },
-    { key: "history", label: "History", icon: <PanelRight aria-hidden="true" />, show: canClinical },
+    { key: "records", label: "Records", icon: <PanelRight aria-hidden="true" />, show: true },
     { key: "more", label: "More", icon: <PanelRight aria-hidden="true" />, show: true },
   ];
   const close = () => {
@@ -153,7 +115,7 @@ export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
       },
     );
   };
-  const titles: Record<DrawerKey, string> = { voice: "Today's notes", prescribe: "Prescribe", history: "History", more: "More" };
+  const titles: Record<DrawerKey, string> = { voice: "Today's notes", prescribe: "Prescribe", records: "Patient records", more: "More" };
   return (
     <>
       <div className="p360-dock" role="toolbar" aria-label="Open a panel">
@@ -176,18 +138,8 @@ export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
           ))}
       </div>
       {canClinical ? <ToothBlock patientId={patient.id} /> : <DetailsBlock patient={patient} />}
-      {canClinical ? (
-        <>
-          <div className="p360-grid2">
-            <SaysBlock />
-            {session.canWrite ? <WrapBlock /> : null}
-          </div>
-          <DoneTodayBlock />
-          <ImagesBlock patientId={patient.id} />
-        </>
-      ) : (
-        <FlagsBlock patientId={patient.id} />
-      )}
+      {canClinical ? <TodayStageBlock /> : <FlagsBlock patientId={patient.id} />}
+      <WrapCard />
       <Drawer
         open={drawer !== null}
         onOpenChange={(open) => {
@@ -199,30 +151,21 @@ export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
         <div className="p360-drawer-body">
           {drawer === "voice" ? <VoiceBlock /> : null}
           {drawer === "prescribe" ? <RxBlock /> : null}
-          {drawer === "history" ? (
-            <>
-              <Bento title="Visits and timeline">
-                <HistoryBlock />
-              </Bento>
-              <Bento title="Past prescriptions">
-                <PastRxBlock />
-              </Bento>
-            </>
-          ) : null}
-          {drawer === "more" ? <MoreFolds patient={patient} canClinical={canClinical} pastRx={false} /> : null}
+          {drawer === "records" ? <RecordsCard canClinical={canClinical} initial={showPastRx ? "prescriptions" : "history"} /> : null}
+          {drawer === "more" ? <MoreFolds patient={patient} canClinical={canClinical} /> : null}
         </div>
       </Drawer>
     </>
   );
 }
 
-type TabKey = "visit" | "history" | "details" | "more";
+type TabKey = "visit" | "records" | "details" | "more";
 
 /** Tabs with a ribbon: dictate and add a medicine set from any tab. */
 export function TabsLayout({ patient, canClinical, showPastRx }: LayoutProps) {
   const session = useVisitSession();
   const picks = useQuickPicks();
-  const [tab, setTab] = useState<TabKey>(showPastRx && canClinical ? "history" : canClinical ? "visit" : "details");
+  const [tab, setTab] = useState<TabKey>(showPastRx && canClinical ? "records" : canClinical ? "visit" : "details");
   const sets = (picks.data?.medicine_sets ?? []).slice(0, 3);
   const note = session.note;
   const voice = session.voice;
@@ -238,7 +181,7 @@ export function TabsLayout({ patient, canClinical, showPastRx }: LayoutProps) {
   const options: { value: TabKey; label: string }[] = canClinical
     ? [
         { value: "visit", label: "Visit" },
-        { value: "history", label: "History" },
+        { value: "records", label: "Records" },
         { value: "more", label: "More" },
       ]
     : [
@@ -295,40 +238,27 @@ export function TabsLayout({ patient, canClinical, showPastRx }: LayoutProps) {
           visit: canClinical ? (
             <div className="p360-stack">
               <ToothBlock patientId={patient.id} />
-              <div className="p360-grid2">
-                <div className="p360-stack">
-                  {session.canWrite ? <VoiceBlock /> : null}
-                  <SaysBlock />
-                </div>
-                <div className="p360-stack">
-                  <RxBlock />
-                  {session.canWrite ? <WrapBlock /> : null}
-                </div>
-              </div>
-              <DoneTodayBlock />
-              <ImagesBlock patientId={patient.id} />
+              <TodayBlock columns />
+              <WrapCard />
             </div>
           ) : null,
-          history: (
+          records: (
             <div className="p360-stack">
-              <Bento title="Visit history">
-                <HistoryBlock limit={20} />
-              </Bento>
-              <Bento title="Past prescriptions">
-                <PastRxBlock />
-              </Bento>
-              <Bento title="X-rays and photos">
-                <GalleryBlock patientId={patient.id} canUpload={session.canWrite} visitId={session.visit?.id} />
-              </Bento>
+              <RecordsCard canClinical={canClinical} initial={showPastRx ? "prescriptions" : "history"} />
             </div>
           ),
           details: (
             <div className="p360-stack">
               <DetailsBlock patient={patient} />
               <FlagsBlock patientId={patient.id} />
+              <RecordsCard canClinical={false} />
             </div>
           ),
-          more: <MoreFolds patient={patient} canClinical={canClinical} pastRx={false} />,
+          more: (
+            <div className="p360-stack">
+              <MoreFolds patient={patient} canClinical={canClinical} />
+            </div>
+          ),
         }}
       />
     </>

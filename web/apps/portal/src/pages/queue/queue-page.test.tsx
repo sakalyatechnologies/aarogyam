@@ -65,6 +65,26 @@ describe("Queue", () => {
     expect(await screen.findByText(/Ramesh Pawar: token #/)).toBeTruthy();
   });
 
+  it("sends the reason for the visit from a chip and shows it on the queue card", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi();
+    renderPortal("/queue", { as: PEOPLE.farah, backend });
+    await user.click(await screen.findByRole("button", { name: "Walk-in" }));
+    await user.type(screen.getByLabelText(/^Name/), "Kavita Rane");
+    const reason = screen.getByRole("group", { name: "Reason for visit" });
+    expect(within(reason).getAllByRole("button").map((b) => b.textContent)).toEqual(["Toothache", "Check-up", "Cleaning", "Follow-up", "Other"]);
+    await user.click(within(reason).getByRole("button", { name: "Toothache" }));
+    await user.click(screen.getByRole("button", { name: "Add to queue" }));
+    expect(await screen.findByText(/Kavita Rane: token #/)).toBeTruthy();
+
+    const client = backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.farah }), now: () => NOW });
+    const queue = await client.listQueue(undefined);
+    if (!queue.ok) throw new Error("expected a queue");
+    expect(queue.value.items.find((t) => t.patient.full_name === "Kavita Rane")?.reason).toBe("Toothache");
+    const name = await screen.findByText("Kavita Rane");
+    expect(name.closest("li")?.textContent).toContain("Toothache");
+  });
+
   it("hides the walk-in button and seat/done actions from someone without appointments.write", async () => {
     const backend = fakeApi((fixtures) => {
       const membership = fixtures.memberships.find((m) => m.user_id === PEOPLE.farah);

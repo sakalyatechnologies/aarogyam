@@ -54,6 +54,9 @@ pub struct TokenRow {
     /// The chair they were seated in, when chosen.
     #[serde(default)]
     pub room_id: Option<Uuid>,
+    /// The visit reason the desk noted at a walk-in (clinical free text; never logged).
+    #[serde(default)]
+    pub reason: Option<String>,
 }
 
 /// Issues the next token number of a branch's day (`app.next_number`, kind `queue_token`).
@@ -76,7 +79,7 @@ pub async fn next_number(
 }
 
 /// A token to issue.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct NewToken {
     /// Identifier.
     pub id: Uuid,
@@ -94,6 +97,8 @@ pub struct NewToken {
     pub practitioner_id: Option<Uuid>,
     /// When.
     pub issued_at: OffsetDateTime,
+    /// The visit reason (already trimmed and checked), if the desk noted one.
+    pub reason: Option<String>,
 }
 
 /// Issues a token.
@@ -103,8 +108,8 @@ pub struct NewToken {
 pub async fn insert(conn: &mut PgConnection, token: &NewToken) -> Result<(), DbError> {
     sqlx::query!(
         r#"insert into aarogyam.queue_tokens
-             (id, branch_id, day, token_number, patient_id, appointment_id, practitioner_id, issued_at)
-           values ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+             (id, branch_id, day, token_number, patient_id, appointment_id, practitioner_id, issued_at, reason)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
         token.id,
         token.branch_id,
         token.day,
@@ -112,7 +117,8 @@ pub async fn insert(conn: &mut PgConnection, token: &NewToken) -> Result<(), DbE
         token.patient_id,
         token.appointment_id,
         token.practitioner_id,
-        token.issued_at
+        token.issued_at,
+        token.reason.as_deref()
     )
     .execute(conn)
     .await?;
@@ -139,7 +145,7 @@ pub async fn list(
                   ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
                     as "patient_registration_incomplete!",
                   q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?",
-                  q.room_id
+                  q.room_id, q.reason
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
@@ -309,7 +315,7 @@ pub async fn get(
                   ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
                     as "patient_registration_incomplete!",
                   q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?",
-                  q.room_id
+                  q.room_id, q.reason
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id

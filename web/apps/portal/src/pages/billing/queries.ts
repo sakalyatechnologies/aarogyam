@@ -139,6 +139,8 @@ export function useRecordPayment() {
         void queryClient.invalidateQueries({ queryKey: ["invoice", access.org_id, allocation.invoice_id] });
       }
       void queryClient.invalidateQueries({ queryKey: ["invoices", access.org_id] });
+      void queryClient.invalidateQueries({ queryKey: ["pending-report", access.org_id] });
+      void queryClient.invalidateQueries({ queryKey: ["collections", access.org_id] });
     },
   });
 }

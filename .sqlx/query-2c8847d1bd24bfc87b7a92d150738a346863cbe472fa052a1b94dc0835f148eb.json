@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.staff_notifications (kind, time_off_request_id)\n           values ($1, $2)\n           on conflict (org_id, time_off_request_id, kind) where time_off_request_id is not null\n           do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2c8847d1bd24bfc87b7a92d150738a346863cbe472fa052a1b94dc0835f148eb"
+}

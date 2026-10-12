@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, createDevTokenSource, createHttpClient, invoiceId, patientId, practitionerId, prescriptionId, purchaseOrderId, queueTokenId, sessionId, unwrap, visitId } from "./index.js";
+import { ApiFailure, createDevTokenSource, createHttpClient, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, purchaseOrderId, queueTokenId, sessionId, taskId, taskOccurrenceId, unwrap, visitId } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -211,6 +211,36 @@ describe("createHttpClient requests", () => {
     expect(committing.calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/stock/import/commit");
     expect(committing.calls[0]?.init?.body).toBe(JSON.stringify({ token: "t0k3n" }));
     expect(done.ok && done.value.replayed).toBe(false);
+  });
+
+  it("reads and finishes tasks on their own paths and checks the bodies against the contract", async () => {
+    const occurrence = {
+      id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171",
+      template_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405172",
+      title: "Check photos",
+      action: "confirm_photos",
+      assignee_role_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405173",
+      local_date: "2026-10-03",
+      due_at: "2026-10-03T14:00:00Z",
+      status: "open",
+      patients_without_photos_today: 2,
+    };
+    const replies = [json(200, { date: "2026-10-03", items: [occurrence] }), json(200, { ...occurrence, status: "done", completed_at: "2026-10-03T14:05:00Z" }), json(200, { items: [{ local_date: "2026-10-04", due_at: "2026-10-04T14:00:00Z" }] })];
+    const { fetch, calls } = stubFetch(() => Promise.resolve(replies.shift() ?? json(500, {})));
+    const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });
+
+    const mine = await client.listMyTasks("2026-10-03");
+    expect(calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/tasks/mine?date=2026-10-03");
+    expect(mine.ok && mine.value.items[0]?.patients_without_photos_today).toBe(2);
+    const done = await client.completeTask(taskOccurrenceId.parse(occurrence.id), { note: "ok", usage: [{ item_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405174", quantity: 2 }] });
+    expect(calls[1]?.url).toBe(`http://sunrise.localtest.me/api/v1/tasks/occurrences/${occurrence.id}/complete`);
+    expect(calls[1]?.init?.method).toBe("POST");
+    expect(done.ok && done.value.status).toBe("done");
+    const preview = await client.previewTask(taskId.parse(occurrence.template_id));
+    expect(calls[2]?.url).toBe(`http://sunrise.localtest.me/api/v1/tasks/${occurrence.template_id}/preview`);
+    expect(preview.ok && preview.value.items).toHaveLength(1);
+    const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { date: "2026-10-03", items: [{ ...occurrence, status: "gone" }] })).fetch });
+    expect((await bad.listMyTasks()).ok).toBe(false);
   });
 
   it("searches with a POST body, so the search term never appears in a URL", async () => {
@@ -631,5 +661,79 @@ describe("createHttpClient settings v2", () => {
     const taken = stubFetch(json(409, { error: { code: "conflict", message: "that phone number belongs to another account" } }));
     const conflict = await createHttpClient("", () => "token", { fetch: taken.fetch }).updateMe({ phone: "9876543210" });
     expect(conflict.ok ? null : conflict.error.status).toBe(409);
+  });
+});
+
+describe("createHttpClient lab requests", () => {
+  it("sends the order filters, the status and stage changes, the reminder, the log and the payment calls", async () => {
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, {})));
+    const client = createHttpClient("", () => "abc", { fetch });
+
+    await client.listLabOrders({ open: true, vendorId: "v1" });
+    await client.listLabOrders({ overdue: true });
+    await client.setLabOrderStatus("o1", { status: "received", stage: "Final" });
+    await client.updateLabOrder("o1", { stage: "Trial" });
+    await client.remindLab("o1");
+    await client.logLabContact("o1", { channel: "call", outcome: "no_answer" });
+    await client.getLabBalance("v1");
+    await client.listLabPayments("v1");
+    await client.voidLabPayment("p1", { reason: "Entered twice" });
+
+    expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
+      "GET /api/v1/lab-orders?vendor_id=v1&open=1",
+      "GET /api/v1/lab-orders?overdue=true",
+      "POST /api/v1/lab-orders/o1/status",
+      "PATCH /api/v1/lab-orders/o1",
+      "POST /api/v1/lab-orders/o1/remind",
+      "POST /api/v1/lab-orders/o1/contacts-log",
+      "GET /api/v1/lab-vendors/v1/balance",
+      "GET /api/v1/lab-payments?vendor_id=v1",
+      "POST /api/v1/lab-payments/p1/void",
+    ]);
+    const sentBody = calls[2]?.init?.body;
+    expect(JSON.parse(typeof sentBody === "string" ? sentBody : "{}")).toEqual({ status: "received", stage: "Final" });
+  });
+
+  it("decodes an order and refuses one the contract doesn't allow", async () => {
+    const order = {
+      id: "o1",
+      number: "LAB-1",
+      vendor_id: "v1",
+      contact_whatsapp: false,
+      patient_id: "p1",
+      patient_number: "SD-9",
+      patient_name: "Test Patient",
+      doctor_id: "d1",
+      status: "sent",
+      pipeline_stage: "sent",
+      late: false,
+      created_at: "2026-10-01T04:30:00Z",
+      costs_visible: false,
+      items: [{ id: "i1", line_no: 1, work_type: "Zirconia crown", teeth: [36], qty: 1 }],
+      events: [],
+    };
+    const ok = createHttpClient("", () => "abc", { fetch: stubFetch(json(200, order)).fetch });
+    expect((await unwrap(ok.getLabOrder("o1"))).items[0]?.work_type).toBe("Zirconia crown");
+    const bad = createHttpClient("", () => "abc", { fetch: stubFetch(json(200, { ...order, pipeline_stage: "somewhere" })).fetch });
+    expect((await bad.getLabOrder("o1")).ok).toBe(false);
+  });
+});
+
+describe("createHttpClient stock analytics requests", () => {
+  const ITEM = inventoryItemId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170");
+
+  it("asks for one item or all, and sends the alert settings", async () => {
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, {})));
+    const client = createHttpClient("", () => "abc", { fetch });
+
+    await client.getStockAnalytics();
+    await client.getStockAnalytics({ itemId: ITEM });
+    await client.changeInventoryItemAlerts(ITEM, { lead_time_days: 14, alerts_enabled: false });
+
+    expect(calls.map((c) => [c.init?.method, c.url])).toEqual([
+      ["GET", "/api/v1/stock/analytics"],
+      ["GET", `/api/v1/stock/analytics?item_id=${ITEM}`],
+      ["PATCH", `/api/v1/inventory-items/${ITEM}/alerts`],
+    ]);
   });
 });

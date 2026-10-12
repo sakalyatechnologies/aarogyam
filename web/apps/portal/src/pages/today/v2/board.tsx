@@ -5,8 +5,8 @@ import { EmptyState } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
 import { EditChrome, EmptyZone, type BoardEdit } from "./board-edit.js";
-import { BoardContext, type BoardState } from "./board-context.js";
-import { inZone, optsOf, shownItems, type ShownItem } from "./layout-model.js";
+import { BoardContext, useBoard, type BoardState } from "./board-context.js";
+import { SIZE_SPAN, inZone, optsOf, shownItems, type ShownItem } from "./layout-model.js";
 import { useDayToday } from "./queries.js";
 import { entryOf, isKnownWidget } from "./registry.js";
 import "./today-v2.css";
@@ -28,6 +28,15 @@ class WidgetBoundary extends Component<{ label: string; children: ReactNode }, {
   }
 }
 
+/** Where the calendar's day shows: the side column, and the calendar itself wherever it sits. Everything else stays on today. */
+const DAY_WIDGETS: ReadonlySet<string> = new Set(["calendar"]);
+
+function DayScope({ zone, widget, children }: { zone: string; widget: string; children: ReactNode }) {
+  const board = useBoard();
+  const follows = zone === "rail" || DAY_WIDGETS.has(widget);
+  return follows || board.date === undefined ? <>{children}</> : <BoardContext value={{ ...board, date: undefined }}>{children}</BoardContext>;
+}
+
 function Cell({ shown, catalogue, edit, railSide }: { shown: ShownItem; catalogue: DashboardCatalogue; edit?: BoardEdit | undefined; railSide: string }) {
   const entry = entryOf(shown.item.key);
   if (entry === undefined) return null;
@@ -40,7 +49,9 @@ function Cell({ shown, catalogue, edit, railSide }: { shown: ShownItem; catalogu
   if (edit === undefined) {
     return (
       <div className="tv2-cell" data-widget={shown.item.key} data-size={shown.item.size}>
-        {body}
+        <DayScope zone={shown.zone} widget={shown.item.key}>
+          {body}
+        </DayScope>
       </div>
     );
   }
@@ -58,7 +69,9 @@ function Cell({ shown, catalogue, edit, railSide }: { shown: ShownItem; catalogu
       data-axis={shown.zone === "main" && shown.item.size !== "full" ? "x" : "y"}
     >
       <div className="tv2-edit-body" inert>
-        {body}
+        <DayScope zone={shown.zone} widget={key}>
+          {body}
+        </DayScope>
       </div>
       <EditChrome edit={edit} widget={key} label={shown.spec.label} zone={shown.zone} size={shown.item.size} sizes={shown.spec.sizes} railSide={railSide} />
     </div>
@@ -102,25 +115,58 @@ export function Board({ layout, catalogue, date, onDateChange, preview: asPrevie
     );
   return (
     <BoardContext value={state}>
-      <div className="tv2" data-density={layout.density} data-card={layout.card} data-side={side} data-rail-width={layout.rail.width} data-tpl={layout.tpl} data-preview={preview ? "1" : undefined}>
+      <div
+        className="tv2"
+        data-density={layout.density}
+        data-card={layout.card}
+        data-side={side}
+        data-rail-width={layout.rail.width}
+        data-tpl={layout.tpl}
+        data-preview={preview ? "1" : undefined}
+        data-fit={preview ? undefined : "1"}
+      >
         {items.length === 0 && edit === undefined ? (
           <EmptyState title="Nothing to show yet" description="Your role sees none of the widgets in this layout. Open the Dashboard studio to add some." />
         ) : null}
-        {top.length === 0 && edit === undefined ? null : (
-          <div className="tv2-top" {...zoneProps("top")}>
-            {top.length === 0 ? <EmptyZone zone="top" /> : top.map(cell)}
+        {/* The side column runs the full height of the board, beside the key numbers and the main area. */}
+        <div className="tv2-frame" data-has-rail={railNode === null ? "no" : "yes"}>
+          {side === "left" ? railNode : null}
+          <div className="tv2-content">
+            {top.length === 0 && edit === undefined ? null : (
+              <div className="tv2-top" {...zoneProps("top")}>
+                {top.length === 0 ? <EmptyZone zone="top" /> : top.map(cell)}
+              </div>
+            )}
+            {main.length === 0 && edit === undefined ? null : (
+              <div className="tv2-body">
+                <div className="tv2-main" data-rows={mainRows(main)} {...zoneProps("main")}>
+                  {main.length === 0 ? <EmptyZone zone="main" /> : main.map(cell)}
+                </div>
+              </div>
+            )}
           </div>
-        )}
-        {main.length === 0 && rail.length === 0 && edit === undefined ? null : (
-          <div className="tv2-body" data-has-rail={railNode === null ? "no" : "yes"}>
-            {side === "left" ? railNode : null}
-            <div className="tv2-main" {...zoneProps("main")}>
-              {main.length === 0 && edit !== undefined ? <EmptyZone zone="main" /> : main.map(cell)}
-            </div>
-            {side === "right" ? railNode : null}
-          </div>
-        )}
+          {side === "right" ? railNode : null}
+        </div>
       </div>
     </BoardContext>
   );
+}
+
+/**
+ * How many rows the main grid has. Every row is as tall as its content except the last, which takes what is left of the
+ * page, so the last card (the appointments table) fills the page and scrolls inside itself instead of the page scrolling.
+ */
+function mainRows(main: readonly ShownItem[]): string | undefined {
+  if (main.length === 0) return undefined;
+  let rows = 1;
+  let used = 0;
+  for (const { item } of main) {
+    const span = SIZE_SPAN[item.size] ?? 12;
+    if (used + span > 12) {
+      rows += 1;
+      used = 0;
+    }
+    used += span;
+  }
+  return String(Math.min(rows, 6));
 }

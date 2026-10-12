@@ -1,0 +1,47 @@
+/* Messages in the New look. Uses the portal's own colour variables only. */
+.ms-page { display: grid; gap: 16px; align-content: start; }
+.ms-stack { display: grid; gap: 14px; }
+.ms-consent { margin: 0; max-width: 760px; }
+.ms-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 14px; align-items: start; }
+.ms-wide { grid-column: 1 / -1; }
+.ms-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ms-picker { display: grid; gap: 4px; margin-top: 10px; max-height: 340px; overflow-y: auto; }
+.ms-pick { display: flex; align-items: center; gap: 10px; border: 1px solid transparent; background: transparent; border-radius: 14px; padding: 9px 12px; font: inherit; font-size: 13.5px; color: var(--ink); text-align: left; cursor: pointer; }
+.ms-pick:hover:not([disabled]) { background: var(--bg); }
+.ms-pick[aria-pressed="true"] { background: var(--brand-soft); border-color: var(--brand); }
+.ms-pick[disabled] { opacity: .45; cursor: not-allowed; }
+.ms-pick-name { flex: 1; font-weight: 600; }
+.ms-pick-num { font-size: 12px; color: var(--muted); }
+.ms-link { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 4px 6px; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--brand); cursor: pointer; border-radius: 8px; }
+.ms-link:hover:not([disabled]) { text-decoration: underline; }
+.ms-link[disabled] { opacity: .5; cursor: not-allowed; }
+.ms-danger { color: var(--red); }
+.ms-send { margin-top: 16px; width: 100%; }
+.ms-error { margin: 8px 0 0; font-size: 12.5px; color: var(--red); }
+.ms-result { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: var(--green-soft); color: var(--ink); font-size: 13px; }
+.ms-history { margin-top: 16px; }
+.ms-statuses { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.ms-statuses li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ms-count { margin-top: 16px; font-size: 14px; min-height: 28px; }
+.ms-count-n { font-size: 28px; font-weight: 800; margin-right: 4px; }
+.ms-campaigns { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.ms-campaign { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--rule); font-size: 13.5px; }
+.ms-campaign:first-child { border-top: 0; }
+.ms-campaign-end { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ms-counts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; font-size: 12.5px; }
+.ms-chat { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.ms-convs { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.ms-conv { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; border-radius: 14px; padding: 10px 12px; font: inherit; font-size: 13.5px; color: var(--ink); text-align: left; cursor: pointer; }
+.ms-conv:hover { background: var(--bg); }
+.ms-conv[aria-current="true"] { background: var(--brand-soft); }
+.ms-conv-title { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-unread { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--brand); color: var(--sk-on-primary, #fff); font-size: 11.5px; font-weight: 800; text-align: center; }
+.ms-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ms-composer { margin-top: 12px; }
+.ms-confirm { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--amber-soft); font-size: 13px; }
+.ms-new { display: grid; gap: 8px; padding: 12px; margin: 8px 0 12px; border: 1px solid var(--rule); border-radius: 16px; }
+.ms-people { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 200px; overflow-y: auto; }
+.ms-person { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+@media (max-width: 900px) {
+  .ms-grid, .ms-chat { grid-template-columns: minmax(0, 1fr); }
+}

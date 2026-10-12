@@ -1,0 +1,103 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.id, a.practitioner_id, a.starts_at, a.ends_at, a.status,\n                  p.full_name as patient_name, a.row_version\n           from aarogyam.appointments a\n           join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id\n           join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id\n           where d.membership_id = $1 and a.deleted_at is null\n             and a.status not in ('completed', 'cancelled', 'no_show')\n             and a.starts_at < $3 and a.ends_at > $2\n           order by a.starts_at, a.id\n           limit $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "practitioner_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "practitioner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "ends_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "ends_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "patient_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "full_name"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "row_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "row_version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d1cb4284068f7a51471cb0874233adcd10f55fc9b273dc5e302e0b3bdb4e3abe"
+}

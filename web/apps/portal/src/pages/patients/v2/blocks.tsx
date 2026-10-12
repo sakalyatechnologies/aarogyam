@@ -25,7 +25,6 @@ import { QuickPickBar } from "../../visits/quick-pick-bar.js";
 import { DICTATION_LANGUAGES, clock, type DictationLanguage } from "../../visits/voice/dictation.js";
 import { ClinicalFlagsPanel } from "../clinical-flags-panel.js";
 import { ConsentPanel } from "../consent-panel.js";
-import { DentalChartPanel } from "../dental-chart-panel.js";
 import { FilesPanel } from "../files-panel.js";
 import { NotesPanel } from "../notes-panel.js";
 import { PatientAppCard } from "../patient-app-card.js";
@@ -33,9 +32,11 @@ import { CarePlan, Contact, Kv } from "../patient-page.js";
 import { BillsPanel } from "../records-panels.js";
 import { FOLLOW_UPS } from "./finish-visit.js";
 import { GalleryBlock } from "./images.js";
-import { Bento, Chip, Fold } from "./kit.js";
+import { Bento, CardTabs, Chip, Fold, type PillOption } from "./kit.js";
+import { ToothChartBlock } from "./tooth-chart/tooth-block.js";
 import { VisitDetail } from "./visit-detail.js";
-import { NOTE_SECTIONS, useVisitSession, type SectionKey } from "./visit-session.js";
+import { splitNote } from "./note-lines.js";
+import { NOTE_SECTIONS, useVisitSession } from "./visit-session.js";
 import { Phone, Mail } from "lucide-react";
 
 /** Shown in place of a block that needs an open visit. The one Start visit button is in the bar at the top. */
@@ -46,25 +47,21 @@ export function StartVisitPrompt({ what }: { what: string }) {
   }
   return (
     <p className="mk-hint" style={{ margin: 0 }}>
-      {session.canWrite ? `Start the visit above to ${what}.` : "There is no open visit."}
+      {session.canWrite ? `Start a visit to ${what}.` : "There is no open visit."}
     </p>
   );
 }
 
 /** The odontogram with its tooth panel and record dialog. Append-only: a correction is a new entry that supersedes the old one. */
 export function ToothBlock({ patientId }: { patientId: Patient["id"] }) {
-  return (
-    <div className="p360-bento">
-      <DentalChartPanel patientId={patientId} />
-    </div>
-  );
+  return <ToothChartBlock patientId={patientId} />;
 }
 
 /** Quick picks that add one-line complaints, findings and advice to the visit note. */
-export function SaysBlock() {
+export function SaysBlock({ flat = false }: { flat?: boolean }) {
   const session = useVisitSession();
   return (
-    <Bento title="What the patient says" sub="Tap to add a line to today's note">
+    <Bento flat={flat} title="What the patient says">
       {session.visit === undefined ? (
         <StartVisitPrompt what="take notes" />
       ) : !session.canWrite ? (
@@ -88,44 +85,38 @@ export function DoneTodayBlock() {
   const session = useVisitSession();
   if (session.visit === undefined || session.visitLoading) return null;
   return (
-    <div className="p360-bento" aria-label="Done today">
+    <Bento flat title={session.procedures.length === 0 ? "Done today" : `Done today · ${String(session.procedures.length)}`}>
       <ProceduresCard visitId={session.visit.id} patientId={session.patientId} procedures={session.procedures} canWrite={session.canWrite} />
-    </div>
+    </Bento>
   );
 }
 
-const VOICE_LINE = /^\[(\d{2}:\d{2})\]\s*(.*)$/;
-
-/** The note's lines split into voice notes (stamped with their start time, in the order recorded) and everything else. */
-export function splitNote(values: Record<SectionKey, string>): { voice: { at: string; text: string }[]; other: { label: string; text: string }[] } {
-  const voice: { at: string; text: string }[] = [];
-  const other: { label: string; text: string }[] = [];
-  for (const { key, label } of NOTE_SECTIONS) {
-    const rest: string[] = [];
-    for (const line of values[key].split("\n")) {
-      const match = key === "subjective" ? VOICE_LINE.exec(line) : null;
-      if (match?.[1] !== undefined) voice.push({ at: match[1], text: match[2] ?? "" });
-      else if (line.trim() !== "") rest.push(line);
-    }
-    if (rest.length > 0) other.push({ label, text: rest.join(" · ") });
-  }
-  return { voice, other };
-}
+export { splitNote } from "./note-lines.js";
 
 /** Today's notes: record voice notes (several per visit, each stamped with its start time) and see them together, in order. */
-export function VoiceBlock() {
+export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean; /** Put the quick picks (complaints, findings, advice) above the recorder, so one section takes the whole note. */ withPicks?: boolean }) {
   const session = useVisitSession();
   const { visit, note, voice } = session;
   const parts = splitNote(note.values);
   const active = voice.phase === "recording" || voice.phase === "paused";
   return (
-    <Bento title="Today's notes" sub="Record a voice note and it types for you. Add as many as you need.">
+    <Bento flat={flat} title={flat ? "Notes" : "Today's notes"}>
       {visit === undefined ? (
         <StartVisitPrompt what="take notes" />
       ) : !session.canWrite ? (
         <p className="mk-hint">You can read this visit's note but not change it.</p>
       ) : (
         <div className="flex flex-col gap-3">
+          {withPicks ? (
+            <>
+              <QuickPickBar patientId={session.patientId} visitId={visit.id} onPick={session.note.pick} />
+              {session.error === undefined ? null : (
+                <p role="alert" className="mk-hint" style={{ color: "var(--red)" }}>
+                  {session.error}
+                </p>
+              )}
+            </>
+          ) : null}
           <section aria-label="Voice recorder" className="p360-voice">
             <div className="flex flex-wrap items-end gap-2">
               <Field label="Language" className="w-40">
@@ -214,7 +205,7 @@ export function VoiceBlock() {
               ))}
             </div>
           )}
-          <Fold title="Edit the note">
+          <Fold title="Edit the note" quiet>
             <NoteEditor />
           </Fold>
         </div>
@@ -281,14 +272,14 @@ function NoteEditor() {
 }
 
 /** The prescription for this visit: medicine sets, search, the server's allergy check with an override reason, and the patient's link. */
-export function RxBlock() {
+export function RxBlock({ flat = false }: { flat?: boolean }) {
   const session = useVisitSession();
   const { rx } = session;
   const navigate = useNavigate();
   const [sharing, setSharing] = useState(false);
   if (!session.canRx) return null;
   return (
-    <Bento title="Prescription" sub="Sets, search, or type any medicine. Every field is editable.">
+    <Bento flat={flat} title="Prescription">
       {rx.issued !== undefined && rx.draft === undefined ? (
         <div className="flex flex-col gap-3">
           <SentNotice message={rx.issued.message} />
@@ -360,12 +351,12 @@ export function RxBlock() {
   );
 }
 
-/** Follow-up and what the patient link will do. */
+/** Follow-up and the fee. */
 export function WrapBlock() {
   const session = useVisitSession();
   const { can } = useClinic();
   return (
-    <Bento title="Wrap up">
+    <div className="p360-wrap">
       <p className="p360-label">Follow-up</p>
       <div className="p360-chips" role="group" aria-label="Follow-up">
         {FOLLOW_UPS.map((option) => (
@@ -382,7 +373,7 @@ export function WrapBlock() {
         ))}
       </div>
       {can("billing.write") ? (
-        <Field label="Fee (₹)" hint="Starts the bill when the visit ends. Leave blank to bill later." className="mt-3">
+        <Field label="Fee (₹)" hint="Leave blank to bill later." className="mt-3">
           <TextInput
             inputMode="decimal"
             value={session.fee}
@@ -392,12 +383,7 @@ export function WrapBlock() {
           />
         </Field>
       ) : null}
-      {session.canRx ? (
-        <p className="p360-pill-note">
-          The prescription link works for 7 days and needs a PIN, which is shown once. You create it after you issue the prescription.
-        </p>
-      ) : null}
-    </Bento>
+    </div>
   );
 }
 
@@ -436,6 +422,7 @@ export function HistoryBlock({ limit = 8 }: { limit?: number }) {
                 <Tag tone={statusTone(visit.status === "open" ? "warning" : "success")}>{visit.status === "open" ? "Open" : "Closed"}</Tag>
                 <span className="mk-hint" style={{ margin: 0 }}>
                   {visit.clinician.name}
+                  {visit.chief_complaint == null || visit.chief_complaint === "" ? "" : ` · ${visit.chief_complaint}`}
                 </span>
                 <span className="when">{formatDateTime(visit.started_at)}</span>
               </li>
@@ -457,7 +444,24 @@ export function HistoryBlock({ limit = 8 }: { limit?: number }) {
             items={timeline.data.items.slice(0, limit).map((event) => ({
               id: event.id,
               when: formatDate(event.at),
-              title: event.title,
+              // An event that belongs to a visit opens that visit, so "Visit closed" is never a dead end.
+              title: (() => {
+                const owner = event.visit_id == null ? undefined : visits.data?.items.find((v) => v.id === event.visit_id);
+                return owner === undefined ? (
+                  event.title
+                ) : (
+                  <button
+                    type="button"
+                    className="mk-link p360-visitlink"
+                    aria-label={`Show what was done: ${event.title}, visit ${owner.number}`}
+                    onClick={() => {
+                      setDetail(owner);
+                    }}
+                  >
+                    {event.title}
+                  </button>
+                );
+              })(),
               detail: [event.detail, event.by?.name].filter((part) => part != null && part !== "").join(" · ") || undefined,
             }))}
           />
@@ -524,16 +528,12 @@ export function ConsentBlock({ patientId }: { patientId: Patient["id"] }) {
 }
 
 /** The treatment plan: editable inside an open visit, read-only progress otherwise. */
-export function PlanBlock() {
+export function PlanPane() {
   const session = useVisitSession();
-  return (
-    <div className="p360-bento">
-      {session.visit === undefined ? (
-        <CarePlan patientId={session.patientId} />
-      ) : (
-        <TreatmentPlansCard patientId={session.patientId} visitId={session.visit.id} canWrite={session.canWrite} />
-      )}
-    </div>
+  return session.visit === undefined ? (
+    <CarePlan patientId={session.patientId} />
+  ) : (
+    <TreatmentPlansCard patientId={session.patientId} visitId={session.visit.id} canWrite={session.canWrite} />
   );
 }
 
@@ -625,6 +625,86 @@ export function DetailsBlock({ patient }: { patient: Patient }) {
       <div style={{ marginTop: 12 }}>
         <PatientAppCard patientId={patient.id} />
       </div>
+    </Bento>
+  );
+}
+
+/**
+ * Today: everything for the visit in front of the doctor in one card. Notes (quick picks and the voice recorder), the
+ * prescription and what was done today. `columns` puts the notes beside the prescription where the card is wide.
+ */
+export function TodayBlock({ columns = false }: { columns?: boolean }) {
+  const session = useVisitSession();
+  const notes = <VoiceBlock flat withPicks />;
+  const rx = session.canRx ? <RxBlock flat /> : null;
+  return (
+    <Bento level={2} title="Today" sub={session.visit === undefined ? undefined : "Visit open"}>
+      <div className="p360-today">
+        {columns && rx !== null ? (
+          <div className="p360-grid2">
+            {notes}
+            {rx}
+          </div>
+        ) : (
+          <>
+            {notes}
+            {rx}
+          </>
+        )}
+        <DoneTodayBlock />
+      </div>
+    </Bento>
+  );
+}
+
+/** Stage's page body: the quick picks and what was done today (the recorder and the prescription have their own drawers). */
+export function TodayStageBlock() {
+  return (
+    <Bento level={2} title="Today">
+      <div className="p360-today">
+        <SaysBlock flat />
+        <DoneTodayBlock />
+      </div>
+    </Bento>
+  );
+}
+
+/** Follow-up and the fee, only while a visit is open. */
+export function WrapCard() {
+  const session = useVisitSession();
+  if (session.visit === undefined || !session.canWrite) return null;
+  return (
+    <Bento level={2} title="Wrap up">
+      <WrapBlock />
+    </Bento>
+  );
+}
+
+export type RecordTab = "history" | "plans" | "prescriptions" | "images" | "consent";
+
+const RECORD_TABS: readonly PillOption<RecordTab>[] = [
+  { value: "history", label: "History" },
+  { value: "plans", label: "Plans" },
+  { value: "prescriptions", label: "Prescriptions" },
+  { value: "images", label: "Images" },
+  { value: "consent", label: "Consent" },
+];
+
+/** The patient's records in ONE card with small tabs. Only the chosen tab is mounted and fetched. */
+export function RecordsCard({ canClinical, initial = "history" }: { canClinical: boolean; initial?: RecordTab }) {
+  const { can } = useClinic();
+  const session = useVisitSession();
+  const options = canClinical ? RECORD_TABS : RECORD_TABS.filter((tab) => tab.value === "consent");
+  const [tab, setTab] = useState<RecordTab>(canClinical ? initial : "consent");
+  return (
+    <Bento level={2} title="Records">
+      <CardTabs label="Records" options={options} value={tab} onChange={setTab}>
+        {tab === "history" ? <HistoryBlock limit={20} /> : null}
+        {tab === "plans" ? <PlanPane /> : null}
+        {tab === "prescriptions" ? <PastRxBlock /> : null}
+        {tab === "images" ? <GalleryBlock patientId={session.patientId} canUpload={can("clinical.write")} visitId={session.visit?.id} /> : null}
+        {tab === "consent" ? <ConsentPanel patientId={session.patientId} /> : null}
+      </CardTabs>
     </Bento>
   );
 }

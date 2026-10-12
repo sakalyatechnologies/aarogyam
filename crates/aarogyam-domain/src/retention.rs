@@ -44,6 +44,10 @@ text_value! {
         StockImports => "stock_imports",
         /// Orders to suppliers with their lines and receipts: money spent, kept like bills.
         PurchaseOrders => "purchase_orders",
+        /// Staff time-off requests that were decided or cancelled and nobody has changed since.
+        TimeOffRequests => "time_off_requests",
+        /// Each day's run of a clinic's recurring staff tasks, with who did it and any note.
+        TaskOccurrences => "task_occurrences",
     }
 }
 
@@ -80,13 +84,14 @@ impl Class {
             Self::Invoices | Self::LabWork | Self::PurchaseOrders => Period::Years(8),
             Self::Outbox => Period::Days(90),
             Self::ShareLinks | Self::ImportSessions | Self::StockImports => Period::Days(30),
-            Self::AccessLog => Period::Years(3),
+            Self::AccessLog | Self::TaskOccurrences => Period::Years(3),
             Self::Messages
             | Self::ClinicApplications
             | Self::ChatMessages
             | Self::LabContacts
             | Self::MessageTemplates
-            | Self::Campaigns => Period::Days(365),
+            | Self::Campaigns
+            | Self::TimeOffRequests => Period::Days(365),
         }
     }
 
@@ -110,6 +115,8 @@ impl Class {
             Self::MessageTemplates => "when the template last changed",
             Self::Campaigns => "when the campaign last changed",
             Self::PurchaseOrders => "when the order was made",
+            Self::TimeOffRequests => "when the request last changed",
+            Self::TaskOccurrences => "when the task fell due",
         }
     }
 

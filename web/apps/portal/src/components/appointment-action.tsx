@@ -35,7 +35,16 @@ export function isOpenAppointment(status: AppointmentStatus): boolean {
 }
 
 /** The button for an appointment's next step. Needs `appointments.write`; nothing shows without it. */
-export function AppointmentActionButton({ appointment, className = "mk-btn mk-btn-primary" }: { appointment: Pick<Appointment, "id" | "status">; className?: string }) {
+export function AppointmentActionButton({
+  appointment,
+  className = "mk-btn mk-btn-primary",
+  label,
+}: {
+  appointment: Pick<Appointment, "id" | "status">;
+  className?: string;
+  /** Words for the button in place of the step's own (for a place that has its own way of saying it). */
+  label?: (step: string) => string;
+}) {
   const { can } = useClinic();
   const toast = useToast();
   const setStatus = useSetAppointmentStatus();
@@ -62,7 +71,7 @@ export function AppointmentActionButton({ appointment, className = "mk-btn mk-bt
         );
       }}
     >
-      {next.icon} {next.label}
+      {next.icon} {label === undefined ? next.label : label(next.label)}
     </button>
   );
 }

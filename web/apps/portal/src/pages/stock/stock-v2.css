@@ -1,0 +1,26 @@
+/* Stock in the New look: the alerts strip, the Analytics tab and the item alert settings. Rounded cards, the theme's colours. */
+.st2-strip { display: grid; gap: 10px; padding: 16px 18px; border-radius: var(--nl-card-r, 24px); border: 1px solid var(--sk-border); background: var(--sk-surface); box-shadow: var(--sk-shadow-card, none); }
+.st2-strip.is-calm { grid-auto-flow: column; justify-content: start; align-items: center; gap: 10px; }
+.st2-strip h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--sk-text); }
+.st2-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.st2-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 16px; background: var(--sk-surface-muted); }
+.st2-name { margin: 0; font-weight: 700; color: var(--sk-text); }
+.st2-sub { margin: 0; font-size: 13px; color: var(--sk-text-muted); }
+.st2-warn { color: var(--sk-warning-text, var(--sk-text)); font-weight: 600; }
+.st2-calm { margin: 0; color: var(--sk-text); }
+.st2-grid { display: grid; gap: 16px; min-width: 0; }
+.st2-card { padding: 16px 18px; border-radius: var(--nl-card-r, 24px); border: 1px solid var(--sk-border); background: var(--sk-surface); box-shadow: var(--sk-shadow-card, none); min-width: 0; }
+.st2-card h3 { margin: 0 0 2px; font-size: 15px; font-weight: 700; color: var(--sk-text); }
+.st2-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.st2-chart { width: 100%; height: 240px; }
+.st2-chart svg { overflow: visible; }
+.st2-chart .recharts-cartesian-axis-tick-value { fill: var(--sk-text-muted); font-size: 11px; }
+.st2-tip { background: var(--sk-surface); color: var(--sk-text); border: 1px solid var(--sk-border); border-radius: 12px; padding: 8px 10px; box-shadow: var(--sk-shadow-card, none); font-size: 12px; }
+.st2-tablewrap { overflow-x: auto; }
+.st2-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.st2-table th, .st2-table td { padding: 8px 10px; text-align: start; border-bottom: 1px solid var(--sk-border); }
+.st2-table td.num, .st2-table th.num { text-align: end; font-variant-numeric: tabular-nums; }
+.st2-table .mk-sorth { all: unset; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-weight: 700; border-radius: 6px; }
+.st2-table .mk-sorth:focus-visible { outline: 2px solid var(--sk-primary); outline-offset: 2px; }
+.st2-settings { display: grid; gap: 12px; padding: 16px; border-radius: 20px; border: 1px solid var(--sk-border); }
+.st2-pick { min-width: 200px; max-width: 260px; }

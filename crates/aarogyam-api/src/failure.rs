@@ -8,7 +8,7 @@ use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use sakalya_auth::AuthError;
 use sakalya_db::DbError;
-use sakalya_http::ApiError;
+use sakalya_http::{ApiError, ErrorKind};
 use serde::Serialize;
 use utoipa::ToSchema;
 
@@ -145,6 +145,11 @@ impl From<AppError> for ApiFailure {
             AppError::VisitClosed => Self::Error(ApiError::conflict(
                 "visit_closed",
                 "This visit is already closed. Open it to see how it ended.",
+            )),
+            AppError::PractitionerOnLeave => Self::Error(ApiError::new(
+                ErrorKind::Unprocessable,
+                "practitioner_on_leave",
+                "The doctor is on leave at this time. Choose another time or doctor.",
             )),
             AppError::Stale { current } => Self::Stale { current },
             AppError::Forbidden(message) => Self::Error(ApiError::forbidden("forbidden", message)),

@@ -5,6 +5,7 @@ import {
   microphoneProblem,
   microphoneOpener,
   newAudioContext,
+  createResultReader,
   newRecognition,
   dictationAvailable,
   pickRecordingType,
@@ -107,21 +108,12 @@ export function useVoiceRecorder(onFinalText: (text: string) => void): VoiceReco
     next.lang = languageRef.current;
     next.continuous = true;
     next.interimResults = true;
+    const reader = createResultReader();
     next.onresult = (event) => {
-      let finalText = "";
-      let interimText = "";
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const result = event.results[index];
-        const transcript = result?.[0]?.transcript ?? "";
-        if (result?.isFinal === true) {
-          finalText += transcript;
-        } else {
-          interimText += transcript;
-        }
-      }
+      const { finalText, interimText } = reader.read(event);
       setInterim(interimText);
-      if (finalText.trim() !== "") {
-        onFinal.current(finalText.trim());
+      if (finalText !== "") {
+        onFinal.current(finalText);
       }
     };
     next.onerror = (event) => {
@@ -138,6 +130,7 @@ export function useVoiceRecorder(onFinalText: (text: string) => void): VoiceReco
     };
     next.onend = () => {
       setInterim("");
+      reader.reset();
       // Browsers end recognition after a silence; start it again while the doctor is still recording.
       if (wantDictation.current && recognition.current === next) {
         try {

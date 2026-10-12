@@ -29,7 +29,10 @@ mod messages;
 mod patient_templates;
 mod resend;
 mod staff;
+mod staff_ops;
+mod stock;
 pub mod svix;
+mod tasks;
 mod templates;
 pub mod whatsapp;
 mod whatsapp_step;
@@ -46,6 +49,9 @@ pub use lab::{LabReminderReport, remind_labs};
 pub use messages::MessageReport;
 pub use resend::Resend;
 pub use staff::{FlagReport, ReminderReport, StaffAlert, StaffChannel, flag_alerts, remind};
+pub use staff_ops::{StaffOpsReport, run_staff_ops};
+pub use stock::{StockReport, run_stock_alerts};
+pub use tasks::TaskReport;
 pub use templates::{Email, PortalLinks};
 
 /// Most messages one drain delivers.

@@ -1,6 +1,31 @@
 /** The one interface both the HTTP client and the fake client implement. */
 
 import type { ApiResult } from "./result.js";
+import type {
+  Audience,
+  AudiencePreview,
+  Badges,
+  Campaign,
+  Campaigns,
+  ChatMessage,
+  ChatMessageList,
+  ConversationList,
+  ConversationStarted,
+  MessageList,
+  MessageTemplates,
+  MessagesQueued,
+} from "./schemas.js";
+import type {
+  AffectedAppointmentPage,
+  NewTimeOff,
+  StaffOpsSettings,
+  StaffOpsSettingsChanges,
+  TimeOff,
+  TimeOffDecision,
+  TimeOffId,
+  TimeOffPage,
+} from "./schemas.js";
+import type { AudienceFilter, NewAudience, NewCampaign, NewChatMessage, NewConversation, ScheduleCampaign, SendMessages } from "./contract.js";
 import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
 import type {
@@ -14,8 +39,10 @@ import type {
   RevokedSessions,
   UnreadCount,
 } from "./schemas.js";
+import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview } from "./schemas.js";
+import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
-import type { Allergy, MonthSummary, OpenLabOrderPage, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
+import type { Allergy, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -141,6 +168,9 @@ import type {
   PurchaseOrderPage,
   PurchaseOrderStatus,
   ReceivePurchaseOrder,
+  InventoryItemAlertChanges,
+  InventoryItemAlerts,
+  StockAnalytics,
   ReceiveStock,
   StockBatchId,
   StockChange,
@@ -224,12 +254,35 @@ import type {
   WorkingHours,
 } from "./schemas.js";
 
+/** Filters for the lab order list. */
+export interface LabOrderFilter {
+  status?: LabOrderState;
+  vendorId?: string;
+  patientId?: string;
+  /** Only work at the lab and past its due date. */
+  overdue?: boolean;
+  /** Only work that still needs something done. */
+  open?: boolean;
+}
+
 export interface RequestOptions {
   /** Cancels the request, for example when a search term changes. */
   signal?: AbortSignal | undefined;
 }
 
 /** Which patients the list shows. Flags only, so nothing personal reaches a URL. */
+/** Filters for `listTaskHistory`. */
+export interface TaskHistoryQuery {
+  /** First clinic day, `YYYY-MM-DD`; 30 days before `to` by default. */
+  from?: string;
+  /** Last clinic day, `YYYY-MM-DD`; today by default. At most 92 days after `from`. */
+  to?: string;
+  /** A member: tasks given to them or to their role, or finished by them. */
+  assignee?: string;
+  status?: "open" | "done" | "skipped" | "missed";
+  templateId?: TaskId;
+}
+
 /** Filters for `listNotifications`. */
 export interface NotificationQuery {
   /** Only unread ones, from the last 30 days. */
@@ -318,6 +371,38 @@ export interface ApiClient {
   getMonthSummary(month: string, options?: RequestOptions): Promise<ApiResult<MonthSummary>>;
   /** Clinic host: lab work that still needs something done, soonest due first, with its derived stage and late flag. Needs `labs.read`. */
   listOpenLabOrders(options?: RequestOptions): Promise<ApiResult<OpenLabOrderPage>>;
+  /** Clinic host: lab orders with items, stage and late flag, soonest due first; `open` keeps work that still needs something done. Costs show only with `finance.view`. Needs `labs.read`. */
+  listLabOrders(filter?: LabOrderFilter, options?: RequestOptions): Promise<ApiResult<LabOrderList>>;
+  /** Clinic host: one lab order with its items and history. Needs `labs.read`. */
+  getLabOrder(id: string, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: sends work to a lab (`send` hands it over now, otherwise it stays a draft). Needs `labs.write`. */
+  createLabOrder(input: NewLabOrder, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: changes an order's contact, stage text, instructions or due date. Needs `labs.write`. */
+  updateLabOrder(id: string, changes: LabOrderChanges, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: moves an order along (409 when the move isn't allowed). Needs `labs.write`. */
+  setLabOrderStatus(id: string, change: LabOrderStatusChange, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: emails the lab a reminder, never naming the patient; 409 when the work isn't at the lab or the lab has no email. Needs `labs.write`. */
+  remindLab(id: string, options?: RequestOptions): Promise<ApiResult<LabReminderQueued>>;
+  /** Clinic host: logs a call, message or visit to the lab; a promised date becomes the due date. Needs `labs.write`. */
+  logLabContact(id: string, entry: LabContactLogEntry, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: the labs with their contacts. Needs `labs.read`. */
+  listLabVendors(options?: RequestOptions): Promise<ApiResult<LabVendorList>>;
+  /** Clinic host: adds a lab. Needs `labs.write`. */
+  createLabVendor(input: LabVendorValues, options?: RequestOptions): Promise<ApiResult<LabVendor>>;
+  /** Clinic host: changes a lab. Needs `labs.write`. */
+  updateLabVendor(id: string, changes: LabVendorValues, options?: RequestOptions): Promise<ApiResult<LabVendor>>;
+  /** Clinic host: adds a person at a lab. Needs `labs.write`. */
+  createLabContact(vendorId: string, input: LabContactValues, options?: RequestOptions): Promise<ApiResult<LabContact>>;
+  /** Clinic host: changes a person at a lab. Needs `labs.write`. */
+  updateLabContact(id: string, changes: LabContactValues, options?: RequestOptions): Promise<ApiResult<LabContact>>;
+  /** Clinic host: what a lab has billed, been paid and is still owed. Needs `finance.view`. */
+  getLabBalance(vendorId: string, options?: RequestOptions): Promise<ApiResult<LabBalance>>;
+  /** Clinic host: payments to labs, newest first, voided ones included. Needs `finance.view`. */
+  listLabPayments(vendorId?: string, options?: RequestOptions): Promise<ApiResult<LabPaymentList>>;
+  /** Clinic host: records a payment to a lab and its lab expense. Needs `expenses.write` and `finance.view`. */
+  recordLabPayment(input: NewLabPayment, options?: RequestOptions): Promise<ApiResult<LabPayment>>;
+  /** Clinic host: voids a payment (and its expense) with a reason. Needs `expenses.write`. */
+  voidLabPayment(id: string, reason: Reason, options?: RequestOptions): Promise<ApiResult<LabPayment>>;
   /** Clinic host: edits a patient's details. Needs `patients.write`, and `patients.contact` to change phone or email. */
   updatePatient(id: PatientId, changes: PatientChanges, options?: RequestOptions): Promise<ApiResult<Patient>>;
 
@@ -349,6 +434,34 @@ export interface ApiClient {
   addLeave(input: NewLeave, options?: RequestOptions): Promise<ApiResult<Leave>>;
   /** Clinic host: removes leave. Needs `appointments.write`. */
   removeLeave(id: LeaveId, options?: RequestOptions): Promise<ApiResult<void>>;
+
+  /**
+   * Clinic host: who is away on the local days given, and the caller's own requests (all of them
+   * for `time_off.manage`). Other staff get approved time off only, with no kind or reason.
+   * Needs `appointments.read`; at most 42 days.
+   */
+  listTimeOff(range: DateRange, options?: RequestOptions): Promise<ApiResult<TimeOffPage>>;
+  /**
+   * Clinic host: asks for time off for yourself (pending, or approved at once when the clinic does
+   * not ask for approval). With `membership_id` it records time off for someone else, which
+   * needs `time_off.manage` and is approved at once. Needs `time_off.request`.
+   */
+  requestTimeOff(input: NewTimeOff, options?: RequestOptions): Promise<ApiResult<TimeOff>>;
+  /** Clinic host: approves a pending request; a doctor's leave block stops bookings. Needs `time_off.manage`. */
+  approveTimeOff(id: TimeOffId, decision?: TimeOffDecision, options?: RequestOptions): Promise<ApiResult<TimeOff>>;
+  /** Clinic host: declines a pending request. Needs `time_off.manage`. */
+  declineTimeOff(id: TimeOffId, decision?: TimeOffDecision, options?: RequestOptions): Promise<ApiResult<TimeOff>>;
+  /** Clinic host: withdraws a pending or approved request and frees the doctor again. The requester or `time_off.manage`. */
+  cancelTimeOff(id: TimeOffId, options?: RequestOptions): Promise<ApiResult<TimeOff>>;
+  /**
+   * Clinic host: the unfinished appointments the leave covers, each with free-doctor suggestions.
+   * Moving one is the usual `changeAppointment`. Needs `time_off.manage`.
+   */
+  listAffectedAppointments(id: TimeOffId, options?: RequestOptions): Promise<ApiResult<AffectedAppointmentPage>>;
+  /** Clinic host: whether time off needs approval, and how often open tasks are reminded. Needs `settings.manage`. */
+  getStaffOpsSettings(options?: RequestOptions): Promise<ApiResult<StaffOpsSettings>>;
+  /** Clinic host: changes those settings; what is left out stays. Needs `settings.manage`. */
+  updateStaffOpsSettings(changes: StaffOpsSettingsChanges, options?: RequestOptions): Promise<ApiResult<StaffOpsSettings>>;
 
   /** Clinic host: appointments starting in the local days given. Needs `appointments.read`. */
   listAppointments(filter: AppointmentFilter, options?: RequestOptions): Promise<ApiResult<AppointmentPage>>;
@@ -382,6 +495,43 @@ export interface ApiClient {
   listIncompletePatients(options?: RequestOptions): Promise<ApiResult<IncompleteList>>;
   /** Clinic host: takes a patient off the to-do list. Needs `patients.write`. */
   dismissIncompletePatient(id: PatientGapId, options?: RequestOptions): Promise<ApiResult<void>>;
+
+  /** Clinic host: unread chat messages and notifications, for the minute poll. Needs `chat.use`. */
+  getBadges(options?: RequestOptions): Promise<ApiResult<Badges>>;
+  /** Clinic host: queues a message to 1 to 50 patients from an approved template; consent is checked per patient. Needs `messages.send`. */
+  sendMessages(input: SendMessages, options?: RequestOptions): Promise<ApiResult<MessagesQueued>>;
+  /** Clinic host: the messages sent to one patient, newest first, with their status. Needs `messages.send`. */
+  listPatientMessages(patientId: string, options?: RequestOptions): Promise<ApiResult<MessageList>>;
+  /** Clinic host: the clinic's message templates; only approved ones are sent. Needs `messages.send`. */
+  listMessageTemplates(options?: RequestOptions): Promise<ApiResult<MessageTemplates>>;
+  /** Clinic host: saves an audience (a name and one filter). Needs `campaigns.manage`. */
+  createAudience(input: NewAudience, options?: RequestOptions): Promise<ApiResult<Audience>>;
+  /** Clinic host: counts the patients a filter reaches and returns the `count_token` a campaign needs to be scheduled. Needs `campaigns.manage`. */
+  previewAudience(filter: AudienceFilter, options?: RequestOptions): Promise<ApiResult<AudiencePreview>>;
+  /** Clinic host: the clinic's campaigns with per-status counts. Needs `campaigns.manage`. */
+  listCampaigns(options?: RequestOptions): Promise<ApiResult<Campaigns>>;
+  /** Clinic host: one campaign with its counts. Needs `campaigns.manage`. */
+  getCampaign(id: string, options?: RequestOptions): Promise<ApiResult<Campaign>>;
+  /** Clinic host: makes a draft campaign. Needs `campaigns.manage`. */
+  createCampaign(input: NewCampaign, options?: RequestOptions): Promise<ApiResult<Campaign>>;
+  /** Clinic host: schedules a campaign; it sends only with the `count_token` from a fresh preview of its audience. Needs `campaigns.manage`. */
+  scheduleCampaign(id: string, input: ScheduleCampaign, options?: RequestOptions): Promise<ApiResult<Campaign>>;
+  /** Clinic host: cancels a campaign that has not finished sending. Needs `campaigns.manage`. */
+  cancelCampaign(id: string, options?: RequestOptions): Promise<ApiResult<Campaign>>;
+  /** Clinic host: the caller's conversations with unread counts. Needs `chat.use`. */
+  listConversations(limit?: number, options?: RequestOptions): Promise<ApiResult<ConversationList>>;
+  /** Clinic host: starts a direct or group chat; a direct one that exists is returned (`created` false). Needs `chat.use`. */
+  startConversation(input: NewConversation, options?: RequestOptions): Promise<ApiResult<ConversationStarted>>;
+  /** Clinic host: a conversation's messages, oldest first. `after` returns only newer ones, for polling. Needs `chat.use`. */
+  listChatMessages(id: string, query?: { after?: string; before?: string; limit?: number }, options?: RequestOptions): Promise<ApiResult<ChatMessageList>>;
+  /** Clinic host: posts a message; repeating a `client_id` returns the same message. Needs `chat.use`. */
+  postChatMessage(id: string, input: NewChatMessage, options?: RequestOptions): Promise<ApiResult<ChatMessage>>;
+  /** Clinic host: marks a conversation read up to a message. Needs `chat.use`. */
+  markConversationRead(id: string, messageId: string, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: mutes or unmutes a conversation for the caller (a muted one is not counted in the badge). Needs `chat.use`. */
+  muteConversation(id: string, muted: boolean, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: leaves a conversation. Needs `chat.use`. */
+  leaveConversation(id: string, options?: RequestOptions): Promise<ApiResult<void>>;
 
   /** Clinic host: members, their roles and status, and pending invitations. Needs `staff.manage`. */
   listStaff(options?: RequestOptions): Promise<ApiResult<Staff>>;
@@ -613,6 +763,10 @@ export interface ApiClient {
   getStock(options?: RequestOptions): Promise<ApiResult<StockSummary>>;
   /** Clinic host: items at or below their reorder level, worst first. Needs `inventory.read`. */
   listLowStock(options?: RequestOptions): Promise<ApiResult<InventoryItemPage>>;
+  /** Clinic host: how fast each item (or the one named) is used, how long it lasts and what to reorder. Needs `inventory.read`. */
+  getStockAnalytics(params?: { itemId?: InventoryItemId }, options?: RequestOptions): Promise<ApiResult<StockAnalytics>>;
+  /** Clinic host: an item's lead time (0 to 120 days) and whether it raises stock alerts. Needs `inventory.manage`. */
+  changeInventoryItemAlerts(id: InventoryItemId, input: InventoryItemAlertChanges, options?: RequestOptions): Promise<ApiResult<InventoryItemAlerts>>;
   /** Clinic host: batches with stock left that expire within `days` days (30 by default) or already have. Needs `inventory.read`. */
   listExpiring(days?: number, options?: RequestOptions): Promise<ApiResult<ExpiringPage>>;
   /** Clinic host: the stock items by name, each with its level. Needs `inventory.read`. */
@@ -660,6 +814,27 @@ export interface ApiClient {
   deletePurchaseOrder(id: PurchaseOrderId, options?: RequestOptions): Promise<ApiResult<void>>;
   /** Clinic host: receives goods against a sent order (an empty body receives everything still to come), making stock batches. Needs `inventory.manage`. */
   receivePurchaseOrder(id: PurchaseOrderId, input: ReceivePurchaseOrder, options?: RequestOptions): Promise<ApiResult<PurchaseOrder>>;
+
+  /** Clinic host: the caller's tasks for a clinic day (today by default), plus any still open from earlier. A `confirm_photos` task carries `patients_without_photos_today`. Needs `tasks.use`. */
+  listMyTasks(date?: string, options?: RequestOptions): Promise<ApiResult<MyTasks>>;
+  /** Clinic host: finishes a task given to the caller or their role, with an optional note and the materials used (taken off the shelf in the same step). The same person again gets 200; anyone else 409; short stock 409 and nothing is recorded. Needs `tasks.use`. */
+  completeTask(id: TaskOccurrenceId, input: CompleteTask, options?: RequestOptions): Promise<ApiResult<TaskOccurrence>>;
+  /** Clinic host: opens a done or skipped task again; 409 for a missed one. Needs `tasks.manage`. */
+  reopenTask(id: TaskOccurrenceId, options?: RequestOptions): Promise<ApiResult<TaskOccurrence>>;
+  /** Clinic host: the clinic's recurring tasks, including the standard ones and any switched off. Needs `tasks.manage`. */
+  listTasks(options?: RequestOptions): Promise<ApiResult<TaskList>>;
+  /** Clinic host: makes a task. Needs `tasks.manage`. */
+  createTask(input: NewTask, options?: RequestOptions): Promise<ApiResult<Task>>;
+  /** Clinic host: one task. Needs `tasks.manage`. */
+  getTask(id: TaskId, options?: RequestOptions): Promise<ApiResult<Task>>;
+  /** Clinic host: changes a task; fields left out stay. Needs `tasks.manage`. */
+  updateTask(id: TaskId, changes: TaskChange, options?: RequestOptions): Promise<ApiResult<Task>>;
+  /** Clinic host: deletes a task; 409 for a standard one, which can only be switched off with `active: false`. Needs `tasks.manage`. */
+  deleteTask(id: TaskId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: the next five times a task falls due. Needs `tasks.manage`. */
+  previewTask(id: TaskId, options?: RequestOptions): Promise<ApiResult<TaskPreview>>;
+  /** Clinic host: occurrences by clinic day, newest first. Needs `tasks.manage`. */
+  listTaskHistory(filter?: TaskHistoryQuery, options?: RequestOptions): Promise<ApiResult<TaskHistory>>;
 
   /** Clinic host: bills, newest first, without lines. Needs `billing.read`. */
   listInvoices(

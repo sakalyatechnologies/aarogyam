@@ -1195,6 +1195,23 @@ export interface paths {
         patch: operations["updateInventoryItem"];
         trace?: never;
     };
+    "/api/v1/inventory-items/{id}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes how long an item takes to arrive and whether it raises stock alerts. */
+        patch: operations["updateInventoryItemAlerts"];
+        trace?: never;
+    };
     "/api/v1/invitations/accept": {
         parameters: {
             query?: never;
@@ -1573,7 +1590,7 @@ export interface paths {
         /** Leave overlapping the local days `from` to `to`. */
         get: operations["listLeaveBlocks"];
         put?: never;
-        /** Records a doctor's leave. Bookings already made stay; new ones get a warning. */
+        /** Records a doctor's leave. Bookings already made stay; new ones are refused (`422 practitioner_on_leave`). */
         post: operations["addLeaveBlock"];
         delete?: never;
         options?: never;
@@ -3944,6 +3961,24 @@ export interface paths {
         patch: operations["updateClinicSetup"];
         trace?: never;
     };
+    "/api/v1/settings/staff-ops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's staff-operations settings. */
+        get: operations["getStaffOpsSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes the staff-operations settings. The change history records each change. */
+        patch: operations["updateStaffOpsSettings"];
+        trace?: never;
+    };
     "/api/v1/settings/website": {
         parameters: {
             query?: never;
@@ -4216,6 +4251,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stock/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How fast each item is used, how long it lasts and what to reorder. */
+        get: operations["getStockAnalytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stock/batches/{id}/expire": {
         parameters: {
             query?: never;
@@ -4436,6 +4488,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's recurring tasks, including the standard ones and any switched off. */
+        get: operations["listTasks"];
+        put?: never;
+        /** Makes a task. */
+        post: operations["createTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Occurrences by clinic day, newest first: who did what, and what was missed. */
+        get: operations["listTaskHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's tasks for a day: what is given to them or to their role, plus anything still
+         *     open from an earlier day.
+         */
+        get: operations["listMyTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/occurrences/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finishes an occurrence. The caller must be the person it is for or hold the role it is for;
+         *     the first to finish it closes it for everyone. Repeating it as the same person returns `200`
+         *     and changes nothing; anyone else then gets `409`. When materials are listed and the usable
+         *     stock is short, nothing is recorded and the task stays open.
+         */
+        post: operations["completeTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/occurrences/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Opens a done or skipped occurrence again, for a mistake. Stock already recorded for it stays
+         *     recorded.
+         */
+        post: operations["reopenTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One task. */
+        get: operations["getTask"];
+        put?: never;
+        post?: never;
+        /**
+         * Deletes a task. The days already made stay in the history. A standard task cannot be
+         *     deleted, only switched off with `active: false`.
+         */
+        delete: operations["deleteTask"];
+        options?: never;
+        head?: never;
+        /** Changes a task. */
+        patch: operations["updateTask"];
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The next five times a task falls due, worked out the way the generator does it. */
+        get: operations["previewTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/templates": {
         parameters: {
             query?: never;
@@ -4488,6 +4676,105 @@ export interface paths {
          *     itself is by hand for the pilot; docs/whatsapp.md). Meta's decision arrives by webhook.
          */
         post: operations["submitMessageTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/time-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who is away on the local days `from` to `to`, and the viewer's own requests. */
+        get: operations["listTimeOff"];
+        put?: never;
+        /**
+         * Asks for time off, or (with `membership_id`) records it for someone. Your own request waits
+         *     for the owner unless the clinic switched approval off; time off recorded for someone else
+         *     is approved at once.
+         */
+        post: operations["createTimeOff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/time-off/{id}/affected-appointments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The unfinished appointments of the person away in the request's window, each with doctors who
+         *     are free then. To move one, change the appointment as usual: the patient is told the same way.
+         */
+        get: operations["listAffectedAppointments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/time-off/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approves a pending request. A doctor's leave block is made in the same step, so new bookings
+         *     for them are refused; the requester is told.
+         */
+        post: operations["approveTimeOff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/time-off/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraws a pending or approved request and removes its leave block, so the doctor can be
+         *     booked again. The requester or a holder of `time_off.manage` may; to anyone else it is a 404.
+         */
+        post: operations["cancelTimeOff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/time-off/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Declines a pending request; the requester is told. */
+        post: operations["declineTimeOff"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4883,6 +5170,33 @@ export interface components {
             /** @description Why; required. */
             reason: string;
         };
+        /** @description An unfinished appointment the leave covers. */
+        AffectedAppointment: {
+            /** @description End (RFC 3339). */
+            ends_at: string;
+            /** @description The appointment. */
+            id: string;
+            /** @description The patient's name. */
+            patient_name: string;
+            /** @description The doctor who is away. */
+            practitioner_id: string;
+            /**
+             * Format: int64
+             * @description Send as `If-Match` when changing the appointment.
+             */
+            row_version: number;
+            /** @description Start (RFC 3339). */
+            starts_at: string;
+            /** @description `requested`, `booked`, `confirmed`, `arrived` or `in_chair`. */
+            status: string;
+            /** @description Doctors free at that time, those with hours set first; at most five. */
+            suggestions: components["schemas"]["FreeDoctorSuggestion"][];
+        };
+        /** @description Appointments a leave covers. */
+        AffectedAppointments: {
+            /** @description By start. */
+            items: components["schemas"]["AffectedAppointment"][];
+        };
         /** @description Owed by age of the bill. */
         AgingBuckets: {
             /**
@@ -4923,6 +5237,28 @@ export interface components {
             override_reason?: string | null;
             /** @description `info`, `caution` or `serious`. */
             severity: string;
+        };
+        /** @description An item's alert settings, to change; fields left out stay as they are. */
+        AlertChanges: {
+            /** @description Whether the item raises stock alerts. */
+            alerts_enabled?: boolean | null;
+            /**
+             * Format: int32
+             * @description Days from ordering to delivery, 0 to 120 (7 by default).
+             */
+            lead_time_days?: number | null;
+        };
+        /** @description An item's alert settings. */
+        AlertSettingsBody: {
+            /** @description Whether the item raises stock alerts. */
+            alerts_enabled: boolean;
+            /** @description The item. */
+            item_id: string;
+            /**
+             * Format: int32
+             * @description Days from ordering to delivery.
+             */
+            lead_time_days: number;
         };
         /** @description An allergy. */
         Allergy: {
@@ -5138,6 +5474,11 @@ export interface components {
             notes?: string | null;
             /** @description The patient. */
             patient: components["schemas"]["PatientBrief"];
+            /**
+             * @description `new` when the patient has no earlier completed visit or appointment at this clinic,
+             *     otherwise `follow_up`.
+             */
+            patient_type: string;
             /** @description The doctor. */
             practitioner: components["schemas"]["PractitionerBrief"];
             /** @description Reason for the visit. */
@@ -5406,6 +5747,11 @@ export interface components {
              *     `appointments.read`.
              */
             notifications_unread?: number | null;
+            /**
+             * Format: int64
+             * @description Open tasks given to the caller or to their role; 0 without `tasks.use`.
+             */
+            tasks_open: number;
         };
         /** @description A doctor patients may pick. */
         BookableDoctor: {
@@ -5458,7 +5804,7 @@ export interface components {
         };
         /** @description Something worth knowing that didn't stop the booking. */
         BookingWarning: {
-            /** @description `practitioner_busy`, `practitioner_on_leave` or `outside_working_hours`. */
+            /** @description `practitioner_busy` or `outside_working_hours`. */
             code: string;
             /** @description What to tell the front desk. */
             message: string;
@@ -5668,6 +6014,8 @@ export interface components {
             finding: string;
             /** @description Identifier. */
             id: string;
+            /** @description The treatment is started but not finished (for example a root canal between sittings). */
+            in_progress: boolean;
             material?: components["schemas"]["DentalTerm"] | null;
             /** @description The clinician's remark. */
             note?: string | null;
@@ -5978,6 +6326,11 @@ export interface components {
             /** @description Whether any active allergy is severe. */
             severe_allergy: boolean;
         };
+        /**
+         * @description Where a closed visit's queue token goes.
+         * @enum {string}
+         */
+        CloseQueueStatus: "done" | "ready_to_bill";
         /** @description What closing a visit may also do. Every field is optional, and so is the body. */
         CloseRequest: {
             /**
@@ -5996,6 +6349,7 @@ export interface components {
              *     on the draft bill.
              */
             note?: string | null;
+            queue_status?: components["schemas"]["CloseQueueStatus"] | null;
         };
         /** @description A closed visit and what closing it made. */
         ClosedVisit: components["schemas"]["Visit"] & {
@@ -6075,6 +6429,21 @@ export interface components {
         CommitStockImportBody: {
             /** @description The token the preview gave. */
             token: string;
+        };
+        /** @description Finishing a task. */
+        CompleteBody: {
+            /**
+             * @description An id the client made, so a retry after a lost answer is recognised. Finishing a task
+             *     twice as the same person is harmless either way.
+             */
+            client_id?: string | null;
+            /** @description A note, at most 300 characters. The screen warns: no patient names. */
+            note?: string | null;
+            /**
+             * @description The materials used, taken off the shelf first-expiry-first-out, in the same step as
+             *     finishing the task. Leave out or send an empty list for nothing used.
+             */
+            usage?: components["schemas"]["UsageBody"][] | null;
         };
         /** @description A visit closed on the day, without its clinical content. */
         CompletedVisit: {
@@ -6404,6 +6773,16 @@ export interface components {
             /** @description The role they will get. */
             role_key: string;
         };
+        /** @description Units used on one clinic day. */
+        DailyUse: {
+            /** @description The clinic's local day, `YYYY-MM-DD`. */
+            day: string;
+            /**
+             * Format: int64
+             * @description Units used.
+             */
+            quantity: number;
+        };
         /** @description A dashboard layout, version 2. */
         DashboardLayout: {
             /** @description `flat`, `soft` or `outline`. */
@@ -6679,6 +7058,13 @@ export interface components {
             /** @description Part of a name or strength, such as `amox` or `500`. */
             q?: string;
         };
+        /** @description A time a task falls due. */
+        DueTime: {
+            /** @description The moment, RFC 3339. */
+            due_at: string;
+            /** @description The clinic's calendar day, `YYYY-MM-DD`. */
+            local_date: string;
+        };
         /** @description Open possible duplicates. */
         DuplicateList: {
             /** @description Newest first, at most 200. */
@@ -6828,6 +7214,7 @@ export interface components {
              */
             note?: string | null;
             prescription?: components["schemas"]["FinishPrescription"] | null;
+            queue_status?: components["schemas"]["CloseQueueStatus"] | null;
             /**
              * @description Sign the caller's own draft notes of the visit (default true). Other members' drafts and
              *     empty ones are left, and listed in the answer.
@@ -6846,6 +7233,17 @@ export interface components {
             unsigned_note_ids: string[];
             /** @description The closed visit. */
             visit: components["schemas"]["Visit"];
+        };
+        /** @description A doctor free for an appointment's time. */
+        FreeDoctorSuggestion: {
+            /** @description Their calendar colour, `#RRGGBB`. */
+            calendar_color: string;
+            /** @description Their name. */
+            display_name: string;
+            /** @description Whether their weekly hours are set and cover the time. */
+            in_hours: boolean;
+            /** @description The doctor. */
+            practitioner_id: string;
         };
         /**
          * @description Who handled a notification: confirmed, declined or cancelled its appointment, or received,
@@ -7868,7 +8266,10 @@ export interface components {
             mode: string;
             /** @description Which details the design prints. */
             show: components["schemas"]["LetterheadShown"];
-            /** @description `logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor` or `bilingual`. */
+            /**
+             * @description `logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor`, `bilingual`, `heritage_serif`, `modern_split`,
+             *     `monogram`, `clinical_clean`, `bilingual_elegant` or `signature`.
+             */
             template: string;
             /** @description Opening hours printed on the letterhead. */
             timings?: string | null;
@@ -8375,6 +8776,13 @@ export interface components {
             /** @description Most recently used first. */
             items: components["schemas"]["MySession"][];
         };
+        /** @description A person's tasks for a day. */
+        MyTasks: {
+            /** @description The clinic day, `YYYY-MM-DD`. */
+            date: string;
+            /** @description Given to the caller or to their role, soonest first, plus any still open from earlier. */
+            items: components["schemas"]["TaskOccurrence"][];
+        };
         /** @description An addendum's text. */
         NewAddendum: {
             /** @description 1 to 10,000 characters. */
@@ -8441,6 +8849,8 @@ export interface components {
             canals?: components["schemas"]["RootCanal"][];
             /** @description `sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`. */
             finding: string;
+            /** @description The treatment is started but not finished. Defaults to false; ignored with `sound`. */
+            in_progress?: boolean;
             /** @description A material id from the chart's `terms`: seeded (`zirconia`) or the clinic's own. Not with `sound`. */
             material?: string | null;
             /** @description A remark, up to 500 characters. */
@@ -8833,6 +9243,56 @@ export interface components {
             /** @description The Sakalya staff member's sign-in email. */
             staff_email: string;
         };
+        /** @description A task to make. */
+        NewTaskBody: {
+            /** @description `none` (default), `record_usage` or `confirm_photos`. */
+            action?: string | null;
+            /** @description Switched on; true by default. */
+            active?: boolean | null;
+            /** @description The member it is for. Give this or `assignee_role_id`, not both. */
+            assignee_membership_id?: string | null;
+            /** @description The role it is for: the first person holding it to finish it closes it for all. */
+            assignee_role_id?: string | null;
+            /** @description More detail, at most 500 characters. */
+            description?: string | null;
+            /**
+             * Format: int32
+             * @description Reminders before the owner is told once more, 0 to 24 (never at 0); 3 by default.
+             */
+            escalate_after?: number | null;
+            /**
+             * Format: int32
+             * @description Minutes between reminders, 15 to 1440; leave out for the clinic's default.
+             */
+            remind_every_minutes?: number | null;
+            /** @description When it falls due. */
+            schedule: components["schemas"]["TaskSchedule"];
+            /** @description What is to be done, 1 to 120 characters. */
+            title: string;
+        };
+        /**
+         * @description Time off to ask for or record. Give either `starts_at` and `ends_at`, or `first_day` and
+         *     `last_day` for whole days.
+         */
+        NewTimeOff: {
+            /** @description End (RFC 3339), after the start. */
+            ends_at?: string | null;
+            /** @description First day, `YYYY-MM-DD`, with `last_day`. */
+            first_day?: string | null;
+            /** @description `vacation`, `sick`, `personal` or `other`. */
+            kind: string;
+            /** @description Last day, `YYYY-MM-DD`, included. */
+            last_day?: string | null;
+            /**
+             * @description Record it for this member instead of yourself; needs `time_off.manage` and is approved
+             *     at once.
+             */
+            membership_id?: string | null;
+            /** @description A private reason, at most 200 characters. */
+            reason?: string | null;
+            /** @description Start (RFC 3339), with `ends_at`. */
+            starts_at?: string | null;
+        };
         /** @description A visit to start. */
         NewVisit: {
             /** @description The appointment the patient came for; a walk-in has none. One visit per appointment. */
@@ -8910,6 +9370,13 @@ export interface components {
             appointment?: components["schemas"]["NotifiedAppointment"] | null;
             /** @description When it happened (RFC 3339). */
             created_at: string;
+            /**
+             * Format: double
+             * @description Days of stock left at the recent rate, for `stock_alert`; absent when unknown.
+             */
+            days_cover?: number | null;
+            /** @description When the task falls due (RFC 3339, the clinic's offset), for a task notification. */
+            due_at?: string | null;
             /** @description When the owners were told (RFC 3339). */
             escalated_at?: string | null;
             handled?: components["schemas"]["HandledBy"] | null;
@@ -8921,10 +9388,16 @@ export interface components {
             /** @description Identifier; pass as `before` for the next page. */
             id: string;
             invoice?: components["schemas"]["NotifiedInvoice"] | null;
+            /** @description The stock item, for `stock_alert`. */
+            item_id?: string | null;
+            /** @description The item's name, for `stock_alert`. */
+            item_name?: string | null;
             /**
              * @description `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,
-             *     `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in` or
-             *     `collect_payment`.
+             *     `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,
+             *     `collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,
+             *     `time_off_decided` or `stock_alert`. More kinds may come: clients show an unknown kind
+             *     as a generic row.
              */
             kind: string;
             lab_order?: components["schemas"]["NotifiedLabOrder"] | null;
@@ -8936,6 +9409,18 @@ export interface components {
             recall?: components["schemas"]["NotifiedRecall"] | null;
             /** @description When everyone was reminded because nobody had answered (RFC 3339). */
             reminded_at?: string | null;
+            /**
+             * @description The task occurrence, for `task_due`, `task_reminder` and `task_escalated`; only its
+             *     newest step is listed.
+             */
+            task_occurrence_id?: string | null;
+            /**
+             * @description The time-off request, for `time_off_requested` and `time_off_decided`. An id only: open
+             *     it in the time-off screens.
+             */
+            time_off_request_id?: string | null;
+            /** @description The task's title, for a task notification. */
+            title?: string | null;
         };
         /** @description A page of the caller's notifications, newest first. */
         NotificationList: {
@@ -10485,6 +10970,11 @@ export interface components {
             /** @description The patient. */
             patient: components["schemas"]["PatientBrief"];
             practitioner?: components["schemas"]["PractitionerBrief"] | null;
+            /**
+             * @description Why the patient came (plain text, at most 200 characters), when the desk noted it at a
+             *     walk-in.
+             */
+            reason?: string | null;
             /** @description The chair the patient was seated in, when one was chosen. */
             room_id?: string | null;
             /**
@@ -11708,6 +12198,18 @@ export interface components {
             /** @description Members, active first, then by name. */
             members: components["schemas"]["Member"][];
         };
+        /** @description Whether staff time off needs approval, and how often open tasks are reminded. */
+        StaffOpsSettingsBody: {
+            /** @description Task settings. */
+            tasks: components["schemas"]["TaskSettings"];
+            /** @description Time-off settings. */
+            time_off: components["schemas"]["TimeOffSettings"];
+        };
+        /** @description Changes to the staff-operations settings; what is left out stays. */
+        StaffOpsSettingsChanges: {
+            tasks?: components["schemas"]["TaskSettingsChanges"] | null;
+            time_off?: components["schemas"]["TimeOffSettingsChanges"] | null;
+        };
         /** @description A grant the staff member holds. */
         StaffSupportGrant: {
             /** @description What it allows: `read`. */
@@ -11760,6 +12262,13 @@ export interface components {
             appointment: components["schemas"]["Appointment"];
             /** @description Its queue token, once the patient has arrived. */
             queue_token_id?: string | null;
+        };
+        /** @description Usage and projection per item, and the items to reorder. */
+        StockAnalytics: {
+            /** @description Active items by name, or the one asked for. */
+            items: components["schemas"]["StockInsight"][];
+            /** @description The items that need reordering, soonest to run out first. */
+            reorder_list: components["schemas"]["StockInsight"][];
         };
         /** @description A delivery on the shelf. */
         StockBatch: {
@@ -11886,8 +12395,75 @@ export interface components {
             /** @description The row in the file. */
             row: number;
         };
+        /** @description One item's usage and run-out projection. */
+        StockInsight: {
+            /** @description Whether the item raises stock alerts. */
+            alerts_enabled: boolean;
+            /**
+             * Format: double
+             * @description Units used per day over the last two weeks; empty with under a week of history or fewer
+             *     than two days of use.
+             */
+            daily_usage?: number | null;
+            /**
+             * Format: int64
+             * @description Whole days the usable stock lasts at the recent rate; empty without a projection.
+             */
+            days_cover?: number | null;
+            /** @description The item. */
+            item_id: string;
+            /**
+             * Format: int32
+             * @description Days from ordering to delivery.
+             */
+            lead_time_days: number;
+            /** @description Name. */
+            name: string;
+            /** @description Whether the item needs reordering now. */
+            needs_reorder: boolean;
+            /**
+             * Format: int64
+             * @description Units on the shelf that have not expired today.
+             */
+            on_hand: number;
+            /**
+             * Format: int64
+             * @description At or below this the item is low.
+             */
+            reorder_level: number;
+            /** @description Why, as `low` or `projected`. */
+            reorder_reason?: string | null;
+            /** @description The day the stock runs out, `YYYY-MM-DD`; empty without a projection. */
+            runs_out_on?: string | null;
+            /** @description Units used on each of the last 28 days, oldest first, today last. */
+            series: components["schemas"]["DailyUse"][];
+            /**
+             * Format: int64
+             * @description Units to order to cover the lead time plus two weeks; empty without a projection, zero
+             *     when the stock already covers it.
+             */
+            suggested_reorder_qty?: number | null;
+            /** @description Unit. */
+            unit: string;
+            /**
+             * Format: int64
+             * @description Units used in the last 28 days, today included.
+             */
+            usage_28d: number;
+            /**
+             * Format: int64
+             * @description Units used in the last 7 days, today included.
+             */
+            usage_7d: number;
+        };
         /** @description An item and where its stock stands. */
         StockLevel: {
+            /**
+             * Format: int64
+             * @description Whole days the stock lasts at the recent rate of use. Filled only on the low-stock list,
+             *     and only for items with enough use history.
+             */
+            days_cover?: number | null;
             /** @description The item. */
             item: components["schemas"]["InventoryItem"];
             /** @description Earliest expiry among batches with stock left, `YYYY-MM-DD`. */
@@ -11897,6 +12473,8 @@ export interface components {
              * @description Units on hand, all batches.
              */
             on_hand: number;
+            /** @description The day the stock runs out, `YYYY-MM-DD`. Filled with `days_cover`. */
+            runs_out_on?: string | null;
             /**
              * @description `ok`, `low` (at or below the reorder level), `critical` (out, or at a fifth of the
              *     reorder level or less) or `expiring` (enough, but a batch expires within 30 days).
@@ -12054,6 +12632,165 @@ export interface components {
             /** @description `active`, `ended` or `revoked`. */
             status: string;
         };
+        /** @description A task as the manager sees it. */
+        Task: {
+            /** @description `none`, `record_usage` or `confirm_photos`. */
+            action: string;
+            /** @description Whether occurrences are made from it. A standard task can only be switched off. */
+            active: boolean;
+            /** @description The member it is for, when it is for one person. */
+            assignee_membership_id?: string | null;
+            /** @description That member's name. */
+            assignee_name?: string | null;
+            /** @description The role it is for. */
+            assignee_role_id?: string | null;
+            /** @description That role's name. */
+            assignee_role_name?: string | null;
+            /** @description When it was made, RFC 3339. */
+            created_at: string;
+            /** @description The standard task's key. */
+            default_key?: string | null;
+            /** @description More detail. */
+            description?: string | null;
+            /**
+             * Format: int32
+             * @description Reminders before the owner is told once more; 0 means never.
+             */
+            escalate_after: number;
+            /** @description Identifier. */
+            id: string;
+            /** @description One of the standard tasks every clinic starts with; it cannot be deleted. */
+            is_default: boolean;
+            /**
+             * Format: int32
+             * @description Minutes between reminders; none means the clinic's default.
+             */
+            remind_every_minutes?: number | null;
+            /** @description When it falls due. */
+            schedule: components["schemas"]["TaskSchedule"];
+            /** @description What is to be done. */
+            title: string;
+            /** @description When it last changed, RFC 3339. */
+            updated_at: string;
+        };
+        /** @description A change to a task. Fields left out stay as they are. */
+        TaskChangeBody: {
+            /** @description `none`, `record_usage` or `confirm_photos`. */
+            action?: string | null;
+            /**
+             * @description Switch on or off. Switching on, or changing the schedule, makes the task count from that
+             *     moment.
+             */
+            active?: boolean | null;
+            /** @description A new member to give it to (replaces the old assignee). */
+            assignee_membership_id?: string | null;
+            /** @description A new role to give it to (replaces the old assignee). */
+            assignee_role_id?: string | null;
+            /** @description Description; an empty string clears it. */
+            description?: string | null;
+            /**
+             * Format: int32
+             * @description Reminders before escalating, 0 to 24.
+             */
+            escalate_after?: number | null;
+            /**
+             * Format: int32
+             * @description Minutes between reminders, 15 to 1440; 0 goes back to the clinic's default.
+             */
+            remind_every_minutes?: number | null;
+            schedule?: components["schemas"]["TaskSchedule"] | null;
+            /** @description Title. */
+            title?: string | null;
+        };
+        /** @description Past and open occurrences. */
+        TaskHistory: {
+            /** @description Newest first, at most 500. */
+            items: components["schemas"]["TaskOccurrence"][];
+        };
+        /** @description The clinic's tasks. */
+        TaskList: {
+            /** @description Switched-on first, then by title. */
+            items: components["schemas"]["Task"][];
+        };
+        /** @description One day's run of a task. */
+        TaskOccurrence: {
+            /**
+             * @description What finishing it asks of the person: `none`, `record_usage` (list the materials used)
+             *     or `confirm_photos` (check the day's patients have their photos).
+             */
+            action: string;
+            /** @description The member it is for, when it is for one person. */
+            assignee_membership_id?: string | null;
+            /** @description The role it is for: the first person holding it to finish it closes it for all. */
+            assignee_role_id?: string | null;
+            /** @description When it was finished, RFC 3339. */
+            completed_at?: string | null;
+            /** @description Who finished it. */
+            completed_by?: string | null;
+            /** @description That person's name. */
+            completed_by_name?: string | null;
+            /** @description When it falls due, RFC 3339. */
+            due_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description The clinic's calendar day, `YYYY-MM-DD`. */
+            local_date: string;
+            /** @description What they wrote. */
+            note?: string | null;
+            /**
+             * Format: int64
+             * @description Only on a `confirm_photos` task: the patients seen that day with a visit that has no
+             *     photo.
+             */
+            patients_without_photos_today?: number | null;
+            /** @description `open`, `done`, `skipped` or `missed`. */
+            status: string;
+            /** @description The task it came from. */
+            template_id: string;
+            /** @description The title. */
+            title: string;
+        };
+        /** @description The next times a task falls due. */
+        TaskPreview: {
+            /** @description Up to five, soonest first; none for a task that is switched off or has ended. */
+            items: components["schemas"]["DueTime"][];
+        };
+        /** @description When a task falls due. Times are the clinic's local time. */
+        TaskSchedule: {
+            /** @description The time of day, `HH:MM`. */
+            due_time?: string | null;
+            /** @description The last day, `YYYY-MM-DD`. */
+            ends_on?: string | null;
+            /**
+             * Format: int32
+             * @description `every_n_days`: days between occurrences, 2 to 365.
+             */
+            interval_days?: number | null;
+            /** @description `once`, `daily`, `every_n_days` or `weekdays`. */
+            kind?: string | null;
+            /** @description `once`: the moment, RFC 3339. */
+            once_at?: string | null;
+            /** @description The first day, `YYYY-MM-DD`; today when left out on a new task. */
+            starts_on?: string | null;
+            /** @description `weekdays`: the days, 1 (Monday) to 7 (Sunday). */
+            weekdays?: number[] | null;
+        };
+        /** @description Task settings. */
+        TaskSettings: {
+            /**
+             * Format: int32
+             * @description Minutes between reminders of a task still open, 15 to 1440 (default 60).
+             */
+            remind_every_minutes: number;
+        };
+        /** @description Changes to the task settings; what is left out stays. */
+        TaskSettingsChanges: {
+            /**
+             * Format: int64
+             * @description Minutes between reminders, 15 to 1440.
+             */
+            remind_every_minutes?: number | null;
+        };
         /** @description A doctor working today. */
         TeamMemberToday: {
             /** @description Appointments today, not counting cancelled ones. */
@@ -12082,6 +12819,59 @@ export interface components {
             label: string;
             /** @description The template's layout; "Reset to template" saves this. */
             layout: components["schemas"]["DashboardLayout"];
+        };
+        /**
+         * @description A period of time off. `kind`, `reason` and the decision are left out for staff who are not the
+         *     person away and do not hold `time_off.manage`; they see approved time off only.
+         */
+        TimeOff: {
+            /** @description Whether the window is whole days of the clinic's calendar. */
+            all_day: boolean;
+            /** @description When (RFC 3339); private. */
+            decided_at?: string | null;
+            /** @description Who decided; private. */
+            decided_by?: string | null;
+            /** @description The decider's note; private. */
+            decision_note?: string | null;
+            /** @description End (RFC 3339), exclusive. */
+            ends_at: string;
+            /** @description The request. */
+            id: string;
+            /** @description `vacation`, `sick`, `personal` or `other`; private. */
+            kind?: string | null;
+            /** @description Their name. */
+            member_name?: string | null;
+            /** @description The person away. */
+            membership_id: string;
+            /** @description Why; private. */
+            reason?: string | null;
+            /** @description Start (RFC 3339). */
+            starts_at: string;
+            /** @description `pending`, `approved`, `declined` or `cancelled`. */
+            status: string;
+        };
+        /** @description A decision's optional note for the requester. */
+        TimeOffDecision: {
+            /** @description A note for the requester, at most 200 characters. */
+            note?: string | null;
+        };
+        /** @description Time off in a range. */
+        TimeOffList: {
+            /** @description By start. */
+            items: components["schemas"]["TimeOff"][];
+        };
+        /** @description Time-off settings. */
+        TimeOffSettings: {
+            /**
+             * @description Whether a member's own request waits for the owner (default true). Time off the owner
+             *     records for someone else is always approved at once.
+             */
+            requires_approval: boolean;
+        };
+        /** @description Changes to the time-off settings; what is left out stays. */
+        TimeOffSettingsChanges: {
+            /** @description Whether a member's own request waits for the owner. */
+            requires_approval?: boolean | null;
         };
         /** @description A page of a patient's timeline, newest first. */
         Timeline: {
@@ -12313,6 +13103,16 @@ export interface components {
             /** @description The visit it belongs to. */
             visit_id?: string | null;
         };
+        /** @description One line of materials used. */
+        UsageBody: {
+            /** @description The stock item. */
+            item_id: string;
+            /**
+             * Format: int64
+             * @description Units used, 1 to 1000000.
+             */
+            quantity: number;
+        };
         /** @description Stock used. */
         UseBody: {
             /** @description The item. */
@@ -12486,6 +13286,11 @@ export interface components {
             patient_id: string;
             /** @description The doctor, if known. */
             practitioner_id?: string | null;
+            /**
+             * @description Why the patient came: plain text, trimmed, at most 200 characters (more is a `400`);
+             *     empty means none.
+             */
+            reason?: string | null;
         };
         /**
          * @description A walk-in: a new patient (`patient`) or a registered one (`patient_id`), exactly one of the
@@ -12519,6 +13324,11 @@ export interface components {
             patient_id?: string | null;
             /** @description The doctor, if known. A member who sees only their own patients must name themselves. */
             practitioner_id?: string | null;
+            /**
+             * @description Why the patient came: plain text, trimmed, at most 200 characters (more is a `400`);
+             *     empty means none. Kept on the queue token.
+             */
+            reason?: string | null;
         };
         /** @description Changes to the website; anything left out stays as it is. */
         WebsiteChanges: {
@@ -12837,6 +13647,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The doctor is on leave then (`practitioner_on_leave`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     getMonthSummary: {
@@ -12955,6 +13772,13 @@ export interface operations {
             };
             /** @description `stale_version`: the record changed since the `If-Match` version; the current version is in `ETag` */
             412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Moved to a doctor or time on leave (`practitioner_on_leave`) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13085,6 +13909,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MoveRefused"];
                 };
+            };
+            /** @description Confirming a request for a doctor who is on leave then (`practitioner_on_leave`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -16415,6 +17246,60 @@ export interface operations {
             };
             /** @description An item has this name */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateInventoryItemAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The item */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertSettingsBody"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19915,7 +20800,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
+            /** @description The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -19948,7 +20833,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
+            /** @description The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -19981,7 +20866,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
+            /** @description The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -20016,7 +20901,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
+            /** @description The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -25772,6 +26657,97 @@ export interface operations {
             };
         };
     };
+    getStaffOpsSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOpsSettingsBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateStaffOpsSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffOpsSettingsChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOpsSettingsBody"];
+                };
+            };
+            /** @description Invalid input; the message names the setting */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getWebsiteSettings: {
         parameters: {
             query?: never;
@@ -26520,6 +27496,56 @@ export interface operations {
             };
         };
     };
+    getStockAnalytics: {
+        parameters: {
+            query?: {
+                /** @description One item; every active item by default */
+                item_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockAnalytics"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     expireStockBatch: {
         parameters: {
             query?: never;
@@ -27253,6 +28279,477 @@ export interface operations {
             };
         };
     };
+    listTasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewTaskBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listTaskHistory: {
+        parameters: {
+            query?: {
+                /** @description First clinic day, YYYY-MM-DD; 30 days before `to` by default */
+                from?: string;
+                /** @description Last clinic day, YYYY-MM-DD; today by default */
+                to?: string;
+                /** @description A member: tasks given to them or their role, or finished by them */
+                assignee?: string;
+                /** @description open, done, skipped or missed */
+                status?: string;
+                /** @description One task */
+                template_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskHistory"];
+                };
+            };
+            /** @description A bad filter, or a range over 92 days */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMyTasks: {
+        parameters: {
+            query?: {
+                /** @description The clinic day, YYYY-MM-DD; today by default */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTasks"];
+                };
+            };
+            /** @description A bad date */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    completeTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The occurrence */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOccurrence"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.use, or the task is for someone else */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already done by someone else, no longer open, or not enough stock */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reopenTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The occurrence */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOccurrence"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The task was missed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The task */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The task */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A standard task cannot be deleted */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The task */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskChangeBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    previewTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The task */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskPreview"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listMessageTemplates: {
         parameters: {
             query?: never;
@@ -27433,6 +28930,310 @@ export interface operations {
                 content?: never;
             };
             /** @description An email template, one without a name at Meta, or one approved already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listTimeOff: {
+        parameters: {
+            query: {
+                /** @description First local day, `YYYY-MM-DD` */
+                from: string;
+                /** @description Last local day, `YYYY-MM-DD`; at most 42 days counting both */
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOffList"];
+                };
+            };
+            /** @description Bad dates or a range over 42 days */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createTimeOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewTimeOff"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOff"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks time_off.request, or time_off.manage for someone else */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such member in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listAffectedAppointments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AffectedAppointments"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks time_off.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    approveTimeOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeOffDecision"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOff"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks time_off.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is not pending */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cancelTimeOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOff"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks time_off.request */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request in this clinic, or not yours to cancel */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is already declined or cancelled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    declineTimeOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeOffDecision"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOff"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks time_off.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is not pending */
             409: {
                 headers: {
                     [name: string]: unknown;

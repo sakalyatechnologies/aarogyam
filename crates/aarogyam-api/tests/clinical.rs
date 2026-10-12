@@ -1768,7 +1768,7 @@ async fn dental_terms_are_seeded_added_per_clinic_and_named_by_entries() {
             .map(|t| t["label"].as_str().unwrap().to_owned())
             .collect()
     };
-    assert_eq!(labels(&chart, "material").len(), 10);
+    assert_eq!(labels(&chart, "material").len(), 25);
     assert!(labels(&chart, "material").contains(&"Zirconia".to_owned()));
     assert!(labels(&chart, "procedure").contains(&"Crown".to_owned()));
 

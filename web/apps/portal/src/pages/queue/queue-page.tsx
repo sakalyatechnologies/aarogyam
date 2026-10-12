@@ -6,14 +6,23 @@ import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
+import { useNewLook } from "../../lib/new-look.js";
+import { QueueV2 } from "./queue-v2.js";
 import { WalkInDialog } from "./walk-in-dialog.js";
 import { StartVisitButton } from "../../components/start-visit-button.js";
 import { ageSex, patientPath } from "../../lib/patients.js";
 import { usePractitioners, useQueue, useSetQueueStatus } from "../../queries.js";
 import { Empty, EmptyState, MkCard, PageHeader, Skeleton, StatTile, StatusChip } from "../../components/mk/index.js";
+import { COPY } from "../today/v2/copy.js";
+
+/** `/queue`: the Front desk board with the New look on, the original waiting room otherwise. */
+export function QueuePage() {
+  const [newLook] = useNewLook();
+  return newLook ? <QueueV2 /> : <QueuePageClassic />;
+}
 
 /** Today's waiting room: wait times, walk-ins and moving tokens along. Built for a tablet at the counter. */
-export function QueuePage() {
+function QueuePageClassic() {
   const { session, can } = useClinic();
   useDocumentTitle("Queue", session.clinic.name);
   const queue = useQueue();
@@ -77,10 +86,10 @@ export function QueuePage() {
               tone="warning"
               tokens={waiting}
               canWrite={canWrite}
-              empty={{ title: "Nobody is waiting", text: canWrite ? "Add a walk-in, or check people in from Today." : "Arrivals show here as they check in." }}
+              empty={{ title: COPY.nobodyWaiting, text: canWrite ? COPY.queueHint : COPY.queueHintReadOnly }}
             />
-            <QueueColumn title="In the chair" tone="primary" tokens={inChair} canWrite={canWrite} empty={{ title: "No chairs in use", text: "Seat a waiting patient to start their visit." }} />
-            <QueueColumn title="Done today" tone="success" tokens={resolved.slice(0, 15)} canWrite={false} empty={{ title: "Nobody has been seen yet", text: "Finished visits collect here through the day." }} />
+            <QueueColumn title="In the chair" tone="primary" tokens={inChair} canWrite={canWrite} empty={{ title: COPY.chairsFree, text: COPY.chairsFreeHint }} />
+            <QueueColumn title="Done today" tone="success" tokens={resolved.slice(0, 15)} canWrite={false} empty={{ title: COPY.noCompleted, text: COPY.doneHint }} />
           </div>
         </>
       )}
@@ -147,6 +156,7 @@ function QueueRow({ token, tone, canWrite }: { token: QueueToken; tone: "warning
           {token.patient.number} · {ageSex(token.patient.age_years, token.patient.sex)}
           {token.practitioner == null ? "" : ` · ${token.practitioner.display_name}`}
         </p>
+        {token.reason == null ? null : <p className="truncate text-xs text-text">{token.reason}</p>}
         <span style={{ display: "inline-block", marginTop: 4 }}>
           <StatusChip tone={token.status === "done" || token.status === "left" ? "done" : tone === "primary" ? "ready" : token.wait_minutes >= 30 ? "noshow" : "waiting"}>
             <Clock3 aria-hidden="true" className="size-3.5" />

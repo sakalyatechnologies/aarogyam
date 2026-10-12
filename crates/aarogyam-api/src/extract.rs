@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 
 use aarogyam_dal::lookups::{self, HostClinic, PlatformAccess};
 use aarogyam_domain::access::{ClinicActor, ClinicStatus, Denied};
-use aarogyam_domain::permission::Required;
+use aarogyam_domain::permission::{Permission, Required};
 use axum::extract::{FromRequestParts, MatchedPath};
 use axum::http::header;
 use axum::http::request::Parts;
@@ -279,18 +279,16 @@ impl<A: Required, B: Required> FromRequestParts<AppState> for RequireEither<A, B
     }
 }
 
-/// A [`ClinicRequest`] whose role holds at least one of permissions `A`, `B`, `C` and `D`;
-/// otherwise `403`. For the notification feed, which each permission fills with its own kind.
+/// A [`ClinicRequest`] whose role sees at least one kind of staff notification (bookings, labs,
+/// bills, recalls, tasks, stock, time off); otherwise `403`. Support grants are admitted,
+/// read-only. The notification routes narrow what each kind shows themselves.
 #[derive(Debug)]
-pub struct RequireAny<A: Required, B: Required, C: Required, D: Required> {
+pub struct NotificationReader {
     /// The checked request.
     pub request: ClinicRequest,
-    permissions: PhantomData<(A, B, C, D)>,
 }
 
-impl<A: Required, B: Required, C: Required, D: Required> FromRequestParts<AppState>
-    for RequireAny<A, B, C, D>
-{
+impl FromRequestParts<AppState> for NotificationReader {
     type Rejection = ApiFailure;
 
     async fn from_request_parts(
@@ -298,16 +296,10 @@ impl<A: Required, B: Required, C: Required, D: Required> FromRequestParts<AppSta
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let request = ClinicRequest::admit(parts, state, true).await?;
-        let held = [A::PERMISSION, B::PERMISSION, C::PERMISSION, D::PERMISSION]
-            .into_iter()
-            .any(|permission| request.actor.require(permission).is_ok());
-        if !held {
-            request.actor.require(A::PERMISSION)?;
+        if aarogyam_app::notifications::viewer(&request.actor).is_none() {
+            request.actor.require(Permission::AppointmentsRead)?;
         }
-        Ok(Self {
-            request,
-            permissions: PhantomData,
-        })
+        Ok(Self { request })
     }
 }
 

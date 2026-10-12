@@ -618,6 +618,8 @@ pub struct BadgeCounts {
     pub chat_unread: i64,
     /// Unread notifications (as `GET /notifications/count`); `None` without `appointments.read`.
     pub notifications_unread: Option<i64>,
+    /// Open tasks given to the caller or their role; 0 without `tasks.use`.
+    pub tasks_open: i64,
 }
 
 /// Chat and notification unread counts, in one statement.
@@ -632,11 +634,13 @@ pub async fn badges(
     actor.require(Permission::ChatUse)?;
     let me = actor.membership_id.uuid();
     let notifications = crate::notifications::viewer(actor);
+    let tasks = actor.require(Permission::TasksUse).is_ok();
     db.scoped(&scope(actor, request_id), async |tx| {
-        let counts = dal::badges(tx.conn(), me, UNREAD_CAP, notifications).await?;
+        let counts = dal::badges(tx.conn(), me, UNREAD_CAP, notifications, tasks).await?;
         Ok(BadgeCounts {
             chat_unread: counts.chat_unread,
             notifications_unread: counts.notifications_unread,
+            tasks_open: counts.tasks_open,
         })
     })
     .await

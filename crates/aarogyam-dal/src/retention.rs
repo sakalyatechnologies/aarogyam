@@ -384,6 +384,29 @@ pub async fn lab_contacts(
     Ok(rows)
 }
 
+/// Task occurrences that fell due before `cutoff`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn task_occurrences(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(due_at) as "oldest?",
+                  (array_agg(id order by due_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.task_occurrences where due_at < $1
+           group by org_id order by org_id"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 /// Chat messages posted before `cutoff`, per clinic (the retention report; owner's pool).
 ///
 /// # Errors
@@ -398,6 +421,31 @@ pub async fn chat_messages(
         r#"select org_id as "org_id?", count(*) as "count!", min(created_at) as "oldest?",
                   (array_agg(id order by created_at))[1:$2] as "sample!: Vec<Uuid>"
            from aarogyam.chat_messages where created_at < $1
+           group by org_id order by org_id"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+/// Time-off requests decided or cancelled and unchanged since `cutoff`. They hold a member's
+/// private reason, not a patient.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn time_off_requests(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(updated_at) as "oldest?",
+                  (array_agg(id order by updated_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.time_off_requests
+           where status <> 'pending' and updated_at < $1
            group by org_id order by org_id"#,
         cutoff,
         sample

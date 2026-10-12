@@ -61,7 +61,8 @@ pub struct LetterheadShown {
 pub struct Letterhead {
     /// `upload` (the clinic's own image) or `template` (a generated design).
     pub mode: String,
-    /// `logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor` or `bilingual`.
+    /// `logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor`, `bilingual`, `heritage_serif`, `modern_split`,
+    /// `monogram`, `clinical_clean`, `bilingual_elegant` or `signature`.
     pub template: String,
     /// Accent colour of the design, `#RRGGBB`; the brand colour when none.
     pub accent: Option<String>,

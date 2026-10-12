@@ -15,6 +15,15 @@ export interface GridColumn {
   showNow?: boolean;
   /** Working spans for this column (minutes after midnight). Empty means off that day; undefined falls back to workingMinutes. */
   working?: readonly Span[];
+  /** Approved time off that day, drawn as a band behind the appointments: the label ("Away · name") is all anyone sees. */
+  away?: readonly AwayBandShape[];
+}
+
+export interface AwayBandShape {
+  id: string;
+  label: string;
+  startMin: number;
+  endMin: number;
 }
 
 export interface GridEvent {
@@ -149,6 +158,28 @@ export function TimeGrid({
           return (
             <div key={c.id} className={`mk-tg-col ${c.current === true ? "current" : ""}`} style={{ backgroundSize: `100% ${String(HOUR_HEIGHT)}px` }}>
               {renderShading(c)}
+              {(c.away ?? []).map((band, index, all) => {
+                const from = Math.max(band.startMin, startHour * 60);
+                const to = Math.min(band.endMin, endHour * 60);
+                if (to <= from) return null;
+                const top = offsetPercent(from, startHour, endHour);
+                return (
+                  <div
+                    key={band.id}
+                    className="mk-tg-away"
+                    role="note"
+                    aria-label={band.label}
+                    style={{
+                      top: `${String(top)}%`,
+                      height: `${String(offsetPercent(to, startHour, endHour) - top)}%`,
+                      left: `${String((index / all.length) * 100)}%`,
+                      width: `${String(100 / all.length)}%`,
+                    }}
+                  >
+                    <span>{band.label}</span>
+                  </div>
+                );
+              })}
               {packed.map(({ item, column, columns: span }) => {
                 const top = `${String(offsetPercent(item.startMin, startHour, endHour))}%`;
                 const left = `calc(${String((column / span) * 100)}% + 2px)`;

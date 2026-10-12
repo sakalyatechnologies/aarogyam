@@ -1,0 +1,126 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select i.id as item_id, i.name, i.unit, i.reorder_level, i.lead_time_days, i.alerts_enabled,\n                  coalesce(b.expiries, '{}') as \"batch_expiries!: Vec<Option<Date>>\",\n                  coalesce(b.quantities, '{}') as \"batch_quantities!: Vec<i64>\",\n                  coalesce(u.days, '{}') as \"use_days!: Vec<Date>\",\n                  coalesce(u.quantities, '{}') as \"use_quantities!: Vec<i64>\",\n                  u.first_use_on\n           from aarogyam.inventory_items i\n           left join lateral (\n             select array_agg(sb.expiry order by sb.expiry nulls last, sb.id) as expiries,\n                    array_agg(sb.quantity order by sb.expiry nulls last, sb.id) as quantities\n             from aarogyam.stock_batches sb\n             where sb.org_id = i.org_id and sb.item_id = i.id and sb.quantity > 0\n               and (sb.expiry is null or sb.expiry >= $3)\n           ) b on true\n           left join lateral (\n             select array_agg(x.day order by x.day) as days,\n                    array_agg(x.used order by x.day) as quantities,\n                    min(x.day) as first_use_on\n             from (select (m.created_at at time zone 'UTC' + $2::int * interval '1 second')::date as day, (-sum(m.quantity))::bigint as used\n                   from aarogyam.stock_movements m\n                   where m.org_id = i.org_id and m.item_id = i.id and m.kind = 'use'\n                     and m.created_at >= $4::timestamptz - interval '30 days'\n                   group by 1) x\n             where x.day > $3 - 28 and x.day <= $3\n           ) u on true\n           where i.deleted_at is null and (($1::uuid is null and i.active) or i.id = $1)\n           order by lower(i.name), i.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "item_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "unit",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "unit"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "reorder_level",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "reorder_level"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "lead_time_days",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "lead_time_days"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "alerts_enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "alerts_enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "batch_expiries!: Vec<Option<Date>>",
+        "type_info": "DateArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "batch_quantities!: Vec<i64>",
+        "type_info": "Int8Array",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "use_days!: Vec<Date>",
+        "type_info": "DateArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "use_quantities!: Vec<i64>",
+        "type_info": "Int8Array",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "first_use_on",
+        "type_info": "Date",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Date",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "a49f17b3d851332ab5e82df47ec6cb5424006edba3ebda481a34b712d63f3003"
+}

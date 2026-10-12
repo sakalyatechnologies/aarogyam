@@ -639,7 +639,7 @@ pub async fn leave(
     .await
 }
 
-/// Records a doctor's leave. Appointments already booked stay; new bookings get a warning.
+/// Records a doctor's leave. Appointments already booked stay; new bookings are refused (`practitioner_on_leave`).
 ///
 /// # Errors
 /// [`AppError::Invalid`] when the end isn't after the start or the reason is too long;

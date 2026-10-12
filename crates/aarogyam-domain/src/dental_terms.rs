@@ -181,7 +181,10 @@ mod tests {
             assert_eq!(unique.len(), ids.len(), "{kind} ids repeat");
             for id in ids {
                 assert!(
-                    id.len() <= 40 && id.bytes().all(|b| b.is_ascii_lowercase() || b == b'_'),
+                    id.len() <= 40
+                        && id
+                            .bytes()
+                            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_'),
                     "{id}"
                 );
             }

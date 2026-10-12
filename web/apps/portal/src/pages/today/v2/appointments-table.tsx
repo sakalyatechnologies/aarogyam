@@ -10,12 +10,12 @@ import { displayName } from "../../../lib/patients.js";
 
 type Appointment = Today["appointments"][number];
 
-const KIND_LABEL: Readonly<Record<Appointment["kind"], string>> = { new: "New", follow_up: "Follow-up", procedure: "Procedure", emergency: "Emergency" };
+const TYPE_LABEL: Readonly<Record<Appointment["patient_type"], string>> = { new: "New", follow_up: "Follow-up" };
 
 const COLUMNS: readonly SortColumn<Appointment>[] = [
   { id: "time", kind: "date", value: (a) => a.starts_at },
   { id: "patient", kind: "text", value: (a) => a.patient.full_name },
-  { id: "type", kind: "text", value: (a) => KIND_LABEL[a.kind] },
+  { id: "type", kind: "text", value: (a) => TYPE_LABEL[a.patient_type] },
   { id: "visit", kind: "text", value: (a) => a.reason },
   { id: "chair", kind: "text", value: (a) => a.room },
   { id: "status", kind: "text", value: (a) => APPOINTMENT_CHIP[a.status].label },
@@ -48,7 +48,7 @@ export function AppointmentsTable({ rows, zone, onOpen }: { rows: readonly Appoi
                   {displayName(a.patient.full_name)}
                 </button>
               </td>
-              <td className="tv2-opt">{a.kind === "new" ? <Tag tone="warning">New</Tag> : <Tag>{KIND_LABEL[a.kind]}</Tag>}</td>
+              <td className="tv2-opt">{a.patient_type === "new" ? <Tag tone="warning">New</Tag> : <Tag>{TYPE_LABEL[a.patient_type]}</Tag>}</td>
               <td className="tv2-opt2">{a.reason ?? "—"}</td>
               <td className="tv2-opt">{a.room ?? "—"}</td>
               <td>

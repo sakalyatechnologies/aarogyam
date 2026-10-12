@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { unwrap } from "@aarogyam/api-client";
+import { formatRupees } from "@aarogyam/app-kit";
 import { Dialog, Field, TextArea } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
@@ -10,6 +11,7 @@ import { useSetQueueStatus } from "../../../queries.js";
 import { usePrescriptions } from "../../prescriptions/queries.js";
 import { CollectPanel } from "./collect-panel.js";
 import { PillButton } from "./kit.js";
+import { useBillDraft } from "./use-bill-draft.js";
 import "./p360.css";
 import { useVisitSession, type FinishOptions } from "./visit-session.js";
 
@@ -78,17 +80,21 @@ export function VisitBar() {
   const [sending, setSending] = useState(false);
   const [reason, setReason] = useState("");
   const prescriptions = usePrescriptions(session.canRx ? session.patientId : undefined);
+  const canBill = can("billing.write");
+  // The bill's lines, shared by the suggested total below, Send for payment and the Collect panel.
+  const draft = useBillDraft({ patientId: session.patientId, visitId: (session.ended?.visit ?? session.visit)?.id, stage: session.ended === undefined ? "active" : "ended", enabled: session.canWrite && canBill });
+  const [billError, setBillError] = useState<string | undefined>(undefined);
   if (!session.canWrite) return null;
 
   const { visit, rx, ended, voice } = session;
-  const canBill = can("billing.write");
   const latestIssued =
     rx.issued?.rx ?? [...(prescriptions.data?.items ?? [])].filter((r) => r.status === "issued").sort((a, b) => (b.issued_at ?? "").localeCompare(a.issued_at ?? ""))[0];
   const medicines = rx.draft?.items.length ?? 0;
 
+  // Ending the visit is the step before payment: the queue token waits at "ready to bill" rather than going to "done".
   const run = (options?: FinishOptions) => {
     setConfirming(false);
-    void session.finish(options).then((finished) => {
+    void session.finish({ ...options, sendForPayment: true }).then((finished) => {
       if (finished !== undefined) setReason("");
     });
   };
@@ -97,6 +103,13 @@ export function VisitBar() {
   // the queue has already finished its token, and a role without appointments.write cannot move one.
   const sendForPayment = async () => {
     setSending(true);
+    setBillError(undefined);
+    // The lines go into the visit's draft bill, so the desk sees what the doctor saw. Not issued: the desk finishes it.
+    if (canBill && draft.ready && draft.problem === undefined) {
+      await draft.save().catch(() => {
+        setBillError("The bill lines could not be saved. The desk can add them.");
+      });
+    }
     try {
       if (can("appointments.read") && can("appointments.write")) {
         const queue = await unwrap(api.listQueue(undefined)).catch(() => undefined);
@@ -126,6 +139,11 @@ export function VisitBar() {
         ) : (
           <VisitTimer startedAt={visit.started_at} />
         )}
+        {ended === undefined && visit !== undefined && canBill && draft.ready && draft.total > 0 ? (
+          <span className="p360-sum" aria-live="polite">
+            Suggested total {formatRupees(draft.total)}
+          </span>
+        ) : null}
         {voice.busy && ended === undefined && visit !== undefined ? <span className="p360-sum">Save the voice note before ending the visit.</span> : null}
         <div className="p360-act">
           {session.canRx ? (
@@ -183,6 +201,11 @@ export function VisitBar() {
           )}
         </div>
       </div>
+      {billError === undefined ? null : (
+        <p role="alert" className="mk-hint" style={{ color: "var(--red)", margin: 0 }}>
+          {billError}
+        </p>
+      )}
       {session.error === undefined || session.visit === undefined ? null : (
         <p role="alert" className="mk-hint" style={{ color: "var(--red)", margin: 0 }}>
           {session.error}
@@ -191,6 +214,7 @@ export function VisitBar() {
       {collecting && ended !== undefined ? (
         <CollectPanel
           finished={ended}
+          draft={draft}
           onClose={() => {
             setCollecting(false);
           }}

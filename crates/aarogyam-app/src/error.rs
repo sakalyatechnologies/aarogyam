@@ -32,6 +32,9 @@ pub enum AppError {
     /// The visit is closed, so it can't be finished again. Retrying changes nothing.
     #[error("this visit is already closed")]
     VisitClosed,
+    /// The doctor is on approved leave at the time asked for (`422 practitioner_on_leave`).
+    #[error("the doctor is on leave at this time")]
+    PractitionerOnLeave,
     /// The client's `If-Match` names an older version than the record has: it changed since the
     /// client read it.
     #[error("the record changed since it was read")]

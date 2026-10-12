@@ -13,6 +13,15 @@ export interface MonthItem {
   tone: string;
 }
 
+/** A person away on a day: the label ("Away · name") only, never the kind or the reason. */
+export interface MonthAway {
+  id: string;
+  /** Clinic-local date, `YYYY-MM-DD`. */
+  date: string;
+  /** The person's name. */
+  name: string;
+}
+
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const SHOWN = 2;
 
@@ -21,6 +30,7 @@ export function MonthView({
   month,
   today,
   items,
+  away = [],
   onOpenDay,
   onSelect,
 }: {
@@ -28,6 +38,7 @@ export function MonthView({
   month: string;
   today: string;
   items: readonly MonthItem[];
+  away?: readonly MonthAway[];
   onOpenDay: (date: string) => void;
   onSelect: (id: string) => void;
 }) {
@@ -37,6 +48,8 @@ export function MonthView({
   for (const item of [...items].sort((a, b) => a.startMin - b.startMin)) {
     byDay.set(item.date, [...(byDay.get(item.date) ?? []), item]);
   }
+  const awayByDay = new Map<string, MonthAway[]>();
+  for (const a of away) awayByDay.set(a.date, [...(awayByDay.get(a.date) ?? []), a]);
   return (
     <div className="mk-month" role="group" aria-label={`Appointments in ${monthKey}`}>
       {WEEKDAYS.map((d) => (
@@ -47,6 +60,7 @@ export function MonthView({
       {weeks.flat().map((date) => {
         const day = byDay.get(date) ?? [];
         const more = day.length - SHOWN;
+        const gone = awayByDay.get(date) ?? [];
         return (
           <div key={date} className={`mk-mday ${date.startsWith(monthKey) ? "" : "out"} ${date === today ? "today" : ""}`}>
             <button
@@ -60,6 +74,15 @@ export function MonthView({
               {Number(date.slice(8, 10))}
               {day.length > 0 ? <span className="mk-mcount">{day.length}</span> : null}
             </button>
+            {gone.length === 0 ? null : gone.length <= SHOWN ? (
+              gone.map((a) => (
+                <span key={a.id} className="mk-away">
+                  Away · {a.name}
+                </span>
+              ))
+            ) : (
+              <span className="mk-away">Away · {gone.length} people</span>
+            )}
             {day.slice(0, SHOWN).map((item) => (
               <button
                 key={item.id}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.task_templates set deleted_at = now(), active = false\n           where id = $1 and deleted_at is null and not is_default",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1f1a4b1a08cf98fc779593e87dfda1a148cf06989287ac9cd27ed4a39eb357ec"
+}

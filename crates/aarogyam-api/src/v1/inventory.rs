@@ -250,6 +250,11 @@ pub struct StockLevel {
     /// Units to order to get back up to the item's max level (the max level less what is on
     /// hand); null without a max level or when nothing is needed.
     pub suggested_order: Option<i64>,
+    /// Whole days the stock lasts at the recent rate of use. Filled only on the low-stock list,
+    /// and only for items with enough use history.
+    pub days_cover: Option<i64>,
+    /// The day the stock runs out, `YYYY-MM-DD`. Filled with `days_cover`.
+    pub runs_out_on: Option<String>,
 }
 
 impl From<StockItem> for StockLevel {
@@ -260,6 +265,8 @@ impl From<StockItem> for StockLevel {
             next_expiry: stock.next_expiry.map(|date| date.to_string()),
             status: stock.status.as_str().to_owned(),
             suggested_order: stock.suggested_order,
+            days_cover: None,
+            runs_out_on: None,
         }
     }
 }
@@ -646,8 +653,24 @@ pub(crate) async fn low(
         OffsetDateTime::now_utc(),
     )
     .await?;
+    let cover = aarogyam_app::stock_insights::cover_by_item(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
     Ok(Json(ItemList {
-        items: rows.into_iter().map(StockLevel::from).collect(),
+        items: rows
+            .into_iter()
+            .map(|row| {
+                let found = cover.get(&row.item.id.uuid()).copied();
+                let mut level = StockLevel::from(row);
+                level.days_cover = found.map(|(days, _)| days);
+                level.runs_out_on = found.map(|(_, day)| day.to_string());
+                level
+            })
+            .collect(),
     }))
 }
 

@@ -7,10 +7,11 @@ import { useRegisterWalkIn } from "../../walk-in-queries.js";
 import { EMPTY_INTAKE, IntakeFields, type Intake } from "./intake-fields.js";
 import { EMPTY_NEW_WALK_IN, NewWalkInFields, newWalkInProblem, type NewWalkIn } from "./new-walk-in-fields.js";
 import { PhoneLookup, type Who } from "./phone-lookup.js";
+import { ReasonField } from "./reason-field.js";
 import "../../components/quick-picks.css";
 
 /** Builds the one-step walk-in request from what the desk entered, or says what is missing. */
-export function walkInRequest(mobile: string, who: Who, fresh: NewWalkIn, intake: Intake, practitionerId: string): WalkInRequest | string {
+export function walkInRequest(mobile: string, who: Who, fresh: NewWalkIn, intake: Intake, practitionerId: string, reason = ""): WalkInRequest | string {
   const consents: WalkInRequest["consents"] = [{ purpose: "care", method: "verbal" }];
   if (intake.reminders) consents.push({ purpose: "reminders", method: "verbal" });
   const common = {
@@ -18,6 +19,7 @@ export function walkInRequest(mobile: string, who: Who, fresh: NewWalkIn, intake
     no_known_allergies: intake.noKnownAllergies,
     consents,
     ...(practitionerId === "" ? {} : { practitioner_id: practitionerId }),
+    ...(reason.trim() === "" ? {} : { reason: reason.trim() }),
   };
   if (who.kind === "existing") return { ...common, patient_id: who.id };
   if (who.kind === "none" && mobile !== "") return "Pick the patient, or choose Someone new.";
@@ -40,6 +42,7 @@ export function WalkInDialog({ open, onOpenChange, practitioners }: { open: bool
   const [fresh, setFresh] = useState<NewWalkIn>(EMPTY_NEW_WALK_IN);
   const [intake, setIntake] = useState<Intake>(EMPTY_INTAKE);
   const [practitionerId, setPractitionerId] = useState("");
+  const [reason, setReason] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
   const register = useRegisterWalkIn();
   const toast = useToast();
@@ -53,11 +56,12 @@ export function WalkInDialog({ open, onOpenChange, practitioners }: { open: bool
     setFresh(EMPTY_NEW_WALK_IN);
     setIntake(EMPTY_INTAKE);
     setPractitionerId("");
+    setReason("");
     setError(undefined);
   };
 
   const submit = () => {
-    const request = walkInRequest(mobile, who, fresh, intake, practitionerId);
+    const request = walkInRequest(mobile, who, fresh, intake, practitionerId, reason);
     if (typeof request === "string") {
       setError(request);
       return;
@@ -97,6 +101,7 @@ export function WalkInDialog({ open, onOpenChange, practitioners }: { open: bool
       <div className="flex flex-col gap-4">
         <PhoneLookup mobile={mobile} onMobile={setMobile} who={who} onWho={setWho} />
         {showNew ? <NewWalkInFields value={fresh} onChange={setFresh} /> : null}
+        <ReasonField value={reason} onChange={setReason} />
         <IntakeFields value={intake} onChange={setIntake} />
         <div className="wi-section">
           <Field label="Doctor" hint="Optional">

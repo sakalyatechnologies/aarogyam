@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.task_templates\n           set title = $2, description = $3, assignee_membership_id = $4, assignee_role_id = $5,\n               schedule_kind = $6, once_at = $7, interval_days = $8, weekdays = $9,\n               due_time = $10, starts_on = $11, ends_on = $12, remind_every_minutes = $13,\n               escalate_after = $14, action = $15, active = $16\n           where id = $1 and deleted_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Int4",
+        "Int2",
+        "Time",
+        "Date",
+        "Date",
+        "Int4",
+        "Int4",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9d3b386b0eae5783ceb28b43c086d489bf387ffb76e274519410790978a87c5c"
+}

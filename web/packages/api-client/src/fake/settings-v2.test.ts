@@ -148,6 +148,16 @@ describe("clinic settings", () => {
     }
   });
 
+  it("saves every letterhead design key, old and new, and refuses an unknown one", async () => {
+    const { as } = setup();
+    for (const template of ["classic", "two_doctor", "bilingual", "heritage_serif", "modern_split", "monogram", "clinical_clean", "bilingual_elegant", "signature"] as const) {
+      const saved = value(await as(ASHA).updateClinicSettings({ letterhead: { template } }));
+      expect(saved.letterhead.template).toBe(template);
+    }
+    const bad = await as(ASHA).updateClinicSettings({ letterhead: { template: "nope" } });
+    expect(bad.ok).toBe(false);
+  });
+
   it("uploads a logo, refuses anything else, and keeps it in its clinic", async () => {
     const { as } = setup();
     const form = new FormData();

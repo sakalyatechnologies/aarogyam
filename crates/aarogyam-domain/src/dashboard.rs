@@ -129,6 +129,8 @@ text_value! {
         PendingPayments => "pending_payments",
         /// The hours of the day that fill up.
         BusyHours => "busy_hours",
+        /// The caller's own tasks for the day, finished in one tap.
+        MyTasks => "my_tasks",
     }
 }
 
@@ -587,6 +589,18 @@ const BUSY_HOURS: WidgetSpec = WidgetSpec {
     options: NO_OPTIONS,
 };
 
+const MY_TASKS: WidgetSpec = WidgetSpec {
+    key: Widget::MyTasks,
+    label: "My tasks",
+    description: "Your tasks for today, overdue ones first, finished in one tap.",
+    zones: &[Top, Main],
+    sizes: M_L_FULL,
+    default_size: Full,
+    default_zone: Main,
+    requires: Some(Permission::TasksUse),
+    options: NO_OPTIONS,
+};
+
 impl Widget {
     /// The registry's entry for this widget.
     #[must_use]
@@ -607,6 +621,7 @@ impl Widget {
             Self::RevenueMix => &REVENUE_MIX,
             Self::PendingPayments => &PENDING_PAYMENTS,
             Self::BusyHours => &BUSY_HOURS,
+            Self::MyTasks => &MY_TASKS,
         }
     }
 }
@@ -693,6 +708,7 @@ impl Template {
         let items = match self {
             Self::Medsync => vec![
                 kpis(&[Appts, Completed, Waiting, Collected]),
+                item(Widget::MyTasks, Main, Full),
                 item(Widget::Appointments, Main, L),
                 item(Widget::Attention, Main, S),
                 item(Widget::Chairs, Main, M),
@@ -711,6 +727,7 @@ impl Template {
                     NewPatients,
                     ChairsBusy,
                 ]),
+                item(Widget::MyTasks, Main, Full),
                 with(item(Widget::Collections, Main, L), "weeks", json!(12)),
                 item(Widget::RevenueMix, Main, S),
                 item(Widget::BusyHours, Main, M),
@@ -722,6 +739,7 @@ impl Template {
             ],
             Self::Care => vec![
                 kpis(&[Appts, Completed, Waiting, NewPatients]),
+                item(Widget::MyTasks, Main, Full),
                 item(Widget::Queue, Main, L),
                 with(item(Widget::Appointments, Main, L), "view", json!("list")),
                 item(Widget::RecentPatients, Main, M),
@@ -733,6 +751,7 @@ impl Template {
             ],
             Self::Focus => vec![
                 with(item(Widget::Nextup, Top, Full), "count", json!(1)),
+                item(Widget::MyTasks, Main, Full),
                 item(Widget::Queue, Main, M),
                 with(item(Widget::Appointments, Main, L), "view", json!("list")),
                 item(Widget::Attention, Main, M),
@@ -747,6 +766,7 @@ impl Template {
                     Collected,
                     ChairsBusy,
                 ]),
+                item(Widget::MyTasks, Main, Full),
                 item(Widget::Appointments, Main, Full),
                 item(Widget::Queue, Main, M),
                 with(item(Widget::Chairs, Main, M), "show_chart", json!(false)),
@@ -759,6 +779,7 @@ impl Template {
             ],
             Self::FrontDesk => vec![
                 kpis(&[Appts, Completed, Waiting, NewPatients]),
+                item(Widget::MyTasks, Main, Full),
                 item(Widget::Queue, Main, L),
                 item(Widget::Appointments, Main, L),
                 item(Widget::PendingPayments, Main, M),
@@ -1049,7 +1070,7 @@ mod tests {
 
     #[test]
     fn every_widget_default_is_valid_and_its_size_and_zone_allowed() {
-        assert_eq!(Widget::ALL.len(), 15);
+        assert_eq!(Widget::ALL.len(), 16);
         for widget in Widget::ALL {
             let spec = widget.spec();
             assert_eq!(spec.key, *widget);
@@ -1061,8 +1082,37 @@ mod tests {
         }
     }
 
+    /// `MedSync` without "My tasks", so the positions the tests below name stay put.
     fn base() -> RawLayout {
-        raw_of(&Template::Medsync.layout())
+        let mut raw = raw_of(&Template::Medsync.layout());
+        raw.items.retain(|item| item.key != "my_tasks");
+        raw
+    }
+
+    #[test]
+    fn my_tasks_is_in_every_template_main_area_and_takes_top_or_main_only() {
+        for template in Template::ALL {
+            let layout = template.layout();
+            let at = layout.items.iter().position(|i| i.key == Widget::MyTasks);
+            let at = at.unwrap_or_else(|| panic!("{template} has no my_tasks"));
+            assert_eq!(layout.items[at].zone, Main, "{template}");
+            assert!(at <= 2, "{template}: near the top");
+        }
+        let spec = Widget::MyTasks.spec();
+        assert_eq!(spec.zones, &[Top, Main]);
+        assert_eq!(spec.sizes, &[M, L, Full]);
+        assert_eq!(spec.options.len(), 0);
+        assert_eq!(Widget::parse("my_tasks").unwrap(), Widget::MyTasks);
+        let mut raw = base();
+        raw.items.push(RawItem {
+            key: "my_tasks".into(),
+            zone: "rail".into(),
+            size: "M".into(),
+            opts: Map::new(),
+        });
+        assert_eq!(validate(&raw).unwrap_err().field, "items[9].zone");
+        raw.items[9].zone = "top".into();
+        assert!(validate(&raw).is_ok());
     }
 
     #[test]

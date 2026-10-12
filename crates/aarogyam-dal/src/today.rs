@@ -118,6 +118,15 @@ pub async fn today(
               from (select a.id, a.branch_id, a.room_id, r.name as room_name, a.starts_at, a.ends_at,
                            a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason,
                            a.arrived_at, a.seated_at, a.completed_at, a.row_version,
+                           case when exists (select 1 from aarogyam.appointments e
+                                            where e.org_id = a.org_id and e.patient_id = a.patient_id
+                                              and e.id <> a.id and e.deleted_at is null
+                                              and e.status = 'completed' and e.starts_at < a.starts_at)
+                                 or exists (select 1 from aarogyam.encounters v
+                                            where v.org_id = a.org_id and v.patient_id = a.patient_id
+                                              and v.status = 'closed' and v.started_at < a.starts_at
+                                              and v.appointment_id is distinct from a.id)
+                               then 'follow_up' else 'new' end as patient_type,
                            a.patient_id, p.number as patient_number, p.full_name as patient_name,
                            p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                            p.birth_date_estimated as patient_birth_date_estimated,
@@ -144,7 +153,7 @@ pub async fn today(
                             and (p.sex = 'unknown' or p.date_of_birth is null))
                              as patient_registration_incomplete,
                            q.appointment_id, q.practitioner_id, d.display_name as practitioner_name,
-                           q.room_id
+                           q.room_id, q.reason
                     from aarogyam.queue_tokens q
                     join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
                     left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id

@@ -106,6 +106,8 @@ pub mod share;
 pub mod staff;
 pub mod stock_import;
 pub mod support;
+pub mod tasks;
+pub mod time_off;
 pub mod upi;
 pub mod vitals;
 pub mod website;

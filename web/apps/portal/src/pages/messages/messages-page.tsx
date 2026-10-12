@@ -2,12 +2,19 @@ import { useDocumentTitle } from "@aarogyam/app-kit";
 
 import { Empty, Kpi, MkCard, Tag } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
+import { useNewLook } from "../../lib/new-look.js";
+import { MessagesV2 } from "./v2/messages-v2.js";
 
 /**
  * Messages is a Phase 2 screen (docs/ui-spec.md): no endpoint exists yet, so every number is an
  * empty value and every action is disabled. The layout is the mock-up's, ready for real data.
  */
 export function MessagesPage() {
+  const [newLook] = useNewLook();
+  return newLook ? <MessagesV2 /> : <MessagesStub />;
+}
+
+function MessagesStub() {
   const { session } = useClinic();
   useDocumentTitle("Messages", session.clinic.name);
   return (

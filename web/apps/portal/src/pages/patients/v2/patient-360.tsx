@@ -1,9 +1,10 @@
-import { CalendarPlus, ChevronLeft, Pencil } from "lucide-react";
+import { CalendarPlus, ChevronLeft, MessageCircle, Pencil } from "lucide-react";
 import { useEffect } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
+import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
+import { Menu, type MenuItem } from "@sakalya/ui";
 
 import { AppointmentActionButton, isOpenAppointment } from "../../../components/appointment-action.js";
 import { Initials, Skeleton, Tag } from "../../../components/mk/index.js";
@@ -15,7 +16,8 @@ import { useClinicalFlags, usePatient, useToday } from "../../../queries.js";
 import { NotFoundPage } from "../../not-found-page.js";
 import { ConsentLine } from "../patient-page.js";
 import { Celebration } from "./celebration.js";
-import { PillButton, Pills } from "./kit.js";
+import { Pills } from "./kit.js";
+import { PatientFacts } from "./patient-facts.js";
 import { ConsoleLayout, StageLayout, TabsLayout, type LayoutProps } from "./layouts.js";
 import { P360_LAYOUTS, useP360Layout, type P360Layout } from "./use-layout.js";
 import { VisitBar } from "./visit-bar.js";
@@ -78,6 +80,21 @@ function Patient360View({ patient }: { patient: Patient }) {
     rememberPatient(access.org_id, patient.id);
   }, [access.org_id, patient.id]);
 
+  const phone = patient.phone ?? "";
+  const moreItems: MenuItem<"edit" | "message" | "follow-up">[] = [
+    ...(can("patients.write") ? [{ id: "edit" as const, label: "Edit", icon: <Pencil aria-hidden="true" /> }] : []),
+    ...(can("patients.contact") && phone !== "" ? [{ id: "message" as const, label: "Message", icon: <MessageCircle aria-hidden="true" /> }] : []),
+    { id: "follow-up" as const, label: "Follow-up", icon: <CalendarPlus aria-hidden="true" /> },
+  ];
+  const onMore = (id: "edit" | "message" | "follow-up") => {
+    if (id === "edit") void navigate(`${patientPath(patient)}/edit`);
+    else if (id === "follow-up") void navigate(`/calendar?book=1&patient=${patient.id}`);
+    else {
+      const digits = phone.replace(/\D/g, "");
+      globalThis.open(`https://wa.me/${digits.length === 10 ? `91${digits}` : digits}`, "_blank", "noopener,noreferrer");
+    }
+  };
+
   const props: LayoutProps = { patient, canClinical, showPastRx };
   return (
     <div className="p360">
@@ -86,54 +103,33 @@ function Patient360View({ patient }: { patient: Patient }) {
           <ChevronLeft aria-hidden="true" /> All patients
         </Link>
         <div className="p360-switch">
-          <span aria-hidden="true">Layout</span>
           <Pills<P360Layout> label="Layout" options={P360_LAYOUTS} value={layout} onChange={setLayout} />
         </div>
       </div>
 
-      <VisitBar />
-
       <section className="p360-head" aria-label="Patient summary">
-        <Initials name={patient.full_name} size="lg" />
+        <Initials name={patient.full_name} size="md" />
         <div className="p360-head-who">
           <h1>{displayName(patient.full_name)}</h1>
+          <div className="p360-meta">
           <p className="p360-line">
-            <span className="mk-mono">{patient.number}</span>
-            {" · "}
             {ageSex(patient.age_years ?? null, patient.sex, patient.birth_date_estimated)}
           </p>
           <div className="p360-tags">
             <AllergyTag patientId={patient.id} />
             <ConsentLine patientId={patient.id} />
             {patient.status === "active" ? null : <Tag tone="wait">{patient.status === "inactive" ? "Inactive" : patient.status}</Tag>}
-            {/* Money only with billing.read; a missing balance shows nothing rather than a made-up zero. */}
-            {can("billing.read") && patient.balance_paise != null && patient.balance_paise > 0 ? <Tag tone="wait">Due {formatRupees(patient.balance_paise)}</Tag> : null}
+          </div>
           </div>
         </div>
         <div className="p360-head-actions">
           {todayAppointment === undefined ? null : <AppointmentActionButton appointment={todayAppointment} />}
-          {can("patients.write") ? (
-            <PillButton
-              variant="ghost"
-              icon={<Pencil aria-hidden="true" />}
-              onClick={() => {
-                void navigate(`${patientPath(patient)}/edit`);
-              }}
-            >
-              Edit
-            </PillButton>
-          ) : null}
-          <PillButton
-            variant="ghost"
-            icon={<CalendarPlus aria-hidden="true" />}
-            onClick={() => {
-              void navigate(`/calendar?book=1&patient=${patient.id}`);
-            }}
-          >
-            Follow-up
-          </PillButton>
+          <Menu label="More" items={moreItems} onSelect={onMore} />
         </div>
+        <PatientFacts patient={patient} />
       </section>
+
+      <VisitBar />
 
       {layout === "console" ? <ConsoleLayout {...props} /> : layout === "stage" ? <StageLayout {...props} /> : <TabsLayout {...props} />}
 

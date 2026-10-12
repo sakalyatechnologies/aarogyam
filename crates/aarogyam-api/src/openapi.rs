@@ -12,6 +12,15 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     // utoipa copies the licence from Cargo.toml; private crates have none, which would leave
     // an invalid empty licence object.
     document.info.license = None;
+    // Staff to-dos, time off and stock alerts: each module lists its own paths and schemas.
+    for part in [
+        crate::v1::tasks::Doc::openapi(),
+        crate::v1::time_off::Doc::openapi(),
+        crate::v1::stock_insights::Doc::openapi(),
+        crate::v1::staff_ops::Doc::openapi(),
+    ] {
+        document.merge(part);
+    }
     document
 }
 

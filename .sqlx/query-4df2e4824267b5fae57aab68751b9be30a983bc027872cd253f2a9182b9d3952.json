@@ -1,0 +1,172 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,\n                  o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,\n                  o.completed_by, u.display_name as \"completed_by_name?\", o.note\n           from aarogyam.task_occurrences o\n           left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by\n           left join aarogyam.users u on u.id = m.user_id\n           where o.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "template_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "template_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "action",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "action"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "assignee_membership_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "assignee_membership_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "assignee_role_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "assignee_role_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "local_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "local_date"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "due_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "due_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "completed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "completed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "completed_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "completed_by"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "completed_by_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.users",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "note"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "4df2e4824267b5fae57aab68751b9be30a983bc027872cd253f2a9182b9d3952"
+}

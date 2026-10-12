@@ -229,6 +229,21 @@ export type Leave = Schemas["Leave"];
 export type LeaveList = Schemas["LeaveList"];
 export type NewLeave = Schemas["NewLeave"];
 
+// Time off and the staff-operations settings ---------------------------------------------------
+
+export type TimeOff = Schemas["TimeOff"];
+export type TimeOffList = Schemas["TimeOffList"];
+export type NewTimeOff = Schemas["NewTimeOff"];
+export type TimeOffDecision = Schemas["TimeOffDecision"];
+export type AffectedAppointment = Schemas["AffectedAppointment"];
+export type AffectedAppointments = Schemas["AffectedAppointments"];
+export type FreeDoctorSuggestion = Schemas["FreeDoctorSuggestion"];
+export type StaffOpsSettingsBody = Schemas["StaffOpsSettingsBody"];
+export type StaffOpsSettingsChanges = Schemas["StaffOpsSettingsChanges"];
+
+export type TimeOffKind = "vacation" | "sick" | "personal" | "other";
+export type TimeOffStatus = "pending" | "approved" | "declined" | "cancelled";
+
 // Appointments (M3) -----------------------------------------------------------------------------
 
 export type PatientBrief = Schemas["PatientBrief"];
@@ -272,6 +287,27 @@ export type MonthSummary = Schemas["MonthSummary"];
 export type DaySummary = Schemas["DaySummary"];
 export type LabOrder = Schemas["LabOrder"];
 export type LabPipelineStage = Schemas["LabPipelineStage"];
+export type LabOrderList = Schemas["LabOrderList"];
+export type LabOrderState = Schemas["LabOrderState"];
+export type LabOrderItem = Schemas["LabOrderItem"];
+export type LabOrderEvent = Schemas["LabOrderEvent"];
+export type NewLabOrder = Schemas["NewLabOrder"];
+export type NewLabOrderItem = Schemas["NewLabOrderItem"];
+export type LabOrderStatusChange = Schemas["LabOrderStatusChange"];
+export type LabOrderChanges = Schemas["LabOrderChanges"];
+export type LabContactLogEntry = Schemas["LabContactLogEntry"];
+export type LabReminderQueued = Schemas["LabReminderQueued"];
+export type LabVendor = Schemas["LabVendor"];
+export type LabVendorKind = Schemas["LabVendorKind"];
+export type LabVendorList = Schemas["LabVendorList"];
+export type LabVendorValues = Schemas["LabVendorValues"];
+export type LabContact = Schemas["LabContact"];
+export type LabContactChannel = Schemas["LabContactChannel"];
+export type LabContactValues = Schemas["LabContactValues"];
+export type LabBalance = Schemas["LabBalance"];
+export type LabPayment = Schemas["LabPayment"];
+export type LabPaymentList = Schemas["LabPaymentList"];
+export type NewLabPayment = Schemas["NewLabPayment"];
 export type AttentionKind = "late_arrival" | "long_wait";
 export type ChairOccupancy = "in_use" | "free";
 
@@ -475,6 +511,11 @@ export type StockImportRow = Schemas["StockImportRow"];
 export type StockImportError = Schemas["StockImportError"];
 export type StockImportResult = Schemas["StockImportResult"];
 export type CommitStockImport = Schemas["CommitStockImportBody"];
+export type StockInsight = Schemas["StockInsight"];
+export type StockAnalytics = Schemas["StockAnalytics"];
+export type StockDailyUse = Schemas["DailyUse"];
+export type InventoryItemAlertChanges = Schemas["AlertChanges"];
+export type InventoryItemAlerts = Schemas["AlertSettingsBody"];
 
 export type InvoiceStatus = "draft" | "issued" | "void";
 export type PaymentState = "unpaid" | "partial" | "paid";
@@ -608,6 +649,29 @@ export type UnreadCount = Schemas["UnreadCount"];
 export type MarkedRead = Schemas["MarkedRead"];
 export type Badges = Schemas["Badges"];
 
+// Patient messages, campaigns and staff chat -------------------------------------------------------
+export type SendMessages = Schemas["SendMessages"];
+export type MessagesQueued = Schemas["MessagesQueued"];
+export type MessageSummary = Schemas["MessageSummary"];
+export type MessageList = Schemas["MessageList"];
+export type MessageTemplate = Schemas["MessageTemplate"];
+export type MessageTemplates = Schemas["MessageTemplates"];
+export type AudienceFilter = Schemas["AudienceFilterBody"];
+export type AudiencePreview = Schemas["AudiencePreview"];
+export type NewAudience = Schemas["SaveAudience"];
+export type Audience = Schemas["Audience"];
+export type Campaign = Schemas["Campaign"];
+export type Campaigns = Schemas["Campaigns"];
+export type NewCampaign = Schemas["CreateCampaign"];
+export type ScheduleCampaign = Schemas["ScheduleCampaign"];
+export type ConversationItem = Schemas["ConversationItem"];
+export type ConversationList = Schemas["ConversationList"];
+export type NewConversation = Schemas["NewConversationBody"];
+export type ConversationStarted = Schemas["ConversationStarted"];
+export type ChatMessage = Schemas["ChatMessage"];
+export type ChatMessageList = Schemas["ChatMessageList"];
+export type NewChatMessage = Schemas["NewChatMessageBody"];
+
 // First-run setup ---------------------------------------------------------------------------------
 export type Setup = Schemas["Setup"];
 export type SetupStep = Schemas["SetupStep"];
@@ -637,3 +701,18 @@ export type QuickPicks = Schemas["QuickPicks"];
 export type QuickPick = Schemas["QuickPick"];
 export type QuickTextPick = Schemas["QuickTextPick"];
 export type QuickMedicineSet = Schemas["QuickMedicineSet"];
+
+// Staff tasks ---------------------------------------------------------------------------------
+
+export type TaskOccurrence = Schemas["TaskOccurrence"];
+export type MyTasks = Schemas["MyTasks"];
+export type Task = Schemas["Task"];
+export type TaskList = Schemas["TaskList"];
+export type TaskSchedule = Schemas["TaskSchedule"];
+export type NewTask = Schemas["NewTaskBody"];
+export type TaskChange = Schemas["TaskChangeBody"];
+export type CompleteTask = Schemas["CompleteBody"];
+export type TaskUsageLine = Schemas["UsageBody"];
+export type TaskPreview = Schemas["TaskPreview"];
+export type DueTime = Schemas["DueTime"];
+export type TaskHistory = Schemas["TaskHistory"];

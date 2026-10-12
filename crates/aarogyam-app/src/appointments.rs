@@ -1,6 +1,6 @@
 //! Booking, moving and progressing appointments. A chair holds one active booking at a time
-//! (the database refuses overlaps with a conflict); a doctor in two chairs at once, on leave or
-//! outside their hours is allowed with a warning. Every change appends to the appointment's
+//! (the database refuses overlaps with a conflict); a doctor in two chairs at once or outside
+//! their hours is allowed with a warning, but one on leave is refused (`422 practitioner_on_leave`). Every change appends to the appointment's
 //! history, and arriving issues a queue token.
 
 use aarogyam_dal::appointments::{self as dal, AppointmentRow, Booking};
@@ -23,7 +23,7 @@ use crate::clock::{clinic_offset, clinic_today, days_bounds};
 use crate::error::AppError;
 use crate::moved::Moved;
 use crate::patients::age_on;
-use crate::queue::issue_token;
+use crate::queue::{TokenExtras, issue_token};
 use crate::schedule::resolve_branch;
 use crate::scope::staff_scope as scope;
 
@@ -63,8 +63,6 @@ impl AppointmentView {
 pub enum Warning {
     /// The doctor has another appointment at the same time, in another chair.
     PractitionerBusy,
-    /// The doctor is on leave then.
-    OnLeave,
     /// The time is outside the doctor's weekly hours.
     OutsideHours,
 }
@@ -75,7 +73,6 @@ impl Warning {
     pub const fn code(self) -> &'static str {
         match self {
             Self::PractitionerBusy => "practitioner_busy",
-            Self::OnLeave => "practitioner_on_leave",
             Self::OutsideHours => "outside_working_hours",
         }
     }
@@ -85,7 +82,6 @@ impl Warning {
     pub const fn message(self) -> &'static str {
         match self {
             Self::PractitionerBusy => "The doctor has another appointment at this time.",
-            Self::OnLeave => "The doctor is on leave at this time.",
             Self::OutsideHours => "This is outside the doctor's working hours.",
         }
     }
@@ -259,6 +255,18 @@ async fn booking_branch(
     Ok(room.branch_id)
 }
 
+/// Refuses a booking in time the doctor is away: a leave block overlaps the slot.
+pub(crate) async fn refuse_on_leave(
+    tx: &mut ScopedTx,
+    practitioner_id: Uuid,
+    slot: TimeSlot,
+) -> Result<(), AppError> {
+    if dal::on_leave(tx.conn(), practitioner_id, slot.starts_at(), slot.ends_at()).await? {
+        return Err(AppError::PractitionerOnLeave);
+    }
+    Ok(())
+}
+
 async fn warnings(
     tx: &mut ScopedTx,
     timezone: &str,
@@ -277,9 +285,6 @@ async fn warnings(
     .await?
     {
         warnings.push(Warning::PractitionerBusy);
-    }
-    if dal::on_leave(tx.conn(), practitioner_id, slot.starts_at(), slot.ends_at()).await? {
-        warnings.push(Warning::OnLeave);
     }
     let shifts: Vec<Shift> = schedule::shifts(tx.conn(), Some(practitioner_id), None)
         .await?
@@ -362,6 +367,7 @@ pub async fn book(
             actor.reach(Permission::AppointmentsWrite),
         )
         .await?;
+        refuse_on_leave(tx, input.practitioner_id.uuid(), slot).await?;
         let branch_id = booking_branch(tx, input.room_id, input.branch_id).await?;
         let id = AppointmentId::new_v7().uuid();
         let booking = Booking {
@@ -556,6 +562,13 @@ pub async fn change(
             }
             None => current.practitioner_id,
         };
+        // Only a move to another doctor or time is refused; a note on an existing booking isn't.
+        if practitioner_id != current.practitioner_id
+            || slot.starts_at() != current.starts_at
+            || slot.ends_at() != current.ends_at
+        {
+            refuse_on_leave(tx, practitioner_id, slot).await?;
+        }
         let (room_id, branch_id) = match input.room_id {
             Some(room) if room.map(RoomId::uuid) != current.room_id => {
                 let branch = booking_branch(
@@ -701,8 +714,11 @@ pub(crate) async fn apply_status(
                 timezone,
                 current.branch_id,
                 current.patient_id,
-                Some(current.id),
-                Some(current.practitioner_id),
+                TokenExtras {
+                    appointment_id: Some(current.id),
+                    practitioner_id: Some(current.practitioner_id),
+                    reason: None,
+                },
                 now,
             )
             .await?;
@@ -785,6 +801,13 @@ pub async fn set_status(
                 });
             }
             StatusPlan::Move(reason) => {
+                // Confirming a request books the doctor, so it can't be into their leave.
+                if to == AppointmentStatus::Confirmed
+                    && current.status == AppointmentStatus::Requested.as_str()
+                    && let Ok(slot) = TimeSlot::new(current.starts_at, current.ends_at)
+                {
+                    refuse_on_leave(tx, current.practitioner_id, slot).await?;
+                }
                 apply_status(
                     tx,
                     &profile.timezone,

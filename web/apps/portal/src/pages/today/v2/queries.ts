@@ -4,7 +4,7 @@ import { unwrap, type ApiClient, type DashboardLayout, type DashboardLayoutView,
 
 import { useClinic } from "../../../clinic.js";
 import { REFERENCE, SCHEDULE } from "../../../lib/cache-policy.js";
-import { adoptTemplates, serverKnows, withoutMyTasks, MY_TASKS_KEY } from "./layout-model.js";
+import { adoptTemplates } from "./layout-model.js";
 
 /** A clinic day's board data. `date` is `YYYY-MM-DD`; left out it is the current day, and refreshes by itself. */
 export function useDayToday(date: string | undefined) {
@@ -79,12 +79,8 @@ export function useSaveLayout(scope: "me" | "clinic") {
   const { api, access } = useClinic();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (layout: DashboardLayout) => {
-      // The portal draws "My tasks" before the server's catalogue lists it; the server would refuse the key.
-      const known = serverKnows(queryClient.getQueryData<DashboardLayoutView>(layoutKey(access.org_id, scope))?.catalogue, MY_TASKS_KEY);
-      const body = known ? layout : withoutMyTasks(layout);
-      return unwrap(scope === "me" ? api.saveMyDashboardLayout(body) : api.saveDashboardLayout(body));
-    },
+    mutationFn: (layout: DashboardLayout) =>
+      unwrap(scope === "me" ? api.saveMyDashboardLayout(layout) : api.saveDashboardLayout(layout)),
     onSuccess: (view) => {
       if (scope === "me") queryClient.setQueryData<DashboardLayoutView>(layoutKey(access.org_id, "me"), view);
       else void queryClient.invalidateQueries({ queryKey: ["dashboard-layout", access.org_id] });

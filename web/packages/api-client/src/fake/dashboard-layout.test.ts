@@ -50,7 +50,7 @@ describe("fake dashboard layout", () => {
     expect(view.source).toBe("template");
     expect(view.layout.tpl).toBe("medsync");
     expect(view.catalogue.templates.map((t) => t.key)).toEqual(["medsync", "executive", "care", "focus", "compact", "front_desk"]);
-    expect(view.catalogue.widgets).toHaveLength(15);
+    expect(view.catalogue.widgets).toHaveLength(16);
     expect(view.catalogue.metrics).toHaveLength(8);
   });
 

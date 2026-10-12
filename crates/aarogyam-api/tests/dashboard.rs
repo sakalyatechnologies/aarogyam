@@ -92,7 +92,7 @@ async fn with_nothing_saved_a_member_gets_medsync_and_the_catalogue() {
             "front_desk"
         ]
     );
-    assert_eq!(catalogue["widgets"].as_array().unwrap().len(), 15);
+    assert_eq!(catalogue["widgets"].as_array().unwrap().len(), 16);
     assert_eq!(catalogue["metrics"].as_array().unwrap().len(), 8);
     let widget = |key: &str| {
         catalogue["widgets"]
@@ -113,12 +113,52 @@ async fn with_nothing_saved_a_member_gets_medsync_and_the_catalogue() {
     assert_eq!(widget("kpis")["options"][0]["max"], 6);
     assert_eq!(widget("nextup")["options"][0]["max"], 5);
     assert_eq!(widget("kpis")["zones"], json!(["top", "main"]));
+    assert_eq!(widget("my_tasks")["zones"], json!(["top", "main"]));
+    assert_eq!(widget("my_tasks")["sizes"], json!(["M", "L", "full"]));
+    assert_eq!(widget("my_tasks")["requires"], "tasks.use");
     // Every template in the catalogue is itself a layout the API accepts.
     for t in catalogue["templates"].as_array().unwrap() {
         let (status, saved) = put(&app, ALPHA, MINE, &owner, t["layout"].clone()).await;
         assert_eq!(status, StatusCode::OK, "{}: {saved}", t["key"]);
         assert_eq!(saved["layout"], t["layout"]);
     }
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_layout_with_my_tasks_saves_and_round_trips() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (_, view) = get(&app, ALPHA, MINE, &owner).await;
+    let mut mine = template(&view, "medsync");
+    assert!(
+        mine["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["key"] == "my_tasks"),
+        "the default templates carry it"
+    );
+    mine["items"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({ "key": "my_tasks", "zone": "top", "size": "M" }));
+    mine["items"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|item| item["key"] != "my_tasks" || item["zone"] == "top");
+    let (status, saved) = put(&app, ALPHA, MINE, &owner, mine.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    let at = index_of(&saved["layout"], "my_tasks");
+    assert_eq!(saved["layout"]["items"][at]["zone"], "top");
+    let (_, again) = get(&app, ALPHA, MINE, &owner).await;
+    assert_eq!(again["layout"], saved["layout"]);
+    // Not in the rail, and it takes no options it does not have.
+    let mut bad = mine.clone();
+    bad["items"][at]["zone"] = json!("rail");
+    let (status, _) = put(&app, ALPHA, MINE, &owner, bad).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
     app.finish().await;
 }
 

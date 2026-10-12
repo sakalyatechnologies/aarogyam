@@ -297,35 +297,8 @@ function sortKeys(opts: LayoutOpts): LayoutOpts {
 
 // The portal's own take on the templates ---------------------------------------------------------
 
-/** The "My tasks" widget. Until the server's catalogue lists it, the portal adds it (and takes it out again before a layout is saved). */
+/** The "My tasks" widget; the server's catalogue lists it. */
 export const MY_TASKS_KEY = "my_tasks";
-export const MY_TASKS_SPEC: WidgetSpec = {
-  key: MY_TASKS_KEY,
-  label: "My tasks",
-  description: "Your tasks for today, overdue ones first, finished in one tap.",
-  zones: ["main"],
-  sizes: ["M", "L", "full"],
-  default_zone: "main",
-  default_size: "full",
-  requires: "tasks.use",
-  options: [],
-};
-
-/** Whether the server's own catalogue lists a widget. */
-export function serverKnows(catalogue: Pick<DashboardCatalogue, "widgets"> | undefined, key: string): boolean {
-  return catalogue?.widgets.some((widget) => widget.key === key) ?? false;
-}
-
-/** The catalogue with "My tasks" in it when the server has not listed it yet. */
-export function withMyTasks(catalogue: DashboardCatalogue): DashboardCatalogue {
-  return serverKnows(catalogue, MY_TASKS_KEY) ? catalogue : { ...catalogue, widgets: [...catalogue.widgets, MY_TASKS_SPEC] };
-}
-
-/** A layout without "My tasks", for a server that does not know it yet (it would refuse the key). */
-export function withoutMyTasks(layout: DashboardLayout): DashboardLayout {
-  const items = layout.items.filter((item) => item.key !== MY_TASKS_KEY);
-  return items.length === layout.items.length ? layout : { ...layout, items };
-}
 
 /** "My tasks" in the main area, just under the Next up hero (or first when there is none). */
 function withTasksCard(catalogue: DashboardCatalogue, layout: DashboardLayout): DashboardLayout {
@@ -389,7 +362,7 @@ function restyleItems(catalogue: DashboardCatalogue, key: string, layout: Dashbo
  * becomes the restyled one. A layout somebody changed and saved is left exactly as it is.
  */
 export function adoptTemplates(view: DashboardLayoutView): DashboardLayoutView {
-  const server = withMyTasks(view.catalogue);
+  const server = view.catalogue;
   const templates = server.templates.map((template) => ({ ...template, layout: restyleTemplate(server, template.key, template.layout) }));
   const stock = view.catalogue.templates.find((template) => template.key === view.layout.tpl);
   const untouched = stock !== undefined && sameLayout(stock.layout, view.layout);

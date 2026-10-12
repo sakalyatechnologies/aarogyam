@@ -57,9 +57,9 @@ describe("the widget registry", () => {
     });
     await screen.findByRole("heading", { level: 1 });
     await waitFor(() => { expect(catalogue).toBeDefined(); });
-    // "My tasks" is drawn by the portal before the server's catalogue lists it.
     const keys = catalogue?.widgets.map((w) => w.key) ?? [];
-    expect([...new Set([...keys, "my_tasks"])].sort()).toEqual([...WIDGET_KEYS].sort());
+    expect(keys).toContain("my_tasks");
+    expect([...keys].sort()).toEqual([...WIDGET_KEYS].sort());
   });
 });
 
@@ -205,8 +205,8 @@ describe("Settings, Appearance tab, My dashboard section", () => {
     expect(order(preview()).filter((key) => ["appointments", "attention", "chairs"].includes(key ?? "")).slice(0, 2)).toEqual(["chairs", "appointments"]);
     await user.click(screen.getByRole("button", { name: "Move Appointments up" }));
     expect(order(preview()).filter((key) => ["appointments", "attention", "chairs"].includes(key ?? ""))[0]).toBe("appointments");
-    // The first in a zone cannot go up.
-    expect(screen.getByRole("button", { name: "Move Appointments up" }).hasAttribute("disabled")).toBe(true);
+    // The first in a zone cannot go up (My tasks leads the main area).
+    expect(screen.getByRole("button", { name: "Move My tasks up" }).hasAttribute("disabled")).toBe(true);
 
     await user.click(screen.getByRole("button", { name: "Remove Chairs" }));
     expect(order(preview())).not.toContain("chairs");
@@ -324,7 +324,7 @@ describe("Direct manipulation on the preview", () => {
     await user.click(within(screen.getByRole("group", { name: "Template" })).getByRole("button", { name: /Compact/ }));
     const pick = (keys: (string | undefined)[]) => keys.filter((key) => ["appointments", "attention", "chairs"].includes(key ?? ""));
     expect(pick(order(preview()))[0]).toBe("appointments");
-    expect(screen.getByRole("button", { name: "Move Appointments up in preview" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Move My tasks up in preview" }).hasAttribute("disabled")).toBe(true);
     await user.click(screen.getByRole("button", { name: "Move Appointments down in preview" }));
     expect(pick(order(preview())).slice(0, 2)).toEqual(["chairs", "appointments"]);
     await user.click(screen.getByRole("button", { name: "Move Appointments up in preview" }));

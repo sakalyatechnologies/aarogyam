@@ -2037,6 +2037,8 @@ Every change in stock: receive, use, adjustment, expiry. Stock history comes fro
 
 Append-only; one row per batch touched; created_by is who. Stock alerts (migration 0671): app.stock_usage_snapshot reads the last 28 clinic-local days of `use` movements, app.record_stock_alert writes one staff_notifications alert per item and day (and hands older ones on), app.clear_stock_alerts handles them on recovery. Procedure-linked deduction (procedure_id) comes with procedure_materials.
 
+Staff-operations notification audience (migration 0675): `app.staff_ops_notification_visible` decides who sees `task_*` (assignee member or role with tasks.use; `task_escalated` owner role only), `time_off_requested` (time_off.manage), `time_off_decided` (the requester) and `stock_alert` (inventory.read); `app.staff_ops_notification_newest` hides a task step when a newer visible step exists. The feed, the bell count, the badges and mark-read all call them, so each stays one statement.
+
 ### `procedure_materials`
 
 Materials a treatment uses, so stock deducts itself.

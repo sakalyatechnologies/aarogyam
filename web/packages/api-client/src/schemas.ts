@@ -2968,8 +2968,21 @@ export const notificationKind = z.enum([
   "patient_waiting",
   "send_in",
   "collect_payment",
+  "task_due",
+  "task_reminder",
+  "task_escalated",
+  "time_off_requested",
+  "time_off_decided",
+  "stock_alert",
 ]);
+/** The kinds this client knows. `Notification.kind` is any string: the server adds kinds without waiting for old apps. */
 export type NotificationKind = z.output<typeof notificationKind>;
+
+/** The known kind of a notification, or `null` for one from a newer server: show it as a generic row. */
+export function knownNotificationKind(kind: string): NotificationKind | null {
+  const parsed = notificationKind.safeParse(kind);
+  return parsed.success ? parsed.data : null;
+}
 
 export const notification = z.object({
   id: z.string(),
@@ -2990,6 +3003,16 @@ export const notification = z.object({
   queue_token: z.object({ id: z.string(), number: z.number().int() }).nullable().exactOptional(),
   invoice: z.object({ id: z.string(), number: optionalText }).nullable().exactOptional(),
   recall: z.object({ id: z.string(), kind: z.string(), due_on: z.string() }).nullable().exactOptional(),
+  /** `task_*`: the occurrence, its snapshot title and when it falls due. Only the newest step is listed. */
+  task_occurrence_id: optionalText,
+  title: optionalText,
+  due_at: optionalText,
+  /** `stock_alert`: the item, its name and the days of stock left (absent when unknown). */
+  item_id: optionalText,
+  item_name: optionalText,
+  days_cover: z.number().nullable().exactOptional(),
+  /** `time_off_*`: the request, by id only. */
+  time_off_request_id: optionalText,
 }) satisfies z.ZodType<C.Notification>;
 export type Notification = z.output<typeof notification>;
 

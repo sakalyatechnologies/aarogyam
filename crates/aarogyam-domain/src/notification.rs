@@ -69,6 +69,18 @@ stored_enum!(
         SendIn => "send_in",
         /// A visit closed with its bill still in draft: collect the payment.
         CollectPayment => "collect_payment",
+        /// A task fell due for its assignee or role.
+        TaskDue => "task_due",
+        /// A task is still open: the next reminder.
+        TaskReminder => "task_reminder",
+        /// A task stayed open through its reminders: the owners are told.
+        TaskEscalated => "task_escalated",
+        /// Someone asked for time off; for those who decide.
+        TimeOffRequested => "time_off_requested",
+        /// Time off was approved or declined; for the requester.
+        TimeOffDecided => "time_off_decided",
+        /// An item is low or running out; for everyone who sees stock.
+        StockAlert => "stock_alert",
     }
 );
 

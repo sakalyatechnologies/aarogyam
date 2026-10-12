@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select (case when exists (select 1 from pg_catalog.pg_timezone_names z\n                                     where z.name = o.timezone)\n                        then $1 at time zone o.timezone\n                        else $1 at time zone 'Asia/Kolkata' end)::date as \"day!\"\n           from aarogyam.organizations o where o.id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "day!",
+        "type_info": "Date",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "347dd486e6513dc7f119db3de00ea38376fd7099d37d41519e34e7d798163998"
+}

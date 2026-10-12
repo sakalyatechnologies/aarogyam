@@ -638,5 +638,5 @@ export function leaveConversation(state: MessagingStore, who: Who, id: string): 
 
 export function badges(state: MessagingStore, who: Who, now: Date): C.Badges {
   const items = listConversations(state, who, now, 100).items;
-  return { chat_unread: items.filter((c) => !c.muted).reduce((sum, c) => sum + c.unread, 0), notifications_unread: null };
+  return { chat_unread: items.filter((c) => !c.muted).reduce((sum, c) => sum + c.unread, 0), notifications_unread: null, tasks_open: 0 };
 }

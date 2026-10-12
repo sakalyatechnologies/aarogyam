@@ -681,3 +681,18 @@ export type QuickPicks = Schemas["QuickPicks"];
 export type QuickPick = Schemas["QuickPick"];
 export type QuickTextPick = Schemas["QuickTextPick"];
 export type QuickMedicineSet = Schemas["QuickMedicineSet"];
+
+// Staff tasks ---------------------------------------------------------------------------------
+
+export type TaskOccurrence = Schemas["TaskOccurrence"];
+export type MyTasks = Schemas["MyTasks"];
+export type Task = Schemas["Task"];
+export type TaskList = Schemas["TaskList"];
+export type TaskSchedule = Schemas["TaskSchedule"];
+export type NewTask = Schemas["NewTaskBody"];
+export type TaskChange = Schemas["TaskChangeBody"];
+export type CompleteTask = Schemas["CompleteBody"];
+export type TaskUsageLine = Schemas["UsageBody"];
+export type TaskPreview = Schemas["TaskPreview"];
+export type DueTime = Schemas["DueTime"];
+export type TaskHistory = Schemas["TaskHistory"];

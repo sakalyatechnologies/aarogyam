@@ -3006,6 +3006,8 @@ export type MarkedRead = z.output<typeof markedRead>;
 export const badges = z.object({
   chat_unread: z.number().int(),
   notifications_unread: z.number().int().nullable().exactOptional(),
+  /** Open tasks given to the caller or their role. */
+  tasks_open: z.number().int(),
 }) satisfies z.ZodType<C.Badges>;
 export type Badges = z.output<typeof badges>;
 
@@ -3288,3 +3290,83 @@ export type LabContactValues = C.LabContactValues;
 export type NewLabPayment = C.NewLabPayment;
 export type LabVendorKind = C.LabVendorKind;
 export type LabContactChannel = C.LabContactChannel;
+
+// Staff tasks --------------------------------------------------------------------------------
+
+export const taskId = z.string().min(1).brand<"TaskId">();
+export type TaskId = z.output<typeof taskId>;
+
+export const taskOccurrenceId = z.string().min(1).brand<"TaskOccurrenceId">();
+export type TaskOccurrenceId = z.output<typeof taskOccurrenceId>;
+
+export const taskAction = z.enum(["none", "record_usage", "confirm_photos"]);
+export const taskStatus = z.enum(["open", "done", "skipped", "missed"]);
+
+/** One day's run of a task. */
+export const taskOccurrence = z.object({
+  id: taskOccurrenceId,
+  template_id: taskId,
+  title: z.string(),
+  action: taskAction,
+  assignee_membership_id: membershipId.nullable().exactOptional(),
+  assignee_role_id: z.string().min(1).nullable().exactOptional(),
+  local_date: date,
+  due_at: timestamp,
+  status: taskStatus,
+  completed_at: optionalTimestamp,
+  completed_by: membershipId.nullable().exactOptional(),
+  completed_by_name: optionalText,
+  note: optionalText,
+  /** Only on a confirm_photos task. */
+  patients_without_photos_today: z.number().int().exactOptional(),
+}) satisfies z.ZodType<C.TaskOccurrence>;
+export type TaskOccurrence = z.output<typeof taskOccurrence>;
+
+export const myTasks = z.object({
+  date,
+  items: z.array(taskOccurrence),
+}) satisfies z.ZodType<C.MyTasks>;
+export type MyTasks = z.output<typeof myTasks>;
+
+export const taskSchedule = z.object({
+  kind: z.enum(["once", "daily", "every_n_days", "weekdays"]).nullable().exactOptional(),
+  once_at: optionalTimestamp,
+  interval_days: z.number().int().nullable().exactOptional(),
+  /** 1 (Monday) to 7 (Sunday). */
+  weekdays: z.array(z.number().int()).nullable().exactOptional(),
+  due_time: optionalText,
+  starts_on: date.nullable().exactOptional(),
+  ends_on: date.nullable().exactOptional(),
+}) satisfies z.ZodType<C.TaskSchedule>;
+export type TaskSchedule = z.output<typeof taskSchedule>;
+
+export const task = z.object({
+  id: taskId,
+  title: z.string(),
+  description: optionalText,
+  assignee_membership_id: membershipId.nullable().exactOptional(),
+  assignee_name: optionalText,
+  assignee_role_id: z.string().min(1).nullable().exactOptional(),
+  assignee_role_name: optionalText,
+  schedule: taskSchedule,
+  remind_every_minutes: z.number().int().nullable().exactOptional(),
+  escalate_after: z.number().int(),
+  action: taskAction,
+  active: z.boolean(),
+  is_default: z.boolean(),
+  default_key: optionalText,
+  created_at: timestamp,
+  updated_at: timestamp,
+}) satisfies z.ZodType<C.Task>;
+export type Task = z.output<typeof task>;
+
+export const taskList = z.object({ items: z.array(task) }) satisfies z.ZodType<C.TaskList>;
+export type TaskList = z.output<typeof taskList>;
+
+export const taskPreview = z.object({
+  items: z.array(z.object({ local_date: date, due_at: timestamp })),
+}) satisfies z.ZodType<C.TaskPreview>;
+export type TaskPreview = z.output<typeof taskPreview>;
+
+export const taskHistory = z.object({ items: z.array(taskOccurrence) }) satisfies z.ZodType<C.TaskHistory>;
+export type TaskHistory = z.output<typeof taskHistory>;

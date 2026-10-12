@@ -643,6 +643,8 @@ pub struct Badges {
     /// Unread notifications, as `notifications::unread_count` counts them; `None` without
     /// `appointments.read` and `labs.read`.
     pub notifications_unread: Option<i64>,
+    /// Open tasks given to the caller or to their role (`tasks.use` holders only; else 0).
+    pub tasks_open: i64,
 }
 
 /// Chat and notification unread counts in one statement. `notifications` is `None` when the
@@ -656,6 +658,7 @@ pub async fn badges(
     me: Uuid,
     cap: i64,
     notifications: Option<crate::notifications::Viewer>,
+    tasks: bool,
 ) -> Result<Badges, DbError> {
     let none = crate::notifications::Sees::NONE;
     let (bookings, labs, billing, patients, days) = notifications
@@ -692,7 +695,12 @@ pub async fn badges(
                   and not exists (select 1 from aarogyam.staff_notification_reads r
                                   where r.org_id = n.org_id and r.notification_id = n.id
                                     and r.membership_id = $1)
-                limit $2) unread) end as "notifications_unread?""#,
+                limit $2) unread) end as "notifications_unread?",
+             case when $12 then (select count(*) from aarogyam.task_occurrences t
+                where t.status = 'open'
+                  and (t.assignee_membership_id = $1
+                       or t.assignee_role_id = (select m.role_id from aarogyam.memberships m
+                                                where m.id = $1))) else 0 end as "tasks_open!""#,
         me,
         cap,
         notifications.is_some(),
@@ -704,6 +712,7 @@ pub async fn badges(
         billing.shown,
         patients.shown,
         patients.reach,
+        tasks,
     )
     .fetch_one(conn)
     .await?;

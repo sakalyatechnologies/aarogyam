@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, createDevTokenSource, createHttpClient, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, queueTokenId, sessionId, unwrap, visitId } from "./index.js";
+import { ApiFailure, createDevTokenSource, createHttpClient, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, queueTokenId, sessionId, taskId, taskOccurrenceId, unwrap, visitId } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -154,6 +154,36 @@ describe("createHttpClient requests", () => {
     expect(result.ok && result.value.amount_paise).toBe(50000);
     const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { uri: 1 })).fetch });
     expect((await bad.getInvoiceUpiLink(invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170"))).ok).toBe(false);
+  });
+
+  it("reads and finishes tasks on their own paths and checks the bodies against the contract", async () => {
+    const occurrence = {
+      id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171",
+      template_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405172",
+      title: "Check photos",
+      action: "confirm_photos",
+      assignee_role_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405173",
+      local_date: "2026-10-03",
+      due_at: "2026-10-03T14:00:00Z",
+      status: "open",
+      patients_without_photos_today: 2,
+    };
+    const replies = [json(200, { date: "2026-10-03", items: [occurrence] }), json(200, { ...occurrence, status: "done", completed_at: "2026-10-03T14:05:00Z" }), json(200, { items: [{ local_date: "2026-10-04", due_at: "2026-10-04T14:00:00Z" }] })];
+    const { fetch, calls } = stubFetch(() => Promise.resolve(replies.shift() ?? json(500, {})));
+    const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });
+
+    const mine = await client.listMyTasks("2026-10-03");
+    expect(calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/tasks/mine?date=2026-10-03");
+    expect(mine.ok && mine.value.items[0]?.patients_without_photos_today).toBe(2);
+    const done = await client.completeTask(taskOccurrenceId.parse(occurrence.id), { note: "ok", usage: [{ item_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405174", quantity: 2 }] });
+    expect(calls[1]?.url).toBe(`http://sunrise.localtest.me/api/v1/tasks/occurrences/${occurrence.id}/complete`);
+    expect(calls[1]?.init?.method).toBe("POST");
+    expect(done.ok && done.value.status).toBe("done");
+    const preview = await client.previewTask(taskId.parse(occurrence.template_id));
+    expect(calls[2]?.url).toBe(`http://sunrise.localtest.me/api/v1/tasks/${occurrence.template_id}/preview`);
+    expect(preview.ok && preview.value.items).toHaveLength(1);
+    const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { date: "2026-10-03", items: [{ ...occurrence, status: "gone" }] })).fetch });
+    expect((await bad.listMyTasks()).ok).toBe(false);
   });
 
   it("searches with a POST body, so the search term never appears in a URL", async () => {

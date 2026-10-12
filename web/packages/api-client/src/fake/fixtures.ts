@@ -660,6 +660,8 @@ export interface Fixtures {
   expenses?: import("./analytics.js").FakeExpense[];
   /** Labs, lab orders and lab payments. */
   labs?: import("./labs.js").FakeLabs;
+  /** Staff tasks and their occurrences, made on first use (the standard tasks are added then). */
+  tasks?: import("./tasks.js").FakeTasks;
   invoices: FakeInvoice[];
   payments: FakePayment[];
   drugs: FakeDrug[];

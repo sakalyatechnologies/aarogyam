@@ -18,6 +18,10 @@ pub enum Event {
     SetupChanged,
     /// A person signed one of their sessions out.
     SessionRevoked,
+    /// A person signed out every session but the one they are using.
+    SessionsRevokedOthers,
+    /// A person changed their own name or phone.
+    ProfileChanged,
     /// A queued message was delivered.
     MessageSent,
     /// A queued message failed and will be tried again.
@@ -144,6 +148,10 @@ pub enum Event {
     ConsentSigned,
     /// A patient's photo was set or removed.
     PatientPhotoChanged,
+    /// Two patients were linked as family.
+    FamilyLinked,
+    /// A family link was removed.
+    FamilyUnlinked,
     /// A file's sharing with the patient changed.
     AttachmentSharingChanged,
     /// A clinic expense was recorded.
@@ -199,6 +207,8 @@ pub enum Event {
 impl Event {
     /// The name logged in the `event` field.
     #[must_use]
+    // A flat table of names: one arm per event, so it grows with the events.
+    #[expect(clippy::too_many_lines)]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::PatientUpdated => "patient.updated",
@@ -208,6 +218,8 @@ impl Event {
             Self::SettingsChanged => "settings.changed",
             Self::SetupChanged => "setup.changed",
             Self::SessionRevoked => "session.revoked",
+            Self::SessionsRevokedOthers => "session.revoked_others",
+            Self::ProfileChanged => "profile.changed",
             Self::MessageSent => "message.sent",
             Self::MessageRetried => "message.retried",
             Self::BookingReminded => "booking.reminded",
@@ -275,6 +287,8 @@ impl Event {
             Self::ConsentRequested => "consent.requested",
             Self::ConsentSigned => "consent.signed",
             Self::PatientPhotoChanged => "patient.photo_changed",
+            Self::FamilyLinked => "family.linked",
+            Self::FamilyUnlinked => "family.unlinked",
             Self::AllergyConfirmed => "allergy.confirmed",
             Self::SupportGranted => "support.granted",
             Self::SupportRevoked => "support.revoked",

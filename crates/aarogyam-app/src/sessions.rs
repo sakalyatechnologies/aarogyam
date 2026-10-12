@@ -28,3 +28,16 @@ pub async fn revoke(db: &Db, auth_uid: Uuid, session_id: Uuid) -> Result<Uuid, A
         .await?
         .ok_or(AppError::NotFound("session"))
 }
+
+/// Revokes every other session of the person, keeping the one asking. Returns the provider
+/// session ids, so the caller can drop anything cached for them.
+///
+/// # Errors
+/// [`AppError::Db`] on failures.
+pub async fn revoke_others(
+    db: &Db,
+    auth_uid: Uuid,
+    current_session: Uuid,
+) -> Result<Vec<Uuid>, AppError> {
+    Ok(dal::revoke_others(db.pool(), auth_uid, current_session).await?)
+}

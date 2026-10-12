@@ -131,6 +131,7 @@ pub async fn request(
                 }),
                 secret: Some(&token),
                 appointment_id: None,
+                dedupe_key: None,
             },
         )
         .await?;

@@ -1,6 +1,6 @@
 //! Booking, moving and progressing appointments. A chair holds one active booking at a time
-//! (the database refuses overlaps with a conflict); a doctor in two chairs at once, on leave or
-//! outside their hours is allowed with a warning. Every change appends to the appointment's
+//! (the database refuses overlaps with a conflict); a doctor in two chairs at once or outside
+//! their hours is allowed with a warning, but one on leave is refused (`422 practitioner_on_leave`). Every change appends to the appointment's
 //! history, and arriving issues a queue token.
 
 use aarogyam_dal::appointments::{self as dal, AppointmentRow, Booking};
@@ -63,8 +63,6 @@ impl AppointmentView {
 pub enum Warning {
     /// The doctor has another appointment at the same time, in another chair.
     PractitionerBusy,
-    /// The doctor is on leave then.
-    OnLeave,
     /// The time is outside the doctor's weekly hours.
     OutsideHours,
 }
@@ -75,7 +73,6 @@ impl Warning {
     pub const fn code(self) -> &'static str {
         match self {
             Self::PractitionerBusy => "practitioner_busy",
-            Self::OnLeave => "practitioner_on_leave",
             Self::OutsideHours => "outside_working_hours",
         }
     }
@@ -85,7 +82,6 @@ impl Warning {
     pub const fn message(self) -> &'static str {
         match self {
             Self::PractitionerBusy => "The doctor has another appointment at this time.",
-            Self::OnLeave => "The doctor is on leave at this time.",
             Self::OutsideHours => "This is outside the doctor's working hours.",
         }
     }
@@ -165,8 +161,8 @@ pub struct NewAppointment {
     pub branch_id: Option<BranchId>,
     /// Start.
     pub starts_at: OffsetDateTime,
-    /// End.
-    pub ends_at: OffsetDateTime,
+    /// End; the clinic's default visit length after the start when absent.
+    pub ends_at: Option<OffsetDateTime>,
     /// `new`, `follow_up`, `procedure` or `emergency`; `follow_up` when absent.
     pub kind: Option<String>,
     /// Reason for the visit.
@@ -175,6 +171,18 @@ pub struct NewAppointment {
     pub notes: Option<String>,
     /// How it was booked; `front_desk` when absent.
     pub source: Option<String>,
+}
+
+/// The slot of a booking made without an end: the clinic's default visit length from `starts_at`.
+async fn default_slot(tx: &mut ScopedTx, starts_at: OffsetDateTime) -> Result<TimeSlot, AppError> {
+    let minutes =
+        crate::self_booking::read_settings(&aarogyam_dal::settings::booking(tx.conn()).await?)
+            .default_visit_minutes;
+    TimeSlot::new(
+        starts_at,
+        starts_at + time::Duration::minutes(i64::from(minutes)),
+    )
+    .map_err(|error| AppError::invalid("ends_at", error))
 }
 
 pub(crate) fn parse_reason(text: Option<&str>) -> Result<Option<String>, AppError> {
@@ -247,6 +255,18 @@ async fn booking_branch(
     Ok(room.branch_id)
 }
 
+/// Refuses a booking in time the doctor is away: a leave block overlaps the slot.
+pub(crate) async fn refuse_on_leave(
+    tx: &mut ScopedTx,
+    practitioner_id: Uuid,
+    slot: TimeSlot,
+) -> Result<(), AppError> {
+    if dal::on_leave(tx.conn(), practitioner_id, slot.starts_at(), slot.ends_at()).await? {
+        return Err(AppError::PractitionerOnLeave);
+    }
+    Ok(())
+}
+
 async fn warnings(
     tx: &mut ScopedTx,
     timezone: &str,
@@ -265,9 +285,6 @@ async fn warnings(
     .await?
     {
         warnings.push(Warning::PractitionerBusy);
-    }
-    if dal::on_leave(tx.conn(), practitioner_id, slot.starts_at(), slot.ends_at()).await? {
-        warnings.push(Warning::OnLeave);
     }
     let shifts: Vec<Shift> = schedule::shifts(tx.conn(), Some(practitioner_id), None)
         .await?
@@ -307,7 +324,10 @@ pub async fn book(
     now: OffsetDateTime,
 ) -> Result<Saved, AppError> {
     actor.require(Permission::AppointmentsWrite)?;
-    let slot = TimeSlot::new(input.starts_at, input.ends_at)
+    let given = input
+        .ends_at
+        .map(|ends_at| TimeSlot::new(input.starts_at, ends_at))
+        .transpose()
         .map_err(|error| AppError::invalid("ends_at", error))?;
     let kind = input
         .kind
@@ -330,6 +350,10 @@ pub async fn book(
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
         let today = clinic_today(&profile.timezone, now);
+        let slot = match given {
+            Some(slot) => slot,
+            None => default_slot(tx, input.starts_at).await?,
+        };
         // Any patient may be booked; the booking makes them the doctor's own.
         if patients::get(tx.conn(), input.patient_id.uuid(), None)
             .await?
@@ -343,6 +367,7 @@ pub async fn book(
             actor.reach(Permission::AppointmentsWrite),
         )
         .await?;
+        refuse_on_leave(tx, input.practitioner_id.uuid(), slot).await?;
         let branch_id = booking_branch(tx, input.room_id, input.branch_id).await?;
         let id = AppointmentId::new_v7().uuid();
         let booking = Booking {
@@ -537,6 +562,13 @@ pub async fn change(
             }
             None => current.practitioner_id,
         };
+        // Only a move to another doctor or time is refused; a note on an existing booking isn't.
+        if practitioner_id != current.practitioner_id
+            || slot.starts_at() != current.starts_at
+            || slot.ends_at() != current.ends_at
+        {
+            refuse_on_leave(tx, practitioner_id, slot).await?;
+        }
         let (room_id, branch_id) = match input.room_id {
             Some(room) if room.map(RoomId::uuid) != current.room_id => {
                 let branch = booking_branch(
@@ -766,6 +798,13 @@ pub async fn set_status(
                 });
             }
             StatusPlan::Move(reason) => {
+                // Confirming a request books the doctor, so it can't be into their leave.
+                if to == AppointmentStatus::Confirmed
+                    && current.status == AppointmentStatus::Requested.as_str()
+                    && let Ok(slot) = TimeSlot::new(current.starts_at, current.ends_at)
+                {
+                    refuse_on_leave(tx, current.practitioner_id, slot).await?;
+                }
                 apply_status(
                     tx,
                     &profile.timezone,

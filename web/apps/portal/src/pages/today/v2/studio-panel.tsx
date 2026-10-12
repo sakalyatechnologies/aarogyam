@@ -4,7 +4,7 @@ import { Skeleton } from "@sakalya/ui";
 import { useMyLayout } from "./queries.js";
 import { StudioEditor } from "./studio-editor.js";
 
-/** Settings, "Dashboard studio": the editor on the member's own layout, with the preview beside it. */
+/** Settings, "My dashboard": the editor on the member's own layout. */
 export function StudioPanel() {
   const layout = useMyLayout();
   if (layout.isPending) {
@@ -26,5 +26,5 @@ export function StudioPanel() {
       />
     );
   }
-  return <StudioEditor view={layout.data} layout="split" />;
+  return <StudioEditor view={layout.data} />;
 }

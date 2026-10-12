@@ -308,7 +308,9 @@ async fn the_outbox_drain_delivers_to_the_log_and_abandons_broken_messages() {
                 // No campaigns scheduled (tests/campaigns.rs).
                 "campaign_messages_queued": 0, "campaign_recipients_capped": 0,
                 // No lab work due (tests/labs.rs).
-                "lab_reminders_queued": 0, "lab_reminders_skipped": 0, "lab_orders_overdue": 0 })
+                "lab_reminders_queued": 0, "lab_reminders_skipped": 0, "lab_orders_overdue": 0,
+                // No follow-ups due or patients waiting (tests/settings_v2.rs).
+                "recalls_flagged": 0, "waiting_flagged": 0 })
     );
     let rows: Vec<OutboxRow> = sqlx::query_as(
         "select event_key, status, provider, secret, last_error, attempts

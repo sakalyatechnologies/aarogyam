@@ -1,0 +1,290 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select t.id, t.title, t.description,\n                  t.assignee_membership_id, u.display_name as \"assignee_name?\",\n                  t.assignee_role_id, r.name as \"assignee_role_name?\",\n                  t.schedule_kind, t.once_at, t.interval_days, t.weekdays, t.due_time,\n                  t.starts_on, t.ends_on, t.remind_every_minutes, t.escalate_after, t.action,\n                  t.active, t.activated_at, t.is_default, t.default_key, t.created_at, t.updated_at\n           from aarogyam.task_templates t\n           left join aarogyam.memberships m on m.org_id = t.org_id and m.id = t.assignee_membership_id\n           left join aarogyam.users u on u.id = m.user_id\n           left join aarogyam.roles r on r.org_id = t.org_id and r.id = t.assignee_role_id\n           where t.deleted_at is null\n           order by t.active desc, t.title, t.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "assignee_membership_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "assignee_membership_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "assignee_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.users",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "assignee_role_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "assignee_role_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "assignee_role_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.roles",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "schedule_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "schedule_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "once_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "once_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "interval_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "interval_days"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "weekdays",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "weekdays"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "due_time",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "due_time"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "starts_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "starts_on"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "ends_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "ends_on"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "remind_every_minutes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "remind_every_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "escalate_after",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "escalate_after"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "action",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "action"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "active"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "activated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "activated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "is_default",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "is_default"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "default_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "default_key"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 22,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_templates",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "2199cb5214ef055681a168bc060e2745be278ac06bb722f89cbd0ac99c73c132"
+}

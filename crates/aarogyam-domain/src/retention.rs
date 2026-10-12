@@ -42,6 +42,10 @@ text_value! {
         Campaigns => "campaigns",
         /// Consent-to-sign links, signed or not, after they expire.
         ConsentRequests => "consent_requests",
+        /// Staff time-off requests that were decided or cancelled and nobody has changed since.
+        TimeOffRequests => "time_off_requests",
+        /// Each day's run of a clinic's recurring staff tasks, with who did it and any note.
+        TaskOccurrences => "task_occurrences",
     }
 }
 
@@ -78,13 +82,14 @@ impl Class {
             Self::Invoices | Self::LabWork => Period::Years(8),
             Self::Outbox => Period::Days(90),
             Self::ShareLinks | Self::ImportSessions | Self::ConsentRequests => Period::Days(30),
-            Self::AccessLog => Period::Years(3),
+            Self::AccessLog | Self::TaskOccurrences => Period::Years(3),
             Self::Messages
             | Self::ClinicApplications
             | Self::ChatMessages
             | Self::LabContacts
             | Self::MessageTemplates
-            | Self::Campaigns => Period::Days(365),
+            | Self::Campaigns
+            | Self::TimeOffRequests => Period::Days(365),
         }
     }
 
@@ -107,6 +112,8 @@ impl Class {
             Self::LabContacts => "when the contact was removed",
             Self::MessageTemplates => "when the template last changed",
             Self::Campaigns => "when the campaign last changed",
+            Self::TimeOffRequests => "when the request last changed",
+            Self::TaskOccurrences => "when the task fell due",
         }
     }
 

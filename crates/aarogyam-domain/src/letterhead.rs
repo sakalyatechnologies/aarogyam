@@ -113,17 +113,35 @@ pub enum TemplateId {
     TwoDoctor,
     /// Clinic name in two scripts, ready for a regional language.
     Bilingual,
+    /// Serif heritage masthead with fine double rules.
+    HeritageSerif,
+    /// A coloured side band beside the clinic details.
+    ModernSplit,
+    /// A large monogram watermark behind a quiet header.
+    Monogram,
+    /// Grid of small-caps details on a clean ruled head.
+    ClinicalClean,
+    /// Elegant clinic name in two scripts.
+    BilingualElegant,
+    /// Doctor-forward, with a signature line.
+    Signature,
 }
 
 impl TemplateId {
     /// Every design, in the order pickers show them.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 12] = [
         Self::LogoLeft,
         Self::Classic,
         Self::ModernBand,
         Self::MinimalLine,
         Self::TwoDoctor,
         Self::Bilingual,
+        Self::HeritageSerif,
+        Self::ModernSplit,
+        Self::Monogram,
+        Self::ClinicalClean,
+        Self::BilingualElegant,
+        Self::Signature,
     ];
 
     /// The stored value.
@@ -136,6 +154,12 @@ impl TemplateId {
             Self::MinimalLine => "minimal_line",
             Self::TwoDoctor => "two_doctor",
             Self::Bilingual => "bilingual",
+            Self::HeritageSerif => "heritage_serif",
+            Self::ModernSplit => "modern_split",
+            Self::Monogram => "monogram",
+            Self::ClinicalClean => "clinical_clean",
+            Self::BilingualElegant => "bilingual_elegant",
+            Self::Signature => "signature",
         }
     }
 
@@ -528,6 +552,25 @@ mod tests {
         let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
         bytes.extend_from_slice(&[0; 32]);
         bytes
+    }
+
+    #[test]
+    fn every_design_key_round_trips_and_old_keys_still_parse() {
+        for id in TemplateId::ALL {
+            assert_eq!(TemplateId::parse(id.as_str()), Ok(id));
+        }
+        for old in [
+            "logo_left",
+            "classic",
+            "modern_band",
+            "minimal_line",
+            "two_doctor",
+            "bilingual",
+        ] {
+            assert!(TemplateId::parse(old).is_ok(), "{old}");
+        }
+        assert_eq!(TemplateId::parse("signature"), Ok(TemplateId::Signature));
+        assert_eq!(TemplateId::parse("nope"), Err(LetterheadError::Template));
     }
 
     #[test]

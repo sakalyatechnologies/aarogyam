@@ -14,9 +14,9 @@ const HINT = "Pick a palette in light or dark, or use your own brand colour. It 
 
 /**
  * Settings, "Theme": the portal's palette and light or dark mode, saved as soon as it is picked.
- * `bare` leaves out the card, for the setup wizard, which supplies its own and a heading.
+ * `title` renames the card (Appearance calls it "Clinic theme"). `bare` leaves out the card, for the setup wizard, which supplies its own and a heading.
  */
-export function ThemePanel({ bare = false }: { bare?: boolean }) {
+export function ThemePanel({ bare = false, title = "Theme" }: { bare?: boolean; title?: string }) {
   const settings = useClinicSettings();
   const shell = (children: ReactNode) =>
     bare ? (
@@ -26,7 +26,7 @@ export function ThemePanel({ bare = false }: { bare?: boolean }) {
         {children}
       </>
     ) : (
-      <MkCard title="Theme" hint={HINT}>
+      <MkCard title={title} hint={HINT}>
         {children}
       </MkCard>
     );
@@ -45,7 +45,8 @@ function ThemeSection({ settings }: { settings: ClinicSettings }) {
   const toast = useToast();
   const value: ThemeChoice = {
     brand: settings.branding.brand ?? String(MOCKUP_BRAND),
-    mode: settings.branding.mode ?? "light",
+    // `auto` (follow the device) has no picker choice yet: shown as light until the New look offers it.
+    mode: settings.branding.mode === "dark" ? "dark" : "light",
   };
   return (
     <ThemePicker

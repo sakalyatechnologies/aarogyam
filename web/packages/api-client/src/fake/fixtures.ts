@@ -8,6 +8,7 @@
 import type * as C from "../contract.js";
 import type { Permission } from "../permissions.js";
 import { seedExpenses } from "./analytics.js";
+import { seedLabs } from "./labs.js";
 import { DENTAL_REASONS, FEMALE_NAMES, MALE_NAMES, SURNAMES } from "./names.js";
 import { createQualityReport } from "./quality.js";
 import { createRandom, fakeUuid, type Random } from "./random.js";
@@ -27,6 +28,8 @@ export interface FakeUser {
   email?: string;
   /** E.164; served masked. */
   phone?: string;
+  /** Their avatar: a preset id or a photo link. */
+  avatar?: { preset?: string; photo_url?: string };
   /** What signing in as this user shows, for the dev sign-in screen. */
   description: string;
 }
@@ -64,7 +67,7 @@ export interface FakeClinic {
   created_at: string;
   /** `SD` in `SD-9`. */
   number_prefix: string;
-  branding: { brand: string; mode: "light" | "dark" };
+  branding: { brand: string; mode: "light" | "dark" | "auto" };
   /** The main branch's address, for `GET /settings/clinic`. */
   address?: FakeAddress;
   /** The main branch's phone. */
@@ -74,6 +77,8 @@ export interface FakeClinic {
   legal_name?: string | null;
   gstin?: string | null;
   prescription_footer?: string | null;
+  /** Notification switches; anything left out uses the API's default. */
+  notification_settings?: Partial<Omit<C.NotificationSettings, "quiet_hours">> & { quiet_hours?: Partial<C.QuietHoursView> };
   /** Online booking settings; anything left out uses the API's default. */
   online_booking?: Partial<C.OnlineBooking>;
   /** The letterhead settings; anything left out uses the API's default. */
@@ -91,6 +96,18 @@ export interface FakeSession {
   last_active_at: string;
   expires_at: string;
   revoked: boolean;
+}
+
+/** A staff notification as the API serves it, less the caller's own read state. */
+export interface FakeNotification extends Omit<C.Notification, "read" | "read_at"> {
+  clinic_id: string;
+  /** Members who have read it. */
+  read_by?: string[];
+  /** `task_due` and `task_reminder`: the assignee member, or the assignee role (a role key). Server-side only. */
+  for_member?: string;
+  for_role?: string;
+  /** `task_*`: the step, 0 for the first notice. The newest step wins; an escalation outranks the reminder that took its step. */
+  step_no?: number;
 }
 
 export interface FakeMembership {
@@ -114,10 +131,13 @@ export interface FakePatient
 
 /** `relation` is what `related_patient_id` is to `patient_id`. */
 export interface FakePatientRelation {
+  id: string;
   clinic_id: string;
   patient_id: string;
   related_patient_id: string;
-  relation: "guardian" | "child" | "spouse" | "other";
+  /** What the related patient is to `patient_id`. */
+  relation: "guardian" | "child" | "spouse" | "parent" | "sibling" | "other";
+  is_primary_contact: boolean;
 }
 
 export interface FakePatientPhoto {
@@ -220,6 +240,7 @@ export interface FakeQueueToken {
   issued_at: string;
   called_at?: string | null;
   done_at?: string | null;
+  room_id?: string | null;
 }
 
 /** A consent record, server-shaped except for `clinic_id` and `patient_id`. */
@@ -379,6 +400,8 @@ export interface FakeChartEntry {
   /** A root canal's canals, and its sitting. */
   canals?: C.RootCanal[];
   sitting?: number | null;
+  /** Started but not finished. */
+  in_progress?: boolean;
 }
 
 export interface FakeAttachment {
@@ -444,6 +467,10 @@ export interface FakeInventoryItem {
   unit: "piece" | "ml" | "g" | "box" | "pack";
   reorder_level: number;
   active: boolean;
+  /** Days from ordering to delivery; 7 when never set. */
+  lead_time_days?: number;
+  /** Whether the item raises stock alerts; on when never set. */
+  alerts_enabled?: boolean;
 }
 
 /** A delivery of an item: how much arrived and how much is left. */
@@ -654,6 +681,8 @@ export interface Fixtures {
   plans: FakePlan[];
   attachments: FakeAttachment[];
   sessions: FakeSession[];
+  /** Staff notifications, made by tests; the bell reads them. */
+  notifications?: FakeNotification[];
   applications: FakeApplication[];
   priceItems: FakePriceItem[];
   suppliers: FakeSupplier[];
@@ -662,6 +691,10 @@ export interface Fixtures {
   stockMovements: FakeStockMovement[];
   /** Clinic expenses (stock deliveries count as material on their own). */
   expenses?: import("./analytics.js").FakeExpense[];
+  /** Labs, lab orders and lab payments. */
+  labs?: import("./labs.js").FakeLabs;
+  /** Staff tasks and their occurrences, made on first use (the standard tasks are added then). */
+  tasks?: import("./tasks.js").FakeTasks;
   invoices: FakeInvoice[];
   payments: FakePayment[];
   drugs: FakeDrug[];
@@ -683,6 +716,18 @@ export interface Fixtures {
   /** First-run setup per clinic and member; with no entry, a person counts as set up already (dismissed). */
   setups?: import("./setup.js").FakeSetup[];
   quality: C.QualityReport;
+  /** Staff chat, patient messages and campaigns, made on first use (see `messaging.ts`). */
+  conversations?: import("./messaging.js").FakeConversation[];
+  chatMessages?: import("./messaging.js").FakeChatMessage[];
+  chatSeq?: number;
+  sentMessages?: import("./messaging.js").FakeSentMessage[];
+  messageTemplates?: import("./messaging.js").FakeTemplate[];
+  audiences?: import("./messaging.js").FakeAudience[];
+  campaigns?: import("./messaging.js").FakeCampaign[];
+  previewTokens?: Record<string, import("./messaging.js").FakePreviewToken>;
+  /** Staff time off and the clinics' staff-operations settings, made on first use (see `time-off.ts`). */
+  timeOff?: import("./time-off.js").FakeTimeOff[];
+  staffOps?: import("./time-off.js").FakeStaffOps[];
 }
 
 export interface FixtureOptions {
@@ -699,6 +744,12 @@ export const ROLES = {
     permissions: [
       "support.grant",
       "messages.send",
+      "chat.use",
+      "campaigns.manage",
+      "tasks.use",
+      "tasks.manage",
+      "time_off.request",
+      "time_off.manage",
       "patients.read",
       "patients.write",
       "patients.contact",
@@ -720,12 +771,19 @@ export const ROLES = {
       "inventory.manage",
       "expenses.write",
       "analytics.view",
+      "labs.read",
+      "labs.write",
     ],
   },
   doctor: {
     key: "doctor",
     name: "Doctor",
     permissions: [
+      "messages.send",
+      "chat.use",
+      "tasks.use",
+      "tasks.manage",
+      "time_off.request",
       "patients.read",
       "patients.write",
       "patients.contact",
@@ -736,12 +794,18 @@ export const ROLES = {
       "clinical.write",
       "prescriptions.issue",
       "inventory.read",
+      "labs.read",
+      "labs.write",
     ],
   },
   frontDesk: {
     key: "front_desk",
     name: "Front desk",
     permissions: [
+      "messages.send",
+      "chat.use",
+      "tasks.use",
+      "time_off.request",
       "patients.read",
       "patients.write",
       "patients.contact",
@@ -752,14 +816,16 @@ export const ROLES = {
       "billing.write",
       "inventory.read",
       "inventory.manage",
+      "labs.read",
+      "labs.write",
     ],
   },
-  assistant: { key: "assistant", name: "Assistant", permissions: ["patients.read", "intake.write", "appointments.read", "clinical.read", "inventory.read"] },
-  consultant: { key: "consultant", name: "Visiting consultant", permissions: ["appointments.read", "clinical.read"] },
+  assistant: { key: "assistant", name: "Assistant", permissions: ["chat.use", "tasks.use", "time_off.request", "patients.read", "intake.write", "appointments.read", "clinical.read", "inventory.read"] },
+  consultant: { key: "consultant", name: "Visiting consultant", permissions: ["chat.use", "tasks.use", "time_off.request", "appointments.read", "clinical.read"] },
   finance: {
     key: "finance",
     name: "Finance",
-    permissions: ["patients.read", "billing.read", "billing.write", "finance.view", "reports.export", "expenses.write"],
+    permissions: ["chat.use", "tasks.use", "time_off.request", "patients.read", "billing.read", "billing.write", "finance.view", "reports.export", "expenses.write"],
   },
 } as const satisfies Record<string, FakeRole>;
 
@@ -775,6 +841,8 @@ export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; d
   { key: "clinical.write", module: "clinical", description: "Record visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
   { key: "expenses.write", module: "expenses", description: "Record clinic expenses", scopes: ["all"] },
   { key: "finance.view", module: "finance", description: "See revenue, expenses and salaries", scopes: ["all"] },
+  { key: "labs.read", module: "labs", description: "See labs, their contacts and lab orders", scopes: ["all", "own", "assigned"] },
+  { key: "labs.write", module: "labs", description: "Keep labs and contacts, record lab orders and remind labs", scopes: ["all", "own", "assigned"] },
   { key: "intake.write", module: "intake", description: "Record patient-reported allergies and \"No known allergies\" at registration", scopes: ["all"] },
   { key: "inventory.manage", module: "inventory", description: "Receive, use and adjust stock; edit items and suppliers", scopes: ["all"] },
   { key: "inventory.read", module: "inventory", description: "See stock levels, suppliers and expiry dates", scopes: ["all"] },
@@ -783,6 +851,12 @@ export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; d
   { key: "patients.write", module: "patients", description: "Register and edit patients", scopes: ["all"] },
   { key: "prescriptions.issue", module: "prescriptions", description: "Issue and cancel prescriptions", scopes: ["all", "own", "assigned"] },
   { key: "reports.export", module: "reports", description: "Export data to Excel", scopes: ["all"] },
+  { key: "chat.use", module: "chat", description: "Chat with other staff of the clinic", scopes: ["all"] },
+  { key: "campaigns.manage", module: "campaigns", description: "Save audiences and run campaigns to patients", scopes: ["all"] },
+  { key: "tasks.use", module: "tasks", description: "See and complete the clinic's daily tasks assigned to you or your role", scopes: ["all"] },
+  { key: "tasks.manage", module: "tasks", description: "Create, edit and switch off the clinic's recurring tasks; see their history", scopes: ["all"] },
+  { key: "time_off.request", module: "time_off", description: "Ask for time off and see who is away", scopes: ["all"] },
+  { key: "time_off.manage", module: "time_off", description: "Approve or decline time off, and record it for others", scopes: ["all"] },
   { key: "messages.send", module: "messages", description: "Send patients email messages from the clinic", scopes: ["all"] },
   { key: "roles.manage", module: "roles", description: "Choose what each role can see and do", scopes: ["all"] },
   { key: "settings.manage", module: "settings", description: "Change clinic settings, branding and templates", scopes: ["all"] },
@@ -1408,13 +1482,55 @@ export function createFixtures(options: FixtureOptions = {}): Fixtures {
     stockBatches,
     stockMovements,
     expenses: seedExpenses(sunrise.id, sunriseOwnerMembership.id, now),
+    labs: seedLabs(sunrise.id, sunrisePatients, sunriseAsha, sunriseOwnerMembership.id, now),
     invoices,
     payments,
     drugs,
     prescriptions,
     shareLinks,
+    notifications: seedNotifications(sunrise.id, sunriseAppointments, sunriseAsha, now),
     quality: createQualityReport(random, now),
   };
+}
+
+/**
+ * The Sunrise bell: a booking to answer, an auto-confirmed booking, a patient's cancellation and an overdue lab
+ * order, newest first by id. Fixed ids, so seeding them leaves every other seeded value as it was.
+ */
+function seedNotifications(
+  clinicId: string,
+  appointments: readonly FakeAppointment[],
+  doctor: FakePractitioner,
+  now: Date,
+): FakeNotification[] {
+  const notified = (index: number): NonNullable<C.Notification["appointment"]> | null => {
+    const appointment = appointments[index];
+    return appointment === undefined
+      ? null
+      : {
+          id: appointment.id,
+          starts_at: appointment.starts_at,
+          ends_at: appointment.ends_at,
+          status: appointment.status,
+          practitioner_id: doctor.id,
+          practitioner_name: doctor.display_name,
+        };
+  };
+  const ago = (minutes: number): string => new Date(now.getTime() - minutes * 60_000).toISOString();
+  const nid = (n: number): string => `0192f1c4-7a10-7c3e-9b2a-1d2e3f4052${String(n).padStart(2, "0")}`;
+  return [
+    { id: nid(4), clinic_id: clinicId, kind: "booking_requested", created_at: ago(6), appointment: notified(1), href: "/calendar" },
+    { id: nid(3), clinic_id: clinicId, kind: "booking_confirmed_auto", created_at: ago(55), appointment: notified(2), href: "/calendar" },
+    { id: nid(2), clinic_id: clinicId, kind: "booking_cancelled_by_patient", created_at: ago(26 * 60), appointment: notified(3), href: "/calendar" },
+    {
+      id: nid(1),
+      clinic_id: clinicId,
+      kind: "lab_overdue",
+      created_at: ago(30 * 60),
+      lab_order: { id: nid(90), number: "LAB-12", vendor_name: "Precision Dental Lab", due_on: ago(48 * 60).slice(0, 10) },
+      href: null,
+    },
+  ];
 }
 
 function isoDaysAgo(now: Date, days: number): string {
@@ -1660,6 +1776,7 @@ function makeClinicDay(
       issued_at: entry.arrivedAt,
       called_at: entry.seatedAt,
       done_at: entry.doneAt,
+      room_id: tokenStatus === "waiting" ? null : (entry.appointment.room_id ?? null),
     };
   });
 

@@ -643,6 +643,8 @@ pub struct Badges {
     /// Unread notifications, as `notifications::unread_count` counts them; `None` without
     /// `appointments.read` and `labs.read`.
     pub notifications_unread: Option<i64>,
+    /// Open tasks given to the caller or to their role (`tasks.use` holders only; else 0).
+    pub tasks_open: i64,
 }
 
 /// Chat and notification unread counts in one statement. `notifications` is `None` when the
@@ -656,10 +658,17 @@ pub async fn badges(
     me: Uuid,
     cap: i64,
     notifications: Option<crate::notifications::Viewer>,
+    tasks: bool,
 ) -> Result<Badges, DbError> {
     let none = crate::notifications::Sees::NONE;
-    let (bookings, labs, days) =
-        notifications.map_or((none, none, 0), |v| (v.bookings, v.labs, v.unread_days));
+    let (bookings, labs, billing, patients, days) = notifications
+        .map_or((none, none, none, none, 0), |v| {
+            (v.bookings, v.labs, v.billing, v.patients, v.unread_days)
+        });
+    let (owner, ops_tasks, inventory, time_off) = notifications
+        .map_or((false, false, false, false), |v| {
+            (v.owner, v.tasks, v.inventory, v.time_off)
+        });
     let row = sqlx::query_as!(
         Badges,
         r#"select
@@ -675,14 +684,29 @@ pub async fn badges(
                 select 1 from aarogyam.staff_notifications n
                 left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
                 left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
+                left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id
+                left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id
+                left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id
                 where n.created_at > now() - make_interval(days => $5::int)
                   and (($6 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $4))
+                       or ($6 and q.id is not null
+                           and (q.practitioner_id is null
+                                or app.practitioner_in_reach(q.practitioner_id, $4)))
                        or ($7 and o.id is not null
-                           and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $8)))
+                           and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $8))
+                       or ($9 and i.id is not null)
+                       or ($10 and rc.id is not null and app.patient_in_reach(rc.patient_id, $11))
+                       or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16))
+                  and app.staff_ops_notification_newest(n, $1, $13, $14)
                   and not exists (select 1 from aarogyam.staff_notification_reads r
                                   where r.org_id = n.org_id and r.notification_id = n.id
                                     and r.membership_id = $1)
-                limit $2) unread) end as "notifications_unread?""#,
+                limit $2) unread) end as "notifications_unread?",
+             case when $12 then (select count(*) from aarogyam.task_occurrences t
+                where t.status = 'open'
+                  and (t.assignee_membership_id = $1
+                       or t.assignee_role_id = (select m.role_id from aarogyam.memberships m
+                                                where m.id = $1))) else 0 end as "tasks_open!""#,
         me,
         cap,
         notifications.is_some(),
@@ -691,6 +715,14 @@ pub async fn badges(
         bookings.shown,
         labs.shown,
         labs.reach,
+        billing.shown,
+        patients.shown,
+        patients.reach,
+        tasks,
+        owner,
+        ops_tasks,
+        inventory,
+        time_off,
     )
     .fetch_one(conn)
     .await?;

@@ -5,7 +5,10 @@ import { ApiErrorNotice, formatDate, formatDateTime, formatNumber, formatRupees 
 import { Button, DataTable, DateInput, Dialog, Field, Select, Skeleton, TextInput, useToast, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
+import { useNewLook } from "../../lib/new-look.js";
+import { AlertSettings } from "./alert-settings.js";
 import { LevelBar, StatusTag, categoryLabel, levelPercent } from "./level.js";
+import "./stock-v2.css";
 import { useAdjustStock, useExpireBatch, useInventoryItem, useReceiveStock, useSuppliers, useUseStock } from "./queries.js";
 
 type Action = "receive" | "use" | "adjust";
@@ -26,6 +29,7 @@ function wholeNumber(text: string): number | undefined {
 /** One item: where it stands, its deliveries and history, and (with `inventory.manage`) receive, use and correct. */
 export function ItemDialog({ itemId, onClose }: { itemId: InventoryItemId | undefined; onClose: () => void }) {
   const { can } = useClinic();
+  const [newLook] = useNewLook();
   const detail = useInventoryItem(itemId);
   const level = detail.data?.stock;
   return (
@@ -60,6 +64,7 @@ export function ItemDialog({ itemId, onClose }: { itemId: InventoryItemId | unde
             <LevelBar name={detail.data.stock.item.name} percent={levelPercent(detail.data.stock)} />
           </section>
           {can("inventory.manage") ? <StockForm itemId={detail.data.stock.item.id} /> : null}
+          {newLook && can("inventory.manage") ? <AlertSettings itemId={detail.data.stock.item.id} /> : null}
           <Batches itemId={detail.data.stock.item.id} batches={detail.data.batches} />
           <section aria-label="History">
             <h3 className="mb-2 text-sm font-bold text-text">Latest changes</h3>

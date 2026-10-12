@@ -45,6 +45,36 @@ export const LETTERHEAD_TEMPLATES: readonly {
     name: "Bilingual",
     hint: "Clinic name in two scripts, such as English and Hindi",
   },
+  {
+    id: "heritage_serif",
+    name: "Heritage serif",
+    hint: "Fraunces masthead with fine double rules and an ornament",
+  },
+  {
+    id: "modern_split",
+    name: "Modern split",
+    hint: "Colour side band with the name, details on the right",
+  },
+  {
+    id: "monogram",
+    name: "Monogram",
+    hint: "A large initials watermark behind a quiet header",
+  },
+  {
+    id: "clinical_clean",
+    name: "Clinical clean",
+    hint: "Ruled grid of small-caps details, in Inter",
+  },
+  {
+    id: "bilingual_elegant",
+    name: "Bilingual elegant",
+    hint: "Serif English name over a Devanagari name",
+  },
+  {
+    id: "signature",
+    name: "Signature",
+    hint: "Doctor first, with a signature line at the foot",
+  },
 ];
 
 const FALLBACK_ACCENT = "#136650";
@@ -127,6 +157,16 @@ function partsOf(document: LetterheadDocument): Parts {
 function monogram(name: string): string {
   const first = name.trim().codePointAt(0);
   return first === undefined ? "A" : String.fromCodePoint(first).toUpperCase();
+}
+
+/** Up to two initials of the clinic name, for the monogram watermark. */
+function initials(name: string): string {
+  const letters = name
+    .split(/\s+/)
+    .filter((word) => /^\p{L}/u.test(word))
+    .slice(0, 2)
+    .map((word) => monogram(word));
+  return letters.length === 0 ? monogram(name) : letters.join("");
 }
 
 function Logo({ parts }: { parts: Parts }) {
@@ -288,6 +328,168 @@ function Design({
           </div>
         </div>
       );
+    case "heritage_serif":
+      return (
+        <div className="lh-head">
+          <div className="lh-heritage">
+            <Logo parts={parts} />
+            <Names parts={parts} />
+            <div className="lh-orn" aria-hidden="true">
+              <i />
+              <b />
+              <i />
+            </div>
+            <div className="lh-docs">
+              <Doctors parts={parts} />
+            </div>
+            <div className="lh-contact">
+              <Contact parts={parts} />
+            </div>
+          </div>
+        </div>
+      );
+    case "modern_split":
+      return (
+        <div className="lh-split">
+          <div className="lh-side">
+            {parts.logo === undefined ? null : (
+              <span className="lh-tile">
+                <Logo parts={parts} />
+              </span>
+            )}
+            <Names parts={parts} />
+          </div>
+          <div className="lh-main">
+            <div className="lh-docs">
+              <Doctors parts={parts} />
+            </div>
+            <div className="lh-contact">
+              <Contact parts={parts} />
+            </div>
+          </div>
+        </div>
+      );
+    case "monogram":
+      return (
+        <div className="lh-head">
+          <div className="lh-mg">
+            <span className="lh-water" aria-hidden="true">
+              {initials(parts.name)}
+            </span>
+            <div className="lh-id">
+              <Logo parts={parts} />
+              <Names parts={parts} />
+            </div>
+            <div className="lh-mg-cols">
+              <div className="lh-contact">
+                <Contact parts={parts} />
+              </div>
+              <div className="lh-docs">
+                <Doctors parts={parts} />
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    case "clinical_clean":
+      return (
+        <div className="lh-head">
+          <div className="lh-clin">
+            <div className="lh-clin-top">
+              <Logo parts={parts} />
+              <Names parts={parts} />
+            </div>
+            <div className="lh-clin-grid">
+              {parts.address === undefined ? null : (
+                <div>
+                  <h3 className="lh-cap">Address</h3>
+                  <p className="lh-line lh-small">{parts.address}</p>
+                </div>
+              )}
+              {[parts.phone, parts.email, parts.timings, parts.gstin].every(
+                (value) => value === undefined,
+              ) ? null : (
+                <div>
+                  <h3 className="lh-cap">Contact</h3>
+                  {[
+                    parts.phone,
+                    parts.email,
+                    parts.timings,
+                    parts.gstin === undefined
+                      ? undefined
+                      : `GSTIN ${parts.gstin}`,
+                  ]
+                    .filter(present)
+                    .map((line) => (
+                      <p key={line} className="lh-line lh-small">
+                        {line}
+                      </p>
+                    ))}
+                </div>
+              )}
+              {parts.doctors.length === 0 ? null : (
+                <div>
+                  <h3 className="lh-cap">Doctors</h3>
+                  <Doctors parts={parts} />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    case "bilingual_elegant":
+      return (
+        <div className="lh-head">
+          <div className="lh-bie">
+            <Logo parts={parts} />
+            <Names parts={parts} />
+            <div className="lh-orn" aria-hidden="true">
+              <i />
+              <b />
+              <i />
+            </div>
+            <div className="lh-docs">
+              <Doctors parts={parts} />
+            </div>
+            <div className="lh-contact">
+              <Contact parts={parts} />
+            </div>
+          </div>
+        </div>
+      );
+    case "signature": {
+      const [lead, ...others] = parts.doctors;
+      return (
+        <div className="lh-head">
+          <div className="lh-sig">
+            <div className="lh-sig-top">
+              <div className="lh-sig-lead">
+                {lead === undefined ? null : (
+                  <p className="lh-doc">
+                    <b>{lead.name}</b>
+                    {lead.line === undefined || lead.line === "" ? null : (
+                      <span>{lead.line}</span>
+                    )}
+                  </p>
+                )}
+                {others.length === 0 ? null : (
+                  <div className="lh-sig-more">
+                    <Doctors parts={{ ...parts, doctors: others }} />
+                  </div>
+                )}
+              </div>
+              <div className="lh-sig-clinic">
+                <Logo parts={parts} />
+                <Names parts={parts} />
+              </div>
+            </div>
+            <div className="lh-contact">
+              <Contact parts={parts} />
+            </div>
+          </div>
+        </div>
+      );
+    }
   }
 }
 
@@ -316,11 +518,26 @@ export function LetterheadFooter({
 }: {
   document: LetterheadDocument;
 }) {
-  const footer = document.letterhead.footer;
-  return present(footer) ? (
-    <div className="lh-foot">{footer}</div>
-  ) : (
-    <div className="lh-foot lh-foot-empty" />
+  const { letterhead, doctors } = document;
+  const footer = letterhead.footer;
+  const signs =
+    letterhead.mode === "template" &&
+    letterhead.template === "signature" &&
+    letterhead.show.doctors &&
+    doctors.length > 0;
+  return (
+    <>
+      {signs ? (
+        <div className="lh-signoff">
+          <span>Signature</span>
+        </div>
+      ) : null}
+      {present(footer) ? (
+        <div className="lh-foot">{footer}</div>
+      ) : (
+        <div className="lh-foot lh-foot-empty" />
+      )}
+    </>
   );
 }
 

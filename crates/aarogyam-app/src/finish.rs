@@ -9,6 +9,7 @@ use aarogyam_domain::clinical::{EncounterStatus, fee};
 use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, PrescriptionId};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::prescription::RxStatus;
+use aarogyam_domain::schedule::QueueStatus;
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::Paise;
 use time::{Date, OffsetDateTime};
@@ -38,6 +39,8 @@ pub struct WrapUp {
     /// The follow-up's reason (1 to 300 characters); with a fee but no follow-up, the note
     /// printed on the draft bill.
     pub note: Option<String>,
+    /// Leave the visit's queue token at `ready_to_bill` instead of `done` (sent for payment).
+    pub ready_to_bill: bool,
 }
 
 /// What a wrap-up made.
@@ -143,6 +146,15 @@ async fn wrap_up_in(
     Ok(done)
 }
 
+/// Where the visit's queue token goes when it closes.
+fn token_target(wrap: &WrapUp) -> QueueStatus {
+    if wrap.ready_to_bill {
+        QueueStatus::ReadyToBill
+    } else {
+        QueueStatus::Done
+    }
+}
+
 /// Closes a visit, and with `wrap` plans the follow-up and starts the draft bill in the same
 /// transaction.
 ///
@@ -160,11 +172,12 @@ pub async fn close_with(
 ) -> Result<(VisitView, WrapUpDone), AppError> {
     actor.require(Permission::ClinicalWrite)?;
     let checked = check_wrap_up(actor, &wrap, now)?;
+    let token_to = token_target(&wrap);
     db.scoped(&scope(actor, request_id), async |tx| {
         let reach = actor.reach(Permission::ClinicalWrite);
         let visit = crate::visits::require_open_visit(tx, visit_id, reach).await?;
         let done = wrap_up_in(tx, &visit, &checked, reach.member()).await?;
-        let closed = close_in(tx, actor, &visit, now).await?;
+        let closed = close_in(tx, actor, &visit, token_to, now).await?;
         Ok((closed, done))
     })
     .await
@@ -252,6 +265,7 @@ pub async fn finish(
         actor.require(Permission::PrescriptionsIssue)?;
     }
     let checked = check_wrap_up(actor, &input.wrap_up, now)?;
+    let token_to = token_target(&input.wrap_up);
     let override_reason = match &input.prescription {
         Some(rx) => override_text(rx.override_reason.as_deref())?,
         None => None,
@@ -328,7 +342,7 @@ pub async fn finish(
             (Vec::new(), Vec::new())
         };
         let wrap_up = wrap_up_in(tx, &visit, &checked, reach.member()).await?;
-        let closed = close_in(tx, actor, &visit, now).await?;
+        let closed = close_in(tx, actor, &visit, token_to, now).await?;
         Ok(FinishOutcome::Finished(Box::new(Finished {
             visit: closed,
             signed_note_ids: signed,

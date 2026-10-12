@@ -95,6 +95,9 @@ pub struct Appointment {
     /// Goes up when the appointment changes. Send it back in `If-Match` (it is also the `ETag`)
     /// to edit only if the appointment is unchanged since you read it.
     pub row_version: i64,
+    /// `new` when the patient has no earlier completed visit or appointment at this clinic,
+    /// otherwise `follow_up`.
+    pub patient_type: String,
     /// The patient.
     pub patient: PatientBrief,
     /// The doctor.
@@ -123,6 +126,7 @@ impl From<AppointmentView> for Appointment {
             completed_at: row.completed_at.map(rfc3339),
             token_number: row.token_number,
             row_version: row.row_version,
+            patient_type: row.patient_type,
             patient: PatientBrief {
                 id: row.patient_id,
                 number: row.patient_number,
@@ -215,7 +219,7 @@ pub(crate) async fn list(
 /// Something worth knowing that didn't stop the booking.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct BookingWarning {
-    /// `practitioner_busy`, `practitioner_on_leave` or `outside_working_hours`.
+    /// `practitioner_busy` or `outside_working_hours`.
     pub code: String,
     /// What to tell the front desk.
     pub message: String,
@@ -259,8 +263,9 @@ pub struct NewAppointmentBody {
     pub branch_id: Option<String>,
     /// Start (RFC 3339).
     pub starts_at: String,
-    /// End (RFC 3339), 5 minutes to 12 hours after the start.
-    pub ends_at: String,
+    /// End (RFC 3339), 5 minutes to 12 hours after the start. Left out, the appointment lasts the
+    /// clinic's default visit length (`online_booking.default_visit_minutes`).
+    pub ends_at: Option<String>,
     /// `new`, `follow_up` (default), `procedure` or `emergency`.
     pub kind: Option<String>,
     /// Reason for the visit, up to 200 characters.
@@ -291,7 +296,8 @@ fn optional_id(field: &str, text: Option<&str>) -> Result<Option<Uuid>, ApiFailu
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.write"),
         (status = 404, description = "No such patient in this clinic"),
-        (status = 409, description = "The chair is already booked for part of this time")
+        (status = 409, description = "The chair is already booked for part of this time"),
+        (status = 422, description = "The doctor is on leave then (`practitioner_on_leave`)")
     )
 )]
 pub(crate) async fn book(
@@ -308,7 +314,11 @@ pub(crate) async fn book(
         room_id: optional_id("room_id", body.room_id.as_deref())?.map(RoomId::from_uuid),
         branch_id: optional_id("branch_id", body.branch_id.as_deref())?.map(BranchId::from_uuid),
         starts_at: parse_instant("starts_at", &body.starts_at)?,
-        ends_at: parse_instant("ends_at", &body.ends_at)?,
+        ends_at: body
+            .ends_at
+            .as_deref()
+            .map(|text| parse_instant("ends_at", text))
+            .transpose()?,
         kind: body.kind,
         reason: body.reason,
         notes: body.notes,
@@ -375,6 +385,7 @@ pub struct AppointmentChanges {
         (status = 403, description = "The role lacks appointments.write"),
         (status = 404, description = "No such appointment in this clinic"),
         (status = 409, description = "The appointment is finished, or the chair is taken"),
+        (status = 422, description = "Moved to a doctor or time on leave (`practitioner_on_leave`)"),
         (status = 412, description = "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`")
     )
 )]
@@ -464,7 +475,8 @@ pub struct StatusChanged {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.write"),
         (status = 404, description = "No such appointment in this clinic"),
-        (status = 409, body = MoveRefused, description = "A move the table doesn't allow; `current` is the appointment as it is")
+        (status = 409, body = MoveRefused, description = "A move the table doesn't allow; `current` is the appointment as it is"),
+        (status = 422, description = "Confirming a request for a doctor who is on leave then (`practitioner_on_leave`)")
     )
 )]
 pub(crate) async fn set_status(

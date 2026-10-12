@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select notifications as \"notifications!\" from aarogyam.org_settings\n           where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "notifications!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_settings",
+            "name": "notifications"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "13f34998ecc1773f63b556d24cf646674fdaa896a05baf9bc234d18c371bedec"
+}

@@ -897,21 +897,30 @@ pub struct PhoneMatch {
     pub sex: String,
     /// Age in whole years today.
     pub age_years: Option<u16>,
-    /// Relatives linked to them, by name.
-    pub family: Vec<FamilyMember>,
 }
 
-/// A relative linked to a patient found by phone.
+/// A linked relative of a patient the lookup matched, who doesn't share the number.
 #[derive(Debug, Clone)]
 pub struct FamilyMember {
-    /// Identifier.
+    /// The matched patient they are linked to.
+    pub of_patient_id: PatientId,
+    /// The relative.
     pub id: PatientId,
     /// Readable number.
     pub number: String,
     /// Full name.
     pub full_name: String,
-    /// What this relative is to the patient.
+    /// What they are to the matched patient.
     pub relation: String,
+}
+
+/// The matches of a phone lookup and the relatives linked to them.
+#[derive(Debug, Clone)]
+pub struct PhoneLookupResult {
+    /// Patients with the phone.
+    pub matches: Vec<PhoneMatch>,
+    /// Relatives of those, not already among them.
+    pub family_group: Vec<FamilyMember>,
 }
 
 /// Patients already registered with this phone (main or second number), so the desk can pick
@@ -925,7 +934,7 @@ pub async fn lookup_phone(
     request_id: Option<Uuid>,
     phone: &str,
     now: OffsetDateTime,
-) -> Result<Vec<PhoneMatch>, AppError> {
+) -> Result<PhoneLookupResult, AppError> {
     actor.require(Permission::PatientsRead)?;
     let phone = parse_phone(phone)?.ok_or(AppError::invalid("phone", "is required"))?;
     let today = clinic_today(&actor.timezone, now);
@@ -933,7 +942,8 @@ pub async fn lookup_phone(
     db.scoped(&scope(actor, request_id), async |tx| {
         let rows =
             patients::lookup_phone(tx.conn(), phone.as_e164(), MAX_PHONE_MATCHES, reach).await?;
-        Ok(rows
+        let ids: Vec<Uuid> = rows.iter().map(|row| row.id).collect();
+        let matches: Vec<PhoneMatch> = rows
             .into_iter()
             .map(|row| PhoneMatch {
                 id: PatientId::from_uuid(row.id),
@@ -941,18 +951,24 @@ pub async fn lookup_phone(
                 full_name: row.full_name,
                 sex: row.sex,
                 age_years: age_on(row.date_of_birth, row.birth_date_estimated, today),
-                family: row
-                    .family
-                    .into_iter()
-                    .map(|member| FamilyMember {
-                        id: PatientId::from_uuid(member.id),
-                        number: member.number,
-                        full_name: member.full_name,
-                        relation: member.relation,
-                    })
-                    .collect(),
             })
-            .collect())
+            .collect();
+        let family_group = aarogyam_dal::family::groups(tx.conn(), &ids, reach)
+            .await?
+            .into_iter()
+            .filter(|row| !ids.contains(&row.related_patient_id))
+            .map(|row| FamilyMember {
+                of_patient_id: PatientId::from_uuid(row.patient_id),
+                id: PatientId::from_uuid(row.related_patient_id),
+                number: row.number,
+                full_name: row.full_name,
+                relation: row.relation,
+            })
+            .collect();
+        Ok(PhoneLookupResult {
+            matches,
+            family_group,
+        })
     })
     .await
 }

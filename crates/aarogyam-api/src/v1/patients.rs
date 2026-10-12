@@ -62,11 +62,11 @@ pub struct Patient {
     /// "none booked" on those, and always `null` on a registration or an edit.
     pub next_appointment: Option<NextAppointment>,
     /// Paise owed on issued bills. Sent only by the list, search and record responses and only
-    /// with `billing.read`: without it the key is absent, never null or zero.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// with `billing.read`: without it the key is `null`, never zero.
+    #[schema(required = true)]
     pub balance_paise: Option<i64>,
-    /// Paise received in total; absent without `billing.read`, like `balance_paise`.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Paise received in total; `null` without `billing.read`, like `balance_paise`.
+    #[schema(required = true)]
     pub lifetime_paid_paise: Option<i64>,
     /// Whether an open recall is due on or before today.
     pub recall_due: bool,
@@ -252,8 +252,8 @@ pub struct PatientsSummary {
     pub new_this_month: i64,
     /// Patients with an open recall due on or before today.
     pub recalls_due: i64,
-    /// Patients who owe money on issued bills. Absent without `billing.read`.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Patients who owe money on issued bills. `null` without `billing.read`.
+    #[schema(required = true)]
     pub with_balance: Option<i64>,
 }
 
@@ -490,23 +490,6 @@ pub struct PhoneMatch {
     pub age_years: Option<u16>,
     /// `female`, `male`, `other` or `unknown`.
     pub sex: String,
-    /// Relatives linked to this patient (`family_of` on a walk-in links them), by name; empty when none.
-    pub family: Vec<FamilyMember>,
-}
-
-/// A relative linked to a patient.
-#[derive(Debug, Serialize, ToSchema)]
-pub struct FamilyMember {
-    /// Identifier.
-    #[schema(value_type = String)]
-    pub id: Uuid,
-    /// Readable number, such as `SD-1042`.
-    pub number: String,
-    /// Full name.
-    pub full_name: String,
-    /// What this relative is to the patient: `guardian` (a parent or guardian), `child`,
-    /// `spouse` or `other`.
-    pub relation: String,
 }
 
 /// Patients registered with a phone.
@@ -514,6 +497,27 @@ pub struct FamilyMember {
 pub struct PhoneMatches {
     /// Matches by name; at most 10. Families share numbers, so there may be several.
     pub items: Vec<PhoneMatch>,
+    /// Relatives linked to the matches (`/patients/{id}/family`) who are not themselves matches,
+    /// so the desk can offer the whole family. Empty when nothing is linked.
+    pub family_group: Vec<FamilyMember>,
+}
+
+/// A linked relative of a matched patient.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct FamilyMember {
+    /// The matched patient they are linked to.
+    #[schema(value_type = String)]
+    pub of_patient_id: Uuid,
+    /// The relative.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// Readable number, such as `SD-1043`.
+    pub number: String,
+    /// Full name.
+    pub full_name: String,
+    /// What they are to the matched patient: `guardian`, `child`, `spouse`, `parent`,
+    /// `sibling` or `other`.
+    pub relation: String,
 }
 
 /// Patients already registered with this phone (main or second number), so the desk can pick
@@ -547,6 +551,7 @@ pub(crate) async fn lookup(
     .await?;
     Ok(Json(PhoneMatches {
         items: rows
+            .matches
             .into_iter()
             .map(|row| PhoneMatch {
                 id: row.id.uuid(),
@@ -554,16 +559,17 @@ pub(crate) async fn lookup(
                 full_name: row.full_name,
                 age_years: row.age_years,
                 sex: row.sex,
-                family: row
-                    .family
-                    .into_iter()
-                    .map(|member| FamilyMember {
-                        id: member.id.uuid(),
-                        number: member.number,
-                        full_name: member.full_name,
-                        relation: member.relation,
-                    })
-                    .collect(),
+            })
+            .collect(),
+        family_group: rows
+            .family_group
+            .into_iter()
+            .map(|row| FamilyMember {
+                of_patient_id: row.of_patient_id.uuid(),
+                id: row.id.uuid(),
+                number: row.number,
+                full_name: row.full_name,
+                relation: row.relation,
             })
             .collect(),
     }))

@@ -45,6 +45,9 @@ export type RoomId = z.output<typeof roomId>;
 export const leaveId = z.string().min(1).brand<"LeaveId">();
 export type LeaveId = z.output<typeof leaveId>;
 
+export const timeOffId = z.string().min(1).brand<"TimeOffId">();
+export type TimeOffId = z.output<typeof timeOffId>;
+
 export const queueTokenId = z.string().min(1).brand<"QueueTokenId">();
 export type QueueTokenId = z.output<typeof queueTokenId>;
 
@@ -109,6 +112,10 @@ export const voidResponse = z.undefined();
 export const themeMode = z.enum(["light", "dark"]);
 export type ThemeMode = z.output<typeof themeMode>;
 
+/** What the clinic stores: a fixed mode, or `auto` to follow the device. */
+export const themeModePreference = z.enum(["light", "dark", "auto"]);
+export type ThemeModePreference = z.output<typeof themeModePreference>;
+
 // Errors -------------------------------------------------------------------------------------
 
 export const errorBody = z.object({
@@ -128,7 +135,13 @@ const myClinic = z.object({
 export type ClinicAccess = z.output<typeof myClinic>;
 
 /** `console_access`: active Sakalya staff, whom central sign-in sends to the console (first, beside any clinics). */
-export const meResponse = z.object({ clinics: z.array(myClinic), console_access: z.boolean(), staff_mfa_required: z.boolean() }) satisfies z.ZodType<C.Me>;
+export const meResponse = z.object({
+  clinics: z.array(myClinic),
+  console_access: z.boolean(),
+  staff_mfa_required: z.boolean(),
+  display_name: z.string().nullable().exactOptional(),
+  phone: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.Me>;
 export type Me = z.output<typeof meResponse>;
 
 // Clinic host --------------------------------------------------------------------------------
@@ -144,10 +157,18 @@ export function readBranding(value: Record<string, unknown>): { brand?: string |
   return parsed.success ? parsed.data : {};
 }
 
+/** A member's avatar: a preset the apps draw, or a signed path to a photo. */
+export const avatar = z.object({
+  preset: optionalText,
+  photo_url: optionalText,
+  photo_expires_at: optionalText,
+}) satisfies z.ZodType<C.Avatar>;
+export type Avatar = z.output<typeof avatar>;
+
 export const sessionResponse = z.object({
   clinic: z.object({ id: clinicId, slug: z.string().min(1), name: z.string(), timezone: z.string().min(1), branding: z.record(z.string(), z.unknown()) }),
   membership: z.object({ id: membershipId, role_key: z.string(), permissions: z.array(z.string()) }),
-  user: z.object({ id: userId, display_name: z.string() }),
+  user: z.object({ id: userId, display_name: z.string(), avatar: avatar.nullable().exactOptional() }),
 }) satisfies z.ZodType<C.Session>;
 export type Session = z.output<typeof sessionResponse>;
 
@@ -171,9 +192,9 @@ export const patient = z.object({
   /** The next booked or confirmed appointment; absent on a freshly registered patient. */
   next_appointment: z.object({ starts_at: timestamp, practitioner: z.string() }).nullable().exactOptional(),
   /** Owed on issued bills; absent without `billing.read`. */
-  balance_paise: paise.nullable().exactOptional(),
+  balance_paise: paise.nullable(),
   /** Received in total; absent without `billing.read`. */
-  lifetime_paid_paise: paise.nullable().exactOptional(),
+  lifetime_paid_paise: paise.nullable(),
   recall_due: z.boolean(),
   /** A recorded allergy or a flagged condition. */
   allergy_alert: z.boolean(),
@@ -319,7 +340,7 @@ export type Address = z.output<typeof address>;
 
 const clinicBranding = z.object({
   brand: optionalText,
-  mode: themeMode.nullable().exactOptional(),
+  mode: themeModePreference.nullable().exactOptional(),
 }) satisfies z.ZodType<C.Branding>;
 
 export const onlineBooking = z.object({
@@ -330,10 +351,11 @@ export const onlineBooking = z.object({
   horizon_days: z.number().int(),
   min_notice_minutes: z.number().int(),
   reminder_minutes: z.number().int(),
+  default_visit_minutes: z.number().int(),
 }) satisfies z.ZodType<C.OnlineBooking>;
 export type OnlineBooking = z.output<typeof onlineBooking>;
 
-export const letterheadTemplate = z.enum(["logo_left", "classic", "modern_band", "minimal_line", "two_doctor", "bilingual"]);
+export const letterheadTemplate = z.enum(["logo_left", "classic", "modern_band", "minimal_line", "two_doctor", "bilingual", "heritage_serif", "modern_split", "monogram", "clinical_clean", "bilingual_elegant", "signature"]);
 export type LetterheadTemplate = z.output<typeof letterheadTemplate>;
 
 export const letterheadShown = z.object({
@@ -395,6 +417,23 @@ export const clinicSettings = z.object({
   letterhead,
 }) satisfies z.ZodType<C.ClinicSettings>;
 export type ClinicSettings = z.output<typeof clinicSettings>;
+
+export const quietHours = z.object({ enabled: z.boolean(), start: z.string(), end: z.string() }) satisfies z.ZodType<C.QuietHoursView>;
+export type QuietHours = z.output<typeof quietHours>;
+
+export const notificationSettings = z.object({
+  reminder_24h: z.boolean(),
+  reminder_2h: z.boolean(),
+  receipts: z.boolean(),
+  recall: z.boolean(),
+  low_stock: z.boolean(),
+  lab_due: z.boolean(),
+  quiet_hours: quietHours,
+}) satisfies z.ZodType<C.NotificationSettings>;
+export type NotificationSettings = z.output<typeof notificationSettings>;
+
+/** Body of `PATCH /api/v1/settings/notifications`. Switches left out stay as they are. */
+export type NotificationSettingsChanges = C.NotificationSettingsChanges;
 
 /** The `online_booking` part of `PATCH /api/v1/settings/clinic`. */
 export type OnlineBookingChanges = C.OnlineBookingChanges;
@@ -480,6 +519,15 @@ export type MySession = z.output<typeof mySession>;
 export const mySessionsResponse = z.object({ items: z.array(mySession) }) satisfies z.ZodType<C.MySessions>;
 export type MySessions = z.output<typeof mySessionsResponse>;
 
+export const profile = z.object({ display_name: z.string(), phone: optionalText }) satisfies z.ZodType<C.Profile>;
+export type Profile = z.output<typeof profile>;
+
+/** Body of `PATCH /api/v1/me`: the person's own name and phone. An empty `phone` clears it. */
+export type ProfileUpdate = C.ProfileUpdate;
+
+export const revokedSessions = z.object({ revoked: z.number().int() }) satisfies z.ZodType<C.RevokedSessions>;
+export type RevokedSessions = z.output<typeof revokedSessions>;
+
 /** Body of `PATCH /api/v1/patients/{id}`. Fields left out stay as they are. */
 export type PatientChanges = C.PatientChanges;
 
@@ -547,6 +595,8 @@ export const appointment = z.object({
   completed_at: optionalTimestamp,
   cancel_reason: optionalText,
   token_number: count.nullable().exactOptional(),
+  /** `new` without an earlier completed visit or appointment at this clinic, else `follow_up`. */
+  patient_type: z.enum(["new", "follow_up"]).default("new"),
 }) satisfies z.ZodType<C.Appointment>;
 export type Appointment = z.output<typeof appointment>;
 
@@ -638,6 +688,75 @@ export type LeavePage = z.output<typeof leaveList>;
 /** Body of `POST /api/v1/leave-blocks`. */
 export type NewLeave = C.NewLeave;
 
+// Time off and the staff-operations settings ---------------------------------------------------------
+
+export const timeOffKind = z.enum(["vacation", "sick", "personal", "other"]) satisfies z.ZodType<C.TimeOffKind>;
+export type TimeOffKind = z.output<typeof timeOffKind>;
+
+export const timeOffStatus = z.enum(["pending", "approved", "declined", "cancelled"]) satisfies z.ZodType<C.TimeOffStatus>;
+export type TimeOffStatus = z.output<typeof timeOffStatus>;
+
+/**
+ * A period of time off. Staff other than the person away (and `time_off.manage`) get approved time off
+ * only, and never the kind, reason or decision.
+ */
+export const timeOff = z.object({
+  id: timeOffId,
+  membership_id: membershipId,
+  member_name: optionalText,
+  starts_at: timestamp,
+  ends_at: timestamp,
+  all_day: z.boolean(),
+  status: timeOffStatus,
+  kind: timeOffKind.nullable().exactOptional(),
+  reason: optionalText,
+  decided_by: membershipId.nullable().exactOptional(),
+  decided_at: timestamp.nullable().exactOptional(),
+  decision_note: optionalText,
+}) satisfies z.ZodType<C.TimeOff>;
+export type TimeOff = z.output<typeof timeOff>;
+
+export const timeOffList = z.object({ items: z.array(timeOff) }) satisfies z.ZodType<C.TimeOffList>;
+export type TimeOffPage = z.output<typeof timeOffList>;
+
+/** Body of `POST /api/v1/time-off`: `starts_at` and `ends_at`, or `first_day` and `last_day`. */
+export type NewTimeOff = C.NewTimeOff;
+
+/** Body of `POST /api/v1/time-off/{id}/approve` and `/decline`. */
+export type TimeOffDecision = C.TimeOffDecision;
+
+const freeDoctorSuggestion = z.object({
+  practitioner_id: practitionerId,
+  display_name: z.string(),
+  calendar_color: z.string(),
+  in_hours: z.boolean(),
+}) satisfies z.ZodType<C.FreeDoctorSuggestion>;
+export type FreeDoctorSuggestion = z.output<typeof freeDoctorSuggestion>;
+
+export const affectedAppointment = z.object({
+  id: appointmentId,
+  practitioner_id: practitionerId,
+  starts_at: timestamp,
+  ends_at: timestamp,
+  status: appointmentStatus,
+  patient_name: z.string(),
+  row_version: z.number().int(),
+  suggestions: z.array(freeDoctorSuggestion),
+}) satisfies z.ZodType<C.AffectedAppointment>;
+export type AffectedAppointment = z.output<typeof affectedAppointment>;
+
+export const affectedAppointmentList = z.object({ items: z.array(affectedAppointment) }) satisfies z.ZodType<C.AffectedAppointments>;
+export type AffectedAppointmentPage = z.output<typeof affectedAppointmentList>;
+
+export const staffOpsSettings = z.object({
+  time_off: z.object({ requires_approval: z.boolean() }),
+  tasks: z.object({ remind_every_minutes: z.number().int() }),
+}) satisfies z.ZodType<C.StaffOpsSettingsBody>;
+export type StaffOpsSettings = z.output<typeof staffOpsSettings>;
+
+/** Body of `PATCH /api/v1/settings/staff-ops`; what is left out stays. */
+export type StaffOpsSettingsChanges = C.StaffOpsSettingsChanges;
+
 // Queue (M3) --------------------------------------------------------------------------------------
 
 export const queueTokenStatus = z.enum(["waiting", "called", "in_chair", "ready_to_bill", "done", "left"]) satisfies z.ZodType<C.QueueTokenStatus>;
@@ -655,6 +774,7 @@ export const queueToken = z.object({
   issued_at: timestamp,
   called_at: optionalTimestamp,
   done_at: optionalTimestamp,
+  room_id: roomId.nullable().exactOptional(),
   wait_minutes: z.number().int().nonnegative(),
 }) satisfies z.ZodType<C.QueueToken>;
 export type QueueToken = z.output<typeof queueToken>;
@@ -1642,6 +1762,7 @@ export const visitDetail = z.object({
       visit_id: visitId.nullable().exactOptional(),
       canals: z.array(rootCanal).default([]),
       sitting: count.nullable().exactOptional(),
+      in_progress: z.boolean().default(false),
     }),
   ),
   attachments: z.array(attachment),
@@ -1684,6 +1805,8 @@ export const chartEntry = z.object({
   canals: z.array(rootCanal).default([]),
   /** A root canal's sitting (visit) number. */
   sitting: count.nullable().exactOptional(),
+  /** Started but not finished; older servers don't send it. */
+  in_progress: z.boolean().default(false),
 }) satisfies z.ZodType<C.ChartEntry>;
 export type ChartEntry = z.output<typeof chartEntry>;
 
@@ -1696,6 +1819,7 @@ export type DentalChart = z.output<typeof dentalChart>;
 
 /** Body of `POST /api/v1/patients/{id}/dental-chart`. */
 export type NewChartEntries = C.NewChartEntries;
+export type NewChartEntry = C.NewChartEntry;
 
 // Patient files (M4) ------------------------------------------------------------------------------
 
@@ -1898,6 +2022,16 @@ export const invoiceLine = z.object({
   total_paise: paise,
 }) satisfies z.ZodType<C.InvoiceLine>;
 export type InvoiceLine = z.output<typeof invoiceLine>;
+
+export const upiLink = z.object({
+  uri: z.string(),
+  qr_data: z.string(),
+  upi_id: z.string(),
+  payee_name: z.string(),
+  invoice_number: z.string(),
+  amount_paise: paise,
+}) satisfies z.ZodType<C.UpiLink>;
+export type UpiLink = z.output<typeof upiLink>;
 
 export const invoice = z.object({
   id: invoiceId,
@@ -2384,8 +2518,46 @@ export const stockLevel = z.object({
   on_hand: count,
   next_expiry: date.nullable().exactOptional(),
   status: stockStatus,
+  days_cover: count.nullable().exactOptional(),
+  runs_out_on: date.nullable().exactOptional(),
 }) satisfies z.ZodType<C.StockLevel>;
 export type StockLevel = z.output<typeof stockLevel>;
+
+export const stockInsight = z.object({
+  item_id: inventoryItemId,
+  name: z.string(),
+  unit: stockUnit,
+  on_hand: count,
+  daily_usage: z.number().nonnegative().nullable().exactOptional(),
+  usage_7d: count,
+  usage_28d: count,
+  series: z.array(z.object({ day: date, quantity: count })),
+  days_cover: count.nullable().exactOptional(),
+  runs_out_on: date.nullable().exactOptional(),
+  reorder_level: count,
+  lead_time_days: count,
+  alerts_enabled: z.boolean(),
+  suggested_reorder_qty: count.nullable().exactOptional(),
+  needs_reorder: z.boolean(),
+  reorder_reason: optionalText,
+}) satisfies z.ZodType<C.StockInsight>;
+export type StockInsight = z.output<typeof stockInsight>;
+
+export const stockAnalytics = z.object({
+  items: z.array(stockInsight),
+  reorder_list: z.array(stockInsight),
+}) satisfies z.ZodType<C.StockAnalytics>;
+export type StockAnalytics = z.output<typeof stockAnalytics>;
+
+export const inventoryItemAlerts = z.object({
+  item_id: inventoryItemId,
+  lead_time_days: count,
+  alerts_enabled: z.boolean(),
+}) satisfies z.ZodType<C.InventoryItemAlerts>;
+export type InventoryItemAlerts = z.output<typeof inventoryItemAlerts>;
+
+/** Body of `PATCH /api/v1/inventory-items/{id}/alerts`. */
+export type InventoryItemAlertChanges = C.InventoryItemAlertChanges;
 
 export const inventoryItemList = z.object({ items: z.array(stockLevel) }) satisfies z.ZodType<C.InventoryItemList>;
 export type InventoryItemPage = z.output<typeof inventoryItemList>;
@@ -2706,15 +2878,36 @@ export type SetupUpdate = C.SetupUpdate;
 
 // Walk-in fast path ---------------------------------------------------------------------------
 
-/** A relative linked to a patient: `relation` is what they are to that patient. */
+/** What a relative is to a patient. */
+export const familyRelation = z.enum(["guardian", "child", "spouse", "parent", "sibling", "other"]);
+export type FamilyRelation = z.output<typeof familyRelation>;
+
+/** A relative of a matched patient, offered by the phone lookup: `relation` is what they are to `of_patient_id`. */
 export const familyMember = z.object({
+  of_patient_id: patientId,
   id: patientId,
   number: z.string(),
   full_name: z.string(),
-  relation: z.enum(["guardian", "child", "spouse", "other"]),
+  relation: familyRelation,
 }) satisfies z.ZodType<Omit<C.FamilyMember, "relation"> & { relation: string }>;
 export type FamilyMember = z.output<typeof familyMember>;
-export type FamilyRelation = FamilyMember["relation"];
+
+/** A relative of a patient (`GET /patients/{id}/family`). */
+export const familyLink = z.object({
+  id: z.uuid(),
+  patient_id: patientId,
+  number: z.string(),
+  full_name: z.string(),
+  relation: familyRelation,
+  is_primary_contact: z.boolean(),
+}) satisfies z.ZodType<Omit<C.FamilyLink, "relation"> & { relation: string }>;
+export type FamilyLink = z.output<typeof familyLink>;
+
+export const familyList = z.object({ items: z.array(familyLink) }) satisfies z.ZodType<Omit<C.FamilyList, "items"> & { items: unknown[] }>;
+export type FamilyList = z.output<typeof familyList>;
+
+/** Body of `POST /api/v1/patients/{id}/family`. */
+export type NewFamilyLink = { related_patient_id: string; relation: FamilyRelation; is_primary_contact?: boolean };
 
 /** A registered patient with the phone the desk typed: just enough to say "this is them". */
 export const phoneMatch = z.object({
@@ -2723,12 +2916,10 @@ export const phoneMatch = z.object({
   full_name: z.string(),
   age_years: z.number().int().nonnegative().nullable().exactOptional(),
   sex,
-  /** Relatives linked to this patient; empty when none. */
-  family: z.array(familyMember),
 }) satisfies z.ZodType<C.PhoneMatch>;
 export type PhoneMatch = z.output<typeof phoneMatch>;
 
-export const phoneMatches = z.object({ items: z.array(phoneMatch) }) satisfies z.ZodType<C.PhoneMatches>;
+export const phoneMatches = z.object({ items: z.array(phoneMatch), family_group: z.array(familyMember) }) satisfies z.ZodType<C.PhoneMatches>;
 export type PhoneMatchPage = z.output<typeof phoneMatches>;
 
 /** What `POST /api/v1/walk-ins` did. */
@@ -2738,7 +2929,8 @@ export const walkIn = z.object({
   token: queueToken,
   allergies_recorded: z.number().int().nonnegative(),
   conditions_recorded: z.number().int().nonnegative(),
-  family_linked: z.boolean(),
+  /** The family link made, when `family_of` was given. */
+  family_link_id: z.string().nullable().exactOptional(),
   consents_recorded: z.array(consentPurpose),
 }) satisfies z.ZodType<C.WalkIn>;
 export type WalkIn = z.output<typeof walkIn>;
@@ -2752,7 +2944,7 @@ export const patientsSummary = z.object({
   new_this_month: z.number().int().nonnegative(),
   recalls_due: z.number().int().nonnegative(),
   /** Patients who owe money; absent without `billing.read`. */
-  with_balance: z.number().int().nonnegative().nullable().exactOptional(),
+  with_balance: z.number().int().nonnegative().nullable(),
 }) satisfies z.ZodType<C.PatientsSummary>;
 export type PatientsSummary = z.output<typeof patientsSummary>;
 
@@ -2844,3 +3036,441 @@ export type SavedMedicineSetList = z.output<typeof savedMedicineSetList>;
 
 /** Body of `POST /api/v1/medicine-sets` and `PUT /api/v1/medicine-sets/{id}`. */
 export type MedicineSetInput = C.MedicineSetValues;
+// Staff notifications ------------------------------------------------------------------------
+
+export const notificationKind = z.enum([
+  "booking_requested",
+  "booking_confirmed_auto",
+  "booking_cancelled_by_patient",
+  "lab_overdue",
+  "arrival",
+  "payment_due",
+  "recall_due",
+  "patient_waiting",
+  "send_in",
+  "collect_payment",
+  "task_due",
+  "task_reminder",
+  "task_escalated",
+  "time_off_requested",
+  "time_off_decided",
+  "stock_alert",
+]);
+/** The kinds this client knows. `Notification.kind` is any string: the server adds kinds without waiting for old apps. */
+export type NotificationKind = z.output<typeof notificationKind>;
+
+/** The known kind of a notification, or `null` for one from a newer server: show it as a generic row. */
+export function knownNotificationKind(kind: string): NotificationKind | null {
+  const parsed = notificationKind.safeParse(kind);
+  return parsed.success ? parsed.data : null;
+}
+
+export const notification = z.object({
+  id: z.string(),
+  kind: z.string(),
+  created_at: timestamp,
+  read: z.boolean(),
+  read_at: optionalText,
+  handled: z.object({ at: timestamp, membership_id: optionalText, name: optionalText }).nullable().exactOptional(),
+  reminded_at: optionalText,
+  escalated_at: optionalText,
+  appointment: z
+    .object({ id: z.string(), starts_at: timestamp, ends_at: timestamp, status: z.string(), practitioner_id: z.string(), practitioner_name: z.string() })
+    .nullable()
+    .exactOptional(),
+  lab_order: z.object({ id: z.string(), number: z.string(), vendor_name: z.string(), due_on: optionalText }).nullable().exactOptional(),
+  /** A path inside the portal that opens what it is about, such as `/queue`. */
+  href: optionalText,
+  queue_token: z.object({ id: z.string(), number: z.number().int() }).nullable().exactOptional(),
+  invoice: z.object({ id: z.string(), number: optionalText }).nullable().exactOptional(),
+  recall: z.object({ id: z.string(), kind: z.string(), due_on: z.string() }).nullable().exactOptional(),
+  /** `task_*`: the occurrence, its snapshot title and when it falls due. Only the newest step is listed. */
+  task_occurrence_id: optionalText,
+  title: optionalText,
+  due_at: optionalText,
+  /** `stock_alert`: the item, its name and the days of stock left (absent when unknown). */
+  item_id: optionalText,
+  item_name: optionalText,
+  days_cover: z.number().nullable().exactOptional(),
+  /** `time_off_*`: the request, by id only. */
+  time_off_request_id: optionalText,
+}) satisfies z.ZodType<C.Notification>;
+export type Notification = z.output<typeof notification>;
+
+export const notificationList = z.object({ items: z.array(notification) }) satisfies z.ZodType<C.NotificationList>;
+export type NotificationList = z.output<typeof notificationList>;
+
+export const unreadCount = z.object({ unread: z.number().int() }) satisfies z.ZodType<C.UnreadCount>;
+export type UnreadCount = z.output<typeof unreadCount>;
+
+export const markedRead = z.object({ marked: z.number().int() }) satisfies z.ZodType<C.MarkedRead>;
+export type MarkedRead = z.output<typeof markedRead>;
+
+/** What the apps poll every minute: unread chat messages and unread notifications. */
+export const badges = z.object({
+  chat_unread: z.number().int(),
+  notifications_unread: z.number().int().nullable().exactOptional(),
+  /** Open tasks given to the caller or their role. */
+  tasks_open: z.number().int(),
+}) satisfies z.ZodType<C.Badges>;
+export type Badges = z.output<typeof badges>;
+
+// Patient messages, campaigns and staff chat -------------------------------------------------------
+
+export const messagesQueued = z.object({
+  batch_id: z.string(),
+  requested: count,
+  queued: count,
+  already_queued: count,
+}) satisfies z.ZodType<C.MessagesQueued>;
+export type MessagesQueued = z.output<typeof messagesQueued>;
+
+const messageSummary = z.object({
+  id: z.string(),
+  kind: z.string(),
+  channel: z.string(),
+  purpose: z.string(),
+  template_key: z.string(),
+  status: z.string(),
+  attempts: count,
+  created_at: timestamp,
+  scheduled_for: timestamp,
+  sent_at: optionalTimestamp,
+  delivery: optionalText,
+  skip_reason: optionalText,
+}) satisfies z.ZodType<C.MessageSummary>;
+export const messageList = z.object({ items: z.array(messageSummary) }) satisfies z.ZodType<C.MessageList>;
+export type MessageList = z.output<typeof messageList>;
+
+const messageTemplate = z.object({
+  id: z.string(),
+  key: z.string(),
+  channel: z.string(),
+  language: z.string(),
+  category: z.string(),
+  status: z.string(),
+  body: z.string(),
+  updated_at: timestamp,
+  dlt_template_id: optionalText,
+  provider_template_ref: optionalText,
+  reviewed_at: optionalTimestamp,
+  sender_header: optionalText,
+  submitted_at: optionalTimestamp,
+}) satisfies z.ZodType<C.MessageTemplate>;
+export const messageTemplates = z.object({ items: z.array(messageTemplate) }) satisfies z.ZodType<C.MessageTemplates>;
+export type MessageTemplates = z.output<typeof messageTemplates>;
+export type MessageTemplate = z.output<typeof messageTemplate>;
+
+export const audienceFilter = z.object({
+  kind: z.string(),
+  after: optionalText,
+  before: optionalText,
+  max: z.number().int().nullable().exactOptional(),
+  min: z.number().int().nullable().exactOptional(),
+  month: z.number().int().nullable().exactOptional(),
+  sex: optionalText,
+  tag: optionalText,
+}) satisfies z.ZodType<C.AudienceFilter>;
+export type AudienceFilter = z.output<typeof audienceFilter>;
+
+export const audiencePreview = z.object({
+  count: count,
+  count_token: z.string(),
+  expires_at: timestamp,
+}) satisfies z.ZodType<C.AudiencePreview>;
+export type AudiencePreview = z.output<typeof audiencePreview>;
+
+export const audience = z.object({
+  id: z.string(),
+  name: z.string(),
+  filter: audienceFilter,
+  created_at: timestamp,
+  updated_at: timestamp,
+}) satisfies z.ZodType<C.Audience>;
+export type Audience = z.output<typeof audience>;
+
+export const campaign = z.object({
+  id: z.string(),
+  name: z.string(),
+  audience_id: z.string(),
+  template_id: z.string(),
+  channel: z.string(),
+  offer_text: z.string(),
+  status: z.string(),
+  counts: z.array(z.object({ status: z.string(), count: z.number().int(), skip_reason: optionalText })),
+  created_at: timestamp,
+  updated_at: timestamp,
+  created_by: optionalText,
+  scheduled_at: optionalTimestamp,
+  scheduled_count: z.number().int().nullable().exactOptional(),
+  cancelled_at: optionalTimestamp,
+  fan_out_started_at: optionalTimestamp,
+  fan_out_done_at: optionalTimestamp,
+}) satisfies z.ZodType<C.Campaign>;
+export type Campaign = z.output<typeof campaign>;
+export const campaigns = z.object({ items: z.array(campaign) }) satisfies z.ZodType<C.Campaigns>;
+export type Campaigns = z.output<typeof campaigns>;
+
+const conversationItem = z.object({
+  id: z.string(),
+  kind: z.string(),
+  role: z.string(),
+  muted: z.boolean(),
+  unread: z.number().int(),
+  created_at: timestamp,
+  title: optionalText,
+  archived_at: optionalTimestamp,
+  last_message_at: optionalTimestamp,
+  last_message_id: optionalText,
+  last_read_message_id: optionalText,
+  with: z.object({ membership_id: z.string(), name: z.string() }).nullable().exactOptional(),
+}) satisfies z.ZodType<C.ConversationItem>;
+export type ConversationItem = z.output<typeof conversationItem>;
+export const conversationList = z.object({ items: z.array(conversationItem) }) satisfies z.ZodType<C.ConversationList>;
+export type ConversationList = z.output<typeof conversationList>;
+export const conversationStarted = z.object({ id: z.string(), created: z.boolean() }) satisfies z.ZodType<C.ConversationStarted>;
+export type ConversationStarted = z.output<typeof conversationStarted>;
+
+export const chatMessage = z.object({
+  id: z.string(),
+  conversation_id: z.string(),
+  author_membership_id: z.string(),
+  client_id: z.string(),
+  created_at: timestamp,
+  deleted: z.boolean(),
+  author_name: optionalText,
+  body: optionalText,
+  patient_id: optionalText,
+}) satisfies z.ZodType<C.ChatMessage>;
+export type ChatMessage = z.output<typeof chatMessage>;
+export const chatMessageList = z.object({ items: z.array(chatMessage) }) satisfies z.ZodType<C.ChatMessageList>;
+export type ChatMessageList = z.output<typeof chatMessageList>;
+
+// Lab work: vendors, contacts, orders and payments --------------------------------------------------
+
+export const labOrderState = z.enum(["draft", "sent", "in_progress", "received", "fitted", "returned_for_rework", "cancelled"]) satisfies z.ZodType<C.LabOrderState>;
+export type LabOrderState = z.output<typeof labOrderState>;
+
+export const labContact = z.object({
+  id: z.string().min(1),
+  vendor_id: z.string().min(1),
+  name: z.string(),
+  role: optionalText,
+  phone: optionalText,
+  email: optionalText,
+  whatsapp: z.boolean(),
+  preferred_channel: z.enum(["email", "whatsapp", "phone"]),
+}) satisfies z.ZodType<C.LabContact>;
+export type LabContact = z.output<typeof labContact>;
+
+export const labVendor = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  kind: z.enum(["dental_lab", "pathology", "radiology", "other"]),
+  phone: optionalText,
+  email: optionalText,
+  address: optionalText,
+  note: optionalText,
+  contacts: z.array(labContact),
+  created_at: timestamp,
+}) satisfies z.ZodType<C.LabVendor>;
+export type LabVendor = z.output<typeof labVendor>;
+
+export const labVendorList = z.object({ items: z.array(labVendor) }) satisfies z.ZodType<C.LabVendorList>;
+export type LabVendorList = z.output<typeof labVendorList>;
+
+export const labBalance = z.object({
+  vendor_id: z.string().min(1),
+  name: z.string(),
+  orders: count,
+  billed_paise: z.number().int(),
+  paid_paise: z.number().int(),
+  due_paise: z.number().int(),
+}) satisfies z.ZodType<C.LabBalance>;
+export type LabBalance = z.output<typeof labBalance>;
+
+export const labOrderItem = z.object({
+  id: z.string().min(1),
+  line_no: z.number().int(),
+  work_type: z.string(),
+  teeth: z.array(z.number().int()),
+  shade: optionalText,
+  material: optionalText,
+  qty: z.number().int(),
+  unit_cost_paise: z.number().int().nullable().exactOptional(),
+}) satisfies z.ZodType<C.LabOrderItem>;
+export type LabOrderItem = z.output<typeof labOrderItem>;
+
+export const labOrderEvent = z.object({
+  kind: z.string(),
+  from_status: labOrderState.nullable().exactOptional(),
+  to_status: labOrderState.nullable().exactOptional(),
+  stage: optionalText,
+  due_on: optionalText,
+  reminder: optionalText,
+  note: optionalText,
+  channel: optionalText,
+  outcome: optionalText,
+  contact_id: optionalText,
+  line_no: z.number().int().nullable().exactOptional(),
+  actor_id: optionalText,
+  at: timestamp,
+}) satisfies z.ZodType<C.LabOrderEvent>;
+export type LabOrderEvent = z.output<typeof labOrderEvent>;
+
+/** A whole lab order: the work, who has it, where it stands and what happened. Costs come only with `finance.view`. */
+export const labOrder = z.object({
+  id: z.string().min(1),
+  number: z.string(),
+  vendor_id: z.string().min(1),
+  vendor_name: optionalText,
+  vendor_phone: optionalText,
+  contact_id: optionalText,
+  contact_name: optionalText,
+  contact_phone: optionalText,
+  contact_email: optionalText,
+  contact_whatsapp: z.boolean(),
+  last_contacted_at: optionalTimestamp,
+  last_contacted_by: optionalText,
+  last_contacted_by_name: optionalText,
+  patient_id: z.string().min(1),
+  patient_number: z.string(),
+  patient_name: z.string(),
+  doctor_id: z.string().min(1),
+  doctor_name: optionalText,
+  procedure_id: optionalText,
+  encounter_id: optionalText,
+  status: labOrderState,
+  pipeline_stage: labPipelineStage,
+  late: z.boolean(),
+  days_late: z.number().int().nonnegative().nullable().exactOptional(),
+  stage: optionalText,
+  instructions: optionalText,
+  sent_at: optionalTimestamp,
+  due_on: date.nullable().exactOptional(),
+  received_at: optionalTimestamp,
+  rework_of_id: optionalText,
+  created_at: timestamp,
+  costs_visible: z.boolean(),
+  items: z.array(labOrderItem),
+  events: z.array(labOrderEvent),
+}) satisfies z.ZodType<C.LabOrder>;
+export type LabOrder = z.output<typeof labOrder>;
+
+export const labOrderList = z.object({ items: z.array(labOrder) }) satisfies z.ZodType<C.LabOrderList>;
+export type LabOrderList = z.output<typeof labOrderList>;
+
+export const labReminderQueued = z.object({ message_id: z.string().min(1) }) satisfies z.ZodType<C.LabReminderQueued>;
+export type LabReminderQueued = z.output<typeof labReminderQueued>;
+
+export const labPayment = z.object({
+  id: z.string().min(1),
+  vendor_id: z.string().min(1),
+  lab_order_id: optionalText,
+  paid_on: date,
+  amount_paise: z.number().int(),
+  lab_invoice_ref: optionalText,
+  note: optionalText,
+  expense_id: z.string().min(1),
+  status: z.string(),
+  void_reason: optionalText,
+  voided_at: optionalTimestamp,
+  recorded_by: z.string().min(1),
+  created_at: timestamp,
+}) satisfies z.ZodType<C.LabPayment>;
+export type LabPayment = z.output<typeof labPayment>;
+
+export const labPaymentList = z.object({ items: z.array(labPayment) }) satisfies z.ZodType<C.LabPaymentList>;
+export type LabPaymentList = z.output<typeof labPaymentList>;
+
+/** Request bodies. */
+export type NewLabOrder = C.NewLabOrder;
+export type NewLabOrderItem = C.NewLabOrderItem;
+export type LabOrderStatusChange = C.LabOrderStatusChange;
+export type LabOrderChanges = C.LabOrderChanges;
+export type LabContactLogEntry = C.LabContactLogEntry;
+export type LabVendorValues = C.LabVendorValues;
+export type LabContactValues = C.LabContactValues;
+export type NewLabPayment = C.NewLabPayment;
+export type LabVendorKind = C.LabVendorKind;
+export type LabContactChannel = C.LabContactChannel;
+
+// Staff tasks --------------------------------------------------------------------------------
+
+export const taskId = z.string().min(1).brand<"TaskId">();
+export type TaskId = z.output<typeof taskId>;
+
+export const taskOccurrenceId = z.string().min(1).brand<"TaskOccurrenceId">();
+export type TaskOccurrenceId = z.output<typeof taskOccurrenceId>;
+
+export const taskAction = z.enum(["none", "record_usage", "confirm_photos"]);
+export const taskStatus = z.enum(["open", "done", "skipped", "missed"]);
+
+/** One day's run of a task. */
+export const taskOccurrence = z.object({
+  id: taskOccurrenceId,
+  template_id: taskId,
+  title: z.string(),
+  action: taskAction,
+  assignee_membership_id: membershipId.nullable().exactOptional(),
+  assignee_role_id: z.string().min(1).nullable().exactOptional(),
+  local_date: date,
+  due_at: timestamp,
+  status: taskStatus,
+  completed_at: optionalTimestamp,
+  completed_by: membershipId.nullable().exactOptional(),
+  completed_by_name: optionalText,
+  note: optionalText,
+  /** Only on a confirm_photos task. */
+  patients_without_photos_today: z.number().int().exactOptional(),
+}) satisfies z.ZodType<C.TaskOccurrence>;
+export type TaskOccurrence = z.output<typeof taskOccurrence>;
+
+export const myTasks = z.object({
+  date,
+  items: z.array(taskOccurrence),
+}) satisfies z.ZodType<C.MyTasks>;
+export type MyTasks = z.output<typeof myTasks>;
+
+export const taskSchedule = z.object({
+  kind: z.enum(["once", "daily", "every_n_days", "weekdays"]).nullable().exactOptional(),
+  once_at: optionalTimestamp,
+  interval_days: z.number().int().nullable().exactOptional(),
+  /** 1 (Monday) to 7 (Sunday). */
+  weekdays: z.array(z.number().int()).nullable().exactOptional(),
+  due_time: optionalText,
+  starts_on: date.nullable().exactOptional(),
+  ends_on: date.nullable().exactOptional(),
+}) satisfies z.ZodType<C.TaskSchedule>;
+export type TaskSchedule = z.output<typeof taskSchedule>;
+
+export const task = z.object({
+  id: taskId,
+  title: z.string(),
+  description: optionalText,
+  assignee_membership_id: membershipId.nullable().exactOptional(),
+  assignee_name: optionalText,
+  assignee_role_id: z.string().min(1).nullable().exactOptional(),
+  assignee_role_name: optionalText,
+  schedule: taskSchedule,
+  remind_every_minutes: z.number().int().nullable().exactOptional(),
+  escalate_after: z.number().int(),
+  action: taskAction,
+  active: z.boolean(),
+  is_default: z.boolean(),
+  default_key: optionalText,
+  created_at: timestamp,
+  updated_at: timestamp,
+}) satisfies z.ZodType<C.Task>;
+export type Task = z.output<typeof task>;
+
+export const taskList = z.object({ items: z.array(task) }) satisfies z.ZodType<C.TaskList>;
+export type TaskList = z.output<typeof taskList>;
+
+export const taskPreview = z.object({
+  items: z.array(z.object({ local_date: date, due_at: timestamp })),
+}) satisfies z.ZodType<C.TaskPreview>;
+export type TaskPreview = z.output<typeof taskPreview>;
+
+export const taskHistory = z.object({ items: z.array(taskOccurrence) }) satisfies z.ZodType<C.TaskHistory>;
+export type TaskHistory = z.output<typeof taskHistory>;

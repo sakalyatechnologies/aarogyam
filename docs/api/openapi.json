@@ -125,6 +125,9 @@
           },
           "409": {
             "description": "The chair is already booked for part of this time"
+          },
+          "422": {
+            "description": "The doctor is on leave then (`practitioner_on_leave`)"
           }
         },
         "security": [
@@ -257,6 +260,9 @@
           },
           "412": {
             "description": "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`"
+          },
+          "422": {
+            "description": "Moved to a doctor or time on leave (`practitioner_on_leave`)"
           }
         },
         "security": [
@@ -394,6 +400,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Confirming a request for a doctor who is on leave then (`practitioner_on_leave`)"
           }
         },
         "security": [
@@ -3792,6 +3801,64 @@
         ]
       }
     },
+    "/api/v1/inventory-items/{id}/alerts": {
+      "patch": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Changes how long an item takes to arrive and whether it raises stock alerts.",
+        "operationId": "updateInventoryItemAlerts",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertSettingsBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such item in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/invitations/accept": {
       "post": {
         "tags": [
@@ -5465,7 +5532,7 @@
         "tags": [
           "schedule"
         ],
-        "summary": "Records a doctor's leave. Bookings already made stay; new ones get a warning.",
+        "summary": "Records a doctor's leave. Bookings already made stay; new ones are refused (`422 practitioner_on_leave`).",
         "operationId": "addLeaveBlock",
         "requestBody": {
           "content": {
@@ -5639,6 +5706,48 @@
           },
           "401": {
             "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Changes the signed-in person's own name and phone. It is theirs across every clinic they\nbelong to; the change history records them as the actor.",
+        "operationId": "updateMe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "409": {
+            "description": "Another account holds that phone number"
           }
         },
         "security": [
@@ -6547,6 +6656,34 @@
         ]
       }
     },
+    "/api/v1/me/sessions/revoke-others": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Signs out every other session of the person, keeping the one asking. Their next requests get\n`401`, on every host.",
+        "operationId": "revokeOtherSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedSessions"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/sessions/{id}/revoke": {
       "post": {
         "tags": [
@@ -7213,7 +7350,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks both appointments.read and labs.read"
+            "description": "The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request"
           }
         },
         "security": [
@@ -7244,7 +7381,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks both appointments.read and labs.read"
+            "description": "The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request"
           }
         },
         "security": [
@@ -7275,7 +7412,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks both appointments.read and labs.read"
+            "description": "The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request"
           }
         },
         "security": [
@@ -7311,7 +7448,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks both appointments.read and labs.read"
+            "description": "The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request"
           },
           "404": {
             "description": "No such notification in this clinic, or its appointment or lab order is out of the role's reach"
@@ -8929,6 +9066,158 @@
           },
           "409": {
             "description": "The visit is closed, the corrected entry is no longer current, the chart changed at the same moment, or `id_conflict`: the client_id made other entries"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/family": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The patient's relatives.",
+        "operationId": "listFamily",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Links a relative to the patient (and the patient back to the relative).",
+        "operationId": "addFamilyLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewFamilyLink"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown relation or a bad id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "Either patient isn't in this clinic"
+          },
+          "409": {
+            "description": "A patient linked to themselves, or a pair already linked"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/family/{link_id}": {
+      "delete": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Removes a family link and its inverse.",
+        "operationId": "removeFamilyLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "link_id",
+            "in": "path",
+            "description": "The link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed, with its inverse"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such link in this clinic"
           }
         },
         "security": [
@@ -12715,6 +13004,53 @@
         ]
       }
     },
+    "/api/v1/settings/clinic/logo": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Uploads the clinic logo as `multipart/form-data` field `file`: PNG or JPEG, up to 2 MB,\nchecked by content. Replaces the previous one. The same image the letterhead prints as its\nlogo; returns the clinic's settings.",
+        "operationId": "uploadClinicLogo",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a PNG or JPEG, or empty"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "413": {
+            "description": "Larger than 2 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/settings/dashboard-layout": {
       "get": {
         "tags": [
@@ -12918,6 +13254,85 @@
         ]
       }
     },
+    "/api/v1/settings/notifications": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The clinic's notification switches and quiet hours.",
+        "operationId": "getNotificationSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Changes the notification switches and quiet hours. The change history records each change.",
+        "operationId": "updateNotificationSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the setting"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/settings/onboarding": {
       "get": {
         "tags": [
@@ -12979,6 +13394,85 @@
           },
           "400": {
             "description": "Unknown step, status or practice"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/staff-ops": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The clinic's staff-operations settings.",
+        "operationId": "getStaffOpsSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffOpsSettingsBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Changes the staff-operations settings. The change history records each change.",
+        "operationId": "updateStaffOpsSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffOpsSettingsChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffOpsSettingsBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the setting"
           },
           "401": {
             "description": "Not signed in"
@@ -13720,6 +14214,54 @@
         ]
       }
     },
+    "/api/v1/stock/analytics": {
+      "get": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "How fast each item is used, how long it lasts and what to reorder.",
+        "operationId": "getStockAnalytics",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "query",
+            "description": "One item; every active item by default",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockAnalytics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.read"
+          },
+          "404": {
+            "description": "No such item in this clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/stock/batches/{id}/expire": {
       "post": {
         "tags": [
@@ -14304,6 +14846,500 @@
         ]
       }
     },
+    "/api/v1/tasks": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "The clinic's recurring tasks, including the standard ones and any switched off.",
+        "operationId": "listTasks",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Makes a task.",
+        "operationId": "createTask",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewTaskBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/history": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Occurrences by clinic day, newest first: who did what, and what was missed.",
+        "operationId": "listTaskHistory",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First clinic day, YYYY-MM-DD; 30 days before `to` by default",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last clinic day, YYYY-MM-DD; today by default",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignee",
+            "in": "query",
+            "description": "A member: tasks given to them or their role, or finished by them",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "open, done, skipped or missed",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "template_id",
+            "in": "query",
+            "description": "One task",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad filter, or a range over 92 days"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/mine": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "The caller's tasks for a day: what is given to them or to their role, plus anything still\nopen from an earlier day.",
+        "operationId": "listMyTasks",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The clinic day, YYYY-MM-DD; today by default",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTasks"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad date"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.use"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/occurrences/{id}/complete": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Finishes an occurrence. The caller must be the person it is for or hold the role it is for;\nthe first to finish it closes it for everyone. Repeating it as the same person returns `200`\nand changes nothing; anyone else then gets `409`. When materials are listed and the usable\nstock is short, nothing is recorded and the task stays open.",
+        "operationId": "completeTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The occurrence",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskOccurrence"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.use, or the task is for someone else"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          },
+          "409": {
+            "description": "Already done by someone else, no longer open, or not enough stock"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/occurrences/{id}/reopen": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Opens a done or skipped occurrence again, for a mistake. Stock already recorded for it stays\nrecorded.",
+        "operationId": "reopenTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The occurrence",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskOccurrence"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          },
+          "409": {
+            "description": "The task was missed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/{id}": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "One task.",
+        "operationId": "getTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The task",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Deletes a task. The days already made stay in the history. A standard task cannot be\ndeleted, only switched off with `active: false`.",
+        "operationId": "deleteTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The task",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          },
+          "409": {
+            "description": "A standard task cannot be deleted"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Changes a task.",
+        "operationId": "updateTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The task",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/{id}/preview": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "The next five times a task falls due, worked out the way the generator does it.",
+        "operationId": "previewTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The task",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/templates": {
       "get": {
         "tags": [
@@ -14477,6 +15513,317 @@
           },
           "409": {
             "description": "An email template, one without a name at Meta, or one approved already"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/time-off": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Who is away on the local days `from` to `to`, and the viewer's own requests.",
+        "operationId": "listTimeOff",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First local day, `YYYY-MM-DD`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last local day, `YYYY-MM-DD`; at most 42 days counting both",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOffList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad dates or a range over 42 days"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Asks for time off, or (with `membership_id`) records it for someone. Your own request waits\nfor the owner unless the clinic switched approval off; time off recorded for someone else\nis approved at once.",
+        "operationId": "createTimeOff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewTimeOff"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOff"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks time_off.request, or time_off.manage for someone else"
+          },
+          "404": {
+            "description": "No such member in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/time-off/{id}/affected-appointments": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "The unfinished appointments of the person away in the request's window, each with doctors who\nare free then. To move one, change the appointment as usual: the patient is told the same way.",
+        "operationId": "listAffectedAppointments",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AffectedAppointments"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks time_off.manage"
+          },
+          "404": {
+            "description": "No such request in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/time-off/{id}/approve": {
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Approves a pending request. A doctor's leave block is made in the same step, so new bookings\nfor them are refused; the requester is told.",
+        "operationId": "approveTimeOff",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimeOffDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOff"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks time_off.manage"
+          },
+          "404": {
+            "description": "No such request in this clinic"
+          },
+          "409": {
+            "description": "The request is not pending"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/time-off/{id}/cancel": {
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Withdraws a pending or approved request and removes its leave block, so the doctor can be\nbooked again. The requester or a holder of `time_off.manage` may; to anyone else it is a 404.",
+        "operationId": "cancelTimeOff",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOff"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks time_off.request"
+          },
+          "404": {
+            "description": "No such request in this clinic, or not yours to cancel"
+          },
+          "409": {
+            "description": "The request is already declined or cancelled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/time-off/{id}/decline": {
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Declines a pending request; the requester is told.",
+        "operationId": "declineTimeOff",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimeOffDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOff"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks time_off.manage"
+          },
+          "404": {
+            "description": "No such request in this clinic"
+          },
+          "409": {
+            "description": "The request is not pending"
           }
         },
         "security": [
@@ -15510,6 +16857,74 @@
           }
         }
       },
+      "AffectedAppointment": {
+        "type": "object",
+        "description": "An unfinished appointment the leave covers.",
+        "required": [
+          "id",
+          "practitioner_id",
+          "starts_at",
+          "ends_at",
+          "status",
+          "patient_name",
+          "row_version",
+          "suggestions"
+        ],
+        "properties": {
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "patient_name": {
+            "type": "string",
+            "description": "The patient's name."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor who is away."
+          },
+          "row_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Send as `If-Match` when changing the appointment."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`requested`, `booked`, `confirmed`, `arrived` or `in_chair`."
+          },
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FreeDoctorSuggestion"
+            },
+            "description": "Doctors free at that time, those with hours set first; at most five."
+          }
+        }
+      },
+      "AffectedAppointments": {
+        "type": "object",
+        "description": "Appointments a leave covers.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AffectedAppointment"
+            },
+            "description": "By start."
+          }
+        }
+      },
       "AgingBuckets": {
         "type": "object",
         "description": "Owed by age of the bill.",
@@ -15584,6 +16999,51 @@
           "severity": {
             "type": "string",
             "description": "`info`, `caution` or `serious`."
+          }
+        }
+      },
+      "AlertChanges": {
+        "type": "object",
+        "description": "An item's alert settings, to change; fields left out stay as they are.",
+        "properties": {
+          "alerts_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether the item raises stock alerts."
+          },
+          "lead_time_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Days from ordering to delivery, 0 to 120 (7 by default)."
+          }
+        }
+      },
+      "AlertSettingsBody": {
+        "type": "object",
+        "description": "An item's alert settings.",
+        "required": [
+          "item_id",
+          "lead_time_days",
+          "alerts_enabled"
+        ],
+        "properties": {
+          "alerts_enabled": {
+            "type": "boolean",
+            "description": "Whether the item raises stock alerts."
+          },
+          "item_id": {
+            "type": "string",
+            "description": "The item."
+          },
+          "lead_time_days": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Days from ordering to delivery."
           }
         }
       },
@@ -16072,6 +17532,7 @@
           "has_notes",
           "source",
           "row_version",
+          "patient_type",
           "patient",
           "practitioner"
         ],
@@ -16127,6 +17588,10 @@
           "patient": {
             "$ref": "#/components/schemas/PatientBrief",
             "description": "The patient."
+          },
+          "patient_type": {
+            "type": "string",
+            "description": "`new` when the patient has no earlier completed visit or appointment at this clinic,\notherwise `follow_up`."
           },
           "practitioner": {
             "$ref": "#/components/schemas/PractitionerBrief",
@@ -16729,7 +18194,8 @@
         "type": "object",
         "description": "The numbers the apps poll every minute.",
         "required": [
-          "chat_unread"
+          "chat_unread",
+          "tasks_open"
         ],
         "properties": {
           "chat_unread": {
@@ -16744,6 +18210,11 @@
             ],
             "format": "int64",
             "description": "Unread notifications, as `GET /notifications/count` counts them; absent without\n`appointments.read`."
+          },
+          "tasks_open": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Open tasks given to the caller or to their role; 0 without `tasks.use`."
           }
         }
       },
@@ -16875,7 +18346,7 @@
         "properties": {
           "code": {
             "type": "string",
-            "description": "`practitioner_busy`, `practitioner_on_leave` or `outside_working_hours`."
+            "description": "`practitioner_busy` or `outside_working_hours`."
           },
           "message": {
             "type": "string",
@@ -16899,7 +18370,7 @@
               "string",
               "null"
             ],
-            "description": "`light` or `dark`."
+            "description": "`light`, `dark` or `auto` (follow the device)."
           }
         }
       },
@@ -17305,7 +18776,8 @@
           "finding",
           "status",
           "effective_at",
-          "canals"
+          "canals",
+          "in_progress"
         ],
         "properties": {
           "canals": {
@@ -17326,6 +18798,10 @@
           "id": {
             "type": "string",
             "description": "Identifier."
+          },
+          "in_progress": {
+            "type": "boolean",
+            "description": "The treatment is started but not finished (for example a root canal between sittings)."
           },
           "material": {
             "oneOf": [
@@ -18170,6 +19646,14 @@
           }
         }
       },
+      "CloseQueueStatus": {
+        "type": "string",
+        "description": "Where a closed visit's queue token goes.",
+        "enum": [
+          "done",
+          "ready_to_bill"
+        ]
+      },
       "CloseRequest": {
         "type": "object",
         "description": "What closing a visit may also do. Every field is optional, and so is the body.",
@@ -18195,6 +19679,17 @@
               "null"
             ],
             "description": "The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed\non the draft bill."
+          },
+          "queue_status": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloseQueueStatus",
+                "description": "Where the visit's queue token goes: `done` (the default) or `ready_to_bill` (sent for\npayment)."
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -18367,6 +19862,36 @@
           "header": {
             "type": "string",
             "description": "The column's header."
+          }
+        }
+      },
+      "CompleteBody": {
+        "type": "object",
+        "description": "Finishing a task.",
+        "properties": {
+          "client_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An id the client made, so a retry after a lost answer is recognised. Finishing a task\ntwice as the same person is harmless either way."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note, at most 300 characters. The screen warns: no patient names."
+          },
+          "usage": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/UsageBody"
+            },
+            "description": "The materials used, taken off the shelf first-expiry-first-out, in the same step as\nfinishing the task. Leave out or send an empty list for nothing used."
           }
         }
       },
@@ -19318,6 +20843,25 @@
           }
         }
       },
+      "DailyUse": {
+        "type": "object",
+        "description": "Units used on one clinic day.",
+        "required": [
+          "day",
+          "quantity"
+        ],
+        "properties": {
+          "day": {
+            "type": "string",
+            "description": "The clinic's local day, `YYYY-MM-DD`."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units used."
+          }
+        }
+      },
       "DashboardLayout": {
         "type": "object",
         "description": "A dashboard layout, version 2.",
@@ -19653,7 +21197,9 @@
           "campaign_recipients_capped",
           "lab_reminders_queued",
           "lab_reminders_skipped",
-          "lab_orders_overdue"
+          "lab_orders_overdue",
+          "recalls_flagged",
+          "waiting_flagged"
         ],
         "properties": {
           "address_provider": {
@@ -19769,6 +21315,11 @@
             "format": "int64",
             "description": "Old processed messages deleted."
           },
+          "recalls_flagged": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Follow-up alerts newly written for staff."
+          },
           "reminders_queued": {
             "type": "integer",
             "format": "int32",
@@ -19783,6 +21334,11 @@
             "type": "integer",
             "description": "Delivered.",
             "minimum": 0
+          },
+          "waiting_flagged": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Waiting-patient alerts newly written for staff."
           }
         }
       },
@@ -19877,6 +21433,24 @@
           "q": {
             "type": "string",
             "description": "Part of a name or strength, such as `amox` or `500`."
+          }
+        }
+      },
+      "DueTime": {
+        "type": "object",
+        "description": "A time a task falls due.",
+        "required": [
+          "local_date",
+          "due_at"
+        ],
+        "properties": {
+          "due_at": {
+            "type": "string",
+            "description": "The moment, RFC 3339."
+          },
+          "local_date": {
+            "type": "string",
+            "description": "The clinic's calendar day, `YYYY-MM-DD`."
           }
         }
       },
@@ -20171,10 +21745,65 @@
           }
         }
       },
+      "FamilyLink": {
+        "type": "object",
+        "description": "A relative of a patient.",
+        "required": [
+          "id",
+          "patient_id",
+          "number",
+          "full_name",
+          "relation",
+          "is_primary_contact"
+        ],
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "Their full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link; pass it to the delete route."
+          },
+          "is_primary_contact": {
+            "type": "boolean",
+            "description": "Whether they are this patient's contact person."
+          },
+          "number": {
+            "type": "string",
+            "description": "Their readable number, such as `SD-1042`."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The relative; open them at `/patients/{id}`."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What they are to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling` or\n`other`."
+          }
+        }
+      },
+      "FamilyList": {
+        "type": "object",
+        "description": "A patient's relatives.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FamilyLink"
+            },
+            "description": "The relatives, by name."
+          }
+        }
+      },
       "FamilyMember": {
         "type": "object",
-        "description": "A relative linked to a patient.",
+        "description": "A linked relative of a matched patient.",
         "required": [
+          "of_patient_id",
           "id",
           "number",
           "full_name",
@@ -20187,21 +21816,25 @@
           },
           "id": {
             "type": "string",
-            "description": "Identifier."
+            "description": "The relative."
           },
           "number": {
             "type": "string",
-            "description": "Readable number, such as `SD-1042`."
+            "description": "Readable number, such as `SD-1043`."
+          },
+          "of_patient_id": {
+            "type": "string",
+            "description": "The matched patient they are linked to."
           },
           "relation": {
             "type": "string",
-            "description": "What this relative is to the patient: `guardian` (a parent or guardian), `child`,\n`spouse` or `other`."
+            "description": "What they are to the matched patient: `guardian`, `child`, `spouse`, `parent`,\n`sibling` or `other`."
           }
         }
       },
       "FamilyOfFields": {
         "type": "object",
-        "description": "Attach the walk-in to an existing family.",
+        "description": "Puts the walk-in in an existing patient's family.",
         "required": [
           "patient_id",
           "relation"
@@ -20209,11 +21842,11 @@
         "properties": {
           "patient_id": {
             "type": "string",
-            "description": "A registered relative (one found by the phone lookup, with its `family`)."
+            "description": "The existing patient (a patient of this clinic)."
           },
           "relation": {
             "type": "string",
-            "description": "What that relative is to the walk-in patient: `guardian` (a parent or guardian), `child`,\n`spouse` or `other`."
+            "description": "What the walk-in is to that patient: `guardian`, `child`, `spouse`, `parent`, `sibling`\nor `other`. `child` means the walk-in is that patient's child."
           }
         }
       },
@@ -20305,6 +21938,17 @@
               }
             ]
           },
+          "queue_status": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloseQueueStatus",
+                "description": "Where the visit's queue token goes: `done` (the default) or `ready_to_bill` (sent for\npayment)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sign_notes": {
             "type": [
               "boolean",
@@ -20384,6 +22028,34 @@
           "visit": {
             "$ref": "#/components/schemas/Visit",
             "description": "The closed visit."
+          }
+        }
+      },
+      "FreeDoctorSuggestion": {
+        "type": "object",
+        "description": "A doctor free for an appointment's time.",
+        "required": [
+          "practitioner_id",
+          "display_name",
+          "calendar_color",
+          "in_hours"
+        ],
+        "properties": {
+          "calendar_color": {
+            "type": "string",
+            "description": "Their calendar colour, `#RRGGBB`."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Their name."
+          },
+          "in_hours": {
+            "type": "boolean",
+            "description": "Whether their weekly hours are set and cover the time."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
           }
         }
       },
@@ -22889,7 +24561,7 @@
           },
           "template": {
             "type": "string",
-            "description": "`logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor` or `bilingual`."
+            "description": "`logo_left`, `classic`, `modern_band`, `minimal_line`, `two_doctor`, `bilingual`, `heritage_serif`, `modern_split`,\n`monogram`, `clinical_clean`, `bilingual_elegant` or `signature`."
           },
           "timings": {
             "type": [
@@ -23323,6 +24995,20 @@
           "console_access": {
             "type": "boolean",
             "description": "Whether they are active Sakalya staff who can open the console. Central sign-in sends\nthem there, or offers it first beside their clinics."
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The person's own name; absent when it could not be read."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The person's phone in `E.164`, if recorded."
           },
           "staff_mfa_required": {
             "type": "boolean",
@@ -24127,6 +25813,27 @@
           }
         }
       },
+      "MyTasks": {
+        "type": "object",
+        "description": "A person's tasks for a day.",
+        "required": [
+          "date",
+          "items"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskOccurrence"
+            },
+            "description": "Given to the caller or to their role, soonest first, plus any still open from earlier."
+          }
+        }
+      },
       "NewAddendum": {
         "type": "object",
         "description": "An addendum's text.",
@@ -24153,8 +25860,7 @@
         "required": [
           "patient_id",
           "practitioner_id",
-          "starts_at",
-          "ends_at"
+          "starts_at"
         ],
         "properties": {
           "branch_id": {
@@ -24165,8 +25871,11 @@
             "description": "Branch; the room's, or the default branch."
           },
           "ends_at": {
-            "type": "string",
-            "description": "End (RFC 3339), 5 minutes to 12 hours after the start."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "End (RFC 3339), 5 minutes to 12 hours after the start. Left out, the appointment lasts the\nclinic's default visit length (`online_booking.default_visit_minutes`)."
           },
           "kind": {
             "type": [
@@ -24300,6 +26009,10 @@
           "finding": {
             "type": "string",
             "description": "`sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`."
+          },
+          "in_progress": {
+            "type": "boolean",
+            "description": "The treatment is started but not finished. Defaults to false; ignored with `sound`."
           },
           "material": {
             "type": [
@@ -24509,6 +26222,28 @@
           "spent_on": {
             "type": "string",
             "description": "The clinic day, `YYYY-MM-DD`; today or earlier."
+          }
+        }
+      },
+      "NewFamilyLink": {
+        "type": "object",
+        "description": "A relative to link.",
+        "required": [
+          "related_patient_id",
+          "relation"
+        ],
+        "properties": {
+          "is_primary_contact": {
+            "type": "boolean",
+            "description": "Whether the relative is this patient's contact person."
+          },
+          "related_patient_id": {
+            "type": "string",
+            "description": "The relative, a patient of this clinic."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What the relative is to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling`\nor `other`. The relative's own page shows the inverse (a guardian's dependant lists\nthem as `child`)."
           }
         }
       },
@@ -25281,6 +27016,133 @@
           }
         }
       },
+      "NewTaskBody": {
+        "type": "object",
+        "description": "A task to make.",
+        "required": [
+          "title",
+          "schedule"
+        ],
+        "properties": {
+          "action": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`none` (default), `record_usage` or `confirm_photos`."
+          },
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Switched on; true by default."
+          },
+          "assignee_membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member it is for. Give this or `assignee_role_id`, not both."
+          },
+          "assignee_role_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The role it is for: the first person holding it to finish it closes it for all."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "More detail, at most 500 characters."
+          },
+          "escalate_after": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Reminders before the owner is told once more, 0 to 24 (never at 0); 3 by default.",
+            "minimum": 0
+          },
+          "remind_every_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Minutes between reminders, 15 to 1440; leave out for the clinic's default.",
+            "minimum": 0
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/TaskSchedule",
+            "description": "When it falls due."
+          },
+          "title": {
+            "type": "string",
+            "description": "What is to be done, 1 to 120 characters."
+          }
+        }
+      },
+      "NewTimeOff": {
+        "type": "object",
+        "description": "Time off to ask for or record. Give either `starts_at` and `ends_at`, or `first_day` and\n`last_day` for whole days.",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "ends_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "End (RFC 3339), after the start."
+          },
+          "first_day": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "First day, `YYYY-MM-DD`, with `last_day`."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`vacation`, `sick`, `personal` or `other`."
+          },
+          "last_day": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Last day, `YYYY-MM-DD`, included."
+          },
+          "membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Record it for this member instead of yourself; needs `time_off.manage` and is approved\nat once."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A private reason, at most 200 characters."
+          },
+          "starts_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Start (RFC 3339), with `ends_at`."
+          }
+        },
+        "additionalProperties": false
+      },
       "NewVisit": {
         "type": "object",
         "description": "A visit to start.",
@@ -25490,6 +27352,21 @@
             "type": "string",
             "description": "When it happened (RFC 3339)."
           },
+          "days_cover": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Days of stock left at the recent rate, for `stock_alert`; absent when unknown."
+          },
+          "due_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the task falls due (RFC 3339, the clinic's offset), for a task notification."
+          },
           "escalated_at": {
             "type": [
               "string",
@@ -25508,19 +27385,62 @@
               }
             ]
           },
+          "href": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A path inside the portal that opens what it is about, such as `/queue`; absent for older\nnotifications."
+          },
           "id": {
             "type": "string",
             "description": "Identifier; pass as `before` for the next page."
           },
+          "invoice": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedInvoice",
+                "description": "The bill, for `payment_due` and `collect_payment`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "item_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The stock item, for `stock_alert`."
+          },
+          "item_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The item's name, for `stock_alert`."
+          },
           "kind": {
             "type": "string",
-            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient` or\n`lab_overdue`."
+            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,\n`lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,\n`collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,\n`time_off_decided` or `stock_alert`. More kinds may come: clients show an unknown kind\nas a generic row."
           },
           "lab_order": {
             "oneOf": [
               {
                 "$ref": "#/components/schemas/NotifiedLabOrder",
                 "description": "The lab order, for `lab_overdue`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "queue_token": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedQueueToken",
+                "description": "The queue token, for `patient_waiting` and `send_in`."
               },
               {
                 "type": "null"
@@ -25538,12 +27458,44 @@
             ],
             "description": "When the caller read it (RFC 3339)."
           },
+          "recall": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedRecall",
+                "description": "The follow-up, for `recall_due`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "reminded_at": {
             "type": [
               "string",
               "null"
             ],
             "description": "When everyone was reminded because nobody had answered (RFC 3339)."
+          },
+          "task_occurrence_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The task occurrence, for `task_due`, `task_reminder` and `task_escalated`; only its\nnewest step is listed."
+          },
+          "time_off_request_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The time-off request, for `time_off_requested` and `time_off_decided`. An id only: open\nit in the time-off screens."
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The task's title, for a task notification."
           }
         }
       },
@@ -25560,6 +27512,108 @@
               "$ref": "#/components/schemas/Notification"
             },
             "description": "The notifications."
+          }
+        }
+      },
+      "NotificationSettings": {
+        "type": "object",
+        "description": "The clinic's notification switches.",
+        "required": [
+          "reminder_24h",
+          "reminder_2h",
+          "receipts",
+          "recall",
+          "low_stock",
+          "lab_due",
+          "quiet_hours"
+        ],
+        "properties": {
+          "lab_due": {
+            "type": "boolean",
+            "description": "Tell staff when lab work is overdue (default on)."
+          },
+          "low_stock": {
+            "type": "boolean",
+            "description": "Show low stock on Today (default on)."
+          },
+          "quiet_hours": {
+            "$ref": "#/components/schemas/QuietHoursView",
+            "description": "Quiet hours for reminders and offers."
+          },
+          "recall": {
+            "type": "boolean",
+            "description": "Tell staff when a patient's follow-up falls due (default on)."
+          },
+          "receipts": {
+            "type": "boolean",
+            "description": "Email patients a receipt when a payment is recorded (default off)."
+          },
+          "reminder_24h": {
+            "type": "boolean",
+            "description": "Remind patients a day before their appointment (default on)."
+          },
+          "reminder_2h": {
+            "type": "boolean",
+            "description": "Remind patients two hours before (default off)."
+          }
+        }
+      },
+      "NotificationSettingsChanges": {
+        "type": "object",
+        "description": "Changes to the notification switches; what is left out stays.",
+        "properties": {
+          "lab_due": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Overdue lab alerts."
+          },
+          "low_stock": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Low stock on Today."
+          },
+          "quiet_hours": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/QuietHoursChangesBody",
+                "description": "Quiet hours."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recall": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Follow-up alerts to staff."
+          },
+          "receipts": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Receipts by email."
+          },
+          "reminder_24h": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The day-before reminder."
+          },
+          "reminder_2h": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The two-hour reminder."
           }
         }
       },
@@ -25601,6 +27655,26 @@
           }
         }
       },
+      "NotifiedInvoice": {
+        "type": "object",
+        "description": "The bill a `payment_due` or `collect_payment` alert is about.",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The bill; open it at `/billing/invoices/{id}`."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its number once issued; absent for a draft."
+          }
+        }
+      },
       "NotifiedLabOrder": {
         "type": "object",
         "description": "The lab order an overdue alert is about.",
@@ -25628,6 +27702,48 @@
           "vendor_name": {
             "type": "string",
             "description": "Its lab's name."
+          }
+        }
+      },
+      "NotifiedQueueToken": {
+        "type": "object",
+        "description": "The queue token a `patient_waiting` or `send_in` alert is about.",
+        "required": [
+          "id",
+          "number"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The token."
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Its number for the day."
+          }
+        }
+      },
+      "NotifiedRecall": {
+        "type": "object",
+        "description": "The follow-up a `recall_due` alert is about. No reason: it can hold health information.",
+        "required": [
+          "id",
+          "kind",
+          "due_on"
+        ],
+        "properties": {
+          "due_on": {
+            "type": "string",
+            "description": "When it falls due (`YYYY-MM-DD`)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The recall."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Its kind, such as `cleaning`."
           }
         }
       },
@@ -25729,7 +27845,8 @@
           "auto_confirm",
           "horizon_days",
           "min_notice_minutes",
-          "reminder_minutes"
+          "reminder_minutes",
+          "default_visit_minutes"
         ],
         "properties": {
           "auto_confirm": {
@@ -25740,6 +27857,12 @@
             "type": "integer",
             "format": "int32",
             "description": "Gap kept free around other appointments, in minutes (0 to 120).",
+            "minimum": 0
+          },
+          "default_visit_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How long an appointment booked by staff lasts when no end is given: 15, 30, 45 or 60\nminutes.",
             "minimum": 0
           },
           "enabled": {
@@ -25790,6 +27913,15 @@
             ],
             "format": "int32",
             "description": "Buffer in minutes.",
+            "minimum": 0
+          },
+          "default_visit_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Default visit length in minutes: 15, 30, 45 or 60.",
             "minimum": 0
           },
           "enabled": {
@@ -26125,6 +28257,8 @@
           "status",
           "created_at",
           "row_version",
+          "balance_paise",
+          "lifetime_paid_paise",
           "recall_due",
           "allergy_alert",
           "consent_pending",
@@ -26150,7 +28284,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "Paise owed on issued bills. Sent only by the list, search and record responses and only\nwith `billing.read`: without it the key is absent, never null or zero."
+            "description": "Paise owed on issued bills. Sent only by the list, search and record responses and only\nwith `billing.read`: without it the key is `null`, never zero."
           },
           "birth_date_estimated": {
             "type": "boolean",
@@ -26203,7 +28337,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "Paise received in total; absent without `billing.read`, like `balance_paise`."
+            "description": "Paise received in total; `null` without `billing.read`, like `balance_paise`."
           },
           "next_appointment": {
             "oneOf": [
@@ -27389,7 +29523,8 @@
         "required": [
           "total",
           "new_this_month",
-          "recalls_due"
+          "recalls_due",
+          "with_balance"
         ],
         "properties": {
           "new_this_month": {
@@ -27413,7 +29548,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "Patients who owe money on issued bills. Absent without `billing.read`."
+            "description": "Patients who owe money on issued bills. `null` without `billing.read`."
           }
         }
       },
@@ -27660,8 +29795,7 @@
           "id",
           "number",
           "full_name",
-          "sex",
-          "family"
+          "sex"
         ],
         "properties": {
           "age_years": {
@@ -27672,13 +29806,6 @@
             "format": "int32",
             "description": "Age in whole years today.",
             "minimum": 0
-          },
-          "family": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FamilyMember"
-            },
-            "description": "Relatives linked to this patient (`family_of` on a walk-in links them), by name; empty when none."
           },
           "full_name": {
             "type": "string",
@@ -27702,9 +29829,17 @@
         "type": "object",
         "description": "Patients registered with a phone.",
         "required": [
-          "items"
+          "items",
+          "family_group"
         ],
         "properties": {
+          "family_group": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FamilyMember"
+            },
+            "description": "Relatives linked to the matches (`/patients/{id}/family`) who are not themselves matches,\nso the desk can offer the whole family. Empty when nothing is linked."
+          },
           "items": {
             "type": "array",
             "items": {
@@ -28559,6 +30694,46 @@
           }
         }
       },
+      "Profile": {
+        "type": "object",
+        "description": "The person's own name and phone.",
+        "required": [
+          "display_name"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "Their name."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their phone in `E.164`, if recorded."
+          }
+        }
+      },
+      "ProfileUpdate": {
+        "type": "object",
+        "description": "Changes to the person's own profile; what is left out stays.",
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name, 1 to 200 characters."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their phone; +91 is assumed without a country code, and an empty string clears it."
+          }
+        }
+      },
       "PublishNotice": {
         "type": "object",
         "description": "A new version to publish.",
@@ -29080,6 +31255,56 @@
           }
         }
       },
+      "QuietHoursChangesBody": {
+        "type": "object",
+        "description": "Changes to quiet hours; what is left out stays.",
+        "properties": {
+          "enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Switch them on or off."
+          },
+          "end": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New end, `HH:MM`."
+          },
+          "start": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New start, `HH:MM`."
+          }
+        }
+      },
+      "QuietHoursView": {
+        "type": "object",
+        "description": "Quiet hours: when patient reminders and offers wait.",
+        "required": [
+          "enabled",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether they apply."
+          },
+          "end": {
+            "type": "string",
+            "description": "When they end, `HH:MM`; earlier than `start` means they run overnight."
+          },
+          "start": {
+            "type": "string",
+            "description": "When they begin, `HH:MM` in the clinic's time zone."
+          }
+        }
+      },
       "ReadUpTo": {
         "type": "object",
         "description": "How far the caller has read.",
@@ -29484,6 +31709,20 @@
           "invite_link": {
             "type": "string",
             "description": "The invitation link, with its new one-time secret."
+          }
+        }
+      },
+      "RevokedSessions": {
+        "type": "object",
+        "description": "How many sessions a sign-out-everywhere-else ended.",
+        "required": [
+          "revoked"
+        ],
+        "properties": {
+          "revoked": {
+            "type": "integer",
+            "description": "Sessions signed out; the current one stays.",
+            "minimum": 0
           }
         }
       },
@@ -31779,6 +34018,53 @@
           }
         }
       },
+      "StaffOpsSettingsBody": {
+        "type": "object",
+        "description": "Whether staff time off needs approval, and how often open tasks are reminded.",
+        "required": [
+          "time_off",
+          "tasks"
+        ],
+        "properties": {
+          "tasks": {
+            "$ref": "#/components/schemas/TaskSettings",
+            "description": "Task settings."
+          },
+          "time_off": {
+            "$ref": "#/components/schemas/TimeOffSettings",
+            "description": "Time-off settings."
+          }
+        }
+      },
+      "StaffOpsSettingsChanges": {
+        "type": "object",
+        "description": "Changes to the staff-operations settings; what is left out stays.",
+        "properties": {
+          "tasks": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TaskSettingsChanges",
+                "description": "Task settings."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_off": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TimeOffSettingsChanges",
+                "description": "Time-off settings."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "StaffSupportGrant": {
         "type": "object",
         "description": "A grant the staff member holds.",
@@ -31923,6 +34209,30 @@
           }
         }
       },
+      "StockAnalytics": {
+        "type": "object",
+        "description": "Usage and projection per item, and the items to reorder.",
+        "required": [
+          "items",
+          "reorder_list"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockInsight"
+            },
+            "description": "Active items by name, or the one asked for."
+          },
+          "reorder_list": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockInsight"
+            },
+            "description": "The items that need reordering, soonest to run out first."
+          }
+        }
+      },
       "StockBatch": {
         "type": "object",
         "description": "A delivery on the shelf.",
@@ -32033,6 +34343,115 @@
           }
         }
       },
+      "StockInsight": {
+        "type": "object",
+        "description": "One item's usage and run-out projection.",
+        "required": [
+          "item_id",
+          "name",
+          "unit",
+          "on_hand",
+          "usage_7d",
+          "usage_28d",
+          "series",
+          "reorder_level",
+          "lead_time_days",
+          "alerts_enabled",
+          "needs_reorder"
+        ],
+        "properties": {
+          "alerts_enabled": {
+            "type": "boolean",
+            "description": "Whether the item raises stock alerts."
+          },
+          "daily_usage": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Units used per day over the last two weeks; empty with under a week of history or fewer\nthan two days of use."
+          },
+          "days_cover": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Whole days the usable stock lasts at the recent rate; empty without a projection."
+          },
+          "item_id": {
+            "type": "string",
+            "description": "The item."
+          },
+          "lead_time_days": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Days from ordering to delivery."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name."
+          },
+          "needs_reorder": {
+            "type": "boolean",
+            "description": "Whether the item needs reordering now."
+          },
+          "on_hand": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units on the shelf that have not expired today."
+          },
+          "reorder_level": {
+            "type": "integer",
+            "format": "int64",
+            "description": "At or below this the item is low."
+          },
+          "reorder_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why, as `low` or `projected`."
+          },
+          "runs_out_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The day the stock runs out, `YYYY-MM-DD`; empty without a projection."
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyUse"
+            },
+            "description": "Units used on each of the last 28 days, oldest first, today last."
+          },
+          "suggested_reorder_qty": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Units to order to cover the lead time plus two weeks; empty without a projection, zero\nwhen the stock already covers it."
+          },
+          "unit": {
+            "type": "string",
+            "description": "Unit."
+          },
+          "usage_28d": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units used in the last 28 days, today included."
+          },
+          "usage_7d": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units used in the last 7 days, today included."
+          }
+        }
+      },
       "StockLevel": {
         "type": "object",
         "description": "An item and where its stock stands.",
@@ -32042,6 +34461,14 @@
           "status"
         ],
         "properties": {
+          "days_cover": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Whole days the stock lasts at the recent rate of use. Filled only on the low-stock list,\nand only for items with enough use history."
+          },
           "item": {
             "$ref": "#/components/schemas/InventoryItem",
             "description": "The item."
@@ -32057,6 +34484,13 @@
             "type": "integer",
             "format": "int64",
             "description": "Units on hand, all batches."
+          },
+          "runs_out_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The day the stock runs out, `YYYY-MM-DD`. Filled with `days_cover`."
           },
           "status": {
             "type": "string",
@@ -32427,6 +34861,420 @@
           }
         }
       },
+      "Task": {
+        "type": "object",
+        "description": "A task as the manager sees it.",
+        "required": [
+          "id",
+          "title",
+          "schedule",
+          "escalate_after",
+          "action",
+          "active",
+          "is_default",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "`none`, `record_usage` or `confirm_photos`."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether occurrences are made from it. A standard task can only be switched off."
+          },
+          "assignee_membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member it is for, when it is for one person."
+          },
+          "assignee_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "That member's name."
+          },
+          "assignee_role_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The role it is for."
+          },
+          "assignee_role_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "That role's name."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was made, RFC 3339."
+          },
+          "default_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The standard task's key."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "More detail."
+          },
+          "escalate_after": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Reminders before the owner is told once more; 0 means never."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "is_default": {
+            "type": "boolean",
+            "description": "One of the standard tasks every clinic starts with; it cannot be deleted."
+          },
+          "remind_every_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Minutes between reminders; none means the clinic's default."
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/TaskSchedule",
+            "description": "When it falls due."
+          },
+          "title": {
+            "type": "string",
+            "description": "What is to be done."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed, RFC 3339."
+          }
+        }
+      },
+      "TaskChangeBody": {
+        "type": "object",
+        "description": "A change to a task. Fields left out stay as they are.",
+        "properties": {
+          "action": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`none`, `record_usage` or `confirm_photos`."
+          },
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Switch on or off. Switching on, or changing the schedule, makes the task count from that\nmoment."
+          },
+          "assignee_membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A new member to give it to (replaces the old assignee)."
+          },
+          "assignee_role_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A new role to give it to (replaces the old assignee)."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Description; an empty string clears it."
+          },
+          "escalate_after": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Reminders before escalating, 0 to 24.",
+            "minimum": 0
+          },
+          "remind_every_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Minutes between reminders, 15 to 1440; 0 goes back to the clinic's default.",
+            "minimum": 0
+          },
+          "schedule": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TaskSchedule",
+                "description": "A new schedule, replacing the old one entirely."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Title."
+          }
+        }
+      },
+      "TaskHistory": {
+        "type": "object",
+        "description": "Past and open occurrences.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskOccurrence"
+            },
+            "description": "Newest first, at most 500."
+          }
+        }
+      },
+      "TaskList": {
+        "type": "object",
+        "description": "The clinic's tasks.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            },
+            "description": "Switched-on first, then by title."
+          }
+        }
+      },
+      "TaskOccurrence": {
+        "type": "object",
+        "description": "One day's run of a task.",
+        "required": [
+          "id",
+          "template_id",
+          "title",
+          "action",
+          "local_date",
+          "due_at",
+          "status"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "What finishing it asks of the person: `none`, `record_usage` (list the materials used)\nor `confirm_photos` (check the day's patients have their photos)."
+          },
+          "assignee_membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member it is for, when it is for one person."
+          },
+          "assignee_role_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The role it is for: the first person holding it to finish it closes it for all."
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was finished, RFC 3339."
+          },
+          "completed_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who finished it."
+          },
+          "completed_by_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "That person's name."
+          },
+          "due_at": {
+            "type": "string",
+            "description": "When it falls due, RFC 3339."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "local_date": {
+            "type": "string",
+            "description": "The clinic's calendar day, `YYYY-MM-DD`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What they wrote."
+          },
+          "patients_without_photos_today": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Only on a `confirm_photos` task: the patients seen that day with a visit that has no\nphoto."
+          },
+          "status": {
+            "type": "string",
+            "description": "`open`, `done`, `skipped` or `missed`."
+          },
+          "template_id": {
+            "type": "string",
+            "description": "The task it came from."
+          },
+          "title": {
+            "type": "string",
+            "description": "The title."
+          }
+        }
+      },
+      "TaskPreview": {
+        "type": "object",
+        "description": "The next times a task falls due.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueTime"
+            },
+            "description": "Up to five, soonest first; none for a task that is switched off or has ended."
+          }
+        }
+      },
+      "TaskSchedule": {
+        "type": "object",
+        "description": "When a task falls due. Times are the clinic's local time.",
+        "properties": {
+          "due_time": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The time of day, `HH:MM`."
+          },
+          "ends_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The last day, `YYYY-MM-DD`."
+          },
+          "interval_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "`every_n_days`: days between occurrences, 2 to 365.",
+            "minimum": 0
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`once`, `daily`, `every_n_days` or `weekdays`."
+          },
+          "once_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`once`: the moment, RFC 3339."
+          },
+          "starts_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first day, `YYYY-MM-DD`; today when left out on a new task."
+          },
+          "weekdays": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "`weekdays`: the days, 1 (Monday) to 7 (Sunday)."
+          }
+        }
+      },
+      "TaskSettings": {
+        "type": "object",
+        "description": "Task settings.",
+        "required": [
+          "remind_every_minutes"
+        ],
+        "properties": {
+          "remind_every_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Minutes between reminders of a task still open, 15 to 1440 (default 60).",
+            "minimum": 0
+          }
+        }
+      },
+      "TaskSettingsChanges": {
+        "type": "object",
+        "description": "Changes to the task settings; what is left out stays.",
+        "properties": {
+          "remind_every_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Minutes between reminders, 15 to 1440."
+          }
+        },
+        "additionalProperties": false
+      },
       "TeamMemberToday": {
         "type": "object",
         "description": "A doctor working today.",
@@ -32500,6 +35348,143 @@
             "description": "The template's layout; \"Reset to template\" saves this."
           }
         }
+      },
+      "TimeOff": {
+        "type": "object",
+        "description": "A period of time off. `kind`, `reason` and the decision are left out for staff who are not the\nperson away and do not hold `time_off.manage`; they see approved time off only.",
+        "required": [
+          "id",
+          "membership_id",
+          "starts_at",
+          "ends_at",
+          "all_day",
+          "status"
+        ],
+        "properties": {
+          "all_day": {
+            "type": "boolean",
+            "description": "Whether the window is whole days of the clinic's calendar."
+          },
+          "decided_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When (RFC 3339); private."
+          },
+          "decided_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who decided; private."
+          },
+          "decision_note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The decider's note; private."
+          },
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339), exclusive."
+          },
+          "id": {
+            "type": "string",
+            "description": "The request."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`vacation`, `sick`, `personal` or `other`; private."
+          },
+          "member_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name."
+          },
+          "membership_id": {
+            "type": "string",
+            "description": "The person away."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why; private."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`pending`, `approved`, `declined` or `cancelled`."
+          }
+        }
+      },
+      "TimeOffDecision": {
+        "type": "object",
+        "description": "A decision's optional note for the requester.",
+        "properties": {
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note for the requester, at most 200 characters."
+          }
+        },
+        "additionalProperties": false
+      },
+      "TimeOffList": {
+        "type": "object",
+        "description": "Time off in a range.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeOff"
+            },
+            "description": "By start."
+          }
+        }
+      },
+      "TimeOffSettings": {
+        "type": "object",
+        "description": "Time-off settings.",
+        "required": [
+          "requires_approval"
+        ],
+        "properties": {
+          "requires_approval": {
+            "type": "boolean",
+            "description": "Whether a member's own request waits for the owner (default true). Time off the owner\nrecords for someone else is always approved at once."
+          }
+        }
+      },
+      "TimeOffSettingsChanges": {
+        "type": "object",
+        "description": "Changes to the time-off settings; what is left out stays.",
+        "properties": {
+          "requires_approval": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether a member's own request waits for the owner."
+          }
+        },
+        "additionalProperties": false
       },
       "Timeline": {
         "type": "object",
@@ -33061,6 +36046,25 @@
           }
         }
       },
+      "UsageBody": {
+        "type": "object",
+        "description": "One line of materials used.",
+        "required": [
+          "item_id",
+          "quantity"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "The stock item."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units used, 1 to 1000000."
+          }
+        }
+      },
       "UseBody": {
         "type": "object",
         "description": "Stock used.",
@@ -33447,7 +36451,6 @@
         "required": [
           "patient",
           "registered",
-          "family_linked",
           "token",
           "allergies_recorded",
           "conditions_recorded",
@@ -33473,9 +36476,12 @@
             },
             "description": "The purposes whose consent was recorded."
           },
-          "family_linked": {
-            "type": "boolean",
-            "description": "Whether a family link was made."
+          "family_link_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The family link made, from the existing patient's side; absent without `family_of`."
           },
           "patient": {
             "$ref": "#/components/schemas/Patient",
@@ -33554,7 +36560,7 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/FamilyOfFields",
-                "description": "Link the patient to a relative already registered, so the family is found by the phone\nthey share."
+                "description": "Add the walk-in to an existing patient's family (the link is written both ways)."
               },
               {
                 "type": "null"

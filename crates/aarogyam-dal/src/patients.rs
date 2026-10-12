@@ -929,21 +929,7 @@ pub async fn insert_self_registered(
     Ok(row)
 }
 
-/// A relative of a patient found by phone, with what they are to that patient.
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct FamilyMember {
-    /// Identifier.
-    pub id: Uuid,
-    /// Readable number.
-    pub number: String,
-    /// Full name.
-    pub full_name: String,
-    /// What this relative is to the patient: `guardian`, `child`, `spouse` or `other`.
-    pub relation: String,
-}
-
-/// A patient whose phone matches, with only what the desk needs to say "this is them", and the
-/// relatives linked to them (`aarogyam.patient_relations`, either way round).
+/// A patient whose phone matches, with only what the desk needs to say "this is them".
 #[derive(Debug, Clone)]
 pub struct PhoneMatch {
     /// Identifier.
@@ -958,12 +944,9 @@ pub struct PhoneMatch {
     pub date_of_birth: Option<Date>,
     /// Whether it was estimated.
     pub birth_date_estimated: bool,
-    /// Linked relatives within the caller's reach, by name.
-    pub family: Vec<FamilyMember>,
 }
 
-/// Patients whose main or second phone is `phone_e164`, by name, within `member`'s reach, each
-/// with their linked relatives, in one statement.
+/// Patients whose main or second phone is `phone_e164`, by name, within `member`'s reach.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -973,25 +956,13 @@ pub async fn lookup_phone(
     limit: i64,
     member: Option<Uuid>,
 ) -> Result<Vec<PhoneMatch>, DbError> {
-    let rows = sqlx::query!(
-        r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
-                  coalesce((select jsonb_agg(jsonb_build_object('id', q.id, 'number', q.number,
-                                                                'full_name', q.full_name, 'relation', x.relation)
-                                             order by q.full_name, q.id)
-                            from (select r.related_patient_id as relative, r.relation
-                                  from aarogyam.patient_relations r where r.patient_id = p.id
-                                  union all
-                                  select r.patient_id, case r.relation when 'guardian' then 'child'
-                                                                       when 'child' then 'guardian'
-                                                                       else r.relation end
-                                  from aarogyam.patient_relations r where r.related_patient_id = p.id) x
-                            join aarogyam.patients q on q.id = x.relative
-                            where q.deleted_at is null and q.status <> 'merged'
-                              and app.patient_in_reach(q.id, $3)), '[]'::jsonb) as "family!: serde_json::Value"
-           from aarogyam.patients p
-           where (p.phone_e164 = $1 or p.alt_phone_e164 = $1) and p.deleted_at is null
-             and p.status <> 'merged' and app.patient_in_reach(p.id, $3)
-           order by p.full_name, p.id
+    let rows = sqlx::query_as!(
+        PhoneMatch,
+        r#"select id, number, full_name, sex, date_of_birth, birth_date_estimated
+           from aarogyam.patients
+           where (phone_e164 = $1 or alt_phone_e164 = $1) and deleted_at is null
+             and status <> 'merged' and app.patient_in_reach(id, $3)
+           order by full_name, id
            limit $2"#,
         phone_e164,
         limit,
@@ -999,42 +970,5 @@ pub async fn lookup_phone(
     )
     .fetch_all(conn)
     .await?;
-    Ok(rows
-        .into_iter()
-        .map(|row| PhoneMatch {
-            id: row.id,
-            number: row.number,
-            full_name: row.full_name,
-            sex: row.sex,
-            date_of_birth: row.date_of_birth,
-            birth_date_estimated: row.birth_date_estimated,
-            family: serde_json::from_value(row.family).unwrap_or_default(),
-        })
-        .collect())
-}
-
-/// Links `related` to `patient`: `related` is `relation` to `patient`. Both must be in this
-/// clinic (the composite keys refuse others). Returns whether a link was made (false when the
-/// pair already had one).
-///
-/// # Errors
-/// [`DbError`] on a database failure.
-pub async fn link_relative(
-    conn: &mut PgConnection,
-    patient: Uuid,
-    related: Uuid,
-    relation: &str,
-) -> Result<bool, DbError> {
-    let done = sqlx::query!(
-        r#"insert into aarogyam.patient_relations (patient_id, related_patient_id, relation)
-           values ($1, $2, $3)
-           on conflict (org_id, least(patient_id, related_patient_id), greatest(patient_id, related_patient_id))
-           do nothing"#,
-        patient,
-        related,
-        relation
-    )
-    .execute(conn)
-    .await?;
-    Ok(done.rows_affected() == 1)
+    Ok(rows)
 }

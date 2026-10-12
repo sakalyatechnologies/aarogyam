@@ -584,6 +584,30 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not remind labs"),
         }
+        // Staff to-dos: standard tasks, what fell due, reminders, escalation, missed tasks.
+        match aarogyam_notify::run_staff_ops(&db, time::OffsetDateTime::now_utc()).await {
+            Ok(report) if report.any() => tracing::info!(
+                due = report.tasks.due,
+                reminded = report.tasks.reminded,
+                escalated = report.tasks.escalated,
+                missed = report.tasks.missed,
+                seeded = report.tasks.seeded,
+                stock_alerts = report.stock.alerted + report.stock.cleared,
+                "staff tasks run"
+            ),
+            Ok(_) => {}
+            Err(error) => tracing::warn!(error = %error, "could not run staff tasks"),
+        }
+        // Follow-ups that fell due and patients who have waited: alert staff once each.
+        match aarogyam_notify::flag_alerts(&db, time::OffsetDateTime::now_utc()).await {
+            Ok(report) if report.recalls + report.waiting > 0 => tracing::info!(
+                recalls = report.recalls,
+                waiting = report.waiting,
+                "staff alerts flagged"
+            ),
+            Ok(_) => {}
+            Err(error) => tracing::warn!(error = %error, "could not flag staff alerts"),
+        }
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(
                 provider = notifier.email_provider(),

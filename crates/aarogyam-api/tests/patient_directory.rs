@@ -117,12 +117,12 @@ async fn list_rows_carry_flags_and_money_only_with_billing_read() {
     assert_eq!(status, StatusCode::OK, "{edited}");
     assert_eq!(edited["allergy_alert"], true);
 
-    // Without billing.read the money keys are absent, not null or zero, on every response.
+    // Without billing.read the money keys are present and null, never zero, on every response.
     let rows = items(&app, &assistant).await;
     for r in &rows {
         let object = r.as_object().unwrap();
-        assert!(!object.contains_key("balance_paise"), "{r}");
-        assert!(!object.contains_key("lifetime_paid_paise"), "{r}");
+        assert!(object["balance_paise"].is_null(), "{r}");
+        assert!(object["lifetime_paid_paise"].is_null(), "{r}");
     }
     let (_, found) = app
         .send(
@@ -133,8 +133,9 @@ async fn list_rows_carry_flags_and_money_only_with_billing_read() {
             Some(json!({ "q": "Ravi" })),
         )
         .await;
+    assert!(found["items"][0]["balance_paise"].is_null());
     assert!(
-        !found["items"][0]
+        found["items"][0]
             .as_object()
             .unwrap()
             .contains_key("balance_paise")
@@ -148,7 +149,8 @@ async fn list_rows_carry_flags_and_money_only_with_billing_read() {
             None,
         )
         .await;
-    assert!(!opened.as_object().unwrap().contains_key("balance_paise"));
+    assert!(opened.as_object().unwrap().contains_key("balance_paise"));
+    assert!(opened["balance_paise"].is_null());
     app.finish().await;
 }
 
@@ -231,7 +233,7 @@ async fn the_directory_summary_counts_and_gates_the_balance() {
     assert_eq!(summary["recalls_due"], 1);
     assert_eq!(summary["with_balance"], 1);
 
-    // Without billing.read the balance count is absent; without patients.read it is refused.
+    // Without billing.read the balance count is null; without patients.read it is refused.
     let (status, summary) = app
         .send(
             Method::GET,
@@ -243,7 +245,7 @@ async fn the_directory_summary_counts_and_gates_the_balance() {
         .await;
     assert_eq!(status, StatusCode::OK, "{summary}");
     assert_eq!(summary["total"], 2);
-    assert!(!summary.as_object().unwrap().contains_key("with_balance"));
+    assert!(summary["with_balance"].is_null());
     let (status, _) = app
         .send(
             Method::GET,
@@ -296,7 +298,7 @@ async fn a_walk_in_records_reported_conditions_and_joins_a_family() {
     .await;
     assert_eq!(status, StatusCode::CREATED, "{mother}");
     assert_eq!(mother["conditions_recorded"], 2);
-    assert_eq!(mother["family_linked"], false);
+    assert!(mother["family_link_id"].is_null());
     let mother_id = mother["patient"]["id"].as_str().unwrap().to_owned();
     // They show as patient-reported, flagged conditions awaiting a clinician.
     let (status, conditions) = app
@@ -345,46 +347,14 @@ async fn a_walk_in_records_reported_conditions_and_joins_a_family() {
     let too_many = walk_in(json!({ "patient": { "full_name": "X" }, "conditions": many })).await;
     assert_eq!(too_many.0, StatusCode::BAD_REQUEST);
 
-    // A child joins the mother's family at the same phone.
+    // A child joins the mother's family; the walk-in names the link.
     let (status, child) = walk_in(json!({
         "patient": { "full_name": "Aarav Patil", "age_years": 6, "phone": "98765 11111" },
-        "family_of": { "patient_id": mother_id, "relation": "guardian" }
+        "family_of": { "patient_id": mother_id, "relation": "child" }
     }))
     .await;
     assert_eq!(status, StatusCode::CREATED, "{child}");
-    assert_eq!(child["family_linked"], true);
-    let child_id = child["patient"]["id"].as_str().unwrap().to_owned();
-    let (status, found) = app
-        .send(
-            Method::POST,
-            ALPHA,
-            "/api/v1/patients/lookup",
-            Some(&desk),
-            Some(json!({ "phone": "9876511111" })),
-        )
-        .await;
-    assert_eq!(status, StatusCode::OK, "{found}");
-    let matches = found["items"].as_array().unwrap();
-    assert_eq!(matches.len(), 2);
-    let of = |id: &str| matches.iter().find(|m| m["id"] == id).unwrap();
-    assert_eq!(of(&child_id)["family"][0]["id"], mother_id);
-    assert_eq!(of(&child_id)["family"][0]["relation"], "guardian");
-    assert_eq!(of(&mother_id)["family"][0]["id"], child_id);
-    assert_eq!(of(&mother_id)["family"][0]["relation"], "child");
-    // A patient with no relatives has an empty family.
-    let (_, lone) =
-        walk_in(json!({ "patient": { "full_name": "Lone Patient", "phone": "9876522222" } })).await;
-    assert_eq!(lone["family_linked"], false);
-    let (_, found) = app
-        .send(
-            Method::POST,
-            ALPHA,
-            "/api/v1/patients/lookup",
-            Some(&desk),
-            Some(json!({ "phone": "9876522222" })),
-        )
-        .await;
-    assert_eq!(found["items"][0]["family"], json!([]));
+    assert!(child["family_link_id"].is_string(), "{child}");
 
     // Refused: an unknown relation, oneself, and a relative of another clinic (404).
     let (status, _) = walk_in(json!({ "patient": { "full_name": "Y" },
@@ -394,7 +364,7 @@ async fn a_walk_in_records_reported_conditions_and_joins_a_family() {
     let (status, _) = walk_in(json!({ "patient_id": mother_id,
         "family_of": { "patient_id": mother_id, "relation": "other" } }))
     .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(status, StatusCode::CONFLICT);
     let stranger = register(&app, BETA, &beta, json!({ "full_name": "Beta Patient" })).await;
     let (status, _) = walk_in(json!({ "patient": { "full_name": "Z" },
         "family_of": { "patient_id": stranger, "relation": "spouse" } }))

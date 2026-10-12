@@ -408,7 +408,7 @@ async fn a_past_day_shows_what_was_done() {
                 room_id: Some(RoomId::from_uuid(id(&chair))),
                 branch_id: None,
                 starts_at: start,
-                ends_at: start + Duration::minutes(30),
+                ends_at: Some(start + Duration::minutes(30)),
                 kind: None,
                 reason: None,
                 notes: None,
@@ -996,5 +996,222 @@ async fn the_doctor_sends_a_patient_in_and_the_desk_bills() {
         .await;
     assert_eq!(status, StatusCode::CREATED, "{started}");
     assert_eq!(started["token"]["status"], "in_chair");
+    app.finish().await;
+}
+
+/// A booking for `patient` with the given doctor and chair, in the clinic at `host`.
+async fn book_for(
+    app: &TestApp,
+    host: &str,
+    owner: &str,
+    patient: &str,
+    (doctor, chair): (&str, &str),
+    starts_at: &str,
+) -> String {
+    let starts =
+        OffsetDateTime::parse(starts_at, &time::format_description::well_known::Rfc3339).unwrap();
+    let ends = (starts + Duration::minutes(30))
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let (status, saved) = app
+        .send(
+            Method::POST,
+            host,
+            "/api/v1/appointments",
+            Some(owner),
+            Some(
+                json!({ "patient_id": patient, "practitioner_id": doctor, "room_id": chair,
+                         "starts_at": starts_at, "ends_at": ends }),
+            ),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{saved}");
+    id_of(&saved["appointment"])
+}
+
+fn type_of(day: &Value, appointment: &str) -> String {
+    day["appointments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["id"] == appointment)
+        .unwrap()["patient_type"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_patients_first_visit_is_new_and_the_next_is_a_follow_up_in_one_clinic() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (doctor, chair) = doctor_and_chair(&app, &owner).await;
+    let desk = (doctor.as_str(), chair.as_str());
+    let meera = patient(&app, &owner, "Meera Iyer").await;
+    let other = patient(&app, &owner, "Ravi Shah").await;
+    let first = book_for(
+        &app,
+        ALPHA,
+        &owner,
+        &meera,
+        desk,
+        "2030-03-04T09:00:00+05:30",
+    )
+    .await;
+    let stranger = book_for(
+        &app,
+        ALPHA,
+        &owner,
+        &other,
+        desk,
+        "2030-03-05T10:00:00+05:30",
+    )
+    .await;
+
+    // Booked but not yet done: still the first-ever visit.
+    let day = get_ok(&app, &owner, "/api/v1/today?date=2030-03-04").await;
+    assert_eq!(type_of(&day, &first), "new");
+    set_status(&app, &owner, &first, json!({ "status": "arrived" })).await;
+    set_status(&app, &owner, &first, json!({ "status": "in_chair" })).await;
+    set_status(&app, &owner, &first, json!({ "status": "completed" })).await;
+
+    // The completed visit stays new on its own day; the next one is a follow-up.
+    let second = book_for(
+        &app,
+        ALPHA,
+        &owner,
+        &meera,
+        desk,
+        "2030-03-05T09:00:00+05:30",
+    )
+    .await;
+    let day = get_ok(&app, &owner, "/api/v1/today?date=2030-03-04").await;
+    assert_eq!(type_of(&day, &first), "new");
+    let day = get_ok(&app, &owner, "/api/v1/today?date=2030-03-05").await;
+    assert_eq!(type_of(&day, &second), "follow_up");
+    assert_eq!(
+        type_of(&day, &stranger),
+        "new",
+        "another patient is unaffected"
+    );
+
+    let list = get_ok(
+        &app,
+        &owner,
+        "/api/v1/appointments?from=2030-03-04&to=2030-03-05",
+    )
+    .await;
+    let kinds: Vec<(&str, &str)> = list["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| {
+            (
+                item["id"].as_str().unwrap(),
+                item["patient_type"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert!(kinds.contains(&(first.as_str(), "new")), "{kinds:?}");
+    assert!(kinds.contains(&(second.as_str(), "follow_up")), "{kinds:?}");
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn patient_type_never_counts_another_clinics_history() {
+    let app = TestApp::start().await;
+    let alpha = app.token(ALPHA_OWNER);
+    let (doctor, chair) = doctor_and_chair(&app, &alpha).await;
+    let desk = (doctor.as_str(), chair.as_str());
+    let beta = app.token(BETA_OWNER);
+    let beta_doctor = id_of(
+        &app.send(
+            Method::POST,
+            BETA,
+            "/api/v1/practitioners",
+            Some(&beta),
+            Some(json!({ "display_name": "Dr Beta" })),
+        )
+        .await
+        .1,
+    );
+    let shifts: Vec<Value> = (1..=7)
+        .map(|weekday| json!({ "weekday": weekday, "starts": "08:00", "ends": "20:00" }))
+        .collect();
+    let (status, body) = app
+        .send(
+            Method::PUT,
+            BETA,
+            &format!("/api/v1/practitioners/{beta_doctor}/working-hours"),
+            Some(&beta),
+            Some(json!({ "shifts": shifts })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (_, room) = app
+        .send(
+            Method::POST,
+            BETA,
+            "/api/v1/rooms",
+            Some(&beta),
+            Some(json!({ "name": "Chair 1" })),
+        )
+        .await;
+    let beta_chair = id_of(&room);
+    let beta_desk = (beta_doctor.as_str(), beta_chair.as_str());
+
+    // A completed visit in Alpha.
+    let in_alpha = patient(&app, &alpha, "Meera Iyer").await;
+    let done = book_for(
+        &app,
+        ALPHA,
+        &alpha,
+        &in_alpha,
+        desk,
+        "2030-04-01T09:00:00+05:30",
+    )
+    .await;
+    set_status(&app, &alpha, &done, json!({ "status": "arrived" })).await;
+    set_status(&app, &alpha, &done, json!({ "status": "in_chair" })).await;
+    set_status(&app, &alpha, &done, json!({ "status": "completed" })).await;
+
+    // The same person registered at Beta is new there, even later than Alpha's visit.
+    let (status, created_patient) = app
+        .send(
+            Method::POST,
+            BETA,
+            "/api/v1/patients",
+            Some(&beta),
+            Some(json!({ "full_name": "Meera Iyer", "sex": "female", "age_years": 30 })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{created_patient}");
+    let in_beta = id_of(&created_patient);
+    let there = book_for(
+        &app,
+        BETA,
+        &beta,
+        &in_beta,
+        beta_desk,
+        "2030-04-02T09:00:00+05:30",
+    )
+    .await;
+    let (status, day) = get(&app, BETA, &beta, "/api/v1/today?date=2030-04-02").await;
+    assert_eq!(status, StatusCode::OK, "{day}");
+    assert_eq!(type_of(&day, &there), "new");
+    // And Alpha's follow-up is untouched by Beta's booking.
+    let again = book_for(
+        &app,
+        ALPHA,
+        &alpha,
+        &in_alpha,
+        desk,
+        "2030-04-02T09:00:00+05:30",
+    )
+    .await;
+    let day = get_ok(&app, &alpha, "/api/v1/today?date=2030-04-02").await;
+    assert_eq!(type_of(&day, &again), "follow_up");
     app.finish().await;
 }

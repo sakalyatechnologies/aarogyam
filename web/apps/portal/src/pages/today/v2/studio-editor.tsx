@@ -1,10 +1,13 @@
 import { ChevronDown, ChevronUp, GripVertical, Plus, Settings2, Trash2 } from "lucide-react";
-import { useEffect, useId, useRef, useState, type DragEvent } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 
 import { apiErrorOf, type DashboardCatalogue, type DashboardLayout, type DashboardLayoutView } from "@aarogyam/api-client";
 import { Pills, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
+import { STUDIO_HINT } from "./copy.js";
+import { useBoardEdit, type BoardEdit } from "./board-edit.js";
 import { Board } from "./board.js";
 import {
   SIZE_LABEL,
@@ -16,11 +19,14 @@ import {
   inZone,
   isZone,
   moveInZone,
+  offeredCards,
+  offeredTemplates,
   optsOf,
   removeAt,
   sameLayout,
   setOpt,
   setZone,
+  shownLayout,
   specOf,
   patchItem,
   templateLayout,
@@ -28,10 +34,24 @@ import {
   type ShownItem,
   type WidgetSpec,
   type Zone,
+  zonesOf,
 } from "./layout-model.js";
 import { useResetLayout, useSaveLayout } from "./queries.js";
 import { entryOf, WIDGET_REGISTRY } from "./registry.js";
 import { SampleData, SampleScope } from "./sample-data.js";
+
+/** One control with its name and a one-line note on what it does. */
+function Field({ name, hint, children }: { name: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="tv2-field">
+      <p className="tv2-field-head">
+        <span className="tv2-field-name">{name}</span>
+        {hint === undefined ? null : <span className="tv2-field-hint">{hint}</span>}
+      </p>
+      {children}
+    </div>
+  );
+}
 
 const toPills = (values: readonly string[], labels: Readonly<Record<string, string>> = {}) => values.map((value) => ({ value, label: labels[value] ?? value.charAt(0).toUpperCase() + value.slice(1) }));
 
@@ -39,7 +59,7 @@ const toPills = (values: readonly string[], labels: Readonly<Record<string, stri
  * A board at desktop width, scaled down to the room there is, and inert. The Studio's preview is one at (nearly) full
  * size; a template card's thumbnail is one at a sixth. `sample` draws it from a made-up clinic day.
  */
-function ScaledBoard({ layout, view, sample, minScale = 0.3 }: { layout: DashboardLayout; view: DashboardLayoutView; sample: boolean; minScale?: number }) {
+function ScaledBoard({ layout, view, sample, minScale = 0.3, edit }: { layout: DashboardLayout; view: DashboardLayoutView; sample: boolean; minScale?: number; edit?: BoardEdit }) {
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(Math.max(0.5, minScale));
@@ -61,21 +81,41 @@ function ScaledBoard({ layout, view, sample, minScale = 0.3 }: { layout: Dashboa
       watch.disconnect();
     };
   }, [minScale]);
-  const board = <Board layout={layout} catalogue={view.catalogue} preview />;
+  // The edit controls undo the scale, so they stay one size on screen.
+  useEffect(() => {
+    inner.current?.style.setProperty("--tv2-unscale", String(1 / scale));
+  }, [scale]);
+  const board = <Board layout={layout} catalogue={view.catalogue} preview edit={edit} />;
   return (
     <div ref={outer} className="tv2-preview-frame" style={height === undefined ? undefined : { height }}>
-      <div ref={inner} className="tv2-preview-inner" style={{ transform: `scale(${String(scale)})` }} inert>
+      <div ref={inner} className="tv2-preview-inner" style={{ transform: `scale(${String(scale)})` }} inert={edit === undefined}>
         {sample ? <SampleData>{board}</SampleData> : board}
       </div>
     </div>
   );
 }
 
-/** The Studio's preview: the live Board at desktop width, scaled down to the room there is, and inert. */
-function ScaledPreview({ layout, view, sample }: { layout: DashboardLayout; view: DashboardLayoutView; sample: boolean }) {
+/**
+ * The Studio's preview: the live Board at desktop width, scaled down to the room there is. Its cards are in edit mode:
+ * drag one by its handle, pull its corner to resize, or use the arrows. A dragged card trails a small label.
+ */
+function ScaledPreview({ layout, view, sample, onChange }: { layout: DashboardLayout; view: DashboardLayoutView; sample: boolean; onChange: (next: DashboardLayout) => void }) {
+  const root = useRef<HTMLDivElement>(null);
+  const { edit, note, ghost } = useBoardEdit({ layout, catalogue: view.catalogue, onChange, root });
   return (
-    <div className="tv2-preview" role="group" aria-label="Live preview of Today">
-      <ScaledBoard layout={layout} view={view} sample={sample} />
+    <div ref={root} className="tv2-preview" role="group" aria-label="Live preview of Today" data-editing="1">
+      <ScaledBoard layout={layout} view={view} sample={sample} edit={edit} />
+      <p className="tv2-note tv2-edit-note" aria-live="polite">
+        {note}
+      </p>
+      {ghost === undefined
+        ? null
+        : createPortal(
+            <div className="tv2-ghost" style={{ left: ghost.x, top: ghost.y }} aria-hidden="true">
+              {ghost.label}
+            </div>,
+            document.body,
+          )}
     </div>
   );
 }
@@ -180,10 +220,12 @@ export interface StudioEditorProps {
  * (drag, or the up and down buttons), set each widget's options, and watch the same Board Today uses redraw as you go.
  * Save writes the member's layout; with `settings.manage` it can also be saved as the clinic's default.
  */
-export function StudioEditor({ view, layout: arrangement = "stacked", scope = "me", onChange, onSaved, hideActions = false, sample = false, thumbnails = false }: StudioEditorProps) {
+export function StudioEditor({ view, layout: arrangement = "stacked", scope = "me", onChange, onSaved, hideActions = false, sample = false, thumbnails = true }: StudioEditorProps) {
   const { can } = useClinic();
   const toast = useToast();
-  const [draft, setDraft] = useState<DashboardLayout>(view.layout);
+  // A saved `flat` card or `focus` template is shown as `soft` or `medsync`; saving then writes the shown one.
+  const base = useMemo(() => shownLayout(view.layout), [view.layout]);
+  const [draft, setDraft] = useState<DashboardLayout>(base);
   const [open, setOpen] = useState<string | undefined>(undefined);
   const [dragging, setDragging] = useState<number | undefined>(undefined);
   const [over, setOver] = useState<number | undefined>(undefined);
@@ -192,14 +234,14 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
   const saveClinic = useSaveLayout("clinic");
   const resetMine = useResetLayout();
   const catalogue = view.catalogue;
-  const dirty = !sameLayout(draft, view.layout);
+  const dirty = !sameLayout(draft, base);
 
   // A saved change elsewhere (another tab, a refetch) replaces the draft only when nothing is being edited.
   const seen = useRef(view.layout);
   useEffect(() => {
-    if (seen.current !== view.layout && !dirty) setDraft(view.layout);
+    if (seen.current !== view.layout && !dirty) setDraft(base);
     seen.current = view.layout;
-  }, [view.layout, dirty]);
+  }, [view.layout, base, dirty]);
 
   const change = (next: DashboardLayout) => {
     setDraft(next);
@@ -245,19 +287,20 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
     setOver(undefined);
   };
 
-  const controls = (
+  const templates = (
     <div className="tv2-knobs">
       <fieldset>
         <legend>Template</legend>
         <div className="tv2-templates">
-          {catalogue.templates.map((template) => (
+          {offeredTemplates(catalogue).map((template) => (
             <div key={template.key} className="tv2-tplcard">
               {thumbnails ? (
                 <div className="tv2-thumb" aria-hidden="true">
-                  <ScaledBoard layout={template.layout} view={view} sample={sample} minScale={0.05} />
+                  {/* Thumbnails are drawn from a made-up clinic day: always the same, and no queries of their own. */}
+                  <ScaledBoard layout={shownLayout(template.layout)} view={view} sample minScale={0.05} />
                 </div>
               ) : null}
-              <button type="button" className="tv2-tpl" aria-pressed={draft.tpl === template.key} onClick={() => { change(template.layout); }}>
+              <button type="button" className="tv2-tpl" aria-pressed={draft.tpl === template.key} onClick={() => { change(shownLayout(template.layout)); }}>
                 <b>{template.label}</b>
                 <span>{template.description}</span>
               </button>
@@ -265,21 +308,31 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
           ))}
         </div>
       </fieldset>
+    </div>
+  );
 
-      <div className="tv2-row">
-        <Pills label="Density" size="sm" options={toPills(catalogue.densities)} value={draft.density} onValueChange={(density) => { change({ ...draft, density }); }} />
-        <Pills label="Card style" size="sm" options={toPills(catalogue.cards)} value={draft.card} onValueChange={(card) => { change({ ...draft, card }); }} />
-      </div>
-      <div className="tv2-row">
-        <Pills label="Rail side" size="sm" options={toPills(catalogue.rail_sides)} value={draft.rail.side} onValueChange={(side) => { change({ ...draft, rail: { ...draft.rail, side } }); }} />
-        <Pills label="Rail width" size="sm" options={toPills(catalogue.rail_widths)} value={draft.rail.width} onValueChange={(width) => { change({ ...draft, rail: { ...draft.rail, width } }); }} />
+  const options = (
+    <div className="tv2-knobs">
+      <div className="tv2-fields">
+        <Field name="Density" hint={STUDIO_HINT.density}>
+          <Pills label="Density" size="sm" options={toPills(catalogue.densities)} value={draft.density} onValueChange={(density) => { change({ ...draft, density }); }} />
+        </Field>
+        <Field name="Card style" hint={STUDIO_HINT.card}>
+          <Pills label="Card style" size="sm" options={toPills(offeredCards(catalogue))} value={draft.card} onValueChange={(card) => { change({ ...draft, card }); }} />
+        </Field>
+        <Field name="Rail side" hint={STUDIO_HINT.side}>
+          <Pills label="Rail side" size="sm" options={toPills(catalogue.rail_sides)} value={draft.rail.side} onValueChange={(side) => { change({ ...draft, rail: { ...draft.rail, side } }); }} />
+        </Field>
+        <Field name="Column width" hint={STUDIO_HINT.width}>
+          <Pills label="Column width" size="sm" options={toPills(catalogue.rail_widths)} value={draft.rail.width} onValueChange={(width) => { change({ ...draft, rail: { ...draft.rail, width } }); }} />
+        </Field>
       </div>
 
       <section aria-labelledby="studio-widgets">
         <h3 id="studio-widgets" className="tv2-field-label">
           Widgets
         </h3>
-        <p className="tv2-note">Drag a widget to reorder it, or use the up and down buttons.</p>
+        <p className="tv2-field-hint">{STUDIO_HINT.widgets}</p>
         {ZONES.map((zone) => {
           const list = rows(zone);
           if (list.length === 0) return null;
@@ -332,12 +385,12 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
                       {expanded ? (
                         <div className="tv2-item-body">
                           <p className="tv2-note">{row.spec.description}</p>
-                          {row.spec.zones.length > 1 ? (
+                          {zonesOf(row.spec).length > 1 ? (
                             <div className="tv2-row">
                               <label htmlFor={`zone-${row.item.key}`}>Place in</label>
                               <select id={`zone-${row.item.key}`} className="tv2-select" value={row.zone} onChange={(event) => { const zoneValue = event.currentTarget.value;
                                 if (isZone(zoneValue)) change(setZone(draft, row.index, zoneValue, catalogue)); }}>
-                                {row.spec.zones.filter(isZone).map((z) => (
+                                {zonesOf(row.spec).map((z) => (
                                   <option key={z} value={z}>
                                     {ZONE_LABEL[z]}
                                   </option>
@@ -381,60 +434,73 @@ export function StudioEditor({ view, layout: arrangement = "stacked", scope = "m
         )}
       </section>
 
-      {hideActions ? null : (
-        <div className="tv2-actions">
-          <button type="button" className="mk-btn mk-btn-primary" disabled={saveMine.isPending || !dirty} onClick={() => { save(scope); }}>
-            {saveMine.isPending ? "Saving…" : scope === "clinic" ? "Save clinic default" : "Save"}
+    </div>
+  );
+
+  const actions = (
+    <>
+    {problem === undefined ? null : (
+      <p role="alert" className="tv2-note" style={{ color: "var(--sk-danger-text)" }}>
+        {problem}
+      </p>
+    )}
+    {hideActions ? null : (
+      <div className="tv2-actions" role="toolbar" aria-label="Save your dashboard">
+        <button type="button" className="mk-btn mk-btn-primary" disabled={saveMine.isPending || !dirty} onClick={() => { save(scope); }}>
+          {saveMine.isPending ? "Saving…" : scope === "clinic" ? "Save clinic default" : "Save"}
+        </button>
+        {scope === "me" && can("settings.manage") ? (
+          <button type="button" className="mk-btn mk-btn-ghost" disabled={saveClinic.isPending} onClick={() => { save("clinic"); }}>
+            Save as clinic default
           </button>
-          {scope === "me" && can("settings.manage") ? (
-            <button type="button" className="mk-btn mk-btn-ghost" disabled={saveClinic.isPending} onClick={() => { save("clinic"); }}>
-              Save as clinic default
-            </button>
-          ) : null}
+        ) : null}
+        <button
+          type="button"
+          className="mk-btn mk-btn-ghost"
+          onClick={() => {
+            const fresh = templateLayout(catalogue, draft.tpl);
+            if (fresh !== undefined) change(fresh);
+          }}
+        >
+          Reset to template
+        </button>
+        {scope === "me" && view.source === "member" ? (
           <button
             type="button"
             className="mk-btn mk-btn-ghost"
+            disabled={resetMine.isPending}
             onClick={() => {
-              const base = templateLayout(catalogue, draft.tpl);
-              if (base !== undefined) change(base);
+              resetMine.mutate(undefined, {
+                onSuccess: (next) => {
+                  setDraft(shownLayout(next.layout));
+                  toast.show({ title: "Using the clinic's layout", tone: "success" });
+                },
+              });
             }}
           >
-            Reset to template
+            Use the clinic's layout
           </button>
-          {scope === "me" && view.source === "member" ? (
-            <button
-              type="button"
-              className="mk-btn mk-btn-ghost"
-              disabled={resetMine.isPending}
-              onClick={() => {
-                resetMine.mutate(undefined, {
-                  onSuccess: (next) => {
-                    setDraft(next.layout);
-                    toast.show({ title: "Using the clinic's layout", tone: "success" });
-                  },
-                });
-              }}
-            >
-              Use the clinic's layout
-            </button>
-          ) : null}
-          <span role="status" className="tv2-note">
-            {dirty ? "Unsaved changes" : ""}
-          </span>
-        </div>
-      )}
-      {problem === undefined ? null : (
-        <p role="alert" className="tv2-note" style={{ color: "var(--sk-danger-text)" }}>
-          {problem}
-        </p>
-      )}
-    </div>
+        ) : null}
+        <span role="status" className="tv2-note">
+          {dirty ? "Unsaved changes" : ""}
+        </span>
+      </div>
+    )}
+    </>
   );
 
   const studio = (
     <div className="tv2-studio" data-layout={arrangement} data-thumbs={thumbnails ? "1" : undefined}>
-      {controls}
-      <ScaledPreview layout={draft} view={view} sample={sample} />
+      <p className="tv2-note tv2-lead">Pick a layout, then hover a card in the preview to drag, resize or move it.</p>
+      <SampleScope>{templates}</SampleScope>
+      <ScaledPreview layout={draft} view={view} sample={sample} onChange={change} />
+      <section className="tv2-more" aria-labelledby="studio-more">
+        <h3 id="studio-more" className="tv2-more-title">
+          More options
+        </h3>
+        {options}
+      </section>
+      {actions}
     </div>
   );
   return sample ? <SampleScope>{studio}</SampleScope> : studio;

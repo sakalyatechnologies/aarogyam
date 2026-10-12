@@ -295,7 +295,8 @@ async fn me_says_who_may_open_the_console() {
     assert_eq!(owner["clinics"][0]["slug"], "alpha");
     assert_eq!(
         me(&app, STRANGER).await,
-        json!({ "clinics": [], "console_access": false, "staff_mfa_required": true })
+        json!({ "clinics": [], "console_access": false, "staff_mfa_required": true,
+                "display_name": "Stranger", "phone": null })
     );
 
     // Staff can't also belong to a clinic: the database refuses, so /me never mixes the two.

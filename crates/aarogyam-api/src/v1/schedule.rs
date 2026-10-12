@@ -650,7 +650,7 @@ pub struct NewLeave {
     pub reason: Option<String>,
 }
 
-/// Records a doctor's leave. Bookings already made stay; new ones get a warning.
+/// Records a doctor's leave. Bookings already made stay; new ones are refused (`422 practitioner_on_leave`).
 #[utoipa::path(
     post,
     path = "/api/v1/leave-blocks",

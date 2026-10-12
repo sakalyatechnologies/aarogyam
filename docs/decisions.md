@@ -19,7 +19,7 @@ Newest first. Change a decision by adding an entry that supersedes it.
 **Decision.** The Today board's layout is versioned JSON, v2, saved at two levels and checked against one widget registry (migration 0605, `aarogyam-domain/src/dashboard.rs`).
 
 - **Shape.** `{v: 2, tpl, density: compact|cozy, card: flat|soft|outline, rail: {side: left|right, width: narrow|medium|wide}, items: [{key, zone: top|main|rail, size: S|M|L|full, opts}]}`. `S`, `M`, `L` and `full` are 4, 6, 8 and 12 of 12 columns; the rail ignores size. Each widget appears at most once; order is the order within a zone.
-- **Registry** (server-side; the same table is the catalogue the API returns): `kpis` (top or main; `metrics`, 4 to 6 of `appointments completed waiting new_patients collected outstanding chairs_busy lab_due`), `nextup` (`count` 1 to 5), `chairs` (`show_chart`), `appointments` (`view` table or list), `attention`, `labs`, `calendar`, `queue`, `collections` (`weeks` 4, 8 or 12), `timeline`, `recent_patients`, `team_today`, `revenue_mix`, `pending_payments`, `busy_hours`. Each carries its zones, sizes, default, options and `requires` (the permission that shows it: money widgets `finance.view`, `pending_payments` `billing.read`, `labs` `labs.read`, `recent_patients` `patients.read`, the rest `appointments.read`; metrics have their own). Saving does not check `requires`: a clinic default may hold widgets some roles never see, and the board hides them.
+- **Registry** (server-side; the same table is the catalogue the API returns): `kpis` (top or main; `metrics`, 4 to 6 of `appointments completed waiting new_patients collected outstanding chairs_busy lab_due`), `nextup` (`count` 1 to 5), `chairs` (`show_chart`), `appointments` (`view` table or list), `attention`, `labs`, `calendar`, `queue`, `collections` (`weeks` 4, 8 or 12), `timeline`, `recent_patients`, `team_today`, `revenue_mix`, `pending_payments`, `busy_hours`, `my_tasks` (top or main; sizes M, L, full; no options; `tasks.use`). Each carries its zones, sizes, default, options and `requires` (the permission that shows it: money widgets `finance.view`, `pending_payments` `billing.read`, `labs` `labs.read`, `recent_patients` `patients.read`, the rest `appointments.read`; metrics have their own). Saving does not check `requires`: a clinic default may hold widgets some roles never see, and the board hides them.
 - **Templates:** `medsync` (the built-in default), `executive`, `care`, `focus`, `compact`, `front_desk`. The catalogue carries each template's full layout, so "Reset to template" saves it.
 - **Levels.** `PUT/GET/DELETE /settings/dashboard-layout` is the clinic default (`settings.manage`); `GET/PUT/DELETE /me/dashboard-layout` is the member's own (any member, keyed by membership, so it follows them across devices). Reading `/me` falls back to the clinic default, then MedSync; `source` says `member`, `clinic` or `template`. Reset (DELETE) removes the row and returns what applies now. Every response carries the catalogue.
 - **Validation.** A bad layout is `400` `invalid_layout`, naming the place (`items[2].opts.weeks`), never the value: unknown or repeated widget, a zone or size the widget does not allow, an unknown option, an option out of range, another version, an unknown field. Options left out are saved with their defaults. A stored layout the registry no longer accepts (a widget retired later) is skipped on read, so the next level shows instead of an error.
@@ -408,7 +408,7 @@ Onboarding answers become a site configuration. A GitHub App creates the clinic'
 
 ## 2026-10-04: Front desk scheduling rules (M3)
 
-- A chair is the hard limit: an exclusion constraint refuses two active (not cancelled, not no-show, not deleted) appointments overlapping in one room, answered as `409`. A doctor booked in two chairs at once, on leave or outside weekly hours is allowed with `warnings` (R3-11).
+- A chair is the hard limit: an exclusion constraint refuses two active (not cancelled, not no-show, not deleted) appointments overlapping in one room, answered as `409`. A doctor booked in two chairs at once or outside weekly hours is allowed with `warnings` (R3-11). A doctor on leave is refused: staff create, move to another doctor or time, and confirming a requested booking answer `422 practitioner_on_leave` (time off approval makes the leave block; editing a note on a booking already inside leave still works).
 - Statuses are `booked`, `confirmed`, `arrived`, `in_chair`, `completed`, `cancelled`, `no_show`, moving only forward (`aarogyam_domain::schedule`); cancelling needs a reason. Kinds are `new`, `follow_up`, `procedure`, `emergency`. These replace the web draft's `scheduled`/`in_progress`/`teleconsult`.
 - Arrival issues a queue token numbered per branch per clinic day from `number_sequences` (kind `queue_token`, series = branch, period = local date). Tokens are `waiting`, `in_chair`, `done` or `left`; moving a token moves its appointment.
 - Chairs, doctors and weekly hours change with `settings.manage`; leave with `appointments.write`, because the front desk records it.
@@ -495,6 +495,8 @@ What `own` means, per record:
 | `message_templates` | Message templates Meta rejected or paused | 365 days | Last change | No patient data; a dead template is clutter once nobody revisits it |
 | `consent_requests` | Consent-to-sign links, signed or not | 30 days | Expiry | Only the link; the signed consent is a consent record and stays with the patient |
 | `campaigns` | Campaigns sent or cancelled | 365 days | Last change | No patient data (a name, a filter, an offer); the messages it made are the `messages` class |
+| `time_off_requests` | Staff time off decided or cancelled | 365 days | Last change | No patient data; holds a member's private reason, so it should not outlive its use |
+| `task_occurrences` | Each day's run of a clinic's recurring staff tasks, with who did it and an optional note | 3 years | When the task fell due | Compliance history (sterilisation, end-of-day checks); no patient data, and the note is kept out of the change history |
 
 A clinic may keep records longer where its profession or a dispute requires; per-clinic overrides, and a legal hold that stops erasure of a patient, come before erasure is built (backlog). Consent records stay with the patient record and for 3 years after it.
 
@@ -531,9 +533,56 @@ A clinic may keep records longer where its profession or a dispute requires; per
 ## 2026-10-10: Patient directory, photos, consent links and family (B4)
 
 **Decision.** Additive API for the patient directory and the walk-in path.
-- **Flags and money.** List and record rows carry `allergy_alert`, `consent_pending` and `has_photo` (from `app.patient_flags()`). `balance_paise` and `lifetime_paid_paise` are omitted (not null) without `billing.read`; mobile clients must treat them as optional. `GET /patients/summary` gives total, new this month and recalls due, plus `with_balance` only with `billing.read`.
-- **Walk-ins.** A walk-in may carry reported `conditions` (recorded as patient-reported, deduplicated against active ones) and `family_of {patient_id, relation}`; the phone lookup returns each match's `family`. Relations are stored once per pair (`patient_relations`, with the inverse implied); a relative of another clinic is a 404.
+- **Flags and money.** List and record rows carry `allergy_alert`, `consent_pending` and `has_photo` (from `app.patient_flags()`). `balance_paise` and `lifetime_paid_paise` are `null` (key present, so the apps see no shape change) without `billing.read`; mobile clients must treat them as optional. `GET /patients/summary` gives total, new this month and recalls due, plus `with_balance` only with `billing.read`.
+- **Walk-ins.** A walk-in may carry reported `conditions` (recorded as patient-reported, deduplicated against active ones) and `family_of {patient_id, relation}` (what the walk-in is to that patient; the response carries `family_link_id`). The family routes match the mobile app's contract: `GET/POST /patients/{id}/family`, `DELETE /patients/{id}/family/{link_id}`, and the phone lookup's top-level `family_group`. Relations (guardian, child, spouse, parent, sibling, other) are stored both ways and removed together; a relative of another clinic is a 404.
 - **Photo.** `PUT/GET/DELETE /patients/{id}/photo` (`patients.write` to change); one row per patient, no support access.
 - **Consent links.** `POST /patients/{id}/consents/request` (email only for now; a phone-only patient gets 409) issues a one-time link; the public `GET/POST /public/consents/{token}` shows the notice and records the signature. Only the token's hash is stored, and the public routes are throttled (`ip-public-consent`).
 - **Data rules.** The four new tables have `org_id`, RLS, composite keys and the restrictive `patient_account` deny; erasure steps 55 (photos), 45 (consent requests) and 36 (relations, both columns). Photos and relations ride the `patient_record` class; consent requests have their own class (`consent_requests`, 30 days after expiry, report only).
 - **Backlog.** Photo bytes in storage are not removed when a patient is erased (the row is).
+
+## 2026-10-10: Own profile, notification switches and more staff notification kinds (portal v2 settings)
+
+**Decision.** All additive; no field is renamed, removed or retyped, because the phone apps call these endpoints.
+- **Own profile** (migration 0615): `PATCH /me` changes the person's own `display_name` and `phone` (+91 assumed; empty clears; `400` names the field, `409` when another account holds the phone) through `app.update_my_profile`, which only touches the caller's row; `GET /me` also returns `display_name` and `phone`. `POST /me/sessions/revoke-others` signs out every session but the current one. The phone is masked in the change history.
+- **Clinic**: `POST /settings/clinic/logo` (multipart `file`, PNG or JPEG up to 2 MB) is the letterhead logo slot returning the clinic's settings; `branding.mode` also accepts `auto` (follow the device); `online_booking.default_visit_minutes` (15, 30, 45 or 60, default 30) is how long a staff booking lasts when `ends_at` is left out (now optional on `POST /appointments`).
+- **Notification switches** (migration 0616): `GET` and `PATCH /settings/notifications` (`settings.manage`) keep `reminder_24h` (default on), `reminder_2h` (off), `receipts` (off), `recall` (on), `low_stock` (on), `lab_due` (on) and `quiet_hours` (`enabled`, `start`, `end`) in `org_settings.notifications`, merged so keys other features keep there (campaign caps) stay. Each is a real gate: `receipts` queues a `payment.receipt` email (care purpose, one per payment) when a payment is recorded for a patient with an email; the two reminder switches choose the 24-hour and 2-hour reminders (with `reminder_2h` on, an appointment inside two and a half hours gets only the 2-hour one); `recall` and `lab_due` decide whether those alerts are written; `low_stock` hides low stock on Today; `quiet_hours.enabled` off lets reminders and offers go at any hour.
+- **Staff notification kinds** (migration 0617, expand only): `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in` and `collect_payment` join the feed, each with `href` (a path inside the portal, never a name or diagnosis) and a subject (`appointment`, `queue_token`, `invoice` or `recall`). Triggers write arrival, bill issued, visit closed with a draft bill and a token sent in; the reminder job writes `recall_due` and `patient_waiting` (a token waiting 15 minutes). Who sees what is decided when reading: appointments.read for arrival and the queue kinds, billing.read for the bill kinds, patients.read (within reach) for recalls. The feed, count and read routes accept any of the four read permissions.
+
+**Why.** The portal's settings and bell need real switches and links, not mock ones. Receipts are opt-in and the 2-hour reminder is off because both send more mail than clinics asked for.
+
+## New look tooth chart (Patient 360)
+
+**Decision.** The New look chart (Rows or 3D arch, Adult 32 or Child 20, a tooth panel with history and an Add treatment form) is a portal view over the existing append-only chart. The only API change is additive: `in_progress` (bool, default false, never stored on `sound`) on chart entries, and 15 more seeded materials plus the `bridge` procedure in the dental vocabulary. No migration.
+
+- **Treatment to chart entry.** Filling is `filled`/`filling`, Root canal `root_canal`/`root_canal` (canals, one working length for the canals chosen, sitting), Crown `crown`, Extraction `missing`/`extraction`, Implant `implant`, Bridge `bridge`, Veneer `crown`/`veneer`, Sealant `filled`/`sealant`. Scaling is recorded as a tooth-linked procedure (a `sound` finding forbids a procedure).
+- **Status.** Completed is a plain entry; In progress sets `in_progress`; Watch records the `watch` finding with the procedure; Planned adds a plan item with no estimate (no chart entry). A planned row can be edited into real work; an accepted item is then marked done.
+- **Surfaces.** One entry per surface in one batch; whole-tooth treatments send none. The panel groups entries recorded together into one history row.
+- **Edit is a correction.** Each new entry supersedes the old entry on the same surface (else a left-over old entry) through `supersedes_id`; old entries nobody takes over are cleared with a `sound` entry that supersedes them, sent first in the batch. Nothing is edited or deleted in place.
+- **Needs an open visit.** Treatment is recorded in the open visit; with none, the panel offers Start visit. A closed visit or a changed chart is a 409, shown as a plain message.
+- **Three views, one panel.** Rows and 3D arch are the quick views; Classic is the existing odontogram with its five surfaces, kept as is. In every view a tooth opens the same panel (history, Edit, Add treatment); a surface picked in Classic starts the form with it chosen. The form starts at Completed with the only material that fits already chosen, and hides surfaces for whole-tooth treatments.
+- **Preferences.** The view and dentition are remembered per person in the browser, like the layout.
+
+## 2026-10-10: Simple roles matrix (portal new look)
+
+**Decision.** Settings, Team & roles, in the New look, opens on a plain matrix: roles across, ten areas down, one switch per cell. The detailed editor stays one click away under "Advanced" (and the old look shows it alone). No API change: a click sends the existing `PUT /roles/{key}/permissions` with the full expanded key list. The mapping lives in one table, `SIMPLE_AREAS` in `web/apps/portal/src/pages/settings/roles-panel.tsx`:
+
+| Area | Keys |
+|---|---|
+| Patients | `patients.read`, `patients.write` |
+| Clinical notes and chart | `clinical.read`, `clinical.write` |
+| Prescriptions | `prescriptions.issue` |
+| Appointments and queue | `appointments.read`, `appointments.write` |
+| Billing and payments | `billing.read`, `billing.write`, `expenses.write` |
+| Money reports | `finance.view`, `analytics.view`, `reports.export` |
+| Stock | `inventory.read`, `inventory.manage` |
+| Labs | `labs.read`, `labs.write` |
+| Messages | `messages.send`, `chat.use`, `patients.contact`, `campaigns.manage` |
+| Settings and team | `settings.manage`, `staff.manage`, `roles.manage`, `audit.view` |
+
+- **States.** On = the role holds every key of the group, Partial = some, Off = none. Clicking Off or Partial turns the whole group on (new keys get scope `all`, scopes already chosen are kept); clicking On turns it off.
+- **Untouched keys.** `patients.delete`, `support.grant`, `intake.write` and `root.everything` are in no group; the matrix keeps them as they are, so only Advanced changes them.
+- **Locked rules.** The owner column is always On and disabled; your own role and any group holding a key you lack are disabled, each with a tooltip. The API still enforces all of it.
+- **Saving.** Each click saves at once, shows a toast, and an Undo button sends the role's previous list back.
+- **Invites.** New look: one "Phone or email" box and a role picker. The API signs people in by email, so a phone invite also asks for their email and then shows the join link with a WhatsApp share link. The old look keeps the email-only form.
+
+**Why.** The founder found the detailed editor too much for everyday use; most clinics only ever decide "can the front desk see money".

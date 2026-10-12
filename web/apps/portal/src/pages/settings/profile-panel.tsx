@@ -6,6 +6,7 @@ import { useToast } from "@sakalya/ui";
 
 import { Initials, MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
+import { useNewLook } from "../../lib/new-look.js";
 import { useClinicSettings, useUpdateClinicSettings } from "../../queries.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 
@@ -93,6 +94,8 @@ function Section({ id, title, hint, children }: { id: string; title: string; hin
 function ProfileForm({ settings }: { settings: ClinicSettings }) {
   const update = useUpdateClinicSettings();
   const toast = useToast();
+  // In the new look the prescription footer is edited in Letterhead only; saving here leaves it alone.
+  const [newLook] = useNewLook();
   const [form, setForm] = useState<ProfileValues>(() => toValues(settings));
   const [error, setError] = useState<string | undefined>(undefined);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<Key, string>>>({});
@@ -108,7 +111,7 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
         gstin: form.gstin,
         phone: form.phone,
         upi_id: form.upi_id,
-        prescription_footer: form.prescription_footer,
+        ...(newLook ? {} : { prescription_footer: form.prescription_footer }),
         address: { line1: form.line1, line2: form.line2, city: form.city, state: form.state, pincode: form.pincode },
       },
       {
@@ -172,9 +175,11 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
         {input("gstin", "GSTIN", { mono: true })}
         {input("upi_id", "UPI ID", { placeholder: "clinic@okicici" })}
       </Section>
-      <Section id="prescriptions" title="Prescriptions" hint="A line printed at the bottom of every prescription.">
-        {input("prescription_footer", "Prescription footer", { span: "wide", multiline: true })}
-      </Section>
+      {newLook ? null : (
+        <Section id="prescriptions" title="Prescriptions" hint="A line printed at the bottom of every prescription.">
+          {input("prescription_footer", "Prescription footer", { span: "wide", multiline: true })}
+        </Section>
+      )}
       {error === undefined ? null : (
         <p role="alert" className="mk-pill down st-form-error">
           {error}

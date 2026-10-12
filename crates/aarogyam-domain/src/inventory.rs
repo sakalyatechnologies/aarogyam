@@ -212,6 +212,187 @@ pub fn pick_fefo<I: Copy>(
     Ok(picks)
 }
 
+/// The fewest calendar days of use history a projection needs.
+pub const MIN_PROJECTION_DAYS: i64 = 7;
+
+/// The most calendar days of use history a projection averages over.
+pub const MAX_PROJECTION_DAYS: i64 = 14;
+
+/// Days of cover above the lead time at which an alert still fires: order before it is too late.
+pub const ALERT_MARGIN_DAYS: i64 = 3;
+
+/// Days of use a suggested reorder buys beyond the lead time.
+pub const REORDER_COVER_DAYS: i64 = 14;
+
+/// What `project` is given for one item. Dates are the clinic's own calendar days.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectionInput<'a> {
+    /// The clinic's local day today.
+    pub today: Date,
+    /// At or below this the item is low (see [`status`]).
+    pub reorder_level: i64,
+    /// Days from ordering to delivery.
+    pub lead_time_days: i64,
+    /// Batches with stock left: expiry (none: never) and quantity.
+    pub batches: &'a [(Option<Date>, i64)],
+    /// Units used on each clinic-local day (movements of kind `use` only; days with no use may
+    /// be left out). Days from today on are ignored: today is not over.
+    pub daily_use: &'a [(Date, i64)],
+    /// The first day with any use, if there has been one.
+    pub first_use_on: Option<Date>,
+}
+
+/// Why an item needs an alert.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AlertReason {
+    /// Low or critical against its reorder level.
+    Low,
+    /// Enough now, but the stock runs out within the lead time plus a margin.
+    Projected,
+}
+
+impl AlertReason {
+    /// The stored name (`staff_notifications.stock_reason`).
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Low => "low",
+            Self::Projected => "projected",
+        }
+    }
+}
+
+/// What the recent rate of use says about an item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Projection {
+    /// Units on the shelf that have not expired today.
+    pub on_hand: i64,
+    /// Units that will still be good on the day the stock runs out: batches expiring before it
+    /// do not count. Equals `on_hand` when there is no projection.
+    pub usable_on_hand: i64,
+    /// Units used per day over the window. `None` without enough history.
+    pub daily_usage: Option<f64>,
+    /// Whole days the usable stock lasts at that rate. `None` without enough history.
+    pub days_cover: Option<i64>,
+    /// The day the stock runs out. `None` without enough history.
+    pub runs_out_on: Option<Date>,
+    /// Whether to tell the clinic.
+    pub should_alert: bool,
+    /// Why, when `should_alert`.
+    pub reason: Option<AlertReason>,
+    /// How many units to order to cover the lead time plus two weeks. `None` without enough
+    /// history; zero when the stock already covers it.
+    pub suggested_reorder_qty: Option<i64>,
+}
+
+/// Works out how long an item's stock lasts and whether to alert.
+///
+/// The window is W = min(14, days from the first use to today) complete days before today, and
+/// the item is projected only when W is at least 7 and at least two of those days had use;
+/// otherwise only the reorder-level alert applies. `daily_usage` is the units used in the window
+/// over W; `days_cover` is the usable stock over it, rounded down; the stock that counts is the
+/// batches not expired today and not expiring before the day it runs out. The alert fires when
+/// the item is low or critical, or when `days_cover` is at most the lead time plus three days.
+/// The suggested order is `ceil(daily_usage * (lead time + 14)) - usable`, never below zero.
+/// Arithmetic is on whole numbers, so nothing depends on rounding of fractions.
+#[must_use]
+pub fn project(input: &ProjectionInput<'_>) -> Projection {
+    let today = input.today;
+    let live = |expiry: Option<Date>| !is_expired(expiry, today);
+    let on_hand: i64 = input
+        .batches
+        .iter()
+        .filter(|(expiry, quantity)| *quantity > 0 && live(*expiry))
+        .map(|(_, quantity)| *quantity)
+        .fold(0, i64::saturating_add);
+    let stock = status(on_hand, input.reorder_level, false);
+    let low = matches!(stock, StockStatus::Low | StockStatus::Critical);
+    let none = |reason: Option<AlertReason>| Projection {
+        on_hand,
+        usable_on_hand: on_hand,
+        daily_usage: None,
+        days_cover: None,
+        runs_out_on: None,
+        should_alert: reason.is_some(),
+        reason,
+        suggested_reorder_qty: None,
+    };
+    let reason_low = low.then_some(AlertReason::Low);
+
+    let Some(first) = input.first_use_on else {
+        return none(reason_low);
+    };
+    let window = (today - first).whole_days().min(MAX_PROJECTION_DAYS);
+    if window < MIN_PROJECTION_DAYS {
+        return none(reason_low);
+    }
+    let start = today - time::Duration::days(window);
+    let in_window = |day: Date| day >= start && day < today;
+    let used: i64 = input
+        .daily_use
+        .iter()
+        .filter(|(day, quantity)| in_window(*day) && *quantity > 0)
+        .map(|(_, quantity)| *quantity)
+        .fold(0, i64::saturating_add);
+    let use_days = input
+        .daily_use
+        .iter()
+        .filter(|(day, quantity)| in_window(*day) && *quantity > 0)
+        .map(|(day, _)| *day)
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    if use_days < 2 || used <= 0 {
+        return none(reason_low);
+    }
+
+    // The stock that is still good on the run-out day. Dropping a batch can only bring the
+    // run-out day forward, so this settles after at most one pass per batch.
+    let cover = |usable: i64| usable.saturating_mul(window) / used;
+    let mut usable = on_hand;
+    let mut days_cover = cover(usable);
+    for _ in 0..=input.batches.len() {
+        let runs_out = today + time::Duration::days(days_cover.min(36_500));
+        let kept: i64 = input
+            .batches
+            .iter()
+            .filter(|(expiry, quantity)| {
+                *quantity > 0 && live(*expiry) && expiry.is_none_or(|date| date >= runs_out)
+            })
+            .map(|(_, quantity)| *quantity)
+            .fold(0, i64::saturating_add);
+        if kept == usable {
+            break;
+        }
+        usable = kept;
+        days_cover = cover(usable);
+    }
+    let runs_out_on = today + time::Duration::days(days_cover.min(36_500));
+    let projected = days_cover <= input.lead_time_days + ALERT_MARGIN_DAYS;
+    let reason = if low {
+        Some(AlertReason::Low)
+    } else if projected {
+        Some(AlertReason::Projected)
+    } else {
+        None
+    };
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "quantities are far below 2^52; the figure is for display"
+    )]
+    let daily = used as f64 / window as f64;
+    let target = (used * (input.lead_time_days + REORDER_COVER_DAYS) + window - 1) / window;
+    Projection {
+        on_hand,
+        usable_on_hand: usable,
+        daily_usage: Some(daily),
+        days_cover: Some(days_cover),
+        runs_out_on: Some(runs_out_on),
+        should_alert: reason.is_some(),
+        reason,
+        suggested_reorder_qty: Some((target - usable).max(0)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -290,5 +471,173 @@ mod tests {
         assert_eq!(pick_fefo::<u8>(&[], 0, TODAY), Err(StockError::Quantity));
         assert_eq!(StockUnit::parse("box"), Ok(StockUnit::Box));
         assert_eq!(StockUnit::parse("kg"), Err(StockError::Unit));
+    }
+
+    // ---- project ----
+
+    const DAY: Date = date!(2026 - 10 - 15);
+
+    fn day(back: i64) -> Date {
+        DAY - time::Duration::days(back)
+    }
+
+    /// Ten units a day on each of the `days` days before today, first use that long ago.
+    fn steady(days: i64, per_day: i64) -> Vec<(Date, i64)> {
+        (1..=days).map(|back| (day(back), per_day)).collect()
+    }
+
+    fn input<'a>(
+        batches: &'a [(Option<Date>, i64)],
+        daily_use: &'a [(Date, i64)],
+        reorder_level: i64,
+        lead_time_days: i64,
+    ) -> ProjectionInput<'a> {
+        ProjectionInput {
+            today: DAY,
+            reorder_level,
+            lead_time_days,
+            batches,
+            daily_use,
+            first_use_on: daily_use.iter().map(|(d, _)| *d).min(),
+        }
+    }
+
+    #[test]
+    fn no_history_only_the_reorder_level_speaks() {
+        let ok = project(&input(&[(None, 100)], &[], 20, 7));
+        assert!(!ok.should_alert);
+        assert_eq!(
+            (ok.daily_usage, ok.days_cover, ok.runs_out_on),
+            (None, None, None)
+        );
+        assert_eq!(ok.suggested_reorder_qty, None);
+        assert_eq!(ok.on_hand, 100);
+        let low = project(&input(&[(None, 20)], &[], 20, 7));
+        assert!(low.should_alert);
+        assert_eq!(low.reason, Some(AlertReason::Low));
+        let out = project(&input(&[], &[], 0, 7));
+        assert_eq!(out.reason, Some(AlertReason::Low));
+    }
+
+    #[test]
+    fn six_days_of_history_is_not_enough_and_seven_is() {
+        let six = steady(6, 10);
+        let p = project(&input(&[(None, 30)], &six, 5, 7));
+        assert_eq!((p.daily_usage, p.days_cover), (None, None));
+        assert!(!p.should_alert);
+        let seven = steady(7, 10);
+        let p = project(&input(&[(None, 30)], &seven, 5, 7));
+        assert_eq!(p.daily_usage, Some(10.0));
+        assert_eq!(p.days_cover, Some(3));
+        assert_eq!(p.runs_out_on, Some(day(-3)));
+        assert_eq!(p.reason, Some(AlertReason::Projected));
+    }
+
+    #[test]
+    fn the_window_is_fourteen_days_at_most() {
+        // Heavy use long ago does not count; 14 days at 5 a day does.
+        let mut use_ = steady(14, 5);
+        use_.push((day(20), 500));
+        let p = project(&input(&[(None, 100)], &use_, 5, 7));
+        assert_eq!(p.daily_usage, Some(5.0));
+        assert_eq!(p.days_cover, Some(20));
+        assert!(!p.should_alert);
+    }
+
+    #[test]
+    fn zero_usage_or_one_day_of_use_is_no_projection() {
+        let none: [(Date, i64); 0] = [];
+        let p = project(&ProjectionInput {
+            first_use_on: Some(day(10)),
+            ..input(&[(None, 50)], &none, 5, 7)
+        });
+        assert_eq!(p.days_cover, None);
+        assert!(!p.should_alert);
+        // One big use on one day: a spike, not a rate.
+        let spike = [(day(10), 40), (day(3), 0)];
+        let p = project(&input(&[(None, 50)], &spike, 5, 7));
+        assert_eq!(p.days_cover, None);
+        assert_eq!(p.suggested_reorder_qty, None);
+    }
+
+    #[test]
+    fn today_is_not_counted() {
+        let mut use_ = steady(7, 10);
+        use_.push((DAY, 1000));
+        let p = project(&input(&[(None, 100)], &use_, 5, 7));
+        assert_eq!(p.daily_usage, Some(10.0));
+    }
+
+    #[test]
+    fn expired_batches_do_not_count() {
+        let use_ = steady(7, 10);
+        let batches = [(Some(day(1)), 500), (None, 40)];
+        let p = project(&input(&batches, &use_, 5, 7));
+        assert_eq!(p.on_hand, 40);
+        assert_eq!(p.usable_on_hand, 40);
+        assert_eq!(p.days_cover, Some(4));
+    }
+
+    #[test]
+    fn batches_expiring_before_the_run_out_do_not_count() {
+        let use_ = steady(7, 10);
+        // 100 on the shelf would last 10 days, but 60 of it expires in 3 days: the 40 that
+        // lasts is 4 days, which is after that expiry, so it settles at 4.
+        let batches = [(Some(DAY + time::Duration::days(3)), 60), (None, 40)];
+        let p = project(&input(&batches, &use_, 5, 7));
+        assert_eq!(p.on_hand, 100);
+        assert_eq!(p.usable_on_hand, 40);
+        assert_eq!(p.days_cover, Some(4));
+        assert_eq!(p.runs_out_on, Some(DAY + time::Duration::days(4)));
+        // Expiring on the run-out day itself still counts that day.
+        let batches = [(Some(DAY + time::Duration::days(10)), 100)];
+        let p = project(&input(&batches, &use_, 5, 7));
+        assert_eq!(p.usable_on_hand, 100);
+        assert_eq!(p.days_cover, Some(10));
+    }
+
+    #[test]
+    fn lead_time_plus_three_days_is_the_alert_line() {
+        let use_ = steady(7, 10);
+        // 100 units: 10 days of cover; lead 7 + 3 = 10: alerts. 110 units: 11 days: quiet.
+        assert!(project(&input(&[(None, 100)], &use_, 5, 7)).should_alert);
+        let p = project(&input(&[(None, 110)], &use_, 5, 7));
+        assert!(!p.should_alert);
+        assert_eq!(p.reason, None);
+        // A longer lead time moves the line.
+        assert!(project(&input(&[(None, 110)], &use_, 5, 10)).should_alert);
+    }
+
+    #[test]
+    fn low_stock_beats_projection_as_the_reason() {
+        let use_ = steady(7, 10);
+        let p = project(&input(&[(None, 30)], &use_, 40, 7));
+        assert_eq!(p.reason, Some(AlertReason::Low));
+        assert_eq!(p.days_cover, Some(3));
+    }
+
+    #[test]
+    fn rounding_is_down_for_cover_and_up_for_the_order() {
+        // 10 units over 7 days: 10/7 a day.
+        let mut use_ = vec![(day(1), 5), (day(7), 5)];
+        use_.sort();
+        let p = project(&input(&[(None, 25)], &use_, 1, 7));
+        // 25 / (10/7) = 17.5 days, rounded down.
+        assert_eq!(p.days_cover, Some(17));
+        // ceil(10/7 * 21) = 30, less 25 on hand.
+        assert_eq!(p.suggested_reorder_qty, Some(5));
+        // Plenty on hand: never below zero.
+        let p = project(&input(&[(None, 500)], &use_, 1, 7));
+        assert_eq!(p.suggested_reorder_qty, Some(0));
+    }
+
+    #[test]
+    fn positive_adjustments_and_non_use_never_count() {
+        // The caller passes only `use` days; a stray non-positive or zero entry is ignored too.
+        let mut use_ = steady(7, 10);
+        use_.push((day(2), -50));
+        use_.push((day(3), 0));
+        let p = project(&input(&[(None, 100)], &use_, 5, 7));
+        assert_eq!(p.daily_usage, Some(10.0));
     }
 }

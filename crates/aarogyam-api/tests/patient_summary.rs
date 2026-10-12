@@ -206,7 +206,7 @@ async fn summaries_count_bills_payments_voids_bookings_and_recalls() {
     .await;
     assert_eq!(found[0]["balance_paise"], 80_000);
 
-    // Without billing.read the money keys are absent, not null.
+    // Without billing.read the money keys are present and null.
     let assistant = app.token(ALPHA_ASSISTANT);
     let (status, record) = app
         .send(
@@ -219,7 +219,7 @@ async fn summaries_count_bills_payments_voids_bookings_and_recalls() {
         .await;
     assert_eq!(status, StatusCode::OK);
     let keys = record.as_object().unwrap();
-    assert!(!keys.contains_key("balance_paise") && !keys.contains_key("lifetime_paid_paise"));
+    assert!(keys["balance_paise"].is_null() && keys["lifetime_paid_paise"].is_null());
 
     // Filters, in the list and in the search.
     let ids = |items: &[Value]| -> Vec<String> {

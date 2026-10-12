@@ -186,7 +186,7 @@ pub struct ImageForm {
     file: String,
 }
 
-async fn read_image(mut form: Multipart) -> Result<Vec<u8>, ApiFailure> {
+pub(super) async fn read_image(mut form: Multipart) -> Result<Vec<u8>, ApiFailure> {
     while let Some(field) = form.next_field().await.map_err(|e| form_error(&e))? {
         if field.name() == Some("file") {
             let bytes = field.bytes().await.map_err(|e| form_error(&e))?;

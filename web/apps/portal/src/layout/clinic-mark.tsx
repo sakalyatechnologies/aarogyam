@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -8,9 +8,9 @@ import { useLetterhead } from "../queries.js";
 
 /**
  * The clinic's logo in the sidebar, or its initials when there is none or it fails to load. The
- * logo link is signed and expires, so a failed load refreshes the letterhead once to get a new one.
+ * `fallback` replaces the initials when given (the new rail passes a specialty emblem). The logo link is signed and expires, so a failed load refreshes the letterhead once to get a new one.
  */
-export function ClinicMark({ name }: { name: string }) {
+export function ClinicMark({ name, fallback }: { name: string; fallback?: ReactNode }) {
   const { can, access } = useClinic();
   const queryClient = useQueryClient();
   // The letterhead (and so the logo link) is for people who can read patients; others see initials.
@@ -37,7 +37,7 @@ export function ClinicMark({ name }: { name: string }) {
           }}
         />
       ) : (
-        initials(name)
+        (fallback ?? initials(name))
       )}
     </div>
   );

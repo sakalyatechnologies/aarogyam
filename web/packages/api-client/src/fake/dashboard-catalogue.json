@@ -29,6 +29,12 @@
             }
           },
           {
+            "key": "my_tasks",
+            "zone": "main",
+            "size": "full",
+            "opts": {}
+          },
+          {
             "key": "appointments",
             "zone": "main",
             "size": "L",
@@ -117,6 +123,12 @@
             }
           },
           {
+            "key": "my_tasks",
+            "zone": "main",
+            "size": "full",
+            "opts": {}
+          },
+          {
             "key": "collections",
             "zone": "main",
             "size": "L",
@@ -199,6 +211,12 @@
             }
           },
           {
+            "key": "my_tasks",
+            "zone": "main",
+            "size": "full",
+            "opts": {}
+          },
+          {
             "key": "queue",
             "zone": "main",
             "size": "L",
@@ -276,6 +294,12 @@
             }
           },
           {
+            "key": "my_tasks",
+            "zone": "main",
+            "size": "full",
+            "opts": {}
+          },
+          {
             "key": "queue",
             "zone": "main",
             "size": "M",
@@ -332,6 +356,12 @@
                 "chairs_busy"
               ]
             }
+          },
+          {
+            "key": "my_tasks",
+            "zone": "main",
+            "size": "full",
+            "opts": {}
           },
           {
             "key": "appointments",
@@ -422,6 +452,12 @@
                 "new_patients"
               ]
             }
+          },
+          {
+            "key": "my_tasks",
+            "zone": "main",
+            "size": "full",
+            "opts": {}
           },
           {
             "key": "queue",
@@ -802,6 +838,24 @@
       "default_zone": "main",
       "default_size": "M",
       "requires": "appointments.read",
+      "options": []
+    },
+    {
+      "key": "my_tasks",
+      "label": "My tasks",
+      "description": "Your tasks for today, overdue ones first, finished in one tap.",
+      "zones": [
+        "top",
+        "main"
+      ],
+      "sizes": [
+        "M",
+        "L",
+        "full"
+      ],
+      "default_zone": "main",
+      "default_size": "full",
+      "requires": "tasks.use",
       "options": []
     }
   ],

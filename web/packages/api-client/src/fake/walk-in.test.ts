@@ -39,7 +39,7 @@ describe("walk-in fast path (fake)", () => {
 
     const found = value(await desk.lookupPatientsByPhone("98765 11111"));
     expect(found.items.map((m) => m.id)).toEqual([walkIn.patient.id]);
-    expect(Object.keys(found.items[0] ?? {}).sort()).toEqual(["age_years", "family", "full_name", "id", "number", "sex"]);
+    expect(Object.keys(found.items[0] ?? {}).sort()).toEqual(["age_years", "full_name", "id", "number", "sex"]);
 
     // The desk can't read the allergies; the doctor sees them unconfirmed and confirms one.
     expect((await desk.listAllergies(walkIn.patient.id)).ok).toBe(false);

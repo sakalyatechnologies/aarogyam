@@ -22,6 +22,7 @@ import {
   StatTile,
   StatusChip,
 } from "../../components/mk/index.js";
+import { coverText } from "../stock/projection.js";
 import { AppointmentActionButton, nextAction } from "../../components/appointment-action.js";
 import { APPOINTMENT_CHIP } from "../../lib/appointment-status.js";
 import { useClinic } from "../../clinic.js";
@@ -382,7 +383,20 @@ function dialable(phone: string | null | undefined): string | undefined {
   return /^\+?\d{7,15}$/.test(digits) ? digits : undefined;
 }
 
-export function AttentionSection({ items, lowStock, appointments, timeZone }: { items: readonly TodayAttentionItem[]; lowStock: readonly LowStockAlert[]; appointments: Today["appointments"]; timeZone: string }) {
+/** `cover` maps an item to its days of cover when the stock projection knows it (New look). */
+export function AttentionSection({
+  items,
+  lowStock,
+  appointments,
+  timeZone,
+  cover,
+}: {
+  items: readonly TodayAttentionItem[];
+  lowStock: readonly LowStockAlert[];
+  appointments: Today["appointments"];
+  timeZone: string;
+  cover?: ReadonlyMap<string, number | null | undefined>;
+}) {
   if (items.length === 0 && lowStock.length === 0) {
     return (
       <div className="mk-list">
@@ -411,6 +425,7 @@ export function AttentionSection({ items, lowStock, appointments, timeZone }: { 
           }
         >
           <b>{alert.name}</b> is running low: {alert.on_hand} {alert.unit} left, reorder at {alert.reorder_level}
+          {cover?.get(alert.item_id) == null ? "" : ` · ${coverText(cover.get(alert.item_id))}`}
         </AlertBanner>
       ))}
     </div>

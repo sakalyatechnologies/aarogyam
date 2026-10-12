@@ -139,7 +139,7 @@ async fn the_front_desk_registers_a_walk_in_in_one_step() {
     assert_eq!(
         found["items"],
         json!([{ "id": patient, "number": walk_in["patient"]["number"], "full_name": "Sunita Patil",
-                 "age_years": 34, "sex": "female", "family": [] }])
+                 "age_years": 34, "sex": "female" }])
     );
     let (_, none) = post(
         &app,

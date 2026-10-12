@@ -615,6 +615,63 @@ async fn medicine_sets_are_created_edited_listed_and_deleted_per_clinic() {
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+async fn chart_entries_can_be_in_progress() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(&app, &owner).await;
+    let path = format!("/api/v1/patients/{patient}/dental-chart");
+
+    let (status, chart) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &path,
+        Some(json!({ "entries": [{
+            "tooth": 46, "finding": "root_canal", "sitting": 2, "in_progress": true,
+            "procedure": "root_canal", "material": "calcium_hydroxide",
+            "canals": [{ "name": "MB", "working_length_mm": 21 }]
+        }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert_eq!(chart["current"][0]["in_progress"], true);
+    assert_eq!(
+        chart["current"][0]["material"]["label"],
+        "Calcium hydroxide"
+    );
+
+    // The finished sitting corrects it: the old entry is superseded and still says in progress.
+    let old = chart["current"][0]["id"].as_str().unwrap().to_owned();
+    let (status, chart) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &path,
+        Some(json!({ "entries": [{
+            "tooth": 46, "finding": "root_canal", "sitting": 3, "supersedes_id": old,
+            "procedure": "root_canal", "material": "gutta_percha"
+        }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert_eq!(chart["current"][0]["in_progress"], false);
+    assert_eq!(chart["current"][0]["supersedes_id"], old);
+
+    // Another clinic's member can't reach the chart.
+    let beta = app.token(BETA_OWNER);
+    let (status, _) = post(
+        &app,
+        BETA,
+        &beta,
+        &path,
+        Some(json!({ "entries": [{ "tooth": 46, "finding": "root_canal", "in_progress": true }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
 async fn root_canal_entries_carry_canals_and_a_sitting() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);
@@ -836,4 +893,129 @@ async fn a_gujarati_recording_is_accepted_and_other_languages_still_are() {
             assert_eq!(body["language"], language);
         }
     }
+}
+
+/// A visit started from the queue, and the token's status afterwards.
+async fn queued_visit(app: &TestApp, owner: &str, patient: &str) -> (String, String) {
+    let (status, token) = post(
+        app,
+        ALPHA,
+        owner,
+        "/api/v1/queue",
+        Some(json!({ "patient_id": patient })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{token}");
+    let token = token["id"].as_str().unwrap().to_owned();
+    let (status, started) = post(
+        app,
+        ALPHA,
+        owner,
+        &format!("/api/v1/queue/{token}/start-visit"),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    (started["visit"]["id"].as_str().unwrap().to_owned(), token)
+}
+
+async fn token_status(app: &TestApp, token: &str) -> String {
+    sqlx::query_scalar::<_, String>("select status from aarogyam.queue_tokens where id = $1")
+        .bind(token.parse::<Uuid>().unwrap())
+        .fetch_one(&app.owner)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn queue_status_picks_where_the_linked_token_goes_when_a_visit_closes() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(&app, &owner).await;
+
+    // The default is unchanged: the token is done.
+    let (visit, token) = queued_visit(&app, &owner, &patient).await;
+    let (status, closed) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/visits/{visit}/close"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{closed}");
+    assert_eq!(token_status(&app, &token).await, "done");
+
+    // Send for payment on close: the token waits at ready_to_bill, and the draft bill alerts.
+    let (visit, token) = queued_visit(&app, &owner, &patient).await;
+    let (status, closed) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/visits/{visit}/close"),
+        Some(json!({ "fee_paise": 50_000, "queue_status": "ready_to_bill" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{closed}");
+    assert_eq!(token_status(&app, &token).await, "ready_to_bill");
+    assert_eq!(
+        count(
+            &app,
+            "select count(*) from aarogyam.staff_notifications where kind = 'collect_payment' and invoice_id in (select id from aarogyam.invoices where encounter_id = $1)",
+            &visit,
+        )
+        .await,
+        1
+    );
+
+    // The same on finish; an explicit `done` is the default.
+    let (visit, token) = queued_visit(&app, &owner, &patient).await;
+    let (status, finished) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/visits/{visit}/finish"),
+        Some(json!({ "queue_status": "ready_to_bill" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{finished}");
+    assert_eq!(token_status(&app, &token).await, "ready_to_bill");
+    let (visit, token) = queued_visit(&app, &owner, &patient).await;
+    let (status, finished) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/visits/{visit}/finish"),
+        Some(json!({ "queue_status": "done" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{finished}");
+    assert_eq!(token_status(&app, &token).await, "done");
+
+    // An unknown status is refused and the visit stays open.
+    let (visit, token) = queued_visit(&app, &owner, &patient).await;
+    let (status, _) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/visits/{visit}/close"),
+        Some(json!({ "queue_status": "left" })),
+    )
+    .await;
+    assert!(status.is_client_error(), "{status}");
+    assert_eq!(token_status(&app, &token).await, "in_chair");
+
+    // Another clinic still gets a 404 for the visit.
+    let beta = app.token(BETA_OWNER);
+    let (status, _) = post(
+        &app,
+        BETA,
+        &beta,
+        &format!("/api/v1/visits/{visit}/close"),
+        Some(json!({ "queue_status": "ready_to_bill" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(token_status(&app, &token).await, "in_chair");
 }

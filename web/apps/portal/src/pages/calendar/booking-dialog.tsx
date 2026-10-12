@@ -10,6 +10,8 @@ import { useClinic } from "../../clinic.js";
 import { freeSlots, parseHm, shiftsOn } from "../../lib/slots.js";
 import { localInstant, todayIn } from "../../lib/time.js";
 import { nowMinutes, placementOf } from "../../lib/time-grid.js";
+import { useTimeOff } from "../../lib/time-off-queries.js";
+import { isAway } from "./away.js";
 import { useAppointments, useBookAppointment, usePatient, useWorkingHours } from "../../queries.js";
 import { BookingPatient } from "./booking-patient.js";
 
@@ -74,6 +76,19 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
     const notBefore = date === today ? nowMinutes(new Date(), timeZone).minutes : 0;
     return freeSlots({ shifts: shiftsOn(hours.data.shifts, date), busy, duration, step: duration % 30 === 0 ? 30 : 15, notBefore });
   })();
+  // Who is away for the chosen slot, and who is free then: the form guides, the server stays the authority.
+  const timeOff = useTimeOff({ from: date, to: date });
+  const startMinute = parseHm(startTime);
+  const slotStart = Number.isNaN(startMinute) ? undefined : localInstant(date, startTime, timeZone);
+  const slotEnd = slotStart === undefined ? undefined : new Date(Date.parse(slotStart) + duration * 60_000).toISOString();
+  const awayAt = (id: string) => slotStart !== undefined && slotEnd !== undefined && isAway(timeOff.data?.items ?? [], practitioners.find((p) => p.id === id), slotStart, slotEnd);
+  const busyAt = (id: string) =>
+    slotStart !== undefined &&
+    slotEnd !== undefined &&
+    (day.data?.items ?? []).some((a) => a.practitioner.id === id && a.status !== "cancelled" && a.status !== "no_show" && Date.parse(a.starts_at) < Date.parse(slotEnd) && Date.parse(slotStart) < Date.parse(a.ends_at));
+  const freeDoctors = practitioners.filter((p) => p.active && p.id !== practitionerId && !awayAt(p.id) && !busyAt(p.id));
+  const chosenAway = practitionerId !== "" && awayAt(practitionerId);
+  const [refused, setRefused] = useState(false);
   const loadingSlots = doctor.success && (hours.isPending || day.isPending);
 
   const reset = () => {
@@ -88,6 +103,7 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
     setReason("");
     setNotes("");
     setError(undefined);
+    setRefused(false);
   };
 
   const close = () => {
@@ -102,6 +118,7 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
       return;
     }
     setError(undefined);
+    setRefused(false);
     const startsAt = localInstant(date, startTime, timeZone);
     const endsAt = new Date(Date.parse(startsAt) + duration * 60_000).toISOString();
     book.mutate(
@@ -125,7 +142,13 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
           close();
         },
         onError: (thrown) => {
-          setError(apiErrorOf(thrown)?.message ?? "Couldn't book that appointment. Please try again.");
+          const failure = apiErrorOf(thrown);
+          if (failure?.code === "practitioner_on_leave") {
+            setRefused(true);
+            setError("That doctor is away at this time, so the appointment wasn't booked. Pick another time, or one of the doctors who are free.");
+            return;
+          }
+          setError(failure?.message ?? "Couldn't book that appointment. Please try again.");
         },
       },
     );
@@ -158,13 +181,40 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
         <section className="mk-bk-sec" aria-label="Who">
           <div className="mk-bk-grid2">
             <Field label="Doctor" required>
-              <Select options={practitioners.map((p) => ({ value: p.id, label: p.display_name }))} value={practitionerId} onValueChange={setPractitionerId} placeholder="Choose a doctor" />
+              <Select options={practitioners.map((p) => ({ value: p.id, label: awayAt(p.id) ? `${p.display_name} (Away)` : p.display_name }))} value={practitionerId} onValueChange={(value) => { setPractitionerId(value); setRefused(false); setError(undefined); }} placeholder="Choose a doctor" />
             </Field>
             <Field label="Chair">
               <Select options={rooms.map((r) => ({ value: r.id, label: r.name }))} value={roomId} onValueChange={setRoomId} placeholder="Any chair" />
             </Field>
           </div>
         </section>
+
+        {chosenAway || refused ? (
+          <div role="status" className="mk-bk-away">
+            <p>{chosenAway ? "This doctor is away at the chosen time." : "That doctor is away at this time."}</p>
+            {freeDoctors.length === 0 ? (
+              <p>No other doctor is free then. Try another time.</p>
+            ) : (
+              <div className="mk-bk-away-free" role="group" aria-label="Free doctors">
+                <span>Free then:</span>
+                {freeDoctors.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="mk-chipf"
+                    onClick={() => {
+                      setPractitionerId(p.id);
+                      setRefused(false);
+                      setError(undefined);
+                    }}
+                  >
+                    {p.display_name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
 
         <section className="mk-bk-sec" aria-label="When">
           <div className="mk-bk-grid3">

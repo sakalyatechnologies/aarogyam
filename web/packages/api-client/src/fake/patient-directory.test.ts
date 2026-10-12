@@ -39,14 +39,14 @@ describe("patient directory (fake)", () => {
     if (first === undefined) throw new Error("expected a patient");
     expect("balance_paise" in first).toBe(true);
     const seen = value(await desk.getPatient(first.id));
-    expect("balance_paise" in seen).toBe(false);
-    expect("lifetime_paid_paise" in seen).toBe(false);
+    expect(seen.balance_paise).toBeNull();
+    expect(seen.lifetime_paid_paise).toBeNull();
     expect(typeof seen.allergy_alert).toBe("boolean");
 
     const full = value(await owner.getPatientsSummary());
     expect(full.total).toBe(value(await owner.listPatients()).items.length);
     expect(typeof full.with_balance).toBe("number");
-    expect("with_balance" in value(await desk.getPatientsSummary())).toBe(false);
+    expect(value(await desk.getPatientsSummary()).with_balance).toBeNull();
     // Another clinic counts only its own patients.
     expect(value(await as(BINA, LOTUS).getPatientsSummary()).total).not.toBe(full.total);
   });
@@ -58,7 +58,7 @@ describe("patient directory (fake)", () => {
       await desk.registerWalkIn({ patient: { full_name: "Sunita Patil", phone: "+919876522222" }, conditions: ["Diabetes", "diabetes", "High blood pressure"] }),
     );
     expect(mother.conditions_recorded).toBe(2);
-    expect(mother.family_linked).toBe(false);
+    expect(mother.family_link_id ?? null).toBeNull();
     expect(mother.patient.allergy_alert).toBe(true);
     const again = value(await desk.registerWalkIn({ patient_id: mother.patient.id, conditions: ["Diabetes"] }));
     expect(again.conditions_recorded).toBe(0);
@@ -66,14 +66,28 @@ describe("patient directory (fake)", () => {
     const child = value(
       await desk.registerWalkIn({
         patient: { full_name: "Aarav Patil", phone: "+919876522222" },
-        family_of: { patient_id: mother.patient.id, relation: "guardian" },
+        family_of: { patient_id: mother.patient.id, relation: "child" },
       }),
     );
-    expect(child.family_linked).toBe(true);
-    const found = value(await desk.lookupPatientsByPhone("9876522222")).items;
-    const of = (id: string) => found.find((m) => m.id === id);
-    expect(of(child.patient.id)?.family.map((f) => [f.id, f.relation])).toEqual([[mother.patient.id, "guardian"]]);
-    expect(of(mother.patient.id)?.family.map((f) => [f.id, f.relation])).toEqual([[child.patient.id, "child"]]);
+    expect(typeof child.family_link_id).toBe("string");
+    const found = value(await desk.lookupPatientsByPhone("9876522222"));
+    expect(found.items.map((m) => m.id).sort()).toEqual([child.patient.id, mother.patient.id].sort());
+    expect(found.family_group).toEqual([]);
+    const kin = value(await desk.listFamily(mother.patient.id)).items;
+    expect(kin.map((f) => [f.patient_id, f.relation])).toEqual([[child.patient.id, "child"]]);
+    expect(value(await desk.listFamily(child.patient.id)).items.map((f) => [f.patient_id, f.relation])).toEqual([[mother.patient.id, "parent"]]);
+
+    // A relative on another number is offered as the family group; links can be added and removed.
+    const aunt = value(await desk.registerWalkIn({ patient: { full_name: "Neha Joshi", phone: "+919876533333" } })).patient;
+    const link = value(await desk.addFamilyLink(mother.patient.id, { related_patient_id: aunt.id, relation: "sibling" }));
+    expect([link.patient_id, link.relation, link.is_primary_contact]).toEqual([aunt.id, "sibling", false]);
+    expect(status(await desk.addFamilyLink(aunt.id, { related_patient_id: mother.patient.id, relation: "sibling" }))).toBe(409);
+    expect(status(await desk.addFamilyLink(aunt.id, { related_patient_id: aunt.id, relation: "other" }))).toBe(409);
+    const group = value(await desk.lookupPatientsByPhone("9876522222")).family_group;
+    expect(group.map((g) => [g.of_patient_id, g.id, g.relation])).toEqual([[mother.patient.id, aunt.id, "sibling"]]);
+    expect((await desk.removeFamilyLink(aunt.id, link.id)).ok).toBe(true);
+    expect(value(await desk.listFamily(mother.patient.id)).items).toHaveLength(1);
+    expect(status(await desk.removeFamilyLink(aunt.id, link.id))).toBe(404);
 
     // Refused whole: bad input is 400, a relative of another clinic is 404.
     expect(status(await desk.registerWalkIn({ patient: { full_name: "X" }, conditions: ["  "] }))).toBe(400);

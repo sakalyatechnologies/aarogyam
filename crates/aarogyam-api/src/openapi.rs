@@ -12,6 +12,15 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     // utoipa copies the licence from Cargo.toml; private crates have none, which would leave
     // an invalid empty licence object.
     document.info.license = None;
+    // Staff to-dos, time off and stock alerts: each module lists its own paths and schemas.
+    for part in [
+        crate::v1::tasks::Doc::openapi(),
+        crate::v1::time_off::Doc::openapi(),
+        crate::v1::stock_insights::Doc::openapi(),
+        crate::v1::staff_ops::Doc::openapi(),
+    ] {
+        document.merge(part);
+    }
     document
 }
 
@@ -30,6 +39,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::me::session,
         crate::v1::me::sessions,
         crate::v1::me::revoke_session,
+        crate::v1::me::update_me,
+        crate::v1::me::revoke_other_sessions,
         crate::v1::auth::create,
         crate::v1::auth::redeem,
         crate::v1::invitations::accept,
@@ -37,6 +48,9 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::patients::search,
         crate::v1::patients::summary,
         crate::v1::patients::lookup,
+        crate::v1::family::list,
+        crate::v1::family::add,
+        crate::v1::family::remove,
         crate::v1::patients::register,
         crate::v1::patients::open,
         crate::v1::patients::edit,
@@ -166,6 +180,9 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::dashboard::reset_default,
         crate::v1::settings::get_clinic,
         crate::v1::settings::update_clinic,
+        crate::v1::settings::upload_logo,
+        crate::v1::settings::get_notifications,
+        crate::v1::settings::update_notifications,
         crate::v1::setup::get_clinic_setup,
         crate::v1::setup::update_clinic_setup,
         crate::v1::setup::get_my_setup,

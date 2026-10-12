@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.materialize_task_occurrences($1, $2) as \"made!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "made!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c7b5d649a09e278f7ce7e17b8b2c02ec5727647fdaa4d5fddca1bce0df9885a3"
+}

@@ -22,6 +22,7 @@ pub(crate) mod dental_terms;
 pub(crate) mod duplicates;
 pub(crate) mod expenses;
 pub(crate) mod facts;
+pub(crate) mod family;
 pub(crate) mod files;
 pub(crate) mod health;
 pub(crate) mod imports;
@@ -65,7 +66,11 @@ pub(crate) mod settings;
 pub(crate) mod setup;
 pub(crate) mod smart_import;
 pub(crate) mod staff;
+pub(crate) mod staff_ops;
+pub(crate) mod stock_insights;
 pub(crate) mod support_grants;
+pub(crate) mod tasks;
+pub(crate) mod time_off;
 pub(crate) mod today;
 pub(crate) mod treatment;
 pub(crate) mod visit_summary;
@@ -108,8 +113,12 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/client-errors",
             post(client_errors::report).layer(DefaultBodyLimit::max(client_errors::MAX_BODY)),
         )
-        .route("/me", get(me::me))
+        .route("/me", get(me::me).patch(me::update_me))
         .route("/me/sessions", get(me::sessions))
+        .route(
+            "/me/sessions/revoke-others",
+            post(me::revoke_other_sessions),
+        )
         .route("/me/sessions/{id}/revoke", post(me::revoke_session))
         .route("/session", get(me::session))
         .route(
@@ -246,6 +255,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             post(consent_requests::request),
         )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
+        .route("/patients/{id}/family", get(family::list).post(family::add))
+        .route("/patients/{id}/family/{link_id}", delete(family::remove))
         .route(
             "/patients/{id}/photo",
             get(patient_photos::get)
@@ -489,6 +500,16 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
                 .patch(settings::update_clinic),
         )
         .route(
+            "/settings/clinic/logo",
+            post(settings::upload_logo).layer(DefaultBodyLimit::max(letterhead::MAX_UPLOAD_BODY)),
+        )
+        .route(
+            "/settings/notifications",
+            get(settings::get_notifications)
+                .layer(from_fn(revalidate))
+                .patch(settings::update_notifications),
+        )
+        .route(
             "/console/clinics",
             get(console::clinics).post(console::create_clinic),
         )
@@ -684,7 +705,12 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/verify/prescriptions/{verify_token}",
             get(prescriptions::verify),
-        );
+        )
+        // Staff to-dos, time off and stock alerts: each module owns its routes.
+        .merge(tasks::routes())
+        .merge(time_off::routes())
+        .merge(stock_insights::routes())
+        .merge(staff_ops::routes());
     if local_dev {
         router
             .route("/dev/token", post(crate::dev::token))

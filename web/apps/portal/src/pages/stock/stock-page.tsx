@@ -3,13 +3,17 @@ import { useState } from "react";
 
 import type { StockLevel } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatNumber, useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, DataTable, useToast, type DataTableColumn } from "@sakalya/ui";
+import { Button, DataTable, Tabs, useToast, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
+import { useNewLook } from "../../lib/new-look.js";
 import { ItemDialog } from "./item-dialog.js";
 import { NewItemDialog } from "./new-item-dialog.js";
 import { LevelBar, StatusTag, categoryLabel, levelPercent } from "./level.js";
-import { useExpiring, useStock } from "./queries.js";
+import { StockAnalyticsTab } from "./analytics-tab.js";
+import { StockAlertsStrip } from "./stock-alerts.js";
+import { useExpiring, useStock, useStockAnalytics } from "./queries.js";
+import "./stock-v2.css";
 import { AlertBanner, EmptyState, MkCard, PageHeader, Skeleton, StatTile } from "../../components/mk/index.js";
 
 /**
@@ -24,6 +28,8 @@ export function StockPage() {
   const canManage = can("inventory.manage");
   const stock = useStock(allowed);
   const expiring = useExpiring(allowed);
+  const [newLook] = useNewLook();
+  const alerts = useStockAnalytics(allowed && newLook);
   const [openItem, setOpenItem] = useState<StockLevel["item"]["id"]>();
   const [adding, setAdding] = useState(false);
 
@@ -70,6 +76,105 @@ export function StockPage() {
     { id: "status", header: "Status", cell: (l) => <StatusTag status={l.status} /> },
   ];
 
+  const overview = (
+    <>
+      {stock.isError ? <ApiErrorNotice title="Couldn't load stock" error={stock.error} onRetry={() => void stock.refetch()} /> : null}
+      {empty ? (
+        <MkCard>
+          <EmptyState
+            art="stock"
+            title="Start tracking your stock"
+            description={
+              canManage
+                ? "Add the materials and medicines the clinic keeps, with a reorder level for each. Low levels and expiry dates then show up here and on Today."
+                : "Nothing is tracked yet. Someone with the inventory permission can add the materials and medicines the clinic keeps."
+            }
+            action={
+              canManage ? (
+                <button
+                  type="button"
+                  className="mk-btn mk-btn-primary"
+                  onClick={() => {
+                    setAdding(true);
+                  }}
+                >
+                  <PackagePlus aria-hidden="true" /> Add the first item
+                </button>
+              ) : undefined
+            }
+          />
+        </MkCard>
+      ) : (
+        <>
+          <div className="mk-stats" style={{ marginBottom: 0 }}>
+            {stock.isPending ? (
+              [0, 1, 2, 3].map((n) => <Skeleton key={n} shape="stat" />)
+            ) : (
+              <>
+                <StatTile label="Items tracked" value={items.filter((l) => l.item.active).length} icon={<Boxes />} />
+                <StatTile label="To reorder" value={needOrder} tone="warn" icon={<ShoppingCart />} trend={needOrder > 0 ? { direction: "up", text: "Below reorder level", good: false } : { direction: "flat", text: "All stocked" }} />
+                <StatTile label="Expiring soon" value={expiring.data?.items.length ?? "—"} icon={<CalendarClock />} />
+                <StatTile label="Healthy" value={items.filter((l) => l.status === "ok").length} icon={<CircleCheck />} />
+              </>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3" aria-label="Most urgent items">
+            {stock.isPending
+              ? [0, 1, 2].map((n) => <Skeleton key={n} shape="block" />)
+              : items.slice(0, 3).map((l) => (
+                  <section key={l.item.id} className="mk-card">
+                    <div className="mk-card-h">
+                      <h2>{l.item.name}</h2>
+                      <StatusTag status={l.status} />
+                    </div>
+                    <p className="mk-hint" style={{ marginBottom: 10 }}>
+                      {categoryLabel(l.item.category)} · reorder at {formatNumber(l.item.reorder_level)}
+                    </p>
+                    <p style={{ margin: "0 0 4px" }}>
+                      <b className="mk-stat-v">{formatNumber(l.on_hand)}</b>
+                      <span className="mk-hint"> units</span>
+                    </p>
+                    <LevelBar name={l.item.name} percent={levelPercent(l)} />
+                  </section>
+                ))}
+          </div>
+        </>
+      )}
+      {expiring.data !== undefined && expiring.data.items.length > 0 ? (
+        <AlertBanner tone="info">
+          <b>Expiring soon:</b> {expiring.data.items.map((b) => `${b.item_name} (${formatDate(b.expiry)})`).join(", ")}
+        </AlertBanner>
+      ) : null}
+
+      {empty ? null : (
+      <MkCard
+        title="Inventory"
+        action={
+          <Button
+            icon={<ShoppingCart aria-hidden="true" className="size-4" />}
+            disabled={!canManage}
+            onClick={() => {
+              toast.show({ title: `Purchase order drafted for ${String(needOrder)} low ${needOrder === 1 ? "item" : "items"}`, tone: "success" });
+            }}
+          >
+            Purchase order
+          </Button>
+        }
+      >
+        <DataTable
+          caption="Inventory"
+          columns={columns}
+          rows={items}
+          rowKey={(l) => l.item.id}
+          loading={stock.isPending}
+          pageSize={Infinity}
+          empty={{ title: "No items yet", description: "Add the materials the clinic stocks to track them here.", icon: null }}
+        />
+      </MkCard>
+      )}
+    </>
+  );
+
   return (
     <>
       <PageHeader
@@ -91,99 +196,17 @@ export function StockPage() {
         }
       />
       <div className="flex flex-col gap-4">
-        {stock.isError ? <ApiErrorNotice title="Couldn't load stock" error={stock.error} onRetry={() => void stock.refetch()} /> : null}
-        {empty ? (
-          <MkCard>
-            <EmptyState
-              art="stock"
-              title="Start tracking your stock"
-              description={
-                canManage
-                  ? "Add the materials and medicines the clinic keeps, with a reorder level for each. Low levels and expiry dates then show up here and on Today."
-                  : "Nothing is tracked yet. Someone with the inventory permission can add the materials and medicines the clinic keeps."
-              }
-              action={
-                canManage ? (
-                  <button
-                    type="button"
-                    className="mk-btn mk-btn-primary"
-                    onClick={() => {
-                      setAdding(true);
-                    }}
-                  >
-                    <PackagePlus aria-hidden="true" /> Add the first item
-                  </button>
-                ) : undefined
-              }
-            />
-          </MkCard>
-        ) : (
-          <>
-            <div className="mk-stats" style={{ marginBottom: 0 }}>
-              {stock.isPending ? (
-                [0, 1, 2, 3].map((n) => <Skeleton key={n} shape="stat" />)
-              ) : (
-                <>
-                  <StatTile label="Items tracked" value={items.filter((l) => l.item.active).length} icon={<Boxes />} />
-                  <StatTile label="To reorder" value={needOrder} tone="warn" icon={<ShoppingCart />} trend={needOrder > 0 ? { direction: "up", text: "Below reorder level", good: false } : { direction: "flat", text: "All stocked" }} />
-                  <StatTile label="Expiring soon" value={expiring.data?.items.length ?? "—"} icon={<CalendarClock />} />
-                  <StatTile label="Healthy" value={items.filter((l) => l.status === "ok").length} icon={<CircleCheck />} />
-                </>
-              )}
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3" aria-label="Most urgent items">
-              {stock.isPending
-                ? [0, 1, 2].map((n) => <Skeleton key={n} shape="block" />)
-                : items.slice(0, 3).map((l) => (
-                    <section key={l.item.id} className="mk-card">
-                      <div className="mk-card-h">
-                        <h2>{l.item.name}</h2>
-                        <StatusTag status={l.status} />
-                      </div>
-                      <p className="mk-hint" style={{ marginBottom: 10 }}>
-                        {categoryLabel(l.item.category)} · reorder at {formatNumber(l.item.reorder_level)}
-                      </p>
-                      <p style={{ margin: "0 0 4px" }}>
-                        <b className="mk-stat-v">{formatNumber(l.on_hand)}</b>
-                        <span className="mk-hint"> units</span>
-                      </p>
-                      <LevelBar name={l.item.name} percent={levelPercent(l)} />
-                    </section>
-                  ))}
-            </div>
-          </>
-        )}
-        {expiring.data !== undefined && expiring.data.items.length > 0 ? (
-          <AlertBanner tone="info">
-            <b>Expiring soon:</b> {expiring.data.items.map((b) => `${b.item_name} (${formatDate(b.expiry)})`).join(", ")}
-          </AlertBanner>
-        ) : null}
-
-        {empty ? null : (
-        <MkCard
-          title="Inventory"
-          action={
-            <Button
-              icon={<ShoppingCart aria-hidden="true" className="size-4" />}
-              disabled={!canManage}
-              onClick={() => {
-                toast.show({ title: `Purchase order drafted for ${String(needOrder)} low ${needOrder === 1 ? "item" : "items"}`, tone: "success" });
-              }}
-            >
-              Purchase order
-            </Button>
-          }
-        >
-          <DataTable
-            caption="Inventory"
-            columns={columns}
-            rows={items}
-            rowKey={(l) => l.item.id}
-            loading={stock.isPending}
-            pageSize={Infinity}
-            empty={{ title: "No items yet", description: "Add the materials the clinic stocks to track them here.", icon: null }}
+        {newLook && !empty && alerts.data !== undefined ? <StockAlertsStrip items={alerts.data.reorder_list} canManage={canManage} onReorder={setOpenItem} /> : null}
+        {newLook && !empty ? (
+          <Tabs<"overview" | "analytics">
+            label="Stock area"
+            items={[
+              { value: "overview", label: "Overview", content: <div className="flex flex-col gap-4">{overview}</div> },
+              { value: "analytics", label: "Analytics", content: <StockAnalyticsTab canManage={canManage} onReorder={setOpenItem} /> },
+            ]}
           />
-        </MkCard>
+        ) : (
+          overview
         )}
       </div>
       <ItemDialog

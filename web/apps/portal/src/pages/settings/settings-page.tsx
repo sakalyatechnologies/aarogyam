@@ -1,20 +1,23 @@
 import { useSearchParams } from "react-router";
 
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { Tabs, type TabItem } from "@sakalya/ui";
+import { PageHeader as DisplayHeader, Tabs, type TabItem } from "@sakalya/ui";
 
 import { MkCard, PageHeader } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { useNewLook } from "../../lib/new-look.js";
-import { StudioPanel } from "../today/v2/studio-panel.js";
+import { AppearancePanel, type AppearanceSection } from "./appearance-panel.js";
 import { BookingPanel } from "./booking-panel.js";
 import { ChairsDoctorsPanel } from "./chairs-doctors-panel.js";
 import { LetterheadPanel } from "./letterhead-panel.js";
 import { PriceListPanel } from "./price-list-panel.js";
+import { MyProfile } from "./my-profile.js";
 import { ProfileTab } from "./profile-panel.js";
 import { SessionsPanel } from "./sessions-panel.js";
+import { TasksPanel } from "./tasks-panel.js";
 import { TeamPanel } from "./team-panel.js";
 import { ThemePanel } from "./theme-panel.js";
+import { TimeOffPanel } from "./time-off-panel.js";
 import { WebsitePanel } from "./website/website-panel.js";
 import "./settings.css";
 
@@ -34,16 +37,27 @@ export function SettingsPage() {
   const items: TabItem[] = [
     { value: "profile", label: owner ? "Clinic profile" : "Your account", content: <ProfileTab /> },
     ...(owner ? [{ value: "letterhead", label: "Letterhead", content: <LetterheadPanel /> }] : []),
-    ...(owner ? [{ value: "theme", label: "Theme", content: <ThemePanel /> }] : []),
+    ...(owner && !newLook ? [{ value: "theme", label: "Theme", content: <ThemePanel /> }] : []),
     ...(owner ? [{ value: "chairs-doctors", label: "Chairs and doctors", content: <MkCard hint="Chairs and rooms, doctors with their working hours, and leave"><ChairsDoctorsPanel /></MkCard> }] : []),
     ...(can("billing.read") ? [{ value: "price-list", label: "Price list", content: <MkCard title="Price list" hint="Services and their fees, used on bills and your website"><PriceListPanel /></MkCard> }] : []),
     ...(can("staff.manage") || can("roles.manage") ? [{ value: "team", label: "Team & roles", content: <MkCard title="Team & roles" hint="Who works here, and what each role can see and do"><TeamPanel /></MkCard> }] : []),
+    ...(can("time_off.request") ? [{ value: "time-off", label: "Time off", content: <TimeOffPanel /> }] : []),
     { value: "booking", label: "Booking & notifications", content: <BookingPanel /> },
     ...(owner ? [{ value: "website", label: "Website", content: <MkCard><WebsitePanel /></MkCard> }] : []),
-    ...(newLook ? [{ value: "studio", label: "Dashboard studio", content: <MkCard title="Dashboard studio" hint="Choose what Today shows, where, and how big. Changes follow you across devices."><StudioPanel /></MkCard> }] : []),
+    ...(can("tasks.manage") ? [{ value: "tasks", label: "Tasks", content: <TasksPanel /> }] : []),
     { value: "sessions", label: "Sessions", content: <MkCard title="Sessions" hint="The devices you are signed in on"><SessionsPanel /></MkCard> },
   ];
+  const choose = (next: string) => {
+    // A new tab drops the old one's own parameters (such as the open role); back returns to it.
+    setParams({ tab: next });
+  };
   const raw = params.get("tab") ?? "";
+  if (newLook) {
+    // `?tab=theme` and `?tab=studio` open Appearance at that section; Appearance has both.
+    const section: AppearanceSection | undefined = raw === "theme" || raw === "studio" ? raw : undefined;
+    const requested = section === undefined ? (ALIASES[raw] ?? raw) : "appearance";
+    return <SettingsNewLook items={[...items, { value: "appearance", label: "Appearance", content: <AppearancePanel owner={owner} section={section} /> }]} owner={owner} requested={requested} onChoose={choose} />;
+  }
   const requested = ALIASES[raw] ?? raw;
   const active = items.find((item) => item.value === requested)?.value ?? items[0]?.value ?? "profile";
   return (
@@ -54,11 +68,42 @@ export function SettingsPage() {
         label="Settings"
         items={items}
         value={active}
-        onValueChange={(next) => {
-          // A new tab drops the old one's own parameters (such as the open role); back returns to it.
-          setParams({ tab: next });
-        }}
+        onValueChange={choose}
       />
+    </div>
+  );
+}
+
+/** The new look's order and wording: My profile first, then Appearance, as in the design. */
+const NEW_LOOK_ORDER = ["me", "appearance", "profile", "letterhead", "chairs-doctors", "price-list", "team", "time-off", "tasks", "booking", "website", "sessions"];
+const NEW_LOOK_LABEL: Readonly<Record<string, string>> = { "chairs-doctors": "Chairs & doctors" };
+
+/**
+ * Settings (new look): a rounded panel of sections on the left, the open section on the right. Same tabs, same `?tab=`
+ * links and the same permission gates as the old page; only the frame differs. Below 900px the list becomes a row of
+ * pills that scrolls sideways.
+ */
+function SettingsNewLook({ items, owner, requested, onChoose }: { items: TabItem[]; owner: boolean; requested: string; onChoose: (value: string) => void }) {
+  // The owner's "Clinic profile" tab keeps its URL; "My profile" is a section of its own beside it.
+  const all: TabItem[] = owner ? [{ value: "me", label: "My profile", content: <MyProfile /> }, ...items] : items.map((item) => (item.value === "profile" ? { ...item, label: "My profile", content: <MyProfile /> } : item));
+  const rank = (item: TabItem) => (!owner && item.value === "profile" ? -1 : NEW_LOOK_ORDER.indexOf(item.value));
+  const sorted = [...all].sort((a, b) => rank(a) - rank(b)).map((item) => ({ ...item, label: NEW_LOOK_LABEL[item.value] ?? item.label }));
+  const current = sorted.find((item) => item.value === requested) ?? sorted[0];
+  return (
+    <div className="mk-panel st-nl">
+      <DisplayHeader variant="display" title="Settings" subtitle={owner ? "Clinic-wide setup · changes apply to everyone" : "Your profile and look"} />
+      <div className="st-nl-grid">
+        <nav className="st-nl-nav" aria-label="Settings sections">
+          {sorted.map((item) => (
+            <button key={item.value} type="button" className="st-nl-item" aria-current={item.value === current?.value ? "page" : undefined} onClick={() => { onChoose(item.value); }}>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="st-nl-body" key={current?.value}>
+          {current?.content}
+        </div>
+      </div>
     </div>
   );
 }

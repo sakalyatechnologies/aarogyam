@@ -11,7 +11,7 @@ use aarogyam_domain::campaign::FAN_OUT_BATCH;
 use aarogyam_domain::consent::Purpose;
 use aarogyam_domain::event::Event;
 use aarogyam_domain::messaging::{
-    About, AppointmentNow, DueCheck, PatientState, SkipReason, Verdict, decide,
+    About, AppointmentNow, DueCheck, PatientState, SkipReason, Verdict, decide, reminder_lead,
 };
 use aarogyam_domain::outbox::{MessageKind, retry_at};
 use aws_lc_rs::digest;
@@ -98,6 +98,7 @@ pub(crate) fn due_check(
         (Some(status), Some(starts_at)) => Some(AppointmentNow {
             active: matches!(status.as_str(), "booked" | "confirmed"),
             starts_at,
+            lead: reminder_lead(&message.variables),
         }),
         _ => None,
     };

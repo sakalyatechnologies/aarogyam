@@ -91,7 +91,7 @@ pub struct TodayRows {
 }
 
 /// What Today shows for the local day `day`, which runs from `start` to `end`. Reads stock
-/// levels only when `reads.stock` and money only when `reads.money`.
+/// levels only when `reads.stock` (and the clinic has not switched low stock off) and money only when `reads.money`.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -118,6 +118,15 @@ pub async fn today(
               from (select a.id, a.branch_id, a.room_id, r.name as room_name, a.starts_at, a.ends_at,
                            a.status, a.kind, a.reason, a.notes, a.source, a.cancel_reason,
                            a.arrived_at, a.seated_at, a.completed_at, a.row_version,
+                           case when exists (select 1 from aarogyam.appointments e
+                                            where e.org_id = a.org_id and e.patient_id = a.patient_id
+                                              and e.id <> a.id and e.deleted_at is null
+                                              and e.status = 'completed' and e.starts_at < a.starts_at)
+                                 or exists (select 1 from aarogyam.encounters v
+                                            where v.org_id = a.org_id and v.patient_id = a.patient_id
+                                              and v.status = 'closed' and v.started_at < a.starts_at
+                                              and v.appointment_id is distinct from a.id)
+                               then 'follow_up' else 'new' end as patient_type,
                            a.patient_id, p.number as patient_number, p.full_name as patient_name,
                            p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
                            p.birth_date_estimated as patient_birth_date_estimated,
@@ -174,6 +183,10 @@ pub async fn today(
                     from aarogyam.inventory_items i
                     left join aarogyam.stock_batches b on b.org_id = i.org_id and b.item_id = i.id
                     where i.deleted_at is null and $5
+                      -- The clinic can switch low stock off for Today (notification switch).
+                      and app.notification_switch(
+                            (select os.notifications from aarogyam.org_settings os
+                             where os.org_id = i.org_id), 'low_stock', true)
                     group by i.org_id, i.id) s
              ) as "stock!: Json<Vec<StockRow>>",
              (select coalesce(json_agg(v order by v.ended_at, v.id), '[]'::json)

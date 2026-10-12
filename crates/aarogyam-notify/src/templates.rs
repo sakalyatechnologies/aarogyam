@@ -306,48 +306,7 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
                 list_unsubscribe: None,
             })
         }
-        Some(MessageKind::PrescriptionShared) => {
-            let clinic = field(&message.payload, "clinic_name")?;
-            let doctor = field(&message.payload, "doctor_name")?;
-            let host = field(&message.payload, "portal_host")?;
-            let expires = field(&message.payload, "expires_on")?;
-            let token = message
-                .secret
-                .as_deref()
-                .ok_or_else(|| Failure::permanent("no share token"))?;
-            let link = links.shared(host, token);
-            let doctor = if doctor.starts_with("Dr") {
-                doctor.to_owned()
-            } else {
-                format!("Dr {doctor}")
-            };
-            let subject = format!("Your prescription from {doctor} is ready");
-            let text = format!(
-                "{clinic}\n\n\
-                 Your prescription from {doctor} is ready.\n\n\
-                 Open it: {link}\n\n\
-                 Enter the PIN printed on your prescription, or given at the clinic. \
-                 The link expires on {expires}."
-            );
-            let html = format!(
-                "<p><strong>{clinic}</strong></p>\
-                 <p>Your prescription from {doctor} is ready.</p>\
-                 <p><a href=\"{link}\">Open your prescription</a></p>\
-                 <p>Enter the PIN printed on your prescription, or given at the clinic. \
-                 The link expires on {expires}.</p>",
-                clinic = escape(clinic),
-                doctor = escape(&doctor),
-                link = escape(&link),
-                expires = escape(expires),
-            );
-            Ok(Email {
-                to,
-                subject,
-                text,
-                html,
-                list_unsubscribe: None,
-            })
-        }
+        Some(MessageKind::PrescriptionShared) => render_prescription_share(to, message, links),
         Some(MessageKind::PatientAppInvited) => {
             render_app_invitation(to, &message.payload, message.secret.as_deref())
         }
@@ -362,10 +321,61 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
         Some(MessageKind::LabOrderReminder) => crate::lab::render_reminder(to, &message.payload),
         Some(MessageKind::CampaignTest) => render_campaign_test(to, &message.payload),
         // Rendered by the patient message step (`patient_templates`), never from the outbox.
-        Some(MessageKind::AppointmentReminder | MessageKind::ClinicMessage) | None => {
-            Err(Failure::permanent("unknown message kind"))
-        }
+        Some(
+            MessageKind::AppointmentReminder
+            | MessageKind::ClinicMessage
+            | MessageKind::PaymentReceipt,
+        )
+        | None => Err(Failure::permanent("unknown message kind")),
     }
+}
+
+/// A prescription link for a patient, sent when a doctor shares it.
+fn render_prescription_share(
+    to: String,
+    message: &Claimed,
+    links: &PortalLinks,
+) -> Result<Email, Failure> {
+    let clinic = field(&message.payload, "clinic_name")?;
+    let doctor = field(&message.payload, "doctor_name")?;
+    let host = field(&message.payload, "portal_host")?;
+    let expires = field(&message.payload, "expires_on")?;
+    let token = message
+        .secret
+        .as_deref()
+        .ok_or_else(|| Failure::permanent("no share token"))?;
+    let link = links.shared(host, token);
+    let doctor = if doctor.starts_with("Dr") {
+        doctor.to_owned()
+    } else {
+        format!("Dr {doctor}")
+    };
+    let subject = format!("Your prescription from {doctor} is ready");
+    let text = format!(
+        "{clinic}\n\n\
+         Your prescription from {doctor} is ready.\n\n\
+         Open it: {link}\n\n\
+         Enter the PIN printed on your prescription, or given at the clinic. \
+         The link expires on {expires}."
+    );
+    let html = format!(
+        "<p><strong>{clinic}</strong></p>\
+         <p>Your prescription from {doctor} is ready.</p>\
+         <p><a href=\"{link}\">Open your prescription</a></p>\
+         <p>Enter the PIN printed on your prescription, or given at the clinic. \
+         The link expires on {expires}.</p>",
+        clinic = escape(clinic),
+        doctor = escape(&doctor),
+        link = escape(&link),
+        expires = escape(expires),
+    );
+    Ok(Email {
+        to,
+        subject,
+        text,
+        html,
+        list_unsubscribe: None,
+    })
 }
 
 /// A campaign as its recipients will read it, sent to the staff member who asked for a test.

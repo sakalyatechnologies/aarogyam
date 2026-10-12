@@ -3,11 +3,10 @@
 //! in one clinic transaction. Allergies recorded here are patient-reported until a clinician
 //! confirms them (docs/decisions.md, "Walk-in fast path").
 
-use aarogyam_dal::patients as patients_dal;
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::consent::Purpose;
-use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId};
-use aarogyam_domain::patient::Relation;
+use aarogyam_domain::family::Relation;
+use aarogyam_domain::ids::{BranchId, PatientId, PatientRelationId, PractitionerId};
 use aarogyam_domain::permission::Permission;
 use sakalya_db::Db;
 use time::OffsetDateTime;
@@ -15,6 +14,7 @@ use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
+use crate::family::{self, NewRelation};
 use crate::intake::{self, Intake};
 use crate::patients::{PatientView, RegisterPatient, existing, insert_new, validate};
 use crate::queue::{TokenView, check_doctor, issue_token, view as token_view};
@@ -30,12 +30,12 @@ pub enum WalkInPatient {
     Existing(PatientId),
 }
 
-/// A family link a walk-in asks for: the patient is attached to an existing relative.
+/// Adds the walk-in to an existing patient's family.
 #[derive(Debug, Clone, Copy)]
 pub struct FamilyOf {
-    /// The relative, already registered in this clinic.
+    /// The existing patient.
     pub patient_id: PatientId,
-    /// What that relative is to the walk-in patient.
+    /// What the walk-in is to that patient (`child`: the walk-in is their child).
     pub relation: Relation,
 }
 
@@ -61,9 +61,8 @@ pub struct WalkInView {
     pub patient: PatientView,
     /// Whether the patient was registered by this request.
     pub registered: bool,
-    /// Whether a family link was made (false without `family_of`, or when the pair was already
-    /// linked).
-    pub family_linked: bool,
+    /// The family link made (the existing patient's side), when `family_of` was given.
+    pub family_link_id: Option<PatientRelationId>,
     /// The queue token.
     pub token: TokenView,
     /// How many allergies were recorded (already active ones are not repeated).
@@ -111,31 +110,21 @@ pub async fn register(
             }
         };
         let patient_id = patient.id.uuid();
-        let family_linked = match input.family_of {
-            Some(family) => {
-                if family.patient_id.uuid() == patient_id {
-                    return Err(AppError::invalid(
-                        "family_of",
-                        "a patient can't be their own relative",
-                    ));
-                }
-                // The relative must be one the member can see: not found otherwise.
-                patients_dal::get(
-                    tx.conn(),
-                    family.patient_id.uuid(),
-                    actor.reach(Permission::PatientsWrite).member(),
+        let family_link_id = match input.family_of {
+            Some(of) => Some(
+                family::link_in(
+                    tx,
+                    actor,
+                    of.patient_id,
+                    NewRelation {
+                        related_patient_id: patient.id,
+                        relation: of.relation,
+                        is_primary_contact: false,
+                    },
                 )
-                .await?
-                .ok_or(AppError::NotFound("patient"))?;
-                patients_dal::link_relative(
-                    tx.conn(),
-                    patient_id,
-                    family.patient_id.uuid(),
-                    family.relation.as_str(),
-                )
-                .await?
-            }
-            None => false,
+                .await?,
+            ),
+            None => None,
         };
         let recorded = intake::record(tx, patient_id, &intake, actor.membership_id.uuid()).await?;
         // The patient was read before the intake: bring the flags up to date without a trip.
@@ -156,7 +145,7 @@ pub async fn register(
         Ok(WalkInView {
             patient,
             registered,
-            family_linked,
+            family_link_id,
             token,
             allergies_recorded: recorded.allergies,
             conditions_recorded: recorded.conditions,

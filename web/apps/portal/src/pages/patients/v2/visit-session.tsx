@@ -9,6 +9,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   apiErrorOf,
   unwrap,
+  type Alert,
+  type FinishVisitInput,
   type NoteId,
   type PatientId,
   type PatientMessage,
@@ -23,7 +25,10 @@ import { useClinic } from "../../../clinic.js";
 import { useStartVisit, useVisit, useVisits } from "../../../queries.js";
 import { useCreatePrescription, useLastPrescription, usePrescriptions } from "../../prescriptions/queries.js";
 import type { RxDraftHandle } from "../../prescriptions/prescription-page.js";
-import { finishVisit, type FollowUp } from "./finish-visit.js";
+import { allergyAlertsOf, finishErrorMessage, finishVisit, type FollowUp } from "./finish-visit.js";
+import { stamp, useVoiceNotes, type VoiceNotes } from "./use-voice-notes.js";
+
+export { stamp } from "./use-voice-notes.js";
 
 export const NOTE_SECTIONS = [
   { key: "subjective", label: "Subjective" },
@@ -43,6 +48,13 @@ export interface FinishedVisit {
   /** The prescription issued during this visit, newest first, when there is one. */
   rx: Prescription | undefined;
   followUp: FollowUp | null;
+}
+
+export interface FinishOptions {
+  issueRx?: boolean;
+  overrideReason?: string;
+  /** Leave the visit's queue token at "ready to bill" (the patient goes on to pay) instead of "done". */
+  sendForPayment?: boolean;
 }
 
 export interface VisitSession {
@@ -68,7 +80,11 @@ export interface VisitSession {
     save: () => Promise<void>;
     start: () => void;
     noteId: NoteId | undefined;
+    /** Adds one `[HH:MM] text` line to the subjective section (starting the note first), saves, and returns the note's ID. */
+    addVoice: (startedAt: Date, text: string) => Promise<NoteId | undefined>;
   };
+  /** Recording, pausing and saving voice notes. It keeps going while drawers and tabs change. */
+  voice: VoiceNotes;
   rx: {
     draft: Prescription | undefined;
     /** Bumps when the draft is changed from outside the editor, so the editor reloads from the server. */
@@ -85,12 +101,30 @@ export interface VisitSession {
   };
   follow: FollowUp | null;
   setFollow: (value: FollowUp | null) => void;
-  voiceOpen: boolean;
-  setVoiceOpen: (open: boolean) => void;
+  /** What the visit costs, as typed in rupees. Empty means no bill is started. */
+  fee: string;
+  setFee: (value: string) => void;
   finishing: boolean;
-  finish: () => Promise<FinishedVisit | undefined>;
+  /** Finishes the visit; `issueRx` issues the open draft with it (with `overrideReason` after an allergy alert). */
+  finish: (options?: FinishOptions) => Promise<FinishedVisit | undefined>;
+  /** Set when the server stopped the issue on an allergy alert: ask for a reason, then `finish` again with it. */
+  allergyAlerts: Alert[] | undefined;
+  clearAllergyAlerts: () => void;
+  /** The visit that was just ended, until the celebration is closed: the bar is then on its payment step. */
+  ended: FinishedVisit | undefined;
+  /** True once the payment step is done (or sent): the celebration shows. */
+  celebrating: boolean;
+  celebrate: () => void;
+  closeCelebration: () => void;
   /** Set by the caller to tell the screen about an error to show. */
   error: string | undefined;
+}
+
+/** A rupee amount typed on screen, in paise; undefined when blank or not above zero. */
+export function paiseOf(text: string): number | undefined {
+  const rupees = Number.parseFloat(text.replace(/,/g, "").trim());
+  if (!Number.isFinite(rupees) || rupees <= 0) return undefined;
+  return Math.round(rupees * 100);
 }
 
 const Context = createContext<VisitSession | null>(null);
@@ -134,6 +168,8 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
         void queryClient.invalidateQueries({ queryKey: [key, access.org_id, patientId] });
       }
       void queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
+      // Ending a visit may start its bill.
+      void queryClient.invalidateQueries({ queryKey: ["invoices", access.org_id] });
     },
     [queryClient, access.org_id, patientId],
   );
@@ -157,8 +193,9 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
     mutationFn: ({ id, content }: { id: NoteId; content: { sections: Record<string, string> } }) => unwrap(api.editNote(id, content)),
     onSuccess: () => (visit === undefined ? undefined : queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visit.id] })),
   });
-  const signNote = useMutation({ mutationFn: (id: NoteId) => unwrap(api.signNote(id)) });
-  const closeVisit = useMutation({ mutationFn: (id: VisitId) => unwrap(api.closeVisit(id)) });
+  const finishMutation = useMutation({
+    mutationFn: ({ id, body }: { id: VisitId; body: FinishVisitInput }) => unwrap(api.finishVisit(id, body)),
+  });
 
   const saveNote = useCallback(async () => {
     if (draftNote === undefined) return;
@@ -265,27 +302,51 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
     [draftRx, createRx, editRx, prescriptions.data, visit?.id],
   );
 
-  const [follow, setFollow] = useState<FollowUp | null>(null);
-  const [voiceOpen, setVoiceOpen] = useState(false);
-  const [finishing, setFinishing] = useState(false);
+  const addVoice = useCallback(
+    async (startedAt: Date, text: string): Promise<NoteId | undefined> => {
+      if (visit === undefined) return undefined;
+      const noteId = draftNote?.id ?? (await createNote.mutateAsync(visit.id)).id;
+      const current = valuesRef.current;
+      const line = `[${stamp(startedAt)}] ${text}`;
+      const next: NoteValues = { ...current, subjective: current.subjective.trim() === "" ? line : `${current.subjective.trimEnd()}\n${line}` };
+      const sections: Record<string, string> = {};
+      for (const { key } of NOTE_SECTIONS) {
+        if (next[key].trim() !== "") sections[key] = next[key].trim();
+      }
+      await editNote.mutateAsync({ id: noteId, content: { sections } });
+      valuesRef.current = next;
+      setEdits({ noteId, values: next });
+      return noteId;
+    },
+    [visit, draftNote, createNote, editNote],
+  );
+  const voice = useVoiceNotes({ patientId, visitId: visit?.id, addVoice });
 
-  const finish = async (): Promise<FinishedVisit | undefined> => {
+  const [follow, setFollow] = useState<FollowUp | null>(null);
+  const [fee, setFee] = useState("");
+  const [finishing, setFinishing] = useState(false);
+  const [ended, setEnded] = useState<FinishedVisit | undefined>(undefined);
+  const [celebrating, setCelebrating] = useState(false);
+
+  const [allergyAlerts, setAllergyAlerts] = useState<Alert[] | undefined>(undefined);
+
+  const finish = async (options: FinishOptions = {}): Promise<FinishedVisit | undefined> => {
     if (visit === undefined) return undefined;
     setFinishing(true);
     setError(undefined);
     try {
-      const hasText = draftNote !== undefined && NOTE_SECTIONS.some(({ key }) => valuesRef.current[key].trim() !== "");
+      const rxToIssue = options.issueRx === true && draftRx !== undefined ? { id: draftRx.id, overrideReason: options.overrideReason } : undefined;
       const { noteSigned } = await finishVisit(
-        { noteToSign: hasText ? draftNote.id : undefined, followUp: follow },
+        { followUp: follow, rx: rxToIssue, feePaise: paiseOf(fee), ...(options.sendForPayment === true ? { queueStatus: "ready_to_bill" as const } : {}) },
         {
           saveNote,
           saveRx: async () => {
             await rxHandle.current?.save();
           },
-          signNote: (id) => signNote.mutateAsync(id),
-          closeVisit: () => closeVisit.mutateAsync(visit.id),
+          finish: (body) => finishMutation.mutateAsync({ id: visit.id, body }),
         },
       );
+      setAllergyAlerts(undefined);
       refreshRecord(visit.id);
       void queryClient.invalidateQueries({ queryKey: ["prescriptions", access.org_id, patientId] });
       // The list as the server has it now, so a prescription issued a moment ago is in it.
@@ -293,9 +354,16 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
       const rx = fresh?.items
         .filter((r) => r.status === "issued" && r.encounter_id === visit.id)
         .sort((a, b) => (b.issued_at ?? "").localeCompare(a.issued_at ?? ""))[0];
-      return { visit, procedures: detail?.procedures.length ?? 0, noteSigned, rx, followUp: follow };
+      const done: FinishedVisit = { visit, procedures: detail?.procedures.length ?? 0, noteSigned, rx, followUp: follow };
+      setEnded(done);
+      return done;
     } catch (thrown) {
-      setError(apiErrorOf(thrown)?.message ?? "Couldn't finish the visit. Nothing was lost; try again.");
+      const alerts = allergyAlertsOf(thrown);
+      if (alerts === undefined) {
+        setError(finishErrorMessage(thrown));
+      } else {
+        setAllergyAlerts(alerts);
+      }
       return undefined;
     } finally {
       setFinishing(false);
@@ -337,7 +405,9 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
         });
       },
       noteId: draftNote?.id,
+      addVoice,
     },
+    voice,
     rx: {
       draft: draftRx,
       version: rxVersion,
@@ -356,10 +426,24 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
     },
     follow,
     setFollow,
-    voiceOpen,
-    setVoiceOpen,
+    fee,
+    setFee,
     finishing,
     finish,
+    allergyAlerts,
+    clearAllergyAlerts: () => {
+      setAllergyAlerts(undefined);
+    },
+    ended,
+    celebrating,
+    celebrate: () => {
+      setCelebrating(true);
+    },
+    closeCelebration: () => {
+      setCelebrating(false);
+      setEnded(undefined);
+      setFee("");
+    },
     error,
   };
   return <Context value={value}>{children}</Context>;

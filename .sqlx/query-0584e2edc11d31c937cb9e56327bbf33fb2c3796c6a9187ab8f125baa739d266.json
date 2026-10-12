@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select provider_session_id as \"provider_session_id!\"\n           from app.revoke_other_sessions($1, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "provider_session_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0584e2edc11d31c937cb9e56327bbf33fb2c3796c6a9187ab8f125baa739d266"
+}

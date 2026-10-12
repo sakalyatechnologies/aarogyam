@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with gone as (\n             delete from aarogyam.patient_relations\n             where id = $2 and patient_id = $1\n             returning related_patient_id\n           ), inverse as (\n             delete from aarogyam.patient_relations r\n             using gone g\n             where r.patient_id = g.related_patient_id and r.related_patient_id = $1\n           )\n           select count(*) as \"removed!\" from gone",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "removed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a19c647ead96736e8ccc4a39e07eef22fd4a3e673dc7ac4dfa9fe6276263cfe3"
+}

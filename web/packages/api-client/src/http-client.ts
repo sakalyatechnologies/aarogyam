@@ -53,12 +53,18 @@ import {
   incompleteList,
   smartImportResult,
   invoice,
+  upiLink,
   invoiceList,
   handoff,
   handoffSession,
   joined,
   leave,
   leaveList,
+  affectedAppointmentList,
+  staffOpsSettings,
+  timeOff,
+  timeOffList,
+  avatar,
   meResponse,
   member,
   metricsResponse,
@@ -78,6 +84,8 @@ import {
   priceItem,
   priceItemList,
   expiringList,
+  inventoryItemAlerts,
+  stockAnalytics,
   inventoryItem,
   inventoryItemDetail,
   inventoryItemList,
@@ -91,6 +99,15 @@ import {
   queueDay,
   queueToken,
   monthSummary,
+  labBalance,
+  labContact,
+  labOrder,
+  labOrderList,
+  labPayment,
+  labPaymentList,
+  labReminderQueued,
+  labVendor,
+  labVendorList,
   openLabOrderPage,
   registrationReceived,
   requestId,
@@ -128,7 +145,23 @@ import {
   workingHours,
   type RequestId,
 } from "./schemas.js";
-import { consentLink, consentRequested, consentSigned, patientsSummary, phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
+import { myTasks, task, taskHistory, taskList, taskOccurrence, taskPreview } from "./schemas.js";
+import { consentLink, consentRequested, consentSigned, familyLink, familyList, patientsSummary, phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
+import {
+  audience,
+  audiencePreview,
+  badges,
+  campaign,
+  campaigns,
+  chatMessage,
+  chatMessageList,
+  conversationList,
+  conversationStarted,
+  messageList,
+  messageTemplates,
+  messagesQueued,
+} from "./schemas.js";
+import { markedRead, notificationList, notificationSettings, profile, revokedSessions, unreadCount } from "./schemas.js";
 
 /** Returns the current access token, or `null` when signed out. */
 export type TokenSource = () => Promise<string | null> | string | null;
@@ -269,6 +302,45 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: "/api/v1/appointments/month-summary", schema: monthSummary, query: { month }, signal: opts?.signal }),
     listOpenLabOrders: (opts) =>
       call({ method: "GET", path: "/api/v1/lab-orders", schema: openLabOrderPage, query: { open: "1" }, signal: opts?.signal }),
+    listLabOrders: (filter, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/lab-orders",
+        schema: labOrderList,
+        query: {
+          status: filter?.status,
+          vendor_id: filter?.vendorId,
+          patient_id: filter?.patientId,
+          overdue: filter?.overdue === true ? "true" : undefined,
+          open: filter?.open === true ? "1" : undefined,
+        },
+        signal: opts?.signal,
+      }),
+    getLabOrder: (id, opts) => call({ method: "GET", path: `/api/v1/lab-orders/${encodeURIComponent(id)}`, schema: labOrder, signal: opts?.signal }),
+    createLabOrder: (input, opts) => call({ method: "POST", path: "/api/v1/lab-orders", schema: labOrder, body: input, signal: opts?.signal }),
+    updateLabOrder: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/lab-orders/${encodeURIComponent(id)}`, schema: labOrder, body: changes, signal: opts?.signal }),
+    setLabOrderStatus: (id, change, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-orders/${encodeURIComponent(id)}/status`, schema: labOrder, body: change, signal: opts?.signal }),
+    remindLab: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-orders/${encodeURIComponent(id)}/remind`, schema: labReminderQueued, signal: opts?.signal }),
+    logLabContact: (id, entry, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-orders/${encodeURIComponent(id)}/contacts-log`, schema: labOrder, body: entry, signal: opts?.signal }),
+    listLabVendors: (opts) => call({ method: "GET", path: "/api/v1/lab-vendors", schema: labVendorList, signal: opts?.signal }),
+    createLabVendor: (input, opts) => call({ method: "POST", path: "/api/v1/lab-vendors", schema: labVendor, body: input, signal: opts?.signal }),
+    updateLabVendor: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/lab-vendors/${encodeURIComponent(id)}`, schema: labVendor, body: changes, signal: opts?.signal }),
+    createLabContact: (vendorId, input, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-vendors/${encodeURIComponent(vendorId)}/contacts`, schema: labContact, body: input, signal: opts?.signal }),
+    updateLabContact: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/lab-contacts/${encodeURIComponent(id)}`, schema: labContact, body: changes, signal: opts?.signal }),
+    getLabBalance: (vendorId, opts) =>
+      call({ method: "GET", path: `/api/v1/lab-vendors/${encodeURIComponent(vendorId)}/balance`, schema: labBalance, signal: opts?.signal }),
+    listLabPayments: (vendorId, opts) =>
+      call({ method: "GET", path: "/api/v1/lab-payments", schema: labPaymentList, query: { vendor_id: vendorId }, signal: opts?.signal }),
+    recordLabPayment: (input, opts) => call({ method: "POST", path: "/api/v1/lab-payments", schema: labPayment, body: input, signal: opts?.signal }),
+    voidLabPayment: (id, reason, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-payments/${encodeURIComponent(id)}/void`, schema: labPayment, body: reason, signal: opts?.signal }),
     updatePatient: (id, changes, opts) =>
       call({ method: "PATCH", path: `/api/v1/patients/${encodeURIComponent(id)}`, schema: patient, body: changes, signal: opts?.signal }),
 
@@ -302,6 +374,19 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     addLeave: (input, opts) => call({ method: "POST", path: "/api/v1/leave-blocks", schema: leave, body: input, signal: opts?.signal }),
     removeLeave: (id, opts) =>
       call({ method: "DELETE", path: `/api/v1/leave-blocks/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+
+    listTimeOff: (range, opts) => call({ method: "GET", path: "/api/v1/time-off", schema: timeOffList, query: dateQuery(range), signal: opts?.signal }),
+    requestTimeOff: (input, opts) => call({ method: "POST", path: "/api/v1/time-off", schema: timeOff, body: input, signal: opts?.signal }),
+    approveTimeOff: (id, decision, opts) =>
+      call({ method: "POST", path: `/api/v1/time-off/${encodeURIComponent(id)}/approve`, schema: timeOff, body: decision ?? {}, signal: opts?.signal }),
+    declineTimeOff: (id, decision, opts) =>
+      call({ method: "POST", path: `/api/v1/time-off/${encodeURIComponent(id)}/decline`, schema: timeOff, body: decision ?? {}, signal: opts?.signal }),
+    cancelTimeOff: (id, opts) => call({ method: "POST", path: `/api/v1/time-off/${encodeURIComponent(id)}/cancel`, schema: timeOff, signal: opts?.signal }),
+    listAffectedAppointments: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/time-off/${encodeURIComponent(id)}/affected-appointments`, schema: affectedAppointmentList, signal: opts?.signal }),
+    getStaffOpsSettings: (opts) => call({ method: "GET", path: "/api/v1/settings/staff-ops", schema: staffOpsSettings, signal: opts?.signal }),
+    updateStaffOpsSettings: (changes, opts) =>
+      call({ method: "PATCH", path: "/api/v1/settings/staff-ops", schema: staffOpsSettings, body: changes, signal: opts?.signal }),
 
     listAppointments: (filter, opts) =>
       call({
@@ -496,6 +581,48 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     decidePatientLink: (id, decision, opts) =>
       call({ method: "POST", path: `/api/v1/patient-links/${encodeURIComponent(id)}/${decision}`, schema: patientLinkDecided, signal: opts?.signal }),
 
+    getBadges: (opts) => call({ method: "GET", path: "/api/v1/me/badges", schema: badges, signal: opts?.signal }),
+    sendMessages: (input, opts) => call({ method: "POST", path: "/api/v1/messages", schema: messagesQueued, body: input, signal: opts?.signal }),
+    listPatientMessages: (patientId, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(patientId)}/messages`, schema: messageList, signal: opts?.signal }),
+    listMessageTemplates: (opts) => call({ method: "GET", path: "/api/v1/templates", schema: messageTemplates, signal: opts?.signal }),
+    createAudience: (input, opts) => call({ method: "POST", path: "/api/v1/audiences", schema: audience, body: input, signal: opts?.signal }),
+    previewAudience: (filter, opts) =>
+      call({ method: "POST", path: "/api/v1/audiences/preview", schema: audiencePreview, body: { filter }, signal: opts?.signal }),
+    listCampaigns: (opts) => call({ method: "GET", path: "/api/v1/campaigns", schema: campaigns, signal: opts?.signal }),
+    getCampaign: (id, opts) => call({ method: "GET", path: `/api/v1/campaigns/${encodeURIComponent(id)}`, schema: campaign, signal: opts?.signal }),
+    createCampaign: (input, opts) => call({ method: "POST", path: "/api/v1/campaigns", schema: campaign, body: input, signal: opts?.signal }),
+    scheduleCampaign: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/campaigns/${encodeURIComponent(id)}/schedule`, schema: campaign, body: input, signal: opts?.signal }),
+    cancelCampaign: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/campaigns/${encodeURIComponent(id)}/cancel`, schema: campaign, signal: opts?.signal }),
+    listConversations: (limit, opts) =>
+      call({ method: "GET", path: "/api/v1/conversations", schema: conversationList, query: { limit }, signal: opts?.signal }),
+    startConversation: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/conversations", schema: conversationStarted, body: input, signal: opts?.signal }),
+    listChatMessages: (id, query, opts) =>
+      call({
+        method: "GET",
+        path: `/api/v1/conversations/${encodeURIComponent(id)}/messages`,
+        schema: chatMessageList,
+        query: { after: query?.after, before: query?.before, limit: query?.limit },
+        signal: opts?.signal,
+      }),
+    postChatMessage: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/conversations/${encodeURIComponent(id)}/messages`, schema: chatMessage, body: input, signal: opts?.signal }),
+    markConversationRead: (id, messageId, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/conversations/${encodeURIComponent(id)}/read`,
+        schema: voidResponse,
+        body: { message_id: messageId },
+        signal: opts?.signal,
+      }),
+    muteConversation: (id, muted, opts) =>
+      call({ method: "PUT", path: `/api/v1/conversations/${encodeURIComponent(id)}/mute`, schema: voidResponse, body: { muted }, signal: opts?.signal }),
+    leaveConversation: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/conversations/${encodeURIComponent(id)}/leave`, schema: voidResponse, signal: opts?.signal }),
+
     listStaff: (opts) => call({ method: "GET", path: "/api/v1/staff", schema: staffResponse, signal: opts?.signal }),
     inviteStaff: (input, opts) =>
       call({ method: "POST", path: "/api/v1/staff/invitations", schema: createdInvitation, body: input, signal: opts?.signal }),
@@ -527,9 +654,36 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     removeLetterheadImage: (slot, opts) =>
       call({ method: "DELETE", path: `/api/v1/settings/letterhead/images/${slot}`, schema: letterhead, signal: opts?.signal }),
 
+    getNotificationSettings: (opts) =>
+      call({ method: "GET", path: "/api/v1/settings/notifications", schema: notificationSettings, signal: opts?.signal }),
+    updateNotificationSettings: (changes, opts) =>
+      call({ method: "PATCH", path: "/api/v1/settings/notifications", schema: notificationSettings, body: changes, signal: opts?.signal }),
+    uploadClinicLogo: (form, opts) =>
+      call({ method: "POST", path: "/api/v1/settings/clinic/logo", schema: clinicSettings, body: form, signal: opts?.signal }),
+
+    listNotifications: (params, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/notifications",
+        schema: notificationList,
+        query: { unread_only: params?.unreadOnly === true ? "true" : undefined, limit: params?.limit, before: params?.before },
+        signal: opts?.signal,
+      }),
+    countUnreadNotifications: (opts) =>
+      call({ method: "GET", path: "/api/v1/notifications/count", schema: unreadCount, signal: opts?.signal }),
+    markNotificationRead: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/notifications/${encodeURIComponent(id)}/read`, schema: voidResponse, signal: opts?.signal }),
+    markAllNotificationsRead: (opts) =>
+      call({ method: "POST", path: "/api/v1/notifications/read-all", schema: markedRead, signal: opts?.signal }),
+
     listMySessions: (opts) => call({ method: "GET", path: "/api/v1/me/sessions", schema: mySessionsResponse, signal: opts?.signal }),
     revokeMySession: (id, opts) =>
       call({ method: "POST", path: `/api/v1/me/sessions/${encodeURIComponent(id)}/revoke`, schema: voidResponse, signal: opts?.signal }),
+    revokeOtherSessions: (opts) =>
+      call({ method: "POST", path: "/api/v1/me/sessions/revoke-others", schema: revokedSessions, signal: opts?.signal }),
+    updateMe: (changes, opts) => call({ method: "PATCH", path: "/api/v1/me", schema: profile, body: changes, signal: opts?.signal }),
+    putMyAvatar: (form, opts) => call({ method: "PUT", path: "/api/v1/me/avatar", schema: avatar, body: form, signal: opts?.signal }),
+    deleteMyAvatar: (opts) => call({ method: "DELETE", path: "/api/v1/me/avatar", schema: voidResponse, signal: opts?.signal }),
 
     listClinics: (opts) =>
       call({ method: "GET", path: "/api/v1/console/clinics", schema: consoleClinics, signal: opts?.signal }),
@@ -604,6 +758,16 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     getStock: (opts) => call({ method: "GET", path: "/api/v1/stock", schema: stockSummary, signal: opts?.signal }),
     listLowStock: (opts) => call({ method: "GET", path: "/api/v1/stock/low", schema: inventoryItemList, signal: opts?.signal }),
+    getStockAnalytics: (params, opts) =>
+      call({ method: "GET", path: "/api/v1/stock/analytics", schema: stockAnalytics, query: { item_id: params?.itemId }, signal: opts?.signal }),
+    changeInventoryItemAlerts: (id, input, opts) =>
+      call({
+        method: "PATCH",
+        path: `/api/v1/inventory-items/${encodeURIComponent(id)}/alerts`,
+        schema: inventoryItemAlerts,
+        body: input,
+        signal: opts?.signal,
+      }),
     listExpiring: (days, opts) =>
       call({ method: "GET", path: "/api/v1/stock/expiring", schema: expiringList, query: { days }, signal: opts?.signal }),
     listInventoryItems: (opts) => call({ method: "GET", path: "/api/v1/inventory-items", schema: inventoryItemList, signal: opts?.signal }),
@@ -621,6 +785,29 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       }),
     removeInventoryItem: (id, opts) =>
       call({ method: "DELETE", path: `/api/v1/inventory-items/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    listMyTasks: (date, opts) =>
+      call({ method: "GET", path: "/api/v1/tasks/mine", schema: myTasks, query: { date }, signal: opts?.signal }),
+    completeTask: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/tasks/occurrences/${encodeURIComponent(id)}/complete`, schema: taskOccurrence, body: input, signal: opts?.signal }),
+    reopenTask: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/tasks/occurrences/${encodeURIComponent(id)}/reopen`, schema: taskOccurrence, signal: opts?.signal }),
+    listTasks: (opts) => call({ method: "GET", path: "/api/v1/tasks", schema: taskList, signal: opts?.signal }),
+    createTask: (input, opts) => call({ method: "POST", path: "/api/v1/tasks", schema: task, body: input, signal: opts?.signal }),
+    getTask: (id, opts) => call({ method: "GET", path: `/api/v1/tasks/${encodeURIComponent(id)}`, schema: task, signal: opts?.signal }),
+    updateTask: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/tasks/${encodeURIComponent(id)}`, schema: task, body: changes, signal: opts?.signal }),
+    deleteTask: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/tasks/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    previewTask: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/tasks/${encodeURIComponent(id)}/preview`, schema: taskPreview, signal: opts?.signal }),
+    listTaskHistory: (filter, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/tasks/history",
+        schema: taskHistory,
+        query: { from: filter?.from, to: filter?.to, assignee: filter?.assignee, status: filter?.status, template_id: filter?.templateId },
+        signal: opts?.signal,
+      }),
     listSuppliers: (opts) => call({ method: "GET", path: "/api/v1/suppliers", schema: supplierList, signal: opts?.signal }),
     addSupplier: (input, opts) => call({ method: "POST", path: "/api/v1/suppliers", schema: supplier, body: input, signal: opts?.signal }),
     changeSupplier: (id, input, opts) =>
@@ -650,6 +837,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         signal: opts?.signal,
       }),
     getInvoice: (id, opts) => call({ method: "GET", path: `/api/v1/invoices/${encodeURIComponent(id)}`, schema: invoice, signal: opts?.signal }),
+    getInvoiceUpiLink: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/invoices/${encodeURIComponent(id)}/upi-link`, schema: upiLink, signal: opts?.signal }),
     createInvoice: (input, opts) => call({ method: "POST", path: "/api/v1/invoices", schema: invoice, body: input, signal: opts?.signal }),
     editInvoice: (id, changes, opts) =>
       call({ method: "PATCH", path: `/api/v1/invoices/${encodeURIComponent(id)}`, schema: invoice, body: changes, signal: opts?.signal }),
@@ -785,6 +974,17 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       }),
     deletePatientPhoto: (id, opts) =>
       call({ method: "DELETE", path: `/api/v1/patients/${encodeURIComponent(id)}/photo`, schema: voidResponse, signal: opts?.signal }),
+    listFamily: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/family`, schema: familyList, signal: opts?.signal }),
+    addFamilyLink: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/family`, schema: familyLink, body: input, signal: opts?.signal }),
+    removeFamilyLink: (id, linkId, opts) =>
+      call({
+        method: "DELETE",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/family/${encodeURIComponent(linkId)}`,
+        schema: voidResponse,
+        signal: opts?.signal,
+      }),
     requestConsent: (id, input, opts) =>
       call({
         method: "POST",

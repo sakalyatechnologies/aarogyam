@@ -1,0 +1,61 @@
+/* Billing (New look): pending list, status chips, the bill drawer and the rounded Expenses cards. Portal colour variables only. */
+
+.bl2-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (min-width: 1100px) { .bl2-grid { grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); } }
+.bl2 .mk-card, .bl2 .bl2-card { border-radius: 20px; }
+.bl2 .ex-group { border-radius: 18px; }
+.bl2 .ex-form, .bl2 .ex-layout .mk-card { border-radius: 20px; }
+.bl2-sub { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.bl2-error { margin: 0; font-size: 13px; color: var(--red); }
+
+.bl2-pending { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.bl2-pending li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; border: 1px solid var(--rule); border-radius: 16px; padding: 10px 12px; background: var(--bg); }
+.bl2-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bl2-who > span:last-child { display: grid; min-width: 0; }
+.bl2-who strong { font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bl2-who small { font-size: 11.5px; color: var(--muted); }
+.bl2-due { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+.bl2-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.bl2-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 4px 14px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.bl2-chip:hover { background: var(--brand-soft); }
+.bl2-chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.bl2-count { font-variant-numeric: tabular-nums; opacity: .8; }
+.bl2-chip:focus-visible, .bl2-btn:focus-visible, .bl2-open:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.bl2-row { cursor: pointer; }
+.bl2-open { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; border-radius: 6px; }
+.bl2-open:hover { color: var(--brand-text); text-decoration: underline; }
+
+.bl2-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; text-decoration: none; }
+.bl2-btn:hover:not([disabled]) { background: var(--brand-soft); }
+.bl2-btn[disabled] { opacity: .5; cursor: not-allowed; }
+.bl2-btn.dark { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.bl2-btn.dark:hover:not([disabled]) { background: var(--ink); opacity: .9; }
+.bl2-btn svg { width: 14px; height: 14px; }
+
+/* The drawer is portaled outside the app shell, so it takes the portal colour variables itself. */
+.bl2-drawer {
+  --brand: var(--sk-primary); --brand-text: var(--sk-primary-text); --brand-soft: var(--sk-primary-soft); --bg: var(--sk-background);
+  --surface: var(--sk-surface); --ink: var(--sk-text); --ink2: color-mix(in srgb, var(--sk-text) 82%, var(--sk-surface));
+  --muted: var(--sk-text-muted); --rule: var(--sk-border); --red: var(--sk-danger-text); --green: var(--sk-success-text); --green-soft: var(--sk-success-soft); --amber: var(--sk-warning-text); --amber-soft: var(--sk-warning-soft); --red-soft: var(--sk-danger-soft); --indigo: var(--sk-info-text); --indigo-soft: var(--sk-info-soft);
+  --hover: color-mix(in srgb, var(--sk-primary) 4%, var(--sk-surface)); --field: color-mix(in srgb, var(--sk-primary) 2%, var(--sk-surface));
+  display: grid; gap: 8px;
+}
+.bl2-drawer h3.mk-flabel { margin-top: 18px; }
+.bl2-dhead { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.bl2-lines { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bl2-lines th, .bl2-lines td { text-align: left; padding: 7px 8px 7px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.bl2-lines thead th { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.bl2-lines .num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+.bl2-sum { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 12px 0 0; padding: 12px 14px; border-radius: 16px; background: var(--hover); font-size: 13px; }
+.bl2-sum dt { color: var(--muted); }
+.bl2-sum dd { margin: 0; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+.bl2-sum .bal { color: var(--ink); font-size: 15px; font-weight: 800; border-top: 1px solid var(--rule); padding-top: 6px; margin-top: 2px; }
+.bl2-pays { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bl2-pays li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.bl2-pays li.is-void { color: var(--muted); text-decoration: line-through; }
+.bl2-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.bl2-collect { display: grid; gap: 12px; border: 1px solid var(--rule); border-radius: 18px; padding: 14px; margin-top: 8px; }
+.bl2-qr { margin: 0; display: grid; justify-items: center; gap: 8px; text-align: center; }
+.bl2-qr svg { border-radius: 12px; background: #fff; padding: 6px; }

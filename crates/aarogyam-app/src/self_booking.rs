@@ -309,6 +309,7 @@ async fn email_patient(
             }),
             secret: None,
             appointment_id: Some(appointment_id),
+            dedupe_key: None,
         },
     )
     .await?;

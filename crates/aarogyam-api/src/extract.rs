@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 
 use aarogyam_dal::lookups::{self, HostClinic, PlatformAccess};
 use aarogyam_domain::access::{ClinicActor, ClinicStatus, Denied};
-use aarogyam_domain::permission::Required;
+use aarogyam_domain::permission::{Permission, Required};
 use axum::extract::{FromRequestParts, MatchedPath};
 use axum::http::header;
 use axum::http::request::Parts;
@@ -276,6 +276,30 @@ impl<A: Required, B: Required> FromRequestParts<AppState> for RequireEither<A, B
             request,
             permissions: PhantomData,
         })
+    }
+}
+
+/// A [`ClinicRequest`] whose role sees at least one kind of staff notification (bookings, labs,
+/// bills, recalls, tasks, stock, time off); otherwise `403`. Support grants are admitted,
+/// read-only. The notification routes narrow what each kind shows themselves.
+#[derive(Debug)]
+pub struct NotificationReader {
+    /// The checked request.
+    pub request: ClinicRequest,
+}
+
+impl FromRequestParts<AppState> for NotificationReader {
+    type Rejection = ApiFailure;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let request = ClinicRequest::admit(parts, state, true).await?;
+        if aarogyam_app::notifications::viewer(&request.actor).is_none() {
+            request.actor.require(Permission::AppointmentsRead)?;
+        }
+        Ok(Self { request })
     }
 }
 

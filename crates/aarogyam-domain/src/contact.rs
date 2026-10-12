@@ -15,6 +15,8 @@ pub enum PatientMessage {
     PrescriptionLink,
     /// An invitation to the patient app.
     PatientAppInvite,
+    /// A receipt for a payment the patient made.
+    PaymentReceipt,
     /// A reminder before an appointment.
     AppointmentReminder,
     /// A recall: a follow-up, cleaning or review is due.
@@ -34,6 +36,7 @@ impl PatientMessage {
         Self::BookingConfirmation,
         Self::PrescriptionLink,
         Self::PatientAppInvite,
+        Self::PaymentReceipt,
         Self::AppointmentReminder,
         Self::Recall,
         Self::Campaign,
@@ -48,7 +51,8 @@ impl PatientMessage {
             Self::BookingConfirmation
             | Self::PrescriptionLink
             | Self::PatientAppInvite
-            | Self::ConsentRequest => Purpose::Care,
+            | Self::ConsentRequest
+            | Self::PaymentReceipt => Purpose::Care,
             Self::AppointmentReminder | Self::Recall => Purpose::Reminders,
             Self::Campaign | Self::Birthday => Purpose::Promotional,
         }
@@ -78,6 +82,7 @@ impl PatientMessage {
             | MessageKind::BookingDeclined => Some(Self::BookingConfirmation),
             MessageKind::PatientAppInvited => Some(Self::PatientAppInvite),
             MessageKind::ConsentRequested => Some(Self::ConsentRequest),
+            MessageKind::PaymentReceipt => Some(Self::PaymentReceipt),
         }
     }
 }
@@ -94,6 +99,7 @@ mod tests {
             M::PrescriptionLink,
             M::PatientAppInvite,
             M::ConsentRequest,
+            M::PaymentReceipt,
         ];
         let reminders = [M::AppointmentReminder, M::Recall];
         let promotional = [M::Campaign, M::Birthday];

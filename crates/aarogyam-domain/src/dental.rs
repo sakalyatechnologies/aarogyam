@@ -251,6 +251,7 @@ pub struct ChartEntry {
     note: Option<String>,
     canals: Vec<Canal>,
     sitting: Option<u8>,
+    in_progress: bool,
 }
 
 /// What else an entry says besides tooth, surface and finding: procedure and material ids
@@ -267,6 +268,8 @@ pub struct Detail<'a> {
     pub canals: &'a [Canal],
     /// A root canal's sitting (which visit of the treatment this is).
     pub sitting: Option<i64>,
+    /// The treatment is started but not finished (a root canal between sittings, a crown in the lab).
+    pub in_progress: bool,
 }
 
 /// The JSON shape stored in `specialty_records.data` (schema version 3).
@@ -294,6 +297,9 @@ pub struct ChartData {
     /// A root canal's sitting (version 3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sitting: Option<u8>,
+    /// Treatment started, not finished (additive, no version bump: absent reads as finished).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub in_progress: bool,
 }
 
 impl ChartEntry {
@@ -356,6 +362,7 @@ impl ChartEntry {
             note,
             canals,
             sitting,
+            in_progress: detail.in_progress && finding != Finding::Sound,
         })
     }
 
@@ -381,6 +388,12 @@ impl ChartEntry {
     #[must_use]
     pub const fn sitting(&self) -> Option<u8> {
         self.sitting
+    }
+
+    /// Whether the treatment is started but not finished.
+    #[must_use]
+    pub const fn in_progress(&self) -> bool {
+        self.in_progress
     }
 
     /// The tooth.
@@ -413,6 +426,7 @@ impl ChartEntry {
             note: self.note.clone(),
             canals: self.canals.clone(),
             sitting: self.sitting,
+            in_progress: self.in_progress,
         }
     }
 
@@ -472,6 +486,31 @@ mod tests {
             name: name.to_owned(),
             working_length_mm: mm,
         }
+    }
+
+    #[test]
+    fn in_progress_is_stored_only_when_set_and_never_on_sound() {
+        let tooth = |finding, in_progress| {
+            ChartEntry::new(
+                46,
+                None,
+                finding,
+                Detail {
+                    in_progress,
+                    ..Detail::default()
+                },
+            )
+            .unwrap()
+        };
+        let json = serde_json::to_value(tooth("crown", true).data()).unwrap();
+        assert_eq!(json["in_progress"], true);
+        assert!(tooth("crown", true).in_progress());
+        let json = serde_json::to_value(tooth("crown", false).data()).unwrap();
+        assert!(json.get("in_progress").is_none());
+        assert!(!tooth("sound", true).in_progress());
+        let old: ChartData =
+            serde_json::from_value(serde_json::json!({ "tooth": 46, "finding": "crown" })).unwrap();
+        assert!(!old.in_progress);
     }
 
     #[test]

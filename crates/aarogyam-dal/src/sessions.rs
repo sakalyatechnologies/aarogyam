@@ -85,3 +85,24 @@ pub async fn is_revoked(
     .await?;
     Ok(revoked)
 }
+
+/// Revokes every other session of the person, keeping `current_session`. Returns the provider
+/// session ids revoked.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn revoke_others(
+    pool: &PgPool,
+    auth_uid: Uuid,
+    current_session: Uuid,
+) -> Result<Vec<Uuid>, DbError> {
+    let revoked = sqlx::query_scalar!(
+        r#"select provider_session_id as "provider_session_id!"
+           from app.revoke_other_sessions($1, $2)"#,
+        auth_uid,
+        current_session
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(revoked)
+}

@@ -3,20 +3,21 @@
  * (the shared kit being built by F1: Bento card, Pills, ribbon, pinned action bar) once it lands. Until then they live here.
  * Move later: Bento, Pills, PillTabs, Fold, Chip.
  */
-import { Plus } from "lucide-react";
-import { useId, useRef, type ComponentProps, type KeyboardEvent, type ReactNode } from "react";
+import { Info, Plus } from "lucide-react";
+import { useEffect, useId, useRef, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from "react";
 
 import "./p360.css";
 
-/** A rounded card with a title and a one-line hint. */
-export function Bento({ title, sub, action, children, label }: { title?: ReactNode; sub?: ReactNode; action?: ReactNode; children: ReactNode; label?: string }) {
+/** A rounded card with a title and, only where an action is unclear, a short hint. */
+export function Bento({ title, sub, action, children, label, level = 3, flat = false }: { title?: ReactNode; sub?: ReactNode; action?: ReactNode; children: ReactNode; label?: string; /** Heading level: 3 under a page section, 2 when the card is itself a section of the page. */ level?: 2 | 3; /** No card of its own: a section inside another card. */ flat?: boolean }) {
   const id = useId();
+  const Heading = level === 2 ? "h2" : "h3";
   return (
-    <section className="p360-bento" aria-labelledby={title === undefined ? undefined : id} aria-label={title === undefined ? label : undefined}>
+    <section className={flat ? "p360-bento flat" : "p360-bento"} aria-labelledby={title === undefined ? undefined : id} aria-label={title === undefined ? label : undefined}>
       {title === undefined && action === undefined ? null : (
         <header>
           <div>
-            {title === undefined ? null : <h3 id={id}>{title}</h3>}
+            {title === undefined ? null : <Heading id={id}>{title}</Heading>}
             {sub === undefined ? null : <p className="p360-sub">{sub}</p>}
           </div>
           {action}
@@ -129,10 +130,54 @@ export function PillTabs<V extends string>({ label, options, value, onChange, pa
   );
 }
 
-/** A collapsible card. */
-export function Fold({ title, children, open = false }: { title: string; children: ReactNode; open?: boolean }) {
+/**
+ * Small tabs for one card. Unlike PillTabs only the chosen panel is mounted, so a card of five records fetches one at a time.
+ * Arrow keys move and choose.
+ */
+export function CardTabs<V extends string>({ label, options, value, onChange, children }: { label: string; options: readonly PillOption<V>[]; value: V; onChange: (next: V) => void; children: ReactNode }) {
+  const base = useId();
+  const list = useRef<HTMLDivElement>(null);
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const next = move(options, value, event.key);
+    if (next === undefined) return;
+    event.preventDefault();
+    onChange(next);
+    requestAnimationFrame(() => {
+      list.current?.querySelector<HTMLElement>(`[data-value="${next}"]`)?.focus();
+    });
+  };
   return (
-    <details className="p360-fold" open={open}>
+    <>
+      <div ref={list} className="p360-pills sm" role="tablist" aria-label={label} onKeyDown={onKeyDown}>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="tab"
+            id={`${base}-tab-${option.value}`}
+            data-value={option.value}
+            aria-selected={value === option.value}
+            aria-controls={`${base}-panel`}
+            tabIndex={value === option.value ? 0 : -1}
+            onClick={() => {
+              onChange(option.value);
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`${base}-panel`} aria-labelledby={`${base}-tab-${value}`} className="p360-records-body">
+        {children}
+      </div>
+    </>
+  );
+}
+
+/** A collapsible card. */
+export function Fold({ title, children, open = false, quiet = false }: { title: string; children: ReactNode; open?: boolean; /** No card of its own, for a fold inside a card. */ quiet?: boolean }) {
+  return (
+    <details className={quiet ? "p360-fold quiet" : "p360-fold"} open={open}>
       <summary>
         {title}
         <Plus aria-hidden="true" />
@@ -158,5 +203,50 @@ export function PillButton({ variant = "primary", icon, children, className = ""
       {icon}
       {children}
     </button>
+  );
+}
+
+/** A small pill button that opens a floating card (a key, a legend). Escape or a click outside closes it. */
+export function PopoverPill({ label, title, children }: { label: string; title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const id = useId();
+  useEffect(() => {
+    if (!open) return;
+    const away = (event: MouseEvent) => {
+      if (root.current !== null && event.target instanceof Node && !root.current.contains(event.target)) setOpen(false);
+    };
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      root.current?.querySelector<HTMLElement>("button")?.focus();
+    };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  return (
+    <div ref={root} className="p360-pop">
+      <button
+        type="button"
+        className="p360-pop-btn"
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+        onClick={() => {
+          setOpen(!open);
+        }}
+      >
+        <Info aria-hidden="true" />
+        {label}
+      </button>
+      {open ? (
+        <div id={id} role="group" aria-label={title} className="p360-pop-card">
+          {children}
+        </div>
+      ) : null}
+    </div>
   );
 }

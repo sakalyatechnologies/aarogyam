@@ -698,6 +698,8 @@ pub struct Badges {
     /// Unread notifications, as `GET /notifications/count` counts them; absent without
     /// `appointments.read`.
     pub notifications_unread: Option<i64>,
+    /// Open tasks given to the caller or to their role; 0 without `tasks.use`.
+    pub tasks_open: i64,
 }
 
 /// Chat and notification unread counts for the minute poll, in one statement.
@@ -721,5 +723,6 @@ pub(crate) async fn badges(
     Ok(Json(Badges {
         chat_unread: counts.chat_unread,
         notifications_unread: counts.notifications_unread,
+        tasks_open: counts.tasks_open,
     }))
 }

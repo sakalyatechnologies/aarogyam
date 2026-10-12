@@ -126,6 +126,8 @@ describe("Patients search", () => {
         allergy_alert: false,
         consent_pending: false,
         has_photo: false,
+        balance_paise: null,
+        lifetime_paid_paise: null,
       },
       {
         id: patientId.parse("22222222-2222-4222-8222-222222222222"),
@@ -141,6 +143,8 @@ describe("Patients search", () => {
         allergy_alert: false,
         consent_pending: false,
         has_photo: false,
+        balance_paise: null,
+        lifetime_paid_paise: null,
       },
     ];
     renderPortal("/patients", {

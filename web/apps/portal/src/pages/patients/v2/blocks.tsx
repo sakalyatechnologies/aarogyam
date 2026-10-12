@@ -3,13 +3,13 @@
  * picks, voice recorder, prescription editor, plans, consent, files, notes) and none re-implements it. The three
  * layouts arrange the same blocks, so they always show the same data.
  */
-import { FileText, Mic, Printer, Share2, Stethoscope } from "lucide-react";
-import { useRef, useState } from "react";
+import { FileText, Mic, Pause, Play, Printer, Share2, Square } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
-import { apiErrorOf, type Patient } from "@aarogyam/api-client";
+import { apiErrorOf, type Patient, type Visit } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees } from "@aarogyam/app-kit";
-import { Button, Field, TextArea, useToast } from "@sakalya/ui";
+import { Button, Field, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
 
 import { Empty, Tag, Timeline, statusTone } from "../../../components/mk/index.js";
 import { SkeletonRows } from "../../../components/skeleton-rows.js";
@@ -22,57 +22,46 @@ import { usePrescriptions } from "../../prescriptions/queries.js";
 import { TreatmentPlansCard } from "../../treatment-plans/treatment-plans-card.js";
 import { ProceduresCard } from "../../visits/visit-page.js";
 import { QuickPickBar } from "../../visits/quick-pick-bar.js";
-import { useUploadRecording } from "../../visits/queries.js";
-import { insertAt } from "../../visits/voice/dictation.js";
-import { VoiceRecorder } from "../../visits/voice/voice-recorder.js";
+import { DICTATION_LANGUAGES, clock, type DictationLanguage } from "../../visits/voice/dictation.js";
 import { ClinicalFlagsPanel } from "../clinical-flags-panel.js";
 import { ConsentPanel } from "../consent-panel.js";
-import { DentalChartPanel } from "../dental-chart-panel.js";
 import { FilesPanel } from "../files-panel.js";
 import { NotesPanel } from "../notes-panel.js";
 import { PatientAppCard } from "../patient-app-card.js";
 import { CarePlan, Contact, Kv } from "../patient-page.js";
 import { BillsPanel } from "../records-panels.js";
 import { FOLLOW_UPS } from "./finish-visit.js";
-import { Bento, Chip } from "./kit.js";
-import { NOTE_SECTIONS, useVisitSession, type SectionKey } from "./visit-session.js";
+import { GalleryBlock } from "./images.js";
+import { Bento, CardTabs, Chip, Fold, type PillOption } from "./kit.js";
+import { ToothChartBlock } from "./tooth-chart/tooth-block.js";
+import { VisitDetail } from "./visit-detail.js";
+import { splitNote } from "./note-lines.js";
+import { NOTE_SECTIONS, useVisitSession } from "./visit-session.js";
 import { Phone, Mail } from "lucide-react";
 
-/** Shown in place of a block that needs an open visit. */
+/** Shown in place of a block that needs an open visit. The one Start visit button is in the bar at the top. */
 export function StartVisitPrompt({ what }: { what: string }) {
   const session = useVisitSession();
   if (session.visitLoading) {
     return <SkeletonRows count={1} label="Loading the visit" />;
   }
   return (
-    <div className="flex flex-col items-start gap-2">
-      <p className="mk-hint" style={{ margin: 0 }}>
-        {session.canWrite ? `Start a visit to ${what}.` : "There is no open visit."}
-      </p>
-      {session.canWrite ? (
-        <Button icon={<Stethoscope aria-hidden="true" className="size-4" />} disabled={session.starting} onClick={session.startVisit}>
-          {session.starting ? "Starting…" : "Start visit"}
-        </Button>
-      ) : null}
-    </div>
+    <p className="mk-hint" style={{ margin: 0 }}>
+      {session.canWrite ? `Start a visit to ${what}.` : "There is no open visit."}
+    </p>
   );
 }
 
 /** The odontogram with its tooth panel and record dialog. Append-only: a correction is a new entry that supersedes the old one. */
 export function ToothBlock({ patientId }: { patientId: Patient["id"] }) {
-  return (
-    <div className="p360-bento">
-      <DentalChartPanel patientId={patientId} />
-    </div>
-  );
+  return <ToothChartBlock patientId={patientId} />;
 }
 
 /** Quick picks that add one-line complaints, findings and advice to the visit note. */
-export function SaysBlock() {
+export function SaysBlock({ flat = false }: { flat?: boolean }) {
   const session = useVisitSession();
-  const preview = NOTE_SECTIONS.filter(({ key }) => session.note.values[key].trim() !== "");
   return (
-    <Bento title="What the patient says" sub="Tap to add a line to today's note">
+    <Bento flat={flat} title="What the patient says">
       {session.visit === undefined ? (
         <StartVisitPrompt what="take notes" />
       ) : !session.canWrite ? (
@@ -85,21 +74,6 @@ export function SaysBlock() {
               {session.error}
             </p>
           )}
-          {preview.length === 0 ? null : (
-            <div aria-label="In today's note" role="group">
-              <p className="p360-label">In today's note</p>
-              <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm">
-                {preview.map(({ key, label }) => (
-                  <li key={key}>
-                    <span className="mk-hint" style={{ margin: 0 }}>
-                      {label}:{" "}
-                    </span>
-                    {session.note.values[key].split("\n").join(" · ")}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </>
       )}
     </Bento>
@@ -111,92 +85,154 @@ export function DoneTodayBlock() {
   const session = useVisitSession();
   if (session.visit === undefined || session.visitLoading) return null;
   return (
-    <div className="p360-bento" aria-label="Done today">
+    <Bento flat title={session.procedures.length === 0 ? "Done today" : `Done today · ${String(session.procedures.length)}`}>
       <ProceduresCard visitId={session.visit.id} patientId={session.patientId} procedures={session.procedures} canWrite={session.canWrite} />
-    </div>
+    </Bento>
   );
 }
 
-/** The doctor's note for the visit: the four sections, typed or dictated (English, Hindi, Marathi or Gujarati). */
-export function VoiceBlock() {
+export { splitNote } from "./note-lines.js";
+
+/** Today's notes: record voice notes (several per visit, each stamped with its start time) and see them together, in order. */
+export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean; /** Put the quick picks (complaints, findings, advice) above the recorder, so one section takes the whole note. */ withPicks?: boolean }) {
   const session = useVisitSession();
-  const { visit, note } = session;
+  const { visit, note, voice } = session;
+  const parts = splitNote(note.values);
+  const active = voice.phase === "recording" || voice.phase === "paused";
   return (
-    <Bento title="Voice notes" sub="Speak while you work and it types for you. Edit anything.">
+    <Bento flat={flat} title={flat ? "Notes" : "Today's notes"}>
       {visit === undefined ? (
-        <StartVisitPrompt what="dictate a note" />
+        <StartVisitPrompt what="take notes" />
       ) : !session.canWrite ? (
         <p className="mk-hint">You can read this visit's note but not change it.</p>
-      ) : !note.hasDraft ? (
-        <div className="flex flex-col items-start gap-2">
-          <p className="mk-hint" style={{ margin: 0 }}>
-            No draft note yet for this visit.
-          </p>
-          <Button disabled={note.starting} onClick={note.start}>
-            {note.starting ? "Starting…" : "Start a note"}
-          </Button>
-        </div>
       ) : (
-        <VoiceNoteEditor visitId={visit.id} />
+        <div className="flex flex-col gap-3">
+          {withPicks ? (
+            <>
+              <QuickPickBar patientId={session.patientId} visitId={visit.id} onPick={session.note.pick} />
+              {session.error === undefined ? null : (
+                <p role="alert" className="mk-hint" style={{ color: "var(--red)" }}>
+                  {session.error}
+                </p>
+              )}
+            </>
+          ) : null}
+          <section aria-label="Voice recorder" className="p360-voice">
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="Language" className="w-40">
+                <Select
+                  options={DICTATION_LANGUAGES.map((language) => ({ value: language.value, label: language.label }))}
+                  value={voice.language}
+                  disabled={voice.phase !== "idle"}
+                  onValueChange={(next: DictationLanguage) => {
+                    voice.setLanguage(next);
+                  }}
+                />
+              </Field>
+              {active ? (
+                <>
+                  {voice.phase === "recording" ? (
+                    <Button variant="secondary" icon={<Pause aria-hidden="true" className="size-4" />} onClick={voice.pause}>
+                      Pause
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" icon={<Play aria-hidden="true" className="size-4" />} onClick={voice.resume}>
+                      Resume
+                    </Button>
+                  )}
+                  <Button icon={<Square aria-hidden="true" className="size-4" />} disabled={voice.saving} onClick={voice.save}>
+                    {voice.saving ? "Saving…" : "Save"}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  icon={<Mic aria-hidden="true" className="size-4" />}
+                  disabled={voice.phase === "starting" || voice.saving}
+                  onClick={() => {
+                    voice.start();
+                  }}
+                >
+                  {voice.phase === "starting" ? "Opening the microphone…" : voice.saving ? "Saving…" : "Start speaking"}
+                </Button>
+              )}
+            </div>
+            {active || voice.saving ? (
+              <p className="p360-voice-time" role="timer" aria-label="Recording time">
+                {voice.phase === "paused" ? "Paused · " : "Recording · "}
+                {clock(voice.seconds)}
+              </p>
+            ) : null}
+            {active || voice.transcript !== "" ? (
+              <p className="p360-transcript" aria-label="Live transcript" aria-live="polite">
+                {voice.transcript}
+                {voice.interim === "" ? null : <span className="p360-interim"> {voice.interim}</span>}
+                {voice.transcript === "" && voice.interim === "" ? (
+                  <span className="mk-hint" style={{ margin: 0 }}>
+                    {voice.dictationSupported ? "Listening…" : "Live text isn't available in this browser. The audio is still kept; type the note yourself, or use Chrome or Edge."}
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
+            {voice.error === undefined ? null : (
+              <p role="alert" className="mk-hint" style={{ color: "var(--red)", margin: 0 }}>
+                {voice.error}
+              </p>
+            )}
+          </section>
+          {parts.voice.length === 0 && parts.other.length === 0 ? (
+            <p className="mk-hint" style={{ margin: 0 }}>
+              Nothing in today's note yet.
+            </p>
+          ) : (
+            <div aria-label="In today's note" role="group" className="flex flex-col gap-2">
+              {parts.voice.length === 0 ? null : (
+                <ol aria-label="Voice notes" className="p360-voice-list">
+                  {parts.voice.map((line, index) => (
+                    <li key={`${line.at}-${String(index)}`}>
+                      <time className="mk-mono">{line.at}</time>
+                      <span>{line.text}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {parts.other.map(({ label, text }) => (
+                <p key={label} className="m-0 text-sm">
+                  <span className="mk-hint" style={{ margin: 0 }}>
+                    {label}:{" "}
+                  </span>
+                  {text}
+                </p>
+              ))}
+            </div>
+          )}
+          <Fold title="Edit the note" quiet>
+            <NoteEditor />
+          </Fold>
+        </div>
       )}
     </Bento>
   );
 }
 
-function VoiceNoteEditor({ visitId }: { visitId: NonNullable<ReturnType<typeof useVisitSession>["visit"]>["id"] }) {
+/** The four sections of the draft note, to fix a word. Voice notes and quick picks land here as lines. */
+function NoteEditor() {
   const session = useVisitSession();
   const { note } = session;
-  const upload = useUploadRecording(session.patientId, visitId);
   const toast = useToast();
-  const focused = useRef<SectionKey>("subjective");
-  const selection = useRef<Partial<Record<SectionKey, { start: number; end: number }>>>({});
-  const remember = (key: SectionKey, box: HTMLTextAreaElement) => {
-    focused.current = key;
-    selection.current[key] = { start: box.selectionStart, end: box.selectionEnd };
-  };
-  const insert = (text: string) => {
-    const key = focused.current;
-    const current = note.values[key];
-    const at = selection.current[key] ?? { start: current.length, end: current.length };
-    const next = insertAt(current, at.start, at.end, text);
-    selection.current[key] = { start: next.cursor, end: next.cursor };
-    note.set(key, next.value);
-  };
-  const keep = async (finished: Parameters<React.ComponentProps<typeof VoiceRecorder>["onKeep"]>[0]) => {
-    if (note.noteId === undefined) return;
-    try {
-      // The dictated text is saved first, so a failed upload never loses it.
-      await note.save();
-      await upload.mutateAsync({ recording: finished, target: { noteId: note.noteId, visitId } });
-    } catch (thrown) {
-      throw new Error(apiErrorOf(thrown)?.message ?? "Couldn't save the recording. Please try again.", { cause: thrown });
-    }
-    toast.show({ title: "Recording kept with the note", tone: "success" });
-    session.setVoiceOpen(false);
-  };
+  if (!note.hasDraft) {
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <p className="mk-hint" style={{ margin: 0 }}>
+          No draft note yet for this visit.
+        </p>
+        <Button disabled={note.starting} onClick={note.start}>
+          {note.starting ? "Starting…" : "Start a note"}
+        </Button>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-3">
-      {session.voiceOpen ? (
-        <VoiceRecorder
-          onInsert={insert}
-          onKeep={keep}
-          onClose={() => {
-            session.setVoiceOpen(false);
-          }}
-        />
-      ) : (
-        <div>
-          <Button
-            variant="secondary"
-            icon={<Mic aria-hidden="true" className="size-4" />}
-            onClick={() => {
-              session.setVoiceOpen(true);
-            }}
-          >
-            Record voice
-          </Button>
-        </div>
-      )}
       <div className="p360-note">
         {NOTE_SECTIONS.map(({ key, label }) => (
           <Field key={key} label={label}>
@@ -205,16 +241,6 @@ function VoiceNoteEditor({ visitId }: { visitId: NonNullable<ReturnType<typeof u
               value={note.values[key]}
               onChange={(event) => {
                 note.set(key, event.target.value);
-                remember(key, event.target);
-              }}
-              onFocus={(event) => {
-                remember(key, event.target);
-              }}
-              onSelect={(event) => {
-                remember(key, event.currentTarget);
-              }}
-              onBlur={(event) => {
-                remember(key, event.target);
               }}
             />
           </Field>
@@ -246,14 +272,14 @@ function VoiceNoteEditor({ visitId }: { visitId: NonNullable<ReturnType<typeof u
 }
 
 /** The prescription for this visit: medicine sets, search, the server's allergy check with an override reason, and the patient's link. */
-export function RxBlock() {
+export function RxBlock({ flat = false }: { flat?: boolean }) {
   const session = useVisitSession();
   const { rx } = session;
   const navigate = useNavigate();
   const [sharing, setSharing] = useState(false);
   if (!session.canRx) return null;
   return (
-    <Bento title="Prescription" sub="Sets, search, or type any medicine. Every field is editable.">
+    <Bento flat={flat} title="Prescription">
       {rx.issued !== undefined && rx.draft === undefined ? (
         <div className="flex flex-col gap-3">
           <SentNotice message={rx.issued.message} />
@@ -325,11 +351,12 @@ export function RxBlock() {
   );
 }
 
-/** Follow-up and what the patient link will do. */
+/** Follow-up and the fee. */
 export function WrapBlock() {
   const session = useVisitSession();
+  const { can } = useClinic();
   return (
-    <Bento title="Wrap up">
+    <div className="p360-wrap">
       <p className="p360-label">Follow-up</p>
       <div className="p360-chips" role="group" aria-label="Follow-up">
         {FOLLOW_UPS.map((option) => (
@@ -345,18 +372,25 @@ export function WrapBlock() {
           </Chip>
         ))}
       </div>
-      {session.canRx ? (
-        <p className="p360-pill-note">
-          The prescription link works for 7 days and needs a PIN, which is shown once. You create it after you issue the prescription.
-        </p>
+      {can("billing.write") ? (
+        <Field label="Fee (₹)" hint="Leave blank to bill later." className="mt-3">
+          <TextInput
+            inputMode="decimal"
+            value={session.fee}
+            onChange={(event) => {
+              session.setFee(event.currentTarget.value);
+            }}
+          />
+        </Field>
       ) : null}
-    </Bento>
+    </div>
   );
 }
 
 /** Every visit, and the patient's timeline. */
 export function HistoryBlock({ limit = 8 }: { limit?: number }) {
   const session = useVisitSession();
+  const [detail, setDetail] = useState<Visit | undefined>(undefined);
   const visits = useVisits(session.patientId);
   const timeline = useTimeline(session.patientId);
   return (
@@ -375,15 +409,22 @@ export function HistoryBlock({ limit = 8 }: { limit?: number }) {
           <ul aria-label="Visits" className="m-0 list-none p-0">
             {visits.data.items.map((visit) => (
               <li key={visit.id} className="p360-histrow">
-                <b>{visit.number}</b>
+                <button
+                  type="button"
+                  className="mk-link p360-visitlink"
+                  aria-label={`Open visit ${visit.number}`}
+                  onClick={() => {
+                    setDetail(visit);
+                  }}
+                >
+                  <b>{visit.number}</b>
+                </button>
                 <Tag tone={statusTone(visit.status === "open" ? "warning" : "success")}>{visit.status === "open" ? "Open" : "Closed"}</Tag>
                 <span className="mk-hint" style={{ margin: 0 }}>
                   {visit.clinician.name}
+                  {visit.chief_complaint == null || visit.chief_complaint === "" ? "" : ` · ${visit.chief_complaint}`}
                 </span>
                 <span className="when">{formatDateTime(visit.started_at)}</span>
-                <Link className="mk-link" to={`/patients/${session.patientId}/visits/${visit.id}`}>
-                  Open
-                </Link>
               </li>
             ))}
           </ul>
@@ -403,12 +444,38 @@ export function HistoryBlock({ limit = 8 }: { limit?: number }) {
             items={timeline.data.items.slice(0, limit).map((event) => ({
               id: event.id,
               when: formatDate(event.at),
-              title: event.title,
+              // An event that belongs to a visit opens that visit, so "Visit closed" is never a dead end.
+              title: (() => {
+                const owner = event.visit_id == null ? undefined : visits.data?.items.find((v) => v.id === event.visit_id);
+                return owner === undefined ? (
+                  event.title
+                ) : (
+                  <button
+                    type="button"
+                    className="mk-link p360-visitlink"
+                    aria-label={`Show what was done: ${event.title}, visit ${owner.number}`}
+                    onClick={() => {
+                      setDetail(owner);
+                    }}
+                  >
+                    {event.title}
+                  </button>
+                );
+              })(),
               detail: [event.detail, event.by?.name].filter((part) => part != null && part !== "").join(" · ") || undefined,
             }))}
           />
         )}
       </div>
+      {detail === undefined ? null : (
+        <VisitDetail
+          patientId={session.patientId}
+          visit={detail}
+          onClose={() => {
+            setDetail(undefined);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -461,16 +528,12 @@ export function ConsentBlock({ patientId }: { patientId: Patient["id"] }) {
 }
 
 /** The treatment plan: editable inside an open visit, read-only progress otherwise. */
-export function PlanBlock() {
+export function PlanPane() {
   const session = useVisitSession();
-  return (
-    <div className="p360-bento">
-      {session.visit === undefined ? (
-        <CarePlan patientId={session.patientId} />
-      ) : (
-        <TreatmentPlansCard patientId={session.patientId} visitId={session.visit.id} canWrite={session.canWrite} />
-      )}
-    </div>
+  return session.visit === undefined ? (
+    <CarePlan patientId={session.patientId} />
+  ) : (
+    <TreatmentPlansCard patientId={session.patientId} visitId={session.visit.id} canWrite={session.canWrite} />
   );
 }
 
@@ -486,6 +549,17 @@ export function FilesBlock({ patientId }: { patientId: Patient["id"] }) {
   return (
     <Bento title="Files">
       <FilesPanel patientId={patientId} />
+    </Bento>
+  );
+}
+
+/** X-rays and photos: add one with a tag, and see them all. */
+export function ImagesBlock({ patientId }: { patientId: Patient["id"] }) {
+  const session = useVisitSession();
+  const { can } = useClinic();
+  return (
+    <Bento title="X-rays and photos">
+      <GalleryBlock patientId={patientId} canUpload={can("clinical.write")} visitId={session.visit?.id} />
     </Bento>
   );
 }
@@ -551,6 +625,86 @@ export function DetailsBlock({ patient }: { patient: Patient }) {
       <div style={{ marginTop: 12 }}>
         <PatientAppCard patientId={patient.id} />
       </div>
+    </Bento>
+  );
+}
+
+/**
+ * Today: everything for the visit in front of the doctor in one card. Notes (quick picks and the voice recorder), the
+ * prescription and what was done today. `columns` puts the notes beside the prescription where the card is wide.
+ */
+export function TodayBlock({ columns = false }: { columns?: boolean }) {
+  const session = useVisitSession();
+  const notes = <VoiceBlock flat withPicks />;
+  const rx = session.canRx ? <RxBlock flat /> : null;
+  return (
+    <Bento level={2} title="Today" sub={session.visit === undefined ? undefined : "Visit open"}>
+      <div className="p360-today">
+        {columns && rx !== null ? (
+          <div className="p360-grid2">
+            {notes}
+            {rx}
+          </div>
+        ) : (
+          <>
+            {notes}
+            {rx}
+          </>
+        )}
+        <DoneTodayBlock />
+      </div>
+    </Bento>
+  );
+}
+
+/** Stage's page body: the quick picks and what was done today (the recorder and the prescription have their own drawers). */
+export function TodayStageBlock() {
+  return (
+    <Bento level={2} title="Today">
+      <div className="p360-today">
+        <SaysBlock flat />
+        <DoneTodayBlock />
+      </div>
+    </Bento>
+  );
+}
+
+/** Follow-up and the fee, only while a visit is open. */
+export function WrapCard() {
+  const session = useVisitSession();
+  if (session.visit === undefined || !session.canWrite) return null;
+  return (
+    <Bento level={2} title="Wrap up">
+      <WrapBlock />
+    </Bento>
+  );
+}
+
+export type RecordTab = "history" | "plans" | "prescriptions" | "images" | "consent";
+
+const RECORD_TABS: readonly PillOption<RecordTab>[] = [
+  { value: "history", label: "History" },
+  { value: "plans", label: "Plans" },
+  { value: "prescriptions", label: "Prescriptions" },
+  { value: "images", label: "Images" },
+  { value: "consent", label: "Consent" },
+];
+
+/** The patient's records in ONE card with small tabs. Only the chosen tab is mounted and fetched. */
+export function RecordsCard({ canClinical, initial = "history" }: { canClinical: boolean; initial?: RecordTab }) {
+  const { can } = useClinic();
+  const session = useVisitSession();
+  const options = canClinical ? RECORD_TABS : RECORD_TABS.filter((tab) => tab.value === "consent");
+  const [tab, setTab] = useState<RecordTab>(canClinical ? initial : "consent");
+  return (
+    <Bento level={2} title="Records">
+      <CardTabs label="Records" options={options} value={tab} onChange={setTab}>
+        {tab === "history" ? <HistoryBlock limit={20} /> : null}
+        {tab === "plans" ? <PlanPane /> : null}
+        {tab === "prescriptions" ? <PastRxBlock /> : null}
+        {tab === "images" ? <GalleryBlock patientId={session.patientId} canUpload={can("clinical.write")} visitId={session.visit?.id} /> : null}
+        {tab === "consent" ? <ConsentPanel patientId={session.patientId} /> : null}
+      </CardTabs>
     </Bento>
   );
 }

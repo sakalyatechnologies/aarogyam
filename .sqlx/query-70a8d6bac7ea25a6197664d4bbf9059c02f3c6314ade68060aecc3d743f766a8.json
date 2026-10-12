@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.task_templates\n             (id, title, description, assignee_membership_id, assignee_role_id, schedule_kind,\n              once_at, interval_days, weekdays, due_time, starts_on, ends_on,\n              remind_every_minutes, escalate_after, action, active)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Int4",
+        "Int2",
+        "Time",
+        "Date",
+        "Date",
+        "Int4",
+        "Int4",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "70a8d6bac7ea25a6197664d4bbf9059c02f3c6314ade68060aecc3d743f766a8"
+}

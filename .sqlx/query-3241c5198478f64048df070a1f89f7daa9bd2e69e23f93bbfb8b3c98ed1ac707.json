@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.staff_notifications set handled_at = $2, handled_by = $3\n           where task_occurrence_id = $1 and handled_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3241c5198478f64048df070a1f89f7daa9bd2e69e23f93bbfb8b3c98ed1ac707"
+}

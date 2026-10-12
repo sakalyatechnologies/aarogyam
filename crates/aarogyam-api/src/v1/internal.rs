@@ -69,6 +69,10 @@ pub struct DrainReport {
     pub lab_reminders_skipped: usize,
     /// Lab orders newly flagged overdue.
     pub lab_orders_overdue: usize,
+    /// Follow-up alerts newly written for staff.
+    pub recalls_flagged: i32,
+    /// Waiting-patient alerts newly written for staff.
+    pub waiting_flagged: i32,
 }
 
 /// Makes new portal hosts work, reminds staff of unanswered booking requests (then the
@@ -93,6 +97,7 @@ pub(crate) async fn drain_outbox(
         aarogyam_notify::remind(state.db(), OffsetDateTime::now_utc(), OpenHours::DEFAULT).await?;
     // Before delivery, so a reminder queued now goes out in this run.
     let labs = aarogyam_notify::remind_labs(state.db(), OffsetDateTime::now_utc()).await?;
+    let flagged = aarogyam_notify::flag_alerts(state.db(), OffsetDateTime::now_utc()).await?;
     let notifier = state.notifier();
     let report = notifier
         .drain(state.db(), OffsetDateTime::now_utc())
@@ -124,5 +129,7 @@ pub(crate) async fn drain_outbox(
         lab_reminders_queued: labs.reminded,
         lab_reminders_skipped: labs.skipped,
         lab_orders_overdue: labs.overdue,
+        recalls_flagged: flagged.recalls,
+        waiting_flagged: flagged.waiting,
     }))
 }

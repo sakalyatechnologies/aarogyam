@@ -115,6 +115,18 @@ pub fn reminder_dedupe_key(appointment_id: uuid::Uuid) -> String {
     format!("reminder:appt:{appointment_id}:24h")
 }
 
+/// The dedupe key of an appointment's short (2 hour) reminder.
+#[must_use]
+pub fn short_reminder_dedupe_key(appointment_id: uuid::Uuid) -> String {
+    format!("reminder:appt:{appointment_id}:2h")
+}
+
+/// The dedupe key of a payment's receipt message.
+#[must_use]
+pub fn receipt_dedupe_key(payment_id: uuid::Uuid) -> String {
+    format!("receipt:payment:{payment_id}")
+}
+
 /// Whether a purpose waits out the clinic's quiet hours. Care messages (a booking answer, a
 /// prescription link) go at once; reminders and promotional messages wait.
 #[must_use]
@@ -158,6 +170,8 @@ pub struct AppointmentNow {
     pub active: bool,
     /// When it starts.
     pub starts_at: OffsetDateTime,
+    /// How long before the start this reminder goes: [`REMINDER_LEAD`] or [`REMINDER_LEAD_SHORT`].
+    pub lead: Duration,
 }
 
 /// What the database reported about a due message.
@@ -190,9 +204,25 @@ pub enum About {
     Reminder(Option<AppointmentNow>),
 }
 
-/// How long before its appointment a reminder goes.
+/// How long before its appointment the usual reminder goes.
 pub const REMINDER_LEAD: Duration = Duration::hours(24);
 
+/// How long before its appointment the short reminder goes, when the clinic switched
+/// `reminder_2h` on.
+pub const REMINDER_LEAD_SHORT: Duration = Duration::hours(2);
+
+/// The lead of a reminder, from the variables stored with it: the short one carries
+/// `{"lead_hours": 2}`; anything else is the usual 24 hours.
+#[must_use]
+pub fn reminder_lead(variables: &serde_json::Value) -> Duration {
+    match variables
+        .get("lead_hours")
+        .and_then(serde_json::Value::as_i64)
+    {
+        Some(2) => REMINDER_LEAD_SHORT,
+        _ => REMINDER_LEAD,
+    }
+}
 /// What to do with a due message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict {
@@ -234,7 +264,7 @@ pub fn decide(check: &DueCheck, now: OffsetDateTime) -> Verdict {
     if let About::Reminder(appointment) = check.about {
         match appointment {
             Some(appointment) if appointment.active && appointment.starts_at > now => {
-                let due = appointment.starts_at - REMINDER_LEAD;
+                let due = appointment.starts_at - appointment.lead;
                 if due > now + Duration::hours(1) {
                     return Verdict::Wait(due);
                 }
@@ -442,6 +472,7 @@ mod tests {
             about: About::Reminder(Some(AppointmentNow {
                 active: true,
                 starts_at: now + Duration::hours(24),
+                lead: REMINDER_LEAD,
             })),
         }
     }
@@ -488,6 +519,7 @@ mod tests {
             about: About::Reminder(Some(AppointmentNow {
                 active: false,
                 starts_at: now + Duration::hours(5),
+                lead: REMINDER_LEAD,
             })),
             ..due(now)
         };
@@ -500,10 +532,29 @@ mod tests {
             about: About::Reminder(Some(AppointmentNow {
                 active: true,
                 starts_at: moved,
+                lead: REMINDER_LEAD,
             })),
             ..due(now)
         };
         assert_eq!(decide(&later, now), Verdict::Wait(moved - REMINDER_LEAD));
+        // A short reminder whose appointment moved a day later waits for its own lead.
+        let short_later = DueCheck {
+            about: About::Reminder(Some(AppointmentNow {
+                active: true,
+                starts_at: moved,
+                lead: REMINDER_LEAD_SHORT,
+            })),
+            ..due(now)
+        };
+        assert_eq!(
+            decide(&short_later, now),
+            Verdict::Wait(moved - REMINDER_LEAD_SHORT)
+        );
+        assert_eq!(
+            reminder_lead(&serde_json::json!({ "lead_hours": 2 })),
+            REMINDER_LEAD_SHORT
+        );
+        assert_eq!(reminder_lead(&serde_json::json!({})), REMINDER_LEAD);
         let morning = now + Duration::hours(9);
         let quiet = DueCheck {
             quiet_until: Some(morning),

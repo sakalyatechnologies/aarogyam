@@ -254,6 +254,7 @@ pub(crate) async fn queue_link_message(
             }),
             secret: Some(&link.token),
             appointment_id: None,
+            dedupe_key: None,
         },
     )
     .await?;

@@ -62,11 +62,19 @@ pub enum Permission {
     LabsWrite,
     /// Save audiences and run campaigns to patients.
     CampaignsManage,
+    /// See and complete the daily tasks assigned to you or your role.
+    TasksUse,
+    /// Create, edit and switch off recurring tasks; see their history.
+    TasksManage,
+    /// Ask for time off and see who is away.
+    TimeOffRequest,
+    /// Approve or decline time off, and record it for others.
+    TimeOffManage,
 }
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 27] = [
+    pub const ALL: [Self; 31] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -94,6 +102,10 @@ impl Permission {
         Self::LabsRead,
         Self::LabsWrite,
         Self::CampaignsManage,
+        Self::TasksUse,
+        Self::TasksManage,
+        Self::TimeOffRequest,
+        Self::TimeOffManage,
     ];
 
     /// The catalogue key, such as `patients.read`.
@@ -127,6 +139,10 @@ impl Permission {
             Self::LabsRead => "labs.read",
             Self::LabsWrite => "labs.write",
             Self::CampaignsManage => "campaigns.manage",
+            Self::TasksUse => "tasks.use",
+            Self::TasksManage => "tasks.manage",
+            Self::TimeOffRequest => "time_off.request",
+            Self::TimeOffManage => "time_off.manage",
         }
     }
 
@@ -352,6 +368,10 @@ required!(
     LabsRead,
     LabsWrite,
     CampaignsManage,
+    TasksUse,
+    TasksManage,
+    TimeOffRequest,
+    TimeOffManage,
 );
 
 #[cfg(test)]

@@ -25,6 +25,8 @@ pub enum BookingError {
     MinNotice,
     /// The reminder wait is not 5 to 240 minutes.
     ReminderMinutes,
+    /// The default visit length is not 15, 30, 45 or 60 minutes.
+    DefaultVisitMinutes,
 }
 
 impl fmt::Display for BookingError {
@@ -35,6 +37,7 @@ impl fmt::Display for BookingError {
             Self::HorizonDays => "must be 1 to 180 days",
             Self::MinNotice => "must be 0 to 10080 minutes",
             Self::ReminderMinutes => "must be 5 to 240 minutes",
+            Self::DefaultVisitMinutes => "must be 15, 30, 45 or 60 minutes",
         })
     }
 }
@@ -59,7 +62,13 @@ pub struct BookingSettings {
     /// How long a booking request may wait, in opening hours, before staff are reminded; the
     /// owners are told after as long again.
     pub reminder_minutes: u16,
+    /// How long an appointment booked by staff lasts when no end time is given: 15, 30, 45 or
+    /// 60 minutes.
+    pub default_visit_minutes: u16,
 }
+
+/// The visit lengths a clinic may choose as its default, in minutes.
+pub const VISIT_MINUTES: [u16; 4] = [15, 30, 45, 60];
 
 impl Default for BookingSettings {
     fn default() -> Self {
@@ -71,6 +80,7 @@ impl Default for BookingSettings {
             horizon_days: 30,
             min_notice_minutes: 60,
             reminder_minutes: crate::notification::DEFAULT_REMINDER_MINUTES,
+            default_visit_minutes: 30,
         }
     }
 }
@@ -96,6 +106,9 @@ impl BookingSettings {
         }
         if self.reminder_minutes < 5 || self.reminder_minutes > 240 {
             return Err(BookingError::ReminderMinutes);
+        }
+        if !matches!(self.default_visit_minutes, 15 | 30 | 45 | 60) {
+            return Err(BookingError::DefaultVisitMinutes);
         }
         Ok(self)
     }
@@ -125,6 +138,7 @@ impl BookingSettings {
             horizon_days: number("horizon_days", defaults.horizon_days),
             min_notice_minutes: number("min_notice_minutes", defaults.min_notice_minutes),
             reminder_minutes: number("reminder_minutes", defaults.reminder_minutes),
+            default_visit_minutes: number("default_visit_minutes", defaults.default_visit_minutes),
         }
         .validate()
         .unwrap_or(defaults)
@@ -141,6 +155,7 @@ impl BookingSettings {
             "horizon_days": self.horizon_days,
             "min_notice_minutes": self.min_notice_minutes,
             "reminder_minutes": self.reminder_minutes,
+            "default_visit_minutes": self.default_visit_minutes,
         })
     }
 
@@ -413,5 +428,19 @@ mod tests {
             bad(|s| s.min_notice_minutes = 20_000),
             Err(BookingError::MinNotice)
         );
+        assert_eq!(
+            bad(|s| s.default_visit_minutes = 20),
+            Err(BookingError::DefaultVisitMinutes)
+        );
+        for minutes in VISIT_MINUTES {
+            assert!(
+                BookingSettings {
+                    default_visit_minutes: minutes,
+                    ..BookingSettings::default()
+                }
+                .validate()
+                .is_ok()
+            );
+        }
     }
 }

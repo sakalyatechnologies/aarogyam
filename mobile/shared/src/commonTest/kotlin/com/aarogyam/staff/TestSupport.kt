@@ -2,6 +2,8 @@ package com.aarogyam.staff
 
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.AppEnvironment
+import com.aarogyam.staff.outbox.MemoryOutboxStore
+import com.aarogyam.staff.outbox.OutboxStore
 import com.sakalya.mobile.auth.EmailAddress
 import com.sakalya.mobile.auth.OneTimeCode
 import com.sakalya.mobile.core.MemoryLogSink
@@ -90,6 +92,7 @@ suspend fun testGraph(
     scope: CoroutineScope,
     environment: AppEnvironment = AppEnvironment.Demo,
     logs: MemoryLogSink = MemoryLogSink(),
+    outboxStore: OutboxStore = MemoryOutboxStore(),
 ): AppGraph {
     val graph =
         assertIs<AppGraph>(
@@ -99,6 +102,7 @@ suspend fun testGraph(
                 scope,
                 engine = backend.engine,
                 logSink = logs,
+                outboxStore = outboxStore,
             ),
         )
     graph.sessions.state.first { it !is com.sakalya.mobile.auth.SessionState.Restoring }
@@ -144,7 +148,7 @@ fun appointment(
        "has_notes":false,"row_version":1,"source":"front_desk","reason":${reason?.let {
         "\"$it\""
     } ?: "null"},"room":"Chair 1",
-       "patient":{"id":"p-$id","number":"SC-10$id","full_name":"$name","sex":"female","age_years":34},
+       "patient":{"id":"p-$id","number":"SC-10$id","full_name":"$name","sex":"female","registration_incomplete":false,"age_years":34},
        "practitioner":{"id":"d1","display_name":"Dr. Patil","calendar_color":null}}"""
 
 fun todayBody(
@@ -187,7 +191,7 @@ fun patientJson(
     balance: Long? = 125000,
     next: String? = """{"starts_at":"2026-10-12T04:30:00Z","practitioner":"Dr. Patil"}""",
 ): String =
-    """{"id":"$id","number":"$number","full_name":"$name","sex":"female","age_years":34,"birth_date_estimated":false,
+    """{"id":"$id","number":"$number","full_name":"$name","sex":"female","registration_incomplete":false,"age_years":34,"birth_date_estimated":false,
        "preferred_language":"en-IN","status":"active","created_at":"2026-01-01T00:00:00Z","recall_due":true,"row_version":1,
        "phone":"+91******3210","balance_paise":${balance ?: "null"},"next_appointment":${next ?: "null"}}"""
 

@@ -12,6 +12,7 @@ import com.aarogyam.staff.api.model.WalkInRequest
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.http.call
+import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
@@ -43,8 +44,25 @@ suspend fun ClinicApi.registerWalkIn(request: WalkInRequest): Outcome<WalkIn, Ap
         setBody(request)
     }
 
-/** `GET /api/v1/queue` (`listQueue`): today's tokens by branch and number. */
-suspend fun ClinicApi.queue(): Outcome<QueueDay, ApiError> = client.call { url("api/v1/queue") }
+/**
+ * `GET /api/v1/queue` (`listQueue`): today's tokens by branch and number; with [practitionerId]
+ * only that doctor's tokens ("My patients").
+ */
+suspend fun ClinicApi.queue(practitionerId: String? = null): Outcome<QueueDay, ApiError> =
+    client.call {
+        url("api/v1/queue")
+        if (practitionerId != null) parameter("practitioner_id", practitionerId)
+    }
+
+/**
+ * `POST /api/v1/queue/{id}/call` (`callQueueToken`): the doctor sends a waiting patient in
+ * (`waiting` to `called`; clinical.write). A repeat is a no-op; a token in another state is 409.
+ */
+suspend fun ClinicApi.callToken(id: String): Outcome<QueueToken, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/queue/${id.encodeURLPathPart()}/call")
+    }
 
 /** `POST /api/v1/queue/{id}/status` (`setQueueTokenStatus`): `in_chair`, `done` or `left`; a repeat is a no-op. */
 suspend fun ClinicApi.setTokenStatus(

@@ -60,9 +60,18 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         AarogyamEnvironment: $(AAROGYAM_ENVIRONMENT)
         UILaunchScreen: {}
+        # `aarogyam://invite#<token>` opens an invitation (the app handles it in AppModel).
+        CFBundleURLTypes:
+          - CFBundleURLName: com.aarogyam.staff
+            CFBundleURLSchemes: [aarogyam]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Take photos of teeth and X-rays for the patient's record. Photos are resized on the phone and sent to your clinic only.
+        NSSpeechRecognitionUsageDescription: Dictate visit notes. Speech is turned into text on the phone when the language allows it, and the recording is never kept.
+        NSMicrophoneUsageDescription: Dictate visit notes by voice. The microphone is only on while you dictate, and the recording is never kept.
+        # Who Help writes to; the WhatsApp number is empty until the support line exists.
+        AarogyamSupportEmail: support@aarogyam.example
+        AarogyamSupportWhatsApp: ""
         # The local flavour's Vite server; the shared code refuses cleartext outside debug builds.
         NSAppTransportSecurity:
           NSExceptionDomains:

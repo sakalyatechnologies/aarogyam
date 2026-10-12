@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="v7_tab_schedule">शेड्यूल</string>
+    <string name="v7_tab_expenses">खर्च</string>
+    <string name="v7_tab_more">और</string>
+    <string name="v7_action_walk_in">नया वॉक-इन</string>
+    <string name="v7_action_add_expense">खर्च जोड़ें</string>
+    <string name="v7_schedule_queue">कतार</string>
+    <string name="v7_schedule_day">दिन</string>
+    <string name="v7_schedule_week">सप्ताह</string>
+    <string name="v7_more_title">और</string>
+    <string name="v7_tile_analytics">विश्लेषण</string>
+    <string name="v7_tile_expenses">खर्च</string>
+    <string name="v7_tile_messages">संदेश</string>
+    <string name="v7_tile_stock">स्टॉक</string>
+    <string name="v7_tile_lab_work">लैब का काम</string>
+    <string name="v7_tile_team">टीम</string>
+    <string name="v7_tile_clinic_qr">क्लिनिक QR</string>
+    <string name="v7_tile_rx_sets">Rx सेट</string>
+    <string name="v7_tile_settings">सेटिंग्स</string>
+    <string name="v7_tile_switch_clinic">क्लिनिक बदलें</string>
+    <string name="v7_tile_language">भाषा</string>
+    <string name="v7_tile_help">मदद</string>
+    <string name="v7_tile_sign_out">साइन आउट</string>
+    <string name="v7_week_quiet">शांत</string>
+    <string name="v7_week_busy">व्यस्त</string>
+    <plurals name="v7_week_cell">
+        <item quantity="one">%1$s, %2$s: %3$d अपॉइंटमेंट</item>
+        <item quantity="other">%1$s, %2$s: %3$d अपॉइंटमेंट</item>
+    </plurals>
+    <string name="v7_soon">अगले अपडेट में आ रहा है</string>
+    <string name="v7_me_hello">नमस्ते,\n%1$s</string>
+    <string name="v7_me_change_avatar">अवतार बदलें</string>
+    <string name="v7_me_on_leave">आज छुट्टी पर</string>
+    <string name="v7_me_your_day">आपका दिन</string>
+    <plurals name="v7_me_done">
+        <item quantity="one">%2$d में से %1$d पूरे</item>
+        <item quantity="other">%2$d में से %1$d पूरे</item>
+    </plurals>
+    <plurals name="v7_me_done_until">
+        <item quantity="one">%2$d में से %1$d पूरे · %3$s तक</item>
+        <item quantity="other">%2$d में से %1$d पूरे · %3$s तक</item>
+    </plurals>
+    <string name="v7_me_my_schedule">मेरा शेड्यूल</string>
+    <string name="v7_me_nothing_left">आज आपके लिए और कुछ बुक नहीं है।</string>
+    <string name="v7_me_next_at">अगला · %1$s</string>
+    <plurals name="v7_me_for_you">
+        <item quantity="one">आपके लिए %1$d मरीज़</item>
+        <item quantity="other">आपके लिए %1$d मरीज़</item>
+    </plurals>
+    <plurals name="v7_me_waiting">
+        <item quantity="one">%1$d प्रतीक्षा में</item>
+        <item quantity="other">%1$d प्रतीक्षा में</item>
+    </plurals>
+    <string name="v7_stat_visits">आज की विज़िट</string>
+    <string name="v7_stat_waiting">प्रतीक्षा में</string>
+    <string name="v7_stat_done">पूरे</string>
+    <string name="v7_hero_now">कुर्सी पर</string>
+    <string name="v7_hero_next">अगला</string>
+    <string name="v7_hero_open">रिकॉर्ड खोलें</string>
+    <string name="v7_hero_call_in">बुलाएँ</string>
+    <string name="v7_money_today">आज का पैसा</string>
+    <string name="v7_money_collected">आज वसूला</string>
+    <string name="v7_money_dues">%1$s बकाया</string>
+    <string name="v7_money_expenses">आज के खर्च</string>
+    <string name="v7_money_add_expense">+ खर्च जोड़ें</string>
+    <string name="v7_up_next">आगे</string>
+    <string name="v7_up_next_all">सभी %1$d</string>
+    <string name="v7_needs_attention">ध्यान दें</string>
+    <string name="v7_attention_late">%1$d मिनट देर</string>
+    <string name="v7_attention_wait">%1$d मिनट से प्रतीक्षा</string>
+    <string name="v7_attention_other">देखना ज़रूरी</string>
+    <string name="v7_notifications">सूचनाएँ</string>
+    <string name="v7_pill_done">पूरा</string>
+    <string name="v7_pill_in_chair">कुर्सी पर</string>
+    <string name="v7_pill_waiting">प्रतीक्षा</string>
+    <string name="v7_pill_missed">छूटा</string>
+    <string name="v7_pill_booked">बुक</string>
+    <string name="v7_notifications_none">कोई सूचना नहीं।</string>
+    <string name="v7_notifications_read_all">सब पढ़ा हुआ करें</string>
+    <string name="v7_notif_requested">ऑनलाइन बुकिंग अनुरोध</string>
+    <string name="v7_notif_confirmed">ऑनलाइन बुक हुआ</string>
+    <string name="v7_notif_cancelled">मरीज़ ने रद्द किया</string>
+</resources>

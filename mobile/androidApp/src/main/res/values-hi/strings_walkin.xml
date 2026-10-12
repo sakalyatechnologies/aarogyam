@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Machine-drafted; a native speaker reviews before the pilot (docs/backlog.md). -->
 <resources>
-    <string name="tab_queue">कतार</string>
     <string name="walk_in_add">+ वॉक-इन</string>
     <string name="walk_in_title">वॉक-इन</string>
     <string name="walk_in_subtitle">एक ही बार में रजिस्टर करें और कतार में जोड़ें</string>
@@ -45,6 +44,8 @@
     <string name="queue_token">#%1$d</string>
     <string name="queue_wait_minutes">%1$d\u00A0मिनट</string>
     <string name="queue_status_waiting">इंतज़ार में</string>
+    <string name="queue_status_called">बुलाया गया</string>
+    <string name="queue_status_ready_to_bill">बिल के लिए तैयार</string>
     <string name="queue_status_in_chair">कुर्सी पर</string>
     <string name="queue_status_done">हो गया</string>
     <string name="queue_status_left">चले गए</string>

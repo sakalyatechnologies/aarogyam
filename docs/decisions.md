@@ -28,6 +28,16 @@ Newest first. Change a decision by adding an entry that supersedes it.
 **Why.** Portal v2 lets a clinic and each person arrange the Today board; the server owns the rules so every client (portal, phone) renders and edits the same thing.
 
 **Not done.** Layouts per role or per branch; the board itself (U1) and the Studio editor.
+## 2026-10-11: Live updates over Server-Sent Events (BE3)
+
+**Decision.** `GET /api/v1/events?branch_id=` streams change signals as Server-Sent Events (permission `appointments.read`; a branch of another clinic is `404`). The source is Postgres `LISTEN/NOTIFY`, written by row triggers (migration 0426, `app.live_signal`) on `queue_tokens` (`queue.changed`), `encounters` (`visit.changed`) and `staff_notifications` (`notification.created`). Each instance holds one listener connection, started on the first subscriber, and fans signals out to streams of the same clinic and branch.
+
+- **Why not the outbox.** The outbox is a durable, polled queue for messages to people; it would add latency of a poll and rows for every queue move. NOTIFY fires at commit, costs no rows, and the architecture already keeps the API stateless between requests (a few long streams are the only exception).
+- **Payload.** Clinic id (routing only, never sent), branch id, kind and record id. No names, numbers or clinical detail. Clients refetch the list or record.
+- **No resume.** NOTIFY is not stored, so there is no `Last-Event-ID` replay: clients refetch on every (re)connect, and the server sends `resync` when its listener reconnected or a stream lagged. Polling stays the fallback.
+- **Heartbeat** comment `: hb` every 25 s (Cloud Run and proxies drop idle streams).
+- **Needs a session connection.** LISTEN does not work through a transaction-mode pooler (port 6543); the database URL must be direct or session-mode, as `sakalya-db` already requires for prepared statements.
+- **Reach.** Events are not narrowed to a doctor's own patients: they carry identifiers only and the refetch applies reach.
 
 ## 2026-10-10: Campaigns
 
@@ -575,3 +585,6 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Invites.** New look: one "Phone or email" box and a role picker. The API signs people in by email, so a phone invite also asks for their email and then shows the join link with a WhatsApp share link. The old look keeps the email-only form.
 
 **Why.** The founder found the detailed editor too much for everyday use; most clinics only ever decide "can the front desk see money".
+## 2026-10-11: Closing a visit leaves its bill a draft
+
+**Decision.** `POST /visits/{id}/close` with a fee (or priced procedures) still creates a **draft** bill. Issuing at close was considered and refused: issuing takes the clinic's next gap-free number and freezes the bill (voided and replaced to correct, never edited), and at close the desk has not yet reviewed the lines, discounts or place of supply, and the closer may be a clinician whose mistake would then burn a number. A draft reports its real `total_paise` and `balance_paise` (total minus paid) in the list and the detail, so clients show what is owed. `POST /invoices/{id}/issue` on an issued bill returns `200` with the bill unchanged (a retry); only a void bill is a `409`. Record routes that take an ID (`/invoices/{id}…`, `/payments/{id}…`) look the record up before checking the permission, so another clinic's ID is `404` for every member (rule 5).

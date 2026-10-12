@@ -8,6 +8,7 @@ import com.aarogyam.staff.SUNRISE
 import com.aarogyam.staff.SUPABASE
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.apiError
+import com.aarogyam.staff.appointment
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicPickerState
 import com.aarogyam.staff.json
@@ -172,7 +173,17 @@ class TodayStateHolderTest {
     private val money =
         """{"date":"2026-10-05","collected_paise":4820000,"payments_today":9,"invoiced_paise":5100000,"invoices_today":8,
            "collected_this_month_paise":90000000,"upi_share_bps":6800,"pending_dues_paise":1250000,"pending_dues_patients":4,
-           "revenue_mix":[],"pending":[]}"""
+           "revenue_mix":[{"category":"Consultation","amount_paise":30000000,"share_bps":3300},
+             {"category":"Treatment","amount_paise":60000000,"share_bps":6700}],"pending":[]}"""
+
+    private fun expense(
+        id: String,
+        paise: Long,
+        status: String,
+    ) = """{"id":"$id","category":"lab","category_name":"Lab","spent_on":"2026-10-05","amount_paise":$paise,
+           "status":"$status","recorded_by":"m1","created_at":"2026-10-05T04:00:00Z"}"""
+
+    private val expenses = """{"items":[${expense("e1", 150000, "recorded")},${expense("e2", 99000, "void")}]}"""
 
     @Test
     fun finance_view_adds_the_money_tiles_from_one_extra_request() =
@@ -180,10 +191,24 @@ class TodayStateHolderTest {
             val backend = FakeBackend()
             backend.on("$SUNRISE/api/v1/today", { json(todayBody()) })
             backend.on("$SUNRISE/api/v1/today/money", { json(money) })
+            backend.on("$SUNRISE/api/v1/expenses", { json(expenses) })
             val (graph, clinic) = open(backend, this, backgroundScope, listOf("appointments.read", "finance.view"))
             val view = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view
             assertEquals(1, backend.count("$SUNRISE/api/v1/today/money"))
-            assertEquals(MoneyView(4820000, 9, 1250000, 4, 6800), view.money)
+            assertEquals(1, backend.count("$SUNRISE/api/v1/expenses"))
+            assertEquals(
+                MoneyView(
+                    4820000,
+                    9,
+                    1250000,
+                    4,
+                    6800,
+                    collectedThisMonthPaise = 90000000,
+                    mix = listOf(MixShare("Treatment", 60000000, 6700), MixShare("Consultation", 30000000, 3300)),
+                    expensesTodayPaise = 150000,
+                ),
+                view.money,
+            )
         }
 
     @Test
@@ -208,5 +233,102 @@ class TodayStateHolderTest {
             val view = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view
             assertEquals(null, view.money)
             assertEquals(3, view.counts.visits)
+        }
+
+    @Test
+    fun a_finance_only_role_gets_money_without_the_day() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/today/money", { json(money) })
+            backend.on("$SUNRISE/api/v1/expenses", { json(expenses) })
+            val (graph, clinic) = open(backend, this, backgroundScope, listOf("finance.view", "patients.read"))
+            val state = graph.today(clinic, this).state.first { it is TodayState.MoneyOnly } as TodayState.MoneyOnly
+            assertEquals(0, backend.count("$SUNRISE/api/v1/today"))
+            assertEquals(4820000, state.money.collectedPaise)
+            assertEquals(150000, state.money.expensesTodayPaise)
+        }
+
+    @Test
+    fun failed_expenses_only_blank_their_tile() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/today/money", { json(money) })
+            backend.on("$SUNRISE/api/v1/expenses", { apiError(HttpStatusCode.InternalServerError, "internal") })
+            val (graph, clinic) = open(backend, this, backgroundScope, listOf("finance.view"))
+            val state = graph.today(clinic, this).state.first { it is TodayState.MoneyOnly } as TodayState.MoneyOnly
+            assertEquals(null, state.money.expensesTodayPaise)
+        }
+
+    @Test
+    fun the_me_card_holds_my_own_appointments_and_shift() =
+        runTest {
+            val backend = FakeBackend()
+            val other =
+                appointment(
+                    "5",
+                    "2026-10-05T06:00:00Z",
+                    "booked",
+                    "Ira Sen",
+                    "Scaling",
+                ).replace("\"d1\"", "\"d2\"")
+            val day =
+                todayBody(
+                    appointments =
+                        listOf(
+                            appointment("1", "2026-10-05T03:30:00Z", "completed", "Meera Shah", "Root canal review"),
+                            appointment("2", "2026-10-05T04:45:00Z", "arrived", "Kavya Reddy", "Braces"),
+                            appointment("3", "2026-10-05T05:15:00Z", "booked", "Rohan Iyer", "Braces"),
+                            other,
+                        ),
+                ).replace(
+                    "\"team\":[]",
+                    """"team":[{"member_id":"m1","practitioner":{"id":"d1","display_name":"Dr. Patil","calendar_color":null},
+                       "shifts":[{"starts":"09:00","ends":"13:00"},{"starts":"16:00","ends":"20:00"}],"on_leave":false,
+                       "appointments":3,"specialty":null}]""",
+                )
+            backend.on("$SUNRISE/api/v1/today", { json(day) })
+            val (graph, clinic) = open(backend, this, backgroundScope)
+            val view = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view
+            val me = view.me
+            assertEquals("d1", me?.practitionerId)
+            assertEquals("doctor", me?.roleKey)
+            assertEquals(listOf("Meera Shah", "Kavya Reddy", "Rohan Iyer"), me?.mine?.map { it.patientName })
+            assertEquals(2, me?.remaining)
+            assertEquals(listOf(TreatmentCount("Braces", 2)), me?.treatments)
+            assertEquals(
+                listOf(ShiftView(LocalTime(9, 0), LocalTime(13, 0)), ShiftView(LocalTime(16, 0), LocalTime(20, 0))),
+                me?.shifts,
+            )
+            assertEquals(1f / 3, view.progress)
+        }
+
+    @Test
+    fun a_member_without_a_doctor_profile_has_no_schedule_of_their_own() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/today", { json(todayBody()) })
+            val (graph, clinic) = open(backend, this, backgroundScope)
+            val me = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view.me
+            assertEquals(null, me?.practitionerId)
+            assertEquals(emptyList(), me?.mine)
+        }
+
+    @Test
+    fun late_arrivals_and_long_waits_need_attention() =
+        runTest {
+            val backend = FakeBackend()
+            val body =
+                todayBody().replace(
+                    "\"attention\":[]",
+                    """"attention":[{"kind":"long_wait","message":"x","minutes":42,"queue_token_id":"t1",
+                       "patient":{"id":"p2","number":"SC-102","full_name":"Kavya Reddy"}}]""",
+                )
+            backend.on("$SUNRISE/api/v1/today", { json(body) })
+            val (graph, clinic) = open(backend, this, backgroundScope)
+            val view = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view
+            assertEquals(
+                listOf(AttentionView(AttentionKind.LongWait, 42, "p2", "Kavya Reddy", null, "t1")),
+                view.attention,
+            )
         }
 }

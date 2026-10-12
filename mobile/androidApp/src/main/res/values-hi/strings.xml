@@ -27,22 +27,11 @@
     <string name="clinics_empty_message">क्लिनिक के मालिक से न्योता भेजने को कहें.</string>
     <string name="clinic_opening">खुल रहा है</string>
     <string name="today_title">आज</string>
-    <string name="greeting_morning">सुप्रभात, %1$s · %2$s</string>
-    <string name="greeting_afternoon">नमस्ते, %1$s · %2$s</string>
-    <string name="greeting_evening">शुभ संध्या, %1$s · %2$s</string>
-    <string name="stat_visits">आज की विज़िट</string>
-    <string name="stat_waiting">इंतज़ार में</string>
-    <string name="stat_done">हो गया</string>
-    <string name="hero_now">कुर्सी पर · %1$s</string>
-    <string name="hero_next">अगला · %1$s</string>
     <string name="schedule">शेड्यूल</string>
     <string name="schedule_empty_title">आज कोई अपॉइंटमेंट नहीं</string>
     <string name="schedule_empty_message">नई बुकिंग यहां दिखेंगी.</string>
     <string name="today_not_allowed_title">आज का पेज उपलब्ध नहीं है</string>
     <string name="today_not_allowed_message">इस क्लिनिक में आपकी भूमिका शेड्यूल नहीं देख सकती.</string>
-    <string name="switch_clinic">क्लिनिक बदलें</string>
-    <string name="more">और</string>
-    <string name="language">भाषा</string>
     <string name="language_title">ऐप की भाषा</string>
     <string name="language_system">फ़ोन की भाषा</string>
     <string name="status_booked">बुक</string>
@@ -55,7 +44,6 @@
     <string name="status_unknown">तय</string>
     <string name="tab_today">आज</string>
     <string name="tab_patients">मरीज़</string>
-    <string name="tab_calendar">कैलेंडर</string>
     <string name="back">वापस</string>
     <string name="patients_title">मरीज़</string>
     <string name="patients_search">नाम, फ़ोन या फ़ाइल नंबर खोजें</string>
@@ -174,7 +162,4 @@
     <string name="pay_cash">नकद</string>
     <string name="pay_upi">UPI</string>
     <string name="pay_card">कार्ड</string>
-    <string name="stat_collected">जमा</string>
-    <string name="stat_dues">बकाया रकम</string>
-    <string name="stat_upi">UPI हिस्सा</string>
 </resources>

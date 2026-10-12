@@ -21,6 +21,8 @@ class ClinicContext(
     val slug: String,
     val api: ClinicApi,
     val session: Session,
+    /** The member's role as the clinic names it ("Dental assistant"), from `/me`. */
+    val roleName: String = session.membership.roleKey,
 ) {
     /** The brand colour and mode from the session. */
     val branding: ClinicBranding = ClinicBranding.of(session.clinic)
@@ -61,6 +63,9 @@ class ClinicDirectory(
         }
     }
 
+    /** Calls on the app host (registration, invitations), or null when this build has none. */
+    fun appApi(): AppApi? = hosts.app()?.let { AppApi(clientFor(it)) }
+
     /** Opens [clinic]: loads its session once, then makes it [current]. */
     suspend fun open(clinic: MyClinic): Outcome<ClinicContext, ApiError> {
         val cached = contexts[clinic.slug]
@@ -72,7 +77,7 @@ class ClinicDirectory(
         val api = ClinicApi(clientFor(base), base.toString().trimEnd('/'))
         return when (val session = api.session()) {
             is Outcome.Success -> {
-                val context = ClinicContext(clinic.slug, api, session.value)
+                val context = ClinicContext(clinic.slug, api, session.value, clinic.roleName)
                 contexts[clinic.slug] = context
                 mutableCurrent.value = context
                 log.info("clinic.opened") { id("org", clinic.orgId) }
@@ -84,6 +89,9 @@ class ClinicDirectory(
             }
         }
     }
+
+    /** The clinic already opened this run, or null (after a restart, until the person opens it). */
+    fun opened(slug: String): ClinicContext? = contexts[slug]
 
     /** Leaves the open clinic and returns to the picker, keeping the caches. */
     fun leave() {

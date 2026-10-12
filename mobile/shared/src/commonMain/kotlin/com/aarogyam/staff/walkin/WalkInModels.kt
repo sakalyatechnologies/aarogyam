@@ -61,6 +61,8 @@ data class WalkInForm(
     val reminders: Boolean = true,
     val doctorId: String? = null,
     val doctors: List<DoctorOption> = emptyList(),
+    /** Add-family-member: the existing patient and what the walk-in is to them (`family_of`). */
+    val familyOf: FamilyOf? = null,
     val allergyPicks: List<String> = emptyList(),
     val submitting: Boolean = false,
     val problem: WalkInProblem? = null,
@@ -84,5 +86,13 @@ sealed interface WalkInState {
         val name: String,
         val tokenNumber: Int,
         val registered: Boolean,
+        /** The patient, for "Photo of old Rx / X-ray" (uploaded through `FilesStateHolder`). */
+        val patientId: String = "",
     ) : WalkInState
 }
+
+/** The walk-in joins [patientId]'s family as [relation] (`guardian`, `child`, `spouse`, `parent`, `sibling`, `other`). */
+data class FamilyOf(
+    val patientId: String,
+    val relation: String,
+)

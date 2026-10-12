@@ -52,7 +52,7 @@ class WalkInSubmitTest {
             holder.submit()
             holder.submit() // a double tap sends nothing more
             holder.state.first { it is WalkInState.Done }
-            assertEquals(WalkInState.Done("Ravi Kulkarni", 7, registered = true), holder.state.value)
+            assertEquals(WalkInState.Done("Ravi Kulkarni", 7, registered = true, patientId = "p9"), holder.state.value)
             assertEquals(1, backend.count(WALK_INS))
             val body = backend.sentBody()
             assertTrue(""""full_name":"Ravi Kulkarni"""" in body)

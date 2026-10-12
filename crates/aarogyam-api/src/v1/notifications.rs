@@ -74,6 +74,11 @@ pub struct NotifiedInvoice {
     pub id: Uuid,
     /// Its number once issued; absent for a draft.
     pub number: Option<String>,
+    /// What it is worth now, in paise; a draft's is a preview. Read when listed, never stored.
+    /// Always sent; typed optional so clients written before it keep parsing.
+    pub total_paise: Option<i64>,
+    /// What is left to pay now, in paise. Always sent; typed optional like `total_paise`.
+    pub balance_paise: Option<i64>,
 }
 
 /// The follow-up a `recall_due` alert is about. No reason: it can hold health information.
@@ -132,6 +137,8 @@ pub struct Notification {
     /// A path inside the portal that opens what it is about, such as `/queue`; absent for older
     /// notifications.
     pub href: Option<String>,
+    /// Who it was written for, `doctor` or `front_desk`; absent for older notifications.
+    pub audience: Option<String>,
     /// The queue token, for `patient_waiting` and `send_in`.
     pub queue_token: Option<NotifiedQueueToken>,
     /// The bill, for `payment_due` and `collect_payment`.
@@ -177,6 +184,7 @@ impl From<NotificationView> for Notification {
             appointment: None,
             lab_order: None,
             href: view.href,
+            audience: view.audience,
             queue_token: None,
             invoice: None,
             recall: None,
@@ -217,6 +225,8 @@ impl From<NotificationView> for Notification {
                 out.invoice = Some(NotifiedInvoice {
                     id: invoice.id.uuid(),
                     number: invoice.number,
+                    total_paise: Some(invoice.total_paise),
+                    balance_paise: Some(invoice.balance_paise),
                 });
             }
             Subject::Recall(recall) => {

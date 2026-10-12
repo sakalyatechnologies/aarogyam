@@ -55,7 +55,7 @@ class AndroidOutboxFiles(
     fun list(): List<String> = stored().sortedWith(compareBy({ it.lastModified() }, { it.name })).map { it.name }
 
     /** Deletes every stored file, including leftover temp files. For sign-out. */
-    fun clear() {
+    override fun clear() {
         dir.listFiles()?.forEach { it.delete() }
     }
 

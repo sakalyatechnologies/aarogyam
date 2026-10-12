@@ -665,6 +665,10 @@ pub async fn badges(
         .map_or((none, none, none, none, 0), |v| {
             (v.bookings, v.labs, v.billing, v.patients, v.unread_days)
         });
+    let (owner, ops_tasks, inventory, time_off) = notifications
+        .map_or((false, false, false, false), |v| {
+            (v.owner, v.tasks, v.inventory, v.time_off)
+        });
     let row = sqlx::query_as!(
         Badges,
         r#"select
@@ -691,7 +695,9 @@ pub async fn badges(
                        or ($7 and o.id is not null
                            and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $8))
                        or ($9 and i.id is not null)
-                       or ($10 and rc.id is not null and app.patient_in_reach(rc.patient_id, $11)))
+                       or ($10 and rc.id is not null and app.patient_in_reach(rc.patient_id, $11))
+                       or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16))
+                  and app.staff_ops_notification_newest(n, $1, $13, $14)
                   and not exists (select 1 from aarogyam.staff_notification_reads r
                                   where r.org_id = n.org_id and r.notification_id = n.id
                                     and r.membership_id = $1)
@@ -713,6 +719,10 @@ pub async fn badges(
         patients.shown,
         patients.reach,
         tasks,
+        owner,
+        ops_tasks,
+        inventory,
+        time_off,
     )
     .fetch_one(conn)
     .await?;

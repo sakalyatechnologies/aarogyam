@@ -4497,7 +4497,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             .map((n): C.Notification => {
               const read = isRead(n, caller);
               // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the clinic and the readers stay on the server
-              const { clinic_id, read_by, ...wire } = n;
+              const { clinic_id, read_by, for_member, for_role, step_no, ...wire } = n;
               return { ...wire, read, read_at: read ? n.created_at : null };
             });
           return reply({ items } satisfies C.NotificationList);
@@ -7704,10 +7704,39 @@ function wireMember(membership: FakeMembership, state: Fixtures): C.Member {
 
 /** The clinic's notifications the caller's role reaches: each kind by the permission that shows it. */
 function visibleNotifications(state: Fixtures, caller: { clinic: FakeClinic; membership: FakeMembership }) {
-  const permissions = caller.membership.role.permissions;
-  return (state.notifications ?? []).filter(
-    (n) => n.clinic_id === caller.clinic.id && hasPermission(permissions, NOTIFICATION_PERMISSION[n.kind] ?? "appointments.read"),
+  const inClinic = (state.notifications ?? []).filter((n) => n.clinic_id === caller.clinic.id);
+  const mine = inClinic.filter((n) => notificationAudience(n, caller.membership));
+  // A task shows only its newest step among the rows this member could see.
+  return mine.filter(
+    (n) => n.task_occurrence_id == null || !mine.some((later) => later.task_occurrence_id === n.task_occurrence_id && taskStepAfter(later, n)),
   );
+}
+
+/** Whether `later` is a newer step of the same task than `n`; an escalation outranks the reminder that took its step. */
+function taskStepAfter(later: FakeNotification, n: FakeNotification): boolean {
+  const a = later.step_no ?? 0;
+  const b = n.step_no ?? 0;
+  return a > b || (a === b && later.kind === "task_escalated" && n.kind !== "task_escalated");
+}
+
+/** Who each kind is for, as the API decides it; the older kinds by their permission. */
+function notificationAudience(n: FakeNotification, membership: FakeMembership): boolean {
+  const permissions = membership.role.permissions;
+  switch (n.kind) {
+    case "task_due":
+    case "task_reminder":
+      return hasPermission(permissions, "tasks.use") && (n.for_member === membership.id || n.for_role === membership.role.key);
+    case "task_escalated":
+      return hasPermission(permissions, "tasks.use") && membership.role.key === "owner";
+    case "time_off_requested":
+      return hasPermission(permissions, "time_off.manage");
+    case "time_off_decided":
+      return n.for_member === membership.id;
+    case "stock_alert":
+      return hasPermission(permissions, "inventory.read");
+    default:
+      return hasPermission(permissions, NOTIFICATION_PERMISSION[n.kind] ?? "appointments.read");
+  }
 }
 
 function wireClinicSettings(clinic: FakeClinic): C.ClinicSettings {
@@ -7993,7 +8022,9 @@ const NOTIFICATION_PERMISSION: Readonly<Record<string, Permission>> = {
 
 function canSeeNotifications(caller: { membership: FakeMembership }): boolean {
   const permissions = caller.membership.role.permissions;
-  return hasPermission(permissions, "appointments.read") || hasPermission(permissions, "labs.read");
+  return (["appointments.read", "labs.read", "tasks.use", "inventory.read", "time_off.manage", "time_off.request"] as const).some((p) =>
+    hasPermission(permissions, p),
+  );
 }
 
 function isRead(n: FakeNotification, caller: { membership: FakeMembership }): boolean {

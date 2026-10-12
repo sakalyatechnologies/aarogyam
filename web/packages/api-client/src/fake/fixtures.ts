@@ -103,6 +103,11 @@ export interface FakeNotification extends Omit<C.Notification, "read" | "read_at
   clinic_id: string;
   /** Members who have read it. */
   read_by?: string[];
+  /** `task_due` and `task_reminder`: the assignee member, or the assignee role (a role key). Server-side only. */
+  for_member?: string;
+  for_role?: string;
+  /** `task_*`: the step, 0 for the first notice. The newest step wins; an escalation outranks the reminder that took its step. */
+  step_no?: number;
 }
 
 export interface FakeMembership {

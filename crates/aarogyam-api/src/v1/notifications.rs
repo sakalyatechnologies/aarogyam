@@ -9,7 +9,7 @@ use aarogyam_app::notifications::{
 };
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{InboxMessageId, MembershipId, StaffNotificationId};
-use aarogyam_domain::permission::require::{AppointmentsRead, BillingRead, LabsRead, PatientsRead};
+use aarogyam_domain::permission::require::AppointmentsRead;
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 use super::{parse_id, rfc3339};
 use crate::AppState;
-use crate::extract::{Require, RequireAny};
+use crate::extract::{NotificationReader, Require};
 use crate::failure::ApiFailure;
 
 /// The appointment a notification is about.
@@ -108,8 +108,10 @@ pub struct Notification {
     #[schema(value_type = String)]
     pub id: Uuid,
     /// `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,
-    /// `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in` or
-    /// `collect_payment`.
+    /// `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,
+    /// `collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,
+    /// `time_off_decided` or `stock_alert`. More kinds may come: clients show an unknown kind
+    /// as a generic row.
     pub kind: String,
     /// When it happened (RFC 3339).
     pub created_at: String,
@@ -136,6 +138,25 @@ pub struct Notification {
     pub invoice: Option<NotifiedInvoice>,
     /// The follow-up, for `recall_due`.
     pub recall: Option<NotifiedRecall>,
+    /// The task occurrence, for `task_due`, `task_reminder` and `task_escalated`; only its
+    /// newest step is listed.
+    #[schema(value_type = Option<String>)]
+    pub task_occurrence_id: Option<Uuid>,
+    /// The task's title, for a task notification.
+    pub title: Option<String>,
+    /// When the task falls due (RFC 3339, the clinic's offset), for a task notification.
+    pub due_at: Option<String>,
+    /// The stock item, for `stock_alert`.
+    #[schema(value_type = Option<String>)]
+    pub item_id: Option<Uuid>,
+    /// The item's name, for `stock_alert`.
+    pub item_name: Option<String>,
+    /// Days of stock left at the recent rate, for `stock_alert`; absent when unknown.
+    pub days_cover: Option<f64>,
+    /// The time-off request, for `time_off_requested` and `time_off_decided`. An id only: open
+    /// it in the time-off screens.
+    #[schema(value_type = Option<String>)]
+    pub time_off_request_id: Option<Uuid>,
 }
 
 impl From<NotificationView> for Notification {
@@ -159,6 +180,13 @@ impl From<NotificationView> for Notification {
             queue_token: None,
             invoice: None,
             recall: None,
+            task_occurrence_id: None,
+            title: None,
+            due_at: None,
+            item_id: None,
+            item_name: None,
+            days_cover: None,
+            time_off_request_id: None,
         };
         match view.subject {
             Subject::Appointment(appointment) => {
@@ -198,6 +226,17 @@ impl From<NotificationView> for Notification {
                     due_on: recall.due_on.to_string(),
                 });
             }
+            Subject::Task(task) => {
+                out.task_occurrence_id = Some(task.id);
+                out.title = Some(task.title);
+                out.due_at = Some(rfc3339(task.due_at));
+            }
+            Subject::Item(item) => {
+                out.item_id = Some(item.id);
+                out.item_name = Some(item.name);
+                out.days_cover = item.days_cover;
+            }
+            Subject::TimeOff(id) => out.time_off_request_id = Some(id),
         }
         out
     }
@@ -239,12 +278,12 @@ pub struct FeedParams {
         (status = 200, body = NotificationList),
         (status = 400, description = "`before` is not an id"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks appointments.read, labs.read, billing.read and patients.read")
+        (status = 403, description = "The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request")
     )
 )]
 pub(crate) async fn list(
     State(state): State<AppState>,
-    RequireAny { request, .. }: RequireAny<AppointmentsRead, LabsRead, BillingRead, PatientsRead>,
+    NotificationReader { request }: NotificationReader,
     ApiQuery(params): ApiQuery<FeedParams>,
 ) -> Result<Json<NotificationList>, ApiFailure> {
     let before = params
@@ -285,12 +324,12 @@ pub struct UnreadCount {
     responses(
         (status = 200, body = UnreadCount),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks appointments.read, labs.read, billing.read and patients.read")
+        (status = 403, description = "The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request")
     )
 )]
 pub(crate) async fn count(
     State(state): State<AppState>,
-    RequireAny { request, .. }: RequireAny<AppointmentsRead, LabsRead, BillingRead, PatientsRead>,
+    NotificationReader { request }: NotificationReader,
 ) -> Result<Json<UnreadCount>, ApiFailure> {
     let unread = app::unread_count(state.db(), &request.actor, request.request_id).await?;
     Ok(Json(UnreadCount { unread }))
@@ -308,13 +347,13 @@ pub(crate) async fn count(
     responses(
         (status = 204, description = "Read"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks appointments.read, labs.read, billing.read and patients.read"),
+        (status = 403, description = "The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request"),
         (status = 404, description = "No such notification in this clinic, or its appointment or lab order is out of the role's reach")
     )
 )]
 pub(crate) async fn read(
     State(state): State<AppState>,
-    RequireAny { request, .. }: RequireAny<AppointmentsRead, LabsRead, BillingRead, PatientsRead>,
+    NotificationReader { request }: NotificationReader,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<StatusCode, ApiFailure> {
     app::mark_read(
@@ -344,12 +383,12 @@ pub struct MarkedRead {
     responses(
         (status = 200, body = MarkedRead),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks appointments.read, labs.read, billing.read and patients.read")
+        (status = 403, description = "The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request")
     )
 )]
 pub(crate) async fn read_all(
     State(state): State<AppState>,
-    RequireAny { request, .. }: RequireAny<AppointmentsRead, LabsRead, BillingRead, PatientsRead>,
+    NotificationReader { request }: NotificationReader,
 ) -> Result<Json<MarkedRead>, ApiFailure> {
     let marked = app::mark_all_read(state.db(), &request.actor, request.request_id).await?;
     tracing::info!(

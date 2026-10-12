@@ -9182,6 +9182,13 @@ export interface components {
             appointment?: components["schemas"]["NotifiedAppointment"] | null;
             /** @description When it happened (RFC 3339). */
             created_at: string;
+            /**
+             * Format: double
+             * @description Days of stock left at the recent rate, for `stock_alert`; absent when unknown.
+             */
+            days_cover?: number | null;
+            /** @description When the task falls due (RFC 3339, the clinic's offset), for a task notification. */
+            due_at?: string | null;
             /** @description When the owners were told (RFC 3339). */
             escalated_at?: string | null;
             handled?: components["schemas"]["HandledBy"] | null;
@@ -9193,10 +9200,16 @@ export interface components {
             /** @description Identifier; pass as `before` for the next page. */
             id: string;
             invoice?: components["schemas"]["NotifiedInvoice"] | null;
+            /** @description The stock item, for `stock_alert`. */
+            item_id?: string | null;
+            /** @description The item's name, for `stock_alert`. */
+            item_name?: string | null;
             /**
              * @description `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,
-             *     `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in` or
-             *     `collect_payment`.
+             *     `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,
+             *     `collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,
+             *     `time_off_decided` or `stock_alert`. More kinds may come: clients show an unknown kind
+             *     as a generic row.
              */
             kind: string;
             lab_order?: components["schemas"]["NotifiedLabOrder"] | null;
@@ -9208,6 +9221,18 @@ export interface components {
             recall?: components["schemas"]["NotifiedRecall"] | null;
             /** @description When everyone was reminded because nobody had answered (RFC 3339). */
             reminded_at?: string | null;
+            /**
+             * @description The task occurrence, for `task_due`, `task_reminder` and `task_escalated`; only its
+             *     newest step is listed.
+             */
+            task_occurrence_id?: string | null;
+            /**
+             * @description The time-off request, for `time_off_requested` and `time_off_decided`. An id only: open
+             *     it in the time-off screens.
+             */
+            time_off_request_id?: string | null;
+            /** @description The task's title, for a task notification. */
+            title?: string | null;
         };
         /** @description A page of the caller's notifications, newest first. */
         NotificationList: {
@@ -20254,7 +20279,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
+            /** @description The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -20287,7 +20312,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
+            /** @description The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -20320,7 +20345,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
+            /** @description The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -20355,7 +20380,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks appointments.read, labs.read, billing.read and patients.read */
+            /** @description The role has none of appointments.read, labs.read, billing.read, patients.read, tasks.use, inventory.read, time_off.manage and time_off.request */
             403: {
                 headers: {
                     [name: string]: unknown;

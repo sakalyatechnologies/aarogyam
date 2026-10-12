@@ -14,7 +14,8 @@ use aarogyam_domain::ids::{
     StaffNotificationId,
 };
 use aarogyam_domain::notification::{
-    Audience, InboxKind, NotificationKind, UNREAD_CAP, UNREAD_WINDOW_DAYS, addressed_to, page_size,
+    Audience, InboxKind, NotificationKind, OWNER_ROLE, UNREAD_CAP, UNREAD_WINDOW_DAYS,
+    addressed_to, page_size,
 };
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::{AppointmentStatus, BookingSource};
@@ -154,6 +155,28 @@ pub struct NotifiedRecall {
     pub due_on: Date,
 }
 
+/// The task occurrence a `task_*` notification is about.
+#[derive(Debug, Clone)]
+pub struct NotifiedTask {
+    /// The occurrence.
+    pub id: Uuid,
+    /// Its title, as snapshotted when it was made.
+    pub title: String,
+    /// When it falls due.
+    pub due_at: OffsetDateTime,
+}
+
+/// The stock item a `stock_alert` is about.
+#[derive(Debug, Clone)]
+pub struct NotifiedItem {
+    /// The item.
+    pub id: Uuid,
+    /// Its name.
+    pub name: String,
+    /// Days of stock left at the recent rate; `None` when no rate was known.
+    pub days_cover: Option<f64>,
+}
+
 /// What a notification is about: exactly one.
 #[derive(Debug, Clone)]
 pub enum Subject {
@@ -167,6 +190,12 @@ pub enum Subject {
     Invoice(NotifiedInvoice),
     /// A follow-up that fell due.
     Recall(NotifiedRecall),
+    /// A task (`task_due`, `task_reminder`, `task_escalated`).
+    Task(NotifiedTask),
+    /// A stock item running low.
+    Item(NotifiedItem),
+    /// A time-off request, by id only (`time_off_requested`, `time_off_decided`).
+    TimeOff(Uuid),
 }
 
 fn status_of(text: &str) -> Result<AppointmentStatus, AppError> {
@@ -195,6 +224,23 @@ fn view(mut row: FeedRow, offset: UtcOffset) -> Result<NotificationView, AppErro
 
 fn subject(row: FeedRow, offset: UtcOffset) -> Result<Subject, AppError> {
     let missing = || AppError::Internal("notification without its subject");
+    if let Some(id) = row.task_occurrence_id {
+        return Ok(Subject::Task(NotifiedTask {
+            id,
+            title: row.task_title.ok_or_else(missing)?,
+            due_at: row.task_due_at.ok_or_else(missing)?.to_offset(offset),
+        }));
+    }
+    if let Some(id) = row.item_id {
+        return Ok(Subject::Item(NotifiedItem {
+            id,
+            name: row.item_name.ok_or_else(missing)?,
+            days_cover: row.days_cover,
+        }));
+    }
+    if let Some(id) = row.time_off_request_id {
+        return Ok(Subject::TimeOff(id));
+    }
     if let Some(id) = row.queue_token_id {
         return Ok(Subject::QueueToken(NotifiedToken {
             id,
@@ -255,20 +301,39 @@ fn sees(actor: &ClinicActor, permission: Permission) -> Sees {
 
 /// Which notifications `actor` sees: bookings, arrivals and the queue with `appointments.read`,
 /// lab work with `labs.read`, bills with `billing.read`, recalls with `patients.read`, each
-/// within its scope. `None` when none.
+/// within its scope; tasks with `tasks.use` (the assignee or their role; escalations only the
+/// owner role), time-off requests with `time_off.manage`, stock alerts with `inventory.read`.
+/// `None` when none.
 #[must_use]
 pub fn viewer(actor: &ClinicActor) -> Option<Viewer> {
     let bookings = sees(actor, Permission::AppointmentsRead);
     let labs = sees(actor, Permission::LabsRead);
     let billing = sees(actor, Permission::BillingRead);
     let patients = sees(actor, Permission::PatientsRead);
-    (bookings.shown || labs.shown || billing.shown || patients.shown).then_some(Viewer {
+    let owner = actor.role_key == OWNER_ROLE;
+    let tasks = actor.permissions.allows(Permission::TasksUse);
+    let inventory = actor.permissions.allows(Permission::InventoryRead);
+    let time_off = actor.permissions.allows(Permission::TimeOffManage);
+    // A time-off decision goes to the requester, whatever they hold.
+    let any = bookings.shown
+        || labs.shown
+        || billing.shown
+        || patients.shown
+        || tasks
+        || inventory
+        || time_off
+        || actor.permissions.allows(Permission::TimeOffRequest);
+    any.then_some(Viewer {
         member: actor.membership_id.uuid(),
         bookings,
         labs,
         billing,
         patients,
         unread_days: UNREAD_WINDOW_DAYS,
+        owner,
+        tasks,
+        inventory,
+        time_off,
     })
 }
 

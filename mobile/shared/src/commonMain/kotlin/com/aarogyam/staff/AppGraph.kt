@@ -69,6 +69,7 @@ import com.aarogyam.staff.today.TodayStateHolder
 import com.aarogyam.staff.visit.FinishVisitHolder
 import com.aarogyam.staff.visit.VisitStateHolder
 import com.aarogyam.staff.visit.createFinishVisit
+import com.aarogyam.staff.walkin.IntakeDeps
 import com.aarogyam.staff.walkin.IntakeFormHolder
 import com.aarogyam.staff.walkin.WalkInStateHolder
 import com.aarogyam.staff.walkin.createIntakeForm
@@ -181,6 +182,7 @@ class AppGraph private constructor(
         // v10 kinds: stubs that keep their entries waiting until T3 and T5 fill the sender files.
         senders[OutboxKind.PatientFile] = PatientFileSender(directory::opened, outboxFiles)
         senders[OutboxKind.Audio] = AudioSender(directory::opened, outboxFiles)
+        IntakeDeps.install(outbox, outboxFiles) { writes.online }
         startOutbox()
         scope.launch {
             sessions.state.collect {

@@ -159,6 +159,8 @@ class ClinicApi(
      * device, with its optional [label] and FDI [tooth]. [id] is the client's UUID v7, so a retry
      * returns the stored file instead of making another. The file goes through the API, never to a
      * bucket address, and carries a fixed name: nothing about the patient is in the form.
+     * [contentType] and [fileName] default from the bytes (PNG for a signature, else JPEG); audio
+     * passes its own.
      */
     suspend fun uploadAttachment(
         patientId: String,
@@ -167,6 +169,8 @@ class ClinicApi(
         jpeg: ByteArray,
         label: String?,
         tooth: Int?,
+        contentType: String? = null,
+        fileName: String? = null,
     ): Outcome<Attachment, ApiError> =
         client.call {
             method = HttpMethod.Post
@@ -182,8 +186,10 @@ class ClinicApi(
                             "file",
                             jpeg,
                             Headers.build {
-                                append(HttpHeaders.ContentType, "image/jpeg")
-                                append(HttpHeaders.ContentDisposition, "filename=\"photo.jpg\"")
+                                val png = jpeg.isPng()
+                                append(HttpHeaders.ContentType, contentType ?: if (png) "image/png" else "image/jpeg")
+                                val name = fileName ?: if (png) "signature.png" else "photo.jpg"
+                                append(HttpHeaders.ContentDisposition, "filename=\"$name\"")
                             },
                         )
                     },
@@ -343,3 +349,8 @@ class ClinicApi(
         const val INVOICE_LIMIT = 50L
     }
 }
+
+/** Whether [this] starts with the PNG signature (a drawn signature; photos are JPEG). */
+internal fun ByteArray.isPng(): Boolean =
+    size >= 8 && this[0] == 0x89.toByte() && this[1] == 'P'.code.toByte() &&
+        this[2] == 'N'.code.toByte() && this[3] == 'G'.code.toByte()

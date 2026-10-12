@@ -20,6 +20,8 @@ import io.ktor.http.headersOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.io.encoding.Base64
 import kotlin.test.assertIs
 
@@ -73,14 +75,22 @@ class FakeBackend {
 
     val engine: MockEngine =
         MockEngine { request ->
-            requests += request
-            val answers = routes["${request.url.host}${request.url.encodedPath}"]
-            when {
-                answers == null -> apiError(HttpStatusCode.NotFound, "not_found")
-                answers.size > 1 -> answers.removeAt(0)(request)
-                else -> answers[0](request)
-            }
+            // The engine answers on several threads: record and pick under one lock, or a busy
+            // machine loses a request from the list.
+            val answer =
+                lock.withLock {
+                    requests += request
+                    val answers = routes["${request.url.host}${request.url.encodedPath}"]
+                    when {
+                        answers == null -> null
+                        answers.size > 1 -> answers.removeAt(0)
+                        else -> answers[0]
+                    }
+                }
+            answer?.invoke(this, request) ?: apiError(HttpStatusCode.NotFound, "not_found")
         }
+
+    private val lock = Mutex()
 }
 
 /**

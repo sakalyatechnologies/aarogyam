@@ -10,5 +10,5 @@ __pycache__/
 # Patient files stored on local disk in development.
 /var/
 
-# v7 mockup reference renders: regenerate with node web/e2e/v7/render-reference.ts
+# v7 mockup reference renders (tools on branch feat/mobile-v7, web/e2e/v7)
 /mobile/docs/screenshots/v7/reference/

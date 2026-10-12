@@ -552,7 +552,7 @@ async fn suspending_or_changing_a_member_takes_effect_at_once() {
             ALPHA,
             &path,
             Some(&owner),
-            Some(json!({ "status": "active", "role_key": "assistant" })),
+            Some(json!({ "status": "active", "role_key": "finance" })),
         )
         .await;
     assert_eq!(status, StatusCode::OK);
@@ -560,8 +560,8 @@ async fn suspending_or_changing_a_member_takes_effect_at_once() {
         .send(Method::GET, ALPHA, "/api/v1/session", Some(&desk), None)
         .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(session["membership"]["role_key"], "assistant");
-    // The new role applies at once: an assistant can't register patients.
+    assert_eq!(session["membership"]["role_key"], "finance");
+    // The new role applies at once: a finance member can't register patients.
     let (status, _) = app
         .send(
             Method::POST,

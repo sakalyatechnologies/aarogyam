@@ -6236,7 +6236,7 @@ export interface components {
             /**
              * Format: int64
              * @description What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
-             *     Needs `billing.write`.
+             *     Needs only `clinical.write`; the bill stays a draft for the desk.
              */
             fee_paise?: number | null;
             /**
@@ -7123,7 +7123,7 @@ export interface components {
             /**
              * Format: int64
              * @description What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
-             *     Needs `billing.write`.
+             *     Needs only `clinical.write`; the bill stays a draft for the desk.
              */
             fee_paise?: number | null;
             /**
@@ -16997,7 +16997,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks billing.write */
+            /** @description Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -17094,7 +17094,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks billing.write */
+            /** @description Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -28736,7 +28736,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee */
+            /** @description The role lacks clinical.write, or patients.write for a follow-up */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -28797,7 +28797,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks clinical.write, or prescriptions.issue, patients.write or billing.write for what was asked */
+            /** @description The role lacks clinical.write, or prescriptions.issue or patients.write for what was asked */
             403: {
                 headers: {
                     [name: string]: unknown;

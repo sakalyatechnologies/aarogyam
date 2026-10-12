@@ -594,3 +594,15 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Clash with the iOS chain.** `feat/v9` must not merge `0421_queue_staff_notifications.sql` or its app-side `notify_queue`: this work writes the same rows, with the same `audience` column name and values.
 
 **Why.** The doctor should hear of a waiting patient at once, the desk should hear when there is money to collect (and the assistant, who has no billing access, must be able to collect it), and a bell that stays red after the work is done gets ignored.
+
+## 2026-10-12: Visit roles: the assistant at the front, the doctor starts the bill
+
+**Decision.** Two gaps in the visit journey (migration 0680; additive API).
+- **Assistant.** The seeded `assistant` template gets `appointments.write` and `patients.write`, scope `all` like `front_desk`, backfilled into existing clinics' assistant roles. With the `intake.write` it already had, that is exactly what check-in, queue add and the one-step walk-in need. Still not granted: `patients.contact` (phones stay masked), `billing.read`, `billing.write`, `finance.view`; collecting stays `payments.collect`. The earlier note that this "broke front_desk tests" was tests using the assistant as "the role that cannot register or edit patients"; they now use `finance` or `nothing` for that.
+- **Doctor starts the draft.** A holder of `clinical.write` can start a visit's draft bill without `billing.write`, in the app layer (`billing.rs`, `finish.rs`):
+  - `fee_paise` on close and finish needs only `clinical.write` (already required) with reach over the visit.
+  - The generic `POST /invoices` and `PATCH /invoices/{id}` accept `clinical.write` too, but then only for a draft that is linked to a visit within that member's `clinical.write` reach (the patient must be that visit's patient), lines only: a discount, a place of supply, a replaced bill or moving the bill to another visit answers 403, and a bill with no visit (or a visit out of reach) is 404.
+  - Issuing, voiding, refunds and payments stay `billing.write` or `payments.collect`. The seeded `doctor` already has `billing.read`, so a doctor reads the list and the price list as before; a custom role without it finds the draft only through the response it got.
+- **Web follow-up (not done here).** The visit bar gates the bill on `can("billing.write")` (`visit-bar.tsx`, `useBillDraft` enabled flag); it should gate on `clinical.write` plus `billing.read` so the doctor's itemised lines are saved at Send for payment.
+
+**Why.** The founder wants the shortest journey: the assistant checks in or registers, the doctor treats and presses Send for payment, the assistant collects, with no money powers handed to either.

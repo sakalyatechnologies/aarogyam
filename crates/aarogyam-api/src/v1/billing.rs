@@ -8,7 +8,7 @@ use aarogyam_domain::billing::InvoiceStatus;
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{InvoiceId, PatientId, PriceItemId};
 use aarogyam_domain::permission::require::{
-    BillingRead, BillingWrite, PaymentsCollect, SettingsManage,
+    BillingRead, BillingWrite, ClinicalWrite, PaymentsCollect, SettingsManage,
 };
 use axum::Json;
 use axum::extract::State;
@@ -475,13 +475,13 @@ pub struct Reason {
         (status = 201, body = Invoice),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks billing.write"),
+        (status = 403, description = "Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill)"),
         (status = 404, description = "No such patient in this clinic")
     )
 )]
 pub(crate) async fn create_invoice(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingWrite>,
+    RequireEither { request, .. }: RequireEither<BillingWrite, ClinicalWrite>,
     ApiJson(body): ApiJson<NewInvoice>,
 ) -> Result<(StatusCode, Json<Invoice>), ApiFailure> {
     let input = DraftInvoice {
@@ -509,14 +509,14 @@ pub(crate) async fn create_invoice(
         (status = 200, body = Invoice),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks billing.write"),
+        (status = 403, description = "Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill)"),
         (status = 404, description = "No such bill in this clinic"),
         (status = 409, description = "The bill is issued or void")
     )
 )]
 pub(crate) async fn edit_invoice(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingWrite>,
+    RequireEither { request, .. }: RequireEither<BillingWrite, ClinicalWrite>,
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<InvoiceEdit>,
 ) -> Result<Json<Invoice>, ApiFailure> {

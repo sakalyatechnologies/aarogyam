@@ -231,7 +231,7 @@ async fn chairs_doctors_hours_and_leave_follow_permissions() {
         .await;
     assert_eq!(code, StatusCode::FORBIDDEN);
 
-    // Leave: the front desk records it; the assistant can't.
+    // Leave: the front desk records it; a role with no appointments.write can't.
     let leave = json!({
         "practitioner_id": s.doctor, "starts_at": "2030-01-07T09:00:00+05:30",
         "ends_at": "2030-01-07T18:00:00+05:30", "reason": "Conference"
@@ -241,7 +241,7 @@ async fn chairs_doctors_hours_and_leave_follow_permissions() {
             Method::POST,
             ALPHA,
             "/api/v1/leave-blocks",
-            Some(&assistant),
+            Some(&app.token(ALPHA_NOTHING)),
             Some(leave.clone()),
         )
         .await;
@@ -532,7 +532,7 @@ async fn a_chair_takes_one_booking_at_a_time() {
             Method::POST,
             ALPHA,
             path,
-            Some(&app.token(ALPHA_ASSISTANT)),
+            Some(&app.token(ALPHA_NOTHING)),
             Some(booking(
                 &priya,
                 &s.doctor,
@@ -785,7 +785,7 @@ async fn statuses_follow_the_table_and_arrivals_get_tokens() {
             Method::POST,
             ALPHA,
             "/api/v1/queue",
-            Some(&app.token(ALPHA_ASSISTANT)),
+            Some(&app.token(ALPHA_NOTHING)),
             Some(json!({ "patient_id": walk })),
         )
         .await;
@@ -1146,7 +1146,7 @@ async fn patients_import_from_csv_after_a_preview() {
             Method::POST,
             ALPHA,
             path,
-            Some(&app.token(ALPHA_ASSISTANT)),
+            Some(&app.token(ALPHA_NOTHING)),
             Some(request("commit")),
         )
         .await;

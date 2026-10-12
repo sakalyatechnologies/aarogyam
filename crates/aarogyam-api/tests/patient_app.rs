@@ -513,7 +513,6 @@ async fn a_match_the_patient_asks_for_waits_for_the_clinic() {
     let app = TestApp::start().await;
     let alpha_owner = app.token(ALPHA_OWNER);
     let beta_owner = app.token(BETA_OWNER);
-    let assistant = app.token(ALPHA_ASSISTANT);
     let ravi = patient_token(&app, RAVI, "ravi@example.test");
     let at_beta = register(
         &app,
@@ -576,7 +575,13 @@ async fn a_match_the_patient_asks_for_waits_for_the_clinic() {
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     let (status, _) = app
-        .send(Method::POST, ALPHA, &confirm, Some(&assistant), None)
+        .send(
+            Method::POST,
+            ALPHA,
+            &confirm,
+            Some(&app.token(ALPHA_NOTHING)),
+            None,
+        )
         .await;
     assert_eq!(
         status,
@@ -629,7 +634,7 @@ async fn invitations_need_an_email_and_patients_write_and_stay_in_the_clinic() {
             Method::POST,
             ALPHA,
             &path(&with_email),
-            Some(&assistant),
+            Some(&app.token(ALPHA_NOTHING)),
             None,
         )
         .await;

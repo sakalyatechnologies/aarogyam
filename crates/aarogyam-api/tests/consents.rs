@@ -206,22 +206,15 @@ async fn roles_and_other_clinics() {
     let (_, made) = record(&app, ALPHA, &owner, &patient, paper("care")).await;
     let consent = made["id"].as_str().unwrap();
 
-    // The assistant may read but not record or withdraw; a role with nothing may do neither.
+    // The assistant may read; a role with nothing may neither read, record nor withdraw.
     let assistant = app.token(ALPHA_ASSISTANT);
     let (status, _) = list(&app, ALPHA, &assistant, &patient).await;
     assert_eq!(status, StatusCode::OK);
-    let (status, _) = record(&app, ALPHA, &assistant, &patient, paper("reminders")).await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
-    let (status, _) = withdraw(
-        &app,
-        ALPHA,
-        &assistant,
-        consent,
-        json!({ "method": "paper" }),
-    )
-    .await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
     let nothing = app.token(ALPHA_NOTHING);
+    let (status, _) = record(&app, ALPHA, &nothing, &patient, paper("reminders")).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = withdraw(&app, ALPHA, &nothing, consent, json!({ "method": "paper" })).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
     let (status, _) = list(&app, ALPHA, &nothing, &patient).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 

@@ -4017,7 +4017,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks billing.write"
+            "description": "Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill)"
           },
           "404": {
             "description": "No such patient in this clinic"
@@ -4118,7 +4118,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks billing.write"
+            "description": "Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill)"
           },
           "404": {
             "description": "No such bill in this clinic"
@@ -15751,7 +15751,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee"
+            "description": "The role lacks clinical.write, or patients.write for a follow-up"
           },
           "404": {
             "description": "No such visit in this clinic"
@@ -15818,7 +15818,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks clinical.write, or prescriptions.issue, patients.write or billing.write for what was asked"
+            "description": "The role lacks clinical.write, or prescriptions.issue or patients.write for what was asked"
           },
           "404": {
             "description": "No such visit or prescription in this clinic"
@@ -19251,7 +19251,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.\nNeeds `billing.write`."
+            "description": "What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.\nNeeds only `clinical.write`; the bill stays a draft for the desk."
           },
           "follow_up_on": {
             "type": [
@@ -21402,7 +21402,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.\nNeeds `billing.write`."
+            "description": "What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.\nNeeds only `clinical.write`; the bill stays a draft for the desk."
           },
           "follow_up_on": {
             "type": [

@@ -1164,3 +1164,336 @@ async fn another_clinic_sees_nothing_and_cannot_read_the_rows() {
     );
     app.finish().await;
 }
+
+/// What a role's session lists, as one string to search.
+async fn permissions_of(app: &TestApp, token: &str) -> String {
+    let (status, session) = call(app, token, Method::GET, "/api/v1/session", None).await;
+    assert_eq!(status, StatusCode::OK, "{session}");
+    session["membership"]["permissions"].to_string()
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one scenario walks each write in turn"
+)]
+async fn the_seeded_assistant_runs_the_front_of_the_visit() {
+    let app = TestApp::start().await;
+    let clinic = app.clinic_id("alpha").await;
+    let owner = app.token(ALPHA_OWNER);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let nothing = app.token(ALPHA_NOTHING);
+    let (doctor, member) = new_member(&app, clinic, "doctor").await;
+    let practitioner = on_rota(&app, clinic, member, branch(&app, clinic).await, "Dr Rao").await;
+
+    // The assistant holds what the front needs and nothing of billing.
+    let permissions = permissions_of(&app, &assistant).await;
+    for key in [
+        "appointments.write",
+        "patients.write",
+        "intake.write",
+        "payments.collect",
+    ] {
+        assert!(permissions.contains(key), "{key}");
+    }
+    for key in [
+        "billing.read",
+        "billing.write",
+        "finance.view",
+        "patients.contact",
+    ] {
+        assert!(!permissions.contains(key), "{key}");
+    }
+
+    // Registers a walk-in in one step: the doctor it is for is told.
+    let (status, walk) = call(
+        &app,
+        &assistant,
+        Method::POST,
+        "/api/v1/walk-ins",
+        Some(
+            json!({ "patient": { "full_name": "Ramesh Jadhav" }, "no_known_allergies": true,
+                     "practitioner_id": practitioner }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{walk}");
+    let token = walk["token"]["id"].as_str().unwrap().to_owned();
+    assert_eq!(token_rows(&app, &token, "patient_waiting").await, 1);
+    assert!(sees(&app, &doctor, "patient_waiting", &token).await);
+
+    // Adds a registered patient to the queue.
+    let patient = register(&app, &owner, "Meera Shah").await;
+    let queued = walk_in(&app, &assistant, &patient, Some(practitioner)).await;
+    assert!(sees(&app, &doctor, "patient_waiting", &queued).await);
+
+    // Checks in a booked patient: the doctor is told.
+    let booked = register(&app, &owner, "Kavya Rao").await;
+    let appointment: Uuid = sqlx::query_scalar(
+        "insert into aarogyam.appointments
+           (org_id, patient_id, practitioner_id, branch_id, starts_at, ends_at, status)
+         select p.org_id, p.id, $2, b.id, now() + interval '10 minutes',
+                now() + interval '40 minutes', 'confirmed'
+         from aarogyam.patients p
+         join lateral (select id from aarogyam.branches where org_id = p.org_id limit 1) b on true
+         where p.id = $1 returning id",
+    )
+    .bind(uuid_of(&booked))
+    .bind(practitioner)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    let checked = post_ok(
+        &app,
+        &assistant,
+        &format!("/api/v1/appointments/{appointment}/check-in"),
+        Some(json!({ "no_known_allergies": true })),
+    )
+    .await;
+    let checked_token = checked["queue_token_id"].as_str().unwrap().to_owned();
+    assert_eq!(token_rows(&app, &checked_token, "patient_waiting").await, 1);
+    assert!(sees(&app, &doctor, "patient_waiting", &checked_token).await);
+
+    // Still no bills, no reports, no clinical writing; a role with nothing still gets 403.
+    for (method, path, body) in [
+        (Method::GET, "/api/v1/invoices", None),
+        (
+            Method::POST,
+            "/api/v1/invoices",
+            Some(
+                json!({ "patient_id": patient, "items": [{ "description": "x", "unit_price_paise": 100 }] }),
+            ),
+        ),
+        (Method::GET, "/api/v1/price-items", None),
+    ] {
+        let (status, _) = call(&app, &assistant, method, path, body).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "assistant {path}");
+    }
+    let (status, _) = call(
+        &app,
+        &nothing,
+        Method::POST,
+        "/api/v1/walk-ins",
+        Some(json!({ "patient": { "full_name": "A" } })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    // Another clinic sees none of it, and cannot check in Alpha's appointment.
+    let (status, _) = app
+        .send(
+            Method::POST,
+            BETA,
+            &format!("/api/v1/appointments/{appointment}/check-in"),
+            Some(&app.token(BETA_OWNER)),
+            Some(json!({})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let rows: i64 = sqlx::query_scalar(
+        "select count(*) from aarogyam.queue_tokens t join aarogyam.organizations o on o.id = t.org_id
+         where o.id <> $1",
+    )
+    .bind(clinic)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(rows, 0);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one scenario walks each write in turn"
+)]
+async fn a_hired_doctor_sends_for_payment_and_the_desk_collects() {
+    let app = TestApp::start().await;
+    let clinic = app.clinic_id("alpha").await;
+    let owner = app.token(ALPHA_OWNER);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let (doctor, member) = new_member(&app, clinic, "doctor").await;
+    let practitioner = on_rota(&app, clinic, member, branch(&app, clinic).await, "Dr Rao").await;
+    let patient = register(&app, &owner, "Meera Shah").await;
+
+    // The doctor holds no billing.write and no payments.collect.
+    let permissions = permissions_of(&app, &doctor).await;
+    assert!(!permissions.contains("billing.write"));
+    assert!(!permissions.contains("payments.collect"));
+    assert!(permissions.contains("clinical.write"));
+
+    // Assistant queues, doctor treats and closes with a fee: a draft bill, and the desk is told.
+    let queued = walk_in(&app, &assistant, &patient, Some(practitioner)).await;
+    let visit = start_visit(&app, &doctor, &queued).await;
+    let (status, closed) = call(
+        &app,
+        &doctor,
+        Method::POST,
+        &format!("/api/v1/visits/{visit}/close"),
+        Some(json!({ "fee_paise": 50_000, "queue_status": "ready_to_bill" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{closed}");
+    let bill = closed["invoice"]["id"].as_str().unwrap().to_owned();
+    assert_eq!(closed["invoice"]["status"], "draft");
+    assert_eq!(bill_rows(&app, &visit, "collect_payment").await, 1);
+    assert_eq!(
+        about_bill(&feed(&app, &assistant).await, "collect_payment", &bill).len(),
+        1
+    );
+
+    // Itemised lines on that draft: the doctor may edit its lines, and start a visit's draft,
+    // but not discount, move it to another visit or touch the place of supply.
+    let (status, edited) = call(
+        &app,
+        &doctor,
+        Method::PATCH,
+        &format!("/api/v1/invoices/{bill}"),
+        Some(json!({ "items": [
+            { "description": "Consultation", "unit_price_paise": 40_000 },
+            { "description": "Scaling", "unit_price_paise": 10_000, "quantity": 2 }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{edited}");
+    assert_eq!(edited["items"].as_array().unwrap().len(), 2);
+    for body in [
+        json!({ "items": [{ "description": "x", "unit_price_paise": 100, "discount_paise": 10 }] }),
+        json!({ "place_of_supply": "27" }),
+        json!({ "encounter_id": Uuid::new_v4().to_string() }),
+    ] {
+        let (status, _) = call(
+            &app,
+            &doctor,
+            Method::PATCH,
+            &format!("/api/v1/invoices/{bill}"),
+            Some(body.clone()),
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    }
+    // A bill that belongs to no visit is not the doctor's to edit.
+    let loose = collect_bill_without_visit(&app, &owner, &patient).await;
+    let (status, _) = call(
+        &app,
+        &doctor,
+        Method::PATCH,
+        &format!("/api/v1/invoices/{loose}"),
+        Some(json!({ "items": [{ "description": "x", "unit_price_paise": 100 }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    // Creating a draft needs a visit of that patient.
+    let items = json!([{ "description": "Review", "unit_price_paise": 200 }]);
+    let other = register(&app, &owner, "Kavya Rao").await;
+    for (body, expected) in [
+        (
+            json!({ "patient_id": patient, "items": items }),
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            json!({ "patient_id": other, "encounter_id": visit, "items": items }),
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            json!({ "patient_id": patient, "encounter_id": Uuid::new_v4().to_string(), "items": items }),
+            StatusCode::NOT_FOUND,
+        ),
+        (
+            json!({ "patient_id": patient, "encounter_id": visit, "items": [
+                { "description": "x", "unit_price_paise": 100, "discount_paise": 5 }] }),
+            StatusCode::FORBIDDEN,
+        ),
+        (
+            json!({ "patient_id": patient, "encounter_id": visit, "items": items }),
+            StatusCode::CREATED,
+        ),
+    ] {
+        let (status, got) = call(
+            &app,
+            &doctor,
+            Method::POST,
+            "/api/v1/invoices",
+            Some(body.clone()),
+        )
+        .await;
+        assert_eq!(status, expected, "{body} {got}");
+    }
+
+    // Everything past the draft stays the desk's: the doctor cannot issue, void, take payment
+    // or record a refund; reading bills works as before (billing.read).
+    let (status, _) = call(
+        &app,
+        &doctor,
+        Method::POST,
+        &format!("/api/v1/invoices/{bill}/issue"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = call(
+        &app,
+        &doctor,
+        Method::POST,
+        &format!("/api/v1/invoices/{bill}/void"),
+        Some(json!({ "reason": "mistake" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = pay(&app, &doctor, &patient, &bill, "doctor-000-0001", 50_000).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let state: String = sqlx::query_scalar("select status from aarogyam.invoices where id = $1")
+        .bind(uuid_of(&bill))
+        .fetch_one(&app.owner)
+        .await
+        .unwrap();
+    assert_eq!(state, "draft");
+
+    // The assistant collects: issued and paid in one request, with no billing access.
+    let (status, paid) = pay(&app, &assistant, &patient, &bill, "assist-000-0001", 50_000).await;
+    assert_eq!(status, StatusCode::CREATED, "{paid}");
+    // Once issued the doctor cannot change the bill.
+    let (status, _) = call(
+        &app,
+        &doctor,
+        Method::PATCH,
+        &format!("/api/v1/invoices/{bill}"),
+        Some(json!({ "items": [{ "description": "x", "unit_price_paise": 1 }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+
+    // Another clinic cannot see or change the bill.
+    let beta = app.token(BETA_OWNER);
+    for (method, body) in [
+        (Method::GET, None),
+        (Method::PATCH, Some(json!({ "notes": "x" }))),
+    ] {
+        let (status, _) = app
+            .send(
+                method,
+                BETA,
+                &format!("/api/v1/invoices/{bill}"),
+                Some(&beta),
+                body,
+            )
+            .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+    app.finish().await;
+}
+
+async fn collect_bill_without_visit(app: &TestApp, owner: &str, patient: &str) -> String {
+    let (status, bill) = call(
+        app,
+        owner,
+        Method::POST,
+        "/api/v1/invoices",
+        Some(json!({ "patient_id": patient,
+                     "items": [{ "description": "Walk-in", "unit_price_paise": 1_000 }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{bill}");
+    id_of(&bill)
+}

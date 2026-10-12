@@ -7,6 +7,7 @@ import com.aarogyam.staff.billing.PayMethod
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.config.caps.ServerCaps
 import com.aarogyam.staff.outbox.OutboxKind
+import com.aarogyam.staff.today.parseInstant
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
@@ -15,6 +16,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 /**
  * One bill with something to pay. Amounts are paise. A [draft] is issued first (its [balancePaise]
@@ -53,6 +57,9 @@ sealed interface DeskPayOutcome {
 
     data object Sending : DeskPayOutcome
 
+    /** The bill's balance is 0 now (someone else collected it): "Already paid", nothing was sent. */
+    data object AlreadyPaid : DeskPayOutcome
+
     /** The server has it; [number] is the receipt. */
     data class Recorded(
         val number: String,
@@ -80,6 +87,7 @@ class DeskPaymentStateHolder(
     private val scope: CoroutineScope,
     private val graph: AppGraph,
     private val log: Logger = Logger("aarogyam.deskpay"),
+    private val clock: () -> Instant = { Clock.System.now() },
 ) {
     private val allowed = BILLING_READ in clinic.permissions && BILLING_WRITE in clinic.permissions
     private val canProof get() = BILLING_WRITE in clinic.permissions && ServerCaps.paymentProof
@@ -90,6 +98,14 @@ class DeskPaymentStateHolder(
 
     // One key per submission: kept while the same payment is retried, replaced when it changes.
     private var keyed: Pair<String, String>? = null
+
+    private val mutableCardOpen = MutableStateFlow(true)
+
+    /**
+     * The To-pay card is open until its `collect_payment` notification is `handled` (see [checkHandled];
+     * needs `ServerCaps.notificationAudience`) or no bill has a balance.
+     */
+    val cardOpen: StateFlow<Boolean> = mutableCardOpen.asStateFlow()
 
     val state: StateFlow<DeskPayState> = mutableState.asStateFlow()
     val outcome: StateFlow<DeskPayOutcome> = mutableOutcome.asStateFlow()
@@ -123,6 +139,7 @@ class DeskPaymentStateHolder(
                             }
                         }
                     mutableState.value = DeskPayState.Ready(dues, canProof)
+                    if (dues.isEmpty()) mutableCardOpen.value = false
                 }
 
                 is Outcome.Failure -> {
@@ -172,7 +189,32 @@ class DeskPaymentStateHolder(
                 save(job, key)
                 return@launch
             }
-            when (val delivery = deliver(clinic.api, job, key, log)) {
+            // R8: the balance is read again just before sending; the screen's list may be stale.
+            val fresh =
+                when (val check = recheck(clinic.api, job, log)) {
+                    is Recheck.Proceed -> {
+                        check.job
+                    }
+
+                    Recheck.AlreadyPaid -> {
+                        keyed = null
+                        mutableOutcome.value = DeskPayOutcome.AlreadyPaid
+                        load()
+                        return@launch
+                    }
+
+                    is Recheck.Retry -> {
+                        save(job, key)
+                        return@launch
+                    }
+
+                    is Recheck.Rejected -> {
+                        mutableOutcome.value = DeskPayOutcome.Failed(check.error)
+                        load()
+                        return@launch
+                    }
+                }
+            when (val delivery = deliver(clinic.api, fresh, key, log)) {
                 is Delivery.Done -> {
                     keyed = null
                     mutableOutcome.value = DeskPayOutcome.Recorded(delivery.number, delivery.proof)
@@ -184,11 +226,44 @@ class DeskPaymentStateHolder(
                 }
 
                 is Delivery.Rejected -> {
-                    mutableOutcome.value = DeskPayOutcome.Failed(delivery.error)
+                    // A 409 means the bill changed under us: show the server's state, not ours.
+                    if (delivery.conflict && invoiceId != null) {
+                        val now = (clinic.api.invoice(invoiceId) as? Outcome.Success)?.value
+                        keyed = null
+                        mutableOutcome.value =
+                            if (now != null && now.status == "issued" && now.balancePaise <= 0) {
+                                DeskPayOutcome.AlreadyPaid
+                            } else {
+                                DeskPayOutcome.Failed(delivery.error)
+                            }
+                        load()
+                    } else {
+                        mutableOutcome.value = DeskPayOutcome.Failed(delivery.error)
+                    }
                 }
             }
         }
     }
+
+    /**
+     * Reads the notifications and closes the To-pay card when [notificationId] (its `collect_payment`
+     * row) is `handled`. Needs `ServerCaps.notificationAudience`; while it is off this never closes the card.
+     */
+    fun checkHandled(notificationId: String) {
+        scope.launch {
+            val notices = (clinic.api.collectNotices() as? Outcome.Success)?.value ?: return@launch
+            if (notificationId in notices.handledIds) mutableCardOpen.value = false
+        }
+    }
+
+    /**
+     * "Doctor may be collecting": the token is `ready_to_bill` and its visit ended (`ended_at`) under
+     * 2 minutes ago. Display only; the payment is not blocked.
+     */
+    fun doctorMayBeCollecting(
+        tokenStatus: String,
+        visitEndedAt: String?,
+    ): Boolean = doctorMayBeCollecting(tokenStatus, visitEndedAt?.let(::parseInstant), clock())
 
     private fun save(
         job: PaymentJob,
@@ -229,3 +304,12 @@ internal fun dueBillOf(
         status == "draft" && totalPaise > 0 -> DueBill(id, number, totalPaise, draft = true)
         else -> null
     }
+
+/** A `ready_to_bill` token whose visit ended within the last 2 minutes: the doctor may still be collecting. */
+internal fun doctorMayBeCollecting(
+    tokenStatus: String,
+    visitEndedAt: Instant?,
+    now: Instant,
+): Boolean =
+    tokenStatus == "ready_to_bill" && visitEndedAt != null &&
+        (now - visitEndedAt).let { it >= 0.minutes && it < 2.minutes }

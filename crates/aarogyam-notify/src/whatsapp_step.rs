@@ -13,7 +13,8 @@ use serde_json::Value;
 use time::OffsetDateTime;
 
 use crate::messages::{MessageReport, due_check, template_block};
-use crate::patient_templates::{clinic_offset, when_text};
+use crate::patient_templates::{AutoValues, clinic_offset, when_text};
+use crate::templates::PortalLinks;
 use crate::whatsapp::{Meta, TemplateSend};
 use crate::{DEFAULT_WHATSAPP_DAILY_BUDGET, Failure, Notifier};
 
@@ -21,16 +22,23 @@ const BATCH: i32 = 50;
 const LEASE_SECONDS: i32 = 300;
 
 /// The template's parameters, in the order its body names them.
-fn parameters(message: &Dispatch, booking: Option<&str>) -> Result<Vec<String>, Failure> {
+fn parameters(message: &Dispatch, links: &PortalLinks) -> Result<Vec<String>, Failure> {
     let body = message.template_body.as_deref().unwrap_or_default();
     let names = placeholders(&message.template_key, body)
         .map_err(|_| Failure::permanent("template names a variable it may not"))?;
+    let values = AutoValues {
+        clinic_name: &message.clinic_name,
+        portal_host: message.portal_host.as_deref(),
+        variables: &message.variables,
+        secret: message.secret.as_deref(),
+        links,
+    };
     names
         .iter()
         .map(|name| {
             let value = match name.as_str() {
-                "clinic_name" => Some(message.clinic_name.clone()),
-                "booking_link" => booking.map(str::to_owned),
+                "clinic_name" | "booking_link" | "app_link" | "website_link" | "share_link"
+                | "pin" => values.get(name),
                 "appointment_time" => message
                     .appointment_starts_at
                     .map(|at| when_text(at.to_offset(clinic_offset(&message.timezone)))),
@@ -133,10 +141,6 @@ impl Notifier {
         now: OffsetDateTime,
         report: &mut MessageReport,
     ) -> Result<(), DbError> {
-        let booking = message
-            .portal_host
-            .as_deref()
-            .map(|host| self.links.book(host));
         let (Some(to), Some(name), Some(language)) = (
             message.address.as_deref(),
             message.template_ref.as_deref(),
@@ -144,7 +148,7 @@ impl Notifier {
         ) else {
             return self.skip(db, claimed, "template_unavailable", report).await;
         };
-        let outcome = match parameters(message, booking.as_deref()) {
+        let outcome = match parameters(message, &self.links) {
             Err(failure) => Err(failure),
             Ok(parameters) => {
                 let send = TemplateSend {

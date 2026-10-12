@@ -33,6 +33,8 @@ pub struct NewMessage<'a> {
     pub appointment_id: Option<Uuid>,
     /// Makes a repeat a no-op.
     pub dedupe_key: Option<&'a str>,
+    /// When it is due; now when absent.
+    pub scheduled_for: Option<OffsetDateTime>,
 }
 
 /// Queues a message in the current clinic transaction; false when its dedupe key was queued
@@ -43,8 +45,9 @@ pub struct NewMessage<'a> {
 pub async fn enqueue(conn: &mut PgConnection, message: &NewMessage<'_>) -> Result<bool, DbError> {
     let done = sqlx::query!(
         r#"insert into aarogyam.messages (id, patient_id, channel, kind, purpose, template_key,
-                                          variables, body, secret, appointment_id, dedupe_key)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                                          variables, body, secret, appointment_id, dedupe_key,
+                                          scheduled_for)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, coalesce($12, now()))
            on conflict (org_id, dedupe_key) do nothing"#,
         message.id,
         message.patient_id,
@@ -56,7 +59,8 @@ pub async fn enqueue(conn: &mut PgConnection, message: &NewMessage<'_>) -> Resul
         message.body,
         message.secret,
         message.appointment_id,
-        message.dedupe_key
+        message.dedupe_key,
+        message.scheduled_for
     )
     .execute(conn)
     .await?;

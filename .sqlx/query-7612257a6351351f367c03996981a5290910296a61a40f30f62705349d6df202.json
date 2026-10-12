@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select (select count(*) from aarogyam.queue_tokens o\n                   where o.branch_id = t.branch_id and o.day = t.day and o.id <> t.id\n                     and o.token_number < t.token_number\n                     and o.status in ('waiting', 'called', 'in_chair')) as \"ahead!\",\n                  (select avg(extract(epoch from (e.ended_at - e.started_at)) / 60.0)::float8\n                   from aarogyam.encounters e\n                   where e.branch_id = t.branch_id and e.status = 'closed'\n                     and e.ended_at > now() - interval '14 days'\n                     and e.ended_at > e.started_at) as average\n           from aarogyam.queue_tokens t where t.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ahead!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "average",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "7612257a6351351f367c03996981a5290910296a61a40f30f62705349d6df202"
+}

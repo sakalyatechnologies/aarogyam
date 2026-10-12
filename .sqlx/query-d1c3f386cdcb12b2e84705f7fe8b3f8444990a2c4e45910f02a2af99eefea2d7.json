@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists (select 1 from aarogyam.share_links\n                          where resource = 'visit' and encounter_id = $1\n                            and revoked_at is null and expires_at > now()) as \"live!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "live!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d1c3f386cdcb12b2e84705f7fe8b3f8444990a2c4e45910f02a2af99eefea2d7"
+}

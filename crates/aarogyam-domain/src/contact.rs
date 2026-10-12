@@ -25,6 +25,12 @@ pub enum PatientMessage {
     Campaign,
     /// A birthday greeting.
     Birthday,
+    /// The thank-you after a walk-in registers.
+    Welcome,
+    /// The link to a visit summary (and its PIN).
+    VisitSummary,
+    /// The booking link for a follow-up that is due.
+    FollowUpBooking,
 }
 
 impl PatientMessage {
@@ -38,6 +44,9 @@ impl PatientMessage {
         Self::Recall,
         Self::Campaign,
         Self::Birthday,
+        Self::Welcome,
+        Self::VisitSummary,
+        Self::FollowUpBooking,
     ];
 
     /// The consent purpose the message needs.
@@ -47,8 +56,10 @@ impl PatientMessage {
             Self::BookingConfirmation
             | Self::PrescriptionLink
             | Self::PatientAppInvite
-            | Self::PaymentReceipt => Purpose::Care,
-            Self::AppointmentReminder | Self::Recall => Purpose::Reminders,
+            | Self::PaymentReceipt
+            | Self::Welcome
+            | Self::VisitSummary => Purpose::Care,
+            Self::AppointmentReminder | Self::Recall | Self::FollowUpBooking => Purpose::Reminders,
             Self::Campaign | Self::Birthday => Purpose::Promotional,
         }
     }
@@ -77,6 +88,9 @@ impl PatientMessage {
             | MessageKind::BookingDeclined => Some(Self::BookingConfirmation),
             MessageKind::PatientAppInvited => Some(Self::PatientAppInvite),
             MessageKind::PaymentReceipt => Some(Self::PaymentReceipt),
+            MessageKind::Welcome => Some(Self::Welcome),
+            MessageKind::VisitSummary | MessageKind::VisitSummaryPin => Some(Self::VisitSummary),
+            MessageKind::FollowUpBooking => Some(Self::FollowUpBooking),
         }
     }
 }
@@ -93,8 +107,10 @@ mod tests {
             M::PrescriptionLink,
             M::PatientAppInvite,
             M::PaymentReceipt,
+            M::Welcome,
+            M::VisitSummary,
         ];
-        let reminders = [M::AppointmentReminder, M::Recall];
+        let reminders = [M::AppointmentReminder, M::Recall, M::FollowUpBooking];
         let promotional = [M::Campaign, M::Birthday];
         for kind in care {
             assert_eq!(kind.purpose(), Purpose::Care);

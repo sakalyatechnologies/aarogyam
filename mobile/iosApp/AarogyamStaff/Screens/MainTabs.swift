@@ -36,6 +36,13 @@ struct MainTabs: View {
             }
         }
         .minimizingTabBar()
+        .background {
+            // v10 hooks (plan R4): each draws nothing until its screen is built, in its own file.
+            RoutesV10Desk.hook(graph: graph, clinic: clinic)
+            RoutesV10Intake.hook(graph: graph, clinic: clinic)
+            RoutesV10Doctor.hook(graph: graph, clinic: clinic)
+            RoutesV10Tasks.hook(graph: graph, clinic: clinic)
+        }
         .sheet(isPresented: $walkIn) { RoutesDesk.sheet(graph: graph, clinic: clinic) }
         .sheet(isPresented: $addExpense, onDismiss: { expenseRevision += 1 }) { ExpenseSheetHost(graph: graph, clinic: clinic) }
         .devClinicalHooks(graph: graph, clinic: clinic, selected: $selected, morePath: $morePath)

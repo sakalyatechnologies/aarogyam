@@ -253,7 +253,10 @@ Main gained 93 commits from the portal agent. Those commits built the same backe
 | Task | State |
 |---|---|
 | T0 retarget and seams (`feat/v10` = origin/main + the feat/v9 mobile code) | **done** 5bb70e0a, both gates green; the sse client was cherry-picked onto it as fa30ab32 |
-| T5 shared finish-visit holder + audio sender | running (v10-t5) |
-| T3 shared intake form + patient-file sender | running (v10-t3) |
-| T4, T1, T2, T6, then T7–T11, then T12 | queued |
+| T3 shared intake form + patient-file sender | **merged** 646dceaf; the coordinator wired the outbox and PNG uploads in ece56e59 |
+| T5 shared finish-visit holder + audio sender | **merged** c7052906 (+ `VisitStateHolder.saveNow`); gradle and iOS green |
+| T4 wait timer + collect races | running (v10-t4) |
+| T1 + T2 home choice + availability | running (v10-t1) |
+| T6, then T7–T11, then T12 | queued |
+| Fix | the fake backend's request list raced under load (the flaky `VisitHistoryStateHolderTest`); now locked, ece56e59 |
 | Follow-ups from T0 | the iOS family controls must hide when the flag is off (goes to T7/T8); `ServerCaps` is per process, not per clinic; `VisitHistoryStateHolderTest` is flaky under load |

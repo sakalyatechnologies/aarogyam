@@ -156,6 +156,7 @@ function QueueRow({ token, tone, canWrite }: { token: QueueToken; tone: "warning
           {token.patient.number} · {ageSex(token.patient.age_years, token.patient.sex)}
           {token.practitioner == null ? "" : ` · ${token.practitioner.display_name}`}
         </p>
+        {token.reason == null ? null : <p className="truncate text-xs text-text">{token.reason}</p>}
         <span style={{ display: "inline-block", marginTop: 4 }}>
           <StatusChip tone={token.status === "done" || token.status === "left" ? "done" : tone === "primary" ? "ready" : token.wait_minutes >= 30 ? "noshow" : "waiting"}>
             <Clock3 aria-hidden="true" className="size-3.5" />

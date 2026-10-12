@@ -2366,6 +2366,10 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               return invalid("practitioner_id", "unknown doctor");
             }
           }
+          const reason = (input.reason ?? "").trim();
+          if (reason.length > 200) {
+            return invalid("reason", "at most 200 characters");
+          }
           const now = clock();
           const branchId = input.branch_id ?? caller.clinic.id;
           const day = localClock(now, caller.clinic.timezone).date;
@@ -2390,6 +2394,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             issued_at: now.toISOString(),
             called_at: null,
             done_at: null,
+            reason: reason === "" ? null : reason,
           };
           state.queueTokens.push(token);
           const wired = wireQueueToken(token, state, now);
@@ -7287,6 +7292,10 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if ((input.patient == null) === (input.patient_id == null)) {
             return invalid("patient", "give either patient or patient_id");
           }
+          const reason = (input.reason ?? "").trim();
+          if (reason.length > 200) {
+            return invalid("reason", "at most 200 characters");
+          }
           const allergies = (input.allergies ?? []).map((a) => a.trim());
           if (input.no_known_allergies === true && allergies.length > 0) {
             return invalid("no_known_allergies", "can't be given together with allergies");
@@ -7410,6 +7419,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             issued_at: now.toISOString(),
             called_at: null,
             done_at: null,
+            reason: reason === "" ? null : reason,
           };
           state.queueTokens.push(token);
           const wired = wireQueueToken(token, state, now);
@@ -8217,6 +8227,7 @@ function wireQueueToken(token: FakeQueueToken, state: Fixtures, now: Date): C.Qu
     called_at: token.called_at ?? null,
     done_at: token.done_at ?? null,
     room_id: token.room_id ?? null,
+    reason: token.reason ?? null,
     wait_minutes: waitMinutes,
   };
 }

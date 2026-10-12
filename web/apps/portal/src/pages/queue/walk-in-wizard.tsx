@@ -8,6 +8,7 @@ import { useRegisterWalkIn } from "../../walk-in-queries.js";
 import { AllergyFields, ConsentFields, EMPTY_INTAKE, type Intake } from "./intake-fields.js";
 import { EMPTY_NEW_WALK_IN, NewWalkInFields, type NewWalkIn } from "./new-walk-in-fields.js";
 import { PhoneLookup, type Who } from "./phone-lookup.js";
+import { ReasonField } from "./reason-field.js";
 import { walkInRequest } from "./walk-in-dialog.js";
 import "../../components/quick-picks.css";
 
@@ -29,6 +30,7 @@ export function WalkInWizard({
   const [fresh, setFresh] = useState<NewWalkIn>(EMPTY_NEW_WALK_IN);
   const [intake, setIntake] = useState<Intake>(EMPTY_INTAKE);
   const [practitionerId, setPractitionerId] = useState("");
+  const [reason, setReason] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
   const register = useRegisterWalkIn();
   const toast = useToast();
@@ -42,10 +44,11 @@ export function WalkInWizard({
     setFresh(EMPTY_NEW_WALK_IN);
     setIntake(EMPTY_INTAKE);
     setPractitionerId("");
+    setReason("");
     setError(undefined);
   };
 
-  const request = walkInRequest(mobile, who, fresh, intake, practitionerId);
+  const request = walkInRequest(mobile, who, fresh, intake, practitionerId, reason);
   const next = () => {
     if (step === 0 && typeof request === "string") {
       setError(request);
@@ -123,6 +126,7 @@ export function WalkInWizard({
           <>
             <PhoneLookup mobile={mobile} onMobile={setMobile} who={who} onWho={setWho} />
             {showNew ? <NewWalkInFields value={fresh} onChange={setFresh} /> : null}
+            <ReasonField value={reason} onChange={setReason} />
           </>
         ) : null}
         {step === 1 ? (

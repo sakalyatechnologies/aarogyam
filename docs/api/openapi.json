@@ -30308,6 +30308,13 @@
               }
             ]
           },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient came (plain text, at most 200 characters), when the desk noted it at a\nwalk-in."
+          },
           "room_id": {
             "type": [
               "string",
@@ -35708,6 +35715,13 @@
               "null"
             ],
             "description": "The doctor, if known."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient came: plain text, trimmed, at most 200 characters (more is a `400`);\nempty means none."
           }
         }
       },
@@ -35778,6 +35792,13 @@
               "null"
             ],
             "description": "The doctor, if known. A member who sees only their own patients must name themselves."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient came: plain text, trimmed, at most 200 characters (more is a `400`);\nempty means none. Kept on the queue token."
           }
         }
       },

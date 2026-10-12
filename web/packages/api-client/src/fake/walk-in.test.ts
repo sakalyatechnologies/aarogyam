@@ -52,6 +52,23 @@ describe("walk-in fast path (fake)", () => {
     expect((await desk.confirmAllergy(walkIn.patient.id, allergy.id)).ok).toBe(false);
   });
 
+  it("keeps an optional, trimmed visit reason on the token and refuses one over 200 characters", async () => {
+    const { as } = setup();
+    const desk = as(FARAH);
+    const first = value(await desk.registerWalkIn({ patient: { full_name: "Meera Kulkarni" }, reason: "  Toothache " }));
+    expect(first.token.reason).toBe("Toothache");
+    const blank = value(await desk.registerWalkIn({ patient: { full_name: "Omkar Shinde" }, reason: "   " }));
+    expect(blank.token.reason ?? null).toBeNull();
+    const queued = value(await desk.addWalkIn({ patient_id: first.patient.id, reason: "Cleaning" }));
+    expect(queued.reason).toBe("Cleaning");
+    const listed = value(await desk.listQueue(undefined)).items.find((t) => t.id === queued.id);
+    expect(listed?.reason).toBe("Cleaning");
+    const tooLong = await desk.registerWalkIn({ patient_id: first.patient.id, reason: "x".repeat(201) });
+    expect(tooLong.ok ? 0 : tooLong.error.status).toBe(400);
+    const tooLongQueue = await desk.addWalkIn({ patient_id: first.patient.id, reason: "x".repeat(201) });
+    expect(tooLongQueue.ok ? 0 : tooLongQueue.error.status).toBe(400);
+  });
+
   it("records No known allergies and refuses it when an allergy is on record", async () => {
     const { as } = setup();
     const desk = as(FARAH);

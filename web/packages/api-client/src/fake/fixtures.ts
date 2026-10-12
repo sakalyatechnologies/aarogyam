@@ -213,6 +213,7 @@ export interface FakeQueueToken {
   called_at?: string | null;
   done_at?: string | null;
   room_id?: string | null;
+  reason?: string | null;
 }
 
 /** A consent record, server-shaped except for `clinic_id` and `patient_id`. */

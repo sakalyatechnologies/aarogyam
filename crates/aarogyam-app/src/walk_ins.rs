@@ -15,7 +15,9 @@ use crate::clock::clinic_today;
 use crate::error::AppError;
 use crate::intake::{self, Intake};
 use crate::patients::{PatientView, RegisterPatient, existing, insert_new, validate};
-use crate::queue::{TokenView, check_doctor, issue_token, view as token_view};
+use crate::queue::{
+    TokenExtras, TokenView, check_doctor, clean_reason, issue_token, view as token_view,
+};
 use crate::schedule::resolve_branch;
 use crate::scope::staff_scope as scope;
 
@@ -39,6 +41,8 @@ pub struct NewWalkIn {
     pub branch_id: Option<BranchId>,
     /// Allergies or "No known allergies", and desk consents.
     pub intake: Intake,
+    /// Why the patient came (plain text, at most 200 characters), if the desk noted it.
+    pub reason: Option<String>,
 }
 
 /// What a walk-in did.
@@ -75,6 +79,7 @@ pub async fn register(
     actor.require(Permission::AppointmentsWrite)?;
     actor.require(Permission::IntakeWrite)?;
     let intake = intake::check(&input.intake)?;
+    let reason = clean_reason(input.reason.as_deref())?;
     let today = clinic_today(&actor.timezone, now);
     let new_patient = match &input.patient {
         WalkInPatient::New(details) => Some(validate(details, today)?),
@@ -101,8 +106,11 @@ pub async fn register(
             &actor.timezone,
             branch_id,
             patient_id,
-            None,
-            input.practitioner_id.map(PractitionerId::uuid),
+            TokenExtras {
+                practitioner_id: input.practitioner_id.map(PractitionerId::uuid),
+                reason,
+                ..TokenExtras::default()
+            },
             now,
         )
         .await?;
@@ -130,6 +138,7 @@ mod tests {
             practitioner_id: None,
             branch_id: None,
             intake,
+            reason: None,
         }
     }
 

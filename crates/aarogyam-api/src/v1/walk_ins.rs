@@ -61,6 +61,9 @@ pub struct WalkInRequest {
     pub notice_id: Option<String>,
     /// A notice label, for a notice that isn't published here (prefer `notice_id`).
     pub notice_version: Option<String>,
+    /// Why the patient came: plain text, trimmed, at most 200 characters (more is a `400`);
+    /// empty means none. Kept on the queue token.
+    pub reason: Option<String>,
 }
 
 /// What a walk-in did.
@@ -138,6 +141,7 @@ fn input(body: WalkInRequest) -> Result<NewWalkIn, ApiFailure> {
                 .transpose()?,
             notice_version: body.notice_version,
         },
+        reason: body.reason,
     })
 }
 

@@ -249,6 +249,7 @@ export function QueueV2() {
                           {token.patient.number} · {ageSex(token.patient.age_years, token.patient.sex)}
                           {token.practitioner == null ? "" : ` · ${token.practitioner.display_name}`}
                         </p>
+                        {token.reason == null ? null : <p className="fd-meta">{token.reason}</p>}
                         <p className="fd-facts">
                           <span>
                             <Clock3 aria-hidden="true" className="size-3.5" />

@@ -2,6 +2,29 @@
 
 Where the work stands and exactly what to do next. Update this file at the end of every working session. Read it, `delivery-plan.md` and `decisions.md` before starting.
 
+## For the mobile session: staff to-dos, time off and stock alerts (11 Oct 2026)
+The backend is on `main` (migrations 0660–0675). The web screens are behind New look. Phone tasks:
+1. **Notifications.**
+   - Tolerate unknown notification kinds.
+   - Show `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`, `time_off_decided` and `stock_alert` using their `href`, `title`, `due_at`, `item_name` and `days_cover` fields.
+   - Payloads carry ids and numbers only.
+2. **My tasks.**
+   - Read `GET /tasks/mine?date=`.
+   - Done goes to `POST /tasks/occurrences/{id}/complete` with `{note?, usage?: [{item_id, quantity}], client_id?}`.
+   - Show the badge from `/me/badges.tasks_open`.
+3. **End-of-day usage form** for `record_usage` tasks (pick items and quantities, or "nothing used").
+   - `confirm_photos` tasks show `patients_without_photos_today`.
+4. **Time off.**
+   - `GET /time-off` shows colleagues only as away, with no kind or reason.
+   - `POST /time-off` sends a request.
+   - Managers approve and decline.
+   - Booking a doctor on leave now returns 422 `practitioner_on_leave`. Show the suggested free doctors.
+5. **Stock.**
+   - `GET /stock/analytics`.
+   - `/stock/low` now carries `days_cover` and `runs_out_on`.
+6. **Push** for these kinds is not wired yet (in-app only). Add it when FCM/APNs credentials exist.
+7. **Regenerate** the client from `docs/api/openapi.json`.
+
 ## Portal v2 status (10 Oct 2026, late; read this first)
 The founder's guiding rule: **the visit journey must be super simple.** Patient arrives, treatment, finish, with the fewest clicks, easy to find, and easy to show the patient. Plan every task from that view.
 

@@ -1,10 +1,10 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { unwrap, type DashboardLayout, type DashboardLayoutView } from "@aarogyam/api-client";
+import { unwrap, type ApiClient, type DashboardLayout, type DashboardLayoutView, type TaskOccurrenceId } from "@aarogyam/api-client";
 
 import { useClinic } from "../../../clinic.js";
 import { REFERENCE, SCHEDULE } from "../../../lib/cache-policy.js";
-import { adoptTemplates } from "./layout-model.js";
+import { adoptTemplates, serverKnows, withoutMyTasks, MY_TASKS_KEY } from "./layout-model.js";
 
 /** A clinic day's board data. `date` is `YYYY-MM-DD`; left out it is the current day, and refreshes by itself. */
 export function useDayToday(date: string | undefined) {
@@ -79,7 +79,12 @@ export function useSaveLayout(scope: "me" | "clinic") {
   const { api, access } = useClinic();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (layout: DashboardLayout) => unwrap(scope === "me" ? api.saveMyDashboardLayout(layout) : api.saveDashboardLayout(layout)),
+    mutationFn: (layout: DashboardLayout) => {
+      // The portal draws "My tasks" before the server's catalogue lists it; the server would refuse the key.
+      const known = serverKnows(queryClient.getQueryData<DashboardLayoutView>(layoutKey(access.org_id, scope))?.catalogue, MY_TASKS_KEY);
+      const body = known ? layout : withoutMyTasks(layout);
+      return unwrap(scope === "me" ? api.saveMyDashboardLayout(body) : api.saveDashboardLayout(body));
+    },
     onSuccess: (view) => {
       if (scope === "me") queryClient.setQueryData<DashboardLayoutView>(layoutKey(access.org_id, "me"), view);
       else void queryClient.invalidateQueries({ queryKey: ["dashboard-layout", access.org_id] });
@@ -95,6 +100,38 @@ export function useResetLayout() {
     mutationFn: () => unwrap(api.resetMyDashboardLayout()),
     onSuccess: (view) => {
       queryClient.setQueryData<DashboardLayoutView>(layoutKey(access.org_id, "me"), view);
+    },
+  });
+}
+
+/** What finishing a task sends: an optional note and the materials used. */
+export type CompleteTaskInput = Parameters<ApiClient["completeTask"]>[1];
+
+/** How often "My tasks" is asked for again, the same as the bell's number. */
+export const TASKS_POLL_MS = 60_000;
+
+/** The caller's tasks for today (their own and their role's), plus any still open from earlier. */
+export function useMyTasks(enabled = true) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["my-tasks", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.listMyTasks(undefined, { signal })),
+    enabled,
+    ...SCHEDULE,
+    refetchInterval: TASKS_POLL_MS,
+  });
+}
+
+/** Finishes a task; the list, the bell's number, the notifications and (when materials were used) the stock follow at once. */
+export function useCompleteTask() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: TaskOccurrenceId; input: CompleteTaskInput }) => unwrap(api.completeTask(id, input)),
+    onSettled: () => {
+      for (const key of ["my-tasks", "badges", "notifications", "stock"]) {
+        void queryClient.invalidateQueries({ queryKey: [key, access.org_id] });
+      }
     },
   });
 }

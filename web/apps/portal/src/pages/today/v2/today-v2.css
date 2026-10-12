@@ -298,3 +298,21 @@
 /* The Studio's preview shows everything at once: nothing in it scrolls, it grows (and is scaled down to fit). */
 .tv2[data-preview] .tv2-qbox { max-height: none; overflow: visible; }
 .tv2[data-preview] .tv2-rail { overflow: visible; }
+
+/* My tasks */
+.tv2-tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tv2-task { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 20px; background: var(--sk-surface-muted); min-width: 0; }
+.tv2-task[data-overdue="true"] { background: var(--sk-warning-soft); }
+.tv2-task-head { display: flex; align-items: center; gap: 10px; }
+.tv2-task-head .tv2-name { white-space: normal; }
+.tv2-late { color: var(--sk-warning-text); font-weight: 600; }
+.tv2-task .tv2-link { align-self: flex-start; }
+.tv2-task-note { display: flex; flex-direction: column; gap: 4px; }
+.tv2-task-usage { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
+.tv2-task-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
+.tv2-task-items > li { display: flex; align-items: center; gap: 10px; }
+.tv2-qty { width: 88px; flex: 0 0 88px; }
+.tv2-task-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tv2-task-clear { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; font-size: 14px; color: var(--sk-text); }
+.tv2-task-done { margin-top: 10px; }
+.tv2-task-finished { display: flex; align-items: center; gap: 10px; padding: 6px 10px; color: var(--sk-text-muted); }

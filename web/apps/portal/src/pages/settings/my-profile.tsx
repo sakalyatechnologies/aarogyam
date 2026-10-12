@@ -3,10 +3,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera, Heart, Leaf, Smile, Sparkles, Star, Sun, type LucideIcon } from "lucide-react";
 
 import { apiErrorOf, unwrap, type Avatar } from "@aarogyam/api-client";
-import { useToast } from "@sakalya/ui";
+import { Switch, useToast } from "@sakalya/ui";
 
 import { Initials, MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
+import { useVisitAlerts } from "../../layout/visit-alerts.js";
 
 /** The pictures this portal draws for a preset id. The server stores only the id; each app ships its own pictures. */
 export const PRESETS: readonly { id: string; label: string; Icon: LucideIcon; tone: string }[] = [
@@ -52,6 +53,7 @@ const phoneProblem = (phone: string): string | undefined => (phone.trim() === ""
  */
 export function MyProfile() {
   const { api, me, session, can } = useClinic();
+  const alerts = useVisitAlerts(session.user.id);
   const queryClient = useQueryClient();
   const toast = useToast();
   const nameId = useId();
@@ -216,6 +218,16 @@ export function MyProfile() {
           </button>
         </div>
       </form>
+      <div className="st-me-alerts" style={{ marginTop: 16 }}>
+        <Switch
+          label="Sound and desktop alert for a waiting patient"
+          checked={alerts.on}
+          onCheckedChange={(next) => {
+            void alerts.set(next);
+          }}
+        />
+        <p className="mk-hint">Off by default and kept on this browser only. It says &ldquo;New patient waiting&rdquo;, never a name. Your browser asks before showing desktop alerts.</p>
+      </div>
     </MkCard>
   );
 }

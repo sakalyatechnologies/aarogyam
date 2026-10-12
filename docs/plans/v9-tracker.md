@@ -263,3 +263,6 @@ Main gained 93 commits from the portal agent. Those commits built the same backe
 | Gap (T4) | the outbox payment sender doesn't re-check the balance; a queued payment that gets a 409 ends rejected |
 | Fix | the fake backend's request list raced under load (the flaky `VisitHistoryStateHolderTest`); now locked, ece56e59 |
 | Follow-ups from T0 | the iOS family controls must hide when the flag is off (goes to T7/T8); `ServerCaps` is per process, not per clinic; `VisitHistoryStateHolderTest` is flaky under load |
+
+## Paused, 12 Oct 2026, morning
+**Mobile pushed to main as d42d278b** (feat/v10: mobile only, gates green). **Resume from `docs/plans/v10/STATE.md` on main.** Saved branches: v10-t6 (33ba548a), v10-t7 (6fcd2b27), v9-pb (e2e91223, for the backend agent), v9-pa (reference). All agents are stopped.

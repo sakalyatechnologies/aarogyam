@@ -194,9 +194,9 @@ describe("staff notifications", () => {
       const sunrise = fixtures.clinics.find((c) => c.host === SUNRISE)?.id ?? "";
       const lotus = fixtures.clinics.find((c) => c.host === LOTUS)?.id ?? "";
       fixtures.notifications = [
-        note("0192f1c4-7a10-7c3e-9b2a-1d2e3f405101", "send_in", sunrise, { queue_token: { id: "t1", number: 4 } }),
-        note("0192f1c4-7a10-7c3e-9b2a-1d2e3f405102", "payment_due", sunrise, { href: "/billing/invoices/i1", invoice: { id: "i1", number: "SD/1" } }),
-        note("0192f1c4-7a10-7c3e-9b2a-1d2e3f405103", "send_in", lotus, { queue_token: { id: "t9", number: 1 } }),
+        note("0192f1c4-7a10-7c3e-9b2a-1d2e3f405101", "send_in", sunrise, { token_id: "t1" }),
+        note("0192f1c4-7a10-7c3e-9b2a-1d2e3f405102", "payment_due", sunrise, { href: "/billing/invoices/i1", invoice_id: "i1" }),
+        note("0192f1c4-7a10-7c3e-9b2a-1d2e3f405103", "send_in", lotus, { token_id: "t9" }),
       ];
     });
     const asha = as(ASHA);

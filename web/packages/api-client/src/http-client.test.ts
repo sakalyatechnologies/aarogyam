@@ -156,6 +156,26 @@ describe("createHttpClient requests", () => {
     expect((await bad.getInvoiceUpiLink(invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170"))).ok).toBe(false);
   });
 
+  it("reads the collect summary of a bill from its own path, with the UPI link optional, and checks the body", async () => {
+    const id = invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170");
+    const upi = { uri: "upi://pay?pa=a@b", qr_data: "upi://pay?pa=a@b", upi_id: "a@b", payee_name: "Sunrise Dental", invoice_number: "INV-1", amount_paise: 30000 };
+    const full = { invoice_id: id, number: "INV-1", total_paise: 50000, balance_paise: 30000, upi_link: upi };
+    const { fetch, calls } = stubFetch(json(200, full));
+    const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });
+
+    const result = await client.getInvoiceCollectSummary(id);
+
+    expect(calls[0]?.url).toBe(`http://sunrise.localtest.me/api/v1/invoices/${id}/collect-summary`);
+    expect(calls[0]?.init?.method).toBe("GET");
+    expect(result.ok && [result.value.number, result.value.balance_paise, result.value.upi_link?.upi_id]).toEqual(["INV-1", 30000, "a@b"]);
+    const bare = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), {
+      fetch: stubFetch(json(200, { invoice_id: id, number: "INV-1", total_paise: 50000, balance_paise: 50000 })).fetch,
+    });
+    expect((await bare.getInvoiceCollectSummary(id)).ok).toBe(true);
+    const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { invoice_id: id })).fetch });
+    expect((await bad.getInvoiceCollectSummary(id)).ok).toBe(false);
+  });
+
   it("reads and finishes tasks on their own paths and checks the bodies against the contract", async () => {
     const occurrence = {
       id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171",
@@ -492,7 +512,7 @@ describe("createHttpClient settings v2", () => {
     lab_order: null,
     href: "/billing/invoices/0192f1c4-7a10-7c3e-9b2a-1d2e3f405171",
     queue_token: null,
-    invoice: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171", number: "AD/26-27/000001" },
+    invoice: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171", number: "AD/26-27/000001", total_paise: 50000, balance_paise: 20000 },
     recall: null,
   };
 

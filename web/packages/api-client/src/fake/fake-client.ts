@@ -103,6 +103,7 @@ import {
 } from "./tasks.js";
 import { MAX_MOVEMENT, addDays, byUrgency, daysBetween, isExpired, isStockUnit, levelOf, pickFefo, projectStock, wireItem } from "./stock.js";
 import { readCsv, readRow, suggestColumns, type CsvTable } from "./smart-import.js";
+import * as notices from "./visit-notices.js";
 import {
   TIME_OFF_KINDS,
   affectedAppointments,
@@ -526,8 +527,19 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       return localClock(clock(), clinic.timezone).date;
     }
 
-    /** Closes a visit and finishes the queue token it was started from. */
-    function closeFakeVisit(found: FakeVisit, queueStatus: "ready_to_bill" | "done" = "done"): void {
+    /** What writing or settling a visit notice needs: the state, the bill amounts, a new id, now and who acted. */
+    function noticeContext(caller?: Caller): notices.NoticeContext {
+      return {
+        state,
+        money: (invoice) => invoiceMoney(invoice, state),
+        newId: () => fakeUuid(random, clock()),
+        now: clock(),
+        actor: caller === undefined ? undefined : { membership_id: caller.membership.id, name: caller.user.display_name },
+      };
+    }
+
+    /** Closes a visit and finishes the queue token it was started from. A ready-to-bill close with no token still asks the desk to collect. */
+    function closeFakeVisit(caller: Caller, found: FakeVisit, queueStatus: "ready_to_bill" | "done" = "done"): void {
       found.status = "closed";
       found.ended_at = clock().toISOString();
       const linked = state.queueTokens.find((t) => t.id === found.queue_token_id);
@@ -536,6 +548,11 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         linked.called_at ??= found.ended_at;
         if (queueStatus === "done") {
           linked.done_at = found.ended_at;
+        }
+        notices.tokenMoved(noticeContext(caller), linked);
+      } else if (linked === undefined && queueStatus === "ready_to_bill") {
+        for (const invoice of state.invoices.filter((i) => i.clinic_id === found.clinic_id && i.encounter_id === found.id)) {
+          notices.collectPayment(noticeContext(caller), invoice, null);
         }
       }
     }
@@ -2306,6 +2323,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               done_at: null,
             };
             state.queueTokens.push(token);
+            notices.patientWaiting(noticeContext(caller), token);
             found.token_number = nextNumber;
             queueTokenId = token.id;
           } else if (target === "in_chair") {
@@ -2315,6 +2333,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               token.status = "in_chair";
               token.called_at = now.toISOString();
               queueTokenId = token.id;
+              notices.tokenMoved(noticeContext(caller), token);
             }
           } else if (target === "completed") {
             found.completed_at = now.toISOString();
@@ -2323,6 +2342,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               token.status = "done";
               token.done_at = now.toISOString();
               queueTokenId = token.id;
+              notices.tokenMoved(noticeContext(caller), token);
             }
           }
           const wired = wireAppointment(found, state, now);
@@ -2392,6 +2412,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             done_at: null,
           };
           state.queueTokens.push(token);
+          notices.patientWaiting(noticeContext(caller), token);
           const wired = wireQueueToken(token, state, now);
           if (wired === undefined) {
             return notFound;
@@ -2415,6 +2436,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             }
             found.status = "called";
             found.called_at = clock().toISOString();
+            notices.tokenMoved(noticeContext(caller), found);
           }
           const wired = wireQueueToken(found, state, clock());
           return wired === undefined ? notFound : reply(wired satisfies C.QueueToken);
@@ -2449,6 +2471,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (chair !== undefined) found.room_id = chair.id;
           if (parsed.data === "in_chair" && found.called_at == null) found.called_at = now.toISOString();
           if (parsed.data === "done" || parsed.data === "left") found.done_at = now.toISOString();
+          notices.tokenMoved(noticeContext(caller), found);
           if (found.appointment_id != null) {
             const appt = state.appointments.find((a) => a.id === found.appointment_id);
             if (appt !== undefined) {
@@ -3197,7 +3220,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (found.status === "closed") {
             return refuse(409, "conflict", "That visit is already closed.");
           }
-          closeFakeVisit(found);
+          closeFakeVisit(caller, found);
           const wired = wireVisit(found, state);
           if (wired === undefined) {
             return notFound;
@@ -3223,7 +3246,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return refuse(409, "visit_closed", "That visit is already closed.");
           }
           const made = applyWrapUp(caller, found, wrap);
-          closeFakeVisit(found, input.queue_status ?? "done");
+          closeFakeVisit(caller, found, input.queue_status ?? "done");
           const wired = wireVisit(found, state);
           if (wired === undefined) {
             return notFound;
@@ -3301,7 +3324,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             }
           }
           const made = applyWrapUp(caller, found, wrap);
-          closeFakeVisit(found, body.queue_status ?? "done");
+          closeFakeVisit(caller, found, body.queue_status ?? "done");
           const wired = wireVisit(found, state);
           if (wired === undefined) {
             return notFound;
@@ -4489,16 +4512,24 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return refuse(403, "forbidden", "You don't have permission to do that.");
           }
           const limit = Math.min(Math.max(params?.limit ?? 30, 1), 100);
-          const items = visibleNotifications(state, caller)
+          const items = visibleNotifications(state, caller, clock())
             .filter((n) => params?.before === undefined || n.id < params.before)
-            .filter((n) => params?.unreadOnly !== true || !isRead(n, caller))
+            .filter((n) => params?.unreadOnly !== true || isUnread(n, caller))
             .sort((a, b) => (a.id < b.id ? 1 : -1))
             .slice(0, limit)
             .map((n): C.Notification => {
               const read = isRead(n, caller);
               // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the clinic and the readers stay on the server
-              const { clinic_id, read_by, for_member, for_role, step_no, ...wire } = n;
-              return { ...wire, read, read_at: read ? n.created_at : null };
+              const { clinic_id, read_by, for_member, for_role, step_no, token_id, invoice_id, ...wire } = n;
+              const token = token_id === undefined ? undefined : state.queueTokens.find((t) => t.id === token_id);
+              const bill = invoice_id === undefined ? undefined : state.invoices.find((i) => i.id === invoice_id);
+              return {
+                ...wire,
+                read,
+                read_at: read ? n.created_at : null,
+                ...(token === undefined ? {} : { queue_token: { id: token.id, number: token.token_number } }),
+                ...(bill === undefined ? {} : { invoice: { id: bill.id, number: bill.number ?? null, ...invoiceMoney(bill, state) } }),
+              };
             });
           return reply({ items } satisfies C.NotificationList);
         }),
@@ -4512,7 +4543,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!canSeeNotifications(caller)) {
             return refuse(403, "forbidden", "You don't have permission to do that.");
           }
-          const unread = visibleNotifications(state, caller).filter((n) => !isRead(n, caller)).length;
+          const unread = visibleNotifications(state, caller, clock()).filter((n) => isUnread(n, caller)).length;
           return reply({ unread: Math.min(unread, 100) } satisfies C.UnreadCount);
         }),
 
@@ -4522,7 +4553,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!isCaller(caller)) {
             return caller;
           }
-          const found = visibleNotifications(state, caller).find((n) => n.id === id);
+          const found = visibleNotifications(state, caller, clock()).find((n) => n.id === id);
           if (found === undefined) {
             return notFound;
           }
@@ -4536,7 +4567,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!isCaller(caller)) {
             return caller;
           }
-          const unread = visibleNotifications(state, caller).filter((n) => !isRead(n, caller));
+          const unread = visibleNotifications(state, caller, clock()).filter((n) => isUnread(n, caller));
           for (const n of unread) {
             n.read_by = [...(n.read_by ?? []), caller.membership.id];
           }
@@ -6114,6 +6145,41 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wireInvoice(found, state, false) satisfies C.Invoice);
         }),
 
+      getInvoiceCollectSummary: (id, opts) =>
+        respond(S.collectSummary, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const permissions = caller.membership.role.permissions;
+          if (!hasPermission(permissions, "payments.collect") && !hasPermission(permissions, "billing.read")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const found = state.invoices.find((i) => i.id === id && i.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status === "void") {
+            return refuse(409, "conflict", "the bill is void");
+          }
+          const money = invoiceMoney(found, state);
+          const upiId = caller.clinic.upi_id;
+          const upi =
+            upiId == null || upiId === "" || money.balance_paise <= 0
+              ? null
+              : (() => {
+                  const uri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(caller.clinic.name)}&am=${(money.balance_paise / 100).toFixed(2)}&cu=INR&tn=${encodeURIComponent(found.number ?? "")}`;
+                  return { uri, qr_data: uri, upi_id: upiId, payee_name: caller.clinic.name, invoice_number: found.number ?? "", amount_paise: money.balance_paise };
+                })();
+          return reply({
+            invoice_id: found.id,
+            number: found.number ?? "",
+            total_paise: money.total_paise,
+            balance_paise: money.balance_paise,
+            ...(upi === null ? {} : { upi_link: upi }),
+          } satisfies C.CollectSummary);
+        }),
+
       getInvoiceUpiLink: (id, opts) =>
         respond(S.upiLink, opts?.signal, async () => {
           const caller = await inClinic("billing.read");
@@ -6171,6 +6237,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             created_at: now.toISOString(),
           };
           state.invoices.push(invoiceRecord);
+          notices.invoiceMade(noticeContext(caller), invoiceRecord);
           return reply(wireInvoice(invoiceRecord, state, false) satisfies C.Invoice);
         }),
 
@@ -6252,6 +6319,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           found.status = "void";
           found.void_reason = reason.reason;
           found.voided_at = clock().toISOString();
+          notices.invoiceSettled(noticeContext(caller), found);
           return reply(wireInvoice(found, state, false) satisfies C.Invoice);
         }),
 
@@ -6285,9 +6353,15 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
       recordPayment: (input, idempotencyKey, opts) =>
         respond(S.payment, opts?.signal, async () => {
-          const caller = await inClinic("billing.write");
+          const caller = await inClinic();
           if (!isCaller(caller)) {
             return caller;
+          }
+          // Billing keepers take any payment; `payments.collect` takes it on a bill that is draft or issued with a balance.
+          const permissions = caller.membership.role.permissions;
+          const collectOnly = !hasPermission(permissions, "billing.write");
+          if (collectOnly && !hasPermission(permissions, "payments.collect")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
           }
           if (idempotencyKey.trim() === "") {
             return invalid("idempotency_key", "an Idempotency-Key is required");
@@ -6317,10 +6391,14 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             if (invoiceFound === undefined) {
               return notFound;
             }
-            if (invoiceFound.status !== "issued") {
+            const collecting = invoiceFound.status === "draft" && hasPermission(permissions, "payments.collect");
+            if (invoiceFound.status !== "issued" && !collecting) {
               return refuse(409, "conflict", "a bill isn't issued");
             }
-            const wired = wireInvoice(invoiceFound, state, false);
+            if (collectOnly && invoiceMoney(invoiceFound, state).balance_paise <= 0) {
+              return refuse(409, "conflict", "nothing is left to pay on that bill");
+            }
+            const wired = { balance_paise: invoiceMoney(invoiceFound, state).balance_paise };
             if (alloc.amount_paise > wired.balance_paise) {
               return invalid("allocations", "an allocation is past a bill's balance");
             }
@@ -6334,7 +6412,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (allocations.length > 0) {
             const balanceDue = allocations.reduce((sum, a) => {
               const bill = state.invoices.find((i) => i.id === a.invoice_id);
-              return sum + (bill === undefined ? 0 : wireInvoice(bill, state, false).balance_paise);
+              return sum + (bill === undefined ? 0 : invoiceMoney(bill, state).balance_paise);
             }, 0);
             if (input.amount_paise > balanceDue) {
               return invalid("amount", "must not be more than the balance due");
@@ -6356,6 +6434,17 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           };
           state.payments.push(paymentRecord);
           paymentByIdempotencyKey.set(idempotencyKey, paymentRecord.id);
+          for (const a of allocations) {
+            const bill = state.invoices.find((i) => i.id === a.invoice_id);
+            if (bill === undefined) continue;
+            // Taking a payment on a draft issues it, so it has a number and a receipt to point at.
+            if (bill.status === "draft") {
+              bill.status = "issued";
+              bill.number = nextInvoiceNumber(state, caller.clinic);
+              bill.issued_at = now.toISOString();
+            }
+            notices.invoiceSettled(noticeContext(caller), bill);
+          }
           return reply(wirePayment(paymentRecord, state) satisfies C.Payment);
         }),
 
@@ -7412,6 +7501,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             done_at: null,
           };
           state.queueTokens.push(token);
+          notices.patientWaiting(noticeContext(caller), token);
           const wired = wireQueueToken(token, state, now);
           if (wired === undefined) {
             return notFound;
@@ -7465,6 +7555,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (token.status === "waiting") {
             token.status = "in_chair";
             token.called_at = now.toISOString();
+            notices.tokenMoved(noticeContext(caller), token);
             const appt = state.appointments.find((a) => a.id === token.appointment_id);
             if (appt !== undefined && appt.status === "arrived") {
               appt.status = "in_chair";
@@ -7703,9 +7794,9 @@ function wireMember(membership: FakeMembership, state: Fixtures): C.Member {
 }
 
 /** The clinic's notifications the caller's role reaches: each kind by the permission that shows it. */
-function visibleNotifications(state: Fixtures, caller: { clinic: FakeClinic; membership: FakeMembership }) {
+function visibleNotifications(state: Fixtures, caller: { clinic: FakeClinic; membership: FakeMembership }, now: Date) {
   const inClinic = (state.notifications ?? []).filter((n) => n.clinic_id === caller.clinic.id);
-  const mine = inClinic.filter((n) => notificationAudience(n, caller.membership));
+  const mine = inClinic.filter((n) => notificationAudience(state, n, caller.membership, now));
   // A task shows only its newest step among the rows this member could see.
   return mine.filter(
     (n) => n.task_occurrence_id == null || !mine.some((later) => later.task_occurrence_id === n.task_occurrence_id && taskStepAfter(later, n)),
@@ -7720,9 +7811,13 @@ function taskStepAfter(later: FakeNotification, n: FakeNotification): boolean {
 }
 
 /** Who each kind is for, as the API decides it; the older kinds by their permission. */
-function notificationAudience(n: FakeNotification, membership: FakeMembership): boolean {
+function notificationAudience(state: Fixtures, n: FakeNotification, membership: FakeMembership, now: Date): boolean {
   const permissions = membership.role.permissions;
   switch (n.kind) {
+    case "patient_waiting":
+    case "send_in":
+    case "collect_payment":
+      return notices.visitNoticeVisible(state, n, membership, now);
     case "task_due":
     case "task_reminder":
       return hasPermission(permissions, "tasks.use") && (n.for_member === membership.id || n.for_role === membership.role.key);
@@ -8016,7 +8111,6 @@ function applyNotificationChanges(clinic: FakeClinic, changes: C.NotificationSet
 const NOTIFICATION_PERMISSION: Readonly<Record<string, Permission>> = {
   lab_overdue: "labs.read",
   payment_due: "billing.read",
-  collect_payment: "billing.read",
   recall_due: "patients.read",
 };
 
@@ -8029,6 +8123,11 @@ function canSeeNotifications(caller: { membership: FakeMembership }): boolean {
 
 function isRead(n: FakeNotification, caller: { membership: FakeMembership }): boolean {
   return (n.read_by ?? []).includes(caller.membership.id);
+}
+
+/** What the bell counts: not read, and not an actionable notice somebody has already handled. */
+function isUnread(n: FakeNotification, caller: { membership: FakeMembership }): boolean {
+  return !isRead(n, caller) && !(notices.isActionable(n.kind) && n.handled != null);
 }
 
 function validateNewClinic(input: C.NewClinic, slug: string, clinics: readonly FakeClinic[]): Outcome | null {
@@ -8946,6 +9045,16 @@ function wireInvoiceLine(l: FakeInvoiceLine): C.InvoiceLine {
     igst_paise: l.igst_paise,
     total_paise: l.total_paise,
   };
+}
+
+/** A bill's total and what is left on it; a draft owes its whole total, a void bill nothing. */
+function invoiceMoney(inv: FakeInvoice, state: Fixtures): { total_paise: number; balance_paise: number } {
+  const total = computeInvoiceAmounts(inv.items).total_paise;
+  if (inv.status === "void") {
+    return { total_paise: total, balance_paise: 0 };
+  }
+  const paid = paymentsFor(state, inv.id).reduce((sum, p) => sum + (p.allocations.find((a) => a.invoice_id === inv.id)?.amount_paise ?? 0), 0);
+  return { total_paise: total, balance_paise: Math.max(0, total - paid) };
 }
 
 function computeInvoiceAmounts(items: readonly FakeInvoiceLine[]) {

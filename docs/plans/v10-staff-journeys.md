@@ -11,6 +11,12 @@ Notifications must run both ways so the two never disagree. Targets:
 **Status:** draft. It needs approval from an independent senior principal engineer before any build starts.
 
 ## 0. Ground truth and ownership
+**Single-backend rule** (founder, 12 Oct; in `~/project/coordination/mobile-to-backend.md`):
+- One backend, owned by the backend and website agent (ref 541c34).
+- Notifications are built once in the backend; the phone only displays them and adds no notification logic, kinds or tables of its own.
+- The phone reads the notification contract from main (`kind`, `href`, `queue_token`, `invoice`, `audience`, `handled`) and tolerates unknown kinds.
+- The v9 port (0700–0704, now only patient visits, SSE, auto messages, the follow-up link and the token on payment) is mobile's last backend change.
+
 - **The website is the reference.** It already runs this flow on main:
   - `web/apps/portal/src/pages/queue/*`: walk-in wizard, add to queue, chair dialog, collect dialog, board
   - `pages/patients/v2/*`: Patient 360 blocks, visit session, finish-visit, collect panel, celebration, images
@@ -41,7 +47,7 @@ Notifications must run both ways so the two never disagree. Targets:
 | A4 New | **"New patient"** opens one scrolling form: name, date of birth or age, phone (prefilled), email (optional), sex, allergy chips (must pick "none known" or some), consent toggles read aloud, **signature pad**, photo (optional), "Reason for visit" note; one **Save & queue** button | form + 1 | `POST /walk-ins` (allergies, consents, notice), then the outbox uploads the photo and the signature as attachments (`photo` "Profile", `consent` "Signature") |
 | A5 Child | "Add family member" on a parent creates the walk-in with `family_of` | form + 1 | after pa |
 | A6 Availability | Strip at the top: each doctor **free / with patient / away**, each chair **free / busy**, derived from `/today` + `/queue` (no new call) | 0 | — |
-| A7 Waiting | The card shows "Waiting for Dr X · 0:42". At **60 s** with no `called`, it turns amber: "No reply" with **Remind** and **I'll check**. Remind re-notifies the doctor (G1); until G1 ships, the fallback posts "Token 12 is waiting" (no name) in the team chat to the doctor | 1 | G1 / `postMessage` |
+| A7 Waiting | The card shows "Waiting for Dr X · 0:42". At **60 s** with no `called`, it turns amber: "No reply" with **Remind** and **I'll check**. Remind calls the backend (G1, top of the backend agent's list); until it ships, Remind is hidden and the card shows "Check with Dr X" | 1 | G1 |
 | A8 Welcome | A chip on the card, "Welcome sent" / "Not sent: no WhatsApp consent", from the server's auto message (pb) | 0 | message status (pb; G8 if missing) |
 | A9 Send in | The doctor's call arrives (SSE, or a poll), then a banner, haptic and sound: "Dr X is ready for Token 12". The card moves to Called; "Sent in" moves it on | 1 | `/queue/{id}/status` |
 | A10 Collect | `collect_payment` arrives, then a banner, then a To pay card with the amount. The sheet has the amount prefilled, UPI QR (`/invoices/{id}/upi-link`) / cash / card, proof photo and **Paid**. Then a celebration, the token goes done, and the server sends the thank-you | 2–3 | `POST /payments` (+ `attachment_id` after pa), issue invoice |
@@ -67,7 +73,7 @@ Notifications must run both ways so the two never disagree. Targets:
 | Event | To | Delivery today | Later |
 |---|---|---|---|
 | Patient queued (`patient_waiting`) | that doctor | SSE, then banner, haptic and badge; poll fallback | push (G3) |
-| No reply in 60 s | desk | phone timer on the card | server re-notify (G1) |
+| No reply in 60 s | desk | phone timer on the card (display only) | Remind calls G1 |
 | Doctor called (`send_in`) | desk | SSE, then banner and sound | push |
 | Collect (`collect_payment`) | desk | SSE, then banner | push |
 | Task due or escalated | assignee | bell, plus My tasks badge | push |
@@ -82,7 +88,7 @@ Notifications must run both ways so the two never disagree. Targets:
 | T1 | Shared `RoleHome`: which home per role (Desk first for front desk and assistant, Today with Waiting for you for doctors); NavModel tests for 6 roles | `shared/.../nav/*` | T0 |
 | T2 | Shared `AvailabilityStrip` model from `/today` + `/queue` (doctor free / with patient / away; chair free / busy) with tests | `shared/.../desk/Availability*.kt` | T0 |
 | T3 | Shared `IntakeForm` holder: one-form new patient (validation, allergies required, consent, signature and photo queued in the outbox after create, `family_of`, reason note) | `shared/.../walkin/Intake*.kt` | T0 |
-| T4 | Shared `DoctorWaitTimer` + Remind (G1 if present; else the team-chat fallback with no name) | `shared/.../desk/Remind*.kt` | T0 |
+| T4 | Shared `DoctorWaitTimer` (display only) + Remind once G1 lands | `shared/.../desk/Remind*.kt` | T0 |
 | T5 | Shared `FinishVisitStateHolder` mirroring web `finish-visit.ts` (follow-up chips, fee prefilled from priced procedures, Rx issue, allergy 409 retry, collect now vs send to desk) | `shared/.../visit/Finish*.kt` | T0 |
 | T6 | Shared `MyTasksStateHolder` + `NotificationKinds` (all main kinds, unknown tolerated) + badges | `shared/.../tasks/*`, `shared/.../notifications/*` | T0 |
 | T7 | iOS **Desk home**: number field, chips, availability strip, board with timer and Remind, banners | `Screens/V10Desk/*`, `Routes+V10Desk.swift` | T1–T4 |

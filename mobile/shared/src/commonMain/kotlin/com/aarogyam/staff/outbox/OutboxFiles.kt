@@ -21,6 +21,9 @@ interface OutboxFiles {
 
     /** Total size of every stored file. */
     fun totalBytes(): Long
+
+    /** Deletes every stored file. For sign-out, so the next person never finds the last one's photos. */
+    fun clear()
 }
 
 /** Files held in memory: the default until a platform store is passed, and for tests. */
@@ -41,6 +44,10 @@ class MemoryOutboxFiles(
     }
 
     override fun totalBytes(): Long = files.values.sumOf { it.size.toLong() }
+
+    override fun clear() {
+        files.clear()
+    }
 
     val names: Set<String> get() = files.keys.toSet()
 }

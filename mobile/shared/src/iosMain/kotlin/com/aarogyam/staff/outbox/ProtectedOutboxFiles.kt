@@ -75,4 +75,10 @@ class ProtectedOutboxFiles : OutboxFiles {
             val attrs = fm.attributesOfItemAtPath("$directory/$entry", null)
             (attrs?.get(NSFileSize) as? NSNumber)?.longLongValue ?: 0L
         }
+
+    override fun clear() {
+        (fm.contentsOfDirectoryAtPath(directory, null) ?: emptyList<Any?>()).forEach { entry ->
+            fm.removeItemAtPath("$directory/$entry", null)
+        }
+    }
 }

@@ -34,6 +34,7 @@ import { APPOINTMENT_CHIP } from "../../../lib/appointment-status.js";
 import { displayName } from "../../../lib/patients.js";
 import { usePatientPeek } from "../../../layout/peek.js";
 import { useStaff } from "../../../queries.js";
+import { useLowStock } from "../../stock/queries.js";
 import { useTodayMoney } from "../../billing/queries.js";
 import { DayTimeline } from "../day-timeline.js";
 import { AttentionSection, ChairStatus, PendingPayments, RecentPatients, RevenueMix, TeamToday, waitingMinutes } from "../today-page.js";
@@ -143,6 +144,9 @@ function AttentionWidget({ spec }: WidgetProps) {
   const { date } = useBoard();
   const day = useDayToday(date);
   const zone = useZone();
+  const { can } = useClinic();
+  const low = useLowStock(can("inventory.read") && (day.data?.low_stock ?? []).length > 0);
+  const cover = new Map((low.data?.items ?? []).map((l) => [String(l.item.id), l.days_cover] as const));
   return (
     <WidgetCard title={spec.label} subtitle="Late arrivals, long waits, requests and stock">
       <Body query={day} label={spec.label} empty={null}>
@@ -165,7 +169,7 @@ function AttentionWidget({ spec }: WidgetProps) {
                   ))}
                 </ul>
               )}
-              <AttentionSection items={today.attention} lowStock={today.low_stock ?? []} appointments={today.appointments} timeZone={zone} />
+              <AttentionSection items={today.attention} lowStock={today.low_stock ?? []} appointments={today.appointments} timeZone={zone} cover={cover} />
             </>
           );
         }}

@@ -252,5 +252,5 @@ Main gained 93 commits from the portal agent. Those commits built the same backe
 ## v10 staff journeys (plan `docs/plans/v10-staff-journeys.md`, approved 12 Oct 2026)
 | Task | State |
 |---|---|
-| T0 retarget and seams (branch `feat/v10` = origin/main + feat/v9 mobile; pb and sse merged on top later) | in progress (coordinator) |
+| T0 retarget and seams (branch `feat/v10` = origin/main + feat/v9 mobile, merge 9a1a6861; pb and sse merged on top later) | worker t0 running |
 | T1–T13 | waiting for T0 |

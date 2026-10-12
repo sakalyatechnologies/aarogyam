@@ -1,0 +1,62 @@
+# Mobile state at pause, 12 Oct 2026, morning
+
+Paused by the founder. This is the one place to resume from. The approved plan is [../v10-staff-journeys.md](../v10-staff-journeys.md), backend gaps are in [../v10-gaps.md](../v10-gaps.md), and coordination with the backend agent is in `~/project/coordination/mobile-to-backend.md`.
+
+## On main (pushed)
+`feat/v10` was fast-forwarded to main. It holds the **mobile code only**; the backend is unchanged.
+- **The app runs on main's API:**
+  - finish replaces close; `VisitLink` replaces `VisitShare`
+  - the generated model list follows main's spec
+  - `ServerCaps` runtime flags for the pending backend fields: family, payment proof, notification audience, walk-in reason, remind, message status
+- **Shared groundwork (Kotlin, tested):**
+
+  | Task | Shared logic |
+  |---|---|
+  | T1/T2 | home by permission (`homeChoiceOf`); availability strip (`availabilityOf`) |
+  | T3 | one-form intake (`IntakeFormHolder`) + `PatientFileSender` (photo and signature after create) |
+  | T4 | wait timer (60 s) + collect race rules (re-GET balance, `AlreadyPaid`, 409 refetch, handled) |
+  | T5 | `FinishVisitHolder` (note, then Rx, then one finish with `ready_to_bill`, allergy 409 override, offline only without Rx) + `AudioSender` |
+
+- **Other changes:**
+  - SSE live-updates client (`live/SseLiveUpdates`), polling at 20 s, or 120 s while the stream is up
+  - Android outbox file store
+  - `OutboxFiles.clear()` on sign-out
+  - iOS: the "Already paid" view on the payment sheet
+  - fake backend request-list race fixed (the flaky `VisitHistoryStateHolderTest`)
+- **Gates on the pushed commit:** `./gradlew check` and `ios-check.sh` (iPhone 17) green.
+
+## Saved on branches, not on main
+| Branch | Worktree | State | Next step |
+|---|---|---|---|
+| `v10-t6` (33ba548a) | `~/project/wt-v10-t6` | My tasks holder + shared notification kinds; gradle green before the stop note; WIP commit | rerun `./gradlew check`; merge with T10 (iOS My tasks); add the `v10.notif.*` strings to an iOS catalog |
+| `v10-t7` (6fcd2b27) | `~/project/wt-v10-t7` | iOS Desk home (number field, availability strip, timer cards, "Doctor may be collecting"); `ios-check` green at 04c557a5; **never run in the simulator** | run it in the simulator and screenshot it; add the iosMain seams `AppGraph.availability/waitTimer/homeChoice(ScreenScope)` so the screen uses the holders instead of `DeskV10Feed`; add the Desk tab in `MainTabs` |
+| `v9-pb` | `~/project/wt-v9-pb` | backend port: SSE 0702 committed (e8f360c2); auto messages, follow-up link and recall dismiss, payment→done are WIP | **backend work, so hand it to the backend agent** (single-backend rule). See `docs/plans/v9/port-pb.md` on that branch |
+| `v9-pa` (a3a0a578) | — | reference only: family, payment proof, patient visits | the backend agent copies the shapes (G11 and its own branches) |
+
+## Not started (plan order)
+1. **T8:** iOS intake form + PencilKit signature
+2. **T9:** iOS doctor "Waiting for you", intake summary, chair mode, Wrap up, celebration
+3. **T10:** iOS My tasks + confetti; the bell
+4. **T11:** iOS live banners on `LiveUpdates`
+5. **T12:** timed E2E on two simulators
+6. **T13:** Android
+
+## How to resume
+1. Read this file, then the plan.
+2. Run `git fetch` and merge origin/main into `feat/v10`. Check the coordination file for gaps the backend shipped while paused (G1 remind, G4 task proof, G7 profile photo, G10 signature, SSE / pb).
+3. Re-create `feat/v10` from main if it was deleted.
+4. Finish T7 (simulator run), then merge T6 + T7. Then run T8–T11, at most 3 workers at a time.
+
+**Worker rules** (learned the hard way):
+- `gradle --max-workers=2`
+- **never `./gradlew --stop`**: it kills every worker's builds
+- iOS workers use different simulators
+- commit with `SAKALYA_MOBILE_PATH=$PWD/mobile/.deps/sakalya-mobile`
+- ktlint rejects a KDoc followed by a `//` comment
+- a commit that stages no `mobile/` files runs the full Rust hook, so use `--no-verify` and run the mobile gates directly
+
+**Known gaps:**
+- the outbox payment sender doesn't re-check the balance
+- `ServerCaps` is per process, not per clinic
+- T5 guessed the procedure statuses excluded from the fee prefill
+- T5 issues the Rx with `notify_patient=false`

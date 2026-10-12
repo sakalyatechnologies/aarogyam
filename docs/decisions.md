@@ -2,6 +2,17 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-12: Live updates over Server-Sent Events, with resume
+
+**Decision.** `GET /api/v1/events?branch_id=` streams change signals as Server-Sent Events (permission `appointments.read`; a branch of another clinic is `404`). The source is Postgres `LISTEN/NOTIFY`, written by row triggers (migration 0702, `app.live_signal`) on `queue_tokens` (`queue.changed`, every status including `called` and `ready_to_bill`), `encounters` (`visit.changed`) and `staff_notifications` (`notification.created`, every kind). Each instance holds one listener connection, started on the first subscriber, and fans signals out to streams of the same clinic and branch.
+
+- **Payload.** Event id, clinic id (routing only, never sent), branch id, kind and record id. No names, numbers or clinical detail. Clients refetch the list or record.
+- **Resume (`Last-Event-ID`).** Each trigger also writes a row to `private.live_events`, a buffer of the newest 2000 events of all clinics (each insert trims older rows). The row id is the event id sent as `id:`. A reconnect with `Last-Event-ID` gets the clinic's missed events replayed from the buffer after `ready`; when the buffer no longer reaches back (trimmed, an id from the future, or over 500 missed) the stream sends `resync` straight away and the client refetches everything. Without the header nothing is replayed. The table sits in `private` (no application role touches it; two definer functions read it, filtered to the caller's clinic). Ids come from a sequence, so a reconnect at the instant two transactions commit out of order can miss one signal; clients also refetch on a timer.
+- **Why not the outbox.** A poll adds latency and rows per queue move; NOTIFY fires at commit.
+- **Heartbeat** comment `: hb` every 25 s. `resync` is the one refetch-everything signal (listener reconnected, stream lagged, or a resume is impossible); there is no separate `reset`.
+- **Needs a session connection.** LISTEN does not work through a transaction-mode pooler (port 6543).
+- **Reach.** Events are not narrowed to a doctor's own patients: they carry identifiers only and the refetch applies reach.
+
 ## 2026-10-10: Finishing a visit in one step (Portal v2, B5)
 
 **Decision.** A visit can be finished and handed over with additive endpoints (migrations 0625 to 0629).

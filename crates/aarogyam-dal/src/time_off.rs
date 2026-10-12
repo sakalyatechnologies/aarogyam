@@ -254,3 +254,98 @@ pub async fn cancel(conn: &mut PgConnection, id: Uuid) -> Result<Option<TimeOffR
     .await?;
     Ok(row)
 }
+
+/// Display names of members, for listing who is away. A member not in this clinic is left out.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn member_names(
+    conn: &mut PgConnection,
+    ids: &[Uuid],
+) -> Result<Vec<(Uuid, String)>, DbError> {
+    let rows = sqlx::query!(
+        r#"select m.id, u.display_name
+           from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
+           where m.id = any($1)"#,
+        ids
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| (row.id, row.display_name))
+        .collect())
+}
+
+/// Tells staff about a request: `time_off_requested` (for `time_off.manage` holders) or
+/// `time_off_decided` (for the requester). One row per request and kind; a repeat does nothing.
+/// Who sees it is decided where the feed is read, from the request.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn notify(conn: &mut PgConnection, request_id: Uuid, kind: &str) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"insert into aarogyam.staff_notifications (kind, time_off_request_id)
+           values ($1, $2)
+           on conflict (org_id, time_off_request_id, kind) where time_off_request_id is not null
+           do nothing"#,
+        kind,
+        request_id
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// A live appointment the leave of a person with a practitioner row would clash with.
+#[derive(Debug, Clone)]
+pub struct AffectedRow {
+    /// The appointment.
+    pub id: Uuid,
+    /// The doctor who is away.
+    pub practitioner_id: Uuid,
+    /// Start.
+    pub starts_at: OffsetDateTime,
+    /// End.
+    pub ends_at: OffsetDateTime,
+    /// Status: requested, booked, confirmed, arrived or `in_chair`.
+    pub status: String,
+    /// The patient's name.
+    pub patient_name: String,
+    /// Sent back as `If-Match` when the appointment is changed.
+    pub row_version: i64,
+}
+
+/// Appointments not yet finished that overlap `[starts_at, ends_at)` with a doctor who is
+/// the member `membership_id`, by start. At most `limit`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn affected(
+    conn: &mut PgConnection,
+    membership_id: Uuid,
+    starts_at: OffsetDateTime,
+    ends_at: OffsetDateTime,
+    limit: i64,
+) -> Result<Vec<AffectedRow>, DbError> {
+    let rows = sqlx::query_as!(
+        AffectedRow,
+        r#"select a.id, a.practitioner_id, a.starts_at, a.ends_at, a.status,
+                  p.full_name as patient_name, a.row_version
+           from aarogyam.appointments a
+           join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id
+           join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id
+           where d.membership_id = $1 and a.deleted_at is null
+             and a.status not in ('completed', 'cancelled', 'no_show')
+             and a.starts_at < $3 and a.ends_at > $2
+           order by a.starts_at, a.id
+           limit $4"#,
+        membership_id,
+        starts_at,
+        ends_at,
+        limit
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}

@@ -45,6 +45,9 @@ export type RoomId = z.output<typeof roomId>;
 export const leaveId = z.string().min(1).brand<"LeaveId">();
 export type LeaveId = z.output<typeof leaveId>;
 
+export const timeOffId = z.string().min(1).brand<"TimeOffId">();
+export type TimeOffId = z.output<typeof timeOffId>;
+
 export const queueTokenId = z.string().min(1).brand<"QueueTokenId">();
 export type QueueTokenId = z.output<typeof queueTokenId>;
 
@@ -678,6 +681,75 @@ export type LeavePage = z.output<typeof leaveList>;
 
 /** Body of `POST /api/v1/leave-blocks`. */
 export type NewLeave = C.NewLeave;
+
+// Time off and the staff-operations settings ---------------------------------------------------------
+
+export const timeOffKind = z.enum(["vacation", "sick", "personal", "other"]) satisfies z.ZodType<C.TimeOffKind>;
+export type TimeOffKind = z.output<typeof timeOffKind>;
+
+export const timeOffStatus = z.enum(["pending", "approved", "declined", "cancelled"]) satisfies z.ZodType<C.TimeOffStatus>;
+export type TimeOffStatus = z.output<typeof timeOffStatus>;
+
+/**
+ * A period of time off. Staff other than the person away (and `time_off.manage`) get approved time off
+ * only, and never the kind, reason or decision.
+ */
+export const timeOff = z.object({
+  id: timeOffId,
+  membership_id: membershipId,
+  member_name: optionalText,
+  starts_at: timestamp,
+  ends_at: timestamp,
+  all_day: z.boolean(),
+  status: timeOffStatus,
+  kind: timeOffKind.nullable().exactOptional(),
+  reason: optionalText,
+  decided_by: membershipId.nullable().exactOptional(),
+  decided_at: timestamp.nullable().exactOptional(),
+  decision_note: optionalText,
+}) satisfies z.ZodType<C.TimeOff>;
+export type TimeOff = z.output<typeof timeOff>;
+
+export const timeOffList = z.object({ items: z.array(timeOff) }) satisfies z.ZodType<C.TimeOffList>;
+export type TimeOffPage = z.output<typeof timeOffList>;
+
+/** Body of `POST /api/v1/time-off`: `starts_at` and `ends_at`, or `first_day` and `last_day`. */
+export type NewTimeOff = C.NewTimeOff;
+
+/** Body of `POST /api/v1/time-off/{id}/approve` and `/decline`. */
+export type TimeOffDecision = C.TimeOffDecision;
+
+const freeDoctorSuggestion = z.object({
+  practitioner_id: practitionerId,
+  display_name: z.string(),
+  calendar_color: z.string(),
+  in_hours: z.boolean(),
+}) satisfies z.ZodType<C.FreeDoctorSuggestion>;
+export type FreeDoctorSuggestion = z.output<typeof freeDoctorSuggestion>;
+
+export const affectedAppointment = z.object({
+  id: appointmentId,
+  practitioner_id: practitionerId,
+  starts_at: timestamp,
+  ends_at: timestamp,
+  status: appointmentStatus,
+  patient_name: z.string(),
+  row_version: z.number().int(),
+  suggestions: z.array(freeDoctorSuggestion),
+}) satisfies z.ZodType<C.AffectedAppointment>;
+export type AffectedAppointment = z.output<typeof affectedAppointment>;
+
+export const affectedAppointmentList = z.object({ items: z.array(affectedAppointment) }) satisfies z.ZodType<C.AffectedAppointments>;
+export type AffectedAppointmentPage = z.output<typeof affectedAppointmentList>;
+
+export const staffOpsSettings = z.object({
+  time_off: z.object({ requires_approval: z.boolean() }),
+  tasks: z.object({ remind_every_minutes: z.number().int() }),
+}) satisfies z.ZodType<C.StaffOpsSettingsBody>;
+export type StaffOpsSettings = z.output<typeof staffOpsSettings>;
+
+/** Body of `PATCH /api/v1/settings/staff-ops`; what is left out stays. */
+export type StaffOpsSettingsChanges = C.StaffOpsSettingsChanges;
 
 // Queue (M3) --------------------------------------------------------------------------------------
 

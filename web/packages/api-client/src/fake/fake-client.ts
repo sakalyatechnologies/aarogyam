@@ -88,6 +88,22 @@ import * as M from "./messaging.js";
 import { CLINIC_STEPS, MEMBER_STEPS, applySetup, setupOf, wireSetup } from "./setup.js";
 import { MAX_MOVEMENT, addDays, byUrgency, daysBetween, isExpired, isStockUnit, levelOf, pickFefo, wireItem } from "./stock.js";
 import { readCsv, readRow, suggestColumns, type CsvTable } from "./smart-import.js";
+import {
+  TIME_OFF_KINDS,
+  affectedAppointments,
+  approveRow,
+  cancelRow,
+  cleanText,
+  onLeave as onApprovedLeave,
+  seesPrivate,
+  staffOpsOf,
+  timeOffOf,
+  visibleTimeOff,
+  windowOf,
+  wireStaffOps,
+  wireTimeOff,
+  type FakeTimeOff,
+} from "./time-off.js";
 import { atLocalTime, localClock } from "./zoned-time.js";
 
 const TOKEN_PREFIX = "fake:";
@@ -124,6 +140,8 @@ const refuse = (status: number, code: string, message: string): Outcome => ({ ok
 /** Input errors as the API sends them: the field, a colon, then what is wrong. */
 const invalid = (field: string, problem: string): Outcome => refuse(400, "invalid_request", `${field}: ${problem}`);
 const notFound = refuse(404, "not_found", "Not found.");
+/** A doctor with approved leave can't be booked, moved onto or have a request confirmed into it. */
+const onLeaveRefusal = refuse(422, "practitioner_on_leave", "The doctor is on leave at this time. Choose another time or doctor.");
 /** A well-formed body the rules refuse: `400`, the field, a colon, then what is wrong. */
 const refused = (message: string): Outcome => refuse(400, "invalid_layout", message);
 /** A consent record as the API sends it: without the fake's clinic and patient keys. */
@@ -456,6 +474,37 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     }
 
     const isCaller = (value: Caller | Outcome): value is Caller => "clinic" in value;
+
+    /** Approves or declines a pending time-off request. */
+    function decideTimeOff(id: string, decision: C.TimeOffDecision | undefined, approve: boolean, signal: AbortSignal | undefined): Promise<ApiResult<S.TimeOff>> {
+      return respond(S.timeOff, signal, async () => {
+        const caller = await inClinic("time_off.manage");
+        if (!isCaller(caller)) {
+          return caller;
+        }
+        const row = timeOffOf(state).find((r) => r.id === id && r.clinic_id === caller.clinic.id);
+        if (row === undefined) {
+          return notFound;
+        }
+        const note = cleanText(decision?.note);
+        if (typeof note === "object" && note !== null) {
+          return invalid("note", "must be 1 to 200 characters");
+        }
+        if (row.status !== "pending") {
+          return refuse(409, "conflict", "only a pending request can be decided");
+        }
+        const now = clock();
+        if (approve) {
+          approveRow(state, row, caller.membership.id, note, now, () => fakeUuid(random, now));
+        } else {
+          row.status = "declined";
+          row.decided_by = caller.membership.id;
+          row.decided_at = now.toISOString();
+          row.decision_note = note;
+        }
+        return reply(wireTimeOff(row, state, { membershipId: caller.membership.id, manages: true }) satisfies C.TimeOff);
+      });
+    }
 
     /** The clinic's local date. */
     function clinicToday(clinic: FakeClinic): string {
@@ -1764,6 +1813,137 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return { ok: true, body: undefined };
         }),
 
+      listTimeOff: (range, opts) =>
+        respond(S.timeOffList, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const days = (Date.parse(range.to) - Date.parse(range.from)) / 86_400_000 + 1;
+          if (Number.isNaN(days) || days < 1 || days > 42) {
+            return invalid("to", "must be on or after from, and at most 42 days after it");
+          }
+          const fromIso = atLocalTime(range.from, 0, caller.clinic.timezone).toISOString();
+          const toIso = atLocalTime(range.to, 1440, caller.clinic.timezone).toISOString();
+          const viewer = { membershipId: caller.membership.id, manages: hasPermission(caller.membership.role.permissions, "time_off.manage") };
+          const items = visibleTimeOff(state, caller.clinic, viewer, fromIso, toIso).map((r) => wireTimeOff(r, state, viewer));
+          return reply({ items } satisfies C.TimeOffList);
+        }),
+
+      requestTimeOff: (input, opts) =>
+        respond(S.timeOff, opts?.signal, async () => {
+          const caller = await inClinic("time_off.request");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const manages = hasPermission(caller.membership.role.permissions, "time_off.manage");
+          const target = input.membership_id == null || input.membership_id === "" ? caller.membership.id : input.membership_id;
+          const forSomeoneElse = target !== caller.membership.id;
+          if (forSomeoneElse && !manages) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const kind = TIME_OFF_KINDS.find((k) => k === input.kind);
+          if (kind === undefined) {
+            return invalid("kind", "unknown value");
+          }
+          const window = windowOf(caller.clinic, input);
+          if ("field" in window) {
+            return invalid(window.field, window.problem);
+          }
+          const reason = cleanText(input.reason);
+          if (typeof reason === "object" && reason !== null) {
+            return invalid("reason", "must be 1 to 200 characters");
+          }
+          if (forSomeoneElse && !state.memberships.some((m) => m.id === target && m.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          const now = clock();
+          const row: FakeTimeOff = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            membership_id: target,
+            kind,
+            starts_at: window.starts_at,
+            ends_at: window.ends_at,
+            all_day: window.all_day,
+            status: "pending",
+            reason,
+            decided_by: null,
+            decided_at: null,
+            decision_note: null,
+            leave_block_id: null,
+          };
+          timeOffOf(state).push(row);
+          if (forSomeoneElse || !staffOpsOf(state, caller.clinic).requires_approval) {
+            approveRow(state, row, caller.membership.id, null, now, () => fakeUuid(random, now));
+          }
+          return reply(wireTimeOff(row, state, { membershipId: caller.membership.id, manages }) satisfies C.TimeOff);
+        }),
+
+      approveTimeOff: (id, decision, opts) => decideTimeOff(id, decision, true, opts?.signal),
+      declineTimeOff: (id, decision, opts) => decideTimeOff(id, decision, false, opts?.signal),
+
+      cancelTimeOff: (id, opts) =>
+        respond(S.timeOff, opts?.signal, async () => {
+          const caller = await inClinic("time_off.request");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const viewer = { membershipId: caller.membership.id, manages: hasPermission(caller.membership.role.permissions, "time_off.manage") };
+          const row = timeOffOf(state).find((r) => r.id === id && r.clinic_id === caller.clinic.id);
+          // To anyone but the person away and the owner it does not exist.
+          if (row === undefined || !seesPrivate(row, viewer)) {
+            return notFound;
+          }
+          if (row.status !== "pending" && row.status !== "approved") {
+            return refuse(409, "conflict", "only a pending or approved request can be cancelled");
+          }
+          cancelRow(state, row);
+          return reply(wireTimeOff(row, state, viewer) satisfies C.TimeOff);
+        }),
+
+      listAffectedAppointments: (id, opts) =>
+        respond(S.affectedAppointmentList, opts?.signal, async () => {
+          const caller = await inClinic("time_off.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const row = timeOffOf(state).find((r) => r.id === id && r.clinic_id === caller.clinic.id);
+          if (row === undefined) {
+            return notFound;
+          }
+          return reply({ items: affectedAppointments(state, caller.clinic, row) } satisfies C.AffectedAppointments);
+        }),
+
+      getStaffOpsSettings: (opts) =>
+        respond(S.staffOpsSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(wireStaffOps(staffOpsOf(state, caller.clinic)) satisfies C.StaffOpsSettingsBody);
+        }),
+
+      updateStaffOpsSettings: (changes, opts) =>
+        respond(S.staffOpsSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const minutes = changes.tasks?.remind_every_minutes;
+          if (minutes != null && (!Number.isInteger(minutes) || minutes < 15 || minutes > 1440)) {
+            return invalid("tasks.remind_every_minutes", "must be from 15 to 1440 minutes");
+          }
+          const settings = staffOpsOf(state, caller.clinic);
+          if (changes.time_off?.requires_approval != null) {
+            settings.requires_approval = changes.time_off.requires_approval;
+          }
+          if (minutes != null) {
+            settings.remind_every_minutes = minutes;
+          }
+          return reply(wireStaffOps(settings) satisfies C.StaffOpsSettingsBody);
+        }),
+
       listAppointments: (filter, opts) =>
         respond(S.appointmentList, opts?.signal, async () => {
           const caller = await inClinic("appointments.read");
@@ -1826,6 +2006,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               return refuse(409, "conflict", "That chair is already booked then.");
             }
             roomId = input.room_id;
+          }
+          if (onApprovedLeave(state, caller.clinic.id, input.practitioner_id, startsAt, endsAt)) {
+            return onLeaveRefusal;
           }
           const warnings = bookingWarnings(state, caller.clinic, input.practitioner_id, startsAt, endsAt, undefined);
           const record: FakeAppointment = {
@@ -1904,6 +2087,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               return refuse(409, "conflict", "That chair is already booked then.");
             }
           }
+          // Only a move to another doctor or time is refused; editing a note on a booking inside the leave is not.
+          if (
+            (nextPractitionerId !== found.practitioner_id || nextStart !== found.starts_at || nextEnd !== found.ends_at) &&
+            onApprovedLeave(state, caller.clinic.id, nextPractitionerId, nextStart, nextEnd)
+          ) {
+            return onLeaveRefusal;
+          }
           const warnings = bookingWarnings(state, caller.clinic, nextPractitionerId, nextStart, nextEnd, id);
           found.starts_at = nextStart;
           found.ends_at = nextEnd;
@@ -1952,6 +2142,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             if (targetIndex <= currentIndex) {
               return refuse(409, "conflict", "That status doesn't come next.");
             }
+          }
+          if (found.status === "requested" && target === "confirmed" && onApprovedLeave(state, caller.clinic.id, found.practitioner_id, found.starts_at, found.ends_at)) {
+            return onLeaveRefusal;
           }
           const now = clock();
           let queueTokenId: string | null = null;
@@ -7802,7 +7995,7 @@ function freeSlots(state: Fixtures, clinic: FakeClinic, practitionerId: string, 
   return slots.sort();
 }
 
-/** Warnings for booking or moving an appointment: busy elsewhere, on leave, or outside hours. Never blocks. */
+/** Warnings for booking or moving an appointment: busy elsewhere or outside hours. Never blocks (a doctor on leave is refused before this). */
 function bookingWarnings(
   state: Fixtures,
   clinic: FakeClinic,
@@ -7823,12 +8016,6 @@ function bookingWarnings(
   );
   if (busy) {
     warnings.push({ code: "practitioner_busy", message: "This doctor is booked in another chair at this time." });
-  }
-  const onLeave = state.leave.some(
-    (l) => l.clinic_id === clinic.id && l.practitioner_id === practitionerId && overlaps(l.starts_at, l.ends_at, startsAt, endsAt),
-  );
-  if (onLeave) {
-    warnings.push({ code: "practitioner_on_leave", message: "This doctor is on leave at this time." });
   }
   if (!withinWorkingHours(state, clinic, practitionerId, startsAt, endsAt)) {
     warnings.push({ code: "outside_working_hours", message: "This is outside the doctor's working hours." });

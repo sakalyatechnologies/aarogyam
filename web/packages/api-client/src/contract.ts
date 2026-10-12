@@ -229,6 +229,21 @@ export type Leave = Schemas["Leave"];
 export type LeaveList = Schemas["LeaveList"];
 export type NewLeave = Schemas["NewLeave"];
 
+// Time off and the staff-operations settings ---------------------------------------------------
+
+export type TimeOff = Schemas["TimeOff"];
+export type TimeOffList = Schemas["TimeOffList"];
+export type NewTimeOff = Schemas["NewTimeOff"];
+export type TimeOffDecision = Schemas["TimeOffDecision"];
+export type AffectedAppointment = Schemas["AffectedAppointment"];
+export type AffectedAppointments = Schemas["AffectedAppointments"];
+export type FreeDoctorSuggestion = Schemas["FreeDoctorSuggestion"];
+export type StaffOpsSettingsBody = Schemas["StaffOpsSettingsBody"];
+export type StaffOpsSettingsChanges = Schemas["StaffOpsSettingsChanges"];
+
+export type TimeOffKind = "vacation" | "sick" | "personal" | "other";
+export type TimeOffStatus = "pending" | "approved" | "declined" | "cancelled";
+
 // Appointments (M3) -----------------------------------------------------------------------------
 
 export type PatientBrief = Schemas["PatientBrief"];

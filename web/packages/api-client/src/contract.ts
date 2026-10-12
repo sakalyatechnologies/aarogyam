@@ -514,13 +514,8 @@ export type InvoiceList = Schemas["InvoiceList"];
 export type NewInvoice = Schemas["NewInvoice"];
 export type UpiLink = Schemas["UpiLink"];
 /** `GET /api/v1/invoices/{id}/collect-summary`: what a collector needs, without the bill's lines or the patient's record. */
-export type CollectSummary = {
-  invoice_id: string;
-  number: string;
-  total_paise: number;
-  balance_paise: number;
-  upi_link?: UpiLink | null;
-};
+export type CollectSummary = Schemas["CollectSummary"];
+export type CollectUpi = Schemas["CollectUpi"];
 export type InvoiceEdit = Schemas["InvoiceEdit"];
 
 export type Allocation = Schemas["Allocation"];
@@ -630,17 +625,9 @@ export type WebsiteChanges = Schemas["WebsiteChanges"];
 export type PhotoChanges = Schemas["PhotoChanges"];
 
 // Staff notifications and the bell ---------------------------------------------------------------
-/** `href` is a path inside the portal that opens what a notification is about; older servers do not send it. */
-export type Notification = Omit<Schemas["Notification"], "href" | "queue_token" | "invoice"> & {
-  href?: string | null;
-  /** Who the notice is for: `doctor` or `front_desk`; absent on older rows. Show by kind, not by this. */
-  audience?: string | null;
-  /** The token it is about: its id and number for the day. The patient's name is never sent; look it up in the queue. */
-  queue_token?: { id: string; number: number } | null;
-  /** The bill it is about, with its amounts as they stand now. */
-  invoice?: { id: string; number?: string | null; total_paise: number; balance_paise: number } | null;
-};
-export type NotificationList = { items: Notification[] };
+/** A notice as the caller sees it. The patient's name is never sent: look it up from the queue or the collect summary. */
+export type Notification = Schemas["Notification"];
+export type NotificationList = Schemas["NotificationList"];
 export type UnreadCount = Schemas["UnreadCount"];
 export type MarkedRead = Schemas["MarkedRead"];
 export type Badges = Schemas["Badges"];

@@ -6163,20 +6163,25 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return refuse(409, "conflict", "the bill is void");
           }
           const money = invoiceMoney(found, state);
+          if (money.balance_paise <= 0) {
+            return refuse(409, "conflict", "the bill has nothing left to pay");
+          }
           const upiId = caller.clinic.upi_id;
           const upi =
-            upiId == null || upiId === "" || money.balance_paise <= 0
+            upiId == null || upiId === ""
               ? null
               : (() => {
                   const uri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(caller.clinic.name)}&am=${(money.balance_paise / 100).toFixed(2)}&cu=INR&tn=${encodeURIComponent(found.number ?? "")}`;
-                  return { uri, qr_data: uri, upi_id: upiId, payee_name: caller.clinic.name, invoice_number: found.number ?? "", amount_paise: money.balance_paise };
+                  return { uri, qr_data: uri, upi_id: upiId, payee_name: caller.clinic.name };
                 })();
           return reply({
             invoice_id: found.id,
-            number: found.number ?? "",
+            ...(found.number == null ? {} : { number: found.number }),
+            patient: patientRefFor(state, found.patient_id),
+            status: found.status,
             total_paise: money.total_paise,
             balance_paise: money.balance_paise,
-            ...(upi === null ? {} : { upi_link: upi }),
+            ...(upi === null ? {} : { upi }),
           } satisfies C.CollectSummary);
         }),
 

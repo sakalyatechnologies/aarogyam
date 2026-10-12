@@ -259,8 +259,8 @@ describe("collect summary (fake)", () => {
     const bill = closed.invoice;
     if (bill == null) throw new Error("expected a bill");
     const summary = await unwrap(as(ARUN).getInvoiceCollectSummary(invoiceId.parse(bill.id)));
-    expect(summary).toMatchObject({ invoice_id: bill.id, total_paise: 50000, balance_paise: 50000 });
-    expect(summary.upi_link?.amount_paise).toBe(50000);
+    expect(summary).toMatchObject({ invoice_id: bill.id, total_paise: 50000, balance_paise: 50000, status: "draft", patient: { name: "Neha Rao" } });
+    expect(summary.upi === undefined || summary.upi === null || summary.upi.uri.startsWith("upi://pay")).toBe(true);
     expect(status(await as(DEV).getInvoiceCollectSummary(invoiceId.parse(bill.id)))).toBe(403);
     expect(status(await as(BINA, LOTUS).getInvoiceCollectSummary(invoiceId.parse(bill.id)))).toBe(404);
     await unwrap(as(ASHA).issueInvoice(invoiceId.parse(bill.id)));

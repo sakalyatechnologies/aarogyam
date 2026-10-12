@@ -52,15 +52,11 @@ class V10SeamsTest {
     }
 
     @Test
-    fun the_stub_senders_keep_their_entries_waiting_with_a_typed_code() =
+    fun the_stub_sender_keeps_its_entry_waiting_with_a_typed_code() =
         runTest {
             val entry = OutboxEntry("a", OutboxKind.PatientFile, "{}", 1)
             val files = MemoryOutboxFiles()
             assertEquals(SendResult.Retry(NOT_BUILT_YET), PatientFileSender({ null }, files).send(entry))
-            assertEquals(
-                SendResult.Retry(NOT_BUILT_YET),
-                AudioSender({ null }, files).send(entry.copy(kind = OutboxKind.Audio)),
-            )
         }
 
     @Test

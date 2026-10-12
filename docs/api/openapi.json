@@ -4134,6 +4134,54 @@
         ]
       }
     },
+    "/api/v1/invoices/{id}/collect-summary": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "What to collect on a bill, for the queue's Collect dialog and the bell's Collect action.\nRead-only: it records nothing and lists no other bill. Open to `payments.collect` as well as\n`billing.read`.",
+        "operationId": "getInvoiceCollectSummary",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The bill",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role has neither payments.collect nor billing.read"
+          },
+          "404": {
+            "description": "No such bill in this clinic"
+          },
+          "409": {
+            "description": "The bill is void or has nothing left to pay"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/invoices/{id}/issue": {
       "post": {
         "tags": [
@@ -10535,7 +10583,7 @@
         "tags": [
           "billing"
         ],
-        "summary": "Records a payment against issued bills and issues a receipt number. Needs an\n`Idempotency-Key` header.",
+        "summary": "Records a payment against issued bills and issues a receipt number. Needs an\n`Idempotency-Key` header. `payments.collect` alone may pay only named, unpaid bills of the\npatient: a draft is issued first, in the same request, and an advance is refused.",
         "operationId": "recordPayment",
         "parameters": [
           {
@@ -10586,13 +10634,13 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks billing.write"
+            "description": "The role has neither billing.write nor payments.collect"
           },
           "404": {
             "description": "No such patient or bill in this clinic"
           },
           "409": {
-            "description": "The key was used for a different payment, or a bill isn't issued"
+            "description": "The key was used for a different payment, or a bill isn't issued (a draft is issued first for `payments.collect`)"
           }
         },
         "security": [
@@ -19747,6 +19795,87 @@
           }
         }
       },
+      "CollectSummary": {
+        "type": "object",
+        "description": "What the desk collects on a bill: a draft or issued bill with something left to pay.",
+        "required": [
+          "invoice_id",
+          "status",
+          "patient",
+          "total_paise",
+          "balance_paise"
+        ],
+        "properties": {
+          "balance_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What is left to pay, in paise: the amount to record."
+          },
+          "invoice_id": {
+            "type": "string",
+            "description": "The bill."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its number once issued; absent for a draft, which is issued when the payment is\nrecorded (`POST /payments`, naming it in `allocations`)."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientRef",
+            "description": "Who pays; send `patient.id` as the payment's `patient_id`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft` or `issued`."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What the bill is worth, in paise; a draft's is a preview."
+          },
+          "upi": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CollectUpi",
+                "description": "A UPI link for the balance; absent when the clinic has no UPI ID in settings."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "CollectUpi": {
+        "type": "object",
+        "description": "How a patient pays what is to be collected, as a UPI link.",
+        "required": [
+          "uri",
+          "qr_data",
+          "upi_id",
+          "payee_name"
+        ],
+        "properties": {
+          "payee_name": {
+            "type": "string",
+            "description": "The payee name shown in the UPI app (the clinic's name)."
+          },
+          "qr_data": {
+            "type": "string",
+            "description": "The same text, to encode in a QR code."
+          },
+          "upi_id": {
+            "type": "string",
+            "description": "The clinic's UPI ID from settings."
+          },
+          "uri": {
+            "type": "string",
+            "description": "The `upi://pay` link to open in a UPI app."
+          }
+        }
+      },
       "Collections": {
         "type": "object",
         "description": "Collections over clinic days `from` to `to`.",
@@ -27348,6 +27477,13 @@
               }
             ]
           },
+          "audience": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who it was written for, `doctor` or `front_desk`; absent for older notifications."
+          },
           "created_at": {
             "type": "string",
             "description": "When it happened (RFC 3339)."
@@ -27662,6 +27798,14 @@
           "id"
         ],
         "properties": {
+          "balance_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What is left to pay now, in paise. Always sent; typed optional like `total_paise`."
+          },
           "id": {
             "type": "string",
             "description": "The bill; open it at `/billing/invoices/{id}`."
@@ -27672,6 +27816,14 @@
               "null"
             ],
             "description": "Its number once issued; absent for a draft."
+          },
+          "total_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What it is worth now, in paise; a draft's is a preview. Read when listed, never stored.\nAlways sent; typed optional so clients written before it keep parsing."
           }
         }
       },

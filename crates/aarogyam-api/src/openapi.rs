@@ -220,6 +220,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::billing::create_invoice,
         crate::v1::billing::get_invoice,
         crate::v1::billing::get_upi_link,
+        crate::v1::billing::get_collect_summary,
         crate::v1::record_shares::create,
         crate::v1::record_shares::list,
         crate::v1::record_shares::open,

@@ -871,74 +871,84 @@ pub async fn issue(
 ) -> Result<InvoiceView, AppError> {
     actor.require(Permission::BillingWrite)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let locked = dal::lock_invoices(tx.conn(), &[id.uuid()])
-            .await?
-            .into_iter()
-            .next()
-            .ok_or(AppError::NotFound("invoice"))?;
-        if locked.status != InvoiceStatus::Draft.as_str() {
-            return Err(AppError::Conflict("this bill is already issued or void"));
-        }
-        let mut lines = dal::invoice_lines(tx.conn(), id.uuid()).await?;
-        if lines.is_empty() {
-            return Err(AppError::invalid(
-                "items",
-                "add at least one line before issuing",
-            ));
-        }
-        let supplier = dal::supplier(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let setup = TaxSetup::of(&supplier);
-        let (totals, any_taxed) = setup.compute(locked.place_of_supply.as_deref(), &mut lines)?;
-        for line in &lines {
-            dal::set_line_amounts(tx.conn(), line).await?;
-        }
-        let year = FinancialYear::of(clinic_today(&supplier.timezone, now));
-        let label = year.label();
-        let serial = dal::next_number(tx.conn(), "invoice", &label).await?;
-        let serial = u64::try_from(serial).map_err(|_| AppError::Internal("negative serial"))?;
-        let number =
-            serial_number(&supplier.number_prefix, year, serial).map_err(billing("number"))?;
-        let patient = patients::get(tx.conn(), locked.patient_id, None)
-            .await?
-            .ok_or(AppError::NotFound("patient"))?;
-        let gstin = supplier.branch_gstin.clone().or(supplier.org_gstin.clone());
-        let supplier_json = json!({
-            "name": supplier.name,
-            "legal_name": supplier.legal_name.clone().unwrap_or_else(|| supplier.name.clone()),
-            "gstin": gstin,
-            "state_code": setup.branch_state.map(|code| code.as_str().to_owned()),
-            "address": supplier.address,
-            "phone": supplier.phone_e164,
-        });
-        let recipient = json!({ "name": patient.full_name, "number": patient.number });
-        dal::issue(
-            tx.conn(),
-            id.uuid(),
-            &dal::IssuedInvoice {
-                number: &number,
-                financial_year: &label,
-                doc_type: DocType::decide(setup.registered, any_taxed).as_str(),
-                issued_at: now,
-                issued_by: actor.membership_id.uuid(),
-                supplier: supplier_json,
-                recipient,
-                subtotal_paise: totals.subtotal.get(),
-                discount_paise: totals.discount.get(),
-                taxable_paise: totals.taxable.get(),
-                cgst_paise: totals.cgst.get(),
-                sgst_paise: totals.sgst.get(),
-                igst_paise: totals.igst.get(),
-                tax_paise: totals.tax.get(),
-                round_off_paise: totals.round_off.get(),
-                total_paise: totals.total.get(),
-            },
-        )
-        .await?;
-        load(tx, id.uuid()).await
+        issue_in(tx, actor, id, now).await
     })
     .await
+}
+
+/// [`issue`] inside the caller's clinic transaction, once the caller has checked the permission:
+/// `billing.write`, or `payments.collect` when a payment is taken against a draft.
+pub(crate) async fn issue_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    id: InvoiceId,
+    now: OffsetDateTime,
+) -> Result<InvoiceView, AppError> {
+    let locked = dal::lock_invoices(tx.conn(), &[id.uuid()])
+        .await?
+        .into_iter()
+        .next()
+        .ok_or(AppError::NotFound("invoice"))?;
+    if locked.status != InvoiceStatus::Draft.as_str() {
+        return Err(AppError::Conflict("this bill is already issued or void"));
+    }
+    let mut lines = dal::invoice_lines(tx.conn(), id.uuid()).await?;
+    if lines.is_empty() {
+        return Err(AppError::invalid(
+            "items",
+            "add at least one line before issuing",
+        ));
+    }
+    let supplier = dal::supplier(tx.conn())
+        .await?
+        .ok_or(AppError::NotFound("clinic"))?;
+    let setup = TaxSetup::of(&supplier);
+    let (totals, any_taxed) = setup.compute(locked.place_of_supply.as_deref(), &mut lines)?;
+    for line in &lines {
+        dal::set_line_amounts(tx.conn(), line).await?;
+    }
+    let year = FinancialYear::of(clinic_today(&supplier.timezone, now));
+    let label = year.label();
+    let serial = dal::next_number(tx.conn(), "invoice", &label).await?;
+    let serial = u64::try_from(serial).map_err(|_| AppError::Internal("negative serial"))?;
+    let number = serial_number(&supplier.number_prefix, year, serial).map_err(billing("number"))?;
+    let patient = patients::get(tx.conn(), locked.patient_id, None)
+        .await?
+        .ok_or(AppError::NotFound("patient"))?;
+    let gstin = supplier.branch_gstin.clone().or(supplier.org_gstin.clone());
+    let supplier_json = json!({
+        "name": supplier.name,
+        "legal_name": supplier.legal_name.clone().unwrap_or_else(|| supplier.name.clone()),
+        "gstin": gstin,
+        "state_code": setup.branch_state.map(|code| code.as_str().to_owned()),
+        "address": supplier.address,
+        "phone": supplier.phone_e164,
+    });
+    let recipient = json!({ "name": patient.full_name, "number": patient.number });
+    dal::issue(
+        tx.conn(),
+        id.uuid(),
+        &dal::IssuedInvoice {
+            number: &number,
+            financial_year: &label,
+            doc_type: DocType::decide(setup.registered, any_taxed).as_str(),
+            issued_at: now,
+            issued_by: actor.membership_id.uuid(),
+            supplier: supplier_json,
+            recipient,
+            subtotal_paise: totals.subtotal.get(),
+            discount_paise: totals.discount.get(),
+            taxable_paise: totals.taxable.get(),
+            cgst_paise: totals.cgst.get(),
+            sgst_paise: totals.sgst.get(),
+            igst_paise: totals.igst.get(),
+            tax_paise: totals.tax.get(),
+            round_off_paise: totals.round_off.get(),
+            total_paise: totals.total.get(),
+        },
+    )
+    .await?;
+    load(tx, id.uuid()).await
 }
 
 /// A reason for voiding, 3 to 500 characters.
@@ -1089,6 +1099,114 @@ pub async fn upi_link(
             payee_name: clinic.name,
             invoice_number: number,
             amount: view.balance,
+        })
+    })
+    .await
+}
+
+/// How to pay a bill by UPI, for [`CollectSummary`].
+#[derive(Debug, Clone)]
+pub struct CollectUpi {
+    /// The `upi://pay` link; also the text to encode in a QR code.
+    pub uri: String,
+    /// The clinic's UPI ID.
+    pub upi_id: String,
+    /// Who the payment goes to (the clinic's name).
+    pub payee_name: String,
+}
+
+/// What the desk needs to collect on a bill: its number, amounts and a UPI link.
+#[derive(Debug, Clone)]
+pub struct CollectSummary {
+    /// The bill.
+    pub invoice_id: InvoiceId,
+    /// Its number; `None` while it is a draft (issued when the payment is recorded).
+    pub number: Option<String>,
+    /// `draft` or `issued`.
+    pub status: InvoiceStatus,
+    /// Who pays.
+    pub patient: PatientRef,
+    /// What it is worth (a draft's is a preview).
+    pub total: Paise,
+    /// What is left to pay.
+    pub balance: Paise,
+    /// The clinic's UPI link for the balance; `None` when the clinic has no UPI ID.
+    pub upi: Option<CollectUpi>,
+}
+
+/// What to collect on a bill that is draft or issued with a balance, for the queue's Collect
+/// dialog and the bell's Collect action. Read-only; writes the access record. Needs
+/// `payments.collect` or `billing.read`.
+///
+/// # Errors
+/// [`AppError::Denied`] without either; [`AppError::NotFound`]; [`AppError::Conflict`] for a
+/// void bill or one with nothing left to pay.
+pub async fn collect_summary(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: InvoiceId,
+) -> Result<CollectSummary, AppError> {
+    if actor.require(Permission::BillingRead).is_err() {
+        actor.require(Permission::PaymentsCollect)?;
+    }
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let view = load(tx, id.uuid()).await?;
+        let (total, balance) = match view.status {
+            InvoiceStatus::Draft => (view.amounts.total, view.amounts.total),
+            InvoiceStatus::Issued => (view.amounts.total, view.balance),
+            InvoiceStatus::Void => return Err(AppError::Conflict("this bill is void")),
+        };
+        if balance <= Paise::ZERO {
+            return Err(AppError::Conflict("the bill has nothing left to pay"));
+        }
+        let request_text = request_id.map(|id| id.to_string());
+        access::record(
+            tx.conn(),
+            &access::DocumentAccess {
+                actor_user_id: Some(actor.user_id.uuid()),
+                actor_kind: crate::scope::actor_kind(actor).as_str(),
+                patient_id: view.patient.id.uuid(),
+                share_link_id: None,
+                resource: "invoice",
+                resource_id: id.uuid(),
+                action: "view",
+                purpose: if actor.role_key == "front_desk" {
+                    "front_desk"
+                } else {
+                    "billing"
+                },
+                request_id: request_text.as_deref(),
+            },
+        )
+        .await?;
+        let clinic = aarogyam_dal::settings::get(tx.conn())
+            .await?
+            .ok_or(AppError::NotFound("clinic"))?;
+        let upi = clinic
+            .billing
+            .get("upi_id")
+            .and_then(Value::as_str)
+            .filter(|upi_id| !upi_id.is_empty())
+            .map(|upi_id| CollectUpi {
+                // The payment note is the bill number; a draft has none yet.
+                uri: aarogyam_domain::upi::pay_link(
+                    upi_id,
+                    &clinic.name,
+                    balance.get(),
+                    view.number.as_deref().unwrap_or("Visit"),
+                ),
+                upi_id: upi_id.to_owned(),
+                payee_name: clinic.name.clone(),
+            });
+        Ok(CollectSummary {
+            invoice_id: id,
+            number: view.number,
+            status: view.status,
+            patient: view.patient,
+            total,
+            balance,
+            upi,
         })
     })
     .await

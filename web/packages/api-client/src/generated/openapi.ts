@@ -1268,6 +1268,27 @@ export interface paths {
         patch: operations["updateInvoice"];
         trace?: never;
     };
+    "/api/v1/invoices/{id}/collect-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What to collect on a bill, for the queue's Collect dialog and the bell's Collect action.
+         *     Read-only: it records nothing and lists no other bill. Open to `payments.collect` as well as
+         *     `billing.read`.
+         */
+        get: operations["getInvoiceCollectSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invoices/{id}/issue": {
         parameters: {
             query?: never;
@@ -3170,7 +3191,8 @@ export interface paths {
         put?: never;
         /**
          * Records a payment against issued bills and issues a receipt number. Needs an
-         *     `Idempotency-Key` header.
+         *     `Idempotency-Key` header. `payments.collect` alone may pay only named, unpaid bills of the
+         *     patient: a draft is issued first, in the same request, and an advance is refused.
          */
         post: operations["recordPayment"];
         delete?: never;
@@ -6366,6 +6388,42 @@ export interface components {
             /** @description `icd10`, `icd11`, `snomed`, `loinc` or `custom`. */
             system: string;
         };
+        /** @description What the desk collects on a bill: a draft or issued bill with something left to pay. */
+        CollectSummary: {
+            /**
+             * Format: int64
+             * @description What is left to pay, in paise: the amount to record.
+             */
+            balance_paise: number;
+            /** @description The bill. */
+            invoice_id: string;
+            /**
+             * @description Its number once issued; absent for a draft, which is issued when the payment is
+             *     recorded (`POST /payments`, naming it in `allocations`).
+             */
+            number?: string | null;
+            /** @description Who pays; send `patient.id` as the payment's `patient_id`. */
+            patient: components["schemas"]["PatientRef"];
+            /** @description `draft` or `issued`. */
+            status: string;
+            /**
+             * Format: int64
+             * @description What the bill is worth, in paise; a draft's is a preview.
+             */
+            total_paise: number;
+            upi?: components["schemas"]["CollectUpi"] | null;
+        };
+        /** @description How a patient pays what is to be collected, as a UPI link. */
+        CollectUpi: {
+            /** @description The payee name shown in the UPI app (the clinic's name). */
+            payee_name: string;
+            /** @description The same text, to encode in a QR code. */
+            qr_data: string;
+            /** @description The clinic's UPI ID from settings. */
+            upi_id: string;
+            /** @description The `upi://pay` link to open in a UPI app. */
+            uri: string;
+        };
         /** @description Collections over clinic days `from` to `to`. */
         Collections: {
             /** @description Every day, zero when nothing came in. */
@@ -9403,6 +9461,8 @@ export interface components {
         /** @description A notification as the caller sees it. */
         Notification: {
             appointment?: components["schemas"]["NotifiedAppointment"] | null;
+            /** @description Who it was written for, `doctor` or `front_desk`; absent for older notifications. */
+            audience?: string | null;
             /** @description When it happened (RFC 3339). */
             created_at: string;
             /**
@@ -9512,10 +9572,21 @@ export interface components {
         };
         /** @description The bill a `payment_due` or `collect_payment` alert is about. */
         NotifiedInvoice: {
+            /**
+             * Format: int64
+             * @description What is left to pay now, in paise. Always sent; typed optional like `total_paise`.
+             */
+            balance_paise?: number | null;
             /** @description The bill; open it at `/billing/invoices/{id}`. */
             id: string;
             /** @description Its number once issued; absent for a draft. */
             number?: string | null;
+            /**
+             * Format: int64
+             * @description What it is worth now, in paise; a draft's is a preview. Read when listed, never stored.
+             *     Always sent; typed optional so clients written before it keep parsing.
+             */
+            total_paise?: number | null;
         };
         /** @description The lab order an overdue alert is about. */
         NotifiedLabOrder: {
@@ -17362,6 +17433,56 @@ export interface operations {
             };
         };
     };
+    getInvoiceCollectSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The bill */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectSummary"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role has neither payments.collect nor billing.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such bill in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The bill is void or has nothing left to pay */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     issueInvoice: {
         parameters: {
             query?: never;
@@ -23696,7 +23817,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks billing.write */
+            /** @description The role has neither billing.write nor payments.collect */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -23710,7 +23831,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The key was used for a different payment, or a bill isn't issued */
+            /** @description The key was used for a different payment, or a bill isn't issued (a draft is issued first for `payments.collect`) */
             409: {
                 headers: {
                     [name: string]: unknown;

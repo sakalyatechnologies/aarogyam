@@ -2512,8 +2512,46 @@ export const stockLevel = z.object({
   on_hand: count,
   next_expiry: date.nullable().exactOptional(),
   status: stockStatus,
+  days_cover: count.nullable().exactOptional(),
+  runs_out_on: date.nullable().exactOptional(),
 }) satisfies z.ZodType<C.StockLevel>;
 export type StockLevel = z.output<typeof stockLevel>;
+
+export const stockInsight = z.object({
+  item_id: inventoryItemId,
+  name: z.string(),
+  unit: stockUnit,
+  on_hand: count,
+  daily_usage: z.number().nonnegative().nullable().exactOptional(),
+  usage_7d: count,
+  usage_28d: count,
+  series: z.array(z.object({ day: date, quantity: count })),
+  days_cover: count.nullable().exactOptional(),
+  runs_out_on: date.nullable().exactOptional(),
+  reorder_level: count,
+  lead_time_days: count,
+  alerts_enabled: z.boolean(),
+  suggested_reorder_qty: count.nullable().exactOptional(),
+  needs_reorder: z.boolean(),
+  reorder_reason: optionalText,
+}) satisfies z.ZodType<C.StockInsight>;
+export type StockInsight = z.output<typeof stockInsight>;
+
+export const stockAnalytics = z.object({
+  items: z.array(stockInsight),
+  reorder_list: z.array(stockInsight),
+}) satisfies z.ZodType<C.StockAnalytics>;
+export type StockAnalytics = z.output<typeof stockAnalytics>;
+
+export const inventoryItemAlerts = z.object({
+  item_id: inventoryItemId,
+  lead_time_days: count,
+  alerts_enabled: z.boolean(),
+}) satisfies z.ZodType<C.InventoryItemAlerts>;
+export type InventoryItemAlerts = z.output<typeof inventoryItemAlerts>;
+
+/** Body of `PATCH /api/v1/inventory-items/{id}/alerts`. */
+export type InventoryItemAlertChanges = C.InventoryItemAlertChanges;
 
 export const inventoryItemList = z.object({ items: z.array(stockLevel) }) satisfies z.ZodType<C.InventoryItemList>;
 export type InventoryItemPage = z.output<typeof inventoryItemList>;

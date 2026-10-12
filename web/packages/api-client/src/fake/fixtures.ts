@@ -434,6 +434,10 @@ export interface FakeInventoryItem {
   unit: "piece" | "ml" | "g" | "box" | "pack";
   reorder_level: number;
   active: boolean;
+  /** Days from ordering to delivery; 7 when never set. */
+  lead_time_days?: number;
+  /** Whether the item raises stock alerts; on when never set. */
+  alerts_enabled?: boolean;
 }
 
 /** A delivery of an item: how much arrived and how much is left. */

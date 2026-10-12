@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.clear_stock_alerts($1, $2) as \"cleared!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cleared!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b47a3c615738e8d31d53b13c2679c00f0f30844e8f43a6ff87edc5de845e67ba"
+}

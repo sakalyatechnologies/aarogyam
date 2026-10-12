@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.record_stock_alert($1, $2, $3, $4::bigint::numeric, $5::bigint::numeric, $6)\n           as \"made!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "made!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "26001c76aa5d9553d79d26585406ec72809561cc5d38a49f68d0981f75d321c6"
+}

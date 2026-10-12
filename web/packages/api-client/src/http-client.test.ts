@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, createDevTokenSource, createHttpClient, invoiceId, patientId, practitionerId, prescriptionId, queueTokenId, sessionId, unwrap, visitId } from "./index.js";
+import { ApiFailure, createDevTokenSource, createHttpClient, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, queueTokenId, sessionId, unwrap, visitId } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -629,5 +629,24 @@ describe("createHttpClient lab requests", () => {
     expect((await unwrap(ok.getLabOrder("o1"))).items[0]?.work_type).toBe("Zirconia crown");
     const bad = createHttpClient("", () => "abc", { fetch: stubFetch(json(200, { ...order, pipeline_stage: "somewhere" })).fetch });
     expect((await bad.getLabOrder("o1")).ok).toBe(false);
+  });
+});
+
+describe("createHttpClient stock analytics requests", () => {
+  const ITEM = inventoryItemId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170");
+
+  it("asks for one item or all, and sends the alert settings", async () => {
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, {})));
+    const client = createHttpClient("", () => "abc", { fetch });
+
+    await client.getStockAnalytics();
+    await client.getStockAnalytics({ itemId: ITEM });
+    await client.changeInventoryItemAlerts(ITEM, { lead_time_days: 14, alerts_enabled: false });
+
+    expect(calls.map((c) => [c.init?.method, c.url])).toEqual([
+      ["GET", "/api/v1/stock/analytics"],
+      ["GET", `/api/v1/stock/analytics?item_id=${ITEM}`],
+      ["PATCH", `/api/v1/inventory-items/${ITEM}/alerts`],
+    ]);
   });
 });

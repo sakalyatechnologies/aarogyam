@@ -3801,6 +3801,64 @@
         ]
       }
     },
+    "/api/v1/inventory-items/{id}/alerts": {
+      "patch": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Changes how long an item takes to arrive and whether it raises stock alerts.",
+        "operationId": "updateInventoryItemAlerts",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The item",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertSettingsBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such item in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/invitations/accept": {
       "post": {
         "tags": [
@@ -13695,6 +13753,54 @@
         ]
       }
     },
+    "/api/v1/stock/analytics": {
+      "get": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "How fast each item is used, how long it lasts and what to reorder.",
+        "operationId": "getStockAnalytics",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "query",
+            "description": "One item; every active item by default",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockAnalytics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.read"
+          },
+          "404": {
+            "description": "No such item in this clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/stock/batches/{id}/expire": {
       "post": {
         "tags": [
@@ -15938,6 +16044,51 @@
           "severity": {
             "type": "string",
             "description": "`info`, `caution` or `serious`."
+          }
+        }
+      },
+      "AlertChanges": {
+        "type": "object",
+        "description": "An item's alert settings, to change; fields left out stay as they are.",
+        "properties": {
+          "alerts_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether the item raises stock alerts."
+          },
+          "lead_time_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Days from ordering to delivery, 0 to 120 (7 by default)."
+          }
+        }
+      },
+      "AlertSettingsBody": {
+        "type": "object",
+        "description": "An item's alert settings.",
+        "required": [
+          "item_id",
+          "lead_time_days",
+          "alerts_enabled"
+        ],
+        "properties": {
+          "alerts_enabled": {
+            "type": "boolean",
+            "description": "Whether the item raises stock alerts."
+          },
+          "item_id": {
+            "type": "string",
+            "description": "The item."
+          },
+          "lead_time_days": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Days from ordering to delivery."
           }
         }
       },
@@ -19626,6 +19777,25 @@
           "role_key": {
             "type": "string",
             "description": "The role they will get."
+          }
+        }
+      },
+      "DailyUse": {
+        "type": "object",
+        "description": "Units used on one clinic day.",
+        "required": [
+          "day",
+          "quantity"
+        ],
+        "properties": {
+          "day": {
+            "type": "string",
+            "description": "The clinic's local day, `YYYY-MM-DD`."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units used."
           }
         }
       },
@@ -32550,6 +32720,30 @@
           }
         }
       },
+      "StockAnalytics": {
+        "type": "object",
+        "description": "Usage and projection per item, and the items to reorder.",
+        "required": [
+          "items",
+          "reorder_list"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockInsight"
+            },
+            "description": "Active items by name, or the one asked for."
+          },
+          "reorder_list": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockInsight"
+            },
+            "description": "The items that need reordering, soonest to run out first."
+          }
+        }
+      },
       "StockBatch": {
         "type": "object",
         "description": "A delivery on the shelf.",
@@ -32660,6 +32854,115 @@
           }
         }
       },
+      "StockInsight": {
+        "type": "object",
+        "description": "One item's usage and run-out projection.",
+        "required": [
+          "item_id",
+          "name",
+          "unit",
+          "on_hand",
+          "usage_7d",
+          "usage_28d",
+          "series",
+          "reorder_level",
+          "lead_time_days",
+          "alerts_enabled",
+          "needs_reorder"
+        ],
+        "properties": {
+          "alerts_enabled": {
+            "type": "boolean",
+            "description": "Whether the item raises stock alerts."
+          },
+          "daily_usage": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Units used per day over the last two weeks; empty with under a week of history or fewer\nthan two days of use."
+          },
+          "days_cover": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Whole days the usable stock lasts at the recent rate; empty without a projection."
+          },
+          "item_id": {
+            "type": "string",
+            "description": "The item."
+          },
+          "lead_time_days": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Days from ordering to delivery."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name."
+          },
+          "needs_reorder": {
+            "type": "boolean",
+            "description": "Whether the item needs reordering now."
+          },
+          "on_hand": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units on the shelf that have not expired today."
+          },
+          "reorder_level": {
+            "type": "integer",
+            "format": "int64",
+            "description": "At or below this the item is low."
+          },
+          "reorder_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why, as `low` or `projected`."
+          },
+          "runs_out_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The day the stock runs out, `YYYY-MM-DD`; empty without a projection."
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyUse"
+            },
+            "description": "Units used on each of the last 28 days, oldest first, today last."
+          },
+          "suggested_reorder_qty": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Units to order to cover the lead time plus two weeks; empty without a projection, zero\nwhen the stock already covers it."
+          },
+          "unit": {
+            "type": "string",
+            "description": "Unit."
+          },
+          "usage_28d": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units used in the last 28 days, today included."
+          },
+          "usage_7d": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units used in the last 7 days, today included."
+          }
+        }
+      },
       "StockLevel": {
         "type": "object",
         "description": "An item and where its stock stands.",
@@ -32669,6 +32972,14 @@
           "status"
         ],
         "properties": {
+          "days_cover": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Whole days the stock lasts at the recent rate of use. Filled only on the low-stock list,\nand only for items with enough use history."
+          },
           "item": {
             "$ref": "#/components/schemas/InventoryItem",
             "description": "The item."
@@ -32684,6 +32995,13 @@
             "type": "integer",
             "format": "int64",
             "description": "Units on hand, all batches."
+          },
+          "runs_out_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The day the stock runs out, `YYYY-MM-DD`. Filled with `days_cover`."
           },
           "status": {
             "type": "string",

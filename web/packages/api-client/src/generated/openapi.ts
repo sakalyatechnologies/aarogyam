@@ -1195,6 +1195,23 @@ export interface paths {
         patch: operations["updateInventoryItem"];
         trace?: never;
     };
+    "/api/v1/inventory-items/{id}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes how long an item takes to arrive and whether it raises stock alerts. */
+        patch: operations["updateInventoryItemAlerts"];
+        trace?: never;
+    };
     "/api/v1/invitations/accept": {
         parameters: {
             query?: never;
@@ -4176,6 +4193,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stock/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How fast each item is used, how long it lasts and what to reorder. */
+        get: operations["getStockAnalytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stock/batches/{id}/expire": {
         parameters: {
             query?: never;
@@ -4968,6 +5002,28 @@ export interface components {
             override_reason?: string | null;
             /** @description `info`, `caution` or `serious`. */
             severity: string;
+        };
+        /** @description An item's alert settings, to change; fields left out stay as they are. */
+        AlertChanges: {
+            /** @description Whether the item raises stock alerts. */
+            alerts_enabled?: boolean | null;
+            /**
+             * Format: int32
+             * @description Days from ordering to delivery, 0 to 120 (7 by default).
+             */
+            lead_time_days?: number | null;
+        };
+        /** @description An item's alert settings. */
+        AlertSettingsBody: {
+            /** @description Whether the item raises stock alerts. */
+            alerts_enabled: boolean;
+            /** @description The item. */
+            item_id: string;
+            /**
+             * Format: int32
+             * @description Days from ordering to delivery.
+             */
+            lead_time_days: number;
         };
         /** @description An allergy. */
         Allergy: {
@@ -6427,6 +6483,16 @@ export interface components {
             invite_token: string;
             /** @description The role they will get. */
             role_key: string;
+        };
+        /** @description Units used on one clinic day. */
+        DailyUse: {
+            /** @description The clinic's local day, `YYYY-MM-DD`. */
+            day: string;
+            /**
+             * Format: int64
+             * @description Units used.
+             */
+            quantity: number;
         };
         /** @description A dashboard layout, version 2. */
         DashboardLayout: {
@@ -11582,6 +11648,13 @@ export interface components {
             /** @description Its queue token, once the patient has arrived. */
             queue_token_id?: string | null;
         };
+        /** @description Usage and projection per item, and the items to reorder. */
+        StockAnalytics: {
+            /** @description Active items by name, or the one asked for. */
+            items: components["schemas"]["StockInsight"][];
+            /** @description The items that need reordering, soonest to run out first. */
+            reorder_list: components["schemas"]["StockInsight"][];
+        };
         /** @description A delivery on the shelf. */
         StockBatch: {
             /** @description The supplier's batch number. */
@@ -11628,8 +11701,75 @@ export interface components {
             /** @description Items in good supply. */
             ok: number;
         };
+        /** @description One item's usage and run-out projection. */
+        StockInsight: {
+            /** @description Whether the item raises stock alerts. */
+            alerts_enabled: boolean;
+            /**
+             * Format: double
+             * @description Units used per day over the last two weeks; empty with under a week of history or fewer
+             *     than two days of use.
+             */
+            daily_usage?: number | null;
+            /**
+             * Format: int64
+             * @description Whole days the usable stock lasts at the recent rate; empty without a projection.
+             */
+            days_cover?: number | null;
+            /** @description The item. */
+            item_id: string;
+            /**
+             * Format: int32
+             * @description Days from ordering to delivery.
+             */
+            lead_time_days: number;
+            /** @description Name. */
+            name: string;
+            /** @description Whether the item needs reordering now. */
+            needs_reorder: boolean;
+            /**
+             * Format: int64
+             * @description Units on the shelf that have not expired today.
+             */
+            on_hand: number;
+            /**
+             * Format: int64
+             * @description At or below this the item is low.
+             */
+            reorder_level: number;
+            /** @description Why, as `low` or `projected`. */
+            reorder_reason?: string | null;
+            /** @description The day the stock runs out, `YYYY-MM-DD`; empty without a projection. */
+            runs_out_on?: string | null;
+            /** @description Units used on each of the last 28 days, oldest first, today last. */
+            series: components["schemas"]["DailyUse"][];
+            /**
+             * Format: int64
+             * @description Units to order to cover the lead time plus two weeks; empty without a projection, zero
+             *     when the stock already covers it.
+             */
+            suggested_reorder_qty?: number | null;
+            /** @description Unit. */
+            unit: string;
+            /**
+             * Format: int64
+             * @description Units used in the last 28 days, today included.
+             */
+            usage_28d: number;
+            /**
+             * Format: int64
+             * @description Units used in the last 7 days, today included.
+             */
+            usage_7d: number;
+        };
         /** @description An item and where its stock stands. */
         StockLevel: {
+            /**
+             * Format: int64
+             * @description Whole days the stock lasts at the recent rate of use. Filled only on the low-stock list,
+             *     and only for items with enough use history.
+             */
+            days_cover?: number | null;
             /** @description The item. */
             item: components["schemas"]["InventoryItem"];
             /** @description Earliest expiry among batches with stock left, `YYYY-MM-DD`. */
@@ -11639,6 +11779,8 @@ export interface components {
              * @description Units on hand, all batches.
              */
             on_hand: number;
+            /** @description The day the stock runs out, `YYYY-MM-DD`. Filled with `days_cover`. */
+            runs_out_on?: string | null;
             /**
              * @description `ok`, `low` (at or below the reorder level), `critical` (out, or at a fifth of the
              *     reorder level or less) or `expiring` (enough, but a batch expires within 30 days).
@@ -16218,6 +16360,60 @@ export interface operations {
             };
             /** @description An item has this name */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateInventoryItemAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The item */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertSettingsBody"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -26085,6 +26281,56 @@ export interface operations {
             };
             /** @description More removed than is on the shelf */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getStockAnalytics: {
+        parameters: {
+            query?: {
+                /** @description One item; every active item by default */
+                item_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockAnalytics"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such item in this clinic, or not a member of it */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

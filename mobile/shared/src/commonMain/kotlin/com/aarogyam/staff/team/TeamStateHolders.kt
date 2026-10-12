@@ -228,9 +228,7 @@ class NotificationsStateHolder(
                             it.createdAt,
                             it.appointment?.id.orEmpty(),
                             tokenId = token?.id,
-                            tokenNumber = token?.tokenNumber,
-                            patientNumber = token?.patientNumber,
-                            doctor = token?.practitionerName,
+                            tokenNumber = token?.number,
                         )
                     },
                 )

@@ -32,7 +32,9 @@ class VisitStateHolderTest {
         on("$SUNRISE/api/v1/visits/v1/notes", { json(note(1), HttpStatusCode.Created) })
         on("$SUNRISE/api/v1/notes/n1", { json(note(2)) })
         on("$SUNRISE/api/v1/notes/n1/sign", { json(note(3).replace("\"draft\"", "\"signed\"")) })
-        on("$SUNRISE/api/v1/visits/v1/close", { json(visit.replace("\"open\"", "\"closed\"")) })
+        on("$SUNRISE/api/v1/visits/v1/finish", {
+            json("""{"signed_note_ids":[],"unsigned_note_ids":[],"visit":${visit.replace("\"open\"", "\"closed\"")}}""")
+        })
     }
 
     @Test
@@ -135,7 +137,7 @@ class VisitStateHolderTest {
                     } as VisitState.Open
                 ).view
             assertTrue(!view.closed && view.error != null)
-            assertEquals(0, backend.count("$SUNRISE/api/v1/visits/v1/close"))
+            assertEquals(0, backend.count("$SUNRISE/api/v1/visits/v1/finish"))
         }
 
     @Test

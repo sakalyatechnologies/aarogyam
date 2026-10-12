@@ -191,7 +191,14 @@ class VisitWritesTest {
                     )
                 },
             )
-            backend.on("$SUNRISE/api/v1/visits/v1/close", { json(visit.replace("\"open\"", "\"closed\"")) })
+            backend.on("$SUNRISE/api/v1/visits/v1/finish", {
+                json(
+                    """{"signed_note_ids":[],"unsigned_note_ids":[],"visit":${visit.replace(
+                        "\"open\"",
+                        "\"closed\"",
+                    )}}""",
+                )
+            })
             val graph = testGraph(backend, backgroundScope)
             val clinic = openClinic(backend, graph, this, listOf("clinical.write"))
             val runner = runner(VisitWriteSender({ clinic }, files))
@@ -220,7 +227,7 @@ class VisitWritesTest {
                 backend.requests
                     .filter { it.method != HttpMethod.Get && it.url.encodedPath != "/api/v1/patients/p1/visits" }
                     .map { "${it.method.value} ${it.url.encodedPath}" }
-                    .filter { it.contains("/notes") || it.contains("/procedures") || it.contains("/close") }
+                    .filter { it.contains("/notes") || it.contains("/procedures") || it.contains("/finish") }
             // The sign saves the note once more, so its PATCH (the one kept) follows the procedure.
             assertEquals(
                 listOf(
@@ -228,7 +235,7 @@ class VisitWritesTest {
                     "POST /api/v1/visits/v1/procedures",
                     "PATCH /api/v1/notes/n1",
                     "POST /api/v1/notes/n1/sign",
-                    "POST /api/v1/visits/v1/close",
+                    "POST /api/v1/visits/v1/finish",
                 ),
                 order,
             )
@@ -236,7 +243,7 @@ class VisitWritesTest {
             val restarted = runner(VisitWriteSender({ clinic }, files), MemoryOutboxStore(store.all()))
             assertEquals(0, restarted.drain())
             assertEquals(1, backend.count("$SUNRISE/api/v1/visits/v1/notes"))
-            assertEquals(1, backend.count("$SUNRISE/api/v1/visits/v1/close"))
+            assertEquals(1, backend.count("$SUNRISE/api/v1/visits/v1/finish"))
             assertEquals(1, backend.count("$SUNRISE/api/v1/visits/v1/procedures"))
         }
 }

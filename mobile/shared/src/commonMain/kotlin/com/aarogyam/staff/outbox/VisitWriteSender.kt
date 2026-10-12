@@ -2,14 +2,14 @@ package com.aarogyam.staff.outbox
 
 import com.aarogyam.staff.api.ClinicApi
 import com.aarogyam.staff.api.addProcedure
-import com.aarogyam.staff.api.closeVisit
 import com.aarogyam.staff.api.createNote
 import com.aarogyam.staff.api.editNote
+import com.aarogyam.staff.api.finishVisit
 import com.aarogyam.staff.api.signNote
 import com.aarogyam.staff.api.visit
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.files.kindFor
-import com.aarogyam.staff.visit.closeBody
+import com.aarogyam.staff.visit.finishBody
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.ErrorCode
 import com.sakalya.mobile.core.Logger
@@ -42,7 +42,7 @@ internal class VisitWriteSender(
                 OutboxKind.Procedure -> procedure(entry)
                 OutboxKind.VisitClose -> close(entry)
                 OutboxKind.Photo -> photo(entry)
-                OutboxKind.Payment -> SendResult.Rejected("unsupported_kind")
+                OutboxKind.Payment, OutboxKind.PatientFile, OutboxKind.Audio -> SendResult.Rejected("unsupported_kind")
             }
         } catch (_: kotlinx.serialization.SerializationException) {
             SendResult.Rejected("bad_payload")
@@ -161,7 +161,7 @@ internal class VisitWriteSender(
     private suspend fun close(entry: OutboxEntry): SendResult {
         val job = queueJson.decodeFromString<CloseJob>(entry.payload)
         val clinic = opened(job.clinicSlug) ?: return SendResult.Retry("clinic_not_open")
-        val closed = clinic.api.closeVisit(job.visitId, closeBody(job.followUpOn, job.reason, job.feePaise))
+        val closed = clinic.api.finishVisit(job.visitId, finishBody(job.followUpOn, job.reason, job.feePaise))
         // Closed already: an earlier attempt got through and its answer was lost.
         if (closed is Outcome.Failure && !(entry.attempts > 0 && closed.error.status == CONFLICT)) {
             return fail("write.close_failed", closed)

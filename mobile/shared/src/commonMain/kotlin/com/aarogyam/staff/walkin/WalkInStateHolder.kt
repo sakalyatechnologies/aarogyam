@@ -3,6 +3,7 @@ package com.aarogyam.staff.walkin
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.registerWalkIn
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.config.caps.FamilyOfBody
 import com.aarogyam.staff.patients.Sex
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
@@ -103,7 +104,13 @@ class WalkInStateHolder(
             }
         edit { copy(submitting = true, problem = null, error = null) }
         scope.launch {
-            when (val result = clinic.api.registerWalkIn(request)) {
+            when (
+                val result =
+                    clinic.api.registerWalkIn(
+                        request,
+                        form.familyOf?.let { FamilyOfBody(it.patientId, it.relation) },
+                    )
+            ) {
                 is Outcome.Success -> {
                     val done = result.value
                     log.info("walkin.registered") {

@@ -21,7 +21,7 @@ class LabsTest {
         contacted: String? = null,
     ) = """{"id":"o1","number":"LAB-12","vendor_id":"v1","vendor_name":"Precision Dental Lab","contact_whatsapp":true,
            "contact_name":"Ravi","contact_phone":"+919820000001","vendor_phone":"+912000000000",
-           "patient_id":"p1","patient_number":"SD-1042","patient_name":"Meera Shah","doctor_id":"m1","status":"$status",
+           "patient_id":"p1","patient_number":"SD-1042","patient_name":"Meera Shah","doctor_id":"m1","status":"$status","late":false,"pipeline_stage":"sent",
            "created_at":"2026-10-01T04:00:00Z","costs_visible":false,"due_on":"$due","last_contacted_at":${contacted?.let {
         "\"$it\""
     } ?: "null"},

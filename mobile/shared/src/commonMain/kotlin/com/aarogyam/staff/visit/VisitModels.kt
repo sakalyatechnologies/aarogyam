@@ -1,7 +1,8 @@
 package com.aarogyam.staff.visit
 
 import com.aarogyam.staff.ScreenError
-import com.aarogyam.staff.api.model.CloseVisit
+import com.aarogyam.staff.api.model.CloseQueueStatus
+import com.aarogyam.staff.api.model.FinishRequest
 import com.aarogyam.staff.device.DictationLanguage
 import kotlin.time.Instant
 
@@ -46,14 +47,18 @@ sealed interface VisitState {
     ) : VisitState
 }
 
-/** The close body: a follow-up (`YYYY-MM-DD`, with its reason) and a consultation fee, all optional. */
-internal fun closeBody(
+/**
+ * The finish body: a follow-up (`YYYY-MM-DD`), its reason or the bill note, and a fee, all optional.
+ * The token always goes to `ready_to_bill` (plan D8), so the desk collects and no bill is lost.
+ */
+internal fun finishBody(
     followUpOn: String?,
-    reason: String?,
+    note: String?,
     feePaise: Long?,
-): CloseVisit? =
-    if (followUpOn == null && feePaise == null) {
-        null
-    } else {
-        CloseVisit(followUpOn = followUpOn, followUpReason = reason?.takeIf { followUpOn != null }, feePaise = feePaise)
-    }
+): FinishRequest =
+    FinishRequest(
+        followUpOn = followUpOn,
+        note = note?.takeIf { followUpOn != null || feePaise != null },
+        feePaise = feePaise,
+        queueStatus = CloseQueueStatus.READY_TO_BILL,
+    )

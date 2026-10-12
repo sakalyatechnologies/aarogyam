@@ -12,7 +12,11 @@ import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.Hosts
 import com.aarogyam.staff.consents.ConsentsStateHolder
+import com.aarogyam.staff.desk.AvailabilityHolder
 import com.aarogyam.staff.desk.DeskLookupStateHolder
+import com.aarogyam.staff.desk.WaitTimerHolder
+import com.aarogyam.staff.desk.createAvailability
+import com.aarogyam.staff.desk.createWaitTimer
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.MemoryPreferences
 import com.aarogyam.staff.device.Preferences
@@ -22,7 +26,10 @@ import com.aarogyam.staff.history.VisitDetailStateHolder
 import com.aarogyam.staff.history.VisitHistoryStateHolder
 import com.aarogyam.staff.labs.LabsStateHolder
 import com.aarogyam.staff.labs.NewLabCaseStateHolder
+import com.aarogyam.staff.nav.HomeChoiceHolder
+import com.aarogyam.staff.nav.createHomeChoice
 import com.aarogyam.staff.notes.PatientNotesStateHolder
+import com.aarogyam.staff.outbox.AudioSender
 import com.aarogyam.staff.outbox.Connectivity
 import com.aarogyam.staff.outbox.MemoryOutboxFiles
 import com.aarogyam.staff.outbox.MemoryOutboxStore
@@ -31,6 +38,7 @@ import com.aarogyam.staff.outbox.OutboxKind
 import com.aarogyam.staff.outbox.OutboxRunner
 import com.aarogyam.staff.outbox.OutboxSender
 import com.aarogyam.staff.outbox.OutboxStore
+import com.aarogyam.staff.outbox.PatientFileSender
 import com.aarogyam.staff.outbox.SendResult
 import com.aarogyam.staff.outbox.SignOutResult
 import com.aarogyam.staff.outbox.VisitWriteSender
@@ -47,6 +55,8 @@ import com.aarogyam.staff.schedule.WeekStateHolder
 import com.aarogyam.staff.signin.InviteStateHolder
 import com.aarogyam.staff.signin.RegistrationStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
+import com.aarogyam.staff.tasks.MyTasksHolder
+import com.aarogyam.staff.tasks.createMyTasks
 import com.aarogyam.staff.team.BadgesStateHolder
 import com.aarogyam.staff.team.ChatListStateHolder
 import com.aarogyam.staff.team.ChatThreadStateHolder
@@ -55,8 +65,12 @@ import com.aarogyam.staff.team.NotificationsStateHolder
 import com.aarogyam.staff.team.StockStateHolder
 import com.aarogyam.staff.team.TeamStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
+import com.aarogyam.staff.visit.FinishVisitHolder
 import com.aarogyam.staff.visit.VisitStateHolder
+import com.aarogyam.staff.visit.createFinishVisit
+import com.aarogyam.staff.walkin.IntakeFormHolder
 import com.aarogyam.staff.walkin.WalkInStateHolder
+import com.aarogyam.staff.walkin.createIntakeForm
 import com.sakalya.mobile.auth.PublishableKey
 import com.sakalya.mobile.auth.SecureSessionStore
 import com.sakalya.mobile.auth.SessionManager
@@ -152,6 +166,9 @@ class AppGraph private constructor(
             OutboxKind.VisitClose,
             OutboxKind.Photo,
         ).forEach { senders[it] = visitWrites }
+        // v10 kinds: stubs that keep their entries waiting until T3 and T5 fill the sender files.
+        senders[OutboxKind.PatientFile] = PatientFileSender(directory::opened, outboxFiles)
+        senders[OutboxKind.Audio] = AudioSender(directory::opened, outboxFiles)
         startOutbox()
         scope.launch {
             sessions.state.collect {
@@ -400,6 +417,38 @@ class AppGraph private constructor(
         visitId: String?,
         scope: CoroutineScope,
     ): NewLabCaseStateHolder = NewLabCaseStateHolder(clinic, patientId, visitId, scope, logger("aarogyam.labs"))
+
+    // v10 seams (plan R4): each returns a placeholder until its worker fills the create* function in its own file.
+    fun homeChoice(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): HomeChoiceHolder = createHomeChoice(clinic, scope)
+
+    fun availability(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): AvailabilityHolder = createAvailability(clinic, scope)
+
+    fun intakeForm(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): IntakeFormHolder = createIntakeForm(clinic, scope)
+
+    fun waitTimer(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): WaitTimerHolder = createWaitTimer(clinic, scope)
+
+    fun finishVisit(
+        clinic: ClinicContext,
+        visitId: String,
+        scope: CoroutineScope,
+    ): FinishVisitHolder = createFinishVisit(clinic, visitId, scope)
+
+    fun myTasks(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): MyTasksHolder = createMyTasks(clinic, scope)
 
     /** Restores the session again, after secure storage was unavailable. */
     fun restore() {

@@ -36,7 +36,8 @@ class ChartStateHolderTest {
         status: String = "current",
         note: String? = null,
         material: String? = null,
-    ) = """{"id":"$id","tooth":$tooth,"finding":"$finding","status":"$status","effective_at":"2026-09-20T04:30:00Z",
+    ) =
+        """{"id":"$id","tooth":$tooth,"finding":"$finding","status":"$status","effective_at":"2026-09-20T04:30:00Z","canals":[],"in_progress":false,
            "surface":${surface?.let { "\"$it\"" } ?: "null"},"note":${note?.let { "\"$it\"" } ?: "null"},
            "material":${material ?: "null"}}"""
 

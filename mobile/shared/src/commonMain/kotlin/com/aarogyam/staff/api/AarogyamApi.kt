@@ -33,6 +33,8 @@ import com.aarogyam.staff.api.model.SummaryNote
 import com.aarogyam.staff.api.model.TodayMoney
 import com.aarogyam.staff.api.model.TodayResponse
 import com.aarogyam.staff.api.model.VisitList
+import com.aarogyam.staff.config.caps.ServerCaps
+import com.aarogyam.staff.config.caps.capsJson
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Outcome
@@ -54,6 +56,9 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 
 /** Calls on the app host, which knows the person but no clinic. */
 class AppApi(
@@ -93,14 +98,34 @@ class ClinicApi(
     suspend fun recordPayment(
         payment: NewPayment,
         key: IdempotencyKey,
-    ): Outcome<Payment, ApiError> =
-        client.call {
-            method = HttpMethod.Post
-            url("api/v1/payments")
-            idempotencyKey(key)
-            contentType(ContentType.Application.Json)
-            setBody(payment)
+        attachmentId: String? = null,
+    ): Outcome<Payment, ApiError> {
+        val answer: Outcome<JsonObject, ApiError> =
+            client.call {
+                method = HttpMethod.Post
+                url("api/v1/payments")
+                idempotencyKey(key)
+                contentType(ContentType.Application.Json)
+                if (attachmentId != null && ServerCaps.paymentProof) {
+                    // `attachment_id` is not in main's `NewPayment`: it travels beside it, only while the flag is on.
+                    val body = capsJson.encodeToJsonElement(NewPayment.serializer(), payment).jsonObject
+                    setBody(JsonObject(body + ("attachment_id" to JsonPrimitive(attachmentId))))
+                } else {
+                    setBody(payment)
+                }
+            }
+        return when (answer) {
+            is Outcome.Failure -> {
+                answer
+            }
+
+            is Outcome.Success -> {
+                // `attachment_id` in a real answer is what turns payment proof on.
+                if ("attachment_id" in answer.value) ServerCaps.markPaymentProof()
+                Outcome.Success(capsJson.decodeFromJsonElement(Payment.serializer(), answer.value))
+            }
         }
+    }
 
     /**
      * `POST /api/v1/patients/search` (`searchPatients`): by number, phone or the start of a name.

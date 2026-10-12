@@ -1,10 +1,9 @@
 package com.aarogyam.staff.visit
 
 import com.aarogyam.staff.ScreenError
-import com.aarogyam.staff.api.closeVisit
 import com.aarogyam.staff.api.createNote
 import com.aarogyam.staff.api.editNote
-import com.aarogyam.staff.api.model.CloseVisit
+import com.aarogyam.staff.api.finishVisit
 import com.aarogyam.staff.api.model.NewNote
 import com.aarogyam.staff.api.model.NewVisit
 import com.aarogyam.staff.api.model.Note
@@ -203,7 +202,7 @@ class VisitStateHolder(
                 if (view.save == NoteSave.Unsaved && !save()) return@launch update { it.copy(closing = false) }
                 if (mustQueue(view.visitId)) return@launch queueClose(view, followUpOn, reason, feePaise)
                 // The server plans the follow-up and starts the draft bill with the close (BE5).
-                val answer = clinic.api.closeVisit(view.visitId, closeBody(followUpOn, reason, feePaise))
+                val answer = clinic.api.finishVisit(view.visitId, finishBody(followUpOn, reason, feePaise))
                 if (answer is Outcome.Failure && writes != null && answer.error.shouldQueue()) {
                     return@launch queueClose(view, followUpOn, reason, feePaise)
                 }

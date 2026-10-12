@@ -1,7 +1,23 @@
 package com.aarogyam.staff.outbox
 
 /** What a saved write does when it is sent. Entries of one kind are sent in the order they were saved. */
-enum class OutboxKind { Note, Photo, Payment, VisitClose, NoteEdit, NoteSign, Procedure }
+enum class OutboxKind {
+    Note,
+    Photo,
+    Payment,
+
+    /** Sends `POST /visits/{id}/finish` (named `VisitClose` for the entries already saved on phones). */
+    VisitClose,
+    NoteEdit,
+    NoteSign,
+    Procedure,
+
+    /** A patient's file saved offline-first (v10 intake documents); sent by `PatientFileSender`. */
+    PatientFile,
+
+    /** A voice recording of a visit; sent by `AudioSender`. */
+    Audio,
+}
 
 enum class OutboxStatus {
     /** Waiting to be sent, now or after [OutboxEntry.nextAttemptAt]. */

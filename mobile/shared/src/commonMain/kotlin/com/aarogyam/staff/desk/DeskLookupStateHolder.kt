@@ -117,7 +117,7 @@ class DeskLookupStateHolder(
                 val profiles =
                     matched.flatMap { person ->
                         listOf(person) +
-                            found.value.familyGroup.filter { it.ofPatientId == person.id }.map {
+                            found.value.familyGroup.orEmpty().filter { it.ofPatientId == person.id }.map {
                                 val state = today[it.id]
                                 DeskProfile(
                                     it.id,

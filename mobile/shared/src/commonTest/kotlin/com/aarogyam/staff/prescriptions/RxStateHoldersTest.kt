@@ -125,7 +125,7 @@ class RxSheetStateHolderTest {
         on(issue, { json(rx("r1", "issued", "RX-412")) })
         on(share, {
             json(
-                """{"id":"s1","token":"tok123","pin":"482913","expires_at":"2026-10-08T05:00:00Z"}""",
+                """{"id":"s1","channel":"link","token":"tok123","pin":"482913","expires_at":"2026-10-08T05:00:00Z"}""",
                 HttpStatusCode.Created,
             )
         })
@@ -320,7 +320,7 @@ class RxSheetStateHolderTest {
                 apiError(HttpStatusCode.ServiceUnavailable, "unavailable")
             }, {
                 json(
-                    """{"id":"s1","token":"t","pin":"111111","expires_at":"2026-10-08T05:00:00Z"}""",
+                    """{"id":"s1","channel":"link","token":"t","pin":"111111","expires_at":"2026-10-08T05:00:00Z"}""",
                     HttpStatusCode.Created,
                 )
             })

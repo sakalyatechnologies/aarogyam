@@ -3,8 +3,9 @@ package com.aarogyam.staff.api
 import com.aarogyam.staff.api.model.NewProcedure
 import com.aarogyam.staff.api.model.Procedure
 import com.aarogyam.staff.api.model.ProcedureList
+import com.aarogyam.staff.api.model.ShareRequest
 import com.aarogyam.staff.api.model.VisitDetail
-import com.aarogyam.staff.api.model.VisitShare
+import com.aarogyam.staff.api.model.VisitLink
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.http.call
@@ -37,10 +38,12 @@ suspend fun ClinicApi.patientProcedures(id: String): Outcome<ProcedureList, ApiE
 
 /**
  * `POST /api/v1/visits/{id}/share` (`createVisitShare`): a seven-day link to the visit summary and
- * its PIN, shown once. The patient opens `path` on the clinic's host.
+ * its PIN, shown once. The patient opens `/shared/{token}` on the clinic's host.
  */
-suspend fun ClinicApi.shareVisit(visitId: String): Outcome<VisitShare, ApiError> =
+suspend fun ClinicApi.shareVisit(visitId: String): Outcome<VisitLink, ApiError> =
     client.call {
         method = HttpMethod.Post
         url("api/v1/visits/${visitId.encodeURLPathPart()}/share")
+        contentType(ContentType.Application.Json)
+        setBody(ShareRequest(channel = "link"))
     }

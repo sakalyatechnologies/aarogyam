@@ -3,10 +3,10 @@ package com.aarogyam.staff.desk
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.addFamily
 import com.aarogyam.staff.api.family
-import com.aarogyam.staff.api.model.FamilyLink
-import com.aarogyam.staff.api.model.NewFamilyLink
 import com.aarogyam.staff.api.removeFamily
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.config.caps.FamilyLink
+import com.aarogyam.staff.config.caps.NewFamilyLink
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope

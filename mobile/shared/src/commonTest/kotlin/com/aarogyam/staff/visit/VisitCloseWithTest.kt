@@ -24,14 +24,16 @@ class VisitCloseWithTest {
     private val recall = """{"id":"c1","patient":{"id":"p1","name":"Meera Shah","number":"SD-1"},"kind":"follow_up",
         "reason":"follow_up","due_on":"2026-10-20","status":"due"}"""
     private val recalls = "$SUNRISE/api/v1/patients/p1/recalls"
-    private val close = "$SUNRISE/api/v1/visits/v1/close"
+    private val close = "$SUNRISE/api/v1/visits/v1/finish"
 
     private suspend fun TestScope.open(
         backend: FakeBackend,
         permissions: List<String> = listOf("clinical.write"),
     ): VisitStateHolder {
         backend.on("$SUNRISE/api/v1/patients/p1/visits", { json(visit, HttpStatusCode.Created) })
-        backend.on(close, { json(visit.replace("\"open\"", "\"closed\"")) })
+        backend.on(close, {
+            json("""{"signed_note_ids":[],"unsigned_note_ids":[],"visit":${visit.replace("\"open\"", "\"closed\"")}}""")
+        })
         backend.on(recalls, { json(recall, HttpStatusCode.Created) })
         val graph = testGraph(backend, backgroundScope)
         val clinic = openClinic(backend, graph, this, permissions)
@@ -41,10 +43,10 @@ class VisitCloseWithTest {
     private fun VisitStateHolder.view() = (state.value as VisitState.Open).view
 
     private fun FakeBackend.closeBody() =
-        (requests.last { it.url.encodedPath.endsWith("/close") }.body as TextContent).text
+        (requests.last { it.url.encodedPath.endsWith("/finish") }.body as TextContent).text
 
     @Test
-    fun closing_without_a_follow_up_or_fee_sends_no_body_and_makes_no_recall() =
+    fun closing_without_a_follow_up_or_fee_finishes_ready_to_bill_and_makes_no_recall() =
         runTest {
             val backend = FakeBackend()
             val holder = open(backend)
@@ -53,7 +55,9 @@ class VisitCloseWithTest {
             holder.state.first { (it as? VisitState.Open)?.view?.let { v -> v.closed && !v.closing } == true }
             assertEquals(1, backend.count(close))
             assertEquals(0, backend.count(recalls))
-            assertTrue(backend.requests.last { it.url.encodedPath.endsWith("/close") }.body !is TextContent)
+            val body = backend.closeBody()
+            assertTrue(""""queue_status":"ready_to_bill"""" in body, body)
+            assertTrue("follow_up_on" !in body && "fee_paise" !in body, body)
         }
 
     @Test
@@ -66,8 +70,9 @@ class VisitCloseWithTest {
             holder.state.first { (it as? VisitState.Open)?.view?.let { v -> v.closed && !v.closing } == true }
             val body = backend.closeBody()
             assertTrue(""""follow_up_on":"2026-10-20"""" in body, body)
-            assertTrue(""""follow_up_reason":"Review the filling"""" in body, body)
+            assertTrue(""""note":"Review the filling"""" in body, body)
             assertTrue(""""fee_paise":150000""" in body, body)
+            assertTrue("follow_up_reason" !in body, body)
             assertEquals(1, backend.count(close))
             assertEquals(0, backend.count(recalls))
         }

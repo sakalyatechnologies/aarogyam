@@ -5,6 +5,7 @@ import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.invoice
 import com.aarogyam.staff.billing.PayMethod
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.config.caps.ServerCaps
 import com.aarogyam.staff.outbox.OutboxKind
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Logger
@@ -81,7 +82,7 @@ class DeskPaymentStateHolder(
     private val log: Logger = Logger("aarogyam.deskpay"),
 ) {
     private val allowed = BILLING_READ in clinic.permissions && BILLING_WRITE in clinic.permissions
-    private val canProof = BILLING_WRITE in clinic.permissions
+    private val canProof get() = BILLING_WRITE in clinic.permissions && ServerCaps.paymentProof
     private val runner = graph.outbox
     private val mutableState =
         MutableStateFlow<DeskPayState>(if (allowed) DeskPayState.Loading else DeskPayState.NotAllowed)

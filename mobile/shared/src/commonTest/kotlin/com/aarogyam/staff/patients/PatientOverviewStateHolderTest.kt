@@ -32,7 +32,7 @@ class PatientOverviewStateHolderTest {
         at: String = "2026-09-20T04:30:00Z",
         procedure: String? = null,
     ) =
-        """{"id":"$id","tooth":$tooth,"finding":"$finding","status":"current","effective_at":"$at","surface":null,"note":null,
+        """{"id":"$id","tooth":$tooth,"finding":"$finding","status":"current","effective_at":"$at","canals":[],"in_progress":false,"surface":null,"note":null,
         "procedure":${procedure?.let {
             """{"id":"p","kind":"procedure","label":"$it","own":false,"retired":false}"""
         }}}"""

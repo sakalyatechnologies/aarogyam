@@ -138,9 +138,8 @@ internal suspend fun deliver(
             allocations =
                 job.invoiceId?.let { listOf(Allocation(invoiceId = it, amountPaise = allocated)) }
                     ?: emptyList(),
-            attachmentId = attachmentId,
         )
-    val paid = api.recordPayment(payment, idempotency)
+    val paid = api.recordPayment(payment, idempotency, attachmentId)
     if (paid is Outcome.Failure) {
         log.warn("deskpay.send_failed") { code("error", paid.error.code.value) }
         return when (val send = paid.toSendResult()) {

@@ -50,7 +50,7 @@ class VisitShareStateHolder(
                 when (val result = clinic.api.shareVisit(visitId)) {
                     is Outcome.Success -> {
                         log.info("visit.shared") { id("visit", visitId) }
-                        VisitShareState.Ready("${clinic.api.origin}${result.value.path}", result.value.pin)
+                        VisitShareState.Ready("${clinic.api.origin}/shared/${result.value.token}", result.value.pin)
                     }
 
                     is Outcome.Failure -> {

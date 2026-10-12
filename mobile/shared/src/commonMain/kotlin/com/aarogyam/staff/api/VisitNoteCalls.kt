@@ -1,6 +1,7 @@
 package com.aarogyam.staff.api
 
-import com.aarogyam.staff.api.model.CloseVisit
+import com.aarogyam.staff.api.model.FinishRequest
+import com.aarogyam.staff.api.model.FinishedVisit
 import com.aarogyam.staff.api.model.NewNote
 import com.aarogyam.staff.api.model.NewVisit
 import com.aarogyam.staff.api.model.Note
@@ -63,19 +64,17 @@ suspend fun ClinicApi.signNote(noteId: String): Outcome<Note, ApiError> =
     }
 
 /**
- * `POST /api/v1/visits/{id}/close` (`closeVisit`). The optional [body] plans a follow-up (needs
- * `patients.write`) and starts a draft bill from a consultation fee (needs `billing.write`); the
- * answer is the visit plus `recall_id` and `invoice_id`. An empty close sends no body.
+ * `POST /api/v1/visits/{id}/finish` (`finishVisit`). [body] plans a follow-up (needs
+ * `patients.write`), starts a draft bill from a fee (needs `billing.write`), signs the caller's own
+ * draft notes and sets where the queue token goes; the answer is the visit with the follow-up and the bill.
  */
-suspend fun ClinicApi.closeVisit(
+suspend fun ClinicApi.finishVisit(
     visitId: String,
-    body: CloseVisit? = null,
-): Outcome<Visit, ApiError> =
+    body: FinishRequest,
+): Outcome<FinishedVisit, ApiError> =
     client.call {
         method = HttpMethod.Post
-        url("api/v1/visits/${visitId.encodeURLPathPart()}/close")
-        if (body != null) {
-            contentType(ContentType.Application.Json)
-            setBody(body)
-        }
+        url("api/v1/visits/${visitId.encodeURLPathPart()}/finish")
+        contentType(ContentType.Application.Json)
+        setBody(body)
     }

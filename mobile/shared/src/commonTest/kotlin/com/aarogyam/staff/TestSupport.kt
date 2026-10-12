@@ -145,7 +145,7 @@ fun appointment(
     reason: String? = null,
 ): String =
     """{"id":"$id","branch_id":"b1","starts_at":"$startsAt","ends_at":"$startsAt","status":"$status","kind":"follow_up",
-       "has_notes":false,"row_version":1,"source":"front_desk","reason":${reason?.let {
+       "has_notes":false,"patient_type":"existing","row_version":1,"source":"front_desk","reason":${reason?.let {
         "\"$it\""
     } ?: "null"},"room":"Chair 1",
        "patient":{"id":"p-$id","number":"SC-10$id","full_name":"$name","sex":"female","registration_incomplete":false,"age_years":34},
@@ -162,9 +162,9 @@ fun todayBody(
         ),
 ): String =
     """{"date":"2026-10-05","as_of":"$asOf","appointments":${appointments.joinToString(",", "[", "]")},
-       "counts":{"total":3,"booked":1,"arrived":1,"in_chair":0,"done":1,"no_shows":0,"cancelled":1,"waiting":2},
+       "counts":{"total":3,"booked":1,"arrived":1,"in_chair":0,"done":1,"no_shows":0,"cancelled":1,"waiting":2,"called":0,"ready_to_bill":0},
        "by_hour":[{"hour":9,"booked":1,"completed":1}],"chairs":[{"room_id":"r1","name":"Chair 1","kind":"chair","status":"free","current":null,"next":null}],
-       "recent_patients":[],"team":[],"attention":[]}"""
+       "recent_patients":[],"team":[],"attention":[],"completed_visits":[]}"""
 
 /** Opens the Sunrise clinic through the fake backend and returns its context. */
 suspend fun openClinic(

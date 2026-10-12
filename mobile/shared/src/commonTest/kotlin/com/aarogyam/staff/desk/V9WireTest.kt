@@ -7,6 +7,7 @@ import com.aarogyam.staff.SUNRISE
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.apiError
 import com.aarogyam.staff.billing.PayMethod
+import com.aarogyam.staff.config.caps.ServerCaps
 import com.aarogyam.staff.json
 import com.aarogyam.staff.openClinic
 import com.aarogyam.staff.team.ListState
@@ -143,6 +144,7 @@ class V9WireTest {
     @Test
     fun the_lookup_groups_relatives_under_the_person_they_are_linked_to() =
         runTest {
+            ServerCaps.reset()
             val backend = FakeBackend()
             backend.on(queue, { json("""{"date":"2026-10-08","items":[]}""") })
             backend.on(
@@ -176,6 +178,8 @@ class V9WireTest {
     @Test
     fun a_walk_in_for_a_relative_sends_family_of() =
         runTest {
+            ServerCaps.reset()
+            ServerCaps.markFamily()
             val backend = FakeBackend()
             backend.on(WALK_INS, { json(walkInJson(), HttpStatusCode.Created) })
             backend.on(LOOKUP, { json("""{"items":[],"family_group":[]}""") })
@@ -196,6 +200,8 @@ class V9WireTest {
     @Test
     fun the_family_section_lists_adds_and_removes_links() =
         runTest {
+            ServerCaps.reset()
+            ServerCaps.markFamily()
             val backend = FakeBackend()
             val link =
                 """{"id":"l1","patient_id":"p5","number":"SD-1050","full_name":"Tara Shah",""" +
@@ -244,6 +250,8 @@ class V9WireTest {
     @Test
     fun a_duplicate_link_is_a_refused_change_not_a_failed_screen() =
         runTest {
+            ServerCaps.reset()
+            ServerCaps.markFamily()
             val backend = FakeBackend()
             val family = "$SUNRISE/api/v1/patients/p1/family"
             backend.on(family, { request ->
@@ -273,10 +281,9 @@ class V9WireTest {
                 {
                     json(
                         """{"items":[{"id":"n1","kind":"send_in","created_at":"2026-10-08T04:00:00Z","read":false,
-                          "queue_token":{"id":"t1","token_number":7,"status":"waiting","patient_number":"SC-1042",
-                          "practitioner_id":"d1","practitioner_name":"Dr. Patil"}},
+                          "queue_token":{"id":"t1","number":7}},
                           {"id":"n2","kind":"collect_payment","created_at":"2026-10-08T04:05:00Z","read":true,
-                          "queue_token":{"id":"t2","token_number":8,"status":"ready_to_bill","patient_number":"SC-1043"}}]}""",
+                          "queue_token":{"id":"t2","number":8}}]}""",
                     )
                 },
             )
@@ -288,8 +295,8 @@ class V9WireTest {
             val first = list.items.first()
             assertEquals("send_in", first.kind)
             assertEquals(7, first.tokenNumber)
-            assertEquals("SC-1042", first.patientNumber)
-            assertEquals("Dr. Patil", first.doctor)
+            assertNull(first.patientNumber)
+            assertNull(first.doctor)
             assertEquals("", first.appointmentId)
             assertEquals("collect_payment", list.items[1].kind)
         }
@@ -299,6 +306,8 @@ class V9WireTest {
     @Test
     fun the_proof_is_uploaded_as_payment_proof_and_named_by_the_payment() =
         runTest {
+            ServerCaps.reset()
+            ServerCaps.markPaymentProof()
             val backend = FakeBackend()
             backend.on(
                 "$SUNRISE/api/v1/patients/p1/attachments",
@@ -397,6 +406,8 @@ class V9WireTest {
     @Test
     fun the_link_search_skips_the_patient_and_relatives_then_a_link_is_posted() =
         runTest {
+            ServerCaps.reset()
+            ServerCaps.markFamily()
             val backend = FakeBackend()
             val link =
                 """{"id":"l1","patient_id":"p5","number":"SD-1050","full_name":"Tara Shah","relation":"child","is_primary_contact":false}"""
@@ -439,6 +450,8 @@ class V9WireTest {
     @Test
     fun a_one_letter_search_does_nothing() =
         runTest {
+            ServerCaps.reset()
+            ServerCaps.markFamily()
             val backend = FakeBackend()
             backend.on("$SUNRISE/api/v1/patients/p1/family", { json("""{"items":[]}""") })
             val holder = FamilyStateHolder(clinic(backend), "p1", backgroundScope)
@@ -457,7 +470,7 @@ class V9WireTest {
                 "$SUNRISE/api/v1/visits/v1/share",
                 {
                     json(
-                        """{"id":"s1","token":"tok","path":"/shared/tok","pin":"123456","expires_at":"2026-10-15T04:00:00Z"}""",
+                        """{"id":"s1","channel":"link","token":"tok","pin":"123456","expires_at":"2026-10-15T04:00:00Z"}""",
                         HttpStatusCode.Created,
                     )
                 },

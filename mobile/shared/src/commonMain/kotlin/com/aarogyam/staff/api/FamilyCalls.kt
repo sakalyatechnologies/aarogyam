@@ -1,8 +1,10 @@
 package com.aarogyam.staff.api
 
-import com.aarogyam.staff.api.model.FamilyLink
-import com.aarogyam.staff.api.model.FamilyList
-import com.aarogyam.staff.api.model.NewFamilyLink
+import com.aarogyam.staff.config.caps.FamilyLink
+import com.aarogyam.staff.config.caps.FamilyList
+import com.aarogyam.staff.config.caps.NewFamilyLink
+import com.aarogyam.staff.config.caps.ServerCaps
+import com.aarogyam.staff.config.caps.notSupported
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.http.call
@@ -15,7 +17,11 @@ import io.ktor.http.encodeURLPathPart
 
 /** `GET /api/v1/patients/{id}/family` (`listFamily`): the patient's relatives, by name. */
 suspend fun ClinicApi.family(patientId: String): Outcome<FamilyList, ApiError> =
-    client.call { url("api/v1/patients/${patientId.encodeURLPathPart()}/family") }
+    if (!ServerCaps.family) {
+        Outcome.Failure(notSupported(FAMILY))
+    } else {
+        client.call { url("api/v1/patients/${patientId.encodeURLPathPart()}/family") }
+    }
 
 /**
  * `POST /api/v1/patients/{id}/family` (`addFamilyLink`): links [link] (what the relative is to
@@ -25,11 +31,15 @@ suspend fun ClinicApi.addFamily(
     patientId: String,
     link: NewFamilyLink,
 ): Outcome<FamilyLink, ApiError> =
-    client.call {
-        method = HttpMethod.Post
-        url("api/v1/patients/${patientId.encodeURLPathPart()}/family")
-        contentType(ContentType.Application.Json)
-        setBody(link)
+    if (!ServerCaps.family) {
+        Outcome.Failure(notSupported(FAMILY))
+    } else {
+        client.call {
+            method = HttpMethod.Post
+            url("api/v1/patients/${patientId.encodeURLPathPart()}/family")
+            contentType(ContentType.Application.Json)
+            setBody(link)
+        }
     }
 
 /** `DELETE /api/v1/patients/{id}/family/{link_id}` (`removeFamilyLink`): removes the link and its inverse. */
@@ -37,7 +47,13 @@ suspend fun ClinicApi.removeFamily(
     patientId: String,
     linkId: String,
 ): Outcome<Unit, ApiError> =
-    client.call {
-        method = HttpMethod.Delete
-        url("api/v1/patients/${patientId.encodeURLPathPart()}/family/${linkId.encodeURLPathPart()}")
+    if (!ServerCaps.family) {
+        Outcome.Failure(notSupported(FAMILY))
+    } else {
+        client.call {
+            method = HttpMethod.Delete
+            url("api/v1/patients/${patientId.encodeURLPathPart()}/family/${linkId.encodeURLPathPart()}")
+        }
     }
+
+private const val FAMILY = "family links"

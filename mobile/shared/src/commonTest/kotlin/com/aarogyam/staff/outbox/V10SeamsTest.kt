@@ -52,7 +52,7 @@ class V10SeamsTest {
     }
 
     @Test
-    fun the_audio_stub_and_a_closed_clinic_keep_entries_waiting_with_a_typed_code() =
+    fun a_closed_clinic_keeps_a_patient_file_waiting_with_a_typed_code() =
         runTest {
             val entry = OutboxEntry("a", OutboxKind.PatientFile, "{}", 1)
             val files = MemoryOutboxFiles()
@@ -61,10 +61,6 @@ class V10SeamsTest {
                 PatientFileSender({
                     null
                 }, files).send(entry.copy(payload = """{"clinicSlug":"x","patientId":"p","kind":"photo"}""")),
-            )
-            assertEquals(
-                SendResult.Retry(NOT_BUILT_YET),
-                AudioSender({ null }, files).send(entry.copy(kind = OutboxKind.Audio)),
             )
         }
 

@@ -244,6 +244,9 @@ class VisitStateHolder(
             }
     }
 
+    /** Saves the note on screen now; Wrap up calls this before it finishes the visit. */
+    suspend fun saveNow(): Boolean = save()
+
     /** Creates or edits the note with the bullets on screen; false when it failed. */
     private suspend fun save(): Boolean {
         val view = open() ?: return false

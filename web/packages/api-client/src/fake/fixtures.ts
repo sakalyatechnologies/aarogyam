@@ -680,6 +680,9 @@ export interface Fixtures {
   audiences?: import("./messaging.js").FakeAudience[];
   campaigns?: import("./messaging.js").FakeCampaign[];
   previewTokens?: Record<string, import("./messaging.js").FakePreviewToken>;
+  /** Staff time off and the clinics' staff-operations settings, made on first use (see `time-off.ts`). */
+  timeOff?: import("./time-off.js").FakeTimeOff[];
+  staffOps?: import("./time-off.js").FakeStaffOps[];
 }
 
 export interface FixtureOptions {

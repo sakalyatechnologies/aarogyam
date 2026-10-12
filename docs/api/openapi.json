@@ -125,6 +125,9 @@
           },
           "409": {
             "description": "The chair is already booked for part of this time"
+          },
+          "422": {
+            "description": "The doctor is on leave then (`practitioner_on_leave`)"
           }
         },
         "security": [
@@ -257,6 +260,9 @@
           },
           "412": {
             "description": "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`"
+          },
+          "422": {
+            "description": "Moved to a doctor or time on leave (`practitioner_on_leave`)"
           }
         },
         "security": [
@@ -394,6 +400,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Confirming a request for a doctor who is on leave then (`practitioner_on_leave`)"
           }
         },
         "security": [
@@ -5465,7 +5474,7 @@
         "tags": [
           "schedule"
         ],
-        "summary": "Records a doctor's leave. Bookings already made stay; new ones get a warning.",
+        "summary": "Records a doctor's leave. Bookings already made stay; new ones are refused (`422 practitioner_on_leave`).",
         "operationId": "addLeaveBlock",
         "requestBody": {
           "content": {
@@ -14452,6 +14461,317 @@
         ]
       }
     },
+    "/api/v1/time-off": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Who is away on the local days `from` to `to`, and the viewer's own requests.",
+        "operationId": "listTimeOff",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First local day, `YYYY-MM-DD`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last local day, `YYYY-MM-DD`; at most 42 days counting both",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOffList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad dates or a range over 42 days"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Asks for time off, or (with `membership_id`) records it for someone. Your own request waits\nfor the owner unless the clinic switched approval off; time off recorded for someone else\nis approved at once.",
+        "operationId": "createTimeOff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewTimeOff"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOff"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks time_off.request, or time_off.manage for someone else"
+          },
+          "404": {
+            "description": "No such member in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/time-off/{id}/affected-appointments": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "The unfinished appointments of the person away in the request's window, each with doctors who\nare free then. To move one, change the appointment as usual: the patient is told the same way.",
+        "operationId": "listAffectedAppointments",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AffectedAppointments"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks time_off.manage"
+          },
+          "404": {
+            "description": "No such request in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/time-off/{id}/approve": {
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Approves a pending request. A doctor's leave block is made in the same step, so new bookings\nfor them are refused; the requester is told.",
+        "operationId": "approveTimeOff",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimeOffDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOff"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks time_off.manage"
+          },
+          "404": {
+            "description": "No such request in this clinic"
+          },
+          "409": {
+            "description": "The request is not pending"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/time-off/{id}/cancel": {
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Withdraws a pending or approved request and removes its leave block, so the doctor can be\nbooked again. The requester or a holder of `time_off.manage` may; to anyone else it is a 404.",
+        "operationId": "cancelTimeOff",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOff"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks time_off.request"
+          },
+          "404": {
+            "description": "No such request in this clinic, or not yours to cancel"
+          },
+          "409": {
+            "description": "The request is already declined or cancelled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/time-off/{id}/decline": {
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Declines a pending request; the requester is told.",
+        "operationId": "declineTimeOff",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimeOffDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOff"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks time_off.manage"
+          },
+          "404": {
+            "description": "No such request in this clinic"
+          },
+          "409": {
+            "description": "The request is not pending"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/today": {
       "get": {
         "tags": [
@@ -15473,6 +15793,74 @@
           "reason": {
             "type": "string",
             "description": "Why; required."
+          }
+        }
+      },
+      "AffectedAppointment": {
+        "type": "object",
+        "description": "An unfinished appointment the leave covers.",
+        "required": [
+          "id",
+          "practitioner_id",
+          "starts_at",
+          "ends_at",
+          "status",
+          "patient_name",
+          "row_version",
+          "suggestions"
+        ],
+        "properties": {
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "patient_name": {
+            "type": "string",
+            "description": "The patient's name."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor who is away."
+          },
+          "row_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Send as `If-Match` when changing the appointment."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`requested`, `booked`, `confirmed`, `arrived` or `in_chair`."
+          },
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FreeDoctorSuggestion"
+            },
+            "description": "Doctors free at that time, those with hours set first; at most five."
+          }
+        }
+      },
+      "AffectedAppointments": {
+        "type": "object",
+        "description": "Appointments a leave covers.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AffectedAppointment"
+            },
+            "description": "By start."
           }
         }
       },
@@ -16846,7 +17234,7 @@
         "properties": {
           "code": {
             "type": "string",
-            "description": "`practitioner_busy`, `practitioner_on_leave` or `outside_working_hours`."
+            "description": "`practitioner_busy` or `outside_working_hours`."
           },
           "message": {
             "type": "string",
@@ -20284,6 +20672,34 @@
           "visit": {
             "$ref": "#/components/schemas/Visit",
             "description": "The closed visit."
+          }
+        }
+      },
+      "FreeDoctorSuggestion": {
+        "type": "object",
+        "description": "A doctor free for an appointment's time.",
+        "required": [
+          "practitioner_id",
+          "display_name",
+          "calendar_color",
+          "in_hours"
+        ],
+        "properties": {
+          "calendar_color": {
+            "type": "string",
+            "description": "Their calendar colour, `#RRGGBB`."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Their name."
+          },
+          "in_hours": {
+            "type": "boolean",
+            "description": "Whether their weekly hours are set and cover the time."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
           }
         }
       },
@@ -25180,6 +25596,62 @@
             "description": "The Sakalya staff member's sign-in email."
           }
         }
+      },
+      "NewTimeOff": {
+        "type": "object",
+        "description": "Time off to ask for or record. Give either `starts_at` and `ends_at`, or `first_day` and\n`last_day` for whole days.",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "ends_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "End (RFC 3339), after the start."
+          },
+          "first_day": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "First day, `YYYY-MM-DD`, with `last_day`."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`vacation`, `sick`, `personal` or `other`."
+          },
+          "last_day": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Last day, `YYYY-MM-DD`, included."
+          },
+          "membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Record it for this member instead of yourself; needs `time_off.manage` and is approved\nat once."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A private reason, at most 200 characters."
+          },
+          "starts_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Start (RFC 3339), with `ends_at`."
+          }
+        },
+        "additionalProperties": false
       },
       "NewVisit": {
         "type": "object",
@@ -32683,6 +33155,116 @@
           "layout": {
             "$ref": "#/components/schemas/DashboardLayout",
             "description": "The template's layout; \"Reset to template\" saves this."
+          }
+        }
+      },
+      "TimeOff": {
+        "type": "object",
+        "description": "A period of time off. `kind`, `reason` and the decision are left out for staff who are not the\nperson away and do not hold `time_off.manage`; they see approved time off only.",
+        "required": [
+          "id",
+          "membership_id",
+          "starts_at",
+          "ends_at",
+          "all_day",
+          "status"
+        ],
+        "properties": {
+          "all_day": {
+            "type": "boolean",
+            "description": "Whether the window is whole days of the clinic's calendar."
+          },
+          "decided_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When (RFC 3339); private."
+          },
+          "decided_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who decided; private."
+          },
+          "decision_note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The decider's note; private."
+          },
+          "ends_at": {
+            "type": "string",
+            "description": "End (RFC 3339), exclusive."
+          },
+          "id": {
+            "type": "string",
+            "description": "The request."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`vacation`, `sick`, `personal` or `other`; private."
+          },
+          "member_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name."
+          },
+          "membership_id": {
+            "type": "string",
+            "description": "The person away."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why; private."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Start (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`pending`, `approved`, `declined` or `cancelled`."
+          }
+        }
+      },
+      "TimeOffDecision": {
+        "type": "object",
+        "description": "A decision's optional note for the requester.",
+        "properties": {
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note for the requester, at most 200 characters."
+          }
+        },
+        "additionalProperties": false
+      },
+      "TimeOffList": {
+        "type": "object",
+        "description": "Time off in a range.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeOff"
+            },
+            "description": "By start."
           }
         }
       },

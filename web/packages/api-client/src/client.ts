@@ -15,6 +15,16 @@ import type {
   MessageTemplates,
   MessagesQueued,
 } from "./schemas.js";
+import type {
+  AffectedAppointmentPage,
+  NewTimeOff,
+  StaffOpsSettings,
+  StaffOpsSettingsChanges,
+  TimeOff,
+  TimeOffDecision,
+  TimeOffId,
+  TimeOffPage,
+} from "./schemas.js";
 import type { AudienceFilter, NewAudience, NewCampaign, NewChatMessage, NewConversation, ScheduleCampaign, SendMessages } from "./contract.js";
 import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
@@ -397,6 +407,34 @@ export interface ApiClient {
   addLeave(input: NewLeave, options?: RequestOptions): Promise<ApiResult<Leave>>;
   /** Clinic host: removes leave. Needs `appointments.write`. */
   removeLeave(id: LeaveId, options?: RequestOptions): Promise<ApiResult<void>>;
+
+  /**
+   * Clinic host: who is away on the local days given, and the caller's own requests (all of them
+   * for `time_off.manage`). Other staff get approved time off only, with no kind or reason.
+   * Needs `appointments.read`; at most 42 days.
+   */
+  listTimeOff(range: DateRange, options?: RequestOptions): Promise<ApiResult<TimeOffPage>>;
+  /**
+   * Clinic host: asks for time off for yourself (pending, or approved at once when the clinic does
+   * not ask for approval). With `membership_id` it records time off for someone else, which
+   * needs `time_off.manage` and is approved at once. Needs `time_off.request`.
+   */
+  requestTimeOff(input: NewTimeOff, options?: RequestOptions): Promise<ApiResult<TimeOff>>;
+  /** Clinic host: approves a pending request; a doctor's leave block stops bookings. Needs `time_off.manage`. */
+  approveTimeOff(id: TimeOffId, decision?: TimeOffDecision, options?: RequestOptions): Promise<ApiResult<TimeOff>>;
+  /** Clinic host: declines a pending request. Needs `time_off.manage`. */
+  declineTimeOff(id: TimeOffId, decision?: TimeOffDecision, options?: RequestOptions): Promise<ApiResult<TimeOff>>;
+  /** Clinic host: withdraws a pending or approved request and frees the doctor again. The requester or `time_off.manage`. */
+  cancelTimeOff(id: TimeOffId, options?: RequestOptions): Promise<ApiResult<TimeOff>>;
+  /**
+   * Clinic host: the unfinished appointments the leave covers, each with free-doctor suggestions.
+   * Moving one is the usual `changeAppointment`. Needs `time_off.manage`.
+   */
+  listAffectedAppointments(id: TimeOffId, options?: RequestOptions): Promise<ApiResult<AffectedAppointmentPage>>;
+  /** Clinic host: whether time off needs approval, and how often open tasks are reminded. Needs `settings.manage`. */
+  getStaffOpsSettings(options?: RequestOptions): Promise<ApiResult<StaffOpsSettings>>;
+  /** Clinic host: changes those settings; what is left out stays. Needs `settings.manage`. */
+  updateStaffOpsSettings(changes: StaffOpsSettingsChanges, options?: RequestOptions): Promise<ApiResult<StaffOpsSettings>>;
 
   /** Clinic host: appointments starting in the local days given. Needs `appointments.read`. */
   listAppointments(filter: AppointmentFilter, options?: RequestOptions): Promise<ApiResult<AppointmentPage>>;

@@ -1570,7 +1570,7 @@ export interface paths {
         /** Leave overlapping the local days `from` to `to`. */
         get: operations["listLeaveBlocks"];
         put?: never;
-        /** Records a doctor's leave. Bookings already made stay; new ones get a warning. */
+        /** Records a doctor's leave. Bookings already made stay; new ones are refused (`422 practitioner_on_leave`). */
         post: operations["addLeaveBlock"];
         delete?: never;
         options?: never;
@@ -3886,6 +3886,24 @@ export interface paths {
         patch: operations["updateClinicSetup"];
         trace?: never;
     };
+    "/api/v1/settings/staff-ops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's staff-operations settings. */
+        get: operations["getStaffOpsSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes the staff-operations settings. The change history records each change. */
+        patch: operations["updateStaffOpsSettings"];
+        trace?: never;
+    };
     "/api/v1/settings/website": {
         parameters: {
             query?: never;
@@ -4395,6 +4413,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/time-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who is away on the local days `from` to `to`, and the viewer's own requests. */
+        get: operations["listTimeOff"];
+        put?: never;
+        /**
+         * Asks for time off, or (with `membership_id`) records it for someone. Your own request waits
+         *     for the owner unless the clinic switched approval off; time off recorded for someone else
+         *     is approved at once.
+         */
+        post: operations["createTimeOff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/time-off/{id}/affected-appointments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The unfinished appointments of the person away in the request's window, each with doctors who
+         *     are free then. To move one, change the appointment as usual: the patient is told the same way.
+         */
+        get: operations["listAffectedAppointments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/time-off/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approves a pending request. A doctor's leave block is made in the same step, so new bookings
+         *     for them are refused; the requester is told.
+         */
+        post: operations["approveTimeOff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/time-off/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraws a pending or approved request and removes its leave block, so the doctor can be
+         *     booked again. The requester or a holder of `time_off.manage` may; to anyone else it is a 404.
+         */
+        post: operations["cancelTimeOff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/time-off/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Declines a pending request; the requester is told. */
+        post: operations["declineTimeOff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/today": {
         parameters: {
             query?: never;
@@ -4783,6 +4900,33 @@ export interface components {
             quantity: number;
             /** @description Why; required. */
             reason: string;
+        };
+        /** @description An unfinished appointment the leave covers. */
+        AffectedAppointment: {
+            /** @description End (RFC 3339). */
+            ends_at: string;
+            /** @description The appointment. */
+            id: string;
+            /** @description The patient's name. */
+            patient_name: string;
+            /** @description The doctor who is away. */
+            practitioner_id: string;
+            /**
+             * Format: int64
+             * @description Send as `If-Match` when changing the appointment.
+             */
+            row_version: number;
+            /** @description Start (RFC 3339). */
+            starts_at: string;
+            /** @description `requested`, `booked`, `confirmed`, `arrived` or `in_chair`. */
+            status: string;
+            /** @description Doctors free at that time, those with hours set first; at most five. */
+            suggestions: components["schemas"]["FreeDoctorSuggestion"][];
+        };
+        /** @description Appointments a leave covers. */
+        AffectedAppointments: {
+            /** @description By start. */
+            items: components["schemas"]["AffectedAppointment"][];
         };
         /** @description Owed by age of the bill. */
         AgingBuckets: {
@@ -5361,7 +5505,7 @@ export interface components {
         };
         /** @description Something worth knowing that didn't stop the booking. */
         BookingWarning: {
-            /** @description `practitioner_busy`, `practitioner_on_leave` or `outside_working_hours`. */
+            /** @description `practitioner_busy` or `outside_working_hours`. */
             code: string;
             /** @description What to tell the front desk. */
             message: string;
@@ -6725,6 +6869,17 @@ export interface components {
             unsigned_note_ids: string[];
             /** @description The closed visit. */
             visit: components["schemas"]["Visit"];
+        };
+        /** @description A doctor free for an appointment's time. */
+        FreeDoctorSuggestion: {
+            /** @description Their calendar colour, `#RRGGBB`. */
+            calendar_color: string;
+            /** @description Their name. */
+            display_name: string;
+            /** @description Whether their weekly hours are set and cover the time. */
+            in_hours: boolean;
+            /** @description The doctor. */
+            practitioner_id: string;
         };
         /**
          * @description Who handled a notification: confirmed, declined or cancelled its appointment, or received,
@@ -8663,6 +8818,29 @@ export interface components {
             reason: string;
             /** @description The Sakalya staff member's sign-in email. */
             staff_email: string;
+        };
+        /**
+         * @description Time off to ask for or record. Give either `starts_at` and `ends_at`, or `first_day` and
+         *     `last_day` for whole days.
+         */
+        NewTimeOff: {
+            /** @description End (RFC 3339), after the start. */
+            ends_at?: string | null;
+            /** @description First day, `YYYY-MM-DD`, with `last_day`. */
+            first_day?: string | null;
+            /** @description `vacation`, `sick`, `personal` or `other`. */
+            kind: string;
+            /** @description Last day, `YYYY-MM-DD`, included. */
+            last_day?: string | null;
+            /**
+             * @description Record it for this member instead of yourself; needs `time_off.manage` and is approved
+             *     at once.
+             */
+            membership_id?: string | null;
+            /** @description A private reason, at most 200 characters. */
+            reason?: string | null;
+            /** @description Start (RFC 3339), with `ends_at`. */
+            starts_at?: string | null;
         };
         /** @description A visit to start. */
         NewVisit: {
@@ -11339,6 +11517,18 @@ export interface components {
             /** @description Members, active first, then by name. */
             members: components["schemas"]["Member"][];
         };
+        /** @description Whether staff time off needs approval, and how often open tasks are reminded. */
+        StaffOpsSettingsBody: {
+            /** @description Task settings. */
+            tasks: components["schemas"]["TaskSettings"];
+            /** @description Time-off settings. */
+            time_off: components["schemas"]["TimeOffSettings"];
+        };
+        /** @description Changes to the staff-operations settings; what is left out stays. */
+        StaffOpsSettingsChanges: {
+            tasks?: components["schemas"]["TaskSettingsChanges"] | null;
+            time_off?: components["schemas"]["TimeOffSettingsChanges"] | null;
+        };
         /** @description A grant the staff member holds. */
         StaffSupportGrant: {
             /** @description What it allows: `read`. */
@@ -11600,6 +11790,22 @@ export interface components {
             /** @description `active`, `ended` or `revoked`. */
             status: string;
         };
+        /** @description Task settings. */
+        TaskSettings: {
+            /**
+             * Format: int32
+             * @description Minutes between reminders of a task still open, 15 to 1440 (default 60).
+             */
+            remind_every_minutes: number;
+        };
+        /** @description Changes to the task settings; what is left out stays. */
+        TaskSettingsChanges: {
+            /**
+             * Format: int64
+             * @description Minutes between reminders, 15 to 1440.
+             */
+            remind_every_minutes?: number | null;
+        };
         /** @description A doctor working today. */
         TeamMemberToday: {
             /** @description Appointments today, not counting cancelled ones. */
@@ -11628,6 +11834,59 @@ export interface components {
             label: string;
             /** @description The template's layout; "Reset to template" saves this. */
             layout: components["schemas"]["DashboardLayout"];
+        };
+        /**
+         * @description A period of time off. `kind`, `reason` and the decision are left out for staff who are not the
+         *     person away and do not hold `time_off.manage`; they see approved time off only.
+         */
+        TimeOff: {
+            /** @description Whether the window is whole days of the clinic's calendar. */
+            all_day: boolean;
+            /** @description When (RFC 3339); private. */
+            decided_at?: string | null;
+            /** @description Who decided; private. */
+            decided_by?: string | null;
+            /** @description The decider's note; private. */
+            decision_note?: string | null;
+            /** @description End (RFC 3339), exclusive. */
+            ends_at: string;
+            /** @description The request. */
+            id: string;
+            /** @description `vacation`, `sick`, `personal` or `other`; private. */
+            kind?: string | null;
+            /** @description Their name. */
+            member_name?: string | null;
+            /** @description The person away. */
+            membership_id: string;
+            /** @description Why; private. */
+            reason?: string | null;
+            /** @description Start (RFC 3339). */
+            starts_at: string;
+            /** @description `pending`, `approved`, `declined` or `cancelled`. */
+            status: string;
+        };
+        /** @description A decision's optional note for the requester. */
+        TimeOffDecision: {
+            /** @description A note for the requester, at most 200 characters. */
+            note?: string | null;
+        };
+        /** @description Time off in a range. */
+        TimeOffList: {
+            /** @description By start. */
+            items: components["schemas"]["TimeOff"][];
+        };
+        /** @description Time-off settings. */
+        TimeOffSettings: {
+            /**
+             * @description Whether a member's own request waits for the owner (default true). Time off the owner
+             *     records for someone else is always approved at once.
+             */
+            requires_approval: boolean;
+        };
+        /** @description Changes to the time-off settings; what is left out stays. */
+        TimeOffSettingsChanges: {
+            /** @description Whether a member's own request waits for the owner. */
+            requires_approval?: boolean | null;
         };
         /** @description A page of a patient's timeline, newest first. */
         Timeline: {
@@ -12360,6 +12619,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The doctor is on leave then (`practitioner_on_leave`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     getMonthSummary: {
@@ -12478,6 +12744,13 @@ export interface operations {
             };
             /** @description `stale_version`: the record changed since the `If-Match` version; the current version is in `ETag` */
             412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Moved to a doctor or time on leave (`practitioner_on_leave`) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12608,6 +12881,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MoveRefused"];
                 };
+            };
+            /** @description Confirming a request for a doctor who is on leave then (`practitioner_on_leave`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -24973,6 +25253,97 @@ export interface operations {
             };
         };
     };
+    getStaffOpsSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOpsSettingsBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateStaffOpsSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffOpsSettingsChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOpsSettingsBody"];
+                };
+            };
+            /** @description Invalid input; the message names the setting */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getWebsiteSettings: {
         parameters: {
             query?: never;
@@ -26525,6 +26896,310 @@ export interface operations {
                 content?: never;
             };
             /** @description An email template, one without a name at Meta, or one approved already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listTimeOff: {
+        parameters: {
+            query: {
+                /** @description First local day, `YYYY-MM-DD` */
+                from: string;
+                /** @description Last local day, `YYYY-MM-DD`; at most 42 days counting both */
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOffList"];
+                };
+            };
+            /** @description Bad dates or a range over 42 days */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createTimeOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewTimeOff"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOff"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks time_off.request, or time_off.manage for someone else */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such member in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listAffectedAppointments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AffectedAppointments"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks time_off.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    approveTimeOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeOffDecision"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOff"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks time_off.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is not pending */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cancelTimeOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOff"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks time_off.request */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request in this clinic, or not yours to cancel */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is already declined or cancelled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    declineTimeOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeOffDecision"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOff"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks time_off.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is not pending */
             409: {
                 headers: {
                     [name: string]: unknown;

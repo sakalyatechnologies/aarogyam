@@ -60,6 +60,10 @@ import {
   joined,
   leave,
   leaveList,
+  affectedAppointmentList,
+  staffOpsSettings,
+  timeOff,
+  timeOffList,
   avatar,
   meResponse,
   member,
@@ -353,6 +357,19 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     addLeave: (input, opts) => call({ method: "POST", path: "/api/v1/leave-blocks", schema: leave, body: input, signal: opts?.signal }),
     removeLeave: (id, opts) =>
       call({ method: "DELETE", path: `/api/v1/leave-blocks/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+
+    listTimeOff: (range, opts) => call({ method: "GET", path: "/api/v1/time-off", schema: timeOffList, query: dateQuery(range), signal: opts?.signal }),
+    requestTimeOff: (input, opts) => call({ method: "POST", path: "/api/v1/time-off", schema: timeOff, body: input, signal: opts?.signal }),
+    approveTimeOff: (id, decision, opts) =>
+      call({ method: "POST", path: `/api/v1/time-off/${encodeURIComponent(id)}/approve`, schema: timeOff, body: decision ?? {}, signal: opts?.signal }),
+    declineTimeOff: (id, decision, opts) =>
+      call({ method: "POST", path: `/api/v1/time-off/${encodeURIComponent(id)}/decline`, schema: timeOff, body: decision ?? {}, signal: opts?.signal }),
+    cancelTimeOff: (id, opts) => call({ method: "POST", path: `/api/v1/time-off/${encodeURIComponent(id)}/cancel`, schema: timeOff, signal: opts?.signal }),
+    listAffectedAppointments: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/time-off/${encodeURIComponent(id)}/affected-appointments`, schema: affectedAppointmentList, signal: opts?.signal }),
+    getStaffOpsSettings: (opts) => call({ method: "GET", path: "/api/v1/settings/staff-ops", schema: staffOpsSettings, signal: opts?.signal }),
+    updateStaffOpsSettings: (changes, opts) =>
+      call({ method: "PATCH", path: "/api/v1/settings/staff-ops", schema: staffOpsSettings, body: changes, signal: opts?.signal }),
 
     listAppointments: (filter, opts) =>
       call({

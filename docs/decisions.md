@@ -408,7 +408,7 @@ Onboarding answers become a site configuration. A GitHub App creates the clinic'
 
 ## 2026-10-04: Front desk scheduling rules (M3)
 
-- A chair is the hard limit: an exclusion constraint refuses two active (not cancelled, not no-show, not deleted) appointments overlapping in one room, answered as `409`. A doctor booked in two chairs at once, on leave or outside weekly hours is allowed with `warnings` (R3-11).
+- A chair is the hard limit: an exclusion constraint refuses two active (not cancelled, not no-show, not deleted) appointments overlapping in one room, answered as `409`. A doctor booked in two chairs at once or outside weekly hours is allowed with `warnings` (R3-11). A doctor on leave is refused: staff create, move to another doctor or time, and confirming a requested booking answer `422 practitioner_on_leave` (time off approval makes the leave block; editing a note on a booking already inside leave still works).
 - Statuses are `booked`, `confirmed`, `arrived`, `in_chair`, `completed`, `cancelled`, `no_show`, moving only forward (`aarogyam_domain::schedule`); cancelling needs a reason. Kinds are `new`, `follow_up`, `procedure`, `emergency`. These replace the web draft's `scheduled`/`in_progress`/`teleconsult`.
 - Arrival issues a queue token numbered per branch per clinic day from `number_sequences` (kind `queue_token`, series = branch, period = local date). Tokens are `waiting`, `in_chair`, `done` or `left`; moving a token moves its appointment.
 - Chairs, doctors and weekly hours change with `settings.manage`; leave with `appointments.write`, because the front desk records it.

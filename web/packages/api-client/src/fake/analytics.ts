@@ -190,7 +190,22 @@ export function buildAnalytics(input: AnalyticsInput): C.Analytics {
       visit_kinds: kc([["new", 470], ["follow_up", 1240], ["procedure", 860], ["emergency", 75]]),
       referral_sources: kc([["patient", 180], ["doctor", 45], ["online", 120], ["walk_in", 70], ["camp", 25], ["insurance", 15], ["other", 10], ["unknown", 5]]),
     },
-    procedures_by_category: kc([["endodontics", 210], ["preventive", 180], ["restorative", 150], ["uncategorised", 20]]),
+    procedures_by_category: kc([["endodontics", 210], ["preventive", 180], ["restorative", 150], ["uncategorised", 20]]).map(
+      ({ key, count }): C.ProcedureCategory => ({ key, count, amount_paise: moneyVisible ? count * 180_000 : null }),
+    ),
+    occupancy: {
+      by_chair_hour: input.chairs.flatMap((chair, i) =>
+        busy_hours.map(
+          ({ hour, visits }): C.ChairHour => ({
+            room_id: chair.id,
+            hour,
+            booked_minutes: Math.round((visits * 40) / (i + 2)),
+            appointments: Math.round(visits / (i + 2)),
+          }),
+        ),
+      ),
+      by_weekday_hour: busy_hours.map(({ weekday, hour, visits }): C.WeekdayHour => ({ weekday, hour, booked_minutes: visits * 40, appointments: visits })),
+    },
     chair_time: { treatment: scale(52_000), consult: scale(31_000), admin: 0 },
     visit_sources: { booked: scale(2_300), walk_in: scale(345) },
     busy_hours,

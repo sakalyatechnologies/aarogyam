@@ -235,6 +235,52 @@ async fn items_and_suppliers_are_managed_with_permissions() {
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+async fn a_max_level_suggests_what_to_order_and_is_checked_against_the_reorder_level() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let id = item(&app, &owner, "Gloves", 10).await;
+    let path = format!("/api/v1/inventory-items/{id}");
+    receive(&app, &owner, &id, 4, None).await;
+    let (status, changed) = call(
+        &app,
+        Method::PATCH,
+        ALPHA,
+        &path,
+        &owner,
+        Some(json!({ "max_level": 50 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{changed}");
+    assert_eq!(changed["max_level"], 50);
+    let stock = detail(&app, &owner, &id).await["stock"].clone();
+    assert_eq!(stock["suggested_order"], 46);
+    // Below the reorder level is a 400; 0 clears.
+    let (status, _) = call(
+        &app,
+        Method::PATCH,
+        ALPHA,
+        &path,
+        &owner,
+        Some(json!({ "max_level": 5 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, cleared) = call(
+        &app,
+        Method::PATCH,
+        ALPHA,
+        &path,
+        &owner,
+        Some(json!({ "max_level": 0 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{cleared}");
+    assert!(cleared["max_level"].is_null());
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
 async fn use_takes_the_earliest_expiry_first_and_never_goes_negative() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);

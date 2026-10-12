@@ -1,6 +1,6 @@
 //! Money reports: collections, revenue mix, unpaid bills, and Today's money widgets.
 
-use aarogyam_app::reports::{self as app, MixTotal, PendingBill};
+use aarogyam_app::reports::{self as app, Compare, MethodAmount, MixTotal, PendingBill};
 use aarogyam_domain::billing::AgingBucket;
 use aarogyam_domain::permission::require::FinanceView;
 use axum::Json;
@@ -17,6 +17,27 @@ use crate::AppState;
 use crate::extract::Require;
 use crate::failure::ApiFailure;
 
+/// Money received by one method on a day or in a week.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MethodAmountItem {
+    /// `cash`, `upi`, `card` or `bank`.
+    pub method: String,
+    /// Paise.
+    pub amount_paise: i64,
+    /// Payments.
+    pub payments: i64,
+}
+
+impl From<MethodAmount> for MethodAmountItem {
+    fn from(total: MethodAmount) -> Self {
+        Self {
+            method: total.method.as_str().to_owned(),
+            amount_paise: total.amount.get(),
+            payments: total.payments,
+        }
+    }
+}
+
 /// Money received on a day, or in a week starting that Monday.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct DayTotal {
@@ -26,6 +47,8 @@ pub struct DayTotal {
     pub amount_paise: i64,
     /// Payments.
     pub payments: i64,
+    /// The same total split by method: every method, zero when none came in by it.
+    pub by_method: Vec<MethodAmountItem>,
 }
 
 impl From<app::DayTotal> for DayTotal {
@@ -34,6 +57,11 @@ impl From<app::DayTotal> for DayTotal {
             date: total.date.to_string(),
             amount_paise: total.amount.get(),
             payments: total.payments,
+            by_method: total
+                .by_method
+                .into_iter()
+                .map(MethodAmountItem::from)
+                .collect(),
         }
     }
 }
@@ -60,6 +88,17 @@ pub struct MixItem {
     pub amount_paise: i64,
     /// Share of all billed, in basis points.
     pub share_bps: i64,
+}
+
+impl From<app::MethodTotal> for MethodTotal {
+    fn from(total: app::MethodTotal) -> Self {
+        Self {
+            method: total.method.as_str().to_owned(),
+            amount_paise: total.amount.get(),
+            payments: total.payments,
+            share_bps: total.share_bps,
+        }
+    }
 }
 
 impl From<MixTotal> for MixItem {
@@ -95,8 +134,34 @@ pub struct Collections {
     pub invoiced_paise: i64,
     /// Bills issued in the range.
     pub invoices: i64,
+    /// Discount given on the bills issued in the range, in paise.
+    pub discount_paise: i64,
     /// Left to pay on every issued bill, now.
     pub outstanding_paise: i64,
+    /// Totals of the previous period (the same number of days just before `from`); present
+    /// only with `compare=prev`.
+    pub previous: Option<PeriodTotals>,
+}
+
+/// Collections totals for a whole period, to compare with the current one.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PeriodTotals {
+    /// First day.
+    pub from: String,
+    /// Last day, included.
+    pub to: String,
+    /// Everything received, in paise.
+    pub collected_paise: i64,
+    /// Payments.
+    pub payments: i64,
+    /// Every method.
+    pub by_method: Vec<MethodTotal>,
+    /// Total of bills issued in the period.
+    pub invoiced_paise: i64,
+    /// Bills issued in the period.
+    pub invoices: i64,
+    /// Discount given on them, in paise.
+    pub discount_paise: i64,
 }
 
 /// The range of a collections report.
@@ -108,6 +173,8 @@ pub struct RangeParams {
     pub to: Option<String>,
     /// The last this many weeks, the current one included.
     pub weeks: Option<u32>,
+    /// `prev` to include the previous period's totals.
+    pub compare: Option<String>,
 }
 
 /// Collections by day, week and method, and the revenue mix. The last seven days by default;
@@ -121,12 +188,13 @@ pub struct RangeParams {
     params(
         ("from" = Option<String>, Query, description = "First clinic day, YYYY-MM-DD (default: six days before to)"),
         ("to" = Option<String>, Query, description = "Last clinic day, included (default: today)"),
-        ("weeks" = Option<u32>, Query, description = "The last N weeks (1 to 52), the current one included; not with from or to")
+        ("weeks" = Option<u32>, Query, description = "The last N weeks (1 to 52), the current one included; not with from or to"),
+        ("compare" = Option<String>, Query, description = "prev: add the previous period's totals (the same number of days just before from)")
     ),
     security(("bearer" = [])),
     responses(
         (status = 200, body = Collections),
-        (status = 400, description = "A bad or too long range"),
+        (status = 400, description = "A bad or too long range, or an unknown compare"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks finance.view")
     )
@@ -146,14 +214,26 @@ pub(crate) async fn collections(
         .as_deref()
         .map(|t| parse_day("to", t))
         .transpose()?;
+    let compare = match params.compare.as_deref() {
+        None | Some("") => None,
+        Some("prev") => Some(Compare::Previous),
+        Some(_) => return Err(bad("compare", "must be prev").into()),
+    };
     let now = OffsetDateTime::now_utc();
     let report = match params.weeks {
         Some(_) if from.is_some() || to.is_some() => {
             return Err(bad("weeks", "can't be combined with from or to").into());
         }
         Some(weeks) => {
-            app::weekly_collections(state.db(), &request.actor, request.request_id, weeks, now)
-                .await?
+            app::weekly_collections(
+                state.db(),
+                &request.actor,
+                request.request_id,
+                weeks,
+                compare,
+                now,
+            )
+            .await?
         }
         None => {
             app::collections(
@@ -162,6 +242,7 @@ pub(crate) async fn collections(
                 request.request_id,
                 from,
                 to,
+                compare,
                 now,
             )
             .await?
@@ -177,17 +258,23 @@ pub(crate) async fn collections(
         by_method: report
             .by_method
             .into_iter()
-            .map(|m| MethodTotal {
-                method: m.method.as_str().to_owned(),
-                amount_paise: m.amount.get(),
-                payments: m.payments,
-                share_bps: m.share_bps,
-            })
+            .map(MethodTotal::from)
             .collect(),
         revenue_mix: report.revenue_mix.into_iter().map(MixItem::from).collect(),
         invoiced_paise: report.invoiced.get(),
         invoices: report.invoices,
+        discount_paise: report.discount.get(),
         outstanding_paise: report.outstanding.get(),
+        previous: report.previous.map(|p| PeriodTotals {
+            from: p.from.to_string(),
+            to: p.to.to_string(),
+            collected_paise: p.collected.get(),
+            payments: p.payments,
+            by_method: p.by_method.into_iter().map(MethodTotal::from).collect(),
+            invoiced_paise: p.invoiced.get(),
+            invoices: p.invoices,
+            discount_paise: p.discount.get(),
+        }),
     }))
 }
 

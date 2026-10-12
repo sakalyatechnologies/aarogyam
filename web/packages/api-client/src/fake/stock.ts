@@ -42,6 +42,7 @@ export function levelOf(item: FakeInventoryItem, batches: readonly FakeStockBatc
     on_hand: onHand,
     next_expiry: nextExpiry,
     status: stockStatus(onHand, item.reorder_level, expiring),
+    suggested_order: item.max_level != null && item.max_level > onHand ? item.max_level - onHand : null,
   };
 }
 
@@ -59,6 +60,7 @@ export function wireItem(item: FakeInventoryItem): C.InventoryItem {
     category: item.category ?? null,
     unit: item.unit,
     reorder_level: item.reorder_level,
+    max_level: item.max_level ?? null,
     active: item.active,
   };
 }

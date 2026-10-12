@@ -2013,6 +2013,7 @@ export const payment = z.object({
   reference: optionalText,
   received_at: timestamp,
   void_reason: optionalText,
+  attachment_id: z.string().min(1).nullable().exactOptional(),
 }) satisfies z.ZodType<C.Payment>;
 export type Payment = z.output<typeof payment>;
 
@@ -2022,7 +2023,15 @@ export type PaymentPage = z.output<typeof paymentList>;
 /** Body of `POST /api/v1/payments`; sent with an `Idempotency-Key` header. */
 export type NewPayment = C.NewPayment;
 
-export const dayTotal = z.object({ date, amount_paise: paise, payments: count }) satisfies z.ZodType<C.DayTotal>;
+export const methodAmountItem = z.object({ method: z.string(), amount_paise: paise, payments: count }) satisfies z.ZodType<C.MethodAmountItem>;
+export type MethodAmountItem = z.output<typeof methodAmountItem>;
+
+export const dayTotal = z.object({
+  date,
+  amount_paise: paise,
+  payments: count,
+  by_method: z.array(methodAmountItem),
+}) satisfies z.ZodType<C.DayTotal>;
 export type DayTotal = z.output<typeof dayTotal>;
 
 export const methodTotal = z.object({
@@ -2036,11 +2045,24 @@ export type MethodTotal = z.output<typeof methodTotal>;
 export const mixItem = z.object({ category: z.string(), amount_paise: paise, share_bps: z.number().int() }) satisfies z.ZodType<C.MixItem>;
 export type MixItem = z.output<typeof mixItem>;
 
+export const periodTotals = z.object({
+  from: date,
+  to: date,
+  collected_paise: paise,
+  payments: count,
+  by_method: z.array(methodTotal),
+  invoiced_paise: paise,
+  invoices: count,
+  discount_paise: paise,
+}) satisfies z.ZodType<C.PeriodTotals>;
+export type PeriodTotals = z.output<typeof periodTotals>;
+
 export const collections = z.object({
   from: date,
   to: date,
   collected_paise: paise,
   invoiced_paise: paise,
+  discount_paise: paise,
   outstanding_paise: paise,
   invoices: count,
   payments: count,
@@ -2048,6 +2070,7 @@ export const collections = z.object({
   by_week: z.array(dayTotal),
   by_method: z.array(methodTotal),
   revenue_mix: z.array(mixItem),
+  previous: periodTotals.nullable().exactOptional(),
 }) satisfies z.ZodType<C.Collections>;
 export type Collections = z.output<typeof collections>;
 
@@ -2174,7 +2197,31 @@ export const analytics = z.object({
     visit_kinds: z.array(keyCount),
     referral_sources: z.array(keyCount),
   }) satisfies z.ZodType<C.PatientBreakdown>,
-  procedures_by_category: z.array(keyCount).default([]),
+  procedures_by_category: z
+    .array(
+      z.object({ key: z.string(), count: count, amount_paise: paise.nullable().exactOptional() }) satisfies z.ZodType<C.ProcedureCategory>,
+    )
+    .default([]),
+  occupancy: z
+    .object({
+      by_chair_hour: z.array(
+        z.object({
+          room_id: roomId,
+          hour: z.number().int().min(0).max(23),
+          booked_minutes: count,
+          appointments: count,
+        }) satisfies z.ZodType<C.ChairHour>,
+      ),
+      by_weekday_hour: z.array(
+        z.object({
+          weekday: z.number().int().min(1).max(7),
+          hour: z.number().int().min(0).max(23),
+          booked_minutes: count,
+          appointments: count,
+        }) satisfies z.ZodType<C.WeekdayHour>,
+      ),
+    })
+    .default({ by_chair_hour: [], by_weekday_hour: [] }) satisfies z.ZodType<C.Occupancy>,
   chair_time: z
     .object({ treatment: count, consult: count, admin: count })
     .default({ treatment: 0, consult: 0, admin: 0 }) satisfies z.ZodType<C.ChairTimeSplit>,
@@ -2421,6 +2468,7 @@ export const inventoryItem = z.object({
   category: optionalText,
   unit: stockUnit,
   reorder_level: count,
+  max_level: count.nullable().exactOptional(),
   active: z.boolean(),
 }) satisfies z.ZodType<C.InventoryItem>;
 export type InventoryItem = z.output<typeof inventoryItem>;
@@ -2433,6 +2481,7 @@ export const stockLevel = z.object({
   on_hand: count,
   next_expiry: date.nullable().exactOptional(),
   status: stockStatus,
+  suggested_order: count.nullable().exactOptional(),
 }) satisfies z.ZodType<C.StockLevel>;
 export type StockLevel = z.output<typeof stockLevel>;
 
@@ -2497,6 +2546,105 @@ export type ExpiringBatch = z.output<typeof expiringBatch>;
 
 export const expiringList = z.object({ items: z.array(expiringBatch) }) satisfies z.ZodType<C.ExpiringList>;
 export type ExpiringPage = z.output<typeof expiringList>;
+
+export const purchaseOrderId = z.string().min(1).brand<"PurchaseOrderId">();
+export type PurchaseOrderId = z.output<typeof purchaseOrderId>;
+
+export const purchaseOrderLineId = z.string().min(1).brand<"PurchaseOrderLineId">();
+export type PurchaseOrderLineId = z.output<typeof purchaseOrderLineId>;
+
+export const purchaseOrderStatus = z.enum(["draft", "ordered", "received", "cancelled"]);
+export type PurchaseOrderStatus = z.output<typeof purchaseOrderStatus>;
+
+export const purchaseOrderLine = z.object({
+  id: purchaseOrderLineId,
+  line_no: z.number().int(),
+  item_id: inventoryItemId,
+  item_name: z.string(),
+  unit: z.string(),
+  quantity: count,
+  received_quantity: count,
+  unit_cost_paise: paise.nullable().exactOptional(),
+}) satisfies z.ZodType<C.PurchaseOrderLine>;
+export type PurchaseOrderLine = z.output<typeof purchaseOrderLine>;
+
+export const purchaseOrderReceipt = z.object({
+  line_id: purchaseOrderLineId,
+  batch_id: stockBatchId,
+  quantity: count,
+  at: timestamp,
+}) satisfies z.ZodType<C.PurchaseOrderReceipt>;
+export type PurchaseOrderReceipt = z.output<typeof purchaseOrderReceipt>;
+
+export const purchaseOrder = z.object({
+  id: purchaseOrderId,
+  number: z.string(),
+  supplier_id: supplierId,
+  supplier_name: z.string(),
+  status: purchaseOrderStatus,
+  expected_on: date.nullable().exactOptional(),
+  notes: optionalText,
+  ordered_at: timestamp.nullable().exactOptional(),
+  received_at: timestamp.nullable().exactOptional(),
+  cancelled_at: timestamp.nullable().exactOptional(),
+  created_at: timestamp,
+  total_paise: paise.nullable().exactOptional(),
+  lines: z.array(purchaseOrderLine),
+  receipts: z.array(purchaseOrderReceipt),
+}) satisfies z.ZodType<C.PurchaseOrder>;
+export type PurchaseOrder = z.output<typeof purchaseOrder>;
+
+export const purchaseOrderList = z.object({ items: z.array(purchaseOrder) }) satisfies z.ZodType<C.PurchaseOrderList>;
+export type PurchaseOrderPage = z.output<typeof purchaseOrderList>;
+
+/** Body of `POST /api/v1/purchase-orders`. */
+export type NewPurchaseOrder = C.NewPurchaseOrder;
+/** Body of `PATCH /api/v1/purchase-orders/{id}`. */
+export type PurchaseOrderChanges = C.PurchaseOrderChanges;
+/** Body of `POST /api/v1/purchase-orders/{id}/receive`. */
+export type ReceivePurchaseOrder = C.ReceivePurchaseOrder;
+
+export const stockImportError = z.object({
+  row: z.number().int(),
+  field: z.string(),
+  message: z.string(),
+}) satisfies z.ZodType<C.StockImportError>;
+export type StockImportError = z.output<typeof stockImportError>;
+
+export const stockImportRow = z.object({
+  row: z.number().int(),
+  name: z.string(),
+  quantity: count,
+  new_item: z.boolean(),
+}) satisfies z.ZodType<C.StockImportRow>;
+export type StockImportRow = z.output<typeof stockImportRow>;
+
+export const stockImportPreview = z.object({
+  token: z.string().min(1),
+  file_name: z.string(),
+  row_count: count,
+  valid_rows: count,
+  error_rows: count,
+  errors: z.array(stockImportError),
+  rows: z.array(stockImportRow),
+  new_items: count,
+  warnings: z.array(z.string()),
+  expires_at: timestamp,
+}) satisfies z.ZodType<C.StockImportPreview>;
+export type StockImportPreview = z.output<typeof stockImportPreview>;
+
+export const stockImportResult = z.object({
+  items_created: count,
+  items_updated: count,
+  batches_received: count,
+  units_received: count,
+  skipped: z.array(stockImportError),
+  replayed: z.boolean(),
+}) satisfies z.ZodType<C.StockImportResult>;
+export type StockImportResult = z.output<typeof stockImportResult>;
+
+/** Body of `POST /api/v1/stock/import/commit`. */
+export type CommitStockImport = C.CommitStockImport;
 
 /** Bodies of `POST /api/v1/stock/receive`, `/use`, `/adjust` and `/batches/{id}/expire`. */
 export type ReceiveStock = C.ReceiveStock;

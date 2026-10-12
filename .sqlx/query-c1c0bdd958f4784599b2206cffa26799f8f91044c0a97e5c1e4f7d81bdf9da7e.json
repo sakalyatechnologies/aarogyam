@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select order_id, line_id, batch_id, quantity, created_at as \"at!\"\n           from aarogyam.purchase_order_receipts\n           where order_id = any($1)\n           order by created_at, id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "order_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_receipts",
+            "name": "order_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "line_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_receipts",
+            "name": "line_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "batch_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_receipts",
+            "name": "batch_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "quantity",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_receipts",
+            "name": "quantity"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_receipts",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c1c0bdd958f4784599b2206cffa26799f8f91044c0a97e5c1e4f7d81bdf9da7e"
+}

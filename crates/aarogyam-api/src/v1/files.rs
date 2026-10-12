@@ -33,7 +33,7 @@ pub struct Attachment {
     /// The visit it belongs to.
     #[schema(value_type = Option<String>)]
     pub visit_id: Option<Uuid>,
-    /// `photo`, `xray`, `report`, `document`, `audio` or `consent`.
+    /// `photo`, `xray`, `report`, `document`, `audio`, `consent` or `payment_proof`.
     pub kind: String,
     /// `image/jpeg`, `image/png`, `application/pdf`, `application/dicom`, `audio/webm`,
     /// `audio/mp4` or `audio/ogg`, from the content.
@@ -113,7 +113,7 @@ pub struct UploadForm {
     /// read from its content.
     #[schema(value_type = String, format = Binary)]
     file: Vec<u8>,
-    /// `photo`, `xray`, `report`, `document` (default), `audio` or `consent`.
+    /// `photo`, `xray`, `report`, `document` (default), `audio`, `consent` or `payment_proof`.
     kind: Option<String>,
     /// The visit it belongs to.
     visit_id: Option<String>,

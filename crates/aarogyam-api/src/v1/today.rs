@@ -168,6 +168,10 @@ pub struct LowStockAlert {
     pub on_hand: i64,
     /// The reorder level.
     pub reorder_level: i64,
+    /// What to order up to; null when not set.
+    pub max_level: Option<i64>,
+    /// Units to order to reach the max level; null without one.
+    pub suggested_order: Option<i64>,
     /// `low`, or `critical` when out or at a fifth of the reorder level or less.
     pub status: String,
 }
@@ -371,6 +375,10 @@ fn chair_appointment(appointment: &Appointment) -> ChairAppointment {
         (status = 404, description = "Not a clinic, or not a member of it")
     )
 )]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one response assembled from many parts"
+)]
 pub(crate) async fn today(
     State(state): State<AppState>,
     Require { request, .. }: Require<AppointmentsRead>,
@@ -456,6 +464,8 @@ pub(crate) async fn today(
                     unit: stock.item.unit.as_str().to_owned(),
                     on_hand: stock.on_hand,
                     reorder_level: stock.item.reorder_level,
+                    max_level: stock.item.max_level,
+                    suggested_order: stock.suggested_order,
                     status: stock.status.as_str().to_owned(),
                 })
                 .collect()

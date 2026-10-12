@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, createDevTokenSource, createHttpClient, invoiceId, patientId, practitionerId, prescriptionId, queueTokenId, sessionId, unwrap, visitId } from "./index.js";
+import { ApiFailure, createDevTokenSource, createHttpClient, invoiceId, patientId, practitionerId, prescriptionId, purchaseOrderId, queueTokenId, sessionId, unwrap, visitId } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -154,6 +154,63 @@ describe("createHttpClient requests", () => {
     expect(result.ok && result.value.amount_paise).toBe(50000);
     const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { uri: 1 })).fetch });
     expect((await bad.getInvoiceUpiLink(invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170"))).ok).toBe(false);
+  });
+
+  it("sends purchase orders and the stock import to their own paths and checks each body against the contract", async () => {
+    const order = {
+      id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405180",
+      number: "PO-1",
+      supplier_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405181",
+      supplier_name: "Depot",
+      status: "draft",
+      expected_on: null,
+      notes: null,
+      ordered_at: null,
+      received_at: null,
+      cancelled_at: null,
+      created_at: "2026-10-01T04:30:00Z",
+      total_paise: 45000,
+      lines: [{ id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405182", line_no: 1, item_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405183", item_name: "Gloves", unit: "box", quantity: 10, received_quantity: 0, unit_cost_paise: 4500 }],
+      receipts: [],
+    };
+    const { fetch, calls } = stubFetch(() => Promise.resolve(json(200, order)));
+    const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });
+    const id = purchaseOrderId.parse(order.id);
+
+    const made = await client.createPurchaseOrder({ supplier_id: order.supplier_id, lines: [{ item_id: order.lines[0]?.item_id ?? "", quantity: 10, unit_cost_paise: 4500 }] });
+    await client.updatePurchaseOrder(id, { status: "ordered" });
+    await client.receivePurchaseOrder(id, {});
+    await client.listPurchaseOrders({ status: "ordered" });
+    await client.getPurchaseOrder(id);
+
+    expect(made.ok && made.value.total_paise).toBe(45000);
+    expect(calls.map((c) => `${c.init?.method ?? ""} ${c.url.replace("http://sunrise.localtest.me", "")}`)).toEqual([
+      "POST /api/v1/purchase-orders",
+      `PATCH /api/v1/purchase-orders/${order.id}`,
+      `POST /api/v1/purchase-orders/${order.id}/receive`,
+      "GET /api/v1/purchase-orders?status=ordered",
+      `GET /api/v1/purchase-orders/${order.id}`,
+    ]);
+    expect(calls[0]?.init?.body).toContain('"quantity":10');
+    const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { ...order, status: "lost" })).fetch });
+    expect((await bad.getPurchaseOrder(id)).ok).toBe(false);
+
+    const preview = { token: "t0k3n", file_name: "stock.csv", row_count: 2, valid_rows: 1, error_rows: 1, errors: [{ row: 3, field: "name", message: "is required" }], rows: [{ row: 2, name: "Gloves", quantity: 5, new_item: true }], new_items: 1, warnings: [], expires_at: "2026-10-02T04:30:00Z" };
+    const importing = stubFetch(json(201, preview));
+    const importer = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: importing.fetch });
+    const form = new FormData();
+    form.set("file", new File(["name,qty\nGloves,5\n"], "stock.csv"));
+    const shown = await importer.previewStockImport(form);
+    expect(importing.calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/stock/import");
+    expect(importing.calls[0]?.init?.body).toBe(form);
+    expect(shown.ok && shown.value.errors[0]?.field).toBe("name");
+
+    const committing = stubFetch(json(200, { items_created: 1, items_updated: 0, batches_received: 1, units_received: 5, skipped: [], replayed: false }));
+    const committer = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: committing.fetch });
+    const done = await committer.commitStockImport({ token: "t0k3n" });
+    expect(committing.calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/stock/import/commit");
+    expect(committing.calls[0]?.init?.body).toBe(JSON.stringify({ token: "t0k3n" }));
+    expect(done.ok && done.value.replayed).toBe(false);
   });
 
   it("searches with a POST body, so the search term never appears in a URL", async () => {

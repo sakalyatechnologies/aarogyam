@@ -1278,7 +1278,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The UPI payment link and QR text for what is left on an issued bill. Records nothing. */
+        /**
+         * The UPI payment link and QR text for what is left on an issued bill, or for part of it with
+         *     `amount_paise`. Records nothing.
+         */
         get: operations["getInvoiceUpiLink"];
         put?: never;
         post?: never;
@@ -3431,6 +3434,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/purchase-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The purchase orders, newest first, optionally of one status or supplier. */
+        get: operations["listPurchaseOrders"];
+        put?: never;
+        /** Makes a purchase order, a draft or sent at once. */
+        post: operations["createPurchaseOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/purchase-orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One purchase order. */
+        get: operations["getPurchaseOrder"];
+        put?: never;
+        post?: never;
+        /** Deletes a draft order. */
+        delete: operations["deletePurchaseOrder"];
+        options?: never;
+        head?: never;
+        /** Changes a purchase order: its details while it is a draft, send it, or cancel it. */
+        patch: operations["updatePurchaseOrder"];
+        trace?: never;
+    };
+    "/api/v1/purchase-orders/{id}/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receives goods against a sent order: each line makes a stock batch and a receive movement. */
+        post: operations["receivePurchaseOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/queue": {
         parameters: {
             query?: never;
@@ -3593,9 +3650,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Chair utilization, income, expenses (stock received counts as material) and patients by
-         *     month or week. The last twelve months by default; at most 731 days. Money fields are null
-         *     unless the caller also has `finance.view`.
+         * Chair utilization, occupancy by chair and weekday and hour, income, expenses (stock
+         *     received counts as material), the procedure mix and patients by month or week. The last
+         *     twelve months by default; at most 731 days. Money fields (income, expenses, procedure
+         *     amounts) are null unless the caller also has `finance.view`.
          */
         get: operations["getAnalyticsReport"];
         put?: never;
@@ -4186,6 +4244,47 @@ export interface paths {
         get: operations["listExpiringStock"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stock/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reads a CSV or Excel list of items and opening stock and checks every row. Nothing is
+         *     changed until the preview is committed.
+         */
+        post: operations["previewStockImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stock/import/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Commits a stock import preview by its token: creates the new items, updates the values the
+         *     file gives for existing ones and receives each row's quantity as a batch. Committing the same
+         *     token again returns the first result and changes nothing.
+         */
+        post: operations["commitStockImport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4902,6 +5001,8 @@ export interface components {
             lab_turnaround: components["schemas"]["LabTurnaround"];
             /** @description Whether the money fields are filled (the caller has `finance.view`). */
             money_visible: boolean;
+            /** @description Booked chair time by hour of the day: per chair, and per weekday. */
+            occupancy: components["schemas"]["Occupancy"];
             /**
              * Format: int64
              * @description Minutes a chair is assumed open each day when its branch has no opening hours (540).
@@ -4911,9 +5012,10 @@ export interface components {
             patients: components["schemas"]["PatientBreakdown"];
             /**
              * @description Procedures done in the range by the category of the bill line that charged them
-             *     (`uncategorised` when not billed or without a category), most first. Counts only.
+             *     (`uncategorised` when not billed or without a category), most first, with what those
+             *     bill lines came to.
              */
-            procedures_by_category: components["schemas"]["KeyCount"][];
+            procedures_by_category: components["schemas"]["ProcedureCategory"][];
             /** @description Last day, included. */
             to: string;
             /** @description Booked appointments against walk-ins. */
@@ -5126,7 +5228,7 @@ export interface components {
             duration_seconds?: number | null;
             /** @description Identifier. */
             id: string;
-            /** @description `photo`, `xray`, `report`, `document`, `audio` or `consent`. */
+            /** @description `photo`, `xray`, `report`, `document`, `audio`, `consent` or `payment_proof`. */
             kind: string;
             /** @description Its label, such as `OPG`, `Intraoral - upper`, `X-ray`, `Consent` or the clinic's own. */
             label?: string | null;
@@ -5477,6 +5579,26 @@ export interface components {
             starts_at: string;
             /** @description Its status. */
             status: string;
+        };
+        /** @description One hour of the day on one chair, over the range. */
+        ChairHour: {
+            /**
+             * Format: int64
+             * @description Appointments touching the hour.
+             */
+            appointments: number;
+            /**
+             * Format: int64
+             * @description Booked minutes in the hour, all days of the range added (no-shows included).
+             */
+            booked_minutes: number;
+            /**
+             * Format: int32
+             * @description Hour of the day in clinic time, 0 to 23.
+             */
+            hour: number;
+            /** @description The chair. */
+            room_id: string;
         };
         /** @description A chair right now. */
         ChairStatus: {
@@ -5900,6 +6022,11 @@ export interface components {
              * @description Everything received, in paise.
              */
             collected_paise: number;
+            /**
+             * Format: int64
+             * @description Discount given on the bills issued in the range, in paise.
+             */
+            discount_paise: number;
             /** @description First day. */
             from: string;
             /**
@@ -5922,6 +6049,7 @@ export interface components {
              * @description Payments.
              */
             payments: number;
+            previous?: components["schemas"]["PeriodTotals"] | null;
             /** @description Bills issued in the range by category, for the revenue mix. */
             revenue_mix: components["schemas"]["MixItem"][];
             /** @description Last day, included. */
@@ -5942,6 +6070,11 @@ export interface components {
             field?: string | null;
             /** @description The column's header. */
             header: string;
+        };
+        /** @description The preview to commit. */
+        CommitStockImportBody: {
+            /** @description The token the preview gave. */
+            token: string;
         };
         /** @description A visit closed on the day, without its clinical content. */
         CompletedVisit: {
@@ -6364,6 +6497,8 @@ export interface components {
              * @description Paise.
              */
             amount_paise: number;
+            /** @description The same total split by method: every method, zero when none came in by it. */
+            by_method: components["schemas"]["MethodAmountItem"][];
             /** @description `YYYY-MM-DD`. */
             date: string;
             /**
@@ -6940,6 +7075,11 @@ export interface components {
             category?: string | null;
             /** @description Identifier. */
             id: string;
+            /**
+             * Format: int64
+             * @description What to order up to; null when not set.
+             */
+            max_level?: number | null;
             /** @description Name. */
             name: string;
             /**
@@ -7205,6 +7345,11 @@ export interface components {
             active?: boolean | null;
             /** @description Category: lower case, digits and `_`. */
             category?: string | null;
+            /**
+             * Format: int64
+             * @description What to order up to, at least the reorder level; 0 clears it.
+             */
+            max_level?: number | null;
             /** @description Name; required for a new item. */
             name?: string | null;
             /**
@@ -7841,6 +7986,11 @@ export interface components {
         LowStockAlert: {
             /** @description The item. */
             item_id: string;
+            /**
+             * Format: int64
+             * @description What to order up to; null when not set.
+             */
+            max_level?: number | null;
             /** @description Its name. */
             name: string;
             /**
@@ -7855,6 +8005,11 @@ export interface components {
             reorder_level: number;
             /** @description `low`, or `critical` when out or at a fifth of the reorder level or less. */
             status: string;
+            /**
+             * Format: int64
+             * @description Units to order to reach the max level; null without one.
+             */
+            suggested_order?: number | null;
             /** @description Its unit. */
             unit: string;
         };
@@ -8102,6 +8257,21 @@ export interface components {
         Meta: {
             /** @description Each app the server tracks versions of; empty when every version is served. */
             clients: components["schemas"]["ClientVersions"][];
+        };
+        /** @description Money received by one method on a day or in a week. */
+        MethodAmountItem: {
+            /**
+             * Format: int64
+             * @description Paise.
+             */
+            amount_paise: number;
+            /** @description `cash`, `upi`, `card` or `bank`. */
+            method: string;
+            /**
+             * Format: int64
+             * @description Payments.
+             */
+            payments: number;
         };
         /** @description Money received by one method. */
         MethodTotal: {
@@ -8515,6 +8685,11 @@ export interface components {
              * @description Paise, more than zero.
              */
             amount_paise: number;
+            /**
+             * @description A proof of the payment: the id of a file of the same patient uploaded with kind
+             *     `payment_proof`.
+             */
+            attachment_id?: string | null;
             /** @description `cash`, `upi`, `card` or `bank`. */
             method: string;
             /** @description Who paid. */
@@ -8563,6 +8738,19 @@ export interface components {
             price_paise?: number | null;
             /** @description `done` (default) or `planned`. */
             status?: string | null;
+        };
+        /** @description A new order. */
+        NewPurchaseOrderBody: {
+            /** @description Day it is expected, `YYYY-MM-DD`. */
+            expected_on?: string | null;
+            /** @description The lines, 1 to 100, each item once. */
+            lines: components["schemas"]["OrderLineBody"][];
+            /** @description Notes, up to 500 characters. */
+            notes?: string | null;
+            /** @description Send it at once instead of keeping a draft. */
+            order_now?: boolean | null;
+            /** @description The supplier. */
+            supplier_id: string;
         };
         /** @description One reading. */
         NewReading: {
@@ -8875,6 +9063,16 @@ export interface components {
             /** @description The new readings. */
             items: components["schemas"]["Observation"][];
         };
+        /**
+         * @description How busy the chairs are by hour. Only cells with bookings are listed, so a missing cell is
+         *     zero.
+         */
+        Occupancy: {
+            /** @description Chair by hour of the day, weekdays added; for the chair-by-hour heatmap. */
+            by_chair_hour: components["schemas"]["ChairHour"][];
+            /** @description Weekday by hour, chairs added; for the weekday-by-hour heatmap. */
+            by_weekday_hour: components["schemas"]["WeekdayHour"][];
+        };
         /** @description Online booking: what patients may book on the clinic's public page. */
         OnlineBooking: {
             /** @description Whether a booking is confirmed at once; otherwise the front desk confirms. */
@@ -9013,6 +9211,21 @@ export interface components {
              * @description The smallest value (`int_range`) or list length (`metrics`).
              */
             min?: number | null;
+        };
+        /** @description A line to order. */
+        OrderLineBody: {
+            /** @description The item. */
+            item_id: string;
+            /**
+             * Format: int64
+             * @description Units, at least 1.
+             */
+            quantity: number;
+            /**
+             * Format: int64
+             * @description Cost of one unit in paise; needs finance.view.
+             */
+            unit_cost_paise?: number | null;
         };
         /** @description A procedure or material the clinic added. */
         OwnDentalTerm: {
@@ -9576,6 +9789,8 @@ export interface components {
              * @description Paise.
              */
             amount_paise: number;
+            /** @description The file that proves it (a patient file of kind `payment_proof`), if one was attached. */
+            attachment_id?: string | null;
             /** @description Identifier. */
             id: string;
             /** @description `cash`, `upi`, `card` or `bank`. */
@@ -9662,6 +9877,40 @@ export interface components {
             outstanding_paise: number;
             /** @description Patients who owe. */
             patients: number;
+        };
+        /** @description Collections totals for a whole period, to compare with the current one. */
+        PeriodTotals: {
+            /** @description Every method. */
+            by_method: components["schemas"]["MethodTotal"][];
+            /**
+             * Format: int64
+             * @description Everything received, in paise.
+             */
+            collected_paise: number;
+            /**
+             * Format: int64
+             * @description Discount given on them, in paise.
+             */
+            discount_paise: number;
+            /** @description First day. */
+            from: string;
+            /**
+             * Format: int64
+             * @description Total of bills issued in the period.
+             */
+            invoiced_paise: number;
+            /**
+             * Format: int64
+             * @description Bills issued in the period.
+             */
+            invoices: number;
+            /**
+             * Format: int64
+             * @description Payments.
+             */
+            payments: number;
+            /** @description Last day, included. */
+            to: string;
         };
         /** @description A phone to look up. Sent in the body, never the URL. */
         PhoneLookup: {
@@ -10002,6 +10251,22 @@ export interface components {
             /** @description The visit. */
             visit_id: string;
         };
+        /** @description Procedures done under one bill category. */
+        ProcedureCategory: {
+            /**
+             * Format: int64
+             * @description What their issued bill lines came to, in paise, including GST. Null without
+             *     `finance.view`.
+             */
+            amount_paise?: number | null;
+            /**
+             * Format: int64
+             * @description Procedures done.
+             */
+            count: number;
+            /** @description The category, or `uncategorised`. */
+            key: string;
+        };
         /** @description A patient's procedures, newest first. */
         ProcedureList: {
             /** @description The procedures. */
@@ -10027,6 +10292,103 @@ export interface components {
             body: string;
             /** @description A short label, 1 to 40 characters, such as `v2 2026-11`. */
             label: string;
+        };
+        /** @description An order to a supplier. */
+        PurchaseOrder: {
+            /** @description When cancelled. */
+            cancelled_at?: string | null;
+            /** @description When made. */
+            created_at: string;
+            /** @description Day it is expected, `YYYY-MM-DD`. */
+            expected_on?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description The lines. */
+            lines: components["schemas"]["PurchaseOrderLine"][];
+            /** @description Notes. */
+            notes?: string | null;
+            /** @description Its number, such as PO-12. */
+            number: string;
+            /** @description When it was sent. */
+            ordered_at?: string | null;
+            /** @description What has been received. */
+            receipts: components["schemas"]["PurchaseOrderReceipt"][];
+            /** @description When the last line came in. */
+            received_at?: string | null;
+            /** @description `draft`, `ordered`, `received` or `cancelled`. */
+            status: string;
+            /** @description The supplier. */
+            supplier_id: string;
+            /** @description Their name. */
+            supplier_name: string;
+            /**
+             * Format: int64
+             * @description Total cost in paise; null without finance.view or when a line has no cost.
+             */
+            total_paise?: number | null;
+        };
+        /** @description A change to an order. Fields left out stay. */
+        PurchaseOrderChanges: {
+            /** @description Day it is expected; `null` clears. */
+            expected_on?: string | null;
+            /** @description All the lines, replacing the old ones; drafts only. */
+            lines?: components["schemas"]["OrderLineBody"][] | null;
+            /** @description Notes; an empty string clears. */
+            notes?: string | null;
+            /** @description `ordered` sends a draft; `cancelled` cancels an order nothing has come in against. */
+            status?: string | null;
+            /** @description A different supplier; drafts only. */
+            supplier_id?: string | null;
+        };
+        /** @description A line of an order. */
+        PurchaseOrderLine: {
+            /** @description Identifier. */
+            id: string;
+            /** @description The item. */
+            item_id: string;
+            /** @description Its name. */
+            item_name: string;
+            /**
+             * Format: int32
+             * @description Position, from 1.
+             */
+            line_no: number;
+            /**
+             * Format: int64
+             * @description Units ordered.
+             */
+            quantity: number;
+            /**
+             * Format: int64
+             * @description Units received so far.
+             */
+            received_quantity: number;
+            /** @description Its unit. */
+            unit: string;
+            /**
+             * Format: int64
+             * @description Cost of one unit in paise; null without finance.view or when not set.
+             */
+            unit_cost_paise?: number | null;
+        };
+        /** @description The orders, newest first. */
+        PurchaseOrderList: {
+            /** @description The orders. */
+            items: components["schemas"]["PurchaseOrder"][];
+        };
+        /** @description Goods received against a line. */
+        PurchaseOrderReceipt: {
+            /** @description When. */
+            at: string;
+            /** @description The stock batch made. */
+            batch_id: string;
+            /** @description The line. */
+            line_id: string;
+            /**
+             * Format: int64
+             * @description Units received.
+             */
+            quantity: number;
         };
         /** @description A test failing in the newest run that recorded it. */
         QualityFailingTest: {
@@ -10277,6 +10639,32 @@ export interface components {
              * @description Cost of one unit in paise; 0 by default.
              */
             unit_cost_paise?: number | null;
+        };
+        /** @description A delivery against one line. */
+        ReceiveLineBody: {
+            /** @description The supplier's batch number. */
+            batch_no?: string | null;
+            /** @description Last day it may be used, `YYYY-MM-DD`. */
+            expiry?: string | null;
+            /** @description The order's line. */
+            line_id: string;
+            /**
+             * Format: int64
+             * @description Units that arrived, up to what is still to come.
+             */
+            quantity: number;
+            /**
+             * Format: int64
+             * @description What one unit really cost; needs finance.view.
+             */
+            unit_cost_paise?: number | null;
+        };
+        /** @description A receipt of goods. */
+        ReceiveOrderBody: {
+            /** @description What arrived; left out or empty receives everything still to come at the line costs. */
+            lines?: components["schemas"]["ReceiveLineBody"][] | null;
+            /** @description The day it arrived, `YYYY-MM-DD`; today by default. */
+            received_on?: string | null;
         };
         /** @description A consent to record. */
         RecordConsent: {
@@ -11419,6 +11807,85 @@ export interface components {
             /** @description Items in good supply. */
             ok: number;
         };
+        /** @description A row that failed its checks. */
+        StockImportError: {
+            /** @description The field. */
+            field: string;
+            /** @description What is wrong. */
+            message: string;
+            /** @description The row in the file, numbered as a spreadsheet numbers them. */
+            row: number;
+        };
+        /** @description The upload form, for the OpenAPI document. */
+        StockImportForm: {
+            /**
+             * Format: binary
+             * @description The file: CSV (any delimiter) or Excel `.xlsx`, up to 5 MB and 1,000 rows, with a header
+             *     row. Columns: name (required), category, unit, reorder level, max level, quantity, unit
+             *     cost (rupees) or unit cost paise, batch, expiry, supplier.
+             */
+            file: string;
+            /** @description The workbook sheet to read; the first when left out. */
+            sheet?: string | null;
+        };
+        /** @description An uploaded list, checked and waiting to be committed. */
+        StockImportPreview: {
+            /** @description Rows that failed; they are left out of the commit. */
+            error_rows: number;
+            /** @description Why they failed. */
+            errors: components["schemas"]["StockImportError"][];
+            /** @description When the preview ends unless committed. */
+            expires_at: string;
+            /** @description The file's name. */
+            file_name: string;
+            /** @description Items the commit creates. */
+            new_items: number;
+            /** @description Data rows in the file. */
+            row_count: number;
+            /** @description The rows the commit will apply. */
+            rows: components["schemas"]["StockImportRow"][];
+            /** @description Commit with this token; it is shown once. */
+            token: string;
+            /** @description Rows that passed. */
+            valid_rows: number;
+            /** @description Things worth knowing, such as the same file having been imported before. */
+            warnings: string[];
+        };
+        /** @description What the commit did. */
+        StockImportResult: {
+            /** @description Batches received. */
+            batches_received: number;
+            /** @description Items created. */
+            items_created: number;
+            /** @description Existing items whose values changed. */
+            items_updated: number;
+            /** @description This token had been committed before; nothing changed this time. */
+            replayed: boolean;
+            /**
+             * @description Rows that could no longer be applied, because the clinic's items or suppliers changed
+             *     since the preview.
+             */
+            skipped: components["schemas"]["StockImportError"][];
+            /**
+             * Format: int64
+             * @description Units received in all.
+             */
+            units_received: number;
+        };
+        /** @description A row that passed. */
+        StockImportRow: {
+            /** @description The item's name. */
+            name: string;
+            /** @description The item will be created. */
+            new_item: boolean;
+            /**
+             * Format: int64
+             * @description Units to receive; 0 when the row only describes the item.
+             */
+            quantity: number;
+            /** @description The row in the file. */
+            row: number;
+        };
         /** @description An item and where its stock stands. */
         StockLevel: {
             /** @description The item. */
@@ -11435,6 +11902,12 @@ export interface components {
              *     reorder level or less) or `expiring` (enough, but a batch expires within 30 days).
              */
             status: string;
+            /**
+             * Format: int64
+             * @description Units to order to get back up to the item's max level (the max level less what is on
+             *     hand); null without a max level or when nothing is needed.
+             */
+            suggested_order?: number | null;
         };
         /** @description A change in stock. */
         StockMovement: {
@@ -11824,7 +12297,7 @@ export interface components {
             file: string;
             /** @description A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out. */
             id?: string | null;
-            /** @description `photo`, `xray`, `report`, `document` (default), `audio` or `consent`. */
+            /** @description `photo`, `xray`, `report`, `document` (default), `audio`, `consent` or `payment_proof`. */
             kind?: string | null;
             /** @description A label, 1 to 60 characters: `OPG`, `Intraoral - upper`, `X-ray`, `Consent` or your own. */
             label?: string | null;
@@ -12161,6 +12634,29 @@ export interface components {
             template: string;
             /** @description The designs and their palettes. */
             templates: components["schemas"]["SiteTemplate"][];
+        };
+        /** @description One hour of one weekday over the range, all chairs. */
+        WeekdayHour: {
+            /**
+             * Format: int64
+             * @description Appointments touching the hour.
+             */
+            appointments: number;
+            /**
+             * Format: int64
+             * @description Booked minutes in the hour, that weekday's days of the range and every chair added.
+             */
+            booked_minutes: number;
+            /**
+             * Format: int32
+             * @description Hour of the day in clinic time, 0 to 23.
+             */
+            hour: number;
+            /**
+             * Format: int32
+             * @description ISO weekday: 1 Monday to 7 Sunday.
+             */
+            weekday: number;
         };
         /** @description A widget the board can hold. */
         WidgetInfo: {
@@ -16235,7 +16731,10 @@ export interface operations {
     };
     getInvoiceUpiLink: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description A part payment in paise, above zero and at most the balance (default: the whole balance) */
+                amount_paise?: number;
+            };
             header?: never;
             path: {
                 /** @description The bill */
@@ -16252,6 +16751,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UpiLink"];
                 };
+            };
+            /** @description amount_paise is zero, negative or above the balance */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not signed in */
             401: {
@@ -22124,7 +22630,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description No such patient or bill in this clinic */
+            /** @description No such patient, bill or attachment in this clinic */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -23374,6 +23880,316 @@ export interface operations {
             };
         };
     };
+    listPurchaseOrders: {
+        parameters: {
+            query?: {
+                /** @description draft, ordered, received or cancelled */
+                status?: string;
+                /** @description Only this supplier */
+                supplier_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderList"];
+                };
+            };
+            /** @description A bad status or id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createPurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPurchaseOrderBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage, or costs without finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such supplier or item in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The order */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such order in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deletePurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The order */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such order in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Only a draft can be deleted */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updatePurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The order */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage, or costs without finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such order in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The order's state doesn't allow the change */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    receivePurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The order */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiveOrderBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            /** @description Invalid input, such as more than is still to come */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage, or a cost without finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such order or line in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The order isn't in the ordered state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listQueue: {
         parameters: {
             query?: {
@@ -23867,6 +24683,8 @@ export interface operations {
                 to?: string;
                 /** @description The last N weeks (1 to 52), the current one included; not with from or to */
                 weeks?: number;
+                /** @description prev: add the previous period's totals (the same number of days just before from) */
+                compare?: string;
             };
             header?: never;
             path?: never;
@@ -23882,7 +24700,7 @@ export interface operations {
                     "application/json": components["schemas"]["Collections"];
                 };
             };
-            /** @description A bad or too long range */
+            /** @description A bad or too long range, or an unknown compare */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -25799,6 +26617,115 @@ export interface operations {
             };
             /** @description Not a clinic, or not a member of it */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    previewStockImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["StockImportForm"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockImportPreview"];
+                };
+            };
+            /** @description The file can't be read, has no name column, no rows, or too many */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 5 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    commitStockImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitStockImportBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockImportResult"];
+                };
+            };
+            /** @description No token */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks inventory.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such preview in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The preview has expired */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

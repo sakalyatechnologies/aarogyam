@@ -4123,7 +4123,7 @@
         "tags": [
           "billing"
         ],
-        "summary": "The UPI payment link and QR text for what is left on an issued bill. Records nothing.",
+        "summary": "The UPI payment link and QR text for what is left on an issued bill, or for part of it with\n`amount_paise`. Records nothing.",
         "operationId": "getInvoiceUpiLink",
         "parameters": [
           {
@@ -4133,6 +4133,16 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "amount_paise",
+            "in": "query",
+            "description": "A part payment in paise, above zero and at most the balance (default: the whole balance)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
@@ -4145,6 +4155,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "amount_paise is zero, negative or above the balance"
           },
           "401": {
             "description": "Not signed in"
@@ -10146,7 +10159,7 @@
             "description": "The role lacks billing.write"
           },
           "404": {
-            "description": "No such patient or bill in this clinic"
+            "description": "No such patient, bill or attachment in this clinic"
           },
           "409": {
             "description": "The key was used for a different payment, or a bill isn't issued"
@@ -11348,6 +11361,310 @@
         }
       }
     },
+    "/api/v1/purchase-orders": {
+      "get": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "The purchase orders, newest first, optionally of one status or supplier.",
+        "operationId": "listPurchaseOrders",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "draft, ordered, received or cancelled",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "supplier_id",
+            "in": "query",
+            "description": "Only this supplier",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrderList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad status or id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Makes a purchase order, a draft or sent at once.",
+        "operationId": "createPurchaseOrder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPurchaseOrderBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage, or costs without finance.view"
+          },
+          "404": {
+            "description": "No such supplier or item in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase-orders/{id}": {
+      "get": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "One purchase order.",
+        "operationId": "getPurchaseOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrder"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.read"
+          },
+          "404": {
+            "description": "No such order in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Deletes a draft order.",
+        "operationId": "deletePurchaseOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such order in this clinic"
+          },
+          "409": {
+            "description": "Only a draft can be deleted"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Changes a purchase order: its details while it is a draft, send it, or cancel it.",
+        "operationId": "updatePurchaseOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseOrderChanges"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage, or costs without finance.view"
+          },
+          "404": {
+            "description": "No such order in this clinic"
+          },
+          "409": {
+            "description": "The order's state doesn't allow the change"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase-orders/{id}/receive": {
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Receives goods against a sent order: each line makes a stock batch and a receive movement.",
+        "operationId": "receivePurchaseOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The order",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiveOrderBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input, such as more than is still to come"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage, or a cost without finance.view"
+          },
+          "404": {
+            "description": "No such order or line in this clinic"
+          },
+          "409": {
+            "description": "The order isn't in the ordered state"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/queue": {
       "get": {
         "tags": [
@@ -11804,7 +12121,7 @@
         "tags": [
           "reports"
         ],
-        "summary": "Chair utilization, income, expenses (stock received counts as material) and patients by\nmonth or week. The last twelve months by default; at most 731 days. Money fields are null\nunless the caller also has `finance.view`.",
+        "summary": "Chair utilization, occupancy by chair and weekday and hour, income, expenses (stock\nreceived counts as material), the procedure mix and patients by month or week. The last\ntwelve months by default; at most 731 days. Money fields (income, expenses, procedure\namounts) are null unless the caller also has `finance.view`.",
         "operationId": "getAnalyticsReport",
         "parameters": [
           {
@@ -11898,6 +12215,15 @@
               "format": "int32",
               "minimum": 0
             }
+          },
+          {
+            "name": "compare",
+            "in": "query",
+            "description": "prev: add the previous period's totals (the same number of days just before from)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -11911,7 +12237,7 @@
             }
           },
           "400": {
-            "description": "A bad or too long range"
+            "description": "A bad or too long range, or an unknown compare"
           },
           "401": {
             "description": "Not signed in"
@@ -13705,6 +14031,103 @@
           },
           "404": {
             "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/stock/import": {
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Reads a CSV or Excel list of items and opening stock and checks every row. Nothing is\nchanged until the preview is committed.",
+        "operationId": "previewStockImport",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/StockImportForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockImportPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The file can't be read, has no name column, no rows, or too many"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "413": {
+            "description": "Larger than 5 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/stock/import/commit": {
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Commits a stock import preview by its token: creates the new items, updates the values the\nfile gives for existing ones and receives each row's quantity as a batch. Committing the same\ntoken again returns the first result and changes nothing.",
+        "operationId": "commitStockImport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitStockImportBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No token"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks inventory.manage"
+          },
+          "404": {
+            "description": "No such preview in this clinic"
+          },
+          "409": {
+            "description": "The preview has expired"
           }
         },
         "security": [
@@ -15647,6 +16070,7 @@
           "buckets",
           "patients",
           "procedures_by_category",
+          "occupancy",
           "chair_time",
           "visit_sources",
           "busy_hours",
@@ -15694,6 +16118,10 @@
             "type": "boolean",
             "description": "Whether the money fields are filled (the caller has `finance.view`)."
           },
+          "occupancy": {
+            "$ref": "#/components/schemas/Occupancy",
+            "description": "Booked chair time by hour of the day: per chair, and per weekday."
+          },
           "open_minutes_per_day": {
             "type": "integer",
             "format": "int64",
@@ -15706,9 +16134,9 @@
           "procedures_by_category": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/KeyCount"
+              "$ref": "#/components/schemas/ProcedureCategory"
             },
-            "description": "Procedures done in the range by the category of the bill line that charged them\n(`uncategorised` when not billed or without a category), most first. Counts only."
+            "description": "Procedures done in the range by the category of the bill line that charged them\n(`uncategorised` when not billed or without a category), most first, with what those\nbill lines came to."
           },
           "to": {
             "type": "string",
@@ -16246,7 +16674,7 @@
           },
           "kind": {
             "type": "string",
-            "description": "`photo`, `xray`, `report`, `document`, `audio` or `consent`."
+            "description": "`photo`, `xray`, `report`, `document`, `audio`, `consent` or `payment_proof`."
           },
           "label": {
             "type": [
@@ -17067,6 +17495,38 @@
           "status": {
             "type": "string",
             "description": "Its status."
+          }
+        }
+      },
+      "ChairHour": {
+        "type": "object",
+        "description": "One hour of the day on one chair, over the range.",
+        "required": [
+          "room_id",
+          "hour",
+          "booked_minutes",
+          "appointments"
+        ],
+        "properties": {
+          "appointments": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Appointments touching the hour."
+          },
+          "booked_minutes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Booked minutes in the hour, all days of the range added (no-shows included)."
+          },
+          "hour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Hour of the day in clinic time, 0 to 23.",
+            "minimum": 0
+          },
+          "room_id": {
+            "type": "string",
+            "description": "The chair."
           }
         }
       },
@@ -18153,6 +18613,7 @@
           "revenue_mix",
           "invoiced_paise",
           "invoices",
+          "discount_paise",
           "outstanding_paise"
         ],
         "properties": {
@@ -18182,6 +18643,11 @@
             "format": "int64",
             "description": "Everything received, in paise."
           },
+          "discount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Discount given on the bills issued in the range, in paise."
+          },
           "from": {
             "type": "string",
             "description": "First day."
@@ -18205,6 +18671,17 @@
             "type": "integer",
             "format": "int64",
             "description": "Payments."
+          },
+          "previous": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PeriodTotals",
+                "description": "Totals of the previous period (the same number of days just before `from`); present\nonly with `compare=prev`."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "revenue_mix": {
             "type": "array",
@@ -18254,6 +18731,19 @@
           "header": {
             "type": "string",
             "description": "The column's header."
+          }
+        }
+      },
+      "CommitStockImportBody": {
+        "type": "object",
+        "description": "The preview to commit.",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The token the preview gave."
           }
         }
       },
@@ -19280,13 +19770,21 @@
         "required": [
           "date",
           "amount_paise",
-          "payments"
+          "payments",
+          "by_method"
         ],
         "properties": {
           "amount_paise": {
             "type": "integer",
             "format": "int64",
             "description": "Paise."
+          },
+          "by_method": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MethodAmountItem"
+            },
+            "description": "The same total split by method: every method, zero when none came in by it."
           },
           "date": {
             "type": "string",
@@ -20725,6 +21223,14 @@
             "type": "string",
             "description": "Identifier."
           },
+          "max_level": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What to order up to; null when not set."
+          },
           "name": {
             "type": "string",
             "description": "Name."
@@ -21287,6 +21793,14 @@
               "null"
             ],
             "description": "Category: lower case, digits and `_`."
+          },
+          "max_level": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What to order up to, at least the reorder level; 0 clears it."
           },
           "name": {
             "type": [
@@ -23026,6 +23540,14 @@
             "type": "string",
             "description": "The item."
           },
+          "max_level": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What to order up to; null when not set."
+          },
           "name": {
             "type": "string",
             "description": "Its name."
@@ -23043,6 +23565,14 @@
           "status": {
             "type": "string",
             "description": "`low`, or `critical` when out or at a fifth of the reorder level or less."
+          },
+          "suggested_order": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Units to order to reach the max level; null without one."
           },
           "unit": {
             "type": "string",
@@ -23661,6 +24191,31 @@
               "$ref": "#/components/schemas/ClientVersions"
             },
             "description": "Each app the server tracks versions of; empty when every version is served."
+          }
+        }
+      },
+      "MethodAmountItem": {
+        "type": "object",
+        "description": "Money received by one method on a day or in a week.",
+        "required": [
+          "method",
+          "amount_paise",
+          "payments"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise."
+          },
+          "method": {
+            "type": "string",
+            "description": "`cash`, `upi`, `card` or `bank`."
+          },
+          "payments": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Payments."
           }
         }
       },
@@ -24713,6 +25268,13 @@
             "format": "int64",
             "description": "Paise, more than zero."
           },
+          "attachment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A proof of the payment: the id of a file of the same patient uploaded with kind\n`payment_proof`."
+          },
           "method": {
             "type": "string",
             "description": "`cash`, `upi`, `card` or `bank`."
@@ -24837,6 +25399,48 @@
           }
         ],
         "description": "A procedure to record."
+      },
+      "NewPurchaseOrderBody": {
+        "type": "object",
+        "description": "A new order.",
+        "required": [
+          "supplier_id",
+          "lines"
+        ],
+        "properties": {
+          "expected_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Day it is expected, `YYYY-MM-DD`."
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderLineBody"
+            },
+            "description": "The lines, 1 to 100, each item once."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Notes, up to 500 characters."
+          },
+          "order_now": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Send it at once instead of keeping a draft."
+          },
+          "supplier_id": {
+            "type": "string",
+            "description": "The supplier."
+          }
+        }
       },
       "NewReading": {
         "type": "object",
@@ -25700,6 +26304,30 @@
           }
         }
       },
+      "Occupancy": {
+        "type": "object",
+        "description": "How busy the chairs are by hour. Only cells with bookings are listed, so a missing cell is\nzero.",
+        "required": [
+          "by_chair_hour",
+          "by_weekday_hour"
+        ],
+        "properties": {
+          "by_chair_hour": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChairHour"
+            },
+            "description": "Chair by hour of the day, weekdays added; for the chair-by-hour heatmap."
+          },
+          "by_weekday_hour": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeekdayHour"
+            },
+            "description": "Weekday by hour, chairs added; for the weekday-by-hour heatmap."
+          }
+        }
+      },
       "OnlineBooking": {
         "type": "object",
         "description": "Online booking: what patients may book on the clinic's public page.",
@@ -25964,6 +26592,33 @@
             ],
             "format": "int64",
             "description": "The smallest value (`int_range`) or list length (`metrics`)."
+          }
+        }
+      },
+      "OrderLineBody": {
+        "type": "object",
+        "description": "A line to order.",
+        "required": [
+          "item_id",
+          "quantity"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "The item."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units, at least 1."
+          },
+          "unit_cost_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Cost of one unit in paise; needs finance.view."
           }
         }
       },
@@ -27398,6 +28053,13 @@
             "format": "int64",
             "description": "Paise."
           },
+          "attachment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The file that proves it (a patient file of kind `payment_proof`), if one was attached."
+          },
           "id": {
             "type": "string",
             "description": "Identifier."
@@ -27585,6 +28247,62 @@
             "type": "integer",
             "description": "Patients who owe.",
             "minimum": 0
+          }
+        }
+      },
+      "PeriodTotals": {
+        "type": "object",
+        "description": "Collections totals for a whole period, to compare with the current one.",
+        "required": [
+          "from",
+          "to",
+          "collected_paise",
+          "payments",
+          "by_method",
+          "invoiced_paise",
+          "invoices",
+          "discount_paise"
+        ],
+        "properties": {
+          "by_method": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MethodTotal"
+            },
+            "description": "Every method."
+          },
+          "collected_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Everything received, in paise."
+          },
+          "discount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Discount given on them, in paise."
+          },
+          "from": {
+            "type": "string",
+            "description": "First day."
+          },
+          "invoiced_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total of bills issued in the period."
+          },
+          "invoices": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bills issued in the period."
+          },
+          "payments": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Payments."
+          },
+          "to": {
+            "type": "string",
+            "description": "Last day, included."
           }
         }
       },
@@ -28483,6 +29201,33 @@
           }
         }
       },
+      "ProcedureCategory": {
+        "type": "object",
+        "description": "Procedures done under one bill category.",
+        "required": [
+          "key",
+          "count"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What their issued bill lines came to, in paise, including GST. Null without\n`finance.view`."
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Procedures done."
+          },
+          "key": {
+            "type": "string",
+            "description": "The category, or `uncategorised`."
+          }
+        }
+      },
       "ProcedureList": {
         "type": "object",
         "description": "A patient's procedures, newest first.",
@@ -28557,6 +29302,246 @@
           }
         },
         "additionalProperties": false
+      },
+      "PurchaseOrder": {
+        "type": "object",
+        "description": "An order to a supplier.",
+        "required": [
+          "id",
+          "number",
+          "supplier_id",
+          "supplier_name",
+          "status",
+          "created_at",
+          "lines",
+          "receipts"
+        ],
+        "properties": {
+          "cancelled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When cancelled."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When made."
+          },
+          "expected_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Day it is expected, `YYYY-MM-DD`."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderLine"
+            },
+            "description": "The lines."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Notes."
+          },
+          "number": {
+            "type": "string",
+            "description": "Its number, such as PO-12."
+          },
+          "ordered_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was sent."
+          },
+          "receipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderReceipt"
+            },
+            "description": "What has been received."
+          },
+          "received_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the last line came in."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft`, `ordered`, `received` or `cancelled`."
+          },
+          "supplier_id": {
+            "type": "string",
+            "description": "The supplier."
+          },
+          "supplier_name": {
+            "type": "string",
+            "description": "Their name."
+          },
+          "total_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Total cost in paise; null without finance.view or when a line has no cost."
+          }
+        }
+      },
+      "PurchaseOrderChanges": {
+        "type": "object",
+        "description": "A change to an order. Fields left out stay.",
+        "properties": {
+          "expected_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Day it is expected; `null` clears."
+          },
+          "lines": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/OrderLineBody"
+            },
+            "description": "All the lines, replacing the old ones; drafts only."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Notes; an empty string clears."
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`ordered` sends a draft; `cancelled` cancels an order nothing has come in against."
+          },
+          "supplier_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A different supplier; drafts only."
+          }
+        }
+      },
+      "PurchaseOrderLine": {
+        "type": "object",
+        "description": "A line of an order.",
+        "required": [
+          "id",
+          "line_no",
+          "item_id",
+          "item_name",
+          "unit",
+          "quantity",
+          "received_quantity"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "item_id": {
+            "type": "string",
+            "description": "The item."
+          },
+          "item_name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "line_no": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Position, from 1."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units ordered."
+          },
+          "received_quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units received so far."
+          },
+          "unit": {
+            "type": "string",
+            "description": "Its unit."
+          },
+          "unit_cost_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Cost of one unit in paise; null without finance.view or when not set."
+          }
+        }
+      },
+      "PurchaseOrderList": {
+        "type": "object",
+        "description": "The orders, newest first.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrder"
+            },
+            "description": "The orders."
+          }
+        }
+      },
+      "PurchaseOrderReceipt": {
+        "type": "object",
+        "description": "Goods received against a line.",
+        "required": [
+          "line_id",
+          "batch_id",
+          "quantity",
+          "at"
+        ],
+        "properties": {
+          "at": {
+            "type": "string",
+            "description": "When."
+          },
+          "batch_id": {
+            "type": "string",
+            "description": "The stock batch made."
+          },
+          "line_id": {
+            "type": "string",
+            "description": "The line."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units received."
+          }
+        }
       },
       "QualityFailingTest": {
         "type": "object",
@@ -29249,6 +30234,70 @@
             ],
             "format": "int64",
             "description": "Cost of one unit in paise; 0 by default."
+          }
+        }
+      },
+      "ReceiveLineBody": {
+        "type": "object",
+        "description": "A delivery against one line.",
+        "required": [
+          "line_id",
+          "quantity"
+        ],
+        "properties": {
+          "batch_no": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The supplier's batch number."
+          },
+          "expiry": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Last day it may be used, `YYYY-MM-DD`."
+          },
+          "line_id": {
+            "type": "string",
+            "description": "The order's line."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units that arrived, up to what is still to come."
+          },
+          "unit_cost_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What one unit really cost; needs finance.view."
+          }
+        }
+      },
+      "ReceiveOrderBody": {
+        "type": "object",
+        "description": "A receipt of goods.",
+        "properties": {
+          "lines": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ReceiveLineBody"
+            },
+            "description": "What arrived; left out or empty receives everything still to come at the line costs."
+          },
+          "received_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The day it arrived, `YYYY-MM-DD`; today by default."
           }
         }
       },
@@ -32018,6 +33067,197 @@
           }
         }
       },
+      "StockImportError": {
+        "type": "object",
+        "description": "A row that failed its checks.",
+        "required": [
+          "row",
+          "field",
+          "message"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "The field."
+          },
+          "message": {
+            "type": "string",
+            "description": "What is wrong."
+          },
+          "row": {
+            "type": "integer",
+            "description": "The row in the file, numbered as a spreadsheet numbers them.",
+            "minimum": 0
+          }
+        }
+      },
+      "StockImportForm": {
+        "type": "object",
+        "description": "The upload form, for the OpenAPI document.",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The file: CSV (any delimiter) or Excel `.xlsx`, up to 5 MB and 1,000 rows, with a header\nrow. Columns: name (required), category, unit, reorder level, max level, quantity, unit\ncost (rupees) or unit cost paise, batch, expiry, supplier."
+          },
+          "sheet": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The workbook sheet to read; the first when left out."
+          }
+        }
+      },
+      "StockImportPreview": {
+        "type": "object",
+        "description": "An uploaded list, checked and waiting to be committed.",
+        "required": [
+          "token",
+          "file_name",
+          "row_count",
+          "valid_rows",
+          "error_rows",
+          "errors",
+          "rows",
+          "new_items",
+          "warnings",
+          "expires_at"
+        ],
+        "properties": {
+          "error_rows": {
+            "type": "integer",
+            "description": "Rows that failed; they are left out of the commit.",
+            "minimum": 0
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockImportError"
+            },
+            "description": "Why they failed."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When the preview ends unless committed."
+          },
+          "file_name": {
+            "type": "string",
+            "description": "The file's name."
+          },
+          "new_items": {
+            "type": "integer",
+            "description": "Items the commit creates.",
+            "minimum": 0
+          },
+          "row_count": {
+            "type": "integer",
+            "description": "Data rows in the file.",
+            "minimum": 0
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockImportRow"
+            },
+            "description": "The rows the commit will apply."
+          },
+          "token": {
+            "type": "string",
+            "description": "Commit with this token; it is shown once."
+          },
+          "valid_rows": {
+            "type": "integer",
+            "description": "Rows that passed.",
+            "minimum": 0
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Things worth knowing, such as the same file having been imported before."
+          }
+        }
+      },
+      "StockImportResult": {
+        "type": "object",
+        "description": "What the commit did.",
+        "required": [
+          "items_created",
+          "items_updated",
+          "batches_received",
+          "units_received",
+          "skipped",
+          "replayed"
+        ],
+        "properties": {
+          "batches_received": {
+            "type": "integer",
+            "description": "Batches received.",
+            "minimum": 0
+          },
+          "items_created": {
+            "type": "integer",
+            "description": "Items created.",
+            "minimum": 0
+          },
+          "items_updated": {
+            "type": "integer",
+            "description": "Existing items whose values changed.",
+            "minimum": 0
+          },
+          "replayed": {
+            "type": "boolean",
+            "description": "This token had been committed before; nothing changed this time."
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockImportError"
+            },
+            "description": "Rows that could no longer be applied, because the clinic's items or suppliers changed\nsince the preview."
+          },
+          "units_received": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units received in all."
+          }
+        }
+      },
+      "StockImportRow": {
+        "type": "object",
+        "description": "A row that passed.",
+        "required": [
+          "row",
+          "name",
+          "quantity",
+          "new_item"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The item's name."
+          },
+          "new_item": {
+            "type": "boolean",
+            "description": "The item will be created."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units to receive; 0 when the row only describes the item."
+          },
+          "row": {
+            "type": "integer",
+            "description": "The row in the file.",
+            "minimum": 0
+          }
+        }
+      },
       "StockLevel": {
         "type": "object",
         "description": "An item and where its stock stands.",
@@ -32046,6 +33286,14 @@
           "status": {
             "type": "string",
             "description": "`ok`, `low` (at or below the reorder level), `critical` (out, or at a fifth of the\nreorder level or less) or `expiring` (enough, but a batch expires within 30 days)."
+          },
+          "suggested_order": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Units to order to get back up to the item's max level (the max level less what is on\nhand); null without a max level or when nothing is needed."
           }
         }
       },
@@ -33006,7 +34254,7 @@
               "string",
               "null"
             ],
-            "description": "`photo`, `xray`, `report`, `document` (default), `audio` or `consent`."
+            "description": "`photo`, `xray`, `report`, `document` (default), `audio`, `consent` or `payment_proof`."
           },
           "label": {
             "type": [
@@ -33789,6 +35037,40 @@
               "$ref": "#/components/schemas/SiteTemplate"
             },
             "description": "The designs and their palettes."
+          }
+        }
+      },
+      "WeekdayHour": {
+        "type": "object",
+        "description": "One hour of one weekday over the range, all chairs.",
+        "required": [
+          "weekday",
+          "hour",
+          "booked_minutes",
+          "appointments"
+        ],
+        "properties": {
+          "appointments": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Appointments touching the hour."
+          },
+          "booked_minutes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Booked minutes in the hour, that weekday's days of the range and every chair added."
+          },
+          "hour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Hour of the day in clinic time, 0 to 23.",
+            "minimum": 0
+          },
+          "weekday": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ISO weekday: 1 Monday to 7 Sunday.",
+            "minimum": 0
           }
         }
       },

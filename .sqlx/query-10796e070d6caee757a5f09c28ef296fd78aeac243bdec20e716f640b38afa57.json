@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select status from aarogyam.purchase_orders where id = $1 and deleted_at is null for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_orders",
+            "name": "status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "10796e070d6caee757a5f09c28ef296fd78aeac243bdec20e716f640b38afa57"
+}

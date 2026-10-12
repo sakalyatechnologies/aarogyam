@@ -83,7 +83,11 @@ import {
   inventoryItem,
   inventoryItemDetail,
   inventoryItemList,
+  purchaseOrder,
+  purchaseOrderList,
   stockChange,
+  stockImportPreview,
+  stockImportResult,
   stockSummary,
   supplier,
   supplierList,
@@ -657,6 +661,41 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         signal: opts?.signal,
       }),
 
+    previewStockImport: (form, opts) =>
+      call({ method: "POST", path: "/api/v1/stock/import", schema: stockImportPreview, body: form, signal: opts?.signal }),
+    commitStockImport: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/stock/import/commit", schema: stockImportResult, body: input, signal: opts?.signal }),
+    listPurchaseOrders: (filter, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/purchase-orders",
+        schema: purchaseOrderList,
+        query: { status: filter?.status, supplier_id: filter?.supplierId },
+        signal: opts?.signal,
+      }),
+    getPurchaseOrder: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/purchase-orders/${encodeURIComponent(id)}`, schema: purchaseOrder, signal: opts?.signal }),
+    createPurchaseOrder: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/purchase-orders", schema: purchaseOrder, body: input, signal: opts?.signal }),
+    updatePurchaseOrder: (id, input, opts) =>
+      call({
+        method: "PATCH",
+        path: `/api/v1/purchase-orders/${encodeURIComponent(id)}`,
+        schema: purchaseOrder,
+        body: input,
+        signal: opts?.signal,
+      }),
+    deletePurchaseOrder: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/purchase-orders/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    receivePurchaseOrder: (id, input, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/purchase-orders/${encodeURIComponent(id)}/receive`,
+        schema: purchaseOrder,
+        body: input,
+        signal: opts?.signal,
+      }),
+
     listInvoices: (filter, opts) =>
       call({
         method: "GET",
@@ -692,7 +731,7 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/payments/${encodeURIComponent(id)}/void`, schema: payment, body: reason, signal: opts?.signal }),
 
     getCollections: (range, opts) =>
-      call({ method: "GET", path: "/api/v1/reports/collections", schema: collections, query: { from: range.from, to: range.to, weeks: range.weeks }, signal: opts?.signal }),
+      call({ method: "GET", path: "/api/v1/reports/collections", schema: collections, query: { from: range.from, to: range.to, weeks: range.weeks, compare: range.compare }, signal: opts?.signal }),
     getPendingReport: (opts) => call({ method: "GET", path: "/api/v1/reports/pending", schema: pendingReport, signal: opts?.signal }),
     getTodayMoney: (opts) => call({ method: "GET", path: "/api/v1/today/money", schema: todayMoney, signal: opts?.signal }),
     listExpenses: (range, opts) =>

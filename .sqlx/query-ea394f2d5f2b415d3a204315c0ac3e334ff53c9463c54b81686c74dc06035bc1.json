@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.purchase_orders\n           set status = $2,\n               ordered_at = case when $2 = 'ordered' then $3 else ordered_at end,\n               received_at = case when $2 = 'received' then $3 else received_at end,\n               cancelled_at = case when $2 = 'cancelled' then $3 else cancelled_at end\n           where id = $1 and deleted_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ea394f2d5f2b415d3a204315c0ac3e334ff53c9463c54b81686c74dc06035bc1"
+}

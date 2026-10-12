@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select kind, patient_id from aarogyam.attachments where id = $1 and deleted_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.attachments",
+            "name": "patient_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "f3042b293e8120a2be68e8eb3b9e40489107744edfc37fc9676d5d6bc1d976cf"
+}

@@ -18,6 +18,9 @@ pub enum StockError {
     /// The reorder level is negative or too large.
     #[error("must be between 0 and 1000000")]
     ReorderLevel,
+    /// The max level is negative or too large.
+    #[error("must be between 0 and 1000000")]
+    MaxLevel,
     /// The unit is not one the clinic stocks in.
     #[error("must be piece, ml, g, box or pack")]
     Unit,

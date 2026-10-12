@@ -61,6 +61,8 @@ pub async fn report(
             Class::LabContacts => dal::lab_contacts(db.pool(), cutoff, sample).await?,
             Class::MessageTemplates => dal::message_templates(db.pool(), cutoff, sample).await?,
             Class::Campaigns => dal::campaigns(db.pool(), cutoff, sample).await?,
+            Class::StockImports => dal::stock_imports(db.pool(), cutoff, sample).await?,
+            Class::PurchaseOrders => dal::purchase_orders(db.pool(), cutoff, sample).await?,
         };
         classes.push(ClassReport {
             class,

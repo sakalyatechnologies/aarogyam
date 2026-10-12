@@ -29,11 +29,11 @@ use crate::failure::ApiFailure;
 /// Largest upload body: the file plus room for the other form fields.
 pub(crate) const MAX_UPLOAD_BODY: usize = MAX_FILE_BYTES + 64 * 1024;
 
-fn bad_request(message: impl Into<String>) -> ApiFailure {
+pub(crate) fn bad_request(message: impl Into<String>) -> ApiFailure {
     ApiFailure::Error(ApiError::bad_request("invalid_request", message.into()))
 }
 
-fn too_large() -> ApiFailure {
+pub(crate) fn too_large() -> ApiFailure {
     ApiFailure::Error(ApiError::new(
         ErrorKind::PayloadTooLarge,
         "too_large",
@@ -41,7 +41,7 @@ fn too_large() -> ApiFailure {
     ))
 }
 
-fn form_error(error: &MultipartError) -> ApiFailure {
+pub(crate) fn form_error(error: &MultipartError) -> ApiFailure {
     if error.status() == StatusCode::PAYLOAD_TOO_LARGE {
         too_large()
     } else {

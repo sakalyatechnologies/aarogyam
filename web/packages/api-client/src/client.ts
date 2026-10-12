@@ -126,6 +126,7 @@ import type {
   PrescriptionId,
   PrescriptionPage,
   AdjustStock,
+  CommitStockImport,
   ExpireBatch,
   ExpiringPage,
   InventoryItem,
@@ -133,9 +134,18 @@ import type {
   InventoryItemId,
   InventoryItemPage,
   InventoryItemValues,
+  NewPurchaseOrder,
+  PurchaseOrder,
+  PurchaseOrderChanges,
+  PurchaseOrderId,
+  PurchaseOrderPage,
+  PurchaseOrderStatus,
+  ReceivePurchaseOrder,
   ReceiveStock,
   StockBatchId,
   StockChange,
+  StockImportPreview,
+  StockImportResult,
   StockSummary,
   Supplier,
   SupplierId,
@@ -631,6 +641,25 @@ export interface ApiClient {
   adjustStock(input: AdjustStock, options?: RequestOptions): Promise<ApiResult<StockChange>>;
   /** Clinic host: writes off what is left of an expired batch. Needs `inventory.manage`. */
   expireBatch(id: StockBatchId, input: ExpireBatch, options?: RequestOptions): Promise<ApiResult<StockChange>>;
+  /** Clinic host: checks a CSV or Excel list of items and opening stock (form field `file`, optional `sheet`), row by row; saves nothing. Needs `inventory.manage`. */
+  previewStockImport(form: FormData, options?: RequestOptions): Promise<ApiResult<StockImportPreview>>;
+  /** Clinic host: commits a stock import preview by its token; committing it again returns the first result (`replayed`). 409 once the preview has expired. Needs `inventory.manage`. */
+  commitStockImport(input: CommitStockImport, options?: RequestOptions): Promise<ApiResult<StockImportResult>>;
+  /** Clinic host: purchase orders, newest first, optionally of one status or supplier. Costs show only with `finance.view`. Needs `inventory.read`. */
+  listPurchaseOrders(
+    filter?: { status?: PurchaseOrderStatus | undefined; supplierId?: SupplierId | undefined },
+    options?: RequestOptions,
+  ): Promise<ApiResult<PurchaseOrderPage>>;
+  /** Clinic host: one purchase order with its lines and receipts. Needs `inventory.read`. */
+  getPurchaseOrder(id: PurchaseOrderId, options?: RequestOptions): Promise<ApiResult<PurchaseOrder>>;
+  /** Clinic host: makes an order, a draft or sent at once (`order_now`). Needs `inventory.manage`; costs need `finance.view`. */
+  createPurchaseOrder(input: NewPurchaseOrder, options?: RequestOptions): Promise<ApiResult<PurchaseOrder>>;
+  /** Clinic host: changes a draft, sends it (`status: ordered`) or cancels an order nothing has come in against. 409 when its state doesn't allow it. Needs `inventory.manage`. */
+  updatePurchaseOrder(id: PurchaseOrderId, input: PurchaseOrderChanges, options?: RequestOptions): Promise<ApiResult<PurchaseOrder>>;
+  /** Clinic host: deletes a draft order. Needs `inventory.manage`. */
+  deletePurchaseOrder(id: PurchaseOrderId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: receives goods against a sent order (an empty body receives everything still to come), making stock batches. Needs `inventory.manage`. */
+  receivePurchaseOrder(id: PurchaseOrderId, input: ReceivePurchaseOrder, options?: RequestOptions): Promise<ApiResult<PurchaseOrder>>;
 
   /** Clinic host: bills, newest first, without lines. Needs `billing.read`. */
   listInvoices(
@@ -663,7 +692,7 @@ export interface ApiClient {
    * Clinic host: collections by day, week and method, and the revenue mix. With `weeks` (1 to 52, not with `from` or `to`),
    * the last that many weeks, the current one included. Needs `finance.view`.
    */
-  getCollections(range: Partial<DateRange> & { weeks?: number | undefined }, options?: RequestOptions): Promise<ApiResult<Collections>>;
+  getCollections(range: Partial<DateRange> & { weeks?: number | undefined; compare?: "prev" | undefined }, options?: RequestOptions): Promise<ApiResult<Collections>>;
   /** Clinic host: issued bills with a balance, oldest first. Needs `finance.view`. */
   getPendingReport(options?: RequestOptions): Promise<ApiResult<PendingReport>>;
   /** Clinic host: today's collections, pending dues and revenue mix for the Today screen. Needs `finance.view`. */

@@ -29,7 +29,7 @@ fn stock(field: &'static str) -> impl Fn(StockError) -> AppError {
 }
 
 /// Trims optional text; empty means none.
-fn trimmed(
+pub(crate) fn trimmed(
     text: Option<&str>,
     field: &'static str,
     max: usize,
@@ -44,7 +44,11 @@ fn trimmed(
     }
 }
 
-fn required(text: Option<&str>, field: &'static str, max: usize) -> Result<String, AppError> {
+pub(crate) fn required(
+    text: Option<&str>,
+    field: &'static str,
+    max: usize,
+) -> Result<String, AppError> {
     trimmed(text, field, max)?.ok_or(AppError::invalid(field, "is required"))
 }
 
@@ -267,6 +271,8 @@ pub struct ItemView {
     pub unit: StockUnit,
     /// At or below this the item is low.
     pub reorder_level: i64,
+    /// What to order up to; `None` when not set.
+    pub max_level: Option<i64>,
     /// Still stocked.
     pub active: bool,
 }
@@ -279,6 +285,7 @@ impl From<ItemRow> for ItemView {
             category: row.category,
             unit: StockUnit::parse(&row.unit).unwrap_or_default(),
             reorder_level: row.reorder_level,
+            max_level: row.max_level,
             active: row.active,
         }
     }
@@ -296,19 +303,25 @@ pub struct ItemInput {
     pub unit: Option<String>,
     /// Reorder level.
     pub reorder_level: Option<i64>,
+    /// What to order up to, at least the reorder level; `0` clears it.
+    pub max_level: Option<i64>,
     /// Still stocked.
     pub active: Option<bool>,
 }
 
-struct ItemFields {
-    name: String,
-    category: Option<String>,
-    unit: StockUnit,
-    reorder_level: i64,
-    active: bool,
+pub(crate) struct ItemFields {
+    pub(crate) name: String,
+    pub(crate) category: Option<String>,
+    pub(crate) unit: StockUnit,
+    pub(crate) reorder_level: i64,
+    pub(crate) max_level: Option<i64>,
+    pub(crate) active: bool,
 }
 
-fn merge_item(current: Option<&ItemRow>, input: &ItemInput) -> Result<ItemFields, AppError> {
+pub(crate) fn merge_item(
+    current: Option<&ItemRow>,
+    input: &ItemInput,
+) -> Result<ItemFields, AppError> {
     let name = required(
         input.name.as_deref().or(current.map(|c| c.name.as_str())),
         "name",
@@ -336,22 +349,40 @@ fn merge_item(current: Option<&ItemRow>, input: &ItemInput) -> Result<ItemFields
     if !(0..=MAX_MOVEMENT).contains(&reorder_level) {
         return Err(AppError::invalid("reorder_level", StockError::ReorderLevel));
     }
+    let max_level = match input.max_level {
+        Some(0) => None,
+        Some(level) => Some(level),
+        None => current.and_then(|c| c.max_level),
+    };
+    if let Some(level) = max_level {
+        if !(0..=MAX_MOVEMENT).contains(&level) {
+            return Err(AppError::invalid("max_level", StockError::MaxLevel));
+        }
+        if level < reorder_level {
+            return Err(AppError::invalid(
+                "max_level",
+                "must not be below the reorder level",
+            ));
+        }
+    }
     Ok(ItemFields {
         name,
         category,
         unit,
         reorder_level,
+        max_level,
         active: input.active.or(current.map(|c| c.active)).unwrap_or(true),
     })
 }
 
 impl ItemFields {
-    fn values(&self) -> ItemValues<'_> {
+    pub(crate) fn values(&self) -> ItemValues<'_> {
         ItemValues {
             name: &self.name,
             category: self.category.as_deref(),
             unit: self.unit.as_str(),
             reorder_level: self.reorder_level,
+            max_level: self.max_level,
             active: self.active,
         }
     }
@@ -377,6 +408,9 @@ pub struct StockItem {
     pub next_expiry: Option<Date>,
     /// Where it stands.
     pub status: StockStatus,
+    /// Units to order to get back to the max level: the max level less what is on hand. `None`
+    /// without a max level or when nothing is needed.
+    pub suggested_order: Option<i64>,
 }
 
 impl StockItem {
@@ -390,12 +424,17 @@ impl StockItem {
             on_hand: row.on_hand,
             next_expiry: row.next_expiry,
             status,
+            suggested_order: row
+                .max_level
+                .map(|max| max - row.on_hand)
+                .filter(|units| *units > 0),
             item: ItemView {
                 id: InventoryItemId::from_uuid(row.id),
                 name: row.name,
                 category: row.category,
                 unit: StockUnit::parse(&row.unit).unwrap_or_default(),
                 reorder_level: row.reorder_level,
+                max_level: row.max_level,
                 active: row.active,
             },
         }
@@ -682,51 +721,75 @@ pub async fn receive(
     now: OffsetDateTime,
 ) -> Result<StockChange, AppError> {
     actor.require(Permission::InventoryManage)?;
-    check_quantity(input.quantity).map_err(stock("quantity"))?;
-    if input.unit_cost_paise < 0 {
-        return Err(AppError::invalid("unit_cost_paise", StockError::Cost));
-    }
-    let batch_no = trimmed(input.batch_no.as_deref(), "batch_no", 60)?;
+    let batch_no = check_receive(&input)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let today = clinic_today(&actor.timezone, now);
-        dal::item(tx.conn(), input.item_id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("item"))?;
-        if let Some(supplier) = input.supplier_id {
-            dal::supplier(tx.conn(), supplier.uuid())
-                .await?
-                .ok_or(AppError::NotFound("supplier"))?;
-        }
-        let batch = dal::insert_batch(
-            tx.conn(),
-            StockBatchId::new_v7().uuid(),
-            &BatchValues {
-                item_id: input.item_id.uuid(),
-                supplier_id: input.supplier_id.map(SupplierId::uuid),
-                batch_no: batch_no.as_deref(),
-                expiry: input.expiry,
-                quantity: input.quantity,
-                unit_cost_paise: input.unit_cost_paise,
-                received_on: input.received_on.unwrap_or(today),
-            },
-        )
-        .await?;
-        let movement = dal::insert_movement(
-            tx.conn(),
-            Uuid::now_v7(),
-            input.item_id.uuid(),
-            batch.id,
-            MovementKind::Receive.as_str(),
-            input.quantity,
-            None,
-        )
-        .await?;
+        let (_, movement) = receive_in(tx, &input, batch_no.as_deref(), today).await?;
         Ok(StockChange {
             stock: stock_item_in(tx, input.item_id, today).await?,
             movements: vec![MovementView::from(movement)],
         })
     })
     .await
+}
+
+/// Checks a delivery's values; returns the trimmed batch number.
+///
+/// # Errors
+/// [`AppError::Invalid`] for a bad quantity, cost or batch number.
+pub(crate) fn check_receive(input: &ReceiveInput) -> Result<Option<String>, AppError> {
+    check_quantity(input.quantity).map_err(stock("quantity"))?;
+    if input.unit_cost_paise < 0 {
+        return Err(AppError::invalid("unit_cost_paise", StockError::Cost));
+    }
+    trimmed(input.batch_no.as_deref(), "batch_no", 60)
+}
+
+/// Adds a delivery inside an open clinic transaction: a batch and a `receive` movement. The
+/// one path every receipt takes, whether keyed in, imported or received against a purchase
+/// order. `batch_no` is the checked batch number from [`check_receive`].
+///
+/// # Errors
+/// [`AppError::NotFound`] for an unknown item or supplier.
+pub(crate) async fn receive_in(
+    tx: &mut ScopedTx,
+    input: &ReceiveInput,
+    batch_no: Option<&str>,
+    today: Date,
+) -> Result<(dal::BatchRow, dal::MovementRow), AppError> {
+    dal::item(tx.conn(), input.item_id.uuid())
+        .await?
+        .ok_or(AppError::NotFound("item"))?;
+    if let Some(supplier) = input.supplier_id {
+        dal::supplier(tx.conn(), supplier.uuid())
+            .await?
+            .ok_or(AppError::NotFound("supplier"))?;
+    }
+    let batch = dal::insert_batch(
+        tx.conn(),
+        StockBatchId::new_v7().uuid(),
+        &BatchValues {
+            item_id: input.item_id.uuid(),
+            supplier_id: input.supplier_id.map(SupplierId::uuid),
+            batch_no,
+            expiry: input.expiry,
+            quantity: input.quantity,
+            unit_cost_paise: input.unit_cost_paise,
+            received_on: input.received_on.unwrap_or(today),
+        },
+    )
+    .await?;
+    let movement = dal::insert_movement(
+        tx.conn(),
+        Uuid::now_v7(),
+        input.item_id.uuid(),
+        batch.id,
+        MovementKind::Receive.as_str(),
+        input.quantity,
+        None,
+    )
+    .await?;
+    Ok((batch, movement))
 }
 
 /// Takes `quantity` units of an item, earliest expiry first, and records each batch touched.

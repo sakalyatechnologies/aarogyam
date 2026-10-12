@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into aarogyam.inventory_items (id, name, category, unit, reorder_level, active)\n           values ($1, $2, $3, $4, $5, $6)\n           returning id, name, category, unit, reorder_level, active",
+  "query": "insert into aarogyam.inventory_items\n             (id, name, category, unit, reorder_level, max_level, active)\n           values ($1, $2, $3, $4, $5, $6, $7)\n           returning id, name, category, unit, reorder_level, max_level, active",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "max_level",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "max_level"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "active",
         "type_info": "Bool",
         "origin": {
@@ -77,6 +88,7 @@
         "Text",
         "Text",
         "Int8",
+        "Int8",
         "Bool"
       ]
     },
@@ -86,8 +98,9 @@
       true,
       false,
       false,
+      true,
       false
     ]
   },
-  "hash": "0060896184db7ba0d1578bffbc94dbcde2e9ed9a9c680ad9b1fbb87aa1dbecac"
+  "hash": "877c9f98d4f95f9202442d82226a6b6baef6536976f6d0dee05fd51d69500670"
 }

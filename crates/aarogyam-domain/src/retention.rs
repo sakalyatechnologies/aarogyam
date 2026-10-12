@@ -40,6 +40,10 @@ text_value! {
         MessageTemplates => "message_templates",
         /// Campaigns that were sent or cancelled and nobody has changed since.
         Campaigns => "campaigns",
+        /// Stock lists uploaded to import items and opening stock, kept as the rows checked.
+        StockImports => "stock_imports",
+        /// Orders to suppliers with their lines and receipts: money spent, kept like bills.
+        PurchaseOrders => "purchase_orders",
     }
 }
 
@@ -73,9 +77,9 @@ impl Class {
     pub const fn period(self) -> Period {
         match self {
             Self::PatientRecord | Self::AuditEvents => Period::Years(7),
-            Self::Invoices | Self::LabWork => Period::Years(8),
+            Self::Invoices | Self::LabWork | Self::PurchaseOrders => Period::Years(8),
             Self::Outbox => Period::Days(90),
-            Self::ShareLinks | Self::ImportSessions => Period::Days(30),
+            Self::ShareLinks | Self::ImportSessions | Self::StockImports => Period::Days(30),
             Self::AccessLog => Period::Years(3),
             Self::Messages
             | Self::ClinicApplications
@@ -97,7 +101,7 @@ impl Class {
             Self::Outbox => "when the message was sent or abandoned",
             Self::Messages => "when the message was queued",
             Self::ShareLinks => "when the link expired",
-            Self::ImportSessions => "when the upload was made",
+            Self::ImportSessions | Self::StockImports => "when the upload was made",
             Self::AccessLog | Self::AuditEvents => "when the entry was written",
             Self::ClinicApplications => "when the request was decided (or made, if undecided)",
             Self::ChatMessages => "when the message was posted",
@@ -105,6 +109,7 @@ impl Class {
             Self::LabContacts => "when the contact was removed",
             Self::MessageTemplates => "when the template last changed",
             Self::Campaigns => "when the campaign last changed",
+            Self::PurchaseOrders => "when the order was made",
         }
     }
 

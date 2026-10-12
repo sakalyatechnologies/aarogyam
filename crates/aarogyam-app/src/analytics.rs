@@ -23,6 +23,7 @@ use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::AppointmentKind;
 use sakalya_db::Db;
 use sakalya_types::Paise;
+use std::collections::BTreeMap;
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
@@ -129,7 +130,9 @@ pub struct Analytics {
     pub sexes: Vec<(Sex, i64)>,
     /// Procedures done in the range, by the category of the bill line that charged them; the
     /// key is [`UNCATEGORISED`] for those not billed or without a category. Most first.
-    pub procedures: Vec<(String, i64)>,
+    pub procedures: Vec<ProcedureMix>,
+    /// Booked chair minutes by hour: per chair, and per weekday. Only cells with bookings.
+    pub occupancy: Occupancy,
     /// Booked chair minutes by what they were spent on.
     pub chair_time: Vec<(ChairTime, i64)>,
     /// Visits that were booked appointments.
@@ -140,6 +143,37 @@ pub struct Analytics {
     pub lab_orders_received: i64,
     /// Their average days from sent to received, to one decimal; `None` when there were none.
     pub lab_turnaround_days: Option<f64>,
+}
+
+/// Procedures done under one bill category.
+#[derive(Debug, Clone)]
+pub struct ProcedureMix {
+    /// The category, or [`UNCATEGORISED`].
+    pub category: String,
+    /// Procedures done.
+    pub count: i64,
+    /// What their issued bill lines came to, including GST; `None` without `finance.view`.
+    pub amount: Option<Paise>,
+}
+
+/// Booked minutes in an hour of the day.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HourLoad {
+    /// Hour of the day in clinic time, 0 to 23.
+    pub hour: u8,
+    /// Booked minutes (no-shows included) that fall in the hour, over the range.
+    pub booked_minutes: i64,
+    /// Appointments touching the hour.
+    pub appointments: i64,
+}
+
+/// Occupancy of the chairs by hour over the range.
+#[derive(Debug, Clone, Default)]
+pub struct Occupancy {
+    /// Per chair and hour of the day, all weekdays added.
+    pub by_chair_hour: Vec<(RoomId, HourLoad)>,
+    /// Per ISO weekday (1 Monday) and hour of the day, all chairs added.
+    pub by_weekday_hour: Vec<(u8, HourLoad)>,
 }
 
 /// The category shown for procedures with none.
@@ -315,6 +349,47 @@ fn tally<K: Copy + PartialEq, R>(
         .collect()
 }
 
+/// Adds the occupancy cells up per chair and hour, and per weekday and hour.
+fn occupancy_of(cells: &[dal::OccupancyCell]) -> Occupancy {
+    let mut by_chair: BTreeMap<(Uuid, u8), HourLoad> = BTreeMap::new();
+    let mut by_weekday: BTreeMap<(u8, u8), HourLoad> = BTreeMap::new();
+    for cell in cells {
+        let (Some(weekday), Some(hour)) = (
+            u8::try_from(cell.weekday)
+                .ok()
+                .filter(|d| (1..=7).contains(d)),
+            u8::try_from(cell.hour).ok().filter(|h| *h < 24),
+        ) else {
+            continue;
+        };
+        for load in [
+            by_chair.entry((cell.room_id, hour)).or_insert(HourLoad {
+                hour,
+                booked_minutes: 0,
+                appointments: 0,
+            }),
+            by_weekday.entry((weekday, hour)).or_insert(HourLoad {
+                hour,
+                booked_minutes: 0,
+                appointments: 0,
+            }),
+        ] {
+            load.booked_minutes += cell.minutes;
+            load.appointments += cell.appointments;
+        }
+    }
+    Occupancy {
+        by_chair_hour: by_chair
+            .into_iter()
+            .map(|((room, _), load)| (RoomId::from_uuid(room), load))
+            .collect(),
+        by_weekday_hour: by_weekday
+            .into_iter()
+            .map(|((weekday, _), load)| (weekday, load))
+            .collect(),
+    }
+}
+
 #[expect(
     clippy::too_many_lines,
     reason = "one pass that turns the statement's rows into the report"
@@ -381,15 +456,27 @@ fn build(from: Date, to: Date, bucket: Bucket, money: bool, rows: &AnalyticsRows
             (sex.unwrap_or(Sex::Unknown), row.count)
         },
     );
-    let mut procedures: Vec<(String, i64)> = Vec::new();
+    let mut procedures: Vec<ProcedureMix> = Vec::new();
     for row in &rows.procedures {
         let key = row.key.as_deref().unwrap_or(UNCATEGORISED);
-        match procedures.iter_mut().find(|(k, _)| k == key) {
-            Some((_, count)) => *count += row.count,
-            None => procedures.push((key.to_owned(), row.count)),
+        match procedures.iter_mut().find(|mix| mix.category == key) {
+            Some(mix) => {
+                mix.count += row.count;
+                mix.amount = mix.amount.map(|a| Paise::new(a.get() + row.amount_paise));
+            }
+            None => procedures.push(ProcedureMix {
+                category: key.to_owned(),
+                count: row.count,
+                amount: money.then(|| Paise::new(row.amount_paise)),
+            }),
         }
     }
-    procedures.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    procedures.sort_by(|a, b| {
+        b.count
+            .cmp(&a.count)
+            .then_with(|| a.category.cmp(&b.category))
+    });
+    let occupancy = occupancy_of(&rows.occupancy);
     let chair_time = tally(ChairTime::ALL, &rows.chair_kinds, |row| {
         let kind = row
             .key
@@ -425,6 +512,7 @@ fn build(from: Date, to: Date, bucket: Bucket, money: bool, rows: &AnalyticsRows
         busy_hours,
         sexes,
         procedures,
+        occupancy,
         chair_time,
         booked_visits: rows.booked_visits,
         walk_ins: rows.walk_ins,
@@ -551,6 +639,76 @@ mod tests {
             &rows,
         );
         assert!(hidden.periods.iter().all(|p| p.money.is_none()));
+    }
+
+    #[test]
+    fn occupancy_adds_up_per_chair_and_per_weekday() {
+        let (one, two) = (Uuid::from_u128(1), Uuid::from_u128(2));
+        let cell = |room, weekday, hour, minutes, appointments| dal::OccupancyCell {
+            room_id: room,
+            weekday,
+            hour,
+            minutes,
+            appointments,
+        };
+        let rows = AnalyticsRows {
+            // Chair 1 on Monday and Tuesday at 10, chair 2 on Monday at 10; 25 is no hour.
+            occupancy: vec![
+                cell(one, 1, 10, 60, 1),
+                cell(one, 2, 10, 30, 1),
+                cell(two, 1, 10, 45, 2),
+                cell(two, 1, 25, 45, 2),
+            ],
+            procedures: vec![
+                dal::ProcedureCount {
+                    key: Some("endo".into()),
+                    count: 2,
+                    amount_paise: 500_000,
+                },
+                dal::ProcedureCount {
+                    key: None,
+                    count: 1,
+                    amount_paise: 0,
+                },
+            ],
+            ..AnalyticsRows::default()
+        };
+        let report = build(
+            date!(2026 - 10 - 05),
+            date!(2026 - 10 - 11),
+            Bucket::Week,
+            true,
+            &rows,
+        );
+        let chair_one: Vec<_> = report
+            .occupancy
+            .by_chair_hour
+            .iter()
+            .filter(|(room, _)| room.uuid() == one)
+            .collect();
+        assert_eq!(chair_one.len(), 1);
+        assert_eq!(chair_one[0].1.booked_minutes, 90);
+        assert_eq!(chair_one[0].1.appointments, 2);
+        assert_eq!(report.occupancy.by_chair_hour.len(), 2);
+        let monday_ten = report
+            .occupancy
+            .by_weekday_hour
+            .iter()
+            .find(|(weekday, load)| *weekday == 1 && load.hour == 10)
+            .unwrap();
+        assert_eq!(monday_ten.1.booked_minutes, 105);
+        assert_eq!(report.occupancy.by_weekday_hour.len(), 2);
+        // Procedures carry what they were billed, only for callers with money.
+        assert_eq!(report.procedures[0].category, "endo");
+        assert_eq!(report.procedures[0].amount, Some(Paise::new(500_000)));
+        let hidden = build(
+            date!(2026 - 10 - 05),
+            date!(2026 - 10 - 11),
+            Bucket::Week,
+            false,
+            &rows,
+        );
+        assert!(hidden.procedures.iter().all(|p| p.amount.is_none()));
     }
 
     #[test]

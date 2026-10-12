@@ -60,6 +60,9 @@ pub struct Payment {
     pub unallocated_paise: i64,
     /// The bills it pays.
     pub allocations: Vec<Allocation>,
+    /// The file that proves it (a patient file of kind `payment_proof`), if one was attached.
+    #[schema(value_type = Option<String>)]
+    pub attachment_id: Option<Uuid>,
 }
 
 impl From<PaymentView> for Payment {
@@ -76,6 +79,7 @@ impl From<PaymentView> for Payment {
             void_reason: view.void_reason,
             allocated_paise: view.allocated.get(),
             unallocated_paise: view.unallocated.get(),
+            attachment_id: view.attachment_id,
             allocations: view
                 .allocations
                 .into_iter()
@@ -112,6 +116,11 @@ pub struct NewPayment {
     /// The bills it pays; what is left over stays as an advance.
     #[serde(default)]
     pub allocations: Vec<Allocation>,
+    /// A proof of the payment: the id of a file of the same patient uploaded with kind
+    /// `payment_proof`.
+    #[serde(default)]
+    #[schema(value_type = Option<String>)]
+    pub attachment_id: Option<Uuid>,
 }
 
 /// Records a payment against issued bills and issues a receipt number. Needs an
@@ -130,7 +139,7 @@ pub struct NewPayment {
         (status = 400, description = "Invalid input, a missing key, or an allocation past a bill's balance or the payment"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks billing.write"),
-        (status = 404, description = "No such patient or bill in this clinic"),
+        (status = 404, description = "No such patient, bill or attachment in this clinic"),
         (status = 409, description = "The key was used for a different payment, or a bill isn't issued")
     )
 )]
@@ -157,6 +166,7 @@ pub(crate) async fn record(
             .into_iter()
             .map(|a| (InvoiceId::from_uuid(a.invoice_id), a.amount_paise))
             .collect(),
+        attachment_id: body.attachment_id,
     };
     let (view, created) = app::record(
         state.db(),

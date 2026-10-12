@@ -221,6 +221,52 @@ pub async fn import_sessions(
     Ok(rows)
 }
 
+/// Stock import uploads made before `cutoff`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn stock_imports(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(created_at) as "oldest?",
+                  (array_agg(id order by created_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.stock_import_previews where created_at < $1
+           group by org_id order by org_id"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+/// Purchase orders made before `cutoff`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn purchase_orders(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(created_at) as "oldest?",
+                  (array_agg(id order by created_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.purchase_orders where created_at < $1
+           group by org_id order by org_id"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 /// Access-record entries written before `cutoff`.
 ///
 /// # Errors

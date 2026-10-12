@@ -148,6 +148,8 @@ pub struct ItemRow {
     pub unit: String,
     /// At or below this the item is low.
     pub reorder_level: i64,
+    /// What to order up to; `None` when not set.
+    pub max_level: Option<i64>,
     /// Still stocked.
     pub active: bool,
 }
@@ -163,6 +165,8 @@ pub struct ItemValues<'a> {
     pub unit: &'a str,
     /// Reorder level.
     pub reorder_level: i64,
+    /// What to order up to; `None` when not set.
+    pub max_level: Option<i64>,
     /// Still stocked.
     pub active: bool,
 }
@@ -174,7 +178,7 @@ pub struct ItemValues<'a> {
 pub async fn item(conn: &mut PgConnection, id: Uuid) -> Result<Option<ItemRow>, DbError> {
     let row = sqlx::query_as!(
         ItemRow,
-        r#"select id, name, category, unit, reorder_level, active
+        r#"select id, name, category, unit, reorder_level, max_level, active
            from aarogyam.inventory_items where id = $1 and deleted_at is null"#,
         id
     )
@@ -194,14 +198,16 @@ pub async fn insert_item(
 ) -> Result<ItemRow, DbError> {
     let row = sqlx::query_as!(
         ItemRow,
-        r#"insert into aarogyam.inventory_items (id, name, category, unit, reorder_level, active)
-           values ($1, $2, $3, $4, $5, $6)
-           returning id, name, category, unit, reorder_level, active"#,
+        r#"insert into aarogyam.inventory_items
+             (id, name, category, unit, reorder_level, max_level, active)
+           values ($1, $2, $3, $4, $5, $6, $7)
+           returning id, name, category, unit, reorder_level, max_level, active"#,
         id,
         values.name,
         values.category,
         values.unit,
         values.reorder_level,
+        values.max_level,
         values.active
     )
     .fetch_one(conn)
@@ -221,14 +227,16 @@ pub async fn update_item(
     let row = sqlx::query_as!(
         ItemRow,
         r#"update aarogyam.inventory_items
-           set name = $2, category = $3, unit = $4, reorder_level = $5, active = $6
+           set name = $2, category = $3, unit = $4, reorder_level = $5, max_level = $6,
+               active = $7
            where id = $1 and deleted_at is null
-           returning id, name, category, unit, reorder_level, active"#,
+           returning id, name, category, unit, reorder_level, max_level, active"#,
         id,
         values.name,
         values.category,
         values.unit,
         values.reorder_level,
+        values.max_level,
         values.active
     )
     .fetch_optional(conn)
@@ -263,6 +271,9 @@ pub struct StockRow {
     pub unit: String,
     /// Reorder level.
     pub reorder_level: i64,
+    /// What to order up to; `None` when not set.
+    #[serde(default)]
+    pub max_level: Option<i64>,
     /// Still stocked.
     pub active: bool,
     /// Units on hand, all batches (expired ones included until written off).
@@ -279,7 +290,7 @@ pub struct StockRow {
 pub async fn stock(conn: &mut PgConnection) -> Result<Vec<StockRow>, DbError> {
     let rows = sqlx::query_as!(
         StockRow,
-        r#"select i.id, i.name, i.category, i.unit, i.reorder_level, i.active,
+        r#"select i.id, i.name, i.category, i.unit, i.reorder_level, i.max_level, i.active,
                   coalesce(sum(b.quantity), 0)::bigint as "on_hand!",
                   min(b.expiry) filter (where b.quantity > 0) as next_expiry
            from aarogyam.inventory_items i

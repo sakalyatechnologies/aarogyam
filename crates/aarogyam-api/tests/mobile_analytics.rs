@@ -130,8 +130,16 @@ async fn analytics_split_chair_time_sex_procedures_and_walk_ins() {
         json!({ "name": "Root canal" }),
     )
     .await;
-    post(&app, &owner, "/api/v1/invoices", json!({ "patient_id": man["id"], "items": [
+    let bill = post(&app, &owner, "/api/v1/invoices", json!({ "patient_id": man["id"], "items": [
         { "price_item_id": item["id"], "procedure_id": procedure["id"], "description": "Root canal", "unit_price_paise": 400_000 }] })).await;
+    // Amounts count issued bills only.
+    post(
+        &app,
+        &owner,
+        &format!("/api/v1/invoices/{}/issue", bill["id"].as_str().unwrap()),
+        json!({}),
+    )
+    .await;
 
     let path = format!("/api/v1/reports/analytics?from={today}&to={tomorrow}");
     let get =
@@ -142,6 +150,22 @@ async fn analytics_split_chair_time_sex_procedures_and_walk_ins() {
     assert_eq!(count(&report["patients"]["sex"], "male"), 1);
     assert_eq!(report["patients"]["sex"].as_array().unwrap().len(), 4);
     assert_eq!(count(&report["procedures_by_category"], "endodontics"), 1);
+    assert!(
+        report["procedures_by_category"][0]["amount_paise"]
+            .as_i64()
+            .unwrap()
+            >= 400_000
+    );
+    let by_chair = report["occupancy"]["by_chair_hour"].as_array().unwrap();
+    let by_week = report["occupancy"]["by_weekday_hour"].as_array().unwrap();
+    assert!(!by_chair.is_empty() && !by_week.is_empty(), "{report}");
+    assert_eq!(
+        by_week
+            .iter()
+            .map(|c| c["booked_minutes"].as_i64().unwrap())
+            .sum::<i64>(),
+        90
+    );
     assert_eq!(
         report["chair_time"],
         json!({ "treatment": 60, "consult": 30, "admin": 0 })

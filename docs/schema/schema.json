@@ -4924,7 +4924,7 @@
      "type": "attachment_kind",
      "nullable": false,
      "ref": null,
-     "note": "photo, xray, report, document, audio, consent"
+     "note": "photo, xray, report, document, audio, consent, payment_proof"
     },
     {
      "name": "storage_key",
@@ -5036,6 +5036,7 @@
     "consent_forms.pdf_attachment_id",
     "consent_forms.signature_attachment_id",
     "document_extractions.attachment_id",
+    "payments.attachment_id",
     "voice_notes.attachment_id"
    ],
    "sensitivity": "health",
@@ -6235,6 +6236,7 @@
     }
    ],
    "referenced_by": [
+    "purchase_orders.supplier_id",
     "stock_batches.supplier_id"
    ],
    "sensitivity": "internal",
@@ -6249,7 +6251,7 @@
    "partitioned": false,
    "lifecycle": null,
    "schema": "aarogyam",
-   "notes": "Built (migration 0061). Quantities are whole units. Status is derived: critical (out, or a fifth of the reorder level or less), low (at or below it), expiring (a batch within 30 days), else ok.",
+   "notes": "Built (migration 0061; max_level 0630). Quantities are whole units. Status is derived: critical (out, or a fifth of the reorder level or less), low (at or below it), expiring (a batch within 30 days), else ok.",
    "cols": [
     {
      "name": "name",
@@ -6280,6 +6282,13 @@
      "note": ""
     },
     {
+     "name": "max_level",
+     "type": "bigint",
+     "nullable": true,
+     "ref": null,
+     "note": "what to order up to; at least the reorder level"
+    },
+    {
      "name": "active",
      "type": "bool",
      "nullable": false,
@@ -6296,6 +6305,7 @@
    ],
    "referenced_by": [
     "procedure_materials.item_id",
+    "purchase_order_lines.item_id",
     "stock_batches.item_id",
     "stock_movements.item_id"
    ],
@@ -6371,8 +6381,302 @@
     }
    ],
    "referenced_by": [
+    "purchase_order_receipts.batch_id",
     "stock_movements.batch_id"
    ],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "purchase_orders",
+   "domain": "ops",
+   "purpose": "An order to a supplier: draft, ordered, received or cancelled.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0631). Only a draft is deleted. Costs are on the lines and shown only with finance.view.",
+   "cols": [
+    {
+     "name": "number",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "PO-12, from the clinic's counter"
+    },
+    {
+     "name": "supplier_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "suppliers",
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "draft, ordered, received, cancelled"
+    },
+    {
+     "name": "expected_on",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "notes",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "ordered_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "received_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cancelled_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "purchase_order_lines.order_id",
+    "purchase_order_receipts.order_id"
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "purchase_order_lines",
+   "domain": "ops",
+   "purpose": "What an order asks for: an item, a quantity and an agreed cost.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0632). Replaced as a set while the order is a draft; received_quantity grows as goods arrive.",
+   "cols": [
+    {
+     "name": "order_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "purchase_orders",
+     "note": ""
+    },
+    {
+     "name": "line_no",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": "1 to 100"
+    },
+    {
+     "name": "item_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "inventory_items",
+     "note": "once per order"
+    },
+    {
+     "name": "quantity",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "unit_cost_paise",
+     "type": "bigint",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "received_quantity",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "never above quantity"
+    }
+   ],
+   "referenced_by": [
+    "purchase_order_receipts.line_id"
+   ],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "purchase_order_receipts",
+   "domain": "ops",
+   "purpose": "Goods received against an order line: which stock batch it made.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0632). Made by the usual receive path, so the batch and its receive movement exist too.",
+   "cols": [
+    {
+     "name": "order_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "purchase_orders",
+     "note": ""
+    },
+    {
+     "name": "line_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "purchase_order_lines",
+     "note": ""
+    },
+    {
+     "name": "batch_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "stock_batches",
+     "note": "unique"
+    },
+    {
+     "name": "quantity",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "stock_import_previews",
+   "domain": "ops",
+   "purpose": "An uploaded stock list, checked row by row and held until the clinic commits it by its token.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0633). No patient data.",
+   "cols": [
+    {
+     "name": "token_hash",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "SHA-256 of the one-time token; unique per clinic"
+    },
+    {
+     "name": "file_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "file_sha256",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "the same bytes again give a warning"
+    },
+    {
+     "name": "size_bytes",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "at most 5 MB"
+    },
+    {
+     "name": "row_count",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "at most 2,000"
+    },
+    {
+     "name": "valid_rows",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "error_rows",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "rows",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "the rows that passed; cleared on commit or expiry, excluded from the audit log"
+    },
+    {
+     "name": "errors",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "[{row, field, message}]"
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "open, committed, expired"
+    },
+    {
+     "name": "result",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "what the commit did; a second commit returns it"
+    },
+    {
+     "name": "committed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "24 hours after upload"
+    }
+   ],
+   "referenced_by": [],
    "sensitivity": "internal",
    "offline": "server_only"
   },
@@ -7361,6 +7665,13 @@
      "nullable": true,
      "ref": "memberships",
      "note": ""
+    },
+    {
+     "name": "attachment_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "attachments",
+     "note": "proof of payment, a payment_proof of the same patient"
     }
    ],
    "referenced_by": [

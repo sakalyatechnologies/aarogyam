@@ -139,4 +139,8 @@ entities! {
     Audience, AudienceId;
     /// A one-off promotional send to an audience.
     Campaign, CampaignId;
+    /// An order placed with a supplier.
+    PurchaseOrder, PurchaseOrderId;
+    /// One item on a purchase order.
+    PurchaseOrderLine, PurchaseOrderLineId;
 }

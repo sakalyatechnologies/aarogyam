@@ -168,7 +168,7 @@ pub async fn today(
                     from aarogyam.practitioners where deleted_at is null) d
              ) as "practitioners!: Json<Vec<PractitionerRow>>",
              (select coalesce(json_agg(s order by lower(s.name), s.id), '[]'::json)
-              from (select i.id, i.name, i.category, i.unit, i.reorder_level, i.active,
+              from (select i.id, i.name, i.category, i.unit, i.reorder_level, i.max_level, i.active,
                            coalesce(sum(b.quantity), 0)::bigint as on_hand,
                            min(b.expiry) filter (where b.quantity > 0) as next_expiry
                     from aarogyam.inventory_items i

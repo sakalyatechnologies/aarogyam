@@ -15,6 +15,7 @@ import {
   CreditCard,
   FlaskConical,
   IndianRupee,
+  ListChecks,
   ListOrdered,
   PieChart,
   Users,
@@ -42,6 +43,7 @@ import { AppointmentsTable } from "./appointments-table.js";
 import { useBoard } from "./board-context.js";
 import { KpisWidget } from "./kpis.js";
 import type { LayoutOpts } from "./layout-model.js";
+import { MyTasksWidget } from "./my-tasks.js";
 import { MoneyEye, useShowMoney } from "./money.js";
 import { NextupWidget } from "./nextup.js";
 import { QueueWidget } from "./queue.js";
@@ -483,6 +485,7 @@ export const WIDGET_REGISTRY: readonly WidgetEntry[] = [
   { key: "revenue_mix", icon: PieChart, render: RevenueMixWidget },
   { key: "pending_payments", icon: CreditCard, render: PendingPaymentsWidget },
   { key: "busy_hours", icon: Activity, render: BusyHoursWidget },
+  { key: "my_tasks", icon: ListChecks, render: MyTasksWidget },
 ];
 
 export const WIDGET_KEYS: readonly string[] = WIDGET_REGISTRY.map((entry) => entry.key);

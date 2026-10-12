@@ -29,6 +29,7 @@ export const COPY = {
   noLabsHint: "New orders will show here until they are fitted.",
   noTeam: "Add your doctors in Settings and they'll show up here.",
   noCollections: "Payments you record will show up here, week by week.",
+  tasksAllDone: "All your tasks are done — nice work ✨",
   noBusyHours: "Your busiest hours will appear as the day fills up.",
   noKeyNumbers: "Pick the numbers you'd like to see in the Dashboard studio.",
   noOneWaiting: "All caught up",

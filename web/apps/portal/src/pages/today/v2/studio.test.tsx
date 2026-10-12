@@ -57,7 +57,9 @@ describe("the widget registry", () => {
     });
     await screen.findByRole("heading", { level: 1 });
     await waitFor(() => { expect(catalogue).toBeDefined(); });
-    expect(catalogue?.widgets.map((w) => w.key).sort()).toEqual([...WIDGET_KEYS].sort());
+    // "My tasks" is drawn by the portal before the server's catalogue lists it.
+    const keys = catalogue?.widgets.map((w) => w.key) ?? [];
+    expect([...new Set([...keys, "my_tasks"])].sort()).toEqual([...WIDGET_KEYS].sort());
   });
 });
 

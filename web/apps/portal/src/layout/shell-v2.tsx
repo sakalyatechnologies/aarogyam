@@ -15,7 +15,7 @@ import { PRESETS } from "../pages/settings/my-profile.js";
 import { useClinicSetup } from "../pages/setup/queries.js";
 import { ClinicMark } from "./clinic-mark.js";
 import { CommandPalette } from "./command-palette.js";
-import { badgeLabel, NotificationsDrawer, useBadges } from "./notifications.js";
+import { badgeLabel, bellCount, NotificationsDrawer, useBadges } from "./notifications.js";
 import { glyphFor, SpecialtyEmblem } from "./specialty-emblem.js";
 import { PageTransition } from "./page-transition.js";
 import { PeekProvider } from "./peek.js";
@@ -105,7 +105,7 @@ function FrameV2() {
   const mainId = useId();
   const mainRef = useRef<HTMLElement>(null);
   const badges = useBadges();
-  const unread = badges.data?.notifications_unread ?? null;
+  const unread = bellCount(badges.data);
   const bellBadge = badgeLabel(unread);
   const setup = useSetupProgress();
   // The specialty comes from clinic settings, which only people who manage settings may read; others see initials.

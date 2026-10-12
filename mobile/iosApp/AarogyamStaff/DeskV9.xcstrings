@@ -2370,6 +2370,52 @@
           }
         }
       }
+    },
+    "d9.pay.already": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already paid"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पहले ही भुगतान हो गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आधीच भरले आहे"
+          }
+        }
+      }
+    },
+    "d9.pay.already.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This bill was settled on another screen. Nothing was charged again."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह बिल किसी दूसरी स्क्रीन पर चुका दिया गया। दोबारा कुछ नहीं लिया गया।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे बिल दुसऱ्या स्क्रीनवर भरले गेले. पुन्हा काहीही घेतले नाही."
+          }
+        }
+      }
     }
   }
 }

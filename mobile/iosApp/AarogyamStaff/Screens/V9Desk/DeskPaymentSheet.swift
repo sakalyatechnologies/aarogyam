@@ -43,6 +43,7 @@ private struct DeskPaymentScreen: View {
                 switch onEnum(of: outcome) {
                 case .recorded(let done): recorded(done)
                 case .saved: saved
+                case .alreadyPaid: alreadyPaid
                 default: form
                 }
             }
@@ -180,6 +181,16 @@ private struct DeskPaymentScreen: View {
         VStack(spacing: 12) {
             savedBadge(dv("d9.pay.saved"))
             Text(dv("d9.pay.saved.message")).v7Text(13).foregroundStyle(theme.roles.onSurfaceVariant.color).multilineTextAlignment(.center)
+            SkPillButton(dv("d9.done"), wide: true) { dismiss() }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Someone else settled the bill first (the re-check before paying found a zero balance).
+    private var alreadyPaid: some View {
+        VStack(spacing: 12) {
+            savedBadge(dv("d9.pay.already"))
+            Text(dv("d9.pay.already.message")).v7Text(13).foregroundStyle(theme.roles.onSurfaceVariant.color).multilineTextAlignment(.center)
             SkPillButton(dv("d9.done"), wide: true) { dismiss() }
         }
         .frame(maxWidth: .infinity)

@@ -3,22 +3,32 @@ package com.aarogyam.staff.desk
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.ClinicApi
+import com.aarogyam.staff.api.invoice
 import com.aarogyam.staff.api.issueInvoice
 import com.aarogyam.staff.api.model.Allocation
 import com.aarogyam.staff.api.model.NewPayment
 import com.aarogyam.staff.billing.PayMethod
+import com.aarogyam.staff.config.caps.ServerCaps
 import com.aarogyam.staff.outbox.OutboxEntry
 import com.aarogyam.staff.outbox.OutboxKind
 import com.aarogyam.staff.outbox.OutboxSender
 import com.aarogyam.staff.outbox.SendResult
 import com.aarogyam.staff.outbox.toSendResult
+import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.ApiErrorKind
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
+import com.sakalya.mobile.http.call
+import io.ktor.client.request.url
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Clock
@@ -65,9 +75,11 @@ internal sealed interface Delivery {
         val code: String,
     ) : Delivery
 
+    /** [conflict] is a 409 from `POST /payments`: refetch the bill and show what the server has. */
     data class Rejected(
         val error: ScreenError,
         val code: String,
+        val conflict: Boolean = false,
     ) : Delivery
 }
 
@@ -143,9 +155,17 @@ internal suspend fun deliver(
     if (paid is Outcome.Failure) {
         log.warn("deskpay.send_failed") { code("error", paid.error.code.value) }
         return when (val send = paid.toSendResult()) {
-            is SendResult.Retry -> Delivery.Retry(send.code)
-            is SendResult.Rejected -> Delivery.Rejected(ScreenError.of(paid.error), send.code)
-            SendResult.Delivered -> Delivery.Retry("unexpected")
+            is SendResult.Retry -> {
+                Delivery.Retry(send.code)
+            }
+
+            is SendResult.Rejected -> {
+                Delivery.Rejected(ScreenError.of(paid.error), send.code, paid.error.kind == ApiErrorKind.Conflict)
+            }
+
+            SendResult.Delivered -> {
+                Delivery.Retry("unexpected")
+            }
         }
     }
     return Delivery.Done((paid as Outcome.Success).value.number, proof)
@@ -169,3 +189,111 @@ private fun paymentSender(
         is Delivery.Rejected -> SendResult.Rejected(delivery.code)
     }
 }
+
+/** What the collect race check decided before a payment goes out (R8). */
+internal sealed interface Recheck {
+    /** Send [job]: its allocation and issue-first now follow the bill as the server has it. */
+    data class Proceed(
+        val job: PaymentJob,
+    ) : Recheck
+
+    /** The balance is 0: show "Already paid" and send nothing. */
+    data object AlreadyPaid : Recheck
+
+    /** The bill could not be read for a reason that is worth retrying: save the payment. */
+    data class Retry(
+        val code: String,
+    ) : Recheck
+
+    data class Rejected(
+        val error: ScreenError,
+    ) : Recheck
+}
+
+/**
+ * Before `POST /payments`: re-GET `/invoices/{id}` and use its current balance. An issued bill with a
+ * balance of 0 is [Recheck.AlreadyPaid]; a draft is issued first (its total is the preview); a void
+ * bill is refused. A job with no invoice is sent as it is.
+ */
+internal suspend fun recheck(
+    api: ClinicApi,
+    job: PaymentJob,
+    log: Logger,
+): Recheck {
+    val invoiceId = job.invoiceId ?: return Recheck.Proceed(job)
+    return when (val fresh = api.invoice(invoiceId)) {
+        is Outcome.Failure -> {
+            log.warn("deskpay.recheck_failed") { code("error", fresh.error.code.value) }
+            when (val send = fresh.toSendResult()) {
+                is SendResult.Retry -> Recheck.Retry(send.code)
+                else -> Recheck.Rejected(ScreenError.of(fresh.error))
+            }
+        }
+
+        is Outcome.Success -> {
+            val bill = fresh.value
+            when (bill.status) {
+                "draft" -> {
+                    Recheck.Proceed(
+                        job.copy(issueFirst = true, allocatedPaise = minOf(job.amountPaise, bill.totalPaise)),
+                    )
+                }
+
+                "issued" -> {
+                    if (bill.balancePaise <= 0) {
+                        Recheck.AlreadyPaid
+                    } else {
+                        Recheck.Proceed(
+                            job.copy(issueFirst = false, allocatedPaise = minOf(job.amountPaise, bill.balancePaise)),
+                        )
+                    }
+                }
+
+                else -> {
+                    Recheck.Rejected(ScreenError.Unknown)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * `GET /notifications`, read by hand: [ids] of the `collect_payment` rows and which of them are
+ * `handled`. The `handled` and `audience` fields are not in main's contract, so any row that has
+ * either key turns `ServerCaps.notificationAudience` on (G-flag), and `handledIds` stays empty while
+ * it is off.
+ */
+internal data class CollectNotices(
+    val handledIds: Set<String>,
+    val seenIds: Set<String>,
+)
+
+internal suspend fun ClinicApi.collectNotices(): Outcome<CollectNotices, ApiError> =
+    when (val answer = client.call<JsonObject> { url("api/v1/notifications") }) {
+        is Outcome.Failure -> {
+            answer
+        }
+
+        is Outcome.Success -> {
+            val rows =
+                (answer.value["items"] as? JsonArray)
+                    ?.mapNotNull { it as? JsonObject }
+                    .orEmpty()
+            if (rows.any { "handled" in it || "audience" in it }) ServerCaps.markNotificationAudience()
+            val collect = rows.filter { it["kind"]?.jsonPrimitive?.contentOrNull == "collect_payment" }
+            Outcome.Success(
+                CollectNotices(
+                    handledIds =
+                        if (ServerCaps.notificationAudience) {
+                            collect
+                                .filter { it["handled"].let { h -> h != null && h !is JsonNull } }
+                                .mapNotNull { it["id"]?.jsonPrimitive?.contentOrNull }
+                                .toSet()
+                        } else {
+                            emptySet()
+                        },
+                    seenIds = collect.mapNotNull { it["id"]?.jsonPrimitive?.contentOrNull }.toSet(),
+                ),
+            )
+        }
+    }

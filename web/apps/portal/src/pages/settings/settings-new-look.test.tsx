@@ -44,6 +44,7 @@ describe("Settings in the new look", () => {
       "Price list",
       "Team & roles",
       "Time off",
+      "Tasks",
       "Booking & notifications",
       "Website",
       "Sessions",

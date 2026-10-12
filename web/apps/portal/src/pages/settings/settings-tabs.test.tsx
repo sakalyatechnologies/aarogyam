@@ -35,6 +35,7 @@ describe("Settings tabs", () => {
       "Time off",
       "Booking & notifications",
       "Website",
+      "Tasks",
       "Sessions",
     ]);
     expect(selected("Clinic profile")).toBe("true");

@@ -214,3 +214,26 @@ C1–C5 are mocked first as a v8.1 HTML page in the same style, approved by the 
 - **be-fix merged** (8f1a7ff1). Fixes D1, D2, D3 and D7, plus the follow-up cancel (migration 0428). Visit close keeps the invoice as a draft; the reason is in `docs/decisions.md`. Its scoped tests passed.
   - The disk dropped to 117 MB again because of builds in two other sessions (`wt-t2`, `wt-t4b`). I stopped my own hook and deleted my cache.
 - **Now:** final gates on feat/v9, run once and alone: the mobile gate, then cargo fmt, clippy, workspace tests (`--include-ignored`), deny and machete.
+- **Final gates on feat/v9 (8f1a7ff1+) are all green:** `gradlew check`, cargo fmt, clippy -D warnings, the workspace tests with `--include-ignored` (87 suites ok), cargo deny and cargo machete. iOS check was last green after the be-msg merge; be-fix did not change mobile.
+
+## Left (not built in v9)
+| Item | Why it is waiting |
+|---|---|
+| Merge feat/v9 to main | Needs the founder |
+| Deploy | Belongs to the founder |
+| Android screens for v8/v9 (M4, F tasks) | iOS first |
+| Web portal desk, visit and close screens; web UI for the auto-message switches | Belongs to the dashboard agent; the flow file is ready for it |
+| Native C1–C5 concepts | Waiting on founder approval and the 7 questions |
+| Mobile SSE client | The app polls every 20 s; the `LiveUpdates` hook is ready |
+| BE9 education pages | Need content from the founder |
+| Push notifications | Need Firebase/APNs credentials |
+| WhatsApp live | Needs the Meta account and template approval |
+
+Small gaps:
+- The PIN goes on the same channel as the link.
+- No wait time in the welcome message.
+- No recall dismiss endpoint.
+- No Last-Event-ID.
+- Android `OutboxFiles`.
+- Review of the hi/mr strings.
+- 3D jaw (J), which needs the asset purchase.

@@ -161,6 +161,27 @@ describe("createHttpClient requests", () => {
     expect((await bad.getInvoiceUpiLink(invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170"))).ok).toBe(false);
   });
 
+  it("reads the collect summary of a bill from its own path, with the UPI link optional, and checks the body", async () => {
+    const id = invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170");
+    const upi = { uri: "upi://pay?pa=a@b", qr_data: "upi://pay?pa=a@b", upi_id: "a@b", payee_name: "Sunrise Dental" };
+    const patient = { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405180", name: "Neha Rao", number: "SD-1042" };
+    const full = { invoice_id: id, number: "INV-1", patient, status: "issued", total_paise: 50000, balance_paise: 30000, upi };
+    const { fetch, calls } = stubFetch(json(200, full));
+    const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });
+
+    const result = await client.getInvoiceCollectSummary(id);
+
+    expect(calls[0]?.url).toBe(`http://sunrise.localtest.me/api/v1/invoices/${id}/collect-summary`);
+    expect(calls[0]?.init?.method).toBe("GET");
+    expect(result.ok && [result.value.number, result.value.balance_paise, result.value.upi?.upi_id]).toEqual(["INV-1", 30000, "a@b"]);
+    const bare = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), {
+      fetch: stubFetch(json(200, { invoice_id: id, patient, status: "draft", total_paise: 50000, balance_paise: 50000 })).fetch,
+    });
+    expect((await bare.getInvoiceCollectSummary(id)).ok).toBe(true);
+    const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { invoice_id: id })).fetch });
+    expect((await bad.getInvoiceCollectSummary(id)).ok).toBe(false);
+  });
+
   it("reads and finishes tasks on their own paths and checks the bodies against the contract", async () => {
     const occurrence = {
       id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171",
@@ -557,7 +578,7 @@ describe("createHttpClient settings v2", () => {
     lab_order: null,
     href: "/billing/invoices/0192f1c4-7a10-7c3e-9b2a-1d2e3f405171",
     queue_token: null,
-    invoice: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171", number: "AD/26-27/000001" },
+    invoice: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171", number: "AD/26-27/000001", total_paise: 50000, balance_paise: 20000 },
     recall: null,
   };
 
@@ -612,6 +633,29 @@ describe("createHttpClient settings v2", () => {
       `POST /api/v1/notifications/${alert.id}/read`,
       "POST /api/v1/notifications/read-all",
     ]);
+  });
+
+  it("reads visit notices: audience, the token's id and number, an invoice with or without totals, and a handled row", async () => {
+    const waiting = {
+      ...alert,
+      id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405172",
+      kind: "patient_waiting",
+      audience: "doctor",
+      href: "/queue",
+      invoice: null,
+      queue_token: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405173", number: 7 },
+      handled: { at: "2026-10-10T05:40:00Z", name: "Dr Dev" },
+    };
+    const collect = { ...alert, id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405174", kind: "collect_payment", audience: "front_desk", invoice: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171" } };
+    const { fetch } = stubFetch(json(200, { items: [waiting, collect] }));
+    const client = createHttpClient("http://sunrise.localtest.me", () => "token", { fetch });
+    const feed = await unwrap(client.listNotifications());
+    expect(feed.items[0]).toMatchObject({ audience: "doctor", queue_token: { number: 7 }, handled: { name: "Dr Dev" } });
+    expect(feed.items[1]?.invoice?.total_paise).toBeUndefined();
+    const bad = createHttpClient("http://sunrise.localtest.me", () => "token", {
+      fetch: stubFetch(json(200, { items: [{ ...waiting, queue_token: { id: "x" } }] })).fetch,
+    });
+    expect((await bad.listNotifications()).ok).toBe(false);
   });
 
   it("posts the logo as a form to the clinic logo route and decodes the settings, with branding mode auto and the default visit length", async () => {

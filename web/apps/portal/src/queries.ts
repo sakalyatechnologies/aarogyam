@@ -560,13 +560,17 @@ export function useSetAppointmentStatus() {
 
 // Queue -------------------------------------------------------------------------------------
 
-export function useQueue(date?: string) {
+/** How often the queue board asks again: patients arrive and move while it is open. */
+export const QUEUE_POLL_MS = 20_000;
+
+export function useQueue(date?: string, options: { enabled?: boolean } = {}) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["queue", access.org_id, date],
     queryFn: ({ signal }) => unwrap(api.listQueue(date, { signal })),
     ...SCHEDULE,
-    refetchInterval: 30_000,
+    enabled: options.enabled ?? true,
+    refetchInterval: QUEUE_POLL_MS,
   });
 }
 

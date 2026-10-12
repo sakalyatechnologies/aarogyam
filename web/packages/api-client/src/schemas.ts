@@ -2034,6 +2034,26 @@ export const upiLink = z.object({
 }) satisfies z.ZodType<C.UpiLink>;
 export type UpiLink = z.output<typeof upiLink>;
 
+export const collectUpi = z.object({
+  uri: z.string(),
+  qr_data: z.string(),
+  upi_id: z.string(),
+  payee_name: z.string(),
+}) satisfies z.ZodType<C.CollectUpi>;
+export type CollectUpi = z.output<typeof collectUpi>;
+
+/** What the Collect action shows: who pays, the bill's number (absent for a draft), what it comes to and what is left, and the UPI link when the clinic has a UPI ID. */
+export const collectSummary = z.object({
+  invoice_id: z.string(),
+  number: optionalText,
+  patient: patientRef,
+  status: z.string(),
+  total_paise: paise,
+  balance_paise: paise,
+  upi: collectUpi.nullable().exactOptional(),
+}) satisfies z.ZodType<C.CollectSummary>;
+export type CollectSummary = z.output<typeof collectSummary>;
+
 export const invoice = z.object({
   id: invoiceId,
   status: invoiceStatus,
@@ -3082,8 +3102,14 @@ export const notification = z.object({
   lab_order: z.object({ id: z.string(), number: z.string(), vendor_name: z.string(), due_on: optionalText }).nullable().exactOptional(),
   /** A path inside the portal that opens what it is about, such as `/queue`. */
   href: optionalText,
+  /** Who it is for (`doctor` or `front_desk`). Any string parses: the server may add audiences. */
+  audience: optionalText,
+  /** The token it is about. There is no patient field: look the name up from the queue. */
   queue_token: z.object({ id: z.string(), number: z.number().int() }).nullable().exactOptional(),
-  invoice: z.object({ id: z.string(), number: optionalText }).nullable().exactOptional(),
+  invoice: z
+    .object({ id: z.string(), number: optionalText, total_paise: paise.nullable().exactOptional(), balance_paise: paise.nullable().exactOptional() })
+    .nullable()
+    .exactOptional(),
   recall: z.object({ id: z.string(), kind: z.string(), due_on: z.string() }).nullable().exactOptional(),
   /** `task_*`: the occurrence, its snapshot title and when it falls due. Only the newest step is listed. */
   task_occurrence_id: optionalText,

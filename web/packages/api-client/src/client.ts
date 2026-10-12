@@ -100,6 +100,7 @@ import type {
   InvoiceEdit,
   InvoiceId,
   UpiLink,
+  CollectSummary,
   InvoicePage,
   IssueRequest,
   Leave,
@@ -816,6 +817,11 @@ export interface ApiClient {
   getInvoice(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<Invoice>>;
   /** Clinic host: the UPI link and QR text for what is left on an issued bill; records nothing. Needs `billing.read`. */
   getInvoiceUpiLink(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<UpiLink>>;
+  /**
+   * Clinic host: what to collect on a bill (number, total, what is left, the UPI link when the clinic has a UPI ID).
+   * Needs `payments.collect` or `billing.read`. `404` when the bill is not in the clinic; `409` for a void bill.
+   */
+  getInvoiceCollectSummary(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<CollectSummary>>;
   /** Clinic host: starts a draft bill for a patient. Needs `billing.write`. */
   createInvoice(input: NewInvoice, options?: RequestOptions): Promise<ApiResult<Invoice>>;
   /** Clinic host: edits a draft bill. Needs `billing.write`. */
@@ -829,7 +835,7 @@ export interface ApiClient {
   listPayments(range: Partial<DateRange>, options?: RequestOptions): Promise<ApiResult<PaymentPage>>;
   /** Clinic host: one payment, for its receipt. Needs `billing.read`. */
   getPayment(id: PaymentId, options?: RequestOptions): Promise<ApiResult<Payment>>;
-  /** Clinic host: records a payment; `idempotencyKey` should be generated once per submission. Needs `billing.write`. */
+  /** Clinic host: records a payment; `idempotencyKey` should be generated once per submission. Needs `billing.write`, or `payments.collect` for a bill that is draft or issued with a balance. */
   recordPayment(input: NewPayment, idempotencyKey: string, options?: RequestOptions): Promise<ApiResult<Payment>>;
   /** Clinic host: voids a payment with a reason. Needs `billing.write`. */
   voidPayment(id: PaymentId, reason: Reason, options?: RequestOptions): Promise<ApiResult<Payment>>;

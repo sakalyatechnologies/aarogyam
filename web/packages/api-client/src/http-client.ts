@@ -54,6 +54,7 @@ import {
   smartImportResult,
   invoice,
   upiLink,
+  collectSummary,
   invoiceList,
   handoff,
   handoffSession,
@@ -837,6 +838,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         signal: opts?.signal,
       }),
     getInvoice: (id, opts) => call({ method: "GET", path: `/api/v1/invoices/${encodeURIComponent(id)}`, schema: invoice, signal: opts?.signal }),
+    getInvoiceCollectSummary: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/invoices/${encodeURIComponent(id)}/collect-summary`, schema: collectSummary, signal: opts?.signal }),
     getInvoiceUpiLink: (id, opts) =>
       call({ method: "GET", path: `/api/v1/invoices/${encodeURIComponent(id)}/upi-link`, schema: upiLink, signal: opts?.signal }),
     createInvoice: (input, opts) => call({ method: "POST", path: "/api/v1/invoices", schema: invoice, body: input, signal: opts?.signal }),

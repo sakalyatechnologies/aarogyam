@@ -513,6 +513,9 @@ export type Invoice = Schemas["Invoice"];
 export type InvoiceList = Schemas["InvoiceList"];
 export type NewInvoice = Schemas["NewInvoice"];
 export type UpiLink = Schemas["UpiLink"];
+/** `GET /api/v1/invoices/{id}/collect-summary`: what a collector needs, without the bill's lines or the patient's record. */
+export type CollectSummary = Schemas["CollectSummary"];
+export type CollectUpi = Schemas["CollectUpi"];
 export type InvoiceEdit = Schemas["InvoiceEdit"];
 
 export type Allocation = Schemas["Allocation"];
@@ -622,9 +625,9 @@ export type WebsiteChanges = Schemas["WebsiteChanges"];
 export type PhotoChanges = Schemas["PhotoChanges"];
 
 // Staff notifications and the bell ---------------------------------------------------------------
-/** `href` is a path inside the portal that opens what a notification is about; older servers do not send it. */
-export type Notification = Schemas["Notification"] & { href?: string | null };
-export type NotificationList = { items: Notification[] };
+/** A notice as the caller sees it. The patient's name is never sent: look it up from the queue or the collect summary. */
+export type Notification = Schemas["Notification"];
+export type NotificationList = Schemas["NotificationList"];
 export type UnreadCount = Schemas["UnreadCount"];
 export type MarkedRead = Schemas["MarkedRead"];
 export type Badges = Schemas["Badges"];

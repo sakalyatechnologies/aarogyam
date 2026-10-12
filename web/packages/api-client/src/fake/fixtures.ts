@@ -99,8 +99,12 @@ export interface FakeSession {
 }
 
 /** A staff notification as the API serves it, less the caller's own read state. */
-export interface FakeNotification extends Omit<C.Notification, "read" | "read_at"> {
+export interface FakeNotification extends Omit<C.Notification, "read" | "read_at" | "queue_token" | "invoice"> {
   clinic_id: string;
+  /** `patient_waiting`, `send_in`, `arrival`: the token it is about; its number and the audience are worked out when read. */
+  token_id?: string;
+  /** `collect_payment`, `payment_due`: the bill it is about; its amounts are worked out when read. */
+  invoice_id?: string;
   /** Members who have read it. */
   read_by?: string[];
   /** `task_due` and `task_reminder`: the assignee member, or the assignee role (a role key). Server-side only. */
@@ -761,6 +765,7 @@ export const ROLES = {
       "clinical.write",
       "billing.read",
       "billing.write",
+      "payments.collect",
       "prescriptions.issue",
       "finance.view",
       "settings.manage",
@@ -815,13 +820,14 @@ export const ROLES = {
       "appointments.write",
       "billing.read",
       "billing.write",
+      "payments.collect",
       "inventory.read",
       "inventory.manage",
       "labs.read",
       "labs.write",
     ],
   },
-  assistant: { key: "assistant", name: "Assistant", permissions: ["chat.use", "tasks.use", "time_off.request", "patients.read", "intake.write", "appointments.read", "clinical.read", "inventory.read"] },
+  assistant: { key: "assistant", name: "Assistant", permissions: ["chat.use", "tasks.use", "time_off.request", "patients.read", "intake.write", "appointments.read", "clinical.read", "inventory.read", "payments.collect"] },
   consultant: { key: "consultant", name: "Visiting consultant", permissions: ["chat.use", "tasks.use", "time_off.request", "appointments.read", "clinical.read"] },
   finance: {
     key: "finance",
@@ -838,6 +844,7 @@ export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; d
   { key: "audit.view", module: "audit", description: "See the change history and access record", scopes: ["all"] },
   { key: "billing.read", module: "billing", description: "See bills and payments", scopes: ["all"] },
   { key: "billing.write", module: "billing", description: "Create bills and take payments", scopes: ["all"] },
+  { key: "payments.collect", module: "billing", description: "Take a payment against a bill, with no other billing access", scopes: ["all"] },
   { key: "clinical.read", module: "clinical", description: "See visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
   { key: "clinical.write", module: "clinical", description: "Record visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
   { key: "expenses.write", module: "expenses", description: "Record clinic expenses", scopes: ["all"] },

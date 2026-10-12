@@ -441,6 +441,7 @@ async fn a_past_day_shows_what_was_done() {
             patient_id: PatientId::from_uuid(id(&people[1])),
             practitioner_id: None,
             branch_id: None,
+            reason: None,
         },
         at(11, 0),
     )

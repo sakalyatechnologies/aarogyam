@@ -802,6 +802,7 @@ async fn statuses_follow_the_table_and_arrivals_get_tokens() {
             patient_id: PatientId::from_uuid(Uuid::parse_str(&walk).unwrap()),
             practitioner_id: None,
             branch_id: None,
+            reason: None,
         },
         tomorrow,
     )
@@ -904,6 +905,7 @@ async fn today_counts_the_clinic_day() {
             patient_id: PatientId::from_uuid(id(&people[0])),
             practitioner_id: None,
             branch_id: None,
+            reason: None,
         },
         at(10, 55),
     )

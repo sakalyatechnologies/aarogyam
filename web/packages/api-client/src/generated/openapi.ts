@@ -10608,6 +10608,11 @@ export interface components {
             /** @description The patient. */
             patient: components["schemas"]["PatientBrief"];
             practitioner?: components["schemas"]["PractitionerBrief"] | null;
+            /**
+             * @description Why the patient came (plain text, at most 200 characters), when the desk noted it at a
+             *     walk-in.
+             */
+            reason?: string | null;
             /** @description The chair the patient was seated in, when one was chosen. */
             room_id?: string | null;
             /**
@@ -12808,6 +12813,11 @@ export interface components {
             patient_id: string;
             /** @description The doctor, if known. */
             practitioner_id?: string | null;
+            /**
+             * @description Why the patient came: plain text, trimmed, at most 200 characters (more is a `400`);
+             *     empty means none.
+             */
+            reason?: string | null;
         };
         /**
          * @description A walk-in: a new patient (`patient`) or a registered one (`patient_id`), exactly one of the
@@ -12841,6 +12851,11 @@ export interface components {
             patient_id?: string | null;
             /** @description The doctor, if known. A member who sees only their own patients must name themselves. */
             practitioner_id?: string | null;
+            /**
+             * @description Why the patient came: plain text, trimmed, at most 200 characters (more is a `400`);
+             *     empty means none. Kept on the queue token.
+             */
+            reason?: string | null;
         };
         /** @description Changes to the website; anything left out stays as it is. */
         WebsiteChanges: {

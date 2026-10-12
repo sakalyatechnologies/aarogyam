@@ -22,6 +22,24 @@ use crate::schedule::resolve_branch;
 use crate::scope::staff_scope as scope;
 use crate::visits::{Names, VisitView, visit_view};
 
+/// The longest visit reason, in characters.
+pub const MAX_REASON_CHARS: usize = 200;
+
+/// Trims a visit reason; empty means none.
+///
+/// # Errors
+/// [`AppError::Invalid`] over [`MAX_REASON_CHARS`] characters.
+pub fn clean_reason(reason: Option<&str>) -> Result<Option<String>, AppError> {
+    let text = reason.map_or("", str::trim);
+    if text.chars().count() > MAX_REASON_CHARS {
+        return Err(AppError::invalid(
+            "reason",
+            format!("at most {MAX_REASON_CHARS} characters"),
+        ));
+    }
+    Ok((!text.is_empty()).then(|| text.to_owned()))
+}
+
 /// Why a token whose appointment is changed through the queue was cancelled.
 const LEFT_REASON: &str = "Left without being seen";
 
@@ -56,14 +74,24 @@ impl TokenView {
     }
 }
 
+/// What a token carries besides its branch and patient.
+#[derive(Debug, Default)]
+pub(crate) struct TokenExtras {
+    /// The appointment, unless a walk-in.
+    pub appointment_id: Option<Uuid>,
+    /// The doctor, if known.
+    pub practitioner_id: Option<Uuid>,
+    /// The visit reason (already cleaned).
+    pub reason: Option<String>,
+}
+
 /// Issues the next token of the branch's clinic day, inside an open transaction.
 pub(crate) async fn issue_token(
     tx: &mut ScopedTx,
     timezone: &str,
     branch_id: Uuid,
     patient_id: Uuid,
-    appointment_id: Option<Uuid>,
-    practitioner_id: Option<Uuid>,
+    extra: TokenExtras,
     now: OffsetDateTime,
 ) -> Result<Uuid, AppError> {
     let day = clinic_today(timezone, now);
@@ -80,9 +108,10 @@ pub(crate) async fn issue_token(
             day,
             token_number,
             patient_id,
-            appointment_id,
-            practitioner_id,
+            appointment_id: extra.appointment_id,
+            practitioner_id: extra.practitioner_id,
             issued_at: now,
+            reason: extra.reason,
         },
     )
     .await?;
@@ -147,7 +176,7 @@ pub async fn list(
 }
 
 /// A walk-in as received.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct WalkIn {
     /// The patient.
     pub patient_id: PatientId,
@@ -155,6 +184,8 @@ pub struct WalkIn {
     pub practitioner_id: Option<PractitionerId>,
     /// Branch; the default branch when absent.
     pub branch_id: Option<BranchId>,
+    /// Why the patient came (plain text, at most 200 characters), if the desk noted it.
+    pub reason: Option<String>,
 }
 
 /// Issues a token to a patient without an appointment.
@@ -170,6 +201,7 @@ pub async fn walk_in(
     now: OffsetDateTime,
 ) -> Result<TokenView, AppError> {
     actor.require(Permission::AppointmentsWrite)?;
+    let reason = clean_reason(input.reason.as_deref())?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let profile = clinic::profile(tx.conn())
             .await?
@@ -187,8 +219,11 @@ pub async fn walk_in(
             &profile.timezone,
             branch_id,
             input.patient_id.uuid(),
-            None,
-            input.practitioner_id.map(PractitionerId::uuid),
+            TokenExtras {
+                practitioner_id: input.practitioner_id.map(PractitionerId::uuid),
+                reason,
+                ..TokenExtras::default()
+            },
             now,
         )
         .await?;

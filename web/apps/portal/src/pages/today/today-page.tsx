@@ -595,6 +595,7 @@ export function RecentPatients({ tokens, appointments, pending }: { tokens: read
                     <MkAvatar name={t.patient.full_name} />
                     {displayName(t.patient.full_name)}
                   </button>
+                  {t.reason == null ? null : <span className="block truncate text-xs font-normal text-muted">{t.reason}</span>}
                 </th>
                 {showTreatment ? <td>{treatment == null || treatment === "" ? "—" : treatment}</td> : null}
                 <td>

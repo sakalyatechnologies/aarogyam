@@ -55,6 +55,9 @@ pub struct QueueToken {
     /// The chair the patient was seated in, when one was chosen.
     #[schema(value_type = Option<String>)]
     pub room_id: Option<Uuid>,
+    /// Why the patient came (plain text, at most 200 characters), when the desk noted it at a
+    /// walk-in.
+    pub reason: Option<String>,
 }
 
 impl From<TokenView> for QueueToken {
@@ -72,6 +75,7 @@ impl From<TokenView> for QueueToken {
             wait_minutes: view.wait_minutes,
             appointment_id: row.appointment_id,
             room_id: row.room_id,
+            reason: row.reason,
             patient: PatientBrief {
                 id: row.patient_id,
                 number: row.patient_number,
@@ -165,10 +169,6 @@ pub(crate) async fn list(
 
 /// A walk-in.
 #[derive(Debug, Deserialize, ToSchema)]
-#[expect(
-    clippy::struct_field_names,
-    reason = "the API names references `<thing>_id`"
-)]
 pub struct WalkInBody {
     /// The patient (register them first if new).
     pub patient_id: String,
@@ -176,6 +176,9 @@ pub struct WalkInBody {
     pub practitioner_id: Option<String>,
     /// Branch; the default branch when left out.
     pub branch_id: Option<String>,
+    /// Why the patient came: plain text, trimmed, at most 200 characters (more is a `400`);
+    /// empty means none.
+    pub reason: Option<String>,
 }
 
 /// Issues a token to a patient without an appointment.
@@ -211,6 +214,7 @@ pub(crate) async fn walk_in(
             .as_deref()
             .map(|text| parse_id("branch_id", text).map(BranchId::from_uuid))
             .transpose()?,
+        reason: body.reason,
     };
     let token = app::walk_in(
         state.db(),

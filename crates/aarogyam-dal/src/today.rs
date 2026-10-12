@@ -153,7 +153,7 @@ pub async fn today(
                             and (p.sex = 'unknown' or p.date_of_birth is null))
                              as patient_registration_incomplete,
                            q.appointment_id, q.practitioner_id, d.display_name as practitioner_name,
-                           q.room_id
+                           q.room_id, q.reason
                     from aarogyam.queue_tokens q
                     join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
                     left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id

@@ -23,7 +23,7 @@ use crate::clock::{clinic_offset, clinic_today, days_bounds};
 use crate::error::AppError;
 use crate::moved::Moved;
 use crate::patients::age_on;
-use crate::queue::issue_token;
+use crate::queue::{TokenExtras, issue_token};
 use crate::schedule::resolve_branch;
 use crate::scope::staff_scope as scope;
 
@@ -714,8 +714,11 @@ pub(crate) async fn apply_status(
                 timezone,
                 current.branch_id,
                 current.patient_id,
-                Some(current.id),
-                Some(current.practitioner_id),
+                TokenExtras {
+                    appointment_id: Some(current.id),
+                    practitioner_id: Some(current.practitioner_id),
+                    reason: None,
+                },
                 now,
             )
             .await?;

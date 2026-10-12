@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.local_date as \"local_date!\", s.due_at as \"due_at!\"\n           from aarogyam.task_templates t\n           join aarogyam.organizations o on o.id = t.org_id\n           cross join lateral app.task_due_dates(\n             t.schedule_kind, t.interval_days, t.weekdays::int, t.starts_on, t.ends_on, t.due_time,\n             t.once_at, o.timezone, $2::timestamptz, $2::timestamptz + interval '800 days') s\n           where t.id = $1 and t.deleted_at is null and t.active\n           order by s.due_at\n           limit $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "local_date!",
+        "type_info": "Date",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "due_at!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "0b376842330761122e6b3973c6d51ade7a2ce0a963b0b1263e5ac59d47e04899"
+}

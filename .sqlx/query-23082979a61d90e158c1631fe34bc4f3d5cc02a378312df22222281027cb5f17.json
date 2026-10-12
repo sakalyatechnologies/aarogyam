@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.task_occurrences\n           set status = 'open', completed_at = null, completed_by = null, note = null\n           where id = $1 and status in ('done', 'skipped')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "23082979a61d90e158c1631fe34bc4f3d5cc02a378312df22222281027cb5f17"
+}

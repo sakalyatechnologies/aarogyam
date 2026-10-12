@@ -86,6 +86,21 @@ import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photos
 import { createRandom, fakeUuid } from "./random.js";
 import * as M from "./messaging.js";
 import { CLINIC_STEPS, MEMBER_STEPS, applySetup, setupOf, wireSetup } from "./setup.js";
+import {
+  NOTE_MAX as TASK_NOTE_MAX,
+  USAGE_REASON,
+  dueDates,
+  emptyTasks,
+  isForMember,
+  materialize as materializeTasks,
+  seedDefaults as seedDefaultTasks,
+  wireOccurrence,
+  wireTemplate,
+  type FakeTaskAction,
+  type FakeTaskSchedule,
+  type FakeTaskTemplate,
+  type FakeTasks,
+} from "./tasks.js";
 import { MAX_MOVEMENT, addDays, byUrgency, daysBetween, isExpired, isStockUnit, levelOf, pickFefo, wireItem } from "./stock.js";
 import { readCsv, readRow, suggestColumns, type CsvTable } from "./smart-import.js";
 import { atLocalTime, localClock } from "./zoned-time.js";
@@ -672,6 +687,79 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       };
       state.stockMovements.push(movement);
       return movement;
+    }
+
+    /** The clinic's tasks; the standard ones are added and today's occurrences made when first asked for. */
+    function tasksOf(clinic: FakeClinic): FakeTasks {
+      const tasks = (state.tasks ??= emptyTasks());
+      const newId = () => fakeUuid(random, clock());
+      seedDefaultTasks(tasks, clinic.id, clock(), newId);
+      materializeTasks(tasks, clinic.id, clinic.timezone, clock(), newId);
+      return tasks;
+    }
+
+    const taskMemberName = (membershipId: string): string | null => {
+      const member = state.memberships.find((m) => m.id === membershipId);
+      return state.users.find((u) => u.id === member?.user_id)?.display_name ?? null;
+    };
+
+    const taskRoleName = (clinic: FakeClinic, key: string): string | null => rolesOf(clinic.id).find((r) => r.key === key)?.name ?? null;
+
+    /** Patients seen on the day whose visit has no photo attached. */
+    function patientsWithoutPhotos(clinic: FakeClinic, day: string): number {
+      const patients = new Set<string>();
+      for (const v of state.visits) {
+        if (v.clinic_id !== clinic.id || localClock(new Date(v.started_at), clinic.timezone).date !== day) continue;
+        if (!state.attachments.some((a) => a.visit_id === v.id && a.kind === "photo")) patients.add(v.patient_id);
+      }
+      return patients.size;
+    }
+
+    function readAssignee(clinic: FakeClinic, member: string | null | undefined, role: string | null | undefined, required: boolean): { membership: string | null; role: string | null } | Outcome {
+      const m = member ?? "";
+      const r = role ?? "";
+      if ((m === "") === (r === "")) {
+        return required ? invalid("assignee", "give exactly one of a member or a role") : { membership: null, role: null };
+      }
+      if (m !== "" && !state.memberships.some((x) => x.id === m && x.clinic_id === clinic.id && (x.status ?? "active") === "active")) {
+        return invalid("assignee", "no such active member or role in this clinic");
+      }
+      if (r !== "" && !rolesOf(clinic.id).some((x) => x.key === r)) {
+        return invalid("assignee", "no such active member or role in this clinic");
+      }
+      return { membership: m === "" ? null : m, role: r === "" ? null : r };
+    }
+
+    function readAction(text: string): FakeTaskAction | null {
+      return text === "none" || text === "record_usage" || text === "confirm_photos" ? text : null;
+    }
+
+    /** A schedule as sent, checked the way the server checks it; a new daily task starts today. */
+    function readSchedule(clinic: FakeClinic, input: C.TaskSchedule): FakeTaskSchedule | Outcome {
+      const kind = input.kind;
+      if (kind !== "once" && kind !== "daily" && kind !== "every_n_days" && kind !== "weekdays") {
+        return invalid("schedule", "kind is required");
+      }
+      if (kind === "once") {
+        if (input.once_at == null) return invalid("once_at", "is required");
+        if (new Date(input.once_at) <= clock()) return invalid("once_at", "the time has already passed");
+        return { kind, once_at: new Date(input.once_at).toISOString(), interval_days: null, weekdays: null, due_time: null, starts_on: null, ends_on: null };
+      }
+      if (input.due_time == null || !/^\d{2}:\d{2}$/.test(input.due_time)) return invalid("due_time", "must be HH:MM");
+      const startsOn = input.starts_on ?? clinicToday(clinic);
+      const endsOn = input.ends_on ?? null;
+      if (endsOn !== null && endsOn < startsOn) return invalid("ends_on", "the end date is before the start date");
+      let interval: number | null = null;
+      let weekdays: number[] | null = null;
+      if (kind === "every_n_days") {
+        interval = input.interval_days ?? null;
+        if (interval === null || !Number.isInteger(interval) || interval < 2 || interval > 365) return invalid("interval_days", "interval must be 2 to 365 days");
+      }
+      if (kind === "weekdays") {
+        weekdays = [...new Set(input.weekdays ?? [])].sort();
+        if (weekdays.length === 0 || weekdays.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) return invalid("weekdays", "choose at least one day of the week");
+      }
+      return { kind, once_at: null, interval_days: interval, weekdays, due_time: input.due_time, starts_on: startsOn, ends_on: endsOn };
     }
 
     function stockChangeOf(clinic: FakeClinic, item: FakeInventoryItem, movements: readonly FakeStockMovement[]): C.StockChange {
@@ -3851,7 +3939,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         }),
 
       getBadges: (opts) =>
-        respond(S.badges, opts?.signal, async () => withWho("chat.use", (who) => M.badges(state, who, clock()))),
+        respond(S.badges, opts?.signal, async () =>
+          withWho("chat.use", (who) => {
+            const membership = state.memberships.find((m) => m.id === who.membership_id);
+            const clinic = state.clinics.find((c) => c.id === who.clinic_id);
+            const mayUse = membership !== undefined && hasPermission(membership.role.permissions, "tasks.use");
+            const tasks = mayUse && clinic !== undefined ? tasksOf(clinic) : undefined;
+            const open = tasks?.occurrences.filter((o) => o.clinic_id === who.clinic_id && o.status === "open" && membership !== undefined && isForMember(o, membership.id, membership.role.key)).length ?? 0;
+            return { ...M.badges(state, who, clock()), tasks_open: open };
+          }),
+        ),
       sendMessages: (input, opts) =>
         respond(S.messagesQueued, opts?.signal, async () =>
           withWho("messages.send", (who) => M.sendMessages(state, who, input, clock())),
@@ -5159,6 +5256,328 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           state.inventoryItems = state.inventoryItems.filter((i) => i.id !== item.id);
           return { ok: true, body: undefined };
+        }),
+
+      listMyTasks: (date, opts) =>
+        respond(S.myTasks, opts?.signal, async () => {
+          const caller = await inClinic("tasks.use");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const day = date !== undefined && date !== "" ? date : clinicToday(caller.clinic);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+            return invalid("date", "must be YYYY-MM-DD");
+          }
+          const tasks = tasksOf(caller.clinic);
+          const items = tasks.occurrences
+            .filter((o) => o.clinic_id === caller.clinic.id && isForMember(o, caller.membership.id, caller.membership.role.key))
+            .filter((o) => o.local_date === day || (o.status === "open" && o.local_date < day))
+            .sort((a, b) => (a.due_at < b.due_at ? -1 : 1))
+            .map((o) => wireOccurrence(o, taskMemberName, o.action === "confirm_photos" ? patientsWithoutPhotos(caller.clinic, o.local_date) : undefined));
+          return reply({ date: day, items } satisfies C.MyTasks);
+        }),
+
+      completeTask: (id, input, opts) =>
+        respond(S.taskOccurrence, opts?.signal, async () => {
+          const caller = await inClinic("tasks.use");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const tasks = tasksOf(caller.clinic);
+          const found = tasks.occurrences.find((o) => o.id === id && o.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const note = input.note?.trim() ?? "";
+          if (note.length > TASK_NOTE_MAX) {
+            return invalid("note", "must be at most 300 characters");
+          }
+          if (!isForMember(found, caller.membership.id, caller.membership.role.key)) {
+            return refuse(403, "forbidden", "this task is not yours to complete");
+          }
+          if (found.status !== "open") {
+            if (found.status === "done" && found.completed_by === caller.membership.id) {
+              return reply(wireOccurrence(found, taskMemberName) satisfies C.TaskOccurrence);
+            }
+            return refuse(409, "conflict", found.status === "done" ? "this task is already done" : "this task is no longer open");
+          }
+          // Materials come off the shelf first; a shortage cancels the whole completion.
+          const usage = input.usage ?? [];
+          const before = state.stockBatches.filter((b) => b.clinic_id === caller.clinic.id).map((b) => [b, b.quantity] as const);
+          const moved = state.stockMovements.length;
+          for (const line of usage) {
+            const item = inventoryItemOf(caller.clinic, line.item_id);
+            if (!Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > MAX_MOVEMENT) {
+              return invalid("quantity", "must be between 1 and 1000000");
+            }
+            if (item === undefined) {
+              return notFound;
+            }
+            const picks = pickFefo(state.stockBatches.filter((b) => b.item_id === item.id), line.quantity, clinicToday(caller.clinic));
+            if (picks === null) {
+              for (const [batch, quantity] of before) {
+                batch.quantity = quantity;
+              }
+              state.stockMovements.length = moved;
+              return refuse(409, "conflict", "not enough stock on the shelf");
+            }
+            for (const { batch, take } of picks) {
+              batch.quantity -= take;
+              record(caller, item, batch, "use", -take, USAGE_REASON);
+            }
+          }
+          found.status = "done";
+          found.completed_at = clock().toISOString();
+          found.completed_by = caller.membership.id;
+          found.note = note === "" ? null : note;
+          return reply(wireOccurrence(found, taskMemberName) satisfies C.TaskOccurrence);
+        }),
+
+      reopenTask: (id, opts) =>
+        respond(S.taskOccurrence, opts?.signal, async () => {
+          const caller = await inClinic("tasks.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = tasksOf(caller.clinic).occurrences.find((o) => o.id === id && o.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status === "missed") {
+            return refuse(409, "conflict", "a missed task cannot be reopened");
+          }
+          if (found.status !== "open") {
+            found.status = "open";
+            found.completed_at = null;
+            found.completed_by = null;
+            found.note = null;
+          }
+          return reply(wireOccurrence(found, taskMemberName) satisfies C.TaskOccurrence);
+        }),
+
+      listTasks: (opts) =>
+        respond(S.taskList, opts?.signal, async () => {
+          const caller = await inClinic("tasks.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = tasksOf(caller.clinic)
+            .templates.filter((t) => t.clinic_id === caller.clinic.id)
+            .sort((a, b) => Number(b.active) - Number(a.active) || a.title.localeCompare(b.title))
+            .map((t) => wireTemplate(t, taskMemberName, (key) => taskRoleName(caller.clinic, key)));
+          return reply({ items } satisfies C.TaskList);
+        }),
+
+      createTask: (input, opts) =>
+        respond(S.task, opts?.signal, async () => {
+          const caller = await inClinic("tasks.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const tasks = tasksOf(caller.clinic);
+          const title = input.title.trim();
+          if (title === "" || title.length > 120) {
+            return invalid("title", "must be 1 to 120 characters");
+          }
+          const assignee = readAssignee(caller.clinic, input.assignee_membership_id, input.assignee_role_id, true);
+          if ("ok" in assignee) {
+            return assignee;
+          }
+          const schedule = readSchedule(caller.clinic, input.schedule);
+          if ("ok" in schedule) {
+            return schedule;
+          }
+          const remind = input.remind_every_minutes ?? null;
+          if (remind !== null && remind !== 0 && (remind < 15 || remind > 1440)) {
+            return invalid("remind_every_minutes", "reminders must be 15 to 1440 minutes apart");
+          }
+          const escalate = input.escalate_after ?? 3;
+          if (!Number.isInteger(escalate) || escalate < 0 || escalate > 24) {
+            return invalid("escalate_after", "escalate after at most 24 reminders");
+          }
+          const action = readAction(input.action ?? "none");
+          if (action === null) {
+            return invalid("action", "is none, record_usage or confirm_photos");
+          }
+          const description = input.description?.trim() ?? "";
+          if (description.length > 500) {
+            return invalid("description", "must be at most 500 characters");
+          }
+          const now = clock().toISOString();
+          const template: FakeTaskTemplate = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            title,
+            description: description === "" ? null : description,
+            assignee_membership_id: assignee.membership,
+            assignee_role_id: assignee.role,
+            schedule,
+            remind_every_minutes: remind === 0 ? null : remind,
+            escalate_after: escalate,
+            action,
+            active: input.active ?? true,
+            activated_at: now,
+            is_default: false,
+            default_key: null,
+            created_at: now,
+            updated_at: now,
+          };
+          tasks.templates.push(template);
+          return { ok: true, status: 201, body: wireTemplate(template, taskMemberName, (key) => taskRoleName(caller.clinic, key)) satisfies C.Task };
+        }),
+
+      getTask: (id, opts) =>
+        respond(S.task, opts?.signal, async () => {
+          const caller = await inClinic("tasks.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = tasksOf(caller.clinic).templates.find((t) => t.id === id && t.clinic_id === caller.clinic.id);
+          return found === undefined ? notFound : reply(wireTemplate(found, taskMemberName, (key) => taskRoleName(caller.clinic, key)) satisfies C.Task);
+        }),
+
+      updateTask: (id, changes, opts) =>
+        respond(S.task, opts?.signal, async () => {
+          const caller = await inClinic("tasks.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const ch = {
+            title: changes.title ?? undefined,
+            description: changes.description ?? undefined,
+            assignee_membership_id: changes.assignee_membership_id ?? undefined,
+            assignee_role_id: changes.assignee_role_id ?? undefined,
+            schedule: changes.schedule ?? undefined,
+            remind_every_minutes: changes.remind_every_minutes ?? undefined,
+            escalate_after: changes.escalate_after ?? undefined,
+            action: changes.action ?? undefined,
+            active: changes.active ?? undefined,
+          };
+          const found = tasksOf(caller.clinic).templates.find((t) => t.id === id && t.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (ch.title !== undefined) {
+            const title = ch.title.trim();
+            if (title === "" || title.length > 120) {
+              return invalid("title", "must be 1 to 120 characters");
+            }
+            found.title = title;
+          }
+          if (ch.description !== undefined) {
+            const description = ch.description.trim();
+            if (description.length > 500) {
+              return invalid("description", "must be at most 500 characters");
+            }
+            found.description = description === "" ? null : description;
+          }
+          if ((ch.assignee_membership_id ?? "") !== "" || (ch.assignee_role_id ?? "") !== "") {
+            const assignee = readAssignee(caller.clinic, ch.assignee_membership_id, ch.assignee_role_id, true);
+            if ("ok" in assignee) {
+              return assignee;
+            }
+            found.assignee_membership_id = assignee.membership;
+            found.assignee_role_id = assignee.role;
+          }
+          let restarts = false;
+          if (ch.schedule !== undefined) {
+            const schedule = readSchedule(caller.clinic, ch.schedule);
+            if ("ok" in schedule) {
+              return schedule;
+            }
+            found.schedule = schedule;
+            restarts = true;
+          }
+          if (ch.remind_every_minutes !== undefined) {
+            const remind = ch.remind_every_minutes;
+            if (remind !== 0 && (remind < 15 || remind > 1440)) {
+              return invalid("remind_every_minutes", "reminders must be 15 to 1440 minutes apart");
+            }
+            found.remind_every_minutes = remind === 0 ? null : remind;
+          }
+          if (ch.escalate_after !== undefined) {
+            if (!Number.isInteger(ch.escalate_after) || ch.escalate_after < 0 || ch.escalate_after > 24) {
+              return invalid("escalate_after", "escalate after at most 24 reminders");
+            }
+            found.escalate_after = ch.escalate_after;
+          }
+          if (ch.action !== undefined) {
+            const action = readAction(ch.action);
+            if (action === null) {
+              return invalid("action", "is none, record_usage or confirm_photos");
+            }
+            found.action = action;
+          }
+          if (ch.active !== undefined) {
+            restarts = restarts || (ch.active && !found.active);
+            found.active = ch.active;
+          }
+          const now = clock().toISOString();
+          if (restarts) {
+            found.activated_at = now;
+          }
+          found.updated_at = now;
+          return reply(wireTemplate(found, taskMemberName, (key) => taskRoleName(caller.clinic, key)) satisfies C.Task);
+        }),
+
+      deleteTask: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("tasks.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const tasks = tasksOf(caller.clinic);
+          const found = tasks.templates.find((t) => t.id === id && t.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.is_default) {
+            return refuse(409, "conflict", "a standard task cannot be deleted, only switched off");
+          }
+          tasks.templates.splice(tasks.templates.indexOf(found), 1);
+          return reply(undefined);
+        }),
+
+      previewTask: (id, opts) =>
+        respond(S.taskPreview, opts?.signal, async () => {
+          const caller = await inClinic("tasks.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = tasksOf(caller.clinic).templates.find((t) => t.id === id && t.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const now = clock();
+          const items = found.active ? dueDates(found, caller.clinic.timezone, now, new Date(now.getTime() + 800 * 86_400_000)).slice(0, 5) : [];
+          return reply({ items } satisfies C.TaskPreview);
+        }),
+
+      listTaskHistory: (filter, opts) =>
+        respond(S.taskHistory, opts?.signal, async () => {
+          const caller = await inClinic("tasks.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const to = filter?.to ?? clinicToday(caller.clinic);
+          const from = filter?.from ?? new Date(Date.parse(`${to}T00:00:00Z`) - 30 * 86_400_000).toISOString().slice(0, 10);
+          if (from > to) {
+            return invalid("from", "is after to");
+          }
+          if ((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 > 92) {
+            return invalid("from", "the range is at most 92 days");
+          }
+          const tasks = tasksOf(caller.clinic);
+          const roleOfAssignee = filter?.assignee === undefined ? undefined : state.memberships.find((m) => m.id === filter.assignee)?.role.key;
+          const items = tasks.occurrences
+            .filter((o) => o.clinic_id === caller.clinic.id && o.local_date >= from && o.local_date <= to)
+            .filter((o) => filter?.assignee === undefined || o.assignee_membership_id === filter.assignee || o.completed_by === filter.assignee || (o.assignee_role_id !== null && o.assignee_role_id === roleOfAssignee))
+            .filter((o) => filter?.status === undefined || o.status === filter.status)
+            .filter((o) => filter?.templateId === undefined || o.template_id === filter.templateId)
+            .sort((a, b) => (a.due_at < b.due_at ? 1 : -1))
+            .slice(0, 500)
+            .map((o) => wireOccurrence(o, taskMemberName));
+          return reply({ items } satisfies C.TaskHistory);
         }),
 
       listSuppliers: (opts) =>

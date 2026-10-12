@@ -737,6 +737,7 @@ async fn take(
     kind: MovementKind,
     reason: Option<&str>,
     skip_expired_on: Date,
+    task_occurrence_id: Option<Uuid>,
 ) -> Result<Vec<MovementView>, AppError> {
     let batches = dal::lock_batches(tx.conn(), item_id.uuid()).await?;
     let shelves: Vec<Shelf<Uuid>> = batches
@@ -759,16 +760,32 @@ async fn take(
             .find(|batch| batch.id == batch_id)
             .map_or(0, |batch| batch.quantity);
         dal::set_batch_quantity(tx.conn(), batch_id, left - taken).await?;
-        let row = dal::insert_movement(
-            tx.conn(),
-            Uuid::now_v7(),
-            item_id.uuid(),
-            batch_id,
-            kind.as_str(),
-            -taken,
-            reason,
-        )
-        .await?;
+        let row = match task_occurrence_id {
+            Some(occurrence_id) => {
+                aarogyam_dal::tasks::insert_task_movement(
+                    tx.conn(),
+                    Uuid::now_v7(),
+                    item_id.uuid(),
+                    batch_id,
+                    -taken,
+                    reason,
+                    occurrence_id,
+                )
+                .await?
+            }
+            None => {
+                dal::insert_movement(
+                    tx.conn(),
+                    Uuid::now_v7(),
+                    item_id.uuid(),
+                    batch_id,
+                    kind.as_str(),
+                    -taken,
+                    reason,
+                )
+                .await?
+            }
+        };
         movements.push(MovementView::from(row));
     }
     Ok(movements)
@@ -795,24 +812,45 @@ pub async fn use_stock(
     let reason = trimmed(reason, "reason", 300)?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let today = clinic_today(&actor.timezone, now);
-        dal::item(tx.conn(), item_id.uuid())
-            .await?
-            .ok_or(AppError::NotFound("item"))?;
-        let movements = take(
-            tx,
-            item_id,
-            quantity,
-            MovementKind::Use,
-            reason.as_deref(),
-            today,
-        )
-        .await?;
-        Ok(StockChange {
-            stock: stock_item_in(tx, item_id, today).await?,
-            movements,
-        })
+        use_stock_in(tx, item_id, quantity, reason.as_deref(), today, None).await
     })
     .await
+}
+
+/// Uses stock inside a transaction the caller already has: the same first-expiry-first-out take
+/// as [`use_stock`], without its permission check (the caller decides who may), and recording
+/// `task_occurrence_id` on each movement when the use is part of finishing a task. Nothing is
+/// taken if the usable stock is short.
+///
+/// # Errors
+/// [`AppError::Invalid`] for a bad quantity; [`AppError::NotFound`] for an unknown item;
+/// [`AppError::Conflict`] when the usable stock is less than asked for.
+pub(crate) async fn use_stock_in(
+    tx: &mut ScopedTx,
+    item_id: InventoryItemId,
+    quantity: i64,
+    reason: Option<&str>,
+    today: Date,
+    task_occurrence_id: Option<Uuid>,
+) -> Result<StockChange, AppError> {
+    check_quantity(quantity).map_err(stock("quantity"))?;
+    dal::item(tx.conn(), item_id.uuid())
+        .await?
+        .ok_or(AppError::NotFound("item"))?;
+    let movements = take(
+        tx,
+        item_id,
+        quantity,
+        MovementKind::Use,
+        reason,
+        today,
+        task_occurrence_id,
+    )
+    .await?;
+    Ok(StockChange {
+        stock: stock_item_in(tx, item_id, today).await?,
+        movements,
+    })
 }
 
 /// A count correction as received.
@@ -866,6 +904,7 @@ pub async fn adjust(
                 MovementKind::Adjust,
                 Some(&reason),
                 Date::MIN,
+                None,
             )
             .await?
         } else {

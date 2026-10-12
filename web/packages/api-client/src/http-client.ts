@@ -139,6 +139,7 @@ import {
   workingHours,
   type RequestId,
 } from "./schemas.js";
+import { myTasks, task, taskHistory, taskList, taskOccurrence, taskPreview } from "./schemas.js";
 import { phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
 import {
   audience,
@@ -741,6 +742,29 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       }),
     removeInventoryItem: (id, opts) =>
       call({ method: "DELETE", path: `/api/v1/inventory-items/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    listMyTasks: (date, opts) =>
+      call({ method: "GET", path: "/api/v1/tasks/mine", schema: myTasks, query: { date }, signal: opts?.signal }),
+    completeTask: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/tasks/occurrences/${encodeURIComponent(id)}/complete`, schema: taskOccurrence, body: input, signal: opts?.signal }),
+    reopenTask: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/tasks/occurrences/${encodeURIComponent(id)}/reopen`, schema: taskOccurrence, signal: opts?.signal }),
+    listTasks: (opts) => call({ method: "GET", path: "/api/v1/tasks", schema: taskList, signal: opts?.signal }),
+    createTask: (input, opts) => call({ method: "POST", path: "/api/v1/tasks", schema: task, body: input, signal: opts?.signal }),
+    getTask: (id, opts) => call({ method: "GET", path: `/api/v1/tasks/${encodeURIComponent(id)}`, schema: task, signal: opts?.signal }),
+    updateTask: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/tasks/${encodeURIComponent(id)}`, schema: task, body: changes, signal: opts?.signal }),
+    deleteTask: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/tasks/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    previewTask: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/tasks/${encodeURIComponent(id)}/preview`, schema: taskPreview, signal: opts?.signal }),
+    listTaskHistory: (filter, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/tasks/history",
+        schema: taskHistory,
+        query: { from: filter?.from, to: filter?.to, assignee: filter?.assignee, status: filter?.status, template_id: filter?.templateId },
+        signal: opts?.signal,
+      }),
     listSuppliers: (opts) => call({ method: "GET", path: "/api/v1/suppliers", schema: supplierList, signal: opts?.signal }),
     addSupplier: (input, opts) => call({ method: "POST", path: "/api/v1/suppliers", schema: supplier, body: input, signal: opts?.signal }),
     changeSupplier: (id, input, opts) =>

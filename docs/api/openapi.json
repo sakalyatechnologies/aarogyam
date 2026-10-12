@@ -14270,6 +14270,500 @@
         ]
       }
     },
+    "/api/v1/tasks": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "The clinic's recurring tasks, including the standard ones and any switched off.",
+        "operationId": "listTasks",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Makes a task.",
+        "operationId": "createTask",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewTaskBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/history": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Occurrences by clinic day, newest first: who did what, and what was missed.",
+        "operationId": "listTaskHistory",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First clinic day, YYYY-MM-DD; 30 days before `to` by default",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last clinic day, YYYY-MM-DD; today by default",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignee",
+            "in": "query",
+            "description": "A member: tasks given to them or their role, or finished by them",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "open, done, skipped or missed",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "template_id",
+            "in": "query",
+            "description": "One task",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad filter, or a range over 92 days"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/mine": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "The caller's tasks for a day: what is given to them or to their role, plus anything still\nopen from an earlier day.",
+        "operationId": "listMyTasks",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The clinic day, YYYY-MM-DD; today by default",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTasks"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad date"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.use"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/occurrences/{id}/complete": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Finishes an occurrence. The caller must be the person it is for or hold the role it is for;\nthe first to finish it closes it for everyone. Repeating it as the same person returns `200`\nand changes nothing; anyone else then gets `409`. When materials are listed and the usable\nstock is short, nothing is recorded and the task stays open.",
+        "operationId": "completeTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The occurrence",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskOccurrence"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.use, or the task is for someone else"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          },
+          "409": {
+            "description": "Already done by someone else, no longer open, or not enough stock"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/occurrences/{id}/reopen": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Opens a done or skipped occurrence again, for a mistake. Stock already recorded for it stays\nrecorded.",
+        "operationId": "reopenTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The occurrence",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskOccurrence"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          },
+          "409": {
+            "description": "The task was missed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/{id}": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "One task.",
+        "operationId": "getTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The task",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Deletes a task. The days already made stay in the history. A standard task cannot be\ndeleted, only switched off with `active: false`.",
+        "operationId": "deleteTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The task",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          },
+          "409": {
+            "description": "A standard task cannot be deleted"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Changes a task.",
+        "operationId": "updateTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The task",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tasks/{id}/preview": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "The next five times a task falls due, worked out the way the generator does it.",
+        "operationId": "previewTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The task",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.manage"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/templates": {
       "get": {
         "tags": [
@@ -16700,7 +17194,8 @@
         "type": "object",
         "description": "The numbers the apps poll every minute.",
         "required": [
-          "chat_unread"
+          "chat_unread",
+          "tasks_open"
         ],
         "properties": {
           "chat_unread": {
@@ -16715,6 +17210,11 @@
             ],
             "format": "int64",
             "description": "Unread notifications, as `GET /notifications/count` counts them; absent without\n`appointments.read`."
+          },
+          "tasks_open": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Open tasks given to the caller or to their role; 0 without `tasks.use`."
           }
         }
       },
@@ -18365,6 +18865,36 @@
           }
         }
       },
+      "CompleteBody": {
+        "type": "object",
+        "description": "Finishing a task.",
+        "properties": {
+          "client_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An id the client made, so a retry after a lost answer is recognised. Finishing a task\ntwice as the same person is harmless either way."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note, at most 300 characters. The screen warns: no patient names."
+          },
+          "usage": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/UsageBody"
+            },
+            "description": "The materials used, taken off the shelf first-expiry-first-out, in the same step as\nfinishing the task. Leave out or send an empty list for nothing used."
+          }
+        }
+      },
       "CompletedVisit": {
         "type": "object",
         "description": "A visit closed on the day, without its clinical content.",
@@ -19812,6 +20342,24 @@
           "q": {
             "type": "string",
             "description": "Part of a name or strength, such as `amox` or `500`."
+          }
+        }
+      },
+      "DueTime": {
+        "type": "object",
+        "description": "A time a task falls due.",
+        "required": [
+          "local_date",
+          "due_at"
+        ],
+        "properties": {
+          "due_at": {
+            "type": "string",
+            "description": "The moment, RFC 3339."
+          },
+          "local_date": {
+            "type": "string",
+            "description": "The clinic's calendar day, `YYYY-MM-DD`."
           }
         }
       },
@@ -24021,6 +24569,27 @@
           }
         }
       },
+      "MyTasks": {
+        "type": "object",
+        "description": "A person's tasks for a day.",
+        "required": [
+          "date",
+          "items"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskOccurrence"
+            },
+            "description": "Given to the caller or to their role, soonest first, plus any still open from earlier."
+          }
+        }
+      },
       "NewAddendum": {
         "type": "object",
         "description": "An addendum's text.",
@@ -25178,6 +25747,77 @@
           "staff_email": {
             "type": "string",
             "description": "The Sakalya staff member's sign-in email."
+          }
+        }
+      },
+      "NewTaskBody": {
+        "type": "object",
+        "description": "A task to make.",
+        "required": [
+          "title",
+          "schedule"
+        ],
+        "properties": {
+          "action": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`none` (default), `record_usage` or `confirm_photos`."
+          },
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Switched on; true by default."
+          },
+          "assignee_membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member it is for. Give this or `assignee_role_id`, not both."
+          },
+          "assignee_role_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The role it is for: the first person holding it to finish it closes it for all."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "More detail, at most 500 characters."
+          },
+          "escalate_after": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Reminders before the owner is told once more, 0 to 24 (never at 0); 3 by default.",
+            "minimum": 0
+          },
+          "remind_every_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Minutes between reminders, 15 to 1440; leave out for the clinic's default.",
+            "minimum": 0
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/TaskSchedule",
+            "description": "When it falls due."
+          },
+          "title": {
+            "type": "string",
+            "description": "What is to be done, 1 to 120 characters."
           }
         }
       },
@@ -32582,6 +33222,390 @@
           }
         }
       },
+      "Task": {
+        "type": "object",
+        "description": "A task as the manager sees it.",
+        "required": [
+          "id",
+          "title",
+          "schedule",
+          "escalate_after",
+          "action",
+          "active",
+          "is_default",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "`none`, `record_usage` or `confirm_photos`."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether occurrences are made from it. A standard task can only be switched off."
+          },
+          "assignee_membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member it is for, when it is for one person."
+          },
+          "assignee_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "That member's name."
+          },
+          "assignee_role_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The role it is for."
+          },
+          "assignee_role_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "That role's name."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was made, RFC 3339."
+          },
+          "default_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The standard task's key."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "More detail."
+          },
+          "escalate_after": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Reminders before the owner is told once more; 0 means never."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "is_default": {
+            "type": "boolean",
+            "description": "One of the standard tasks every clinic starts with; it cannot be deleted."
+          },
+          "remind_every_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Minutes between reminders; none means the clinic's default."
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/TaskSchedule",
+            "description": "When it falls due."
+          },
+          "title": {
+            "type": "string",
+            "description": "What is to be done."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When it last changed, RFC 3339."
+          }
+        }
+      },
+      "TaskChangeBody": {
+        "type": "object",
+        "description": "A change to a task. Fields left out stay as they are.",
+        "properties": {
+          "action": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`none`, `record_usage` or `confirm_photos`."
+          },
+          "active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Switch on or off. Switching on, or changing the schedule, makes the task count from that\nmoment."
+          },
+          "assignee_membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A new member to give it to (replaces the old assignee)."
+          },
+          "assignee_role_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A new role to give it to (replaces the old assignee)."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Description; an empty string clears it."
+          },
+          "escalate_after": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Reminders before escalating, 0 to 24.",
+            "minimum": 0
+          },
+          "remind_every_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Minutes between reminders, 15 to 1440; 0 goes back to the clinic's default.",
+            "minimum": 0
+          },
+          "schedule": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TaskSchedule",
+                "description": "A new schedule, replacing the old one entirely."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Title."
+          }
+        }
+      },
+      "TaskHistory": {
+        "type": "object",
+        "description": "Past and open occurrences.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskOccurrence"
+            },
+            "description": "Newest first, at most 500."
+          }
+        }
+      },
+      "TaskList": {
+        "type": "object",
+        "description": "The clinic's tasks.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            },
+            "description": "Switched-on first, then by title."
+          }
+        }
+      },
+      "TaskOccurrence": {
+        "type": "object",
+        "description": "One day's run of a task.",
+        "required": [
+          "id",
+          "template_id",
+          "title",
+          "action",
+          "local_date",
+          "due_at",
+          "status"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "What finishing it asks of the person: `none`, `record_usage` (list the materials used)\nor `confirm_photos` (check the day's patients have their photos)."
+          },
+          "assignee_membership_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member it is for, when it is for one person."
+          },
+          "assignee_role_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The role it is for: the first person holding it to finish it closes it for all."
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was finished, RFC 3339."
+          },
+          "completed_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who finished it."
+          },
+          "completed_by_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "That person's name."
+          },
+          "due_at": {
+            "type": "string",
+            "description": "When it falls due, RFC 3339."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "local_date": {
+            "type": "string",
+            "description": "The clinic's calendar day, `YYYY-MM-DD`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What they wrote."
+          },
+          "patients_without_photos_today": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Only on a `confirm_photos` task: the patients seen that day with a visit that has no\nphoto."
+          },
+          "status": {
+            "type": "string",
+            "description": "`open`, `done`, `skipped` or `missed`."
+          },
+          "template_id": {
+            "type": "string",
+            "description": "The task it came from."
+          },
+          "title": {
+            "type": "string",
+            "description": "The title."
+          }
+        }
+      },
+      "TaskPreview": {
+        "type": "object",
+        "description": "The next times a task falls due.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueTime"
+            },
+            "description": "Up to five, soonest first; none for a task that is switched off or has ended."
+          }
+        }
+      },
+      "TaskSchedule": {
+        "type": "object",
+        "description": "When a task falls due. Times are the clinic's local time.",
+        "properties": {
+          "due_time": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The time of day, `HH:MM`."
+          },
+          "ends_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The last day, `YYYY-MM-DD`."
+          },
+          "interval_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "`every_n_days`: days between occurrences, 2 to 365.",
+            "minimum": 0
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`once`, `daily`, `every_n_days` or `weekdays`."
+          },
+          "once_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`once`: the moment, RFC 3339."
+          },
+          "starts_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first day, `YYYY-MM-DD`; today when left out on a new task."
+          },
+          "weekdays": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "`weekdays`: the days, 1 (Monday) to 7 (Sunday)."
+          }
+        }
+      },
       "TaskSettings": {
         "type": "object",
         "description": "Task settings.",
@@ -33270,6 +34294,25 @@
               "null"
             ],
             "description": "The visit it belongs to."
+          }
+        }
+      },
+      "UsageBody": {
+        "type": "object",
+        "description": "One line of materials used.",
+        "required": [
+          "item_id",
+          "quantity"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "description": "The stock item."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Units used, 1 to 1000000."
           }
         }
       },

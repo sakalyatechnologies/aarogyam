@@ -29,6 +29,8 @@ import type {
   RevokedSessions,
   UnreadCount,
 } from "./schemas.js";
+import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview } from "./schemas.js";
+import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
 import type { Allergy, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
 import type {
@@ -246,6 +248,18 @@ export interface RequestOptions {
 }
 
 /** Which patients the list shows. Flags only, so nothing personal reaches a URL. */
+/** Filters for `listTaskHistory`. */
+export interface TaskHistoryQuery {
+  /** First clinic day, `YYYY-MM-DD`; 30 days before `to` by default. */
+  from?: string;
+  /** Last clinic day, `YYYY-MM-DD`; today by default. At most 92 days after `from`. */
+  to?: string;
+  /** A member: tasks given to them or to their role, or finished by them. */
+  assignee?: string;
+  status?: "open" | "done" | "skipped" | "missed";
+  templateId?: TaskId;
+}
+
 /** Filters for `listNotifications`. */
 export interface NotificationQuery {
   /** Only unread ones, from the last 30 days. */
@@ -726,6 +740,27 @@ export interface ApiClient {
   adjustStock(input: AdjustStock, options?: RequestOptions): Promise<ApiResult<StockChange>>;
   /** Clinic host: writes off what is left of an expired batch. Needs `inventory.manage`. */
   expireBatch(id: StockBatchId, input: ExpireBatch, options?: RequestOptions): Promise<ApiResult<StockChange>>;
+
+  /** Clinic host: the caller's tasks for a clinic day (today by default), plus any still open from earlier. A `confirm_photos` task carries `patients_without_photos_today`. Needs `tasks.use`. */
+  listMyTasks(date?: string, options?: RequestOptions): Promise<ApiResult<MyTasks>>;
+  /** Clinic host: finishes a task given to the caller or their role, with an optional note and the materials used (taken off the shelf in the same step). The same person again gets 200; anyone else 409; short stock 409 and nothing is recorded. Needs `tasks.use`. */
+  completeTask(id: TaskOccurrenceId, input: CompleteTask, options?: RequestOptions): Promise<ApiResult<TaskOccurrence>>;
+  /** Clinic host: opens a done or skipped task again; 409 for a missed one. Needs `tasks.manage`. */
+  reopenTask(id: TaskOccurrenceId, options?: RequestOptions): Promise<ApiResult<TaskOccurrence>>;
+  /** Clinic host: the clinic's recurring tasks, including the standard ones and any switched off. Needs `tasks.manage`. */
+  listTasks(options?: RequestOptions): Promise<ApiResult<TaskList>>;
+  /** Clinic host: makes a task. Needs `tasks.manage`. */
+  createTask(input: NewTask, options?: RequestOptions): Promise<ApiResult<Task>>;
+  /** Clinic host: one task. Needs `tasks.manage`. */
+  getTask(id: TaskId, options?: RequestOptions): Promise<ApiResult<Task>>;
+  /** Clinic host: changes a task; fields left out stay. Needs `tasks.manage`. */
+  updateTask(id: TaskId, changes: TaskChange, options?: RequestOptions): Promise<ApiResult<Task>>;
+  /** Clinic host: deletes a task; 409 for a standard one, which can only be switched off with `active: false`. Needs `tasks.manage`. */
+  deleteTask(id: TaskId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: the next five times a task falls due. Needs `tasks.manage`. */
+  previewTask(id: TaskId, options?: RequestOptions): Promise<ApiResult<TaskPreview>>;
+  /** Clinic host: occurrences by clinic day, newest first. Needs `tasks.manage`. */
+  listTaskHistory(filter?: TaskHistoryQuery, options?: RequestOptions): Promise<ApiResult<TaskHistory>>;
 
   /** Clinic host: bills, newest first, without lines. Needs `billing.read`. */
   listInvoices(

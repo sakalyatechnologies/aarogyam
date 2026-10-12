@@ -3886,6 +3886,24 @@ export interface paths {
         patch: operations["updateClinicSetup"];
         trace?: never;
     };
+    "/api/v1/settings/staff-ops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's staff-operations settings. */
+        get: operations["getStaffOpsSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes the staff-operations settings. The change history records each change. */
+        patch: operations["updateStaffOpsSettings"];
+        trace?: never;
+    };
     "/api/v1/settings/website": {
         parameters: {
             query?: never;
@@ -4331,6 +4349,142 @@ export interface paths {
         put?: never;
         /** Ends a grant now. */
         post: operations["revokeSupportGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's recurring tasks, including the standard ones and any switched off. */
+        get: operations["listTasks"];
+        put?: never;
+        /** Makes a task. */
+        post: operations["createTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Occurrences by clinic day, newest first: who did what, and what was missed. */
+        get: operations["listTaskHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's tasks for a day: what is given to them or to their role, plus anything still
+         *     open from an earlier day.
+         */
+        get: operations["listMyTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/occurrences/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finishes an occurrence. The caller must be the person it is for or hold the role it is for;
+         *     the first to finish it closes it for everyone. Repeating it as the same person returns `200`
+         *     and changes nothing; anyone else then gets `409`. When materials are listed and the usable
+         *     stock is short, nothing is recorded and the task stays open.
+         */
+        post: operations["completeTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/occurrences/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Opens a done or skipped occurrence again, for a mistake. Stock already recorded for it stays
+         *     recorded.
+         */
+        post: operations["reopenTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One task. */
+        get: operations["getTask"];
+        put?: never;
+        post?: never;
+        /**
+         * Deletes a task. The days already made stay in the history. A standard task cannot be
+         *     deleted, only switched off with `active: false`.
+         */
+        delete: operations["deleteTask"];
+        options?: never;
+        head?: never;
+        /** Changes a task. */
+        patch: operations["updateTask"];
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The next five times a task falls due, worked out the way the generator does it. */
+        get: operations["previewTask"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5309,6 +5463,11 @@ export interface components {
              *     `appointments.read`.
              */
             notifications_unread?: number | null;
+            /**
+             * Format: int64
+             * @description Open tasks given to the caller or to their role; 0 without `tasks.use`.
+             */
+            tasks_open: number;
         };
         /** @description A doctor patients may pick. */
         BookableDoctor: {
@@ -5956,6 +6115,21 @@ export interface components {
             /** @description The column's header. */
             header: string;
         };
+        /** @description Finishing a task. */
+        CompleteBody: {
+            /**
+             * @description An id the client made, so a retry after a lost answer is recognised. Finishing a task
+             *     twice as the same person is harmless either way.
+             */
+            client_id?: string | null;
+            /** @description A note, at most 300 characters. The screen warns: no patient names. */
+            note?: string | null;
+            /**
+             * @description The materials used, taken off the shelf first-expiry-first-out, in the same step as
+             *     finishing the task. Leave out or send an empty list for nothing used.
+             */
+            usage?: components["schemas"]["UsageBody"][] | null;
+        };
         /** @description A visit closed on the day, without its clinical content. */
         CompletedVisit: {
             /** @description The appointment it started from, if any; a walk-in has none. */
@@ -6556,6 +6730,13 @@ export interface components {
             limit?: number | null;
             /** @description Part of a name or strength, such as `amox` or `500`. */
             q?: string;
+        };
+        /** @description A time a task falls due. */
+        DueTime: {
+            /** @description The moment, RFC 3339. */
+            due_at: string;
+            /** @description The clinic's calendar day, `YYYY-MM-DD`. */
+            local_date: string;
         };
         /** @description Open possible duplicates. */
         DuplicateList: {
@@ -8222,6 +8403,13 @@ export interface components {
             /** @description Most recently used first. */
             items: components["schemas"]["MySession"][];
         };
+        /** @description A person's tasks for a day. */
+        MyTasks: {
+            /** @description The clinic day, `YYYY-MM-DD`. */
+            date: string;
+            /** @description Given to the caller or to their role, soonest first, plus any still open from earlier. */
+            items: components["schemas"]["TaskOccurrence"][];
+        };
         /** @description An addendum's text. */
         NewAddendum: {
             /** @description 1 to 10,000 characters. */
@@ -8663,6 +8851,33 @@ export interface components {
             reason: string;
             /** @description The Sakalya staff member's sign-in email. */
             staff_email: string;
+        };
+        /** @description A task to make. */
+        NewTaskBody: {
+            /** @description `none` (default), `record_usage` or `confirm_photos`. */
+            action?: string | null;
+            /** @description Switched on; true by default. */
+            active?: boolean | null;
+            /** @description The member it is for. Give this or `assignee_role_id`, not both. */
+            assignee_membership_id?: string | null;
+            /** @description The role it is for: the first person holding it to finish it closes it for all. */
+            assignee_role_id?: string | null;
+            /** @description More detail, at most 500 characters. */
+            description?: string | null;
+            /**
+             * Format: int32
+             * @description Reminders before the owner is told once more, 0 to 24 (never at 0); 3 by default.
+             */
+            escalate_after?: number | null;
+            /**
+             * Format: int32
+             * @description Minutes between reminders, 15 to 1440; leave out for the clinic's default.
+             */
+            remind_every_minutes?: number | null;
+            /** @description When it falls due. */
+            schedule: components["schemas"]["TaskSchedule"];
+            /** @description What is to be done, 1 to 120 characters. */
+            title: string;
         };
         /** @description A visit to start. */
         NewVisit: {
@@ -11339,6 +11554,18 @@ export interface components {
             /** @description Members, active first, then by name. */
             members: components["schemas"]["Member"][];
         };
+        /** @description Whether staff time off needs approval, and how often open tasks are reminded. */
+        StaffOpsSettingsBody: {
+            /** @description Task settings. */
+            tasks: components["schemas"]["TaskSettings"];
+            /** @description Time-off settings. */
+            time_off: components["schemas"]["TimeOffSettings"];
+        };
+        /** @description Changes to the staff-operations settings; what is left out stays. */
+        StaffOpsSettingsChanges: {
+            tasks?: components["schemas"]["TaskSettingsChanges"] | null;
+            time_off?: components["schemas"]["TimeOffSettingsChanges"] | null;
+        };
         /** @description A grant the staff member holds. */
         StaffSupportGrant: {
             /** @description What it allows: `read`. */
@@ -11600,6 +11827,165 @@ export interface components {
             /** @description `active`, `ended` or `revoked`. */
             status: string;
         };
+        /** @description A task as the manager sees it. */
+        Task: {
+            /** @description `none`, `record_usage` or `confirm_photos`. */
+            action: string;
+            /** @description Whether occurrences are made from it. A standard task can only be switched off. */
+            active: boolean;
+            /** @description The member it is for, when it is for one person. */
+            assignee_membership_id?: string | null;
+            /** @description That member's name. */
+            assignee_name?: string | null;
+            /** @description The role it is for. */
+            assignee_role_id?: string | null;
+            /** @description That role's name. */
+            assignee_role_name?: string | null;
+            /** @description When it was made, RFC 3339. */
+            created_at: string;
+            /** @description The standard task's key. */
+            default_key?: string | null;
+            /** @description More detail. */
+            description?: string | null;
+            /**
+             * Format: int32
+             * @description Reminders before the owner is told once more; 0 means never.
+             */
+            escalate_after: number;
+            /** @description Identifier. */
+            id: string;
+            /** @description One of the standard tasks every clinic starts with; it cannot be deleted. */
+            is_default: boolean;
+            /**
+             * Format: int32
+             * @description Minutes between reminders; none means the clinic's default.
+             */
+            remind_every_minutes?: number | null;
+            /** @description When it falls due. */
+            schedule: components["schemas"]["TaskSchedule"];
+            /** @description What is to be done. */
+            title: string;
+            /** @description When it last changed, RFC 3339. */
+            updated_at: string;
+        };
+        /** @description A change to a task. Fields left out stay as they are. */
+        TaskChangeBody: {
+            /** @description `none`, `record_usage` or `confirm_photos`. */
+            action?: string | null;
+            /**
+             * @description Switch on or off. Switching on, or changing the schedule, makes the task count from that
+             *     moment.
+             */
+            active?: boolean | null;
+            /** @description A new member to give it to (replaces the old assignee). */
+            assignee_membership_id?: string | null;
+            /** @description A new role to give it to (replaces the old assignee). */
+            assignee_role_id?: string | null;
+            /** @description Description; an empty string clears it. */
+            description?: string | null;
+            /**
+             * Format: int32
+             * @description Reminders before escalating, 0 to 24.
+             */
+            escalate_after?: number | null;
+            /**
+             * Format: int32
+             * @description Minutes between reminders, 15 to 1440; 0 goes back to the clinic's default.
+             */
+            remind_every_minutes?: number | null;
+            schedule?: components["schemas"]["TaskSchedule"] | null;
+            /** @description Title. */
+            title?: string | null;
+        };
+        /** @description Past and open occurrences. */
+        TaskHistory: {
+            /** @description Newest first, at most 500. */
+            items: components["schemas"]["TaskOccurrence"][];
+        };
+        /** @description The clinic's tasks. */
+        TaskList: {
+            /** @description Switched-on first, then by title. */
+            items: components["schemas"]["Task"][];
+        };
+        /** @description One day's run of a task. */
+        TaskOccurrence: {
+            /**
+             * @description What finishing it asks of the person: `none`, `record_usage` (list the materials used)
+             *     or `confirm_photos` (check the day's patients have their photos).
+             */
+            action: string;
+            /** @description The member it is for, when it is for one person. */
+            assignee_membership_id?: string | null;
+            /** @description The role it is for: the first person holding it to finish it closes it for all. */
+            assignee_role_id?: string | null;
+            /** @description When it was finished, RFC 3339. */
+            completed_at?: string | null;
+            /** @description Who finished it. */
+            completed_by?: string | null;
+            /** @description That person's name. */
+            completed_by_name?: string | null;
+            /** @description When it falls due, RFC 3339. */
+            due_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description The clinic's calendar day, `YYYY-MM-DD`. */
+            local_date: string;
+            /** @description What they wrote. */
+            note?: string | null;
+            /**
+             * Format: int64
+             * @description Only on a `confirm_photos` task: the patients seen that day with a visit that has no
+             *     photo.
+             */
+            patients_without_photos_today?: number | null;
+            /** @description `open`, `done`, `skipped` or `missed`. */
+            status: string;
+            /** @description The task it came from. */
+            template_id: string;
+            /** @description The title. */
+            title: string;
+        };
+        /** @description The next times a task falls due. */
+        TaskPreview: {
+            /** @description Up to five, soonest first; none for a task that is switched off or has ended. */
+            items: components["schemas"]["DueTime"][];
+        };
+        /** @description When a task falls due. Times are the clinic's local time. */
+        TaskSchedule: {
+            /** @description The time of day, `HH:MM`. */
+            due_time?: string | null;
+            /** @description The last day, `YYYY-MM-DD`. */
+            ends_on?: string | null;
+            /**
+             * Format: int32
+             * @description `every_n_days`: days between occurrences, 2 to 365.
+             */
+            interval_days?: number | null;
+            /** @description `once`, `daily`, `every_n_days` or `weekdays`. */
+            kind?: string | null;
+            /** @description `once`: the moment, RFC 3339. */
+            once_at?: string | null;
+            /** @description The first day, `YYYY-MM-DD`; today when left out on a new task. */
+            starts_on?: string | null;
+            /** @description `weekdays`: the days, 1 (Monday) to 7 (Sunday). */
+            weekdays?: number[] | null;
+        };
+        /** @description Task settings. */
+        TaskSettings: {
+            /**
+             * Format: int32
+             * @description Minutes between reminders of a task still open, 15 to 1440 (default 60).
+             */
+            remind_every_minutes: number;
+        };
+        /** @description Changes to the task settings; what is left out stays. */
+        TaskSettingsChanges: {
+            /**
+             * Format: int64
+             * @description Minutes between reminders, 15 to 1440.
+             */
+            remind_every_minutes?: number | null;
+        };
         /** @description A doctor working today. */
         TeamMemberToday: {
             /** @description Appointments today, not counting cancelled ones. */
@@ -11628,6 +12014,19 @@ export interface components {
             label: string;
             /** @description The template's layout; "Reset to template" saves this. */
             layout: components["schemas"]["DashboardLayout"];
+        };
+        /** @description Time-off settings. */
+        TimeOffSettings: {
+            /**
+             * @description Whether a member's own request waits for the owner (default true). Time off the owner
+             *     records for someone else is always approved at once.
+             */
+            requires_approval: boolean;
+        };
+        /** @description Changes to the time-off settings; what is left out stays. */
+        TimeOffSettingsChanges: {
+            /** @description Whether a member's own request waits for the owner. */
+            requires_approval?: boolean | null;
         };
         /** @description A page of a patient's timeline, newest first. */
         Timeline: {
@@ -11858,6 +12257,16 @@ export interface components {
             tooth?: number | null;
             /** @description The visit it belongs to. */
             visit_id?: string | null;
+        };
+        /** @description One line of materials used. */
+        UsageBody: {
+            /** @description The stock item. */
+            item_id: string;
+            /**
+             * Format: int64
+             * @description Units used, 1 to 1000000.
+             */
+            quantity: number;
         };
         /** @description Stock used. */
         UseBody: {
@@ -24973,6 +25382,97 @@ export interface operations {
             };
         };
     };
+    getStaffOpsSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOpsSettingsBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateStaffOpsSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffOpsSettingsChanges"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOpsSettingsBody"];
+                };
+            };
+            /** @description Invalid input; the message names the setting */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getWebsiteSettings: {
         parameters: {
             query?: never;
@@ -26338,6 +26838,477 @@ export interface operations {
             };
             /** @description It already ended or was revoked */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listTasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewTaskBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listTaskHistory: {
+        parameters: {
+            query?: {
+                /** @description First clinic day, YYYY-MM-DD; 30 days before `to` by default */
+                from?: string;
+                /** @description Last clinic day, YYYY-MM-DD; today by default */
+                to?: string;
+                /** @description A member: tasks given to them or their role, or finished by them */
+                assignee?: string;
+                /** @description open, done, skipped or missed */
+                status?: string;
+                /** @description One task */
+                template_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskHistory"];
+                };
+            };
+            /** @description A bad filter, or a range over 92 days */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMyTasks: {
+        parameters: {
+            query?: {
+                /** @description The clinic day, YYYY-MM-DD; today by default */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTasks"];
+                };
+            };
+            /** @description A bad date */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    completeTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The occurrence */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOccurrence"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.use, or the task is for someone else */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already done by someone else, no longer open, or not enough stock */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reopenTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The occurrence */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOccurrence"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The task was missed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The task */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The task */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A standard task cannot be deleted */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The task */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskChangeBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    previewTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The task */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskPreview"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

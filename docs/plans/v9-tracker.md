@@ -237,3 +237,13 @@ Small gaps:
 - Android `OutboxFiles`.
 - Review of the hi/mr strings.
 - 3D jaw (J), which needs the asset purchase.
+
+## Port onto main (11 Oct 2026)
+Main gained 93 commits from the portal agent. Those commits built the same backend for queue call, called/ready_to_bill (0610), the patient_waiting/send_in/collect_payment kinds (0617), close/finish with follow-up and fee, visit share (0628), notification switches (0616) and client ids (0625). **Main's versions win.** Our features that main lacks are re-added on `feat/v9-port`, which is created from origin/main, with migrations **0700+** so they run after main's.
+
+| Worker | Branch | Scope | Migrations | State |
+|---|---|---|---|---|
+| pa | v9-pa | family, `/me/patient/visits`, payment proof | 0700, 0701 | running |
+| pb | v9-pb | SSE plus Last-Event-ID, auto messages (welcome wait time, PIN in a separate message), follow-up link, recall dismiss, payment moves the token | 0702–0704 | running |
+| and | v9-and | Android `OutboxFiles` | — | running |
+| (me) | feat/v9-port | merge pa and pb; mobile retarget (CloseVisit→CloseRequest, VisitShare→VisitLink, regenerate models); merge the feat/v9 mobile work; gates; push main | — | waiting |

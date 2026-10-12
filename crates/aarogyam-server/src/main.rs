@@ -592,6 +592,7 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
                 escalated = report.tasks.escalated,
                 missed = report.tasks.missed,
                 seeded = report.tasks.seeded,
+                stock_alerts = report.stock.alerted + report.stock.cleared,
                 "staff tasks run"
             ),
             Ok(_) => {}

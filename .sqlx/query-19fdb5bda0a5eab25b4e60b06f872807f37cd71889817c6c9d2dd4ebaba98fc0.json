@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select s.org_id as \"org_id!\", s.item_id as \"item_id!\", s.local_today as \"local_today!\",\n                  s.reorder_level as \"reorder_level!\", s.lead_time_days as \"lead_time_days!\",\n                  s.batch_expiries as \"batch_expiries!: Vec<Option<Date>>\",\n                  s.batch_quantities as \"batch_quantities!: Vec<i64>\",\n                  s.use_days as \"use_days!: Vec<Date>\",\n                  s.use_quantities as \"use_quantities!: Vec<i64>\",\n                  s.first_use_on\n           from app.stock_usage_snapshot($1, 5000) s\n           where s.org_id in (select app.orgs_past_local_time($1, $2))\n           order by s.org_id, s.item_id\n           limit $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "org_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "item_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "local_today!",
+        "type_info": "Date",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "reorder_level!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "lead_time_days!",
+        "type_info": "Int2",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "batch_expiries!: Vec<Option<Date>>",
+        "type_info": "DateArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "batch_quantities!: Vec<i64>",
+        "type_info": "Int8Array",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "use_days!: Vec<Date>",
+        "type_info": "DateArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "use_quantities!: Vec<i64>",
+        "type_info": "Int8Array",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "first_use_on",
+        "type_info": "Date",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Time",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "19fdb5bda0a5eab25b4e60b06f872807f37cd71889817c6c9d2dd4ebaba98fc0"
+}

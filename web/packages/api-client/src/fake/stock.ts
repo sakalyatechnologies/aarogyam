@@ -92,3 +92,77 @@ export function pickFefo(
   }
   return left > 0 ? null : picks;
 }
+
+/** Days of use history a projection needs, and the most it averages over (`aarogyam-domain::inventory`). */
+const MIN_PROJECTION_DAYS = 7;
+const MAX_PROJECTION_DAYS = 14;
+const ALERT_MARGIN_DAYS = 3;
+const REORDER_COVER_DAYS = 14;
+
+export interface Projection {
+  onHand: number;
+  dailyUsage: number | null;
+  daysCover: number | null;
+  runsOutOn: string | null;
+  shouldAlert: boolean;
+  reason: "low" | "projected" | null;
+  suggestedReorderQty: number | null;
+}
+
+/** The same projection as the API's `project()`: whole-number maths over the last 14 complete clinic days. `dailyUse` is units used per clinic day. */
+export function projectStock(input: {
+  today: string;
+  reorderLevel: number;
+  leadTimeDays: number;
+  batches: readonly { expiry: string | null; quantity: number }[];
+  dailyUse: ReadonlyMap<string, number>;
+}): Projection {
+  const { today } = input;
+  const live = (expiry: string | null): boolean => !isExpired(expiry, today);
+  const onHand = input.batches.filter((b) => b.quantity > 0 && live(b.expiry)).reduce((sum, b) => sum + b.quantity, 0);
+  const status = stockStatus(onHand, input.reorderLevel, false);
+  const reasonLow = status === "low" || status === "critical" ? ("low" as const) : null;
+  const none: Projection = {
+    onHand,
+    dailyUsage: null,
+    daysCover: null,
+    runsOutOn: null,
+    shouldAlert: reasonLow !== null,
+    reason: reasonLow,
+    suggestedReorderQty: null,
+  };
+  const useDays = [...input.dailyUse.entries()].filter(([, q]) => q > 0).map(([day]) => day).filter((day) => day <= today);
+  const first = useDays.sort()[0];
+  if (first === undefined) return none;
+  const window = Math.min(MAX_PROJECTION_DAYS, daysBetween(first, today));
+  if (window < MIN_PROJECTION_DAYS) return none;
+  const start = addDays(today, -window);
+  const inWindow = [...input.dailyUse.entries()].filter(([day, q]) => day >= start && day < today && q > 0);
+  const used = inWindow.reduce((sum, [, q]) => sum + q, 0);
+  if (inWindow.length < 2 || used <= 0) return none;
+
+  const cover = (usable: number): number => Math.floor((usable * window) / used);
+  let usable = onHand;
+  let daysCover = cover(usable);
+  for (let pass = 0; pass <= input.batches.length; pass += 1) {
+    const runsOut = addDays(today, Math.min(daysCover, 36_500));
+    const kept = input.batches
+      .filter((b) => b.quantity > 0 && live(b.expiry) && (b.expiry === null || b.expiry >= runsOut))
+      .reduce((sum, b) => sum + b.quantity, 0);
+    if (kept === usable) break;
+    usable = kept;
+    daysCover = cover(usable);
+  }
+  const projected = daysCover <= input.leadTimeDays + ALERT_MARGIN_DAYS;
+  const reason = reasonLow ?? (projected ? ("projected" as const) : null);
+  const target = Math.ceil((used * (input.leadTimeDays + REORDER_COVER_DAYS)) / window);
+  return {
+    onHand,
+    dailyUsage: used / window,
+    daysCover,
+    runsOutOn: addDays(today, Math.min(daysCover, 36_500)),
+    shouldAlert: reason !== null,
+    reason,
+    suggestedReorderQty: Math.max(0, target - usable),
+  };
+}

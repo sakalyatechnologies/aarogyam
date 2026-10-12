@@ -482,6 +482,11 @@ export type ReceiveStock = Schemas["ReceiveBody"];
 export type UseStock = Schemas["UseBody"];
 export type AdjustStock = Schemas["AdjustBody"];
 export type ExpireBatch = Schemas["ExpireBody"];
+export type StockInsight = Schemas["StockInsight"];
+export type StockAnalytics = Schemas["StockAnalytics"];
+export type StockDailyUse = Schemas["DailyUse"];
+export type InventoryItemAlertChanges = Schemas["AlertChanges"];
+export type InventoryItemAlerts = Schemas["AlertSettingsBody"];
 
 export type InvoiceStatus = "draft" | "issued" | "void";
 export type PaymentState = "unpaid" | "partial" | "paid";

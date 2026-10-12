@@ -50,6 +50,7 @@ pub use messages::MessageReport;
 pub use resend::Resend;
 pub use staff::{FlagReport, ReminderReport, StaffAlert, StaffChannel, flag_alerts, remind};
 pub use staff_ops::{StaffOpsReport, run_staff_ops};
+pub use stock::{StockReport, run_stock_alerts};
 pub use tasks::TaskReport;
 pub use templates::{Email, PortalLinks};
 

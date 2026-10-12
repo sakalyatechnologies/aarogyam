@@ -148,6 +148,9 @@ import type {
   InventoryItemId,
   InventoryItemPage,
   InventoryItemValues,
+  InventoryItemAlertChanges,
+  InventoryItemAlerts,
+  StockAnalytics,
   ReceiveStock,
   StockBatchId,
   StockChange,
@@ -698,6 +701,10 @@ export interface ApiClient {
   getStock(options?: RequestOptions): Promise<ApiResult<StockSummary>>;
   /** Clinic host: items at or below their reorder level, worst first. Needs `inventory.read`. */
   listLowStock(options?: RequestOptions): Promise<ApiResult<InventoryItemPage>>;
+  /** Clinic host: how fast each item (or the one named) is used, how long it lasts and what to reorder. Needs `inventory.read`. */
+  getStockAnalytics(params?: { itemId?: InventoryItemId }, options?: RequestOptions): Promise<ApiResult<StockAnalytics>>;
+  /** Clinic host: an item's lead time (0 to 120 days) and whether it raises stock alerts. Needs `inventory.manage`. */
+  changeInventoryItemAlerts(id: InventoryItemId, input: InventoryItemAlertChanges, options?: RequestOptions): Promise<ApiResult<InventoryItemAlerts>>;
   /** Clinic host: batches with stock left that expire within `days` days (30 by default) or already have. Needs `inventory.read`. */
   listExpiring(days?: number, options?: RequestOptions): Promise<ApiResult<ExpiringPage>>;
   /** Clinic host: the stock items by name, each with its level. Needs `inventory.read`. */

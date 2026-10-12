@@ -86,7 +86,7 @@ import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photos
 import { createRandom, fakeUuid } from "./random.js";
 import * as M from "./messaging.js";
 import { CLINIC_STEPS, MEMBER_STEPS, applySetup, setupOf, wireSetup } from "./setup.js";
-import { MAX_MOVEMENT, addDays, byUrgency, daysBetween, isExpired, isStockUnit, levelOf, pickFefo, wireItem } from "./stock.js";
+import { MAX_MOVEMENT, addDays, byUrgency, daysBetween, isExpired, isStockUnit, levelOf, pickFefo, projectStock, wireItem } from "./stock.js";
 import { readCsv, readRow, suggestColumns, type CsvTable } from "./smart-import.js";
 import { atLocalTime, localClock } from "./zoned-time.js";
 
@@ -648,6 +648,47 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     function clinicLevels(clinic: FakeClinic): C.StockLevel[] {
       const today = clinicToday(clinic);
       return state.inventoryItems.filter((i) => i.clinic_id === clinic.id).map((i) => levelOf(i, state.stockBatches, today));
+    }
+
+    /** An item's usage over the last 28 clinic days and its projection, as the API's analytics work them out. */
+    function insightOf(clinic: FakeClinic, item: FakeInventoryItem): C.StockInsight {
+      const today = clinicToday(clinic);
+      const leadTime = item.lead_time_days ?? 7;
+      const dailyUse = new Map<string, number>();
+      for (const m of state.stockMovements) {
+        if (m.item_id !== item.id || m.kind !== "use") continue;
+        const day = localClock(new Date(m.at), clinic.timezone).date;
+        if (day > addDays(today, -28) && day <= today) dailyUse.set(day, (dailyUse.get(day) ?? 0) - m.quantity);
+      }
+      const p = projectStock({
+        today,
+        reorderLevel: item.reorder_level,
+        leadTimeDays: leadTime,
+        batches: state.stockBatches.filter((b) => b.item_id === item.id).map((b) => ({ expiry: b.expiry ?? null, quantity: b.quantity })),
+        dailyUse,
+      });
+      const series = Array.from({ length: 28 }, (_, i) => {
+        const day = addDays(today, i - 27);
+        return { day, quantity: dailyUse.get(day) ?? 0 };
+      });
+      return {
+        item_id: item.id,
+        name: item.name,
+        unit: item.unit,
+        on_hand: p.onHand,
+        daily_usage: p.dailyUsage,
+        usage_7d: series.slice(-7).reduce((sum, d) => sum + d.quantity, 0),
+        usage_28d: series.reduce((sum, d) => sum + d.quantity, 0),
+        series,
+        days_cover: p.daysCover,
+        runs_out_on: p.runsOutOn,
+        reorder_level: item.reorder_level,
+        lead_time_days: leadTime,
+        alerts_enabled: item.alerts_enabled ?? true,
+        suggested_reorder_qty: p.suggestedReorderQty,
+        needs_reorder: p.shouldAlert,
+        reorder_reason: p.reason,
+      };
     }
 
     function inventoryItemOf(clinic: FakeClinic, id: string): FakeInventoryItem | undefined {
@@ -5011,8 +5052,57 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!isCaller(caller)) {
             return caller;
           }
-          const items = byUrgency(clinicLevels(caller.clinic)).filter((l) => l.item.active && (l.status === "low" || l.status === "critical"));
+          const items = byUrgency(clinicLevels(caller.clinic))
+            .filter((l) => l.item.active && (l.status === "low" || l.status === "critical"))
+            .map((level): C.StockLevel => {
+              const item = inventoryItemOf(caller.clinic, level.item.id);
+              const insight = item === undefined ? undefined : insightOf(caller.clinic, item);
+              return insight?.days_cover == null ? level : { ...level, days_cover: insight.days_cover, runs_out_on: insight.runs_out_on ?? null };
+            });
           return reply({ items } satisfies C.InventoryItemList);
+        }),
+
+      getStockAnalytics: (params, opts) =>
+        respond(S.stockAnalytics, opts?.signal, async () => {
+          const caller = await inClinic("inventory.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const named = params?.itemId;
+          if (named !== undefined && inventoryItemOf(caller.clinic, named) === undefined) {
+            return notFound;
+          }
+          const items = state.inventoryItems
+            .filter((i) => i.clinic_id === caller.clinic.id && (named === undefined ? i.active : i.id === named))
+            .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+            .map((i) => insightOf(caller.clinic, i));
+          const reorderList = items
+            .filter((i) => i.needs_reorder)
+            .sort((a, b) => (a.days_cover ?? -1) - (b.days_cover ?? -1) || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+          return reply({ items, reorder_list: reorderList } satisfies C.StockAnalytics);
+        }),
+
+      changeInventoryItemAlerts: (id, input, opts) =>
+        respond(S.inventoryItemAlerts, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const item = inventoryItemOf(caller.clinic, id);
+          if (item === undefined) {
+            return notFound;
+          }
+          const days = input.lead_time_days;
+          if (days != null && (!Number.isInteger(days) || days < 0 || days > 120)) {
+            return invalid("lead_time_days", "must be between 0 and 120");
+          }
+          if (days != null) item.lead_time_days = days;
+          if (input.alerts_enabled != null) item.alerts_enabled = input.alerts_enabled;
+          return reply({
+            item_id: item.id,
+            lead_time_days: item.lead_time_days ?? 7,
+            alerts_enabled: item.alerts_enabled ?? true,
+          } satisfies C.InventoryItemAlerts);
         }),
 
       listExpiring: (days, opts) =>

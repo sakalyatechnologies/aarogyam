@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { inventoryItemId, stockBatchId, type ApiClient, type ApiResult } from "../index.js";
 import { createFakeBackend, createFixtures, fakeTokenFor } from "./index.js";
-import { addDays, pickFefo, stockStatus } from "./stock.js";
+import { addDays, pickFefo, projectStock, stockStatus } from "./stock.js";
 
 // 11:00 in Pune.
 const NOW = new Date("2026-10-03T05:30:00Z");
@@ -148,5 +148,73 @@ describe("fake client: stock", () => {
       ["Implant 4.2×10", "low"],
       ["Polish cups", "low"],
     ]);
+  });
+});
+
+describe("fake client: stock analytics", () => {
+  function withUse() {
+    const fixtures = createFixtures({ now: NOW });
+    const composite = fixtures.inventoryItems.find((i) => i.name === "Composite A2");
+    const batch = fixtures.stockBatches.find((b) => b.item_id === composite?.id);
+    if (composite === undefined || batch === undefined) throw new Error("fixtures changed");
+    for (let back = 1; back <= 14; back += 1) {
+      fixtures.stockMovements.push({
+        id: `0192f1c4-7a10-7c3e-9b2a-${String(back).padStart(12, "0")}`,
+        clinic_id: composite.clinic_id,
+        item_id: composite.id,
+        batch_id: batch.id,
+        kind: "use",
+        quantity: -10,
+        reason: null,
+        at: `${addDays(TODAY, -back)}T06:30:00Z`,
+        by: ASHA,
+      });
+    }
+    const backend = createFakeBackend(fixtures);
+    const as = (who: string, host = SUNRISE): ApiClient => backend.client({ host, getToken: () => fakeTokenFor({ id: who }), now: () => NOW });
+    return { as, id: inventoryItemId.parse(composite.id) };
+  }
+
+  it("works out cover, run-out day and reorder quantity from the use history", async () => {
+    const { as, id } = withUse();
+    const onHand = value(await as(ASHA).getInventoryItem(id)).stock.on_hand;
+    const analytics = value(await as(ASHA).getStockAnalytics({ itemId: id }));
+    const row = analytics.items[0];
+    expect(row?.on_hand).toBe(onHand);
+    expect(row?.daily_usage).toBe(10);
+    expect(row?.usage_7d).toBe(60);
+    expect(row?.usage_28d).toBe(140);
+    expect(row?.series).toHaveLength(28);
+    expect(row?.days_cover).toBe(Math.floor(onHand / 10));
+    expect(row?.runs_out_on).toBe(addDays(TODAY, Math.floor(onHand / 10)));
+    expect(row?.suggested_reorder_qty).toBe(Math.max(0, 210 - onHand));
+    expect(row?.needs_reorder).toBe(true);
+    expect(analytics.reorder_list.map((r) => r.item_id)).toContain(id);
+    const low = value(await as(ASHA).listLowStock()).items.find((l) => l.item.id === id);
+    expect(low?.days_cover).toBe(Math.floor(onHand / 10));
+    expect(low?.runs_out_on).toBe(row?.runs_out_on);
+  });
+
+  it("changes lead time and the alert switch, with the same permissions and clinic limits as the API", async () => {
+    const { as, id } = withUse();
+    const changed = value(await as(ASHA).changeInventoryItemAlerts(id, { lead_time_days: 30, alerts_enabled: false }));
+    expect(changed).toEqual({ item_id: id, lead_time_days: 30, alerts_enabled: false });
+    expect(value(await as(ASHA).getStockAnalytics({ itemId: id })).items[0]?.lead_time_days).toBe(30);
+    expect(errorOf(await as(ASHA).changeInventoryItemAlerts(id, { lead_time_days: 121 }))?.status).toBe(400);
+    expect(errorOf(await as(DEV).changeInventoryItemAlerts(id, { lead_time_days: 5 }))?.status).toBe(403);
+    expect(errorOf(await as(BINA, LOTUS).getStockAnalytics({ itemId: id }))?.status).toBe(404);
+    expect(errorOf(await as(BINA, LOTUS).changeInventoryItemAlerts(id, { lead_time_days: 5 }))?.status).toBe(404);
+  });
+
+  it("gives no projection with under a week of history", () => {
+    const p = projectStock({
+      today: TODAY,
+      reorderLevel: 5,
+      leadTimeDays: 7,
+      batches: [{ expiry: null, quantity: 30 }],
+      dailyUse: new Map([[addDays(TODAY, -3), 10], [addDays(TODAY, -2), 10]]),
+    });
+    expect(p.daysCover).toBeNull();
+    expect(p.shouldAlert).toBe(false);
   });
 });

@@ -80,6 +80,8 @@ import {
   priceItem,
   priceItemList,
   expiringList,
+  inventoryItemAlerts,
+  stockAnalytics,
   inventoryItem,
   inventoryItemDetail,
   inventoryItemList,
@@ -724,6 +726,16 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     getStock: (opts) => call({ method: "GET", path: "/api/v1/stock", schema: stockSummary, signal: opts?.signal }),
     listLowStock: (opts) => call({ method: "GET", path: "/api/v1/stock/low", schema: inventoryItemList, signal: opts?.signal }),
+    getStockAnalytics: (params, opts) =>
+      call({ method: "GET", path: "/api/v1/stock/analytics", schema: stockAnalytics, query: { item_id: params?.itemId }, signal: opts?.signal }),
+    changeInventoryItemAlerts: (id, input, opts) =>
+      call({
+        method: "PATCH",
+        path: `/api/v1/inventory-items/${encodeURIComponent(id)}/alerts`,
+        schema: inventoryItemAlerts,
+        body: input,
+        signal: opts?.signal,
+      }),
     listExpiring: (days, opts) =>
       call({ method: "GET", path: "/api/v1/stock/expiring", schema: expiringList, query: { days }, signal: opts?.signal }),
     listInventoryItems: (opts) => call({ method: "GET", path: "/api/v1/inventory-items", schema: inventoryItemList, signal: opts?.signal }),

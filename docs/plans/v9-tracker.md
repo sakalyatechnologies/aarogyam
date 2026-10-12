@@ -243,7 +243,7 @@ Main gained 93 commits from the portal agent. Those commits built the same backe
 
 | Worker | Branch | Scope | Migrations | State |
 |---|---|---|---|---|
-| pa | v9-pa | family, `/me/patient/visits`, payment proof | 0700, 0701 | running |
+| pa | v9-pa | cancelled: family and payment proof are the backend agent's; patient visits became G11; reference commit a3a0a578 | — | handed over |
 | pb | v9-pb | SSE plus Last-Event-ID, auto messages (welcome wait time, PIN in a separate message), follow-up link, recall dismiss, payment moves the token | 0702–0704 | running |
 | and | v9-and | Android `OutboxFiles` | — | merged (e3863535) |
 | (me) | feat/v9-port | merge pa and pb; mobile retarget (CloseVisit→CloseRequest, VisitShare→VisitLink, regenerate models); merge the feat/v9 mobile work; gates; push main | — | waiting |

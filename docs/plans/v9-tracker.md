@@ -255,8 +255,11 @@ Main gained 93 commits from the portal agent. Those commits built the same backe
 | T0 retarget and seams (`feat/v10` = origin/main + the feat/v9 mobile code) | **done** 5bb70e0a, both gates green; the sse client was cherry-picked onto it as fa30ab32 |
 | T3 shared intake form + patient-file sender | **merged** 646dceaf; the coordinator wired the outbox and PNG uploads in ece56e59 |
 | T5 shared finish-visit holder + audio sender | **merged** c7052906 (+ `VisitStateHolder.saveNow`); gradle and iOS green |
-| T4 wait timer + collect races | running (v10-t4) |
-| T1 + T2 home choice + availability | running (v10-t1) |
-| T6, then T7–T11, then T12 | queued |
+| T1 + T2 home choice + availability | **merged** 7f6e6e71 |
+| T4 wait timer + collect races | **merged** 1e0f60aa (+ the iOS "Already paid" view); all gates green |
+| T6 My tasks + notification kinds | running (v10-t6) |
+| T7 iOS Desk home | running (v10-t7, iPhone Air) |
+| T8, T9, T10, T11, then T12 | queued |
+| Gap (T4) | the outbox payment sender doesn't re-check the balance; a queued payment that gets a 409 ends rejected |
 | Fix | the fake backend's request list raced under load (the flaky `VisitHistoryStateHolderTest`); now locked, ece56e59 |
 | Follow-ups from T0 | the iOS family controls must hide when the flag is off (goes to T7/T8); `ServerCaps` is per process, not per clinic; `VisitHistoryStateHolderTest` is flaky under load |

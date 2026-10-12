@@ -32,6 +32,7 @@ describe("Settings tabs", () => {
       "Chairs and doctors",
       "Price list",
       "Team & roles",
+      "Time off",
       "Booking & notifications",
       "Website",
       "Sessions",

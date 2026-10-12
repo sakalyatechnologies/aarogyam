@@ -103,6 +103,8 @@ suspend fun testGraph(
                 engine = backend.engine,
                 logSink = logs,
                 outboxStore = outboxStore,
+                // The event stream would add a request to every count; it has its own tests.
+                liveStream = false,
             ),
         )
     graph.sessions.state.first { it !is com.sakalya.mobile.auth.SessionState.Restoring }

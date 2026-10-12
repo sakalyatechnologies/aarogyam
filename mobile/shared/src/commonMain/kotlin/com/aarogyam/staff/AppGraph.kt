@@ -26,6 +26,7 @@ import com.aarogyam.staff.history.VisitDetailStateHolder
 import com.aarogyam.staff.history.VisitHistoryStateHolder
 import com.aarogyam.staff.labs.LabsStateHolder
 import com.aarogyam.staff.labs.NewLabCaseStateHolder
+import com.aarogyam.staff.live.SseLiveUpdates
 import com.aarogyam.staff.nav.HomeChoiceHolder
 import com.aarogyam.staff.nav.createHomeChoice
 import com.aarogyam.staff.notes.PatientNotesStateHolder
@@ -98,6 +99,9 @@ import io.ktor.client.engine.HttpClientEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
@@ -122,6 +126,8 @@ class AppGraph private constructor(
     /** Images of unsent photo uploads, in protected storage beside the queue. */
     private val outboxFiles: OutboxFiles,
     private val clock: Clock,
+    /** False keeps the event stream off (tests that count requests); the apps leave it on. */
+    liveStream: Boolean = true,
 ) {
     private val clients = mutableMapOf<BaseUrl, HttpClient>()
 
@@ -153,6 +159,12 @@ class AppGraph private constructor(
 
     /** Saves visit notes, procedures, close and photos for later; the holders use it when offline. */
     val writes: WriteQueue = WriteQueue(outbox, outboxFiles, connectivity)
+
+    /**
+     * Reload signals for screens: the server's event stream while signed in with a clinic open (stopped
+     * at sign-out and on a clinic switch, polling alone when the server refuses it), plus the poll.
+     */
+    val live: SseLiveUpdates = SseLiveUpdates(logger("aarogyam.live"))
 
     private var outboxJob: Job? = null
 
@@ -187,6 +199,14 @@ class AppGraph private constructor(
                 }
             }
         }
+        if (liveStream) {
+            scope.launch {
+                combine(sessions.state, directory.current) { session, clinic ->
+                    clinic.takeIf { session is SessionState.SignedIn }
+                }.distinctUntilChangedBy { it?.slug }
+                    .collectLatest { clinic -> if (clinic != null) live.run(clinic.api.client) }
+            }
+        }
         // A clinic opening may be what a waiting write needs (its API); try again now, not after backoff.
         scope.launch { directory.current.collect { if (it != null) outbox.retryNow() } }
     }
@@ -207,6 +227,8 @@ class AppGraph private constructor(
         outboxJob?.cancel()
         outboxJob = null
         outbox.clear()
+        // Also photos no entry points to any more (a crash between save and queue).
+        runCatching { outboxFiles.clear() }
     }
 
     fun signIn(scope: CoroutineScope): SignInStateHolder = SignInStateHolder(sessions, scope)
@@ -497,6 +519,7 @@ class AppGraph private constructor(
             dictation: Dictation = Dictation.None,
             outboxStore: OutboxStore = MemoryOutboxStore(),
             outboxFiles: OutboxFiles = MemoryOutboxFiles(),
+            liveStream: Boolean = true,
         ): AppGraph? {
             val level = if (config.debug) LogLevel.Debug else LogLevel.Info
             val logger = { tag: String -> Logger(tag, logSink, level) }
@@ -534,6 +557,7 @@ class AppGraph private constructor(
                     outboxStore,
                     outboxFiles,
                     clock,
+                    liveStream,
                 )
             scope.launch { sessions.restore() }
             return graph

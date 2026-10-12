@@ -17,8 +17,10 @@ import { shiftsOn } from "../../lib/slots.js";
 import { addDays, addMonths, mondayOf, monthStartOf, monthWeeks, todayIn } from "../../lib/time.js";
 import { formatTime } from "@aarogyam/app-kit";
 import { useAppointments, usePractitioners, useRooms, useWorkingHoursMany } from "../../queries.js";
+import { useTimeOff } from "../../lib/time-off-queries.js";
+import { awayOn, isAway } from "./away.js";
 import { AppointmentDialog } from "./appointment-dialog.js";
-import { MonthView, type MonthItem } from "./month-view.js";
+import { MonthView, type MonthAway, type MonthItem } from "./month-view.js";
 import { TimeGrid, type GridColumn, type GridEvent } from "./time-grid.js";
 import { BookingDialog } from "./booking-dialog.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
@@ -145,6 +147,11 @@ export function CalendarPage() {
   const appointments = useAppointments({ from, to, ...(newLook && doctorId !== undefined ? { practitionerId: doctorId } : {}) });
   const rooms = useRooms();
   const practitioners = usePractitioners();
+  // Approved time off for the days in view; a failure here never blocks the schedule.
+  const timeOff = useTimeOff({ from, to });
+  const away = timeOff.data?.items ?? [];
+  const people = practitioners.data?.items ?? [];
+  const awayFor = (date: string) => awayOn(away, people, date, timeZone).filter((band) => !newLook || doctorId === undefined || band.practitionerId === doctorId);
   const canWrite = can("appointments.write");
   // Load working hours for doctors when viewing day view grouped by doctor
   const doctorIds = lane === "doctor" && view === "day" ? (practitioners.data?.items ?? []).map((p) => p.id) : [];
@@ -157,14 +164,14 @@ export function CalendarPage() {
     view === "week"
       ? Array.from({ length: 7 }, (_, index) => {
           const date = addDays(from, index);
-          return { id: date, label: WEEKDAY_LABELS[index] ?? "", dateLabel: date.slice(8, 10), current: date === today, showNow: date === today };
+          return { id: date, label: WEEKDAY_LABELS[index] ?? "", dateLabel: date.slice(8, 10), current: date === today, showNow: date === today, away: awayFor(date) };
         })
       : (lane === "chair"
-          ? (rooms.data?.items ?? []).map((room) => ({ id: room.id, label: room.name }))
+          ? (rooms.data?.items ?? []).map((room) => ({ id: room.id, label: room.name, away: awayFor(anchor) }))
           : (practitioners.data?.items ?? [])
               .map((p, i) => {
                 const spans = workingHoursResults[i]?.data ? shiftsOn(workingHoursResults[i].data.shifts, anchor) : undefined;
-                return { id: p.id, label: p.display_name, ...(spans !== undefined ? { working: spans } : {}) };
+                return { id: p.id, label: p.display_name, away: awayFor(anchor).filter((band) => band.practitionerId === p.id), ...(spans !== undefined ? { working: spans } : {}) };
               })
               .filter((c) => !newLook || doctorId === undefined || c.id === doctorId)
         ).map((c) => ({ ...c, showNow: anchor === today }));
@@ -178,6 +185,7 @@ export function CalendarPage() {
         return [];
       }
       const time = formatTime(a.starts_at, timeZone);
+      const doctorAway = isAway(away, people.find((p) => p.id === a.practitioner.id), a.starts_at, a.ends_at);
       const detail = a.status === "requested" ? "Requested online" : view === "week" ? `${a.practitioner.display_name}${a.room == null ? "" : ` · ${a.room}`}` : (a.room ?? a.practitioner.display_name);
       return [
         {
@@ -189,9 +197,9 @@ export function CalendarPage() {
             startMin: place.startMin,
             endMin: place.endMin,
             title: `${a.status === "requested" ? "? " : ""}${a.patient.full_name}`,
-            subtitle: `${time} · ${detail}`,
+            subtitle: `${time} · ${detail}${doctorAway ? " · Doctor away" : ""}`,
             tone: toneOf(a),
-            label: `${a.status === "requested" ? "Requested: " : ""}${a.patient.full_name}, ${a.reason ?? "Consultation"} at ${time}, ${detail}`,
+            label: `${a.status === "requested" ? "Requested: " : ""}${a.patient.full_name}, ${a.reason ?? "Consultation"} at ${time}, ${detail}${doctorAway ? ", doctor away" : ""}`,
           },
         },
       ];
@@ -202,6 +210,7 @@ export function CalendarPage() {
       const place = placementOf(a.starts_at, a.ends_at, timeZone);
       return { id: a.id, date: place.date, startMin: place.startMin, tone: toneOf(a), label: `${a.status === "requested" ? "? " : ""}${formatTime(a.starts_at, timeZone).replace(/ ?[ap]m$/i, "")} ${a.patient.full_name}` };
     });
+  const monthAway: MonthAway[] = view === "month" ? monthWeeks(anchor).flat().flatMap((date) => awayFor(date).map((band) => ({ id: band.id, date, name: band.name }))) : [];
   const events = placed.map((p) => p.event);
   const hours = gridHours(placed);
   const nowOnClinicClock = nowMinutes(clock, timeZone);
@@ -331,6 +340,7 @@ export function CalendarPage() {
               month={anchor}
               today={today}
               items={monthItems}
+              away={monthAway}
               onSelect={setSelectedId}
               onOpenDay={(date) => {
                 setAnchor(date);

@@ -23,6 +23,10 @@
 .mk-tg-ev.q::before, .mk-month .mk-evchip.q::before { background: repeating-linear-gradient(to bottom, var(--bar) 0 4px, transparent 4px 7px); }
 .mk-tg-col.current { background-color: color-mix(in srgb, var(--brand-soft) 45%, transparent); }
 .mk-tg-off { position: absolute; left: 0; right: 0; background: color-mix(in srgb, var(--muted) 9%, transparent); pointer-events: none; }
+/* Time off: a hatched band behind the appointments; only "Away · name" is ever shown. */
+.mk-tg-away { position: absolute; box-sizing: border-box; overflow: hidden; pointer-events: none; border-left: 3px solid color-mix(in srgb, var(--muted) 70%, transparent); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--muted) 14%, transparent) 0 6px, color-mix(in srgb, var(--muted) 5%, transparent) 6px 12px); }
+.mk-tg-away span { display: block; padding: 3px 6px; font-size: 10.5px; font-weight: 800; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk-month .mk-away { display: block; font-size: 10.5px; font-weight: 700; line-height: 1.3; color: var(--ink2); padding: 4px 8px; border-radius: 8px; border-left: 3px solid color-mix(in srgb, var(--muted) 70%, transparent); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--muted) 14%, transparent) 0 6px, color-mix(in srgb, var(--muted) 5%, transparent) 6px 12px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mk-tg-head .mk-dh.today { color: var(--brand2); }
 .mk-tg-head .mk-dh { padding: 8px 4px; font-size: 11px; font-weight: 800; text-align: center; color: var(--muted); }
 .mk-tg-head .mk-dh b { display: block; font-size: 16px; color: var(--ink); }
@@ -111,3 +115,19 @@
 .cal2 .mk-tip { border-radius: 14px; }
 .cal2 .mk-legend-chip { background: var(--surface); }
 .cal-calm { margin: 12px 0 0; text-align: center; font-size: 14px; color: var(--sk-text-muted); }
+
+/* Booking guard: the doctor is away at the chosen time; free doctors are one tap away. */
+.mk-bk-away { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--sk-warning) 45%, var(--rule)); background: color-mix(in srgb, var(--sk-warning) 10%, var(--surface)); font-size: 13px; color: var(--ink); }
+.mk-bk-away p { margin: 0; font-weight: 700; }
+.mk-bk-away-free { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mk-bk-away-free > span { font-weight: 700; color: var(--ink2); }
+
+/* Reassign dialog. */
+.mk-rs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.mk-rs-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 12px; }
+.mk-rs-who { display: flex; flex-direction: column; min-width: 0; font-size: 13px; }
+.mk-rs-who span { color: var(--ink2); font-weight: 600; }
+.mk-rs-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.mk-rs-err { grid-column: 1 / -1; margin: 0; font-size: 12.5px; font-weight: 600; color: var(--sk-danger); }
+.mk-rs-sum { margin: 12px 0 0; font-size: 13px; font-weight: 700; }
+@media (max-width: 560px) { .mk-rs-row { grid-template-columns: minmax(0, 1fr); } .mk-rs-pick { justify-content: flex-start; } }

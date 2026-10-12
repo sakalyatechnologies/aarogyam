@@ -229,8 +229,8 @@ fn check(input: &RecordPayment) -> Result<Checked, AppError> {
 /// the key was seen before with the same request).
 ///
 /// # Errors
-/// [`AppError::Denied`] without `billing.write`; [`AppError::NotFound`] for an unknown patient
-/// or bill; [`AppError::Invalid`] for bad values or an allocation past a bill's balance or the
+/// [`AppError::Denied`] without `billing.write` or `payments.collect`; [`AppError::NotFound`]
+/// for an unknown patient or bill; [`AppError::Invalid`] for bad values or an allocation past a bill's balance or the
 /// payment; [`AppError::Conflict`] for a key reused with a different request or a bill that
 /// isn't issued.
 #[expect(
@@ -244,7 +244,18 @@ pub async fn record(
     input: RecordPayment,
     now: OffsetDateTime,
 ) -> Result<(PaymentView, bool), AppError> {
-    actor.require(Permission::BillingWrite)?;
+    // `payments.collect` alone takes payment against unpaid bills, issuing a draft as it goes;
+    // it never records an advance. `billing.write` keeps its full reach.
+    let collect_only = actor.require(Permission::BillingWrite).is_err();
+    if collect_only {
+        actor.require(Permission::PaymentsCollect)?;
+        if input.allocations.is_empty() {
+            return Err(AppError::invalid(
+                "allocations",
+                "name the bill this payment is for",
+            ));
+        }
+    }
     let Checked {
         key,
         method,
@@ -274,7 +285,24 @@ pub async fn record(
                 .await?
                 .ok_or(AppError::NotFound("patient"))?;
             let ids: Vec<Uuid> = input.allocations.iter().map(|(id, _)| id.uuid()).collect();
-            let bills = dal::lock_invoices(tx.conn(), &ids).await?;
+            let mut bills = dal::lock_invoices(tx.conn(), &ids).await?;
+            if collect_only {
+                // A draft the desk collects against is issued first (numbered, totals fixed),
+                // in this transaction; a void or someone else's bill is refused below.
+                let mut issued_any = false;
+                for bill in &bills {
+                    if bill.status == InvoiceStatus::Draft.as_str()
+                        && bill.patient_id == input.patient_id.uuid()
+                    {
+                        crate::billing::issue_in(tx, actor, InvoiceId::from_uuid(bill.id), now)
+                            .await?;
+                        issued_any = true;
+                    }
+                }
+                if issued_any {
+                    bills = dal::lock_invoices(tx.conn(), &ids).await?;
+                }
+            }
             // Validate bills and compute the total balance due.
             let mut balance_due: i64 = 0;
             for (invoice, _amount) in &input.allocations {

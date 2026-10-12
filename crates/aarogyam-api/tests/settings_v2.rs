@@ -933,7 +933,9 @@ async fn arrivals_the_queue_and_bills_tell_staff_with_a_link() {
     let doctor = doctor(&app).await;
     let patient = patient(&app, "Priya Sharma", Some("priya@example.test")).await;
 
-    // A booked patient arrives: `arrival`, about the appointment, linking to the queue.
+    // A booked patient arrives: the token it creates writes `patient_waiting` at once, linking
+    // to the queue, and no `arrival` any more (the doctor has no member, so the clinic's
+    // clinical.write holders are told).
     let appointment = appointment_in(&app, &patient, &doctor, 30).await;
     ok(
         &app,
@@ -942,26 +944,21 @@ async fn arrivals_the_queue_and_bills_tell_staff_with_a_link() {
         Some(json!({ "status": "arrived" })),
     )
     .await;
-    let items = feed(&app, ALPHA, ALPHA_OWNER).await;
-    let arrival = &of_kind(&items, "arrival")[0];
-    assert_eq!(arrival["href"], "/queue");
-    assert_eq!(arrival["appointment"]["id"], appointment.to_string());
-
-    // Their token has waited: `patient_waiting` from the reminder job, once, linking to the queue.
     let token: Uuid =
         sqlx::query_scalar("select id from aarogyam.queue_tokens where appointment_id = $1")
             .bind(appointment)
             .fetch_one(&app.owner)
             .await
             .unwrap();
-    let later = OffsetDateTime::now_utc() + Duration::minutes(20);
-    assert_eq!(flag_alerts(&app.api_db(), later).await.unwrap().waiting, 1);
-    assert_eq!(flag_alerts(&app.api_db(), later).await.unwrap().waiting, 0);
     let items = feed(&app, ALPHA, ALPHA_OWNER).await;
+    assert_eq!(of_kind(&items, "arrival").len(), 0);
     let waiting = &of_kind(&items, "patient_waiting")[0];
     assert_eq!(waiting["href"], "/queue");
     assert_eq!(waiting["queue_token"]["id"], token.to_string());
     assert!(waiting["queue_token"]["number"].is_number());
+    // The reminder job finds nothing left to write.
+    let later = OffsetDateTime::now_utc() + Duration::minutes(20);
+    assert_eq!(flag_alerts(&app.api_db(), later).await.unwrap().waiting, 0);
 
     // The doctor sends them in: `send_in`, and the waiting alert is handled.
     ok(
@@ -976,9 +973,9 @@ async fn arrivals_the_queue_and_bills_tell_staff_with_a_link() {
     assert_eq!(send_in["href"], "/queue");
     assert_eq!(send_in["queue_token"]["id"], token.to_string());
     assert!(of_kind(&items, "patient_waiting")[0]["handled"].is_object());
-    assert!(of_kind(&items, "arrival")[0]["handled"].is_object());
 
-    // A visit closes while its bill is still a draft: `collect_payment`, linking to the bill.
+    // A visit is sent for payment while its bill is still a draft: `collect_payment`, linking
+    // to the bill. (Closing it as Done would write none.)
     let visit = id_of(
         &created(
             &app,
@@ -1002,7 +999,7 @@ async fn arrivals_the_queue_and_bills_tell_staff_with_a_link() {
         &app,
         Method::POST,
         &format!("/api/v1/visits/{visit}/close"),
-        None,
+        Some(json!({ "queue_status": "ready_to_bill" })),
     )
     .await;
     let items = feed(&app, ALPHA, ALPHA_OWNER).await;
@@ -1063,6 +1060,7 @@ async fn arrivals_the_queue_and_bills_tell_staff_with_a_link() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     let count = ok(&app, Method::GET, "/api/v1/notifications/count", None).await;
-    assert!(count["unread"].as_i64().unwrap() >= 4, "{count}");
+    // Handled alerts (waiting, the settled bills) no longer count; the rest still do.
+    assert!(count["unread"].as_i64().unwrap() >= 1, "{count}");
     app.finish().await;
 }

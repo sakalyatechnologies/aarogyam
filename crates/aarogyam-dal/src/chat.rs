@@ -669,6 +669,8 @@ pub async fn badges(
         .map_or((false, false, false, false), |v| {
             (v.owner, v.tasks, v.inventory, v.time_off)
         });
+    let (clinical_write, collect) =
+        notifications.map_or((false, false), |v| (v.clinical_write, v.collect));
     let row = sqlx::query_as!(
         Badges,
         r#"select
@@ -684,20 +686,18 @@ pub async fn badges(
                 select 1 from aarogyam.staff_notifications n
                 left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
                 left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
-                left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id
                 left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id
                 left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id
                 where n.created_at > now() - make_interval(days => $5::int)
                   and (($6 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $4))
-                       or ($6 and q.id is not null
-                           and (q.practitioner_id is null
-                                or app.practitioner_in_reach(q.practitioner_id, $4)))
                        or ($7 and o.id is not null
                            and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $8))
-                       or ($9 and i.id is not null)
+                       or ($9 and i.id is not null and n.kind <> 'collect_payment')
                        or ($10 and rc.id is not null and app.patient_in_reach(rc.patient_id, $11))
-                       or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16))
+                       or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16)
+                       or app.visit_notification_visible(n, $1, $17, $18))
                   and app.staff_ops_notification_newest(n, $1, $13, $14)
+                  and app.notification_counts_unread(n)
                   and not exists (select 1 from aarogyam.staff_notification_reads r
                                   where r.org_id = n.org_id and r.notification_id = n.id
                                     and r.membership_id = $1)
@@ -723,6 +723,8 @@ pub async fn badges(
         ops_tasks,
         inventory,
         time_off,
+        clinical_write,
+        collect,
     )
     .fetch_one(conn)
     .await?;

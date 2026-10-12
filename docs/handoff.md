@@ -2,6 +2,19 @@
 
 Where the work stands and exactly what to do next. Update this file at the end of every working session. Read it, `delivery-plan.md` and `decisions.md` before starting.
 
+## For the mobile session: queue and payment notifications (BE4), 12 Oct 2026
+- **Main now owns BE4.** The staff notifications `patient_waiting`, `send_in` and `collect_payment` are written by database triggers on main (0617, plus 0676 coming), not from app code.
+- **On the `feat/v9` chain:** don't merge `0421_queue_staff_notifications.sql` or the app-side `notify_queue`/`on_queue_move` as written. They add the same column and constraint names as 0617 and will fail on a fresh database. Rebase onto main's rows. Also drop `0420`, which duplicates 0610's statuses.
+- **`0426_live_events` (SSE)** fits alongside this. Keep it.
+- **Contract iOS can rely on** (additive; tolerate unknown kinds):
+  - `kind` (`patient_waiting` | `send_in` | `collect_payment`)
+  - `href`: `/queue`, or `/billing/invoices/<id>`
+  - `queue_token {id, number}`
+  - `invoice {id, number?, total_paise, balance_paise}`
+  - `patient {id, name}`: read-time only, and only for patients the viewer can reach
+  - `handled {at, membership_id, name}`. Handled rows of these kinds don't count as unread.
+  - Push payloads carry the kind, id and href only.
+
 ## For the mobile session: staff to-dos, time off and stock alerts (11 Oct 2026)
 The backend is on `main` (migrations 0660–0675). The web screens are behind New look. Phone tasks:
 1. **Notifications.**

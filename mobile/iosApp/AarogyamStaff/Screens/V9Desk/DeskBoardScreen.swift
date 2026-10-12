@@ -11,20 +11,30 @@ struct DeskBoardScreen: View {
     let clinic: ClinicContext
     let onOpenPatient: (String) -> Void
     let onCollect: (DeskPayTarget) -> Void
+    /// v10: live wait times, availability and pay notifications; nil keeps the v9 board.
+    var feed: DeskV10Feed?
+    /// True when the Desk home draws the board inside its own scroll view.
+    var embedded = false
     @State private var net = V9Connectivity()
     @Environment(\.skTheme) private var theme
 
     private var roleKey: String { clinic.session.membership.roleKey }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                content
+        Group {
+            if embedded {
+                VStack(alignment: .leading, spacing: 10) { content }
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        content
+                    }
+                    .padding(.horizontal, SkSpacing.l).padding(.bottom, SkSpacing.xxl)
+                }
+                .scrollIndicators(.hidden)
+                .refreshable { holder.refresh() }
             }
-            .padding(.horizontal, SkSpacing.l).padding(.bottom, SkSpacing.xxl)
         }
-        .scrollIndicators(.hidden)
-        .refreshable { holder.refresh() }
         .task {
             // Every 20 seconds while the screen is visible; the task ends when it goes.
             while !Task.isCancelled {
@@ -76,12 +86,13 @@ struct DeskBoardScreen: View {
     /// "Patient called in": the desk's alert, above the board.
     private func calledBanner(_ called: [BoardTicket]) -> some View {
         let r = theme.roles
-        let who = called.map { "#\($0.tokenNumber) \($0.name)" }.joined(separator: ", ")
+        // Token numbers only, never names (R12).
+        let who = DeskV10Banner.calledText(tokens: called.map { Int($0.tokenNumber) })
         return HStack(alignment: .top, spacing: 10) {
             V7Icon(name: "bell", size: 22, tint: r.onPrimary.color)
             VStack(alignment: .leading, spacing: 2) {
                 Text(dv("d9.board.banner.title")).v7Text(15, .heavy)
-                Text(dvf("d9.board.banner.message", who)).v7Text(12.5)
+                Text(who).v7Text(12.5)
             }
             Spacer(minLength: 0)
         }
@@ -108,30 +119,59 @@ struct DeskBoardScreen: View {
         .padding(.top, 6)
     }
 
-    private func ticket(_ row: BoardTicket, _ loaded: DeskBoardStateLoaded) -> some View {
+    @ViewBuilder private func ticket(_ row: BoardTicket, _ loaded: DeskBoardStateLoaded) -> some View {
+        if row.state == .waiting, let wait = feed?.waiting[row.id] {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let seconds = DeskV10Wait.elapsed(since: wait.issuedAt, now: context.date)
+                VStack(alignment: .leading, spacing: 6) {
+                    card(row, loaded, badge: DeskV10Wait.waitingLine(doctor: wait.doctor, seconds: seconds), note: nil)
+                    if DeskV10Wait.isNoReply(seconds: seconds) {
+                        SkChip(DeskV10Wait.checkLine(doctor: wait.doctor), tone: .warning)
+                            .padding(.horizontal, 6)
+                            .accessibilityLabel(DeskV10Wait.checkLine(doctor: wait.doctor))
+                    }
+                }
+            }
+        } else {
+            let collecting = row.state == .readyToBill && (feed?.endedAt[row.id]).map {
+                DeskV10Collect.mayBeCollecting(status: "ready_to_bill", endedAt: $0, now: Date())
+            } ?? false
+            card(row, loaded, badge: dvf("d9.board.wait", Int(row.waitMinutes)), note: collecting ? dx("dx.pay.may_collect") : nil)
+        }
+    }
+
+    private func card(_ row: BoardTicket, _ loaded: DeskBoardStateLoaded, badge: String, note: String?) -> some View {
         let r = theme.roles
         let highlighted = row.state == .called
-        return SkTicket(
-            number: "#\(row.tokenNumber)", title: row.name,
-            subtitle: [patientLine(number: row.number, ageYears: row.ageYears?.intValue, sex: row.sex), row.doctor].compactMap { $0 }.joined(separator: " · "),
-            badge: dvf("d9.board.wait", Int(row.waitMinutes))
-        ) {
-            if DeskBoard.showsSendIn(roleKey: roleKey, state: row.state) {
-                SkPillButton(dv("d9.board.send_in"), variant: .tonal) { holder.sendIn(tokenId: row.id) }
-                    .disabled(loaded.calling.contains(row.id)).accessibilityLabel(dvf("d9.board.send_in.a11y", row.name))
-            } else if row.state == .readyToBill, clinic.permissions.contains("billing.write") {
-                SkPillButton(dv("d9.board.collect"), variant: .tonal) { onCollect(DeskPayTarget(patientId: row.patientId, name: row.name)) }
+        return VStack(alignment: .leading, spacing: 4) {
+            SkTicket(
+                number: "#\(row.tokenNumber)", title: row.name,
+                subtitle: [patientLine(number: row.number, ageYears: row.ageYears?.intValue, sex: row.sex), row.doctor].compactMap { $0 }.joined(separator: " · "),
+                badge: badge
+            ) {
+                if DeskBoard.showsSendIn(roleKey: roleKey, state: row.state) {
+                    SkPillButton(dv("d9.board.send_in"), variant: .tonal) { holder.sendIn(tokenId: row.id) }
+                        .disabled(loaded.calling.contains(row.id)).accessibilityLabel(dvf("d9.board.send_in.a11y", row.name))
+                } else if row.state == .readyToBill, clinic.permissions.contains("billing.write") {
+                    SkPillButton(dv("d9.board.collect"), variant: .tonal) {
+                        onCollect(DeskPayTarget(patientId: row.patientId, name: row.name, notificationId: feed?.payNotification[row.id]))
+                    }
+                }
             }
-        }
-        .overlay {
-            if highlighted {
-                RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(r.primary.color, lineWidth: 2.5)
+            .overlay {
+                if highlighted {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(r.primary.color, lineWidth: 2.5)
+                }
+            }
+            if let note {
+                Text(note).v7Text(12, .semibold).foregroundStyle(r.onSurfaceVariant.color).padding(.horizontal, 8)
             }
         }
         .contentShape(Rectangle())
         .onTapGesture { onOpenPatient(row.patientId) }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(row.state.title), #\(row.tokenNumber), \(row.name)")
+        .accessibilityValue([row.state == .waiting ? badge : nil, note].compactMap { $0 }.joined(separator: ", "))
         .accessibilityAddTraits(highlighted ? .isSelected : [])
     }
 }

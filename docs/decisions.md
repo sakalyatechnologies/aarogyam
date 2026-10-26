@@ -676,3 +676,10 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Dismiss.** `POST /api/v1/recalls/{id}/dismiss {reason?}` (`patients.write`, reason at most 200 characters) sets `dismissed` with `dismissed_at`, `dismissed_by` and `dismiss_reason` (new nullable columns; a check ties `dismissed_at` to the status). 404 outside the clinic, 409 when already done or dismissed. Dismissed recalls are not in `GET /recalls`. The api-client has `dismissRecall` with a fake.
 
 **Why.** The desk should not close a paid visit by hand, and a follow-up that is no longer needed should leave the list without being marked done.
+
+## Live events are off unless the server turns them on (26 Oct 2026)
+`GET /events` answers 404 unless `ARO_HTTP__LIVE_EVENTS=true`. On Cloud Run's request-based
+billing an open stream keeps CPU billed for its whole life, so a portal or phone left open all
+day costs far more than 20-second polling. The phone and the portal stop trying for the session
+on a 404 and keep polling. The founder decides when to switch it on; the library default is on
+so tests exercise the stream.

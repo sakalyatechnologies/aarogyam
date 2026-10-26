@@ -133,6 +133,9 @@ pub struct HttpSettings {
     /// `x-forwarded-host`. The laptop demo behind Tailscale Funnel sets `x-sakalya-host`,
     /// since Funnel overwrites `x-forwarded-host` with its own name.
     pub edge_host_header: Option<String>,
+    /// Serve the live event stream `GET /events` (`ARO_HTTP__LIVE_EVENTS`). Default off: an
+    /// open stream keeps Cloud Run billing CPU, so clients poll until this is turned on.
+    pub live_events: bool,
 }
 
 impl HttpSettings {
@@ -158,6 +161,7 @@ impl Default for HttpSettings {
             body_limit_bytes: 1024 * 1024,
             edge_secret: None,
             edge_host_header: None,
+            live_events: false,
         }
     }
 }

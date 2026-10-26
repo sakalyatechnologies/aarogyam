@@ -85,6 +85,20 @@ async fn post(app: &TestApp, host: &str, token: &str, path: &str, body: Value) -
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+async fn switched_off_the_stream_answers_404_so_clients_keep_polling() {
+    let app = TestApp::start_custom(sakalya_http::HttpConfig::default(), |state| {
+        state.with_live_events(false)
+    })
+    .await;
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let (status, stream) = open(&app, ALPHA, &desk, "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(stream.is_none());
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
 async fn a_queue_change_reaches_the_stream_with_identifiers_only() {
     let app = TestApp::start().await;
     let desk = app.token(ALPHA_FRONT_DESK);

@@ -1793,7 +1793,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and \"No known allergies\" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills.",
+   "notes": "Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and \"No known allergies\" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills.",
    "cols": [
     {
      "name": "key",
@@ -3429,6 +3429,7 @@
     "encounters.appointment_id",
     "messages.appointment_id",
     "queue_tokens.appointment_id",
+    "recalls.source_appointment_id",
     "staff_inbox_messages.appointment_id",
     "staff_notifications.appointment_id",
     "teleconsult_sessions.appointment_id"
@@ -3581,6 +3582,20 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "last_reminded_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "last remind press; one per minute"
+    },
+    {
+     "name": "left_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "why a token was closed without the patient being seen, e.g. Closed at day end (migration 0682)"
     },
     {
      "name": "room_id",
@@ -8458,7 +8473,7 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": "append_only",
+   "lifecycle": "ephemeral",
    "schema": "aarogyam",
    "notes": "Built (migration 0320). Primary key (org_id, notification_id, membership_id). The change history keeps metadata only.",
    "cols": [
@@ -8763,6 +8778,13 @@
      "nullable": true,
      "ref": "procedures",
      "note": ""
+    },
+    {
+     "name": "source_appointment_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "appointments",
+     "note": "the missed appointment a missed_visit follow-up came from; unique per kind (migration 0682)"
     }
    ],
    "referenced_by": [

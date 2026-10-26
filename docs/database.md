@@ -51,7 +51,7 @@ flowchart LR
   notify -->|1| iam
   notify -->|2| ops
   notify -->|5| people
-  notify -->|4| scheduling
+  notify -->|5| scheduling
   notify -->|4| tenancy
   onboarding -->|2| people
   ops -->|3| billing
@@ -698,7 +698,7 @@ Every permission the API checks, such as patients.read.
 | `description` | `text` |  |
 | `scopes` | `text[]` | which of all, own, assigned it can be narrowed to; always all |
 
-Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and "No known allergies" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills.
+Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and "No known allergies" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills.
 
 ### `role_templates` (★ foundation)
 
@@ -1189,7 +1189,7 @@ A booked slot with a doctor, optionally in a room or chair.
 
 Online self-bookings start as requested (or confirmed when the clinic auto-confirms); a unique index on (doctor, start) for active self-bookings backs the per-doctor check. An exclusion constraint on (org_id, room_id, time range) for active rows (not cancelled, not no-show, not deleted) stops two bookings in one chair; a doctor in two chairs at once is a warning, not an error. Status changes follow the transition table in aarogyam_domain::schedule. Visits point at appointments, not the other way round.
 
-Referenced by: `appointment_events.appointment_id`, `booking_requests.appointment_id`, `encounters.appointment_id`, `messages.appointment_id`, `queue_tokens.appointment_id`, `staff_inbox_messages.appointment_id`, `staff_notifications.appointment_id`, `teleconsult_sessions.appointment_id`
+Referenced by: `appointment_events.appointment_id`, `booking_requests.appointment_id`, `encounters.appointment_id`, `messages.appointment_id`, `queue_tokens.appointment_id`, `recalls.source_appointment_id`, `staff_inbox_messages.appointment_id`, `staff_notifications.appointment_id`, `teleconsult_sessions.appointment_id`
 
 ### `appointment_events` (★ foundation)
 
@@ -1225,6 +1225,8 @@ Walk-in tokens shown on the waiting-room screen.
 | `issued_at` | `timestamptz` |  |
 | `called_at` | `timestamptz?` |  |
 | `done_at` | `timestamptz?` |  |
+| `last_reminded_at` | `timestamptz?` | last remind press; one per minute |
+| `left_reason` | `text?` | why a token was closed without the patient being seen, e.g. Closed at day end (migration 0682) |
 | `room_id` | `uuid?` | → `rooms`. the chair chosen when seated; a room of the token's branch (migration 0384) |
 
 Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done.
@@ -2583,7 +2585,7 @@ Referenced by: `staff_inbox_messages.notification_id`, `staff_notification_reads
 
 Which member has read which notification: read state is per person.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only · lifecycle: append only*
+*Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only · lifecycle: ephemeral*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -2677,6 +2679,7 @@ Follow-ups that are due: cleaning in six months, BP review, vaccine.
 | `status` | `recall_status` | due, notified, booked, done, dismissed |
 | `done_at` | `timestamptz?` |  |
 | `source_procedure_id` | `uuid?` | → `procedures` |
+| `source_appointment_id` | `uuid?` | → `appointments`. the missed appointment a missed_visit follow-up came from; unique per kind (migration 0682) |
 
 Referenced by: `staff_notifications.recall_id`
 

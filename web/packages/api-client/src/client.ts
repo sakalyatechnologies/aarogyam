@@ -181,7 +181,11 @@ import type {
   ProcedureId,
   ProcedurePage,
   QualityReport,
+  MissedListPage,
+  Recall,
+  RecallListPage,
   QueueDayPage,
+  ToCollectPage,
   QueueToken,
   QueueTokenId,
   Reason,
@@ -465,6 +469,14 @@ export interface ApiClient {
 
   /** Clinic host: the queue of a clinic day, with each token's wait. Needs `appointments.read`. */
   listQueue(date: string | undefined, options?: QueueOptions): Promise<ApiResult<QueueDayPage>>;
+  /** Clinic host: a clinic day's no-shows (today when `date` is left out), ids and numbers only. Needs `appointments.read`. */
+  listMissedAppointments(date: string | undefined, options?: RequestOptions): Promise<ApiResult<MissedListPage>>;
+  /** Clinic host: earlier days' visits whose bill still has a balance. Needs `payments.collect` or `billing.read`. */
+  listQueueToCollect(options?: RequestOptions): Promise<ApiResult<ToCollectPage>>;
+  /** Clinic host: open follow-ups, soonest first. Needs `patients.read`. */
+  listRecallsDue(options?: RequestOptions): Promise<ApiResult<RecallListPage>>;
+  /** Clinic host: marks a follow-up done. Needs `patients.write`. */
+  markRecallDone(id: string, options?: RequestOptions): Promise<ApiResult<Recall>>;
   /** Clinic host: issues a token to a patient without an appointment. Needs `appointments.write`. */
   addWalkIn(input: WalkInBody, options?: RequestOptions): Promise<ApiResult<QueueToken>>;
   /** Clinic host: moves a token along; a token with an appointment moves the appointment too. Needs `appointments.write`. */

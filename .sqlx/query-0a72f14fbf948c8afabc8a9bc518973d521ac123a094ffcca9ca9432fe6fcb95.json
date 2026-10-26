@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select q.id as token_id, q.day, q.token_number, q.patient_id,\n                  p.number as patient_number, i.id as invoice_id,\n                  app.invoice_balance_paise(i) as \"balance_paise!\"\n           from aarogyam.queue_tokens q\n           join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id\n           join aarogyam.encounters e on e.org_id = q.org_id and e.queue_token_id = q.id\n           join aarogyam.invoices i on i.org_id = e.org_id and i.encounter_id = e.id\n                and i.status in ('draft', 'issued')\n           where q.status = 'ready_to_bill' and q.day < $1\n             and app.invoice_balance_paise(i) > 0\n           order by q.day, q.token_number, i.id\n           limit 200",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "token_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "day",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "day"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "token_number",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "token_number"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "patient_number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "invoice_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "balance_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "0a72f14fbf948c8afabc8a9bc518973d521ac123a094ffcca9ca9432fe6fcb95"
+}

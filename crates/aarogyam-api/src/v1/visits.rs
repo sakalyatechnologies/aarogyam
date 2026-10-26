@@ -376,7 +376,7 @@ pub struct CloseRequest {
     /// `patients.write`.
     pub follow_up_on: Option<String>,
     /// What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
-    /// Needs `billing.write`.
+    /// Needs only `clinical.write`; the bill stays a draft for the desk.
     pub fee_paise: Option<i64>,
     /// The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed
     /// on the draft bill.
@@ -440,7 +440,7 @@ pub struct ClosedVisit {
         (status = 200, body = ClosedVisit),
         (status = 400, description = "A bad date, fee or note"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee"),
+        (status = 403, description = "The role lacks clinical.write, or patients.write for a follow-up"),
         (status = 404, description = "No such visit in this clinic"),
         (status = 409, description = "Already closed")
     )
@@ -495,7 +495,7 @@ pub struct FinishRequest {
     /// `patients.write`.
     pub follow_up_on: Option<String>,
     /// What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
-    /// Needs `billing.write`.
+    /// Needs only `clinical.write`; the bill stays a draft for the desk.
     pub fee_paise: Option<i64>,
     /// The follow-up's reason, up to 300 characters; with a fee and no follow-up, the note printed
     /// on the draft bill.
@@ -543,7 +543,7 @@ pub struct FinishedVisit {
         (status = 200, body = FinishedVisit),
         (status = 400, description = "A bad date, fee, note or override reason, or a prescription that isn't a draft of this visit's patient"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks clinical.write, or prescriptions.issue, patients.write or billing.write for what was asked"),
+        (status = 403, description = "The role lacks clinical.write, or prescriptions.issue or patients.write for what was asked"),
         (status = 404, description = "No such visit or prescription in this clinic"),
         (status = 409, body = IssueBlocked, description = "`visit_closed` (the visit is already closed), or `allergy_alerts` (the alerts need an override reason, with the alerts in the body)")
     )

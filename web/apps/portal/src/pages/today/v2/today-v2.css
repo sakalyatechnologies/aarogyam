@@ -316,3 +316,6 @@
 .tv2-task-clear { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; font-size: 14px; color: var(--sk-text); }
 .tv2-task-done { margin-top: 10px; }
 .tv2-task-finished { display: flex; align-items: center; gap: 10px; padding: 6px 10px; color: var(--sk-text-muted); }
+.tv2-missed { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; }
+.tv2-resched { flex-basis: 100%; display: flex; gap: 6px; align-items: center; }
+.tv2-resched input { min-width: 0; }

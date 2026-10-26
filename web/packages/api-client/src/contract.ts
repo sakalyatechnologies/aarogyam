@@ -265,6 +265,10 @@ export type BookingWarningCode = "practitioner_busy" | "practitioner_on_leave" |
 // Queue (M3) --------------------------------------------------------------------------------------
 
 export type QueueDay = Schemas["QueueDay"];
+export type MissedList = Schemas["MissedList"];
+export type MissedAppointment = Schemas["MissedAppointment"];
+export type ToCollectList = Schemas["ToCollectList"];
+export type ToCollectItem = Schemas["ToCollectItem"];
 export type QueueToken = Schemas["QueueToken"];
 export type WalkInBody = Schemas["WalkInBody"];
 export type TokenStatusChange = Schemas["TokenStatusChange"];
@@ -579,6 +583,7 @@ export type ShareMessage = Schemas["ShareMessage"];
 export type VisitLink = Schemas["VisitLink"];
 export type VisitSummary = Schemas["VisitSummary"];
 export type Recall = Schemas["Recall"];
+export type RecallList = Schemas["RecallList"];
 export type RootCanal = Schemas["RootCanal"];
 export type MedicineSet = Schemas["MedicineSet"];
 export type MedicineSetList = Schemas["MedicineSetList"];

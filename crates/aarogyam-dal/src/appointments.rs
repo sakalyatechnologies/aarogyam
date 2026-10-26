@@ -559,3 +559,52 @@ pub async fn set_room(
     .await?;
     Ok(row)
 }
+
+/// A no-show with the follow-up written for it. Ids and numbers only.
+#[derive(Debug, Clone)]
+pub struct MissedRow {
+    /// The appointment.
+    pub appointment_id: Uuid,
+    /// The patient.
+    pub patient_id: Uuid,
+    /// The patient's clinic number.
+    pub patient_number: String,
+    /// The doctor.
+    pub practitioner_id: Uuid,
+    /// When it was to start (UTC).
+    pub starts_at: OffsetDateTime,
+    /// The `missed_visit` follow-up, if one exists.
+    pub recall_id: Option<Uuid>,
+}
+
+/// Appointments with status `no_show` that start in `[from, to)`, within the member's reach.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn missed(
+    conn: &mut PgConnection,
+    from: OffsetDateTime,
+    to: OffsetDateTime,
+    member: Option<Uuid>,
+) -> Result<Vec<MissedRow>, DbError> {
+    let rows = sqlx::query_as!(
+        MissedRow,
+        r#"select a.id as appointment_id, a.patient_id, p.number as patient_number,
+                  a.practitioner_id, a.starts_at, r.id as "recall_id?"
+           from aarogyam.appointments a
+           join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id
+           left join aarogyam.recalls r on r.org_id = a.org_id
+                and r.source_appointment_id = a.id and r.kind = 'missed_visit'
+           where a.deleted_at is null and a.status = 'no_show'
+             and a.starts_at >= $1 and a.starts_at < $2
+             and app.practitioner_in_reach(a.practitioner_id, $3)
+           order by a.starts_at, a.id
+           limit 500"#,
+        from,
+        to,
+        member
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}

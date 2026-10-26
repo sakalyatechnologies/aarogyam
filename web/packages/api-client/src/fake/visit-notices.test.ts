@@ -148,14 +148,14 @@ describe("money to collect (fake)", () => {
     return { token, visit: started.visit, doctor };
   }
 
-  it("a ready_to_bill close with a fee tells the desk, the assistant and the owner, not the doctor", async () => {
+  it("a ready_to_bill close with a fee tells the desk, the assistant, the owner and the doctor (payments.collect)", async () => {
     const { fixtures, as } = setup();
     const { token, visit, doctor } = await toBill(as, fixtures);
     expect(await bell(as(FARAH), ["collect_payment"])).toHaveLength(0);
     const closed = await unwrap(doctor.closeVisitWith(visit.id, { fee_paise: 50000, queue_status: "ready_to_bill" }));
     const bill = closed.invoice;
     if (bill == null) throw new Error("expected a bill");
-    for (const who of [FARAH, ARUN, ASHA]) {
+    for (const who of [FARAH, ARUN, ASHA, DEV]) {
       const rows = await bell(as(who), ["collect_payment"]);
       expect(rows, who).toHaveLength(1);
       expect(rows[0]).toMatchObject({
@@ -165,16 +165,15 @@ describe("money to collect (fake)", () => {
         invoice: { id: bill.id, total_paise: 50000, balance_paise: 50000 },
       });
     }
-    expect(await bell(as(DEV), ["collect_payment"])).toHaveLength(0);
     expect(status(await as(BINA, LOTUS).listNotifications())).toBe(200);
     expect(await bell(as(BINA, LOTUS), ["collect_payment"])).toHaveLength(0);
   });
 
-  it("a doctor holding only billing.read does not see it", async () => {
+  it("a doctor holding only billing.read (no payments.collect) does not see it", async () => {
     const { fixtures, as } = setup((f) => {
       const dev = f.memberships.find((m) => m.user_id === DEV);
       if (dev === undefined) throw new Error("expected Dev's membership");
-      dev.role = { ...dev.role, permissions: [...dev.role.permissions, "billing.read"] };
+      dev.role = { ...dev.role, permissions: [...dev.role.permissions.filter((p) => p !== "payments.collect"), "billing.read"] };
     });
     const { visit, doctor } = await toBill(as, fixtures);
     await unwrap(doctor.closeVisitWith(visit.id, { fee_paise: 50000, queue_status: "ready_to_bill" }));
@@ -252,7 +251,12 @@ describe("money to collect (fake)", () => {
 
 describe("collect summary (fake)", () => {
   it("answers the number, total, balance and UPI link to a collector, and 403, 404 and 409 otherwise", async () => {
-    const { fixtures, as } = setup();
+    // Dev without payments.collect or billing.read stands in for a role that may not collect.
+    const { fixtures, as } = setup((f) => {
+      const dev = f.memberships.find((m) => m.user_id === DEV);
+      if (dev === undefined) throw new Error("expected Dev's membership");
+      dev.role = { ...dev.role, permissions: dev.role.permissions.filter((p) => p !== "payments.collect" && p !== "billing.read") };
+    });
     const token = await walkIn(as(FARAH), "Neha Rao", practitionerOf(fixtures, DEV));
     const started = await unwrap(as(ASHA).startVisitFromQueue(token.id));
     const closed = await unwrap(as(ASHA).closeVisitWith(started.visit.id, { fee_paise: 50000, queue_status: "ready_to_bill" }));
@@ -270,12 +274,12 @@ describe("collect summary (fake)", () => {
 });
 
 describe("roles (fake)", () => {
-  it("gives the assistant, the front desk and the owner payments.collect, and the doctor not", () => {
+  it("gives the assistant, the front desk, the owner and the doctor payments.collect, and the assistant no billing.read", () => {
     expect(ROLES.assistant.permissions).toContain("payments.collect");
     expect(ROLES.frontDesk.permissions).toContain("payments.collect");
     expect(ROLES.owner.permissions).toContain("payments.collect");
     const granted = (role: { permissions: readonly string[] }, key: string): boolean => role.permissions.includes(key);
-    expect(granted(ROLES.doctor, "payments.collect")).toBe(false);
+    expect(granted(ROLES.doctor, "payments.collect")).toBe(true);
     expect(granted(ROLES.assistant, "billing.read")).toBe(false);
   });
 });

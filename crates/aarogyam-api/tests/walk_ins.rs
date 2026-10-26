@@ -311,8 +311,8 @@ async fn intake_write_alone_reads_and_does_nothing_clinical() {
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
-    // Nor does the assistant, who has intake.write but not patients.write.
-    let assistant = app.token(ALPHA_ASSISTANT);
+    // Nor does a role with intake.write but not patients.write.
+    let assistant = app.token(ALPHA_NOTHING);
     let (status, _) = post(
         &app,
         ALPHA,

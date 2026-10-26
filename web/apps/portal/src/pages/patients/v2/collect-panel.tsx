@@ -26,7 +26,9 @@ const METHODS = [
 type Method = Extract<PaymentMethod, "cash" | "upi" | "card">;
 
 export function CollectPanel({ finished, draft, onClose, onFinish }: { finished: FinishedVisit; draft: BillDraft; onClose: () => void; onFinish: () => void }) {
-  const { api, access } = useClinic();
+  const { api, access, can } = useClinic();
+  // Without billing.write the payment itself issues the draft (payments.collect); the QR then waits for the bill to be issued.
+  const deskIssues = can("billing.write");
   const queryClient = useQueryClient();
   const patientId = finished.visit.patient_id;
   const refresh = () => {
@@ -68,7 +70,8 @@ export function CollectPanel({ finished, draft, onClose, onFinish }: { finished:
   const [paidNow, setPaidNow] = useState(0);
   const pay = useMutation({
     mutationFn: async () => {
-      const invoice = await draft.issue(await draft.save());
+      const saved = await draft.save();
+      const invoice = deskIssues ? await draft.issue(saved) : saved;
       const due = typedPaise ?? invoice.balance_paise;
       if (due <= 0 || due > invoice.balance_paise) throw new Error("amount");
       const signature = `${invoice.id}|${method}|${String(due)}`;
@@ -151,7 +154,9 @@ export function CollectPanel({ finished, draft, onClose, onFinish }: { finished:
                   />
                 </Field>
                 {method === "upi" ? (
-                  issued === undefined ? (
+                  issued === undefined && !deskIssues ? (
+                    <p className="mk-hint">The QR shows once the bill is issued; record the payment when it arrives.</p>
+                  ) : issued === undefined ? (
                     <PillButton
                       variant="ghost"
                       disabled={blocked || confirm.isPending}

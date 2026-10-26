@@ -495,6 +495,14 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
     const isCaller = (value: Caller | Outcome): value is Caller => "clinic" in value;
 
+    /** A member who holds any one of `permissions`; others get the 403 for the first. */
+    async function inClinicWithAny(first: Permission, ...rest: Permission[]): Promise<Caller | Outcome> {
+      const caller = await inClinic();
+      if (!isCaller(caller)) return caller;
+      const granted = caller.membership.role.permissions;
+      return [first, ...rest].some((p) => hasPermission(granted, p)) ? caller : refuse(403, "forbidden", "You don't have permission to do that.");
+    }
+
     /** Approves or declines a pending time-off request. */
     function decideTimeOff(id: string, decision: C.TimeOffDecision | undefined, approve: boolean, signal: AbortSignal | undefined): Promise<ApiResult<S.TimeOff>> {
       return respond(S.timeOff, signal, async () => {
@@ -944,6 +952,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       return reply(result === null ? undefined : result);
     }
 
+    /** Demo follow-ups, made on first look per clinic; the fake has no recall engine. */
+    const demoRecalls = new Map<string, C.Recall[]>();
     const clinicPatients = (caller: Caller) => state.patients.filter((p) => p.clinic_id === caller.clinic.id && p.status !== "merged");
 
     const labsOf = (): FakeLabs => (state.labs ??= emptyLabs());
@@ -2281,7 +2291,11 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return invalid("status", "unknown status");
           }
           const target = parsedStatus.data;
-          if (found.status === "completed" || found.status === "cancelled" || found.status === "no_show") {
+          const lateArrival =
+            found.status === "no_show" &&
+            target === "arrived" &&
+            localClock(new Date(found.starts_at), caller.clinic.timezone).date === localClock(clock(), caller.clinic.timezone).date;
+          if (!lateArrival && (found.status === "completed" || found.status === "cancelled" || found.status === "no_show")) {
             return refuse(409, "conflict", "That appointment is already finished.");
           }
           if (target === "cancelled" && (change.reason ?? "").trim() === "") {
@@ -2380,6 +2394,86 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               return wired === undefined ? [] : [wired];
             });
           return reply({ date: day, items } satisfies C.QueueDay);
+        }),
+
+      listMissedAppointments: (dateValue, opts) =>
+        respond(S.missedList, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const day = dateValue ?? localClock(clock(), caller.clinic.timezone).date;
+          const items = state.appointments
+            .filter((a) => a.clinic_id === caller.clinic.id && a.status === "no_show")
+            .filter((a) => localClock(new Date(a.starts_at), caller.clinic.timezone).date === day)
+            .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+            .flatMap((a) => {
+              const patient = state.patients.find((p) => p.id === a.patient_id);
+              return patient === undefined
+                ? []
+                : [{ appointment_id: a.id, patient_id: a.patient_id, patient_number: patient.number, practitioner_id: a.practitioner_id, starts_at: a.starts_at }];
+            });
+          return reply({ date: day, items } satisfies C.MissedList);
+        }),
+
+      listQueueToCollect: (opts) =>
+        respond(S.toCollectList, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const allowed = caller.membership.role.permissions;
+          if (!hasPermission(allowed, "billing.read") && !hasPermission(allowed, "payments.collect")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          return reply({ items: [] } satisfies C.ToCollectList);
+        }),
+
+      listRecallsDue: (opts) =>
+        respond(S.recallList, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!demoRecalls.has(caller.clinic.id)) {
+            const today = localClock(clock(), caller.clinic.timezone).date;
+            const kinds: readonly (readonly [string, string])[] = [
+              ["missed_visit", "Missed their visit"],
+              ["follow_up", "Follow-up check"],
+              ["cleaning", "Six-month cleaning"],
+            ];
+            demoRecalls.set(
+              caller.clinic.id,
+              clinicPatients(caller)
+                .slice(0, kinds.length)
+                .map((p, index) => ({
+                  id: fakeUuid(random, clock()),
+                  patient: { id: p.id, name: p.full_name, number: p.number },
+                  kind: kinds[index]?.[0] ?? "follow_up",
+                  reason: kinds[index]?.[1] ?? "Follow-up",
+                  due_on: today,
+                  status: "due",
+                  done_at: null,
+                })),
+            );
+          }
+          const items = (demoRecalls.get(caller.clinic.id) ?? []).filter((r) => r.status !== "done" && r.status !== "dismissed");
+          return reply({ items } satisfies C.RecallList);
+        }),
+
+      markRecallDone: (id, opts) =>
+        respond(S.recall, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = (demoRecalls.get(caller.clinic.id) ?? []).find((r) => r.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          found.status = "done";
+          found.done_at = clock().toISOString();
+          return reply(found satisfies C.Recall);
         }),
 
       addWalkIn: (input, opts) =>
@@ -6225,7 +6319,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
       createInvoice: (input, opts) =>
         respond(S.invoice, opts?.signal, async () => {
-          const caller = await inClinic("billing.write");
+          const caller = await inClinicWithAny("billing.write", "clinical.write");
           if (!isCaller(caller)) {
             return caller;
           }
@@ -6264,7 +6358,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
       editInvoice: (id, changes, opts) =>
         respond(S.invoice, opts?.signal, async () => {
-          const caller = await inClinic("billing.write");
+          const caller = await inClinicWithAny("billing.write", "clinical.write");
           if (!isCaller(caller)) {
             return caller;
           }
@@ -6412,8 +6506,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             if (invoiceFound === undefined) {
               return notFound;
             }
-            const collecting = invoiceFound.status === "draft" && hasPermission(permissions, "payments.collect");
-            if (invoiceFound.status !== "issued" && !collecting) {
+            // The desk's payments.collect path issues a draft with the payment; billing.write must issue it first.
+            if (invoiceFound.status === "draft" && !hasPermission(caller.membership.role.permissions, "billing.write") && invoiceFound.items.length > 0) {
+              invoiceFound.status = "issued";
+              invoiceFound.number = nextInvoiceNumber(state, caller.clinic);
+              invoiceFound.issued_at = clock().toISOString();
+            }
+            if (invoiceFound.status !== "issued") {
               return refuse(409, "conflict", "a bill isn't issued");
             }
             if (collectOnly && invoiceMoney(invoiceFound, state).balance_paise <= 0) {
@@ -8310,6 +8409,8 @@ const BOOKING_DEFAULTS: C.OnlineBooking = {
   min_notice_minutes: 60,
   reminder_minutes: 15,
   default_visit_minutes: 30,
+  no_show_auto: true,
+  no_show_grace_minutes: 30,
 };
 /** Most open self-bookings one verified person may hold in a clinic. */
 const MAX_OPEN_SELF_BOOKINGS = 2;
@@ -8345,6 +8446,9 @@ function validateOnlineBooking(changes: C.OnlineBookingChanges): Outcome | null 
   }
   if (changes.default_visit_minutes != null && ![15, 30, 45, 60].includes(changes.default_visit_minutes)) {
     return invalid("booking.default_visit_minutes", "must be 15, 30, 45 or 60 minutes");
+  }
+  if (changes.no_show_grace_minutes != null && (changes.no_show_grace_minutes < 0 || changes.no_show_grace_minutes > 240)) {
+    return invalid("booking.no_show_grace_minutes", "must be 0 to 240 minutes");
   }
   return null;
 }

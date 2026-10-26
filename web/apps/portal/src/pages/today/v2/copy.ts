@@ -14,6 +14,9 @@ export const COPY = {
   /** Next up, with nobody to see. */
   nextUpFree: "You're free right now — enjoy a moment",
   nextUpFreeHint: "Whoever checks in next will show up here.",
+  /** Missed visits, bills still to collect and follow-ups. */
+  nothingToCollect: "All earlier bills are settled. Nice and tidy.",
+  noFollowUps: "No follow-ups waiting. You're ahead of it.",
   /** Queue board columns. */
   queueHint: "Add a walk-in, or check people in from Today.",
   queueHintReadOnly: "Arrivals will show here as they check in.",

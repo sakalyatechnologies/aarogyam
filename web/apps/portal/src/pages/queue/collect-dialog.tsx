@@ -81,7 +81,7 @@ function useBillToCollect(target: CollectTarget): { id: string | undefined; pend
 }
 
 function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; onMarkDone: ((token: QueueToken) => void) | undefined; onClose: () => void }) {
-  const { api, access } = useClinic();
+  const { api, access, can } = useClinic();
   const refresh = useRefreshVisitData();
   const token = target.token;
   const bill = useBillToCollect(target);
@@ -105,9 +105,17 @@ function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; o
 
   // One key per attempt: the same while retrying the same payment, a new one once it went through.
   const attempt = useRef<{ signature: string; key: string } | undefined>(undefined);
-  const pay = () => {
+  const pay = async () => {
     if (due === undefined) return;
     setError(undefined);
+    // The API issues a draft as part of a collect-only payment; billing.write holders issue it first.
+    if (due.status === "draft" && can("billing.write")) {
+      const issued = await api.issueInvoice(invoiceId.parse(due.invoice_id));
+      if (!issued.ok) {
+        setError(issued.error.message);
+        return;
+      }
+    }
     const signature = `${due.invoice_id}|${method}|${String(balance)}`;
     if (attempt.current?.signature !== signature) attempt.current = { signature, key: randomUuid() };
     record.mutate(
@@ -204,7 +212,7 @@ function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; o
               </figure>
             )
           ) : null}
-          <Button disabled={record.isPending} onClick={pay}>
+          <Button disabled={record.isPending} onClick={() => void pay()}>
             {record.isPending ? "Recording…" : `Record ${formatRupees(balance)} ${method === "upi" ? "UPI" : method}`}
           </Button>
         </>

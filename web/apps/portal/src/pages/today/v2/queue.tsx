@@ -14,6 +14,8 @@ import { Body, WidgetCard, type WidgetProps } from "./widget-parts.js";
 import { APPOINTMENT_CHIP } from "../../../lib/appointment-status.js";
 import { useClinic } from "../../../clinic.js";
 import { COPY } from "./copy.js";
+import { MissedSection } from "./missed.js";
+import { useMissed } from "../../queue/desk-queries.js";
 
 /** The dot beside a queue row: green in the chair, blue waiting, grey still to come. */
 const DOT: Readonly<Record<Appointment["status"], string>> = {
@@ -35,6 +37,7 @@ export function QueueWidget({ spec }: WidgetProps) {
   const day = useDayToday(date);
   const zone = useZone();
   const peek = usePatientPeek();
+  const missed = useMissed(date, can("appointments.read"));
   const live = date === undefined || date === todayIso;
   return (
     <WidgetCard
@@ -101,6 +104,7 @@ export function QueueWidget({ spec }: WidgetProps) {
                   </ol>
                 )}
               </div>
+              {missed.data === undefined ? null : <MissedSection missed={missed.data} appointments={today.appointments} zone={zone} />}
               <h3 className="tv2-h3">Completed ({today.completed_visits.length})</h3>
               <div className="tv2-qbox">
                 {today.completed_visits.length === 0 ? (

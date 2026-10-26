@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient, TimeOff } from "@aarogyam/api-client";
 import { failure } from "@aarogyam/api-client";
@@ -13,7 +13,14 @@ import { NOW, PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
 const SUNRISE = "sunrise.localtest.me";
 const DAY = "2026-10-03";
 
+// The panel reads the real clock ("Away soon"); pin it to the fake backend's day.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   localStorage.clear();
 });

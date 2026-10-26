@@ -178,6 +178,10 @@ pub struct FlagReport {
     pub recalls: i32,
     /// `patient_waiting` alerts written.
     pub waiting: i32,
+    /// Appointments marked no-show.
+    pub no_shows: i32,
+    /// Stale queue tokens closed.
+    pub tokens_closed: i32,
 }
 
 /// Writes the alerts nothing else triggers: a follow-up that fell due (unless the clinic
@@ -190,5 +194,12 @@ pub async fn flag_alerts(db: &Db, now: OffsetDateTime) -> Result<FlagReport, DbE
     let pool = db.pool();
     let recalls = dal::flag_due_recalls(pool, now, BATCH).await?;
     let waiting = dal::flag_waiting_tokens(pool, now, WAITING_MINUTES, BATCH).await?;
-    Ok(FlagReport { recalls, waiting })
+    let no_shows = dal::auto_no_show(pool, now, BATCH).await?;
+    let tokens_closed = dal::close_stale_tokens(pool, now, BATCH).await?;
+    Ok(FlagReport {
+        recalls,
+        waiting,
+        no_shows,
+        tokens_closed,
+    })
 }

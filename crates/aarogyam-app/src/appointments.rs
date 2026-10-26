@@ -666,6 +666,17 @@ pub(crate) fn plan_status(
     }
 }
 
+/// Whether `current` is a no-show being brought back on a later clinic day than its own: a late
+/// arrival is allowed on the appointment's day only.
+pub(crate) fn late_reversal_too_old(
+    current: &AppointmentRow,
+    timezone: &str,
+    now: OffsetDateTime,
+) -> bool {
+    current.status == AppointmentStatus::NoShow.as_str()
+        && clinic_today(timezone, current.starts_at) != clinic_today(timezone, now)
+}
+
 /// Applies a status change that [`plan_status`] allowed, inside an open transaction: saves it,
 /// appends the history, issues a queue token on arrival and moves an existing token along.
 pub(crate) async fn apply_status(
@@ -700,7 +711,7 @@ pub(crate) async fn apply_status(
             from_status: Some(from.as_str()),
             to_status: Some(to.as_str()),
             changes: None,
-            note: reason,
+            note: reason.or((from == AppointmentStatus::NoShow).then_some("Late arrival")),
             at: now,
         },
     )
@@ -788,6 +799,12 @@ pub async fn set_status(
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
         let current = locked(tx, actor, appointment_id).await?;
+        if late_reversal_too_old(&current, &profile.timezone, now) {
+            return Ok(Moved::Refused {
+                reason: "a missed appointment can only be reopened on its own day".to_owned(),
+                current: status_changed(tx, current.id, today).await?,
+            });
+        }
         let token_id = match plan_status(&current.status, to, reason)? {
             StatusPlan::Same => {
                 return Ok(Moved::AlreadyDone(
@@ -831,4 +848,35 @@ pub async fn set_status(
         }))
     })
     .await
+}
+
+/// The day's no-shows (`appointments.read`, within the caller's reach), for the Missed list.
+/// `date` is a clinic day, today when absent.
+///
+/// # Errors
+/// [`AppError::Denied`] without `appointments.read`; [`AppError::Db`] on failures.
+pub async fn missed(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    date: Option<Date>,
+    now: OffsetDateTime,
+) -> Result<(Date, Vec<dal::MissedRow>), AppError> {
+    actor.require(Permission::AppointmentsRead)?;
+    let day = date.unwrap_or_else(|| clinic_today(&actor.timezone, now));
+    let (start, end) = days_bounds(&actor.timezone, day, day);
+    let rows = db
+        .scoped(&scope(actor, request_id), async |tx| {
+            Ok::<_, AppError>(
+                dal::missed(
+                    tx.conn(),
+                    start,
+                    end,
+                    actor.reach(Permission::AppointmentsRead).member(),
+                )
+                .await?,
+            )
+        })
+        .await?;
+    Ok((day, rows))
 }

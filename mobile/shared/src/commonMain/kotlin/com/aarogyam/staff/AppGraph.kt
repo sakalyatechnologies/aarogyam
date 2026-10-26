@@ -125,7 +125,7 @@ class AppGraph private constructor(
     /** Writes saved on the phone, waiting to be sent. */
     outboxStore: OutboxStore,
     /** Images of unsent photo uploads, in protected storage beside the queue. */
-    private val outboxFiles: OutboxFiles,
+    internal val outboxFiles: OutboxFiles,
     private val clock: Clock,
     /** False keeps the event stream off (tests that count requests); the apps leave it on. */
     liveStream: Boolean = true,

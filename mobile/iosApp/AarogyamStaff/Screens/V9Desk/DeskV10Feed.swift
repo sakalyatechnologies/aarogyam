@@ -35,6 +35,8 @@ final class DeskV10Feed {
     private(set) var lastDoctor: [String: DeskV10Doctor] = [:]
     /// Token id to the `collect_payment` notification that asked the desk to collect.
     private(set) var payNotification: [String: String] = [:]
+    /// Token id to the bill that notification names, when it has one.
+    private(set) var payInvoice: [String: String] = [:]
     /// Token id to the finish time, for "Doctor may be collecting".
     private(set) var endedAt: [String: Date] = [:]
     private(set) var caps = DeskV10Caps()
@@ -106,10 +108,15 @@ final class DeskV10Feed {
         guard let answer = try? await clinic.api.notifications(), case .success(let ok) = onEnum(of: answer),
               let list = ok.value as? NotificationList else { return }
         var map: [String: String] = [:]
+        var bills: [String: String] = [:]
         for row in list.items where row.kind == "collect_payment" {
-            if let token = row.queueToken { map[token.id] = row.id }
+            if let token = row.queueToken {
+                map[token.id] = row.id
+                if let bill = row.invoice { bills[token.id] = bill.id }
+            }
         }
         payNotification = map
+        payInvoice = bills
     }
 
     /// Checks `patientId` in with `doctorId` (or the server's default when nil); the token number, or nil on failure.

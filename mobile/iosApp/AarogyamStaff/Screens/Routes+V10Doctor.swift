@@ -2,9 +2,14 @@ import AarogyamShared
 import SwiftUI
 
 /// v10 entry points for the doctor flow (wrap up and finish a visit). The shell calls `hook` once, so a later
-/// screen changes this file only. The "Waiting for you" card lives here: zero layout, it opens as a sheet on a new arrival.
+/// screen changes this file only. The "Waiting for you" card lives here: inline at the top of the Today tab, with a banner and a haptic on a new arrival.
 enum RoutesV10Doctor {
     @ViewBuilder static func hook(graph: AppGraph, clinic: ClinicContext) -> some View {
+        RoutesV10DoctorPlaceholder()
+    }
+
+    /// The waiting list for the top of the Today tab; draws nothing unless the person's home is Doctor.
+    static func waitingTop(graph: AppGraph, clinic: ClinicContext) -> some View {
         DoctorWaitingHook(graph: graph, clinic: clinic)
     }
 }

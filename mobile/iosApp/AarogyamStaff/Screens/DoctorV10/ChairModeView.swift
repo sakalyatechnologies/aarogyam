@@ -152,7 +152,7 @@ struct ChairModeView: View {
             _ = try? await holder.saveNow()
             guard let clip else { return }
             _ = graph.enqueueDictationAudio(
-                clinic: clinic, patientId: patientId, visitId: view.visitId, noteId: nil,
+                clinic: clinic, patientId: patientId, visitId: view.visitId, noteId: holder.currentNoteId,
                 bytes: clip.data.kotlinBytes, durationSeconds: Int32(clip.seconds), language: tag
             )
         }

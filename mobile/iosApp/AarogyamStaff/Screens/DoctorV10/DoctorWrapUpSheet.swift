@@ -105,7 +105,7 @@ private struct WrapUpBody: View {
         .onChange(of: isDone) { _, done in
             guard done, let summary = doneSummary else { return }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
-            if summary.outcome == .collected, summary.invoiceId != nil { pay = DeskPayTarget(patientId: patientId, name: patientName) }
+            if summary.outcome == .collected, summary.invoiceId != nil { pay = DeskPayTarget(patientId: patientId, name: patientName, invoiceId: summary.invoiceId) }
         }
     }
 

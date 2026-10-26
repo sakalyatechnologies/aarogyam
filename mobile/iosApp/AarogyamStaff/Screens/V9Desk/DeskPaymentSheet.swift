@@ -14,10 +14,17 @@ struct DeskPaymentSheet: View {
     var refreshTick = 0
 
     var body: some View {
-        ScreenHost(make: { graph.deskPayment(clinic: clinic, patientId: target.patientId, screen: $0) }, state: { $0.state }) { holder, state in
+        ScreenHost(make: { make(screen: $0) }, state: { $0.state }) { holder, state in
             DeskPaymentScreen(holder: holder, state: state, target: target, refreshTick: refreshTick)
         }
         .presentationDetents([.large])
+    }
+
+    private func make(screen: ScreenScope) -> DeskPaymentStateHolder {
+        if let invoiceId = target.invoiceId {
+            return graph.deskPayment(clinic: clinic, patientId: target.patientId, invoiceId: invoiceId, screen: screen)
+        }
+        return graph.deskPayment(clinic: clinic, patientId: target.patientId, screen: screen)
     }
 }
 

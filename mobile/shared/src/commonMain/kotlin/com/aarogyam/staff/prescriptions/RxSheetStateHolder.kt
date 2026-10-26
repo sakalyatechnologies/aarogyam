@@ -174,6 +174,25 @@ class RxSheetStateHolder(
         }
     }
 
+    /** The server draft's id now, or null before the first save. */
+    val draftId: String? get() = sync.id
+
+    /** Saves the current lines as the server draft and returns its id; the existing id when empty; null on failure. */
+    suspend fun saveDraftNow(): String? {
+        val lines = mutableState.value.lines
+        if (lines.isEmpty()) return sync.id
+        return when (val result = sync.push(lines)) {
+            is Outcome.Success -> {
+                mutableState.update { it.copy(draft = DraftSave.Saved) }
+                result.value
+            }
+
+            is Outcome.Failure -> {
+                null
+            }
+        }
+    }
+
     fun setOverrideReason(text: String) {
         // Still allowed once the draft exists: the clinic's own check may ask for the reason late.
         if (mutableState.value.let { it.allowed && it.phase == RxPhase.Composing }) {

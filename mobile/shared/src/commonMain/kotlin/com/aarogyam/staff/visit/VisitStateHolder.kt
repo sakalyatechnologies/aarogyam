@@ -54,6 +54,9 @@ class VisitStateHolder(
     val state: StateFlow<VisitState> = mutableState.asStateFlow()
     private val noteClientId = IdempotencyKey.generate().toString()
     private var noteId: String? = null
+
+    /** The saved note's server id, once it has one. */
+    val currentNoteId: String? get() = noteId
     private var rowVersion: Long = 0
     private var nextBullet = 1
     private var saveJob: Job? = null

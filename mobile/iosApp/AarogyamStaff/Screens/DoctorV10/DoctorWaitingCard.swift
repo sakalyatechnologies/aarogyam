@@ -3,8 +3,8 @@ import SakalyaUI
 import SwiftUI
 import UIKit
 
-/// The doctor's "Waiting for you" card. It sits in the shell's hook (no layout space), so it appears as a sheet
-/// when a patient arrives; the banner and the haptic come with it. Only the Doctor home draws it.
+/// The doctor's "Waiting for you" card, inline at the top of the Today tab. A new arrival shows the banner and a
+/// haptic. Only the Doctor home draws it.
 struct DoctorWaitingHook: View {
     let graph: AppGraph
     let clinic: ClinicContext
@@ -15,7 +15,6 @@ struct DoctorWaitingHook: View {
                 DoctorWaitingHost(graph: graph, clinic: clinic, practitionerId: practitioner)
             }
         }
-        .frame(width: 0, height: 0)
     }
 }
 
@@ -34,18 +33,22 @@ private struct DoctorWaitingHost: View {
 private struct DoctorWaitingPresenter: View {
     let holder: DoctorWaitingHolder
     let state: WaitingState
-    @State private var shown = false
+    @State private var collapsed = false
     @State private var known: Set<String>?
     @State private var banner: String?
 
     var body: some View {
-        Color.clear.frame(width: 0, height: 0).accessibilityHidden(true)
-            .onChange(of: state.rows.map(\.id)) { _, ids in arrivals(ids) }
-            .onAppear { if state.loaded { arrivals(state.rows.map(\.id)) } }
-            .sheet(isPresented: $shown) {
-                DoctorWaitingCard(holder: holder, state: state, banner: banner) { shown = false }
-                    .presentationDetents([.medium, .large])
+        Group {
+            if collapsed {
+                Button(dv10("dv10.waiting.title")) { collapsed = false }
+                    .v7Text(15, .bold).frame(maxWidth: .infinity, minHeight: SkSpacing.minTouchTarget)
+            } else {
+                DoctorWaitingCard(holder: holder, state: state, banner: banner) { collapsed = true }
+                    .frame(maxHeight: 300)
             }
+        }
+        .onChange(of: state.rows.map(\.id)) { _, ids in arrivals(ids) }
+        .onAppear { if state.loaded { arrivals(state.rows.map(\.id)) } }
     }
 
     /// The first list only sets what is known; a token that was not there before is an arrival.
@@ -56,7 +59,7 @@ private struct DoctorWaitingPresenter: View {
         guard let fresh = state.rows.first(where: { !known.contains($0.id) }) else { return }
         banner = dv10f("dv10.waiting.banner", String(fresh.tokenNumber))
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        shown = true
+        collapsed = false
     }
 }
 

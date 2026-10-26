@@ -108,3 +108,19 @@ Paused by the founder. This is the one place to resume from. The approved plan i
   - the doctor's Waiting card goes on Today, not in a sheet
   - the Tasks screen and badge; the Desk "New patient" opens the intake
 - **Then:** the first simulator run of every v10 screen (none has been seen yet), then T12.
+
+## 26 Oct: first simulator run (local stack, synthetic seed)
+- **Stack:**
+  - API from `feat/visit-roles` on :8090, DB `aarogyam_mobile_v10`, worktree `~/project/wt-mob-api`
+  - portal proxy on :5173 from `~/project/wt-mobile-v7`
+  - pids are in `~/project/.targets/mob-api-logs/`
+- **Sign-in at launch:** `SIMCTL_CHILD_AAROGYAM_DEV_SIGN_IN=<uid>` and `SIMCTL_CHILD_AAROGYAM_DEV_CLINIC=sunrise`. Desk is Farah `a1a1a1a1-0000-4000-8000-000000000003`; doctor is Dev Rao `…0002`.
+- **Fixed (adaf2423):**
+  - the home choice now uses the server's keys: `clinical.write` gives Doctor, `appointments.write` or `payments.collect` gives Desk; `queue.call` / `queue.write` don't exist
+  - the doctor waiting host split the Desk screen in half
+  - Desk home collect needed `billing.read`
+- **Seen working:**
+  - **Desk home:** availability strip, number field, waiting card with timer, the 60 s amber "Check with Dr X"
+  - **Doctor Today:** a one-line "Waiting for you", then the normal Today
+- **Not yet driven** (needs taps: XCUITest or by hand): check-in, intake form, Send in, chair mode, Wrap up, collect, My tasks.
+- **Small:** the number field has no visible box in light mode.

@@ -285,3 +285,82 @@ async fn a_reconnect_with_last_event_id_replays_what_it_missed_or_resets() {
     assert!(stream.until("event: resync", Duration::from_secs(10)).await);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn an_appointment_status_change_is_signalled_to_its_clinic_only() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let beta = app.token(BETA_OWNER);
+    let (_, a) = open(&app, ALPHA, &owner, "").await;
+    let (_, b) = open(&app, BETA, &beta, "").await;
+    let (mut a, mut b) = (a.unwrap(), b.unwrap());
+    assert!(a.until("event: ready", Duration::from_secs(10)).await);
+    assert!(b.until("event: ready", Duration::from_secs(10)).await);
+
+    let chair = post(
+        &app,
+        ALPHA,
+        &owner,
+        "/api/v1/rooms",
+        json!({ "name": "Chair 1" }),
+    )
+    .await;
+    let doctor = post(
+        &app,
+        ALPHA,
+        &owner,
+        "/api/v1/practitioners",
+        json!({ "display_name": "Dr Asha", "calendar_color": "#0f766e" }),
+    )
+    .await;
+    let patient = post(
+        &app,
+        ALPHA,
+        &owner,
+        "/api/v1/patients",
+        json!({ "full_name": "Zubin Mehta", "sex": "male", "age_years": 40 }),
+    )
+    .await;
+    let saved = post(
+        &app,
+        ALPHA,
+        &owner,
+        "/api/v1/appointments",
+        json!({
+            "patient_id": patient["id"], "practitioner_id": doctor["id"], "room_id": chair["id"],
+            "starts_at": "2031-03-03T10:00:00+05:30", "ends_at": "2031-03-03T10:30:00+05:30",
+            "reason": "Check-up"
+        }),
+    )
+    .await;
+    let id = saved["appointment"]["id"].as_str().unwrap();
+    assert!(
+        a.until("event: appointment.changed", Duration::from_secs(10))
+            .await
+    );
+    sqlx::query("update aarogyam.appointments set status = 'no_show' where id = $1::uuid")
+        .bind(id)
+        .execute(&app.owner)
+        .await
+        .unwrap();
+    assert!(
+        a.until(&format!("\"id\":\"{id}\""), Duration::from_secs(10))
+            .await,
+        "{}",
+        a.seen
+    );
+    for secret in ["Zubin", "Mehta", "Check-up", "no_show"] {
+        assert!(
+            !a.seen.contains(secret),
+            "payload leaks {secret}: {}",
+            a.seen
+        );
+    }
+    assert!(
+        !b.until("appointment.changed", Duration::from_secs(2)).await,
+        "clinic B saw clinic A's event: {}",
+        b.seen
+    );
+    app.finish().await;
+}

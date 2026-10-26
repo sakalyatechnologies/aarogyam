@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -22,6 +22,27 @@ describe("Settings: online booking", () => {
     const settings = await client.getClinicSettings();
     if (!settings.ok) throw new Error("expected settings");
     expect(settings.value.online_booking.auto_confirm).toBe(true);
+  });
+
+  it("saves the automatic no-show switch and the grace minutes", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi();
+    renderPortal("/settings?tab=booking", { as: PEOPLE.asha, backend });
+    const toggle = await screen.findByRole("switch", { name: "Mark no-shows automatically" });
+    const initial = toggle.getAttribute("aria-checked");
+    await user.click(toggle);
+    expect(await screen.findByText("Online booking updated")).toBeTruthy();
+    const grace = await screen.findByLabelText("Grace after the slot (minutes)");
+    await user.clear(grace);
+    await user.type(grace, "45");
+    await user.tab();
+    const client = backend.client({ host: "sunrise.localtest.me", getToken: () => fakeTokenFor({ id: PEOPLE.asha }), now: () => NOW });
+    await waitFor(async () => {
+      const settings = await client.getClinicSettings();
+      if (!settings.ok) throw new Error("expected settings");
+      expect(settings.value.online_booking.no_show_grace_minutes).toBe(45);
+      expect(settings.value.online_booking.no_show_auto).toBe(initial === "false");
+    });
   });
 
   it("shows the front desk that only the owner changes it", async () => {

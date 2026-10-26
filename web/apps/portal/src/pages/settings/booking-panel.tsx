@@ -1,6 +1,8 @@
 import { apiErrorOf, type OnlineBookingChanges } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
-import { Field, Select, useToast } from "@sakalya/ui";
+import { useState } from "react";
+
+import { Field, Select, TextInput, useToast } from "@sakalya/ui";
 
 import { MkCard, Toggle } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
@@ -106,6 +108,21 @@ function OnlineBookingCard() {
               }}
             />
           </div>
+          <div className="mk-setrow">
+            <div>
+              <b>Mark no-shows automatically</b>
+              <p>{booking.no_show_auto ? "Missed visits are marked once the grace has passed" : "Staff mark missed visits by hand"}</p>
+            </div>
+            <Toggle
+              checked={booking.no_show_auto}
+              disabled={update.isPending}
+              label="Mark no-shows automatically"
+              onChange={(next) => {
+                save({ no_show_auto: next });
+              }}
+            />
+          </div>
+          <GraceField key={booking.no_show_grace_minutes} value={booking.no_show_grace_minutes} disabled={update.isPending} onSave={(minutes) => { save({ no_show_grace_minutes: minutes }); }} />
           <Field label="Visit length">
             <Select
               options={[10, 15, 20, 30, 45, 60].map((minutes) => ({ value: String(minutes), label: `${String(minutes)} minutes` }))}
@@ -118,5 +135,30 @@ function OnlineBookingCard() {
         </>
       )}
     </MkCard>
+  );
+}
+
+/** Minutes after the slot before a missed visit is marked, 0 to 240; saved when the field is left. */
+function GraceField({ value, disabled, onSave }: { value: number; disabled: boolean; onSave: (minutes: number) => void }) {
+  const [text, setText] = useState(String(value));
+  const minutes = Number(text);
+  const valid = text.trim() !== "" && Number.isInteger(minutes) && minutes >= 0 && minutes <= 240;
+  return (
+    <Field label="Grace after the slot (minutes)" hint="0 to 240" {...(valid ? {} : { error: "Enter a whole number from 0 to 240" })}>
+      <TextInput
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={240}
+        value={text}
+        disabled={disabled}
+        onChange={(event) => {
+          setText(event.target.value);
+        }}
+        onBlur={() => {
+          if (valid && minutes !== value) onSave(minutes);
+        }}
+      />
+    </Field>
   );
 }

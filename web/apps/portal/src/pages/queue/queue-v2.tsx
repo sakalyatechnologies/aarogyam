@@ -12,6 +12,7 @@ import { ageSex, patientPath } from "../../lib/patients.js";
 import { usePractitioners, useQueue, useRooms, useSetQueueStatus } from "../../queries.js";
 import { AddToQueue } from "./add-to-queue.js";
 import { ChairDialog } from "./chair-dialog.js";
+import { DeskSections } from "./desk-sections.js";
 import { CollectDialog } from "./collect-dialog.js";
 import { useCallToken } from "./queue-v2-queries.js";
 import "./queue-v2.css";
@@ -271,6 +272,7 @@ export function QueueV2() {
           })}
         </div>
       )}
+      <DeskSections />
       <AddToQueue open={adding} onOpenChange={setAdding} day={queue.data?.date ?? ""} practitioners={practitioners.data?.items ?? []} />
       <ChairDialog
         patientName={seating?.patient.full_name}

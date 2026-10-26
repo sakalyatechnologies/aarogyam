@@ -580,6 +580,7 @@ export type ShareMessage = Schemas["ShareMessage"];
 export type VisitLink = Schemas["VisitLink"];
 export type VisitSummary = Schemas["VisitSummary"];
 export type Recall = Schemas["Recall"];
+export type RecallList = Schemas["RecallList"];
 export type RootCanal = Schemas["RootCanal"];
 export type MedicineSet = Schemas["MedicineSet"];
 export type MedicineSetList = Schemas["MedicineSetList"];

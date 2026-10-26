@@ -346,6 +346,8 @@ export const onlineBooking = z.object({
   min_notice_minutes: z.number().int(),
   reminder_minutes: z.number().int(),
   default_visit_minutes: z.number().int(),
+  no_show_auto: z.boolean(),
+  no_show_grace_minutes: z.number().int(),
 }) satisfies z.ZodType<C.OnlineBooking>;
 export type OnlineBooking = z.output<typeof onlineBooking>;
 

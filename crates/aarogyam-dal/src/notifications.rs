@@ -596,6 +596,41 @@ pub async fn flag_due_recalls(
     Ok(written)
 }
 
+/// Marks appointments nobody came to as no-shows (`app.auto_no_show`), with a history row and a
+/// `missed_visit` follow-up each. Returns how many were marked.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn auto_no_show(pool: &PgPool, now: OffsetDateTime, limit: i32) -> Result<i32, DbError> {
+    let marked = sqlx::query_scalar!(
+        r#"select app.auto_no_show($1, $2) as "marked!""#,
+        now,
+        limit
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(marked)
+}
+
+/// Closes tokens left open on an earlier clinic day (`app.close_stale_tokens`). Returns how many.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn close_stale_tokens(
+    pool: &PgPool,
+    now: OffsetDateTime,
+    limit: i32,
+) -> Result<i32, DbError> {
+    let closed = sqlx::query_scalar!(
+        r#"select app.close_stale_tokens($1, $2) as "closed!""#,
+        now,
+        limit
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(closed)
+}
+
 /// Writes a `patient_waiting` alert for every token still waiting after `min_minutes`
 /// (`app.flag_waiting_tokens`); once per token. Returns how many were written.
 ///

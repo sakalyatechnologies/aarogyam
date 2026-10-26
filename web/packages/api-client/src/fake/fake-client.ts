@@ -7893,6 +7893,8 @@ const BOOKING_DEFAULTS: C.OnlineBooking = {
   min_notice_minutes: 60,
   reminder_minutes: 15,
   default_visit_minutes: 30,
+  no_show_auto: true,
+  no_show_grace_minutes: 30,
 };
 /** Most open self-bookings one verified person may hold in a clinic. */
 const MAX_OPEN_SELF_BOOKINGS = 2;
@@ -7928,6 +7930,9 @@ function validateOnlineBooking(changes: C.OnlineBookingChanges): Outcome | null 
   }
   if (changes.default_visit_minutes != null && ![15, 30, 45, 60].includes(changes.default_visit_minutes)) {
     return invalid("booking.default_visit_minutes", "must be 15, 30, 45 or 60 minutes");
+  }
+  if (changes.no_show_grace_minutes != null && (changes.no_show_grace_minutes < 0 || changes.no_show_grace_minutes > 240)) {
+    return invalid("booking.no_show_grace_minutes", "must be 0 to 240 minutes");
   }
   return null;
 }

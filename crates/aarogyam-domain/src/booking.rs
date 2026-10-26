@@ -27,6 +27,8 @@ pub enum BookingError {
     ReminderMinutes,
     /// The default visit length is not 15, 30, 45 or 60 minutes.
     DefaultVisitMinutes,
+    /// The no-show grace is not 0 to 240 minutes.
+    NoShowGraceMinutes,
 }
 
 impl fmt::Display for BookingError {
@@ -38,6 +40,7 @@ impl fmt::Display for BookingError {
             Self::MinNotice => "must be 0 to 10080 minutes",
             Self::ReminderMinutes => "must be 5 to 240 minutes",
             Self::DefaultVisitMinutes => "must be 15, 30, 45 or 60 minutes",
+            Self::NoShowGraceMinutes => "must be 0 to 240 minutes",
         })
     }
 }
@@ -65,6 +68,10 @@ pub struct BookingSettings {
     /// How long an appointment booked by staff lasts when no end time is given: 15, 30, 45 or
     /// 60 minutes.
     pub default_visit_minutes: u16,
+    /// Whether the drain job marks appointments nobody came to as no-shows.
+    pub no_show_auto: bool,
+    /// Minutes after an appointment's end before it is marked a no-show (0 to 240).
+    pub no_show_grace_minutes: u16,
 }
 
 /// The visit lengths a clinic may choose as its default, in minutes.
@@ -81,6 +88,8 @@ impl Default for BookingSettings {
             min_notice_minutes: 60,
             reminder_minutes: crate::notification::DEFAULT_REMINDER_MINUTES,
             default_visit_minutes: 30,
+            no_show_auto: true,
+            no_show_grace_minutes: 30,
         }
     }
 }
@@ -109,6 +118,9 @@ impl BookingSettings {
         }
         if !matches!(self.default_visit_minutes, 15 | 30 | 45 | 60) {
             return Err(BookingError::DefaultVisitMinutes);
+        }
+        if self.no_show_grace_minutes > 240 {
+            return Err(BookingError::NoShowGraceMinutes);
         }
         Ok(self)
     }
@@ -139,6 +151,8 @@ impl BookingSettings {
             min_notice_minutes: number("min_notice_minutes", defaults.min_notice_minutes),
             reminder_minutes: number("reminder_minutes", defaults.reminder_minutes),
             default_visit_minutes: number("default_visit_minutes", defaults.default_visit_minutes),
+            no_show_auto: flag("no_show_auto", defaults.no_show_auto),
+            no_show_grace_minutes: number("no_show_grace_minutes", defaults.no_show_grace_minutes),
         }
         .validate()
         .unwrap_or(defaults)
@@ -156,6 +170,8 @@ impl BookingSettings {
             "min_notice_minutes": self.min_notice_minutes,
             "reminder_minutes": self.reminder_minutes,
             "default_visit_minutes": self.default_visit_minutes,
+            "no_show_auto": self.no_show_auto,
+            "no_show_grace_minutes": self.no_show_grace_minutes,
         })
     }
 

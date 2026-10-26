@@ -6918,6 +6918,11 @@ export interface components {
             /** @description Patient messages not sent, for a reason (consent, an opt-out, no address). */
             messages_skipped: number;
             /**
+             * Format: int32
+             * @description Appointments marked no-show.
+             */
+            no_shows_marked: number;
+            /**
              * Format: int64
              * @description Old processed messages deleted.
              */
@@ -6936,6 +6941,11 @@ export interface components {
             retrying: number;
             /** @description Delivered. */
             sent: number;
+            /**
+             * Format: int32
+             * @description Stale queue tokens closed.
+             */
+            tokens_closed: number;
             /**
              * Format: int32
              * @description Waiting-patient alerts newly written for staff.
@@ -9458,6 +9468,13 @@ export interface components {
              * @description How soon before a slot it stops being offered, in minutes (0 to 10080).
              */
             min_notice_minutes: number;
+            /** @description Whether appointments nobody came to are marked no-show automatically (default true). */
+            no_show_auto: boolean;
+            /**
+             * Format: int32
+             * @description Minutes after an appointment's end before it is marked no-show (0 to 240, default 30).
+             */
+            no_show_grace_minutes: number;
             /**
              * Format: int32
              * @description Minutes a booking request may wait, in opening hours, before everyone who handles
@@ -9496,6 +9513,13 @@ export interface components {
              * @description Minimum notice in minutes.
              */
             min_notice_minutes?: number | null;
+            /** @description Mark missed appointments as no-show automatically. */
+            no_show_auto?: boolean | null;
+            /**
+             * Format: int32
+             * @description No-show grace in minutes, 0 to 240.
+             */
+            no_show_grace_minutes?: number | null;
             /**
              * Format: int32
              * @description Reminder wait in minutes.

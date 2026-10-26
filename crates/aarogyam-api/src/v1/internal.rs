@@ -73,6 +73,10 @@ pub struct DrainReport {
     pub recalls_flagged: i32,
     /// Waiting-patient alerts newly written for staff.
     pub waiting_flagged: i32,
+    /// Appointments marked no-show.
+    pub no_shows_marked: i32,
+    /// Stale queue tokens closed.
+    pub tokens_closed: i32,
 }
 
 /// Makes new portal hosts work, reminds staff of unanswered booking requests (then the
@@ -131,5 +135,7 @@ pub(crate) async fn drain_outbox(
         lab_orders_overdue: labs.overdue,
         recalls_flagged: flagged.recalls,
         waiting_flagged: flagged.waiting,
+        no_shows_marked: flagged.no_shows,
+        tokens_closed: flagged.tokens_closed,
     }))
 }

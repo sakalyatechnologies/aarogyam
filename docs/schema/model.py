@@ -384,6 +384,7 @@ TABLES = [
             "practitioner_id uuid? -> practitioners",
             "status token_status | waiting, called, in_chair, ready_to_bill, done, left (called and ready_to_bill: migration 0610)", "issued_at timestamptz",
             "called_at timestamptz?", "done_at timestamptz?",
+            "left_reason text? | why a token was closed without the patient being seen, e.g. Closed at day end (migration 0682)",
             "room_id uuid? -> rooms | the chair chosen when seated; a room of the token's branch (migration 0384)"],
       notes="Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done."),
 
@@ -876,7 +877,8 @@ TABLES = [
       cols=["patient_id uuid -> patients", "kind text | follow_up, cleaning, bp_review, vaccine",
             "reason text", "due_on date", "status recall_status | due, notified, booked, done, dismissed",
             "done_at timestamptz?",
-            "source_procedure_id uuid? -> procedures"]),
+            "source_procedure_id uuid? -> procedures",
+            "source_appointment_id uuid? -> appointments | the missed appointment a missed_visit follow-up came from; unique per kind (migration 0682)"]),
     T(name="audiences", domain="notify", rls="clinic", lifecycle="ephemeral",
       purpose="Saved patient filters for campaigns: all active, last visit, birthday month, age band, sex, tag.",
       cols=["name text", "filter jsonb | one typed filter by kind: all_active, last_visit, birthday_month, age_band, sex, tag"],

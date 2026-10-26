@@ -4,6 +4,7 @@ import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.ClinicApi
 import com.aarogyam.staff.api.collectSummary
+import com.aarogyam.staff.api.invoice
 import com.aarogyam.staff.api.issueInvoice
 import com.aarogyam.staff.api.model.Allocation
 import com.aarogyam.staff.api.model.CollectUpi
@@ -221,8 +222,10 @@ internal suspend fun recheck(
     api: ClinicApi,
     job: PaymentJob,
     log: Logger,
+    canCollect: Boolean = true,
 ): Recheck {
     val invoiceId = job.invoiceId ?: return Recheck.Proceed(job)
+    if (!canCollect) return recheckByInvoice(api, job, invoiceId, log)
     return when (val fresh = api.collectSummary(invoiceId)) {
         is Outcome.Failure -> {
             log.warn("deskpay.recheck_failed") { code("error", fresh.error.code.value) }
@@ -307,5 +310,47 @@ internal suspend fun ClinicApi.collectNotices(): Outcome<CollectNotices, ApiErro
                     seenIds = collect.mapNotNull { it["id"]?.jsonPrimitive?.contentOrNull }.toSet(),
                 ),
             )
+        }
+    }
+
+/** The same check for a person with `billing.read` but not `payments.collect`: re-GET `/invoices/{id}`; a draft is issued first. */
+private suspend fun recheckByInvoice(
+    api: ClinicApi,
+    job: PaymentJob,
+    invoiceId: String,
+    log: Logger,
+): Recheck =
+    when (val fresh = api.invoice(invoiceId)) {
+        is Outcome.Failure -> {
+            log.warn("deskpay.recheck_failed") { code("error", fresh.error.code.value) }
+            when (val send = fresh.toSendResult()) {
+                is SendResult.Retry -> Recheck.Retry(send.code)
+                else -> Recheck.Rejected(ScreenError.of(fresh.error))
+            }
+        }
+
+        is Outcome.Success -> {
+            val bill = fresh.value
+            when {
+                bill.status == "draft" -> {
+                    Recheck.Proceed(
+                        job.copy(issueFirst = true, allocatedPaise = minOf(job.amountPaise, bill.totalPaise)),
+                    )
+                }
+
+                bill.status == "issued" && bill.balancePaise <= 0 -> {
+                    Recheck.AlreadyPaid
+                }
+
+                bill.status == "issued" -> {
+                    Recheck.Proceed(
+                        job.copy(issueFirst = false, allocatedPaise = minOf(job.amountPaise, bill.balancePaise)),
+                    )
+                }
+
+                else -> {
+                    Recheck.Rejected(ScreenError.Unknown)
+                }
+            }
         }
     }

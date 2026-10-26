@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.concurrent.Volatile
 import kotlin.io.encoding.Base64
 import kotlin.test.assertIs
 
@@ -60,7 +61,10 @@ fun MockRequestHandleScope.apiError(
 
 /** Answers by host and path (`"sunrise-…/api/v1/today"`); records every request. */
 class FakeBackend {
-    val requests = mutableListOf<HttpRequestData>()
+    /** Every request so far, oldest first: a fresh read-only copy per request, so a test reading it never races the engine. */
+    @Volatile
+    var requests: List<HttpRequestData> = emptyList()
+        private set
     val routes = mutableMapOf<String, MutableList<MockRequestHandleScope.(HttpRequestData) -> HttpResponseData>>()
 
     /** Queues answers for [route]; the last one repeats. */
@@ -79,7 +83,7 @@ class FakeBackend {
             // machine loses a request from the list.
             val answer =
                 lock.withLock {
-                    requests += request
+                    requests = requests + request
                     val answers = routes["${request.url.host}${request.url.encodedPath}"]
                     when {
                         answers == null -> null

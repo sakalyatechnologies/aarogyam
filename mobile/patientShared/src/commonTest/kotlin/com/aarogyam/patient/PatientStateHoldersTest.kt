@@ -245,7 +245,7 @@ class PatientStateHoldersTest {
                 "$SUNRISE/api/v1/public/availability",
                 {
                     json(
-                        """{"date":"2026-10-07","practitioner_id":"d1","slot_minutes":15,"slots":["2026-10-07T16:00:00+05:30"]}""",
+                        """{"date":"2026-10-07","practitioner_id":"d1","slot_minutes":15,"slots":["2026-10-07T16:00:00+05:30"],"requestable_slots":[]}""",
                     )
                 },
             )

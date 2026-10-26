@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists (\n             select 1 from aarogyam.appointments\n             where booked_by_account = $1 and practitioner_id = $2 and deleted_at is null\n               and status not in ('cancelled', 'no_show')\n               and starts_at < $4 and ends_at > $3\n           ) as \"held!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "held!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "39f2359a110b47197cd296d3ed29bea59419996c128cc2c392ae4d28563bdf30"
+}

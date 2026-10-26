@@ -202,6 +202,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             patch(schedule::change_practitioner).delete(schedule::remove_practitioner),
         )
         .route(
+            "/practitioners/{id}/conflict-policy",
+            get(schedule::conflict_policy).put(schedule::set_conflict_policy),
+        )
+        .route(
             "/practitioners/{id}/working-hours",
             get(schedule::hours).put(schedule::set_hours),
         )
@@ -222,6 +226,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/appointments/missed", get(appointments::missed))
         .route("/appointments/{id}", patch(appointments::change))
         .route("/appointments/{id}/status", post(appointments::set_status))
+        .route(
+            "/appointments/{id}/move",
+            post(appointments::move_appointment),
+        )
         .route("/appointments/{id}/check-in", post(check_in::check_in))
         .route("/queue", get(queue::list).post(queue::walk_in))
         .route("/queue/to-collect", get(queue::to_collect))

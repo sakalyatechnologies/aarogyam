@@ -151,6 +151,10 @@ impl From<AppError> for ApiFailure {
                 "practitioner_on_leave",
                 "The doctor is on leave at this time. Choose another time or doctor.",
             )),
+            AppError::SlotOccupied => Self::Error(ApiError::conflict(
+                "slot_occupied",
+                "The doctor already has an appointment at this time. Choose another time, or confirm a double booking.",
+            )),
             AppError::Stale { current } => Self::Stale { current },
             AppError::Forbidden(message) => Self::Error(ApiError::forbidden("forbidden", message)),
             AppError::Db(error) => error.into(),

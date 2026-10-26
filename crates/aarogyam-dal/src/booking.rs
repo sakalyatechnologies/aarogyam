@@ -80,6 +80,8 @@ pub struct DoctorDay {
     pub booking: Value,
     /// Whether the doctor is active; `None` when there is no such doctor.
     pub doctor_active: Option<bool>,
+    /// The doctor's own conflict policy; `None` follows the clinic's.
+    pub doctor_policy: Option<String>,
     /// Their weekly hours, by weekday and start.
     pub shifts: Vec<ShiftRow>,
     /// Their appointments that hold time (not cancelled or missed) between `from` and `to`.
@@ -106,6 +108,8 @@ pub async fn doctor_day(
                       '{}'::jsonb) as "booking!",
              (select active from aarogyam.practitioners where id = $1 and deleted_at is null)
                as doctor_active,
+             (select conflict_policy from aarogyam.practitioners where id = $1 and deleted_at is null)
+               as doctor_policy,
              (select coalesce(json_agg(h order by h.weekday, h.starts), '[]'::json)
               from (select practitioner_id, branch_id, weekday, starts, ends
                     from aarogyam.working_hours where practitioner_id = $1) h
@@ -129,6 +133,7 @@ pub async fn doctor_day(
     Ok(DoctorDay {
         booking: row.booking,
         doctor_active: row.doctor_active,
+        doctor_policy: row.doctor_policy,
         shifts: row.shifts.0,
         busy: row.busy.0,
         leave: row.leave.0,

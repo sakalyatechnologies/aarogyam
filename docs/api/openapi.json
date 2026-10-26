@@ -437,7 +437,7 @@
             "description": "No such appointment in this clinic"
           },
           "409": {
-            "description": "A move the table doesn't allow; `current` is the appointment as it is",
+            "description": "A move the table doesn't allow (`current` is the appointment as it is), or confirming a request into a time another appointment holds without `double_book` (`slot_occupied`)",
             "content": {
               "application/json": {
                 "schema": {
@@ -17779,7 +17779,8 @@
           "date",
           "practitioner_id",
           "slot_minutes",
-          "slots"
+          "slots",
+          "requestable_slots"
         ],
         "properties": {
           "date": {
@@ -17789,6 +17790,13 @@
           "practitioner_id": {
             "type": "string",
             "description": "The doctor."
+          },
+          "requestable_slots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Start of each slot another appointment holds that the patient may still ask for; the\nfront desk or doctor decides. Empty when the doctor's policy is `strict`. A booking for\none comes back `requested`."
           },
           "slot_minutes": {
             "type": "integer",
@@ -27469,7 +27477,8 @@
           "reminder_minutes",
           "default_visit_minutes",
           "no_show_auto",
-          "no_show_grace_minutes"
+          "no_show_grace_minutes",
+          "conflict_policy"
         ],
         "properties": {
           "auto_confirm": {
@@ -27481,6 +27490,10 @@
             "format": "int32",
             "description": "Gap kept free around other appointments, in minutes (0 to 120).",
             "minimum": 0
+          },
+          "conflict_policy": {
+            "type": "string",
+            "description": "What a patient asking online for a time the doctor already holds gets, unless the doctor\nchose their own (`PUT /practitioners/{id}/conflict-policy`): `request` (default; the front\ndesk or doctor decides) or `strict` (refused with 409)."
           },
           "default_visit_minutes": {
             "type": "integer",
@@ -27547,6 +27560,13 @@
             "format": "int32",
             "description": "Buffer in minutes.",
             "minimum": 0
+          },
+          "conflict_policy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`request` or `strict`."
           },
           "default_visit_minutes": {
             "type": [
@@ -33706,6 +33726,13 @@
           "status"
         ],
         "properties": {
+          "double_book": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Confirming a request into a time another appointment holds is refused (`409\nslot_occupied`) unless this is `true`: a deliberate double booking."
+          },
           "reason": {
             "type": [
               "string",

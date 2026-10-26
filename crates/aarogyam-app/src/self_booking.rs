@@ -9,7 +9,8 @@ use aarogyam_dal::clinic::ClinicProfile;
 use aarogyam_dal::{booking, clinic, patients, schedule, settings};
 use aarogyam_domain::access::ClinicPlace;
 use aarogyam_domain::booking::{
-    Asked, BookingSettings, Commitments, MAX_OPEN_SELF_BOOKINGS, free_slots,
+    Asked, BookingSettings, Commitments, ConflictPolicy, MAX_OPEN_SELF_BOOKINGS, free_slots,
+    requestable_slots,
 };
 use aarogyam_domain::ids::{AppointmentId, ClinicId, PatientId, PractitionerId};
 use aarogyam_domain::notification::NotificationKind;
@@ -112,15 +113,31 @@ pub async fn options(
     .await
 }
 
+/// The conflict policy that applies to a doctor: their own when set, otherwise the clinic's.
+#[must_use]
+pub fn effective_policy(settings: &BookingSettings, doctor: Option<&str>) -> ConflictPolicy {
+    doctor
+        .and_then(|text| ConflictPolicy::parse(text).ok())
+        .unwrap_or(settings.conflict_policy)
+}
+
+/// What a patient may take on one day: free slots, and (under the `request` policy) the slots
+/// another appointment holds, which they may ask for.
+struct Offered {
+    free: Vec<OffsetDateTime>,
+    requestable: Vec<OffsetDateTime>,
+}
+
 /// Free slots for one doctor on one local day, computed inside the caller's transaction.
 async fn slots_on(
     tx: &mut ScopedTx,
     profile: &ClinicProfile,
     settings: &BookingSettings,
+    policy: ConflictPolicy,
     practitioner_id: Uuid,
     day: Date,
     now: OffsetDateTime,
-) -> Result<Vec<OffsetDateTime>, AppError> {
+) -> Result<Offered, AppError> {
     let offset = clinic_offset(&profile.timezone);
     let shifts: Vec<Shift> = schedule::shifts(tx.conn(), Some(practitioner_id), None)
         .await?
@@ -132,20 +149,25 @@ async fn slots_on(
     let (from, to) = (start - Duration::DAY, end + Duration::DAY);
     let busy = dal::busy_spans(tx.conn(), practitioner_id, from, to).await?;
     let leave = dal::leave_spans(tx.conn(), practitioner_id, from, to).await?;
-    Ok(free_slots(
-        Asked {
-            day,
-            today: clinic_today(&profile.timezone, now),
-            offset,
-            now,
+    let asked = Asked {
+        day,
+        today: clinic_today(&profile.timezone, now),
+        offset,
+        now,
+    };
+    let doctor = Commitments {
+        shifts: &shifts,
+        busy: &busy,
+        leave: &leave,
+    };
+    Ok(Offered {
+        free: free_slots(asked, doctor, settings),
+        requestable: if policy == ConflictPolicy::Request {
+            requestable_slots(asked, doctor, settings)
+        } else {
+            Vec::new()
         },
-        Commitments {
-            shifts: &shifts,
-            busy: &busy,
-            leave: &leave,
-        },
-        settings,
-    ))
+    })
 }
 
 /// A bookable doctor, or the same error for an unknown, inactive or hourless one.
@@ -166,6 +188,9 @@ pub struct Availability {
     pub slot_minutes: u16,
     /// Slot starts, in the clinic's offset.
     pub slots: Vec<OffsetDateTime>,
+    /// Starts of slots another appointment holds that the patient may still ask for (the
+    /// doctor's policy is `request`); the front desk or doctor decides. Empty under `strict`.
+    pub requestable: Vec<OffsetDateTime>,
 }
 
 /// The free slots of a doctor on a local day, in the clinic's offset.
@@ -206,23 +231,27 @@ pub async fn availability(
             .collect()
     };
     let (busy, leave) = (spans(found.busy), spans(found.leave));
-    let slots = free_slots(
-        Asked {
-            day,
-            today: clinic_today(&clinic.timezone, now),
-            offset: clinic_offset(&clinic.timezone),
-            now,
-        },
-        Commitments {
-            shifts: &shifts,
-            busy: &busy,
-            leave: &leave,
-        },
-        &settings,
-    );
+    let asked = Asked {
+        day,
+        today: clinic_today(&clinic.timezone, now),
+        offset: clinic_offset(&clinic.timezone),
+        now,
+    };
+    let doctor = Commitments {
+        shifts: &shifts,
+        busy: &busy,
+        leave: &leave,
+    };
+    let requestable =
+        if effective_policy(&settings, found.doctor_policy.as_deref()) == ConflictPolicy::Request {
+            requestable_slots(asked, doctor, &settings)
+        } else {
+            Vec::new()
+        };
     Ok(Availability {
         slot_minutes: settings.slot_minutes,
-        slots,
+        slots: free_slots(asked, doctor, &settings),
+        requestable,
     })
 }
 
@@ -469,6 +498,7 @@ async fn record_booked(
     tx: &mut ScopedTx,
     id: AppointmentId,
     auto_confirmed: bool,
+    overlap: bool,
     now: OffsetDateTime,
 ) -> Result<(), AppError> {
     dal::insert_event(
@@ -479,7 +509,7 @@ async fn record_booked(
             from_status: None,
             to_status: None,
             changes: None,
-            note: Some("online"),
+            note: Some(if overlap { "online_overlap" } else { "online" }),
             at: now,
         },
     )
@@ -490,7 +520,48 @@ async fn record_booked(
         NotificationKind::BookingRequested
     };
     crate::notifications::notify(tx, kind, id).await?;
+    if overlap {
+        // The same row also carries the reminder clock (booking_requested); this one flags that
+        // the time is held, to the desk and that doctor. It names no one.
+        crate::notifications::notify(tx, NotificationKind::BookingConflict, id).await?;
+    }
     Ok(())
+}
+
+/// Whether a patient may ask for a time that isn't free: another appointment holds it, they
+/// haven't already booked it themselves, and the policy lets them.
+async fn askable(
+    tx: &mut ScopedTx,
+    offered: &Offered,
+    input: &Slot,
+    doctor: Uuid,
+    settings: &BookingSettings,
+) -> Result<bool, AppError> {
+    if !offered.requestable.contains(&input.starts_at) {
+        return Ok(false);
+    }
+    let ends_at = input.starts_at + Duration::minutes(i64::from(settings.slot_minutes));
+    Ok(!dal::account_holds(tx.conn(), input.account, doctor, input.starts_at, ends_at).await?)
+}
+
+/// Why a time can't be booked: leave wins (only where a taken time can be asked for; `strict`
+/// answers as it always did), otherwise it is gone.
+async fn not_offered(
+    tx: &mut ScopedTx,
+    policy: ConflictPolicy,
+    settings: &BookingSettings,
+    doctor: Uuid,
+    starts_at: OffsetDateTime,
+) -> AppError {
+    if policy == ConflictPolicy::Request {
+        let ends_at = starts_at + Duration::minutes(i64::from(settings.slot_minutes));
+        match dal::on_leave(tx.conn(), doctor, starts_at, ends_at).await {
+            Ok(true) => return AppError::PractitionerOnLeave,
+            Ok(false) => {}
+            Err(error) => return error.into(),
+        }
+    }
+    AppError::Conflict(SLOT_TAKEN)
 }
 
 async fn book_slot(
@@ -517,9 +588,17 @@ async fn book_slot(
         }
         let offset = clinic_offset(&profile.timezone);
         let day = input.starts_at.to_offset(offset).date();
-        let slots = slots_on(tx, &profile, &settings, doctor.id, day, now).await?;
-        if !slots.contains(&input.starts_at) {
-            return Err(AppError::Conflict(SLOT_TAKEN));
+        let policy = effective_policy(
+            &settings,
+            schedule::practitioner_conflict_policy(tx.conn(), doctor.id)
+                .await?
+                .flatten()
+                .as_deref(),
+        );
+        let offered = slots_on(tx, &profile, &settings, policy, doctor.id, day, now).await?;
+        let overlap = !offered.free.contains(&input.starts_at);
+        if overlap && !askable(tx, &offered, input, doctor.id, &settings).await? {
+            return Err(not_offered(tx, policy, &settings, doctor.id, input.starts_at).await);
         }
         let starts_at = input.starts_at.to_offset(offset);
         let ends_at = starts_at + Duration::minutes(i64::from(settings.slot_minutes));
@@ -530,7 +609,9 @@ async fn book_slot(
             "website"
         };
         let (patient_id, kind, email) = whose(tx, &profile, who).await?;
-        let status = if settings.auto_confirm {
+        // A request for a held time always waits for a person, whatever auto-confirm says.
+        let auto_confirm = settings.auto_confirm && !overlap;
+        let status = if auto_confirm {
             AppointmentStatus::Confirmed
         } else {
             AppointmentStatus::Requested
@@ -544,6 +625,7 @@ async fn book_slot(
             input.account,
             status.as_str(),
             source,
+            overlap,
             &Booking {
                 practitioner_id: doctor.id,
                 branch_id,
@@ -559,8 +641,8 @@ async fn book_slot(
         .map_err(|error| {
             AppError::on_constraint(error, "appointments_self_booking_slot", SLOT_TAKEN)
         })?;
-        record_booked(tx, id, settings.auto_confirm, now).await?;
-        let message = if settings.auto_confirm {
+        record_booked(tx, id, auto_confirm, overlap, now).await?;
+        let message = if auto_confirm {
             MessageKind::BookingConfirmed
         } else {
             MessageKind::BookingRequested

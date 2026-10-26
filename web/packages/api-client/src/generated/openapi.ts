@@ -5669,6 +5669,12 @@ export interface components {
             /** @description The doctor. */
             practitioner_id: string;
             /**
+             * @description Start of each slot another appointment holds that the patient may still ask for; the
+             *     front desk or doctor decides. Empty when the doctor's policy is `strict`. A booking for
+             *     one comes back `requested`.
+             */
+            requestable_slots: string[];
+            /**
              * Format: int32
              * @description Slot length in minutes.
              */
@@ -9517,6 +9523,12 @@ export interface components {
              */
             buffer_minutes: number;
             /**
+             * @description What a patient asking online for a time the doctor already holds gets, unless the doctor
+             *     chose their own (`PUT /practitioners/{id}/conflict-policy`): `request` (default; the front
+             *     desk or doctor decides) or `strict` (refused with 409).
+             */
+            conflict_policy: string;
+            /**
              * Format: int32
              * @description How long an appointment booked by staff lasts when no end is given: 15, 30, 45 or 60
              *     minutes.
@@ -9562,6 +9574,8 @@ export interface components {
              * @description Buffer in minutes.
              */
             buffer_minutes?: number | null;
+            /** @description `request` or `strict`. */
+            conflict_policy?: string | null;
             /**
              * Format: int32
              * @description Default visit length in minutes: 15, 30, 45 or 60.
@@ -12019,6 +12033,11 @@ export interface components {
         };
         /** @description A status change. */
         StatusChange: {
+            /**
+             * @description Confirming a request into a time another appointment holds is refused (`409
+             *     slot_occupied`) unless this is `true`: a deliberate double booking.
+             */
+            double_book?: boolean | null;
             /** @description Why; required to cancel, up to 200 characters. */
             reason?: string | null;
             /** @description `confirmed`, `arrived`, `in_chair`, `completed`, `cancelled` or `no_show`. */
@@ -13622,7 +13641,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description A move the table doesn't allow; `current` is the appointment as it is */
+            /** @description A move the table doesn't allow (`current` is the appointment as it is), or confirming a request into a time another appointment holds without `double_book` (`slot_occupied`) */
             409: {
                 headers: {
                     [name: string]: unknown;

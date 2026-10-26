@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select conflict_policy from aarogyam.practitioners where id = $1 and deleted_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "conflict_policy",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.practitioners",
+            "name": "conflict_policy"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "ac829f28a71291165c82b708cff929b1ca9aa9563302e034c39472dd09442987"
+}

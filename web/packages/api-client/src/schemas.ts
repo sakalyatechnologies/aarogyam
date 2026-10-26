@@ -348,6 +348,7 @@ export const onlineBooking = z.object({
   default_visit_minutes: z.number().int(),
   no_show_auto: z.boolean(),
   no_show_grace_minutes: z.number().int(),
+  conflict_policy: z.string(),
 }) satisfies z.ZodType<C.OnlineBooking>;
 export type OnlineBooking = z.output<typeof onlineBooking>;
 
@@ -2672,6 +2673,7 @@ export const availability = z.object({
   practitioner_id: z.string().min(1),
   slot_minutes: z.number().int(),
   slots: z.array(timestamp),
+  requestable_slots: z.array(timestamp),
 }) satisfies z.ZodType<C.Availability>;
 export type Availability = z.output<typeof availability>;
 

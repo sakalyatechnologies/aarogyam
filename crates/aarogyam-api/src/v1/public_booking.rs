@@ -118,6 +118,10 @@ pub struct Availability {
     pub slot_minutes: u16,
     /// Start of each free slot, RFC 3339 in the clinic's time zone.
     pub slots: Vec<String>,
+    /// Start of each slot another appointment holds that the patient may still ask for; the
+    /// front desk or doctor decides. Empty when the doctor's policy is `strict`. A booking for
+    /// one comes back `requested`.
+    pub requestable_slots: Vec<String>,
 }
 
 /// Public, no sign-in: a doctor's free slots on a local day, from working hours minus leave
@@ -162,6 +166,7 @@ pub(crate) async fn free_slots(
         practitioner_id: doctor,
         slot_minutes: found.slot_minutes,
         slots: found.slots.into_iter().map(rfc3339).collect(),
+        requestable_slots: found.requestable.into_iter().map(rfc3339).collect(),
     }))
 }
 

@@ -29,6 +29,8 @@ pub enum BookingError {
     DefaultVisitMinutes,
     /// The no-show grace is not 0 to 240 minutes.
     NoShowGraceMinutes,
+    /// The conflict policy is neither `request` nor `strict`.
+    ConflictPolicy,
 }
 
 impl fmt::Display for BookingError {
@@ -41,11 +43,45 @@ impl fmt::Display for BookingError {
             Self::ReminderMinutes => "must be 5 to 240 minutes",
             Self::DefaultVisitMinutes => "must be 15, 30, 45 or 60 minutes",
             Self::NoShowGraceMinutes => "must be 0 to 240 minutes",
+            Self::ConflictPolicy => "must be request or strict",
         })
     }
 }
 
 impl std::error::Error for BookingError {}
+
+/// What happens when a patient asks online for a time the doctor is already booked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ConflictPolicy {
+    /// The patient may ask for the taken time; the front desk or the doctor decides.
+    #[default]
+    Request,
+    /// A taken time is refused (`409`).
+    Strict,
+}
+
+impl ConflictPolicy {
+    /// The stored and wire name.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Request => "request",
+            Self::Strict => "strict",
+        }
+    }
+
+    /// Reads a stored or requested name.
+    ///
+    /// # Errors
+    /// [`BookingError::ConflictPolicy`] for anything but `request` or `strict`.
+    pub fn parse(text: &str) -> Result<Self, BookingError> {
+        match text {
+            "request" => Ok(Self::Request),
+            "strict" => Ok(Self::Strict),
+            _ => Err(BookingError::ConflictPolicy),
+        }
+    }
+}
 
 /// A clinic's online booking settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,6 +108,8 @@ pub struct BookingSettings {
     pub no_show_auto: bool,
     /// Minutes after an appointment's end before it is marked a no-show (0 to 240).
     pub no_show_grace_minutes: u16,
+    /// What a patient asking online for a taken time gets, unless the doctor chose their own.
+    pub conflict_policy: ConflictPolicy,
 }
 
 /// The visit lengths a clinic may choose as its default, in minutes.
@@ -90,6 +128,7 @@ impl Default for BookingSettings {
             default_visit_minutes: 30,
             no_show_auto: true,
             no_show_grace_minutes: 30,
+            conflict_policy: ConflictPolicy::Request,
         }
     }
 }
@@ -153,6 +192,11 @@ impl BookingSettings {
             default_visit_minutes: number("default_visit_minutes", defaults.default_visit_minutes),
             no_show_auto: flag("no_show_auto", defaults.no_show_auto),
             no_show_grace_minutes: number("no_show_grace_minutes", defaults.no_show_grace_minutes),
+            conflict_policy: stored
+                .get("conflict_policy")
+                .and_then(serde_json::Value::as_str)
+                .and_then(|text| ConflictPolicy::parse(text).ok())
+                .unwrap_or(defaults.conflict_policy),
         }
         .validate()
         .unwrap_or(defaults)
@@ -172,6 +216,7 @@ impl BookingSettings {
             "default_visit_minutes": self.default_visit_minutes,
             "no_show_auto": self.no_show_auto,
             "no_show_grace_minutes": self.no_show_grace_minutes,
+            "conflict_policy": self.conflict_policy.as_str(),
         })
     }
 
@@ -227,6 +272,33 @@ pub fn free_slots(
     doctor: Commitments<'_>,
     settings: &BookingSettings,
 ) -> Vec<OffsetDateTime> {
+    scan(asked, doctor, settings)
+        .into_iter()
+        .filter_map(|(at, occupied)| (!occupied).then_some(at))
+        .collect()
+}
+
+/// The slots [`free_slots`] drops only because the doctor already has an appointment there (not
+/// leave, not short notice, not outside the window): the times a patient may ask for under the
+/// `request` conflict policy.
+#[must_use]
+pub fn requestable_slots(
+    asked: Asked,
+    doctor: Commitments<'_>,
+    settings: &BookingSettings,
+) -> Vec<OffsetDateTime> {
+    scan(asked, doctor, settings)
+        .into_iter()
+        .filter_map(|(at, occupied)| occupied.then_some(at))
+        .collect()
+}
+
+/// Every slot that leave and notice allow, with whether an appointment already holds it.
+fn scan(
+    asked: Asked,
+    doctor: Commitments<'_>,
+    settings: &BookingSettings,
+) -> Vec<(OffsetDateTime, bool)> {
     let Asked {
         day,
         today,
@@ -252,13 +324,13 @@ pub fn free_slots(
         let mut at = PrimitiveDateTime::new(day, shift.starts).assume_offset(offset);
         while at + length <= end {
             let to = at + length;
-            let taken = doctor
+            let occupied = doctor
                 .busy
                 .iter()
-                .any(|b| overlaps(*b, at - buffer, to + buffer))
-                || doctor.leave.iter().any(|l| overlaps(*l, at, to));
-            if at >= earliest && !taken {
-                slots.push(at);
+                .any(|b| overlaps(*b, at - buffer, to + buffer));
+            let away = doctor.leave.iter().any(|l| overlaps(*l, at, to));
+            if at >= earliest && !away {
+                slots.push((at, occupied));
             }
             at += length;
         }
@@ -458,5 +530,62 @@ mod tests {
                 .is_ok()
             );
         }
+    }
+
+    #[test]
+    fn a_held_slot_is_requestable_but_leave_is_not() {
+        let shifts = [monday(time!(09:00), time!(10:00))];
+        let busy = [(
+            datetime!(2026-10-05 09:15 +5:30),
+            datetime!(2026-10-05 09:30 +5:30),
+        )];
+        let leave = [(
+            datetime!(2026-10-05 09:45 +5:30),
+            datetime!(2026-10-05 10:00 +5:30),
+        )];
+        let asked = ask(date!(2026 - 10 - 04), long_ago());
+        let doctor = Commitments {
+            shifts: &shifts,
+            busy: &busy,
+            leave: &leave,
+        };
+        let settings = BookingSettings::default();
+        let times = |slots: Vec<OffsetDateTime>| {
+            slots
+                .iter()
+                .map(|at| format!("{:02}:{:02}", at.hour(), at.minute()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            times(free_slots(asked, doctor, &settings)),
+            ["09:00", "09:30"]
+        );
+        assert_eq!(
+            times(requestable_slots(asked, doctor, &settings)),
+            ["09:15"]
+        );
+    }
+
+    #[test]
+    fn the_conflict_policy_defaults_to_request_and_reads_back() {
+        assert_eq!(
+            BookingSettings::default().conflict_policy,
+            ConflictPolicy::Request
+        );
+        let stored = BookingSettings {
+            conflict_policy: ConflictPolicy::Strict,
+            ..BookingSettings::default()
+        }
+        .to_stored();
+        assert_eq!(
+            BookingSettings::from_stored(&stored).conflict_policy,
+            ConflictPolicy::Strict
+        );
+        assert_eq!(
+            BookingSettings::from_stored(&serde_json::json!({ "conflict_policy": "bogus" }))
+                .conflict_policy,
+            ConflictPolicy::Request
+        );
+        assert!(ConflictPolicy::parse("whenever").is_err());
     }
 }

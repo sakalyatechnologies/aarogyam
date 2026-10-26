@@ -1,5 +1,6 @@
 package com.aarogyam.staff.outbox
 
+import com.aarogyam.staff.api.PATIENT_PHOTO_MAX_BYTES
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
@@ -21,7 +22,8 @@ internal data class PatientFileJob(
 )
 
 /**
- * Sends [OutboxKind.PatientFile] entries: `POST /patients/{id}/attachments` with the kind and label,
+ * Sends [OutboxKind.PatientFile] entries: the `photo` kind (Profile) goes to `PUT /patients/{id}/photo`
+ * (field `file`, 2 MB at most, else rejected as `photo_too_large`); the others as `POST /patients/{id}/attachments` with the kind and label,
  * the entry id as the client id (so a retry returns the stored file). The whole item is retried;
  * the file is deleted once the server has it. After a restart the clinic is not open until the
  * person opens it, so the entry waits (`clinic_not_open`). Nothing about the patient is logged.
@@ -41,6 +43,21 @@ internal class PatientFileSender(
         val clinic = opened(job.clinicSlug) ?: return SendResult.Retry("clinic_not_open")
         val name = entry.fileName ?: return SendResult.Rejected("file_missing")
         val bytes = files.read(name) ?: return SendResult.Rejected("file_missing")
+        if (job.kind == "photo") {
+            // The profile picture is the patient's one photo, not a file in the chart: `PUT /photo`.
+            if (bytes.size > PATIENT_PHOTO_MAX_BYTES) return SendResult.Rejected("photo_too_large")
+            return when (val answer = clinic.api.putPatientPhoto(job.patientId, bytes)) {
+                is Outcome.Success -> {
+                    runCatching { files.delete(name) }
+                    SendResult.Delivered
+                }
+
+                is Outcome.Failure -> {
+                    log.warn("patientfile.photo_failed") { code("error", answer.error.code.value) }
+                    answer.toSendResult()
+                }
+            }
+        }
         return when (
             val answer =
                 clinic.api.uploadAttachment(

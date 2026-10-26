@@ -5,6 +5,7 @@ import com.aarogyam.staff.SUNRISE
 import com.aarogyam.staff.json
 import com.aarogyam.staff.openClinic
 import com.aarogyam.staff.testGraph
+import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -84,5 +85,51 @@ class PatientFileSenderTest {
             assertTrue(PatientFileSender({ clinic }, files).send(entry) is SendResult.Rejected)
             files.delete("e1.png")
             assertEquals(SendResult.Rejected("file_missing"), PatientFileSender({ clinic }, files).send(entry))
+        }
+
+    private fun photoEntry(clinic: String) =
+        OutboxEntry(
+            id = "e2",
+            kind = OutboxKind.PatientFile,
+            payload = queueJson.encodeToString(PatientFileJob(clinic, "p9", "photo", "Profile")),
+            createdAt = 1,
+            fileName = "e2.jpg",
+        )
+
+    @Test
+    fun the_profile_photo_goes_to_put_photo_in_the_field_file_and_the_signature_stays_an_attachment() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/patients/p9/photo", { respond("", HttpStatusCode.NoContent) })
+            backend.on(UPLOAD, { json(STORED, HttpStatusCode.Created) })
+            val clinic = openClinic(backend, testGraph(backend, backgroundScope), this, listOf("patients.write"))
+            files.write("e2.jpg", byteArrayOf(1, 2, 3))
+            assertEquals(SendResult.Delivered, PatientFileSender({ clinic }, files).send(photoEntry(clinic.slug)))
+            val put = backend.requests.single { it.method == HttpMethod.Put }
+            assertTrue(put.url.encodedPath.endsWith("/patients/p9/photo"))
+            assertTrue(
+                """name=file""" in
+                    put.body
+                        .toByteArray()
+                        .decodeToString()
+                        .replace("\"", ""),
+            )
+            assertEquals(0, backend.uploads().size, "no attachment for the profile photo")
+            assertTrue(files.names.isEmpty())
+            assertEquals(SendResult.Delivered, PatientFileSender({ clinic }, files).send(entry(clinic.slug)))
+            assertEquals(1, backend.uploads().size, "the signature is still an attachment")
+        }
+
+    @Test
+    fun a_photo_over_2_mb_is_rejected_for_good_and_nothing_is_sent() =
+        runTest {
+            val backend = FakeBackend()
+            val clinic = openClinic(backend, testGraph(backend, backgroundScope), this, listOf("patients.write"))
+            files.write("e2.jpg", ByteArray(2 * 1024 * 1024 + 1))
+            assertEquals(
+                SendResult.Rejected("photo_too_large"),
+                PatientFileSender({ clinic }, files).send(photoEntry(clinic.slug)),
+            )
+            assertEquals(0, backend.requests.count { it.method == HttpMethod.Put })
         }
 }

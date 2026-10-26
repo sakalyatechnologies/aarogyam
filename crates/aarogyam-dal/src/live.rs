@@ -20,6 +20,8 @@ pub enum Kind {
     QueueChanged,
     /// A visit was started or closed.
     VisitChanged,
+    /// An appointment was booked, moved, cancelled, marked no-show or held for overlap.
+    AppointmentChanged,
     /// A staff notification was written.
     NotificationCreated,
 }
@@ -31,6 +33,7 @@ impl Kind {
         match self {
             Self::QueueChanged => "queue.changed",
             Self::VisitChanged => "visit.changed",
+            Self::AppointmentChanged => "appointment.changed",
             Self::NotificationCreated => "notification.created",
         }
     }
@@ -39,6 +42,7 @@ impl Kind {
         match text {
             "queue.changed" => Some(Self::QueueChanged),
             "visit.changed" => Some(Self::VisitChanged),
+            "appointment.changed" => Some(Self::AppointmentChanged),
             "notification.created" => Some(Self::NotificationCreated),
             _ => None,
         }

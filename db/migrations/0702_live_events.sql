@@ -6,7 +6,7 @@
 --
 -- Replay (Last-Event-ID): the table is a bounded buffer, the newest 2000 events of all clinics
 -- (each insert trims older rows). Its id is the event id the stream sends as `id:`. A client that
--- reconnects with Last-Event-ID gets what it missed from the buffer, or a `reset` event when the
+-- reconnects with Last-Event-ID gets what it missed from the buffer, or a `resync` event when the
 -- buffer no longer reaches back that far. The ids come from a sequence, so two transactions that
 -- commit out of order can hand out ids out of order; a reconnect in that instant can miss one
 -- signal (clients also refetch on a timer, so it heals).
@@ -52,15 +52,20 @@ create function app.live_signal() returns trigger
 revoke all on function app.live_signal() from public;
 
 create trigger live_queue_changed
-  after insert or update of status, practitioner_id, room_id on aarogyam.queue_tokens
+  after insert or update of status, practitioner_id, room_id, left_reason, last_reminded_at on aarogyam.queue_tokens
   for each row execute function app.live_signal('queue.changed');
 
 create trigger live_visit_changed
   after insert or update of status, ended_at on aarogyam.encounters
   for each row execute function app.live_signal('visit.changed');
 
+create trigger live_appointment_changed
+  after insert or update of status, starts_at, requested_overlap on aarogyam.appointments
+  for each row execute function app.live_signal('appointment.changed');
+
+-- Insert, or a re-raise (remind and handled changes set handled_at again).
 create trigger live_notification_created
-  after insert on aarogyam.staff_notifications
+  after insert or update of handled_at on aarogyam.staff_notifications
   for each row execute function app.live_signal('notification.created');
 
 -- The caller's clinic's events after p_after, oldest first, at most p_limit.

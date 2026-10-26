@@ -25,6 +25,9 @@ use crate::live::Live;
 
 /// The seconds between heartbeat comments.
 const HEARTBEAT_SECS: u64 = 25;
+/// A stream ends after this long; the client reconnects with `Last-Event-ID` (Cloud Run bills an
+/// open request, and a stream must not pin the instance forever).
+const MAX_LIFETIME: Duration = Duration::from_mins(8);
 /// How long a stream waits for a signal before checking the client is still there.
 const CLIENT_CHECK: Duration = Duration::from_secs(30);
 
@@ -64,10 +67,10 @@ fn wanted(signal: &Signal, clinic: Uuid, branch: Option<Uuid>) -> bool {
 /// A stream of change signals for the caller's clinic (`text/event-stream`).
 ///
 /// Events: `ready` (sent once when the stream is open; data `{}`), `queue.changed`,
-/// `visit.changed`, `notification.created` (data `{kind, id, branch_id}`: identifiers only, never
+/// `visit.changed`, `appointment.changed`, `notification.created` (data `{kind, id, branch_id}`: identifiers only, never
 /// patient data; refetch the list or record they name) and `resync` (signals may have been
 /// missed, or a resume is impossible; refetch everything). Each change event has an `id:` (a
-/// number that only grows). A `: hb` comment arrives every 25 seconds.
+/// number that only grows). A `: hb` comment arrives every 25 seconds; the stream closes after 8 minutes (reconnect with `Last-Event-ID`).
 ///
 /// Resume: send `Last-Event-ID` (browsers' `EventSource` does it by itself) and the server replays
 /// the clinic's events after that id from a buffer of the last 2000 events, then goes live
@@ -160,7 +163,11 @@ pub(crate) async fn stream(
             }
             None => {}
         }
+        let ends = tokio::time::Instant::now() + MAX_LIFETIME;
         loop {
+            if tokio::time::Instant::now() >= ends {
+                return;
+            }
             let event = match tokio::time::timeout(CLIENT_CHECK, feed.recv()).await {
                 Err(_) => {
                     if out.is_closed() {

@@ -967,6 +967,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A stream of change signals for the caller's clinic (`text/event-stream`).
+         * @description Events: `ready` (sent once when the stream is open; data `{}`), `queue.changed`,
+         *     `visit.changed`, `appointment.changed`, `notification.created` (data `{kind, id, branch_id}`: identifiers only, never
+         *     patient data; refetch the list or record they name) and `resync` (signals may have been
+         *     missed, or a resume is impossible; refetch everything). Each change event has an `id:` (a
+         *     number that only grows). A `: hb` comment arrives every 25 seconds; the stream closes after 8 minutes (reconnect with `Last-Event-ID`).
+         *
+         *     Resume: send `Last-Event-ID` (browsers' `EventSource` does it by itself) and the server replays
+         *     the clinic's events after that id from a buffer of the last 2000 events, then goes live
+         *     (`ready` is sent first). When the buffer no longer reaches back that far (or the id is
+         *     unknown, or over 500 events were missed) it sends `resync` straight away instead: refetch everything. Without
+         *     the header nothing is replayed: fetch, then listen. Polling stays the fallback.
+         */
+        get: operations["streamEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/expenses": {
         parameters: {
             query?: never;
@@ -16644,6 +16674,60 @@ export interface operations {
             };
             /** @description The role lacks prescriptions.issue */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    streamEvents: {
+        parameters: {
+            query?: {
+                /** @description Only this branch */
+                branch_id?: string;
+            };
+            header?: {
+                /** @description The id of the last event seen: replay what came after */
+                "Last-Event-ID"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The event stream; see the operation description for the events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Bad branch id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such branch in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

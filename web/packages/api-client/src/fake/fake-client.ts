@@ -495,6 +495,14 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
     const isCaller = (value: Caller | Outcome): value is Caller => "clinic" in value;
 
+    /** A member who holds any one of `permissions`; others get the 403 for the first. */
+    async function inClinicWithAny(first: Permission, ...rest: Permission[]): Promise<Caller | Outcome> {
+      const caller = await inClinic();
+      if (!isCaller(caller)) return caller;
+      const granted = caller.membership.role.permissions;
+      return [first, ...rest].some((p) => hasPermission(granted, p)) ? caller : refuse(403, "forbidden", "You don't have permission to do that.");
+    }
+
     /** Approves or declines a pending time-off request. */
     function decideTimeOff(id: string, decision: C.TimeOffDecision | undefined, approve: boolean, signal: AbortSignal | undefined): Promise<ApiResult<S.TimeOff>> {
       return respond(S.timeOff, signal, async () => {
@@ -6311,7 +6319,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
       createInvoice: (input, opts) =>
         respond(S.invoice, opts?.signal, async () => {
-          const caller = await inClinic("billing.write");
+          const caller = await inClinicWithAny("billing.write", "clinical.write");
           if (!isCaller(caller)) {
             return caller;
           }
@@ -6350,7 +6358,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
       editInvoice: (id, changes, opts) =>
         respond(S.invoice, opts?.signal, async () => {
-          const caller = await inClinic("billing.write");
+          const caller = await inClinicWithAny("billing.write", "clinical.write");
           if (!isCaller(caller)) {
             return caller;
           }
@@ -6498,8 +6506,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             if (invoiceFound === undefined) {
               return notFound;
             }
-            const collecting = invoiceFound.status === "draft" && hasPermission(permissions, "payments.collect");
-            if (invoiceFound.status !== "issued" && !collecting) {
+            // The desk's payments.collect path issues a draft with the payment; billing.write must issue it first.
+            if (invoiceFound.status === "draft" && !hasPermission(caller.membership.role.permissions, "billing.write") && invoiceFound.items.length > 0) {
+              invoiceFound.status = "issued";
+              invoiceFound.number = nextInvoiceNumber(state, caller.clinic);
+              invoiceFound.issued_at = clock().toISOString();
+            }
+            if (invoiceFound.status !== "issued") {
               return refuse(409, "conflict", "a bill isn't issued");
             }
             if (collectOnly && invoiceMoney(invoiceFound, state).balance_paise <= 0) {

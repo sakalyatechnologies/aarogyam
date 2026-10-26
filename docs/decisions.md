@@ -617,6 +617,8 @@ A clinic may keep records longer where its profession or a dispute requires; per
   - Issuing, voiding, refunds and payments stay `billing.write` or `payments.collect`. The seeded `doctor` already has `billing.read`, so a doctor reads the list and the price list as before; a custom role without it finds the draft only through the response it got.
 - **Web follow-up (not done here).** The visit bar gates the bill on `can("billing.write")` (`visit-bar.tsx`, `useBillDraft` enabled flag); it should gate on `clinical.write` plus `billing.read` so the doctor's itemised lines are saved at Send for payment.
 
+- **Doctor may collect too (migration 0681).** The seeded `doctor` template also gets `payments.collect`, backfilled into existing clinics' doctor roles. The doctor chooses: add a fee and Send for payment (the desk collects), or record the payment themselves. Still no voiding, reports or finance. The web visit bar shows the itemised bill for `clinical.write` or `billing.write` and Collect for `payments.collect` or `billing.write`.
+
 **Why.** The founder wants the shortest journey: the assistant checks in or registers, the doctor treats and presses Send for payment, the assistant collects, with no money powers handed to either.
 
 ## 2026-10-25: No-shows are automatic and reversible; stale queue tokens close at day end

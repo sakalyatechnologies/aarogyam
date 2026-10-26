@@ -776,9 +776,10 @@ async fn handled_rows_stop_counting_and_the_badge_matches_the_list() {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["invoice"]["balance_paise"], 50_000);
     }
+    // The doctor holds payments.collect since 0681, so is told too.
     assert_eq!(
         about_bill(&feed(&app, &doc).await, "collect_payment", &bill).len(),
-        0
+        1
     );
     assert_counts_match_lists(&app, &[&doc, &owner, &assistant, &desk]).await;
     let before = count(&app, &desk).await;
@@ -1142,6 +1143,15 @@ async fn another_clinic_sees_nothing_and_cannot_read_the_rows() {
     // The wall also holds at the member level: the doctor not on the rota, the desk and the
     // assistant cannot mark a row that is not theirs.
     let (doctor, _) = new_member(&app, clinic, "doctor").await;
+    // A clinic that took payments.collect off its doctor role: the doctor is not told to collect.
+    sqlx::query(
+        "delete from aarogyam.role_permissions where org_id = $1 and permission = 'payments.collect'
+         and role_id = (select id from aarogyam.roles where org_id = $1 and key = 'doctor')",
+    )
+    .bind(clinic)
+    .execute(&app.owner)
+    .await
+    .unwrap();
     let waiting: Uuid = sqlx::query_scalar(
         "select id from aarogyam.staff_notifications where org_id = $1 and kind = 'collect_payment'",
     )
@@ -1160,7 +1170,7 @@ async fn another_clinic_sees_nothing_and_cannot_read_the_rows() {
     assert_eq!(
         status,
         StatusCode::NOT_FOUND,
-        "a billing.read doctor is not told to collect"
+        "a doctor without payments.collect is not told to collect"
     );
     app.finish().await;
 }
@@ -1318,10 +1328,10 @@ async fn a_hired_doctor_sends_for_payment_and_the_desk_collects() {
     let practitioner = on_rota(&app, clinic, member, branch(&app, clinic).await, "Dr Rao").await;
     let patient = register(&app, &owner, "Meera Shah").await;
 
-    // The doctor holds no billing.write and no payments.collect.
+    // The doctor holds no billing.write; payments.collect is theirs to use or leave to the desk.
     let permissions = permissions_of(&app, &doctor).await;
     assert!(!permissions.contains("billing.write"));
-    assert!(!permissions.contains("payments.collect"));
+    assert!(permissions.contains("payments.collect"));
     assert!(permissions.contains("clinical.write"));
 
     // Assistant queues, doctor treats and closes with a fee: a draft bill, and the desk is told.
@@ -1421,8 +1431,8 @@ async fn a_hired_doctor_sends_for_payment_and_the_desk_collects() {
         assert_eq!(status, expected, "{body} {got}");
     }
 
-    // Everything past the draft stays the desk's: the doctor cannot issue, void, take payment
-    // or record a refund; reading bills works as before (billing.read).
+    // Everything past the draft stays the desk's: the doctor cannot issue or void;
+    // reading bills works as before (billing.read).
     let (status, _) = call(
         &app,
         &doctor,
@@ -1440,8 +1450,6 @@ async fn a_hired_doctor_sends_for_payment_and_the_desk_collects() {
         Some(json!({ "reason": "mistake" })),
     )
     .await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
-    let (status, _) = pay(&app, &doctor, &patient, &bill, "doctor-000-0001", 50_000).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     let state: String = sqlx::query_scalar("select status from aarogyam.invoices where id = $1")
         .bind(uuid_of(&bill))
@@ -1480,6 +1488,99 @@ async fn a_hired_doctor_sends_for_payment_and_the_desk_collects() {
             )
             .await;
         assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_hired_doctor_closes_with_a_fee_and_collects_the_payment_themselves() {
+    let app = TestApp::start().await;
+    let clinic = app.clinic_id("alpha").await;
+    let owner = app.token(ALPHA_OWNER);
+    let (doctor, member) = new_member(&app, clinic, "doctor").await;
+    let practitioner = on_rota(&app, clinic, member, branch(&app, clinic).await, "Dr Rao").await;
+    let patient = register(&app, &owner, "Meera Shah").await;
+    let queued = walk_in(&app, &owner, &patient, Some(practitioner)).await;
+    let visit = start_visit(&app, &doctor, &queued).await;
+    let (status, closed) = call(
+        &app,
+        &doctor,
+        Method::POST,
+        &format!("/api/v1/visits/{visit}/close"),
+        Some(json!({ "fee_paise": 50_000, "queue_status": "ready_to_bill" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{closed}");
+    let bill = closed["invoice"]["id"].as_str().unwrap().to_owned();
+
+    let summary = get_ok(
+        &app,
+        &doctor,
+        &format!("/api/v1/invoices/{bill}/collect-summary"),
+    )
+    .await;
+    assert_eq!(summary["balance_paise"], 50_000);
+    assert_eq!(summary["patient"]["id"], patient);
+
+    // Another clinic: 404 on the summary and on the payment.
+    let beta = app.token(BETA_OWNER);
+    let (status, _) = app
+        .send(
+            Method::GET,
+            BETA,
+            &format!("/api/v1/invoices/{bill}/collect-summary"),
+            Some(&beta),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = app
+        .send_with(
+            Method::POST,
+            BETA,
+            "/api/v1/payments",
+            Some(&beta),
+            Some(
+                json!({ "patient_id": patient, "method": "cash", "amount_paise": 50_000,
+                         "allocations": [{ "invoice_id": bill, "amount_paise": 50_000 }] }),
+            ),
+            &[("idempotency-key", "beta-0000-000001")],
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // The doctor collects: issued and paid in one request.
+    let (status, paid) = pay(&app, &doctor, &patient, &bill, "doctor-000-0001", 50_000).await;
+    assert_eq!(status, StatusCode::CREATED, "{paid}");
+    let state: String = sqlx::query_scalar("select status from aarogyam.invoices where id = $1")
+        .bind(uuid_of(&bill))
+        .fetch_one(&app.owner)
+        .await
+        .unwrap();
+    assert_eq!(state, "issued");
+    let (status, _) = call(
+        &app,
+        &doctor,
+        Method::GET,
+        &format!("/api/v1/invoices/{bill}/collect-summary"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "nothing left to collect");
+
+    // Still no voiding and no reports.
+    for (method, path, body) in [
+        (
+            Method::POST,
+            format!("/api/v1/invoices/{bill}/void"),
+            Some(json!({ "reason": "No" })),
+        ),
+        (Method::GET, "/api/v1/reports/collections".to_owned(), None),
+        (Method::GET, "/api/v1/reports/pending".to_owned(), None),
+    ] {
+        let (status, body) = call(&app, &doctor, method.clone(), &path, body).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{method} {path}: {body}");
     }
     app.finish().await;
 }

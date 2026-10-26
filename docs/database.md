@@ -698,7 +698,7 @@ Every permission the API checks, such as patients.read.
 | `description` | `text` |  |
 | `scopes` | `text[]` | which of all, own, assigned it can be narrowed to; always all |
 
-Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and "No known allergies" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills.
+Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and "No known allergies" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills.
 
 ### `role_templates` (★ foundation)
 

@@ -213,7 +213,7 @@ TABLES = [
       purpose="Every permission the API checks, such as patients.read.",
       cols=["key text | unique, module.action", "module text", "description text",
             "scopes text[] | which of all, own, assigned it can be narrowed to; always all"],
-      notes="Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and \"No known allergies\" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills."),
+      notes="Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and \"No known allergies\" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills."),
     T(name="role_templates", domain="tenancy", rls="global", star=True, lifecycle="mutable",
       purpose="Default roles copied into each new clinic: owner, doctor, front desk, assistant, finance.",
       cols=["key text | unique", "name text", "description text"]),

@@ -600,11 +600,9 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
         }
         // Follow-ups that fell due and patients who have waited: alert staff once each.
         match aarogyam_notify::flag_alerts(&db, time::OffsetDateTime::now_utc()).await {
-            Ok(report) if report.recalls + report.waiting > 0 => tracing::info!(
-                recalls = report.recalls,
-                waiting = report.waiting,
-                "staff alerts flagged"
-            ),
+            Ok(report) if report != aarogyam_notify::FlagReport::default() => {
+                tracing::info!(report = ?report, "staff alerts flagged");
+            }
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not flag staff alerts"),
         }

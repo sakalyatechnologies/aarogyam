@@ -251,6 +251,19 @@ async fn an_order_is_sent_and_received_into_stock() {
         .await;
     assert_eq!(status, StatusCode::OK);
     assert!(seen["total_paise"].is_null(), "costs need finance.view");
+    let (status, listed) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/purchase-orders",
+            Some(&assistant),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    for order in listed["items"].as_array().unwrap() {
+        assert!(order["total_paise"].is_null(), "the list hides costs too");
+    }
     for line in seen["lines"].as_array().unwrap() {
         assert!(line["unit_cost_paise"].is_null());
     }

@@ -29,6 +29,7 @@ export function BookPage() {
   const api = services.clinic(host);
   const options = useQuery({ queryKey: ["book-options", host], queryFn: ({ signal }) => unwrap(api.getBookingOptions({ signal })) });
   const [booked, setBooked] = useState<Booked>();
+  const [asked, setAsked] = useState(false);
 
   let body;
   if (options.isPending) {
@@ -42,9 +43,9 @@ export function BookPage() {
       />
     );
   } else if (booked !== undefined) {
-    body = <Done booked={booked} timeZone={options.data.timezone} />;
+    body = <Done booked={booked} asked={asked} timeZone={options.data.timezone} />;
   } else {
-    body = <Flow host={host} options={options.data} onBooked={setBooked} />;
+    body = <Flow host={host} options={options.data} onBooked={(result, wasRequest) => { setAsked(wasRequest); setBooked(result); }} />;
   }
 
   return (
@@ -67,7 +68,7 @@ export function BookPage() {
   );
 }
 
-function Done({ booked, timeZone }: { booked: Booked; timeZone: string }) {
+function Done({ booked, asked, timeZone }: { booked: Booked; asked: boolean; timeZone: string }) {
   return (
     <MkCard>
       <div role="status" className="flex flex-col items-center gap-3 py-6 text-center">
@@ -79,14 +80,16 @@ function Done({ booked, timeZone }: { booked: Booked; timeZone: string }) {
         <p className="max-w-sm text-sm text-muted">
           {booked.status === "confirmed"
             ? "We've emailed you the details."
-            : `${booked.clinic_name} will confirm your appointment, and we'll email you as soon as they do. Until then the time isn't guaranteed.`}
+            : asked
+              ? `That time was already booked, so ${booked.clinic_name} will check and confirm it, or suggest another time, and we'll email you. Until then the time isn't guaranteed.`
+              : `${booked.clinic_name} will confirm your appointment, and we'll email you as soon as they do. Until then the time isn't guaranteed.`}
         </p>
       </div>
     </MkCard>
   );
 }
 
-function Flow({ host, options, onBooked }: { host: string; options: BookingOptions; onBooked: (booked: Booked) => void }) {
+function Flow({ host, options, onBooked }: { host: string; options: BookingOptions; onBooked: (booked: Booked, wasRequest: boolean) => void }) {
   const services = useServices();
   const api = services.clinic(host);
   const authState = useAuthState();
@@ -143,9 +146,11 @@ function Flow({ host, options, onBooked }: { host: string; options: BookingOptio
             <p role="alert" className="text-sm text-danger-text">
               We couldn't load the times. Try another day or come back in a moment.
             </p>
-          ) : slots.data.slots.length === 0 ? (
+          ) : slots.data.slots.length === 0 && slots.data.requestable_slots.length === 0 ? (
             <p className="text-sm text-muted">No free times on this day. Try another day.</p>
           ) : (
+            <>
+            {slots.data.slots.length === 0 ? <p className="text-sm text-muted">No free times on this day.</p> : null}
             <div role="group" aria-label="Free times" className="flex flex-wrap gap-2">
               {slots.data.slots.map((slot) => (
                 <button
@@ -162,6 +167,27 @@ function Flow({ host, options, onBooked }: { host: string; options: BookingOptio
                 </button>
               ))}
             </div>
+            {slots.data.requestable_slots.length === 0 ? null : (
+              <div role="group" aria-label="Request this time" className="flex flex-wrap items-center gap-2">
+                <span className="w-full text-xs font-semibold text-muted">Request this time · already booked; the clinic will confirm</span>
+                {slots.data.requestable_slots.map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    className="mk-chipf"
+                    aria-pressed={slot === picked}
+                    aria-label={`Request ${formatTime(slot, options.timezone)}`}
+                    onClick={() => {
+                      setNotice(undefined);
+                      setChoice({ doctorId, date, slot });
+                    }}
+                  >
+                    {formatTime(slot, options.timezone)}
+                  </button>
+                ))}
+              </div>
+            )}
+            </>
           )}
         </div>
       </MkCard>
@@ -176,6 +202,7 @@ function Flow({ host, options, onBooked }: { host: string; options: BookingOptio
           doctorName={options.doctors.find((d) => d.id === doctorId)?.name ?? ""}
           email={authState.user.email}
           slot={picked}
+          requestable={slots.data?.requestable_slots.includes(picked) ?? false}
           timeZone={options.timezone}
           practitionerId={doctorId}
           onBooked={onBooked}
@@ -228,6 +255,7 @@ function Details({
   doctorName,
   email,
   slot,
+  requestable,
   timeZone,
   practitionerId,
   onBooked,
@@ -237,9 +265,10 @@ function Details({
   doctorName: string;
   email: string | undefined;
   slot: string;
+  requestable: boolean;
   timeZone: string;
   practitionerId: string;
-  onBooked: (booked: Booked) => void;
+  onBooked: (booked: Booked, wasRequest: boolean) => void;
   onTaken: (message: string) => void;
 }) {
   const services = useServices();
@@ -269,7 +298,7 @@ function Details({
       .then((result) => {
         setBusy(false);
         if (result.ok) {
-          onBooked(result.value);
+          onBooked(result.value, requestable);
         } else if (result.error.status === 409 && result.error.message.includes("no longer available")) {
           onTaken("Sorry, someone just took that time. Please choose another.");
         } else {

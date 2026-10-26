@@ -48,6 +48,8 @@ pub struct DayTotal {
     /// Payments.
     pub payments: i64,
     /// The same total split by method: every method, zero when none came in by it.
+    /// Optional in the schema, so apps built before it read on.
+    #[schema(required = false)]
     pub by_method: Vec<MethodAmountItem>,
 }
 
@@ -135,6 +137,8 @@ pub struct Collections {
     /// Bills issued in the range.
     pub invoices: i64,
     /// Discount given on the bills issued in the range, in paise.
+    /// Optional in the schema, so apps built before it read on.
+    #[schema(required = false)]
     pub discount_paise: i64,
     /// Left to pay on every issued bill, now.
     pub outstanding_paise: i64,

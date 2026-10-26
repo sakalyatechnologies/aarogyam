@@ -934,8 +934,19 @@ async fn queue_status_picks_where_the_linked_token_goes_when_a_visit_closes() {
     let owner = app.token(ALPHA_OWNER);
     let patient = register(&app, &owner).await;
 
-    // The default is unchanged: the token is done.
+    // The default is unchanged: the token is done, and Done writes no collect_payment even with
+    // a draft bill (the doctor collects the money themselves).
     let (visit, token) = queued_visit(&app, &owner, &patient).await;
+    let (status, bill) = post(
+        &app,
+        ALPHA,
+        &owner,
+        "/api/v1/invoices",
+        Some(json!({ "patient_id": patient, "encounter_id": visit,
+                     "items": [{ "description": "Consultation", "unit_price_paise": 50_000 }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{bill}");
     let (status, closed) = post(
         &app,
         ALPHA,
@@ -946,6 +957,15 @@ async fn queue_status_picks_where_the_linked_token_goes_when_a_visit_closes() {
     .await;
     assert_eq!(status, StatusCode::OK, "{closed}");
     assert_eq!(token_status(&app, &token).await, "done");
+    assert_eq!(
+        count(
+            &app,
+            "select count(*) from aarogyam.staff_notifications where kind = 'collect_payment' and invoice_id in (select id from aarogyam.invoices where encounter_id = $1)",
+            &visit,
+        )
+        .await,
+        0
+    );
 
     // Send for payment on close: the token waits at ready_to_bill, and the draft bill alerts.
     let (visit, token) = queued_visit(&app, &owner, &patient).await;

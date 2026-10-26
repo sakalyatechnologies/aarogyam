@@ -33,16 +33,45 @@ struct DevSignInPanel: View {
             ForEach(Self.people, id: \.authUid) { person in
                 SkButton(person.name, variant: .secondary) {
                     Task {
-                        failed = !(await signIn(as: person.authUid))
+                        failed = !(await DevSession.signIn(as: person.authUid, graph: graph))
                     }
                 }
             }
         }
         .padding(SkSpacing.xl)
         .background(theme.palette.background.color)
+        .task {
+            // Screenshot runs: `SIMCTL_CHILD_AAROGYAM_DEV_SIGN_IN=<auth uid>` signs in at launch.
+            // With AAROGYAM_DEV_SIGN_OUT=1 the root view does both (sign out first, then this), in order.
+            if !DevSession.signOutRequested, let uid = ProcessInfo.processInfo.environment["AAROGYAM_DEV_SIGN_IN"] {
+                failed = !(await DevSession.signIn(as: uid, graph: graph))
+            }
+        }
+    }
+}
+
+/// Launch hooks for screenshot and test runs (Local debug builds only, like the panel):
+/// `SIMCTL_CHILD_AAROGYAM_DEV_SIGN_OUT=1` clears the stored session (and the open clinic) first, so a
+/// following `SIMCTL_CHILD_AAROGYAM_DEV_SIGN_IN=<auth uid>` takes effect. Without it a stored session wins.
+enum DevSession {
+    static var signOutRequested: Bool { ProcessInfo.processInfo.environment["AAROGYAM_DEV_SIGN_OUT"] == "1" }
+
+    /// Runs once at launch from the root view: sign out, wait until the session has really ended
+    /// (the shared sign-out clears the Keychain after its network call), then sign in if asked.
+    @MainActor static func applyLaunchEnv(graph: AppGraph) async {
+        guard signOutRequested else { return }
+        graph.signOut()
+        for _ in 0..<100 {
+            if case .signedOut = onEnum(of: graph.sessionState.value) { break }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        try? await Task.sleep(for: .milliseconds(1500))
+        if let uid = ProcessInfo.processInfo.environment["AAROGYAM_DEV_SIGN_IN"] {
+            _ = await signIn(as: uid, graph: graph)
+        }
     }
 
-    private func signIn(as authUid: String) async -> Bool {
+    static func signIn(as authUid: String, graph: AppGraph) async -> Bool {
         guard let url = URL(string: "http://app.localtest.me:5173/api/v1/dev/token") else { return false }
         var request = URLRequest(url: url, timeoutInterval: 5)
         request.httpMethod = "POST"
@@ -67,7 +96,7 @@ struct DevSignInPanel: View {
 
     /// Writes the session where `SecureSessionStore` reads it: the app's Keychain service, the
     /// store's default key.
-    private func save(_ data: Data) -> Bool {
+    private static func save(_ data: Data) -> Bool {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: "com.aarogyam.staff",
@@ -78,6 +107,23 @@ struct DevSignInPanel: View {
         add[kSecValueData as String] = data
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
+    }
+}
+
+/// Screenshot runs: `SIMCTL_CHILD_AAROGYAM_DEV_TAB=more` opens that tab first, and
+/// `SIMCTL_CHILD_AAROGYAM_DEV_SHEET=walkin` a sheet.
+enum DevLaunch {
+    static var sheet: String? { ProcessInfo.processInfo.environment["AAROGYAM_DEV_SHEET"] }
+
+    static var tab: NavTab? {
+        switch ProcessInfo.processInfo.environment["AAROGYAM_DEV_TAB"] {
+        case "patients": .patients
+        case "schedule": .schedule
+        case "expenses": .expenses
+        case "more": .more
+        case "today": .today
+        default: nil
+        }
     }
 }
 #endif

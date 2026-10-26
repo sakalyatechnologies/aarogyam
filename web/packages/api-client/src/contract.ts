@@ -254,6 +254,9 @@ export type NewAppointmentBody = Schemas["NewAppointmentBody"];
 export type BookingWarning = Schemas["BookingWarning"];
 export type SavedAppointment = Schemas["SavedAppointment"];
 export type StatusChange = Schemas["StatusChange"];
+export type MoveRequest = Schemas["MoveRequest"];
+export type ConflictPolicy = Schemas["ConflictPolicy"];
+export type ConflictPolicyChange = Schemas["ConflictPolicyChange"];
 export type StatusChanged = Schemas["StatusChanged"];
 
 /** These replace the web draft's `scheduled`/`in_progress`/`teleconsult` (`docs/decisions.md`, 4 Oct). */
@@ -265,6 +268,10 @@ export type BookingWarningCode = "practitioner_busy" | "practitioner_on_leave" |
 // Queue (M3) --------------------------------------------------------------------------------------
 
 export type QueueDay = Schemas["QueueDay"];
+export type MissedList = Schemas["MissedList"];
+export type MissedAppointment = Schemas["MissedAppointment"];
+export type ToCollectList = Schemas["ToCollectList"];
+export type ToCollectItem = Schemas["ToCollectItem"];
 export type QueueToken = Schemas["QueueToken"];
 export type WalkInBody = Schemas["WalkInBody"];
 export type TokenStatusChange = Schemas["TokenStatusChange"];
@@ -527,6 +534,9 @@ export type Invoice = Schemas["Invoice"];
 export type InvoiceList = Schemas["InvoiceList"];
 export type NewInvoice = Schemas["NewInvoice"];
 export type UpiLink = Schemas["UpiLink"];
+/** `GET /api/v1/invoices/{id}/collect-summary`: what a collector needs, without the bill's lines or the patient's record. */
+export type CollectSummary = Schemas["CollectSummary"];
+export type CollectUpi = Schemas["CollectUpi"];
 export type InvoiceEdit = Schemas["InvoiceEdit"];
 
 export type Allocation = Schemas["Allocation"];
@@ -596,6 +606,7 @@ export type ShareMessage = Schemas["ShareMessage"];
 export type VisitLink = Schemas["VisitLink"];
 export type VisitSummary = Schemas["VisitSummary"];
 export type Recall = Schemas["Recall"];
+export type RecallList = Schemas["RecallList"];
 export type RootCanal = Schemas["RootCanal"];
 export type MedicineSet = Schemas["MedicineSet"];
 export type MedicineSetList = Schemas["MedicineSetList"];
@@ -642,9 +653,9 @@ export type WebsiteChanges = Schemas["WebsiteChanges"];
 export type PhotoChanges = Schemas["PhotoChanges"];
 
 // Staff notifications and the bell ---------------------------------------------------------------
-/** `href` is a path inside the portal that opens what a notification is about; older servers do not send it. */
-export type Notification = Schemas["Notification"] & { href?: string | null };
-export type NotificationList = { items: Notification[] };
+/** A notice as the caller sees it. The patient's name is never sent: look it up from the queue or the collect summary. */
+export type Notification = Schemas["Notification"];
+export type NotificationList = Schemas["NotificationList"];
 export type UnreadCount = Schemas["UnreadCount"];
 export type MarkedRead = Schemas["MarkedRead"];
 export type Badges = Schemas["Badges"];
@@ -695,6 +706,13 @@ export type WalkInRequest = Schemas["WalkInRequest"];
 export type WalkIn = Schemas["WalkIn"];
 export type PhoneLookup = Schemas["PhoneLookup"];
 export type PhoneMatch = Schemas["PhoneMatch"];
+export type FamilyMember = Schemas["FamilyMember"];
+export type FamilyLink = Schemas["FamilyLink"];
+export type FamilyList = Schemas["FamilyList"];
+export type PatientsSummary = Schemas["PatientsSummary"];
+export type ConsentRequested = Schemas["ConsentRequested"];
+export type ConsentLink = Schemas["ConsentLink"];
+export type Signed = Schemas["Signed"];
 export type PhoneMatches = Schemas["PhoneMatches"];
 export type StartedVisit = Schemas["StartedVisit"];
 export type QuickPicks = Schemas["QuickPicks"];

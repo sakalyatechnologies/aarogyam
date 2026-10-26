@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with wanted as (\n             select distinct on (lower(c)) c as display_text\n             from unnest($2::text[]) as c),\n           added as (\n             insert into aarogyam.conditions (patient_id, display_text, flagged, source)\n             select $1, w.display_text, true, 'patient' from wanted w\n             where not exists (select 1 from aarogyam.conditions c\n                               where c.patient_id = $1 and c.status = 'active'\n                                 and lower(c.display_text) = lower(w.display_text))\n             returning id)\n           select count(*) as \"count!\" from added",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "593adc43c260d6029f6f2c7c712a503ac8a15772f72afb46d6be0d1b956d11ff"
+}

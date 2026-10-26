@@ -19,7 +19,7 @@ class MainActivity : AppCompatActivity() {
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         }
         // Every screen but sign-in opens with a dark brand header: light status bar icons.
-        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT))
         setContent { AppRoot((application as AarogyamApp).graph) }
     }
 }

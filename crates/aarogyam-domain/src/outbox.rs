@@ -53,6 +53,8 @@ pub enum MessageKind {
     LabOrderReminder,
     /// A campaign emailed to the staff member who asked for a test (never a patient).
     CampaignTest,
+    /// A link to read the clinic's notice and sign consent, sent to a patient.
+    ConsentRequested,
     /// A receipt for a payment the clinic received, when the clinic switched receipts on.
     PaymentReceipt,
 }
@@ -72,6 +74,7 @@ impl MessageKind {
             Self::ClinicMessage => "clinic.message",
             Self::LabOrderReminder => "lab_order.reminder",
             Self::CampaignTest => "campaign.test",
+            Self::ConsentRequested => "consent.requested",
             Self::PaymentReceipt => "payment.receipt",
         }
     }
@@ -90,6 +93,7 @@ impl MessageKind {
             "clinic.message" => Some(Self::ClinicMessage),
             "lab_order.reminder" => Some(Self::LabOrderReminder),
             "campaign.test" => Some(Self::CampaignTest),
+            "consent.requested" => Some(Self::ConsentRequested),
             "payment.receipt" => Some(Self::PaymentReceipt),
             _ => None,
         }

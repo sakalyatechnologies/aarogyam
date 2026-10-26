@@ -351,3 +351,101 @@ pub async fn seat_in_room(
     .await?;
     Ok(row)
 }
+
+/// A token from an earlier day still waiting for its bill to be paid. Ids and numbers only.
+#[derive(Debug, Clone)]
+pub struct ToCollectRow {
+    /// The token.
+    pub token_id: Uuid,
+    /// Its clinic day.
+    pub day: Date,
+    /// The number it had.
+    pub token_number: i32,
+    /// The patient.
+    pub patient_id: Uuid,
+    /// The patient's clinic number.
+    pub patient_number: String,
+    /// The bill with a balance.
+    pub invoice_id: Uuid,
+    /// What is left to pay, in paise.
+    pub balance_paise: i64,
+}
+
+/// Tokens of days before `today` left at `ready_to_bill`, with each of their draft or issued
+/// bills that still has a balance. Oldest first.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn to_collect(
+    conn: &mut PgConnection,
+    today: Date,
+) -> Result<Vec<ToCollectRow>, DbError> {
+    let rows = sqlx::query_as!(
+        ToCollectRow,
+        r#"select q.id as token_id, q.day, q.token_number, q.patient_id,
+                  p.number as patient_number, i.id as invoice_id,
+                  app.invoice_balance_paise(i) as "balance_paise!"
+           from aarogyam.queue_tokens q
+           join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
+           join aarogyam.encounters e on e.org_id = q.org_id and e.queue_token_id = q.id
+           join aarogyam.invoices i on i.org_id = e.org_id and i.encounter_id = e.id
+                and i.status in ('draft', 'issued')
+           where q.status = 'ready_to_bill' and q.day < $1
+             and app.invoice_balance_paise(i) > 0
+           order by q.day, q.token_number, i.id
+           limit 200"#,
+        today
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// When the token's doctor was last reminded, if ever.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn last_reminded_at(
+    conn: &mut PgConnection,
+    id: Uuid,
+) -> Result<Option<OffsetDateTime>, DbError> {
+    let at = sqlx::query_scalar!(
+        "select last_reminded_at from aarogyam.queue_tokens where id = $1",
+        id
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(at)
+}
+
+/// Stamps the reminder and re-opens the token's `patient_waiting` notification: unhandled, and
+/// unread again for everyone who had read it (its `updated_at` moves to now). Writes the row if
+/// the token has none. Writes ids only.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn remind(conn: &mut PgConnection, id: Uuid, now: OffsetDateTime) -> Result<(), DbError> {
+    sqlx::query!(
+        "update aarogyam.queue_tokens set last_reminded_at = $2 where id = $1",
+        id,
+        now
+    )
+    .execute(&mut *conn)
+    .await?;
+    sqlx::query!(
+        r#"with raised as (
+             insert into aarogyam.staff_notifications (kind, queue_token_id, href, audience)
+             values ('patient_waiting', $1, '/queue', 'doctor')
+             on conflict (org_id, queue_token_id, kind) where queue_token_id is not null
+             do update set handled_at = null, handled_by = null
+             returning id
+           )
+           delete from aarogyam.staff_notification_reads r
+           using raised
+           where r.notification_id = raised.id"#,
+        id
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}

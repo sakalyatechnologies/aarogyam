@@ -236,6 +236,9 @@ pub struct ProjectionInput<'a> {
     pub reorder_level: i64,
     /// Days from ordering to delivery.
     pub lead_time_days: i64,
+    /// The most the clinic wants on the shelf, when it has set one: a suggested order never
+    /// takes the stock above it.
+    pub max_level: Option<i64>,
     /// Batches with stock left: expiry (none: never) and quantity.
     pub batches: &'a [(Option<Date>, i64)],
     /// Units used on each clinic-local day (movements of kind `use` only; days with no use may
@@ -296,7 +299,8 @@ pub struct Projection {
 /// over W; `days_cover` is the usable stock over it, rounded down; the stock that counts is the
 /// batches not expired today and not expiring before the day it runs out. The alert fires when
 /// the item is low or critical, or when `days_cover` is at most the lead time plus three days.
-/// The suggested order is `ceil(daily_usage * (lead time + 14)) - usable`, never below zero.
+/// The suggested order is `ceil(daily_usage * (lead time + 14)) - usable`, never below zero;
+/// when the item has a maximum level the first term is held to it.
 /// Arithmetic is on whole numbers, so nothing depends on rounding of fractions.
 #[must_use]
 pub fn project(input: &ProjectionInput<'_>) -> Projection {
@@ -383,7 +387,8 @@ pub fn project(input: &ProjectionInput<'_>) -> Projection {
         reason = "quantities are far below 2^52; the figure is for display"
     )]
     let daily = used as f64 / window as f64;
-    let target = (used * (input.lead_time_days + REORDER_COVER_DAYS) + window - 1) / window;
+    let covering = (used * (input.lead_time_days + REORDER_COVER_DAYS) + window - 1) / window;
+    let target = input.max_level.map_or(covering, |max| covering.min(max));
     Projection {
         on_hand,
         usable_on_hand: usable,
@@ -499,6 +504,7 @@ mod tests {
             today: DAY,
             reorder_level,
             lead_time_days,
+            max_level: None,
             batches,
             daily_use,
             first_use_on: daily_use.iter().map(|(d, _)| *d).min(),
@@ -617,6 +623,23 @@ mod tests {
         let p = project(&input(&[(None, 30)], &use_, 40, 7));
         assert_eq!(p.reason, Some(AlertReason::Low));
         assert_eq!(p.days_cover, Some(3));
+    }
+
+    #[test]
+    fn the_suggested_order_stops_at_the_maximum_level() {
+        let mut use_ = vec![(day(1), 5), (day(7), 5)];
+        use_.sort();
+        let mut given = input(&[(None, 25)], &use_, 1, 7);
+        // Without a maximum: ceil(10/7 * 21) = 30, less 25 on hand.
+        assert_eq!(project(&given).suggested_reorder_qty, Some(5));
+        // A maximum of 28 allows only 3 more.
+        given.max_level = Some(28);
+        assert_eq!(project(&given).suggested_reorder_qty, Some(3));
+        // A maximum above the need changes nothing; one at or below the stock orders nothing.
+        given.max_level = Some(100);
+        assert_eq!(project(&given).suggested_reorder_qty, Some(5));
+        given.max_level = Some(20);
+        assert_eq!(project(&given).suggested_reorder_qty, Some(0));
     }
 
     #[test]

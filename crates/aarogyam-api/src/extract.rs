@@ -279,6 +279,68 @@ impl<A: Required, B: Required> FromRequestParts<AppState> for RequireEither<A, B
     }
 }
 
+/// Which side of a file the route is on, for [`FileAccess`].
+pub trait FileSide {
+    /// The permissions that admit the request: clinical, billing and the payment desk. The app
+    /// narrows billing staff to payment proofs.
+    const PERMISSIONS: [Permission; 3];
+}
+
+/// Files are read.
+#[derive(Debug)]
+pub struct FileRead;
+
+impl FileSide for FileRead {
+    const PERMISSIONS: [Permission; 3] = [
+        Permission::ClinicalRead,
+        Permission::BillingRead,
+        Permission::PaymentsCollect,
+    ];
+}
+
+/// Files are added.
+#[derive(Debug)]
+pub struct FileWrite;
+
+impl FileSide for FileWrite {
+    const PERMISSIONS: [Permission; 3] = [
+        Permission::ClinicalWrite,
+        Permission::BillingWrite,
+        Permission::PaymentsCollect,
+    ];
+}
+
+/// A [`ClinicRequest`] whose role holds the clinical permission for files, or the billing one,
+/// or `payments.collect`; otherwise `403`. Billing staff reach only payment proofs, which the use
+/// case enforces by the file's kind.
+#[derive(Debug)]
+pub struct FileAccess<S: FileSide> {
+    /// The checked request.
+    pub request: ClinicRequest,
+    side: PhantomData<S>,
+}
+
+impl<S: FileSide> FromRequestParts<AppState> for FileAccess<S> {
+    type Rejection = ApiFailure;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let request = ClinicRequest::admit(parts, state, true).await?;
+        if !S::PERMISSIONS
+            .iter()
+            .any(|permission| request.actor.require(*permission).is_ok())
+        {
+            request.actor.require(S::PERMISSIONS[0])?;
+        }
+        Ok(Self {
+            request,
+            side: PhantomData,
+        })
+    }
+}
+
 /// A [`ClinicRequest`] whose role sees at least one kind of staff notification (bookings, labs,
 /// bills, recalls, tasks, stock, time off); otherwise `403`. Support grants are admitted,
 /// read-only. The notification routes narrow what each kind shows themselves.

@@ -62,6 +62,18 @@ Settings come from `config/local.toml` (local defaults, not secret) and `ARO_*` 
 
 Follow the log budget in `docs/guidelines/observability.md`. Business events use the `Event` enum (`appointment.booked`, `invoice.paid`) in the `event` field. Log IDs only.
 
+## Briefing subagents
+
+When you hand work to an independent agent, give it in the brief:
+- the exact files, with file:line refs;
+- the signatures it implements or calls;
+- the 3–5-line pattern to copy;
+- the known traps;
+- the exit criteria;
+- a token budget.
+
+Tell it not to explore the repo or read whole large files: `grep -n`, then read only those ranges. Build and test output goes to a log file; read the exit code plus a filtered grep.
+
 ## Hooks
 
 Run `scripts/install-hooks.sh` once per clone. The pre-commit hook runs the final check and `cargo machete`, adds the database tests when Postgres answers on localhost, and fails if `docs/database.md` is stale after a change to `docs/schema/model.py`. When `mobile/` is staged it runs `./gradlew check` there instead of the Rust checks. Claude Code formats each Rust file it edits. CI is parked for now, so the hook is the gate.

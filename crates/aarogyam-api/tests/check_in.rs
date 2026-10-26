@@ -166,10 +166,9 @@ async fn bad_check_ins_roles_and_other_clinics() {
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 
-    // The assistant may record intake but not edit patients; a role with nothing may do neither;
-    // another clinic gets 404. None of it marked the patient arrived.
+    // A role with nothing may not check in; another clinic gets 404. None of it marked the
+    // patient arrived.
     for (host, who, expected) in [
-        (ALPHA, ALPHA_ASSISTANT, StatusCode::FORBIDDEN),
         (ALPHA, ALPHA_NOTHING, StatusCode::FORBIDDEN),
         (BETA, BETA_OWNER, StatusCode::NOT_FOUND),
     ] {

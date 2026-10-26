@@ -403,6 +403,52 @@ pub(crate) async fn move_token(
     Ok(None)
 }
 
+/// Seconds between two reminders for one token.
+const REMIND_EVERY_SECONDS: i64 = 60;
+
+/// Reminds the doctor about a waiting patient: the token's `patient_waiting` notification is
+/// re-opened (unhandled, unread again) so it rises in the bell. One reminder per token per
+/// minute. Needs `clinical.write` or `appointments.write`, and the token within reach.
+///
+/// # Errors
+/// [`AppError::NotFound`] when the token isn't in this clinic or out of reach;
+/// [`AppError::NotWaiting`] when it isn't waiting; [`AppError::RemindTooSoon`] inside the minute.
+pub async fn remind(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    token_id: QueueTokenId,
+    now: OffsetDateTime,
+) -> Result<(TokenView, OffsetDateTime), AppError> {
+    let permission = if actor.require(Permission::ClinicalWrite).is_ok() {
+        Permission::ClinicalWrite
+    } else {
+        actor.require(Permission::AppointmentsWrite)?;
+        Permission::AppointmentsWrite
+    };
+    let reach = actor.reach(permission).member();
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let today = clinic_today(&actor.timezone, now);
+        let token = dal::lock_for_visit(tx.conn(), token_id.uuid(), reach)
+            .await?
+            .ok_or(AppError::NotFound("queue token"))?;
+        if token.state.status != QueueStatus::Waiting.as_str() {
+            return Err(AppError::NotWaiting);
+        }
+        if let Some(last) = dal::last_reminded_at(tx.conn(), token.state.id).await? {
+            let wait = (now - last).whole_seconds();
+            if wait < REMIND_EVERY_SECONDS {
+                return Err(AppError::RemindTooSoon {
+                    retry_after_seconds: (REMIND_EVERY_SECONDS - wait).max(1),
+                });
+            }
+        }
+        dal::remind(tx.conn(), token.state.id, now).await?;
+        Ok((view(tx, token.state.id, now, today).await?, now))
+    })
+    .await
+}
+
 /// Sends a waiting patient in: the token becomes `called` and its call time is stamped. The
 /// appointment, if any, stays arrived. Calling a token that is already called changes nothing
 /// and returns it, so a repeat is safe; a token past that (in the chair, ready to bill, done
@@ -537,6 +583,28 @@ pub async fn start_visit(
             token: view(tx, token.state.id, now, today).await?,
             created,
         })
+    })
+    .await
+}
+
+/// Tokens from earlier days whose bills still have a balance, for the desk's "To collect" list.
+/// They stay `ready_to_bill` but are not part of today's queue. Needs `billing.read` or
+/// `payments.collect`.
+///
+/// # Errors
+/// [`AppError::Denied`] without either; [`AppError::Db`] on failures.
+pub async fn to_collect(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    now: OffsetDateTime,
+) -> Result<Vec<dal::ToCollectRow>, AppError> {
+    if actor.require(Permission::BillingRead).is_err() {
+        actor.require(Permission::PaymentsCollect)?;
+    }
+    let today = clinic_today(&actor.timezone, now);
+    db.scoped(&scope(actor, request_id), async |tx| {
+        Ok(dal::to_collect(tx.conn(), today).await?)
     })
     .await
 }

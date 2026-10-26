@@ -445,6 +445,9 @@ pub struct StatusChange {
     pub status: String,
     /// Why; required to cancel, up to 200 characters.
     pub reason: Option<String>,
+    /// Confirming a request into a time another appointment holds is refused (`409
+    /// slot_occupied`) unless this is `true`: a deliberate double booking.
+    pub double_book: Option<bool>,
 }
 
 /// An appointment after a status change.
@@ -475,7 +478,7 @@ pub struct StatusChanged {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.write"),
         (status = 404, description = "No such appointment in this clinic"),
-        (status = 409, body = MoveRefused, description = "A move the table doesn't allow; `current` is the appointment as it is"),
+        (status = 409, body = MoveRefused, description = "A move the table doesn't allow (`current` is the appointment as it is), or confirming a request into a time another appointment holds without `double_book` (`slot_occupied`)"),
         (status = 422, description = "Confirming a request for a doctor who is on leave then (`practitioner_on_leave`)")
     )
 )]
@@ -485,13 +488,14 @@ pub(crate) async fn set_status(
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<StatusChange>,
 ) -> Result<WithEtag<StatusChanged>, ApiFailure> {
-    let outcome = app::set_status(
+    let outcome = app::set_status_with(
         state.db(),
         &request.actor,
         request.request_id,
         AppointmentId::from_uuid(id),
         &body.status,
         body.reason.as_deref(),
+        body.double_book.unwrap_or(false),
         OffsetDateTime::now_utc(),
     )
     .await?;
@@ -525,4 +529,151 @@ impl From<app::StatusChanged> for StatusChanged {
             queue_token_id: changed.token_id,
         }
     }
+}
+
+/// Which day's no-shows to list.
+#[derive(Debug, Deserialize)]
+pub struct MissedQuery {
+    /// The clinic day, `YYYY-MM-DD`; today when left out.
+    pub date: Option<String>,
+}
+
+/// One appointment nobody came to. Ids and numbers only: look the patient up by `patient_id`.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MissedAppointment {
+    /// The appointment.
+    pub appointment_id: String,
+    /// The patient.
+    pub patient_id: String,
+    /// The patient's clinic number, such as `SC-1042`.
+    pub patient_number: String,
+    /// The doctor.
+    pub practitioner_id: String,
+    /// When it was to start.
+    pub starts_at: String,
+    /// The `missed_visit` follow-up written for it; absent when the clinic switched automatic
+    /// no-shows off and staff marked it by hand.
+    pub recall_id: Option<String>,
+}
+
+/// A day's no-shows.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MissedList {
+    /// The clinic day, `YYYY-MM-DD`.
+    pub date: String,
+    /// By start time.
+    pub items: Vec<MissedAppointment>,
+}
+
+/// The appointments of one clinic day that ended as no-shows, with the follow-up written for
+/// each, for the Missed card. Check in or reschedule with the usual appointment calls.
+#[utoipa::path(
+    get,
+    path = "/api/v1/appointments/missed",
+    operation_id = "listMissedAppointments",
+    tag = "appointments",
+    params(("date" = Option<String>, Query, description = "The clinic day, `YYYY-MM-DD`; today when left out")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = MissedList),
+        (status = 400, description = "Bad date"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks appointments.read")
+    )
+)]
+pub(crate) async fn missed(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<AppointmentsRead>,
+    ApiQuery(query): ApiQuery<MissedQuery>,
+) -> Result<Json<MissedList>, ApiFailure> {
+    let (date, rows) = app::missed(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        query
+            .date
+            .as_deref()
+            .map(|text| parse_day("date", text))
+            .transpose()?,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(MissedList {
+        date: date.to_string(),
+        items: rows
+            .into_iter()
+            .map(|row| MissedAppointment {
+                appointment_id: row.appointment_id.to_string(),
+                patient_id: row.patient_id.to_string(),
+                patient_number: row.patient_number,
+                practitioner_id: row.practitioner_id.to_string(),
+                starts_at: rfc3339(row.starts_at),
+                recall_id: row.recall_id.map(|id| id.to_string()),
+            })
+            .collect(),
+    }))
+}
+
+/// Where to move an appointment.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct MoveRequest {
+    /// The new start, RFC 3339; the appointment keeps its length.
+    pub starts_at: String,
+    /// Another doctor; left out keeps the same one.
+    pub practitioner_id: Option<String>,
+}
+
+/// Reschedules a requested, booked or confirmed appointment and confirms it in one step, after
+/// checking the new time is free (leave and other appointments). A patient who booked online is
+/// told the confirmed time.
+#[utoipa::path(
+    post,
+    path = "/api/v1/appointments/{id}/move",
+    operation_id = "moveAppointment",
+    tag = "appointments",
+    params(("id" = String, Path, description = "The appointment")),
+    request_body = MoveRequest,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = StatusChanged, headers(("ETag" = String, description = "The `row_version` in quotes"))),
+        (status = 400, description = "Bad time or doctor id"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks appointments.write"),
+        (status = 404, description = "No such appointment in this clinic"),
+        (status = 409, description = "The appointment is past confirming (`conflict`), or the new time is held by another appointment (`slot_occupied`)"),
+        (status = 422, description = "The doctor is on leave then (`practitioner_on_leave`)")
+    )
+)]
+pub(crate) async fn move_appointment(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<AppointmentsWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<MoveRequest>,
+) -> Result<WithEtag<StatusChanged>, ApiFailure> {
+    let target = app::MoveTo {
+        starts_at: parse_instant("starts_at", &body.starts_at)?,
+        practitioner_id: body
+            .practitioner_id
+            .as_deref()
+            .map(|text| parse_id("practitioner_id", text).map(PractitionerId::from_uuid))
+            .transpose()?,
+    };
+    let changed = app::move_to(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        AppointmentId::from_uuid(id),
+        target,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    tracing::info!(
+        event = Event::AppointmentStatusChanged.as_str(),
+        appointment_id = %changed.appointment.row.id,
+        "appointment moved and confirmed"
+    );
+    Ok(with_etag(
+        changed.appointment.row.row_version,
+        changed.into(),
+    ))
 }

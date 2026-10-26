@@ -96,6 +96,9 @@ pub fn standard_throttle_with(
         RuleConfig::new("ip-public-site", KeyKind::Ip, 300, 60)
             .on_paths(&["/api/v1/public/site"])
             .on_methods(&["GET"]),
+        // Consent links are 256-bit secrets, but guessing is still throttled.
+        RuleConfig::new("ip-public-consent", KeyKind::Ip, 20, 10 * 60)
+            .on_paths(&["/api/v1/public/consents/"]),
         RuleConfig::new("ip-public-booking", KeyKind::Ip, 10, 60 * 60)
             .on_paths(&["/api/v1/public/bookings"])
             .on_methods(&["POST"]),

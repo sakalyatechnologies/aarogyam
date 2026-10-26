@@ -44,6 +44,8 @@ text_value! {
         StockImports => "stock_imports",
         /// Orders to suppliers with their lines and receipts: money spent, kept like bills.
         PurchaseOrders => "purchase_orders",
+        /// Consent-to-sign links, signed or not, after they expire.
+        ConsentRequests => "consent_requests",
         /// Staff time-off requests that were decided or cancelled and nobody has changed since.
         TimeOffRequests => "time_off_requests",
         /// Each day's run of a clinic's recurring staff tasks, with who did it and any note.
@@ -83,7 +85,10 @@ impl Class {
             Self::PatientRecord | Self::AuditEvents => Period::Years(7),
             Self::Invoices | Self::LabWork | Self::PurchaseOrders => Period::Years(8),
             Self::Outbox => Period::Days(90),
-            Self::ShareLinks | Self::ImportSessions | Self::StockImports => Period::Days(30),
+            Self::ShareLinks
+            | Self::ImportSessions
+            | Self::StockImports
+            | Self::ConsentRequests => Period::Days(30),
             Self::AccessLog | Self::TaskOccurrences => Period::Years(3),
             Self::Messages
             | Self::ClinicApplications
@@ -105,7 +110,7 @@ impl Class {
             Self::Invoices => "the date the bill was issued",
             Self::Outbox => "when the message was sent or abandoned",
             Self::Messages => "when the message was queued",
-            Self::ShareLinks => "when the link expired",
+            Self::ShareLinks | Self::ConsentRequests => "when the link expired",
             Self::ImportSessions | Self::StockImports => "when the upload was made",
             Self::AccessLog | Self::AuditEvents => "when the entry was written",
             Self::ClinicApplications => "when the request was decided (or made, if undecided)",

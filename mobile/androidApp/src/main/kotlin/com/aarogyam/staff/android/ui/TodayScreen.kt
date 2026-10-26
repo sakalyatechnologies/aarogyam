@@ -1,69 +1,91 @@
 package com.aarogyam.staff.android.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
-import com.aarogyam.staff.today.DayPart
-import com.aarogyam.staff.today.HeroKind
-import com.aarogyam.staff.today.ScheduleItem
+import com.aarogyam.staff.android.ui.today.AttentionList
+import com.aarogyam.staff.android.ui.today.IconWell
+import com.aarogyam.staff.android.ui.today.MePager
+import com.aarogyam.staff.android.ui.today.MoneyCards
+import com.aarogyam.staff.android.ui.today.ScheduleList
+import com.aarogyam.staff.android.ui.today.SectionHeader
+import com.aarogyam.staff.android.ui.today.TodayHero
+import com.aarogyam.staff.android.ui.today.TodayStats
+import com.aarogyam.staff.android.ui.today.UpNextCarousel
+import com.aarogyam.staff.today.MoneyView
 import com.aarogyam.staff.today.TodayState
 import com.aarogyam.staff.today.TodayStateHolder
 import com.aarogyam.staff.today.TodayView
+import com.sakalya.mobile.design.BarScroll
 import com.sakalya.mobile.design.Spacing
-import com.sakalya.mobile.designcompose.SkAvatar
-import com.sakalya.mobile.designcompose.SkCard
-import com.sakalya.mobile.designcompose.SkChip
-import com.sakalya.mobile.designcompose.SkDivider
+import com.sakalya.mobile.designcompose.SkCollapsingTopBar
 import com.sakalya.mobile.designcompose.SkEmptyState
-import com.sakalya.mobile.designcompose.SkHeroCard
-import com.sakalya.mobile.designcompose.SkListRow
-import com.sakalya.mobile.designcompose.SkStatTile
 import com.sakalya.mobile.designcompose.SkTheme
-import com.sakalya.mobile.designcompose.SkTopBar
 import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
+import com.sakalya.mobile.designcompose.skStaggerIn
 
-/** Today at the clinic, as in the mock-up: greeting, day tiles, who is next, the schedule. */
+/** Today in the v7 design: me card and My schedule, the day's numbers, who is next, the schedule. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodayScreen(
     holder: TodayStateHolder,
-    onSwitchClinic: () -> Unit,
-    onSignOut: () -> Unit,
-    onWalkIn: () -> Unit,
+    roleName: String,
+    avatar: String,
+    onOpenPatient: (String) -> Unit,
+    onOpenSchedule: () -> Unit,
+    onAddExpense: (() -> Unit)?,
+    onEditAvatar: () -> Unit,
+    onQr: () -> Unit,
+    onNotifications: () -> Unit,
+    unread: Boolean,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
+    val list = rememberLazyListState()
+    val collapsed by remember {
+        derivedStateOf {
+            list.firstVisibleItemIndex > 0 ||
+                BarScroll.collapsed(list.firstVisibleItemScrollOffset.toDouble())
+        }
+    }
     val loaded = state as? TodayState.Loaded
+    val money = state as? TodayState.MoneyOnly
     Column(Modifier.fillMaxSize()) {
-        SkTopBar(
-            title = stringResource(R.string.app_name),
-            subtitle = loaded?.view?.let { greeting(it) },
+        SkCollapsingTopBar(
+            title = stringResource(if (money != null) R.string.v7_money_today else R.string.tab_today),
+            collapsed = collapsed,
+            kicker = loaded?.view?.let { "${it.date.longDay()} · ${it.clinicName}" },
             actions = {
-                val onBar = SkTheme.colors.onBrandDark.color
-                BarAction(stringResource(R.string.walk_in_add), onBar, onWalkIn)
-                MoreMenu(onBar, onSwitchClinic, onSignOut)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (money == null) IconWell("qr", stringResource(R.string.v7_tile_clinic_qr), onQr)
+                    IconWell("bell", stringResource(R.string.v7_notifications), onNotifications, badge = unread)
+                }
             },
         )
         PullToRefreshBox(
-            isRefreshing = loaded?.refreshing == true,
+            isRefreshing = loaded?.refreshing == true || money?.refreshing == true,
             onRefresh = holder::refresh,
             modifier = Modifier.weight(1f),
         ) {
-            when (val current = state) {
+            when (val s = state) {
                 TodayState.Loading -> {
                     LoadingIndicator()
                 }
@@ -78,14 +100,27 @@ fun TodayScreen(
                 is TodayState.Failed -> {
                     SkEmptyState(
                         stringResource(R.string.today_title),
-                        stringResource(current.error.message()),
+                        stringResource(s.error.message()),
                         actionLabel = stringResource(R.string.try_again),
                         onAction = holder::refresh,
                     )
                 }
 
+                is TodayState.MoneyOnly -> {
+                    MoneyToday(s.money, onAddExpense)
+                }
+
                 is TodayState.Loaded -> {
-                    TodayContent(current)
+                    DayList(
+                        s,
+                        list,
+                        roleName,
+                        avatar,
+                        onOpenPatient,
+                        onOpenSchedule,
+                        onAddExpense,
+                        onEditAvatar,
+                    )
                 }
             }
         }
@@ -93,103 +128,130 @@ fun TodayScreen(
 }
 
 @Composable
-private fun greeting(view: TodayView): String =
-    stringResource(
-        when (view.dayPart) {
-            DayPart.Morning -> R.string.greeting_morning
-            DayPart.Afternoon -> R.string.greeting_afternoon
-            DayPart.Evening -> R.string.greeting_evening
-        },
-        view.memberName,
-        view.clinicName,
-    )
-
-@Composable
-private fun TodayContent(state: TodayState.Loaded) {
-    val view = state.view
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = Spacing.ML.dp)) {
+private fun DayList(
+    state: TodayState.Loaded,
+    list: androidx.compose.foundation.lazy.LazyListState,
+    roleName: String,
+    avatar: String,
+    onOpenPatient: (String) -> Unit,
+    onOpenSchedule: () -> Unit,
+    onAddExpense: (() -> Unit)?,
+    onEditAvatar: () -> Unit,
+) {
+    val view: TodayView = state.view
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        list,
+        contentPadding = PaddingValues(bottom = BOTTOM.dp),
+    ) {
         state.error?.let { error ->
             item {
                 Text(
                     stringResource(error.message()),
                     style = SkTypography.footnote,
-                    color = SkTheme.colors.dangerText.color,
-                    modifier = Modifier.padding(horizontal = Spacing.L.dp, vertical = Spacing.XS.dp),
+                    color = SkTheme.palette.error.color,
+                    modifier = Modifier.padding(vertical = 4.dp),
                 )
             }
         }
-        item {
-            Row(
-                Modifier.padding(horizontal = Spacing.ML.dp),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.M.dp),
-            ) {
-                SkStatTile(view.counts.visits.toString(), stringResource(R.string.stat_visits), Modifier.weight(1f))
-                SkStatTile(view.counts.waiting.toString(), stringResource(R.string.stat_waiting), Modifier.weight(1f))
-                SkStatTile(view.counts.done.toString(), stringResource(R.string.stat_done), Modifier.weight(1f))
+        view.me?.let { me ->
+            item("me") {
+                Box(Modifier.padding(horizontal = Spacing.L.dp).skStaggerIn(0)) {
+                    MePager(
+                        me,
+                        roleName,
+                        avatar,
+                        view.date,
+                        view.counts.waiting,
+                        onEditAvatar,
+                    ) { onOpenPatient(it.patientId) }
+                }
             }
         }
-        view.money?.let { money ->
-            item {
-                Row(
-                    Modifier.padding(horizontal = Spacing.ML.dp, vertical = Spacing.M.dp),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.M.dp),
-                ) {
-                    SkStatTile(
-                        money.collectedPaise.rupees(),
-                        stringResource(R.string.stat_collected),
-                        Modifier.weight(1f),
-                    )
-                    SkStatTile(money.pendingDuesPaise.rupees(), stringResource(R.string.stat_dues), Modifier.weight(1f))
-                    SkStatTile(
-                        "${money.upiShareBps / BPS_PER_PERCENT}%",
-                        stringResource(R.string.stat_upi),
-                        Modifier.weight(1f),
+        item("stats") { Box(Modifier.padding(horizontal = Spacing.L.dp).skStaggerIn(1)) { TodayStats(view.counts) } }
+        val hero = view.hero
+        val kind = view.heroKind
+        if (hero != null && kind != null) {
+            item("hero") {
+                Box(Modifier.padding(horizontal = Spacing.L.dp).skStaggerIn(2)) {
+                    TodayHero(
+                        kind,
+                        hero,
+                        view.progress,
+                        view.counts.done,
+                        view.counts.visits,
+                        { onOpenPatient(hero.patientId) },
+                        null,
                     )
                 }
             }
         }
-        val hero = view.hero
-        if (hero != null) {
-            item {
-                val kicker = if (view.heroKind == HeroKind.Now) R.string.hero_now else R.string.hero_next
-                SkHeroCard(
-                    kicker = stringResource(kicker, hero.starts.display()),
-                    title = hero.patientName,
-                    subtitle = detail(hero),
-                    modifier = Modifier.padding(horizontal = Spacing.ML.dp, vertical = Spacing.ML.dp),
-                )
+        view.money?.let { m ->
+            item(
+                "money",
+            ) { Box(Modifier.padding(horizontal = Spacing.L.dp).skStaggerIn(3)) { MoneyCards(m, onAddExpense) } }
+        }
+        val upNext = view.schedule.filter { it != hero && it.status in UPCOMING }.take(UP_NEXT)
+        if (upNext.isNotEmpty()) {
+            item("upnext-h") {
+                Side {
+                    SectionHeader(
+                        stringResource(R.string.v7_up_next),
+                        stringResource(R.string.v7_up_next_all, view.counts.visits),
+                        onOpenSchedule,
+                    )
+                }
+            }
+            item("upnext") {
+                UpNextCarousel(upNext) { onOpenPatient(it.patientId) }
             }
         }
-        item { Schedule(view.schedule) }
-    }
-}
-
-@Composable
-private fun Schedule(items: List<ScheduleItem>) {
-    if (items.isEmpty()) {
-        SkEmptyState(stringResource(R.string.schedule_empty_title), stringResource(R.string.schedule_empty_message))
-        return
-    }
-    SkCard(Modifier.padding(horizontal = Spacing.ML.dp)) {
-        Text(
-            stringResource(R.string.schedule),
-            style = SkTypography.headline,
-            color = SkTheme.colors.text.color,
-            modifier = Modifier.padding(bottom = Spacing.SM.dp),
-        )
-        items.forEachIndexed { index, item ->
-            if (index > 0) SkDivider()
-            SkListRow(
-                title = item.patientName,
-                subtitle = listOfNotNull(item.starts.display(), item.reason).joinToString(" · "),
-                leading = { SkAvatar(item.patientName, tone = item.status.tone()) },
-                trailing = { SkChip(stringResource(item.status.label()).uppercase(), tone = item.status.tone()) },
-            )
+        item("schedule-h") { Side { SectionHeader(stringResource(R.string.schedule)) } }
+        if (view.schedule.isEmpty()) {
+            item("schedule-empty") {
+                SkEmptyState(
+                    stringResource(R.string.schedule_empty_title),
+                    stringResource(R.string.schedule_empty_message),
+                )
+            }
+        } else {
+            item("schedule") { Side { ScheduleList(view.schedule) { onOpenPatient(it.patientId) } } }
+        }
+        if (view.attention.isNotEmpty()) {
+            item("attention-h") { Side { SectionHeader(stringResource(R.string.v7_needs_attention)) } }
+            item("attention") { Side { AttentionList(view.attention) { onOpenPatient(it.patientId) } } }
         }
     }
 }
 
-private fun detail(item: ScheduleItem): String =
-    listOfNotNull(item.reason, item.room, item.patientNumber).joinToString(" · ")
+/** The screen's side margin for rows that do not bleed to the edge. */
+@Composable
+private fun Side(content: @Composable () -> Unit) {
+    Box(Modifier.padding(horizontal = Spacing.L.dp)) { content() }
+}
 
-private const val BPS_PER_PERCENT = 100
+/** Finance's Today: the money first (the full v7 money page comes with analytics). */
+@Composable
+private fun MoneyToday(
+    money: MoneyView,
+    onAddExpense: (() -> Unit)?,
+) {
+    Column(Modifier.padding(horizontal = Spacing.L.dp)) { MoneyCards(money, onAddExpense) }
+}
+
+private fun kotlinx.datetime.LocalDate.longDay(): String {
+    val d = java.time.LocalDate.of(year, month.ordinal + 1, day)
+    return d.format(
+        java.time.format.DateTimeFormatter
+            .ofPattern("EEEE d MMMM"),
+    )
+}
+
+private val UPCOMING =
+    setOf(
+        com.aarogyam.staff.today.VisitStatus.Booked,
+        com.aarogyam.staff.today.VisitStatus.Confirmed,
+        com.aarogyam.staff.today.VisitStatus.Arrived,
+    )
+private const val UP_NEXT = 4
+private const val BOTTOM = 110

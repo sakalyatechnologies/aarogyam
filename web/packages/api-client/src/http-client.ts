@@ -1,6 +1,6 @@
 /** The real client: `fetch` against one API host, decoding every response at the boundary. */
 
-import type { z } from "zod";
+import { z } from "zod";
 
 import type { ApiClient, DateRange } from "./client.js";
 import { failure, parseApiError, success, type ApiResult } from "./result.js";
@@ -54,6 +54,7 @@ import {
   smartImportResult,
   invoice,
   upiLink,
+  collectSummary,
   invoiceList,
   handoff,
   handoffSession,
@@ -100,7 +101,11 @@ import {
   procedure,
   procedureList,
   qualityReport,
+  missedList,
+  recall,
+  recallList,
   queueDay,
+  toCollectList,
   queueToken,
   monthSummary,
   labBalance,
@@ -134,6 +139,7 @@ import {
   sharedPreview,
   staffResponse,
   statusChanged,
+  conflictPolicy,
   patientNotes,
   consent,
   consentList,
@@ -150,7 +156,7 @@ import {
   type RequestId,
 } from "./schemas.js";
 import { myTasks, task, taskHistory, taskList, taskOccurrence, taskPreview } from "./schemas.js";
-import { phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
+import { consentLink, consentRequested, consentSigned, familyLink, familyList, patientsSummary, phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
 import {
   audience,
   audiencePreview,
@@ -185,6 +191,8 @@ interface Call<T> {
   body?: unknown;
   /** Extra request headers, such as `Idempotency-Key`. */
   headers?: Readonly<Record<string, string>>;
+  /** The success body is a file, returned as a `Blob` (the `schema` is not used). */
+  binary?: boolean;
   signal?: AbortSignal | undefined;
 }
 
@@ -196,8 +204,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
   const send = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
   const root = baseUrl.replace(/\/+$/, "");
 
-  async function call<T>({ method, path, schema, query, body, headers: extraHeaders, signal }: Call<T>): Promise<ApiResult<T>> {
-    const headers = new Headers({ accept: "application/json" });
+  async function call<T>({ method, path, schema, query, body, headers: extraHeaders, binary, signal }: Call<T>): Promise<ApiResult<T>> {
+    const headers = new Headers({ accept: binary === true ? "*/*" : "application/json" });
     const token = await getToken();
     if (token !== null && token !== "") {
       headers.set("authorization", `Bearer ${token}`);
@@ -232,6 +240,18 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     }
 
     const id = readRequestId(response);
+    if (binary === true && response.ok) {
+      try {
+        // The `schema` of a binary call checks for a `Blob`.
+        const file = schema.safeParse(await response.blob());
+        if (file.success) {
+          return success(file.data);
+        }
+      } catch {
+        // Falls through to the failure below.
+      }
+      return failure({ status: response.status, code: "network_error", message: "Can't reach Aarogyam. Check your connection and try again." });
+    }
     const payload = await readJson(response);
     if (!response.ok) {
       return failure(parseApiError(response.status, payload, id));
@@ -392,6 +412,12 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "PATCH", path: `/api/v1/appointments/${encodeURIComponent(id)}`, schema: savedAppointment, body: changes, signal: opts?.signal }),
     setAppointmentStatus: (id, change, opts) =>
       call({ method: "POST", path: `/api/v1/appointments/${encodeURIComponent(id)}/status`, schema: statusChanged, body: change, signal: opts?.signal }),
+    moveAppointment: (id, to, opts) =>
+      call({ method: "POST", path: `/api/v1/appointments/${encodeURIComponent(id)}/move`, schema: statusChanged, body: to, signal: opts?.signal }),
+    getConflictPolicy: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/practitioners/${encodeURIComponent(id)}/conflict-policy`, schema: conflictPolicy, signal: opts?.signal }),
+    setConflictPolicy: (id, policy, opts) =>
+      call({ method: "PUT", path: `/api/v1/practitioners/${encodeURIComponent(id)}/conflict-policy`, schema: conflictPolicy, body: policy, signal: opts?.signal }),
 
     listQueue: (dateValue, opts) =>
       call({
@@ -401,6 +427,11 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         query: { date: dateValue, practitioner_id: opts?.practitionerId },
         signal: opts?.signal,
       }),
+    listMissedAppointments: (dateValue, opts) =>
+      call({ method: "GET", path: "/api/v1/appointments/missed", schema: missedList, query: { date: dateValue }, signal: opts?.signal }),
+    listQueueToCollect: (opts) => call({ method: "GET", path: "/api/v1/queue/to-collect", schema: toCollectList, signal: opts?.signal }),
+    listRecallsDue: (opts) => call({ method: "GET", path: "/api/v1/recalls", schema: recallList, signal: opts?.signal }),
+    markRecallDone: (id, opts) => call({ method: "POST", path: `/api/v1/recalls/${encodeURIComponent(id)}/done`, schema: recall, signal: opts?.signal }),
     addWalkIn: (input, opts) => call({ method: "POST", path: "/api/v1/queue", schema: queueToken, body: input, signal: opts?.signal }),
     callQueueToken: (id, opts) =>
       call({ method: "POST", path: `/api/v1/queue/${encodeURIComponent(id)}/call`, schema: queueToken, signal: opts?.signal }),
@@ -862,6 +893,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         signal: opts?.signal,
       }),
     getInvoice: (id, opts) => call({ method: "GET", path: `/api/v1/invoices/${encodeURIComponent(id)}`, schema: invoice, signal: opts?.signal }),
+    getInvoiceCollectSummary: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/invoices/${encodeURIComponent(id)}/collect-summary`, schema: collectSummary, signal: opts?.signal }),
     getInvoiceUpiLink: (id, opts) =>
       call({ method: "GET", path: `/api/v1/invoices/${encodeURIComponent(id)}/upi-link`, schema: upiLink, signal: opts?.signal }),
     createInvoice: (input, opts) => call({ method: "POST", path: "/api/v1/invoices", schema: invoice, body: input, signal: opts?.signal }),
@@ -986,6 +1019,48 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     // Walk-in fast path.
     registerWalkIn: (input, opts) => call({ method: "POST", path: "/api/v1/walk-ins", schema: walkIn, body: input, signal: opts?.signal }),
+    getPatientsSummary: (opts) => call({ method: "GET", path: "/api/v1/patients/summary", schema: patientsSummary, signal: opts?.signal }),
+    putPatientPhoto: (id, form, opts) =>
+      call({ method: "PUT", path: `/api/v1/patients/${encodeURIComponent(id)}/photo`, schema: voidResponse, body: form, signal: opts?.signal }),
+    getPatientPhoto: (id, opts) =>
+      call({
+        method: "GET",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/photo`,
+        schema: z.instanceof(Blob),
+        binary: true,
+        signal: opts?.signal,
+      }),
+    deletePatientPhoto: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/patients/${encodeURIComponent(id)}/photo`, schema: voidResponse, signal: opts?.signal }),
+    listFamily: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/family`, schema: familyList, signal: opts?.signal }),
+    addFamilyLink: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/family`, schema: familyLink, body: input, signal: opts?.signal }),
+    removeFamilyLink: (id, linkId, opts) =>
+      call({
+        method: "DELETE",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/family/${encodeURIComponent(linkId)}`,
+        schema: voidResponse,
+        signal: opts?.signal,
+      }),
+    requestConsent: (id, input, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/consents/request`,
+        schema: consentRequested,
+        body: input ?? {},
+        signal: opts?.signal,
+      }),
+    getConsentLink: (token, opts) =>
+      call({ method: "GET", path: `/api/v1/public/consents/${encodeURIComponent(token)}`, schema: consentLink, signal: opts?.signal }),
+    signConsentLink: (token, input, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/public/consents/${encodeURIComponent(token)}`,
+        schema: consentSigned,
+        body: input,
+        signal: opts?.signal,
+      }),
     lookupPatientsByPhone: (phone, opts) =>
       call({ method: "POST", path: "/api/v1/patients/lookup", schema: phoneMatches, body: { phone }, signal: opts?.signal }),
     startVisitFromQueue: (id, opts) =>

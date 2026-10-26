@@ -166,6 +166,17 @@ fn staff_message(
                 .collect();
             Ok((subject, paras))
         }
+        Template::MissedVisit => {
+            let mut paras = vec!["We missed you at your appointment.".to_owned()];
+            paras.push(match mail.portal_host {
+                Some(host) => format!(
+                    "Book a new time at {} or call the clinic.",
+                    portal.book(host)
+                ),
+                None => "Please call the clinic to book a new time.".to_owned(),
+            });
+            Ok((format!("We missed you at {}", mail.clinic_name), paras))
+        }
         Template::FollowUpReminder => {
             let due = mail
                 .variables

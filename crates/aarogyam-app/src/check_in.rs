@@ -13,7 +13,8 @@ use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::appointments::{
-    StatusChanged, StatusPlan, apply_status, locked, plan_status, status_changed,
+    StatusChanged, StatusPlan, apply_status, late_reversal_too_old, locked, plan_status,
+    status_changed,
 };
 use crate::clock::clinic_today;
 use crate::error::AppError;
@@ -69,6 +70,11 @@ pub async fn check_in(
     db.scoped(&scope(actor, request_id), async |tx| {
         let today = clinic_today(&actor.timezone, now);
         let current = locked(tx, actor, appointment_id).await?;
+        if late_reversal_too_old(&current, &actor.timezone, now) {
+            return Err(AppError::Conflict(
+                "a missed appointment can only be checked in on its own day",
+            ));
+        }
         let plan = match plan_status(&current.status, AppointmentStatus::Arrived, None)? {
             StatusPlan::Refused(_) => {
                 return Err(AppError::Conflict(
@@ -94,7 +100,7 @@ pub async fn check_in(
             )
             .await?;
         }
-        let (allergies_recorded, consents_recorded) =
+        let recorded =
             intake::record(tx, current.patient_id, &checked, actor.membership_id.uuid()).await?;
         if let StatusPlan::Move(reason) = plan {
             apply_status(
@@ -110,8 +116,8 @@ pub async fn check_in(
         }
         Ok(CheckedIn {
             arrived: status_changed(tx, current.id, today).await?,
-            allergies_recorded,
-            consents_recorded,
+            allergies_recorded: recorded.allergies,
+            consents_recorded: recorded.consents,
         })
     })
     .await

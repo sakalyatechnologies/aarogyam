@@ -312,7 +312,7 @@ describe("Ending the visit and payment", () => {
     expect(within(drawer).getByText("₹250")).toBeTruthy();
   });
 
-  it("hides Collect payment without billing.write, and still sends for payment", async () => {
+  it("hides Collect payment without billing.write or payments.collect, and still sends for payment", async () => {
     const user = userEvent.setup();
     const { path, backend, patientId } = patientWithBackend((fixtures) => {
       const membership = fixtures.memberships.find((m) => m.user_id === PEOPLE.farah);
@@ -328,7 +328,7 @@ describe("Ending the visit and payment", () => {
     const statusOf = await seatPatient(backend, patientId);
     renderPortal(path, { as: PEOPLE.farah, backend });
     await user.click(await screen.findByRole("button", { name: "Start visit" }));
-    expect(screen.queryByLabelText(/^Fee/)).toBeNull();
+    expect(screen.queryByLabelText(/^Fee/)).toBeTruthy();
     await doctorsDay(user);
     expect(await screen.findByRole("button", { name: "Send for payment" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Collect payment" })).toBeNull();

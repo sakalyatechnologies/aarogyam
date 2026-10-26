@@ -21,6 +21,8 @@ pub struct UsageRow {
     pub unit: String,
     /// At or below this the item is low.
     pub reorder_level: i64,
+    /// The most wanted on the shelf, when set.
+    pub max_level: Option<i64>,
     /// Days from ordering to delivery.
     pub lead_time_days: i16,
     /// Whether the item raises stock alerts.
@@ -53,7 +55,7 @@ pub async fn usage(
 ) -> Result<Vec<UsageRow>, DbError> {
     let rows = sqlx::query_as!(
         UsageRow,
-        r#"select i.id as item_id, i.name, i.unit, i.reorder_level, i.lead_time_days, i.alerts_enabled,
+        r#"select i.id as item_id, i.name, i.unit, i.reorder_level, i.max_level, i.lead_time_days, i.alerts_enabled,
                   coalesce(b.expiries, '{}') as "batch_expiries!: Vec<Option<Date>>",
                   coalesce(b.quantities, '{}') as "batch_quantities!: Vec<i64>",
                   coalesce(u.days, '{}') as "use_days!: Vec<Date>",

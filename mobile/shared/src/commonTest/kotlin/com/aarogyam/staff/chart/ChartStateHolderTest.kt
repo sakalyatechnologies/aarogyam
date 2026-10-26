@@ -36,14 +36,19 @@ class ChartStateHolderTest {
         status: String = "current",
         note: String? = null,
         material: String? = null,
-    ) = """{"id":"$id","tooth":$tooth,"finding":"$finding","status":"$status","effective_at":"2026-09-20T04:30:00Z",
+    ) =
+        """{"id":"$id","tooth":$tooth,"finding":"$finding","status":"$status","effective_at":"2026-09-20T04:30:00Z","canals":[],"in_progress":false,
            "surface":${surface?.let { "\"$it\"" } ?: "null"},"note":${note?.let { "\"$it\"" } ?: "null"},
            "material":${material ?: "null"}}"""
 
-    private val zirconia = """{"id":"zirconia","kind":"material","label":"Zirconia","own":false}"""
-    private val crown = """{"id":"crown","kind":"procedure","label":"Crown","own":false}"""
+    private val zirconia = """{"id":"zirconia","kind":"material","label":"Zirconia","own":false,"retired":false}"""
+    private val crown = """{"id":"crown","kind":"procedure","label":"Crown","own":false,"retired":false}"""
     private val terms =
-        listOf(crown, zirconia, """{"id":"emax","kind":"material","label":"e.max (lithium disilicate)","own":false}""")
+        listOf(
+            crown,
+            zirconia,
+            """{"id":"emax","kind":"material","label":"e.max (lithium disilicate)","own":false,"retired":false}""",
+        )
 
     private fun chart(
         current: List<String>,
@@ -233,7 +238,7 @@ class ChartStateHolderTest {
             backend.on("$SUNRISE/api/v1/dental-terms", { request ->
                 posted = (request.body as TextContent).text
                 json(
-                    """{"id":"0190a7c2-0000-7000-8000-000000000001","kind":"material","label":"Lithium silicate","own":true}""",
+                    """{"id":"0190a7c2-0000-7000-8000-000000000001","kind":"material","label":"Lithium silicate","own":true,"retired":false}""",
                 )
             })
             val holder = holder(backend)

@@ -7,7 +7,9 @@ use aarogyam_app::billing::{
 use aarogyam_domain::billing::InvoiceStatus;
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{InvoiceId, PatientId, PriceItemId};
-use aarogyam_domain::permission::require::{BillingRead, BillingWrite, SettingsManage};
+use aarogyam_domain::permission::require::{
+    BillingRead, BillingWrite, ClinicalWrite, PaymentsCollect, SettingsManage,
+};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -20,7 +22,7 @@ use uuid::Uuid;
 
 use super::{optional_uuid, parse_day, rfc3339};
 use crate::AppState;
-use crate::extract::Require;
+use crate::extract::{Require, RequireEither};
 use crate::failure::ApiFailure;
 
 /// A price list entry.
@@ -474,13 +476,13 @@ pub struct Reason {
         (status = 201, body = Invoice),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks billing.write"),
+        (status = 403, description = "Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill)"),
         (status = 404, description = "No such patient in this clinic")
     )
 )]
 pub(crate) async fn create_invoice(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingWrite>,
+    RequireEither { request, .. }: RequireEither<BillingWrite, ClinicalWrite>,
     ApiJson(body): ApiJson<NewInvoice>,
 ) -> Result<(StatusCode, Json<Invoice>), ApiFailure> {
     let input = DraftInvoice {
@@ -508,14 +510,14 @@ pub(crate) async fn create_invoice(
         (status = 200, body = Invoice),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks billing.write"),
+        (status = 403, description = "Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill)"),
         (status = 404, description = "No such bill in this clinic"),
         (status = 409, description = "The bill is issued or void")
     )
 )]
 pub(crate) async fn edit_invoice(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingWrite>,
+    RequireEither { request, .. }: RequireEither<BillingWrite, ClinicalWrite>,
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<InvoiceEdit>,
 ) -> Result<Json<Invoice>, ApiFailure> {
@@ -709,6 +711,86 @@ pub(crate) async fn get_upi_link(
         payee_name: link.payee_name,
         invoice_number: link.invoice_number,
         amount_paise: link.amount.get(),
+    }))
+}
+
+/// How a patient pays what is to be collected, as a UPI link.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CollectUpi {
+    /// The `upi://pay` link to open in a UPI app.
+    pub uri: String,
+    /// The same text, to encode in a QR code.
+    pub qr_data: String,
+    /// The clinic's UPI ID from settings.
+    pub upi_id: String,
+    /// The payee name shown in the UPI app (the clinic's name).
+    pub payee_name: String,
+}
+
+/// What the desk collects on a bill: a draft or issued bill with something left to pay.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CollectSummary {
+    /// The bill.
+    #[schema(value_type = String)]
+    pub invoice_id: Uuid,
+    /// Its number once issued; absent for a draft, which is issued when the payment is
+    /// recorded (`POST /payments`, naming it in `allocations`).
+    pub number: Option<String>,
+    /// `draft` or `issued`.
+    pub status: String,
+    /// Who pays; send `patient.id` as the payment's `patient_id`.
+    pub patient: PatientRef,
+    /// What the bill is worth, in paise; a draft's is a preview.
+    pub total_paise: i64,
+    /// What is left to pay, in paise: the amount to record.
+    pub balance_paise: i64,
+    /// A UPI link for the balance; absent when the clinic has no UPI ID in settings.
+    pub upi: Option<CollectUpi>,
+}
+
+/// What to collect on a bill, for the queue's Collect dialog and the bell's Collect action.
+/// Read-only: it records nothing and lists no other bill. Open to `payments.collect` as well as
+/// `billing.read`.
+#[utoipa::path(
+    get,
+    path = "/api/v1/invoices/{id}/collect-summary",
+    operation_id = "getInvoiceCollectSummary",
+    tag = "billing",
+    params(("id" = String, Path, description = "The bill")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = CollectSummary),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role has neither payments.collect nor billing.read"),
+        (status = 404, description = "No such bill in this clinic"),
+        (status = 409, description = "The bill is void or has nothing left to pay")
+    )
+)]
+pub(crate) async fn get_collect_summary(
+    State(state): State<AppState>,
+    RequireEither { request, .. }: RequireEither<PaymentsCollect, BillingRead>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<CollectSummary>, ApiFailure> {
+    let summary = app::collect_summary(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        InvoiceId::from_uuid(id),
+    )
+    .await?;
+    Ok(Json(CollectSummary {
+        invoice_id: summary.invoice_id.uuid(),
+        number: summary.number,
+        status: summary.status.as_str().to_owned(),
+        patient: summary.patient.into(),
+        total_paise: summary.total.get(),
+        balance_paise: summary.balance.get(),
+        upi: summary.upi.map(|upi| CollectUpi {
+            qr_data: upi.uri.clone(),
+            uri: upi.uri,
+            upi_id: upi.upi_id,
+            payee_name: upi.payee_name,
+        }),
     }))
 }
 

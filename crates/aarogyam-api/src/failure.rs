@@ -24,6 +24,17 @@ pub enum ApiFailure {
         /// The record, in the shape the move returns when it succeeds.
         current: serde_json::Value,
     },
+    /// `409` with a stable code and one extra number the client can act on.
+    Counted {
+        /// The stable code, such as `overpayment`.
+        code: &'static str,
+        /// A message for people, without patient data.
+        message: &'static str,
+        /// The name of the extra field inside `error`.
+        field: &'static str,
+        /// Its value.
+        value: i64,
+    },
     /// `412`: `If-Match` names a version the record no longer has.
     Stale {
         /// The record's version now, sent back as the `ETag`.
@@ -50,6 +61,27 @@ pub struct ErrorDetail {
     pub message: String,
 }
 
+/// A `409` that carries one number to act on: `retry_after_seconds` for `remind_too_soon`,
+/// `balance_paise` for `overpayment`.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CountedConflict {
+    /// The refusal.
+    pub error: CountedDetail,
+}
+
+/// The error inside [`CountedConflict`].
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CountedDetail {
+    /// `remind_too_soon` or `overpayment`.
+    pub code: String,
+    /// A message for people, without patient data.
+    pub message: String,
+    /// `remind_too_soon`: seconds until another reminder is accepted.
+    pub retry_after_seconds: Option<i64>,
+    /// `overpayment`: what is still due on the named bills, in paise.
+    pub balance_paise: Option<i64>,
+}
+
 /// The `409` answer to a move the record's state doesn't allow (an appointment that is already
 /// cancelled can't arrive): the usual error and the record as it is, so the client can show it.
 #[derive(Debug, Serialize, ToSchema)]
@@ -74,6 +106,20 @@ impl IntoResponse for ApiFailure {
                     },
                     current,
                 };
+                (StatusCode::CONFLICT, Json(body)).into_response()
+            }
+            Self::Counted {
+                code,
+                message,
+                field,
+                value,
+            } => {
+                tracing::debug!(code, "request rejected");
+                let body = serde_json::json!({ "error": {
+                    "code": code,
+                    "message": message,
+                    field: value,
+                } });
                 (StatusCode::CONFLICT, Json(body)).into_response()
             }
             Self::Stale { current } => {
@@ -151,7 +197,29 @@ impl From<AppError> for ApiFailure {
                 "practitioner_on_leave",
                 "The doctor is on leave at this time. Choose another time or doctor.",
             )),
+            AppError::SlotOccupied => Self::Error(ApiError::conflict(
+                "slot_occupied",
+                "The doctor already has an appointment at this time. Choose another time, or confirm a double booking.",
+            )),
             AppError::Stale { current } => Self::Stale { current },
+            AppError::NotWaiting => Self::Error(ApiError::conflict(
+                "not_waiting",
+                "Only a waiting patient can be reminded about.",
+            )),
+            AppError::RemindTooSoon {
+                retry_after_seconds,
+            } => Self::Counted {
+                code: "remind_too_soon",
+                message: "This patient was reminded a moment ago. Try again shortly.",
+                field: "retry_after_seconds",
+                value: retry_after_seconds,
+            },
+            AppError::Overpayment { balance_paise } => Self::Counted {
+                code: "overpayment",
+                message: "The payment is more than the balance due; the balance changed.",
+                field: "balance_paise",
+                value: balance_paise,
+            },
             AppError::Forbidden(message) => Self::Error(ApiError::forbidden("forbidden", message)),
             AppError::Db(error) => error.into(),
             AppError::Internal(what) => Self::Error(ApiError::internal(what)),

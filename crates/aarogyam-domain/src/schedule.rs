@@ -191,6 +191,9 @@ impl AppointmentStatus {
                     Self::InChair | Self::Completed | Self::Cancelled
                 )
                 | (Self::InChair, Self::Completed)
+                // A patient the job marked missed who then turns up: the app allows it on the
+                // appointment's own clinic day only.
+                | (Self::NoShow, Self::Arrived | Self::Confirmed)
         )
     }
 }
@@ -630,6 +633,8 @@ mod tests {
             (Arrived, Completed),
             (Arrived, Cancelled),
             (InChair, Completed),
+            (NoShow, Arrived),
+            (NoShow, Confirmed),
         ];
         for from in AppointmentStatus::ALL {
             for to in AppointmentStatus::ALL {

@@ -57,6 +57,8 @@ pub async fn run_stock_alerts(db: &Db, now: OffsetDateTime) -> Result<StockRepor
             today: row.local_today,
             reorder_level: row.reorder_level,
             lead_time_days: i64::from(row.lead_time_days),
+            // The alert does not use the suggested order, which is where the maximum counts.
+            max_level: None,
             batches: &batches,
             daily_use: &daily_use,
             first_use_on: row.first_use_on,

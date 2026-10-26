@@ -221,6 +221,14 @@ pub struct OnlineBooking {
     /// How long an appointment booked by staff lasts when no end is given: 15, 30, 45 or 60
     /// minutes.
     pub default_visit_minutes: u16,
+    /// Whether appointments nobody came to are marked no-show automatically (default true).
+    pub no_show_auto: bool,
+    /// Minutes after an appointment's end before it is marked no-show (0 to 240, default 30).
+    pub no_show_grace_minutes: u16,
+    /// What a patient asking online for a time the doctor already holds gets, unless the doctor
+    /// chose their own (`PUT /practitioners/{id}/conflict-policy`): `request` (default; the front
+    /// desk or doctor decides) or `strict` (refused with 409).
+    pub conflict_policy: String,
 }
 
 /// Changes to online booking; settings left out stay as they are.
@@ -242,6 +250,12 @@ pub struct OnlineBookingChanges {
     pub reminder_minutes: Option<u16>,
     /// Default visit length in minutes: 15, 30, 45 or 60.
     pub default_visit_minutes: Option<u16>,
+    /// Mark missed appointments as no-show automatically.
+    pub no_show_auto: Option<bool>,
+    /// No-show grace in minutes, 0 to 240.
+    pub no_show_grace_minutes: Option<u16>,
+    /// `request` or `strict`.
+    pub conflict_policy: Option<String>,
 }
 
 /// The clinic's settings.
@@ -304,6 +318,9 @@ impl From<app::ClinicSettings> for ClinicSettings {
                 min_notice_minutes: settings.booking.min_notice_minutes,
                 reminder_minutes: settings.booking.reminder_minutes,
                 default_visit_minutes: settings.booking.default_visit_minutes,
+                no_show_auto: settings.booking.no_show_auto,
+                no_show_grace_minutes: settings.booking.no_show_grace_minutes,
+                conflict_policy: settings.booking.conflict_policy.as_str().to_owned(),
             },
             letterhead: settings.letterhead.into(),
         }
@@ -386,6 +403,15 @@ pub(crate) async fn update_clinic(
     let (brand, mode) = body
         .branding
         .map_or((None, None), |branding| (branding.brand, branding.mode));
+    let conflict_policy = body
+        .online_booking
+        .as_ref()
+        .and_then(|b| b.conflict_policy.as_deref())
+        .map(aarogyam_domain::booking::ConflictPolicy::parse)
+        .transpose()
+        .map_err(|error| {
+            aarogyam_app::error::AppError::invalid("booking.conflict_policy", error)
+        })?;
     let changes = SettingsChanges {
         name: body.name,
         legal_name: body.legal_name,
@@ -414,6 +440,9 @@ pub(crate) async fn update_clinic(
                 min_notice_minutes: b.min_notice_minutes,
                 reminder_minutes: b.reminder_minutes,
                 default_visit_minutes: b.default_visit_minutes,
+                no_show_auto: b.no_show_auto,
+                no_show_grace_minutes: b.no_show_grace_minutes,
+                conflict_policy,
             }),
         letterhead: body.letterhead.map(Into::into),
     };

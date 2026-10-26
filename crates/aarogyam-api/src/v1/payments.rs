@@ -3,7 +3,7 @@
 use aarogyam_app::payments::{self as app, PaymentView, RecordPayment};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{InvoiceId, PatientId, PaymentId};
-use aarogyam_domain::permission::require::{BillingRead, BillingWrite};
+use aarogyam_domain::permission::require::{BillingRead, BillingWrite, PaymentsCollect};
 use axum::Json;
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
@@ -16,8 +16,8 @@ use uuid::Uuid;
 use super::billing::{PatientRef, Reason};
 use super::{parse_day, rfc3339};
 use crate::AppState;
-use crate::extract::Require;
-use crate::failure::ApiFailure;
+use crate::extract::{Require, RequireEither};
+use crate::failure::{ApiFailure, CountedConflict};
 
 /// Part of a payment going to a bill.
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -124,7 +124,8 @@ pub struct NewPayment {
 }
 
 /// Records a payment against issued bills and issues a receipt number. Needs an
-/// `Idempotency-Key` header.
+/// `Idempotency-Key` header. `payments.collect` alone may pay only named, unpaid bills of the
+/// patient: a draft is issued first, in the same request, and an advance is refused.
 #[utoipa::path(
     post,
     path = "/api/v1/payments",
@@ -138,14 +139,14 @@ pub struct NewPayment {
         (status = 200, body = Payment, description = "Already recorded with this key"),
         (status = 400, description = "Invalid input, a missing key, or an allocation past a bill's balance or the payment"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks billing.write"),
+        (status = 403, description = "The role has neither billing.write nor payments.collect"),
         (status = 404, description = "No such patient, bill or attachment in this clinic"),
-        (status = 409, description = "The key was used for a different payment, or a bill isn't issued")
+        (status = 409, body = CountedConflict, description = "The key was used for a different payment, a bill isn't issued (a draft is issued first for `payments.collect`), or `overpayment`: the payment is more than the bills' balance now (`balance_paise`)")
     )
 )]
 pub(crate) async fn record(
     State(state): State<AppState>,
-    Require { request, .. }: Require<BillingWrite>,
+    RequireEither { request, .. }: RequireEither<BillingWrite, PaymentsCollect>,
     headers: HeaderMap,
     ApiJson(body): ApiJson<NewPayment>,
 ) -> Result<(StatusCode, Json<Payment>), ApiFailure> {

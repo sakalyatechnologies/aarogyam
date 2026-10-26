@@ -12,6 +12,7 @@ import { ageSex, patientPath } from "../../lib/patients.js";
 import { usePractitioners, useQueue, useRooms, useSetQueueStatus } from "../../queries.js";
 import { AddToQueue } from "./add-to-queue.js";
 import { ChairDialog } from "./chair-dialog.js";
+import { DeskSections } from "./desk-sections.js";
 import { CollectDialog } from "./collect-dialog.js";
 import { useCallToken } from "./queue-v2-queries.js";
 import "./queue-v2.css";
@@ -44,7 +45,8 @@ export function QueueV2() {
   const toast = useToast();
   const canWrite = can("appointments.write");
   const canCall = can("clinical.write");
-  const canBill = can("billing.write");
+  // The Collect dialog reads the bill's summary, which payments.collect and billing.read holders may.
+  const canBill = can("payments.collect") || can("billing.read");
   const [adding, setAdding] = useState(false);
   const [seating, setSeating] = useState<QueueToken | undefined>(undefined);
   const [collecting, setCollecting] = useState<QueueToken | undefined>(undefined);
@@ -272,6 +274,7 @@ export function QueueV2() {
           })}
         </div>
       )}
+      <DeskSections />
       <AddToQueue open={adding} onOpenChange={setAdding} day={queue.data?.date ?? ""} practitioners={practitioners.data?.items ?? []} />
       <ChairDialog
         patientName={seating?.patient.full_name}
@@ -283,7 +286,7 @@ export function QueueV2() {
         }}
       />
       <CollectDialog
-        token={collecting}
+        target={collecting === undefined ? undefined : { token: collecting }}
         onClose={() => {
           setCollecting(undefined);
         }}

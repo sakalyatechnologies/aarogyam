@@ -99,8 +99,12 @@ export interface FakeSession {
 }
 
 /** A staff notification as the API serves it, less the caller's own read state. */
-export interface FakeNotification extends Omit<C.Notification, "read" | "read_at"> {
+export interface FakeNotification extends Omit<C.Notification, "read" | "read_at" | "queue_token" | "invoice"> {
   clinic_id: string;
+  /** `patient_waiting`, `send_in`, `arrival`: the token it is about; its number and the audience are worked out when read. */
+  token_id?: string;
+  /** `collect_payment`, `payment_due`: the bill it is about; its amounts are worked out when read. */
+  invoice_id?: string;
   /** Members who have read it. */
   read_by?: string[];
   /** `task_due` and `task_reminder`: the assignee member, or the assignee role (a role key). Server-side only. */
@@ -121,12 +125,40 @@ export interface FakeMembership {
 }
 
 export interface FakePatient
-  extends Omit<C.Patient, "sex" | "status" | "age_years" | "next_appointment" | "balance_paise" | "lifetime_paid_paise" | "recall_due" | "row_version"> {
+  extends Omit<C.Patient, "sex" | "status" | "age_years" | "next_appointment" | "balance_paise" | "lifetime_paid_paise" | "recall_due" | "row_version" | "allergy_alert" | "consent_pending" | "has_photo"> {
   clinic_id: string;
   sex: C.Sex;
   status: "active" | "inactive" | "deceased" | "merged";
   /** Set by a walk-in's "No known allergies"; active allergies always mean `has_allergies`. */
   allergies_reviewed?: "unknown" | "none_known" | "has_allergies";
+}
+
+/** `relation` is what `related_patient_id` is to `patient_id`. */
+export interface FakePatientRelation {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  related_patient_id: string;
+  /** What the related patient is to `patient_id`. */
+  relation: "guardian" | "child" | "spouse" | "parent" | "sibling" | "other";
+  is_primary_contact: boolean;
+}
+
+export interface FakePatientPhoto {
+  clinic_id: string;
+  patient_id: string;
+  file: Blob;
+}
+
+export interface FakeConsentRequest {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  token: string;
+  purposes: C.ConsentPurpose[];
+  notice_version: string;
+  expires_at: string;
+  signed_at: string | null;
 }
 
 /** A chair, room or lab. Fixtures model one branch per clinic, so `branch_id` is the clinic's id. */
@@ -151,6 +183,8 @@ export interface FakePractitioner {
   registration_number?: string | null;
   qualifications?: string | null;
   specialty?: string | null;
+  /** Their own answer to a taken time (`request` or `strict`); absent follows the clinic. */
+  conflict_policy?: string | null;
 }
 
 /** One stretch of a doctor's week, local time. */
@@ -686,6 +720,12 @@ export interface Fixtures {
   /** Clinic websites, made on first use. */
   websites?: import("./website.js").FakeSite[];
   websitePhotos?: import("./website.js").FakePhoto[];
+  /** Family links between two patients of a clinic (one row a pair), made on first use. */
+  patientRelations?: FakePatientRelation[];
+  /** Patient photos (one a patient), made on first use. */
+  patientPhotos?: FakePatientPhoto[];
+  /** Consent-to-sign links, made on first use. */
+  consentRequests?: FakeConsentRequest[];
   /** First-run setup per clinic and member; with no entry, a person counts as set up already (dismissed). */
   setups?: import("./setup.js").FakeSetup[];
   quality: C.QualityReport;
@@ -733,6 +773,7 @@ export const ROLES = {
       "clinical.write",
       "billing.read",
       "billing.write",
+      "payments.collect",
       "prescriptions.issue",
       "finance.view",
       "settings.manage",
@@ -765,6 +806,8 @@ export const ROLES = {
       "appointments.write",
       "clinical.read",
       "clinical.write",
+      "billing.read",
+      "payments.collect",
       "prescriptions.issue",
       "inventory.read",
       "labs.read",
@@ -787,13 +830,14 @@ export const ROLES = {
       "appointments.write",
       "billing.read",
       "billing.write",
+      "payments.collect",
       "inventory.read",
       "inventory.manage",
       "labs.read",
       "labs.write",
     ],
   },
-  assistant: { key: "assistant", name: "Assistant", permissions: ["chat.use", "tasks.use", "time_off.request", "patients.read", "intake.write", "appointments.read", "clinical.read", "inventory.read"] },
+  assistant: { key: "assistant", name: "Assistant", permissions: ["chat.use", "tasks.use", "time_off.request", "patients.read", "intake.write", "appointments.read", "clinical.read", "inventory.read", "payments.collect"] },
   consultant: { key: "consultant", name: "Visiting consultant", permissions: ["chat.use", "tasks.use", "time_off.request", "appointments.read", "clinical.read"] },
   finance: {
     key: "finance",
@@ -810,6 +854,7 @@ export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; d
   { key: "audit.view", module: "audit", description: "See the change history and access record", scopes: ["all"] },
   { key: "billing.read", module: "billing", description: "See bills and payments", scopes: ["all"] },
   { key: "billing.write", module: "billing", description: "Create bills and take payments", scopes: ["all"] },
+  { key: "payments.collect", module: "payments", description: "Take payment against a bill with a balance; no other billing access", scopes: ["all"] },
   { key: "clinical.read", module: "clinical", description: "See visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
   { key: "clinical.write", module: "clinical", description: "Record visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
   { key: "expenses.write", module: "expenses", description: "Record clinic expenses", scopes: ["all"] },

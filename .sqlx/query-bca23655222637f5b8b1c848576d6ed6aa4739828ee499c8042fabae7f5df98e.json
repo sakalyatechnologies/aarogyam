@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.close_stale_tokens($1, $2) as \"closed!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "closed!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "bca23655222637f5b8b1c848576d6ed6aa4739828ee499c8042fabae7f5df98e"
+}

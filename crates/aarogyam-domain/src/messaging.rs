@@ -286,6 +286,8 @@ text_value! {
         CareNote => "care.note",
         /// A reminder that a follow-up visit is due.
         FollowUpReminder => "reminder.follow_up",
+        /// A note to a patient who missed an appointment: template variables only.
+        MissedVisit => "reminder.missed_visit",
         /// An offer or announcement, in the staff member's words.
         Offer => "promo.offer",
     }
@@ -333,7 +335,7 @@ impl Template {
     pub const fn purpose(self) -> Purpose {
         match self {
             Self::CareNote => Purpose::Care,
-            Self::FollowUpReminder => Purpose::Reminders,
+            Self::FollowUpReminder | Self::MissedVisit => Purpose::Reminders,
             Self::Offer => Purpose::Promotional,
         }
     }
@@ -350,6 +352,7 @@ impl Template {
         match self {
             Self::CareNote | Self::Offer => &[("subject", true)],
             Self::FollowUpReminder => &[("due_on", false)],
+            Self::MissedVisit => &[],
         }
     }
 

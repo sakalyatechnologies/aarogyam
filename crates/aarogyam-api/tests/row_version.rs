@@ -93,7 +93,7 @@ fn assert_stale(answer: &(StatusCode, HeaderMap, Value), current: &str, what: &s
 async fn a_patient_edit_can_be_made_conditional_on_the_version_read() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);
-    let assistant = app.token(ALPHA_ASSISTANT);
+    let assistant = app.token(ALPHA_NOTHING);
     let beta = app.token(BETA_OWNER);
     let nothing = app.token(ALPHA_NOTHING);
 

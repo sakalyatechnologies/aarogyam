@@ -300,6 +300,7 @@ async fn switches_stop_the_alerts() {
 }
 
 #[tokio::test]
+#[expect(clippy::too_many_lines, reason = "one scenario, step by step")]
 #[ignore = "needs DATABASE_URL"]
 async fn analytics_match_the_projection() {
     let app = TestApp::start().await;
@@ -321,6 +322,7 @@ async fn analytics_match_the_projection() {
         today: day,
         reorder_level: 5,
         lead_time_days: 7,
+        max_level: None,
         batches: &[(None, 60)],
         daily_use: &daily,
         first_use_on: Some(day - Duration::days(14)),

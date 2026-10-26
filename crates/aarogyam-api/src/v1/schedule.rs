@@ -4,7 +4,9 @@ use aarogyam_app::schedule::{self as app, PractitionerInput, RoomInput, ShiftInp
 use aarogyam_dal::schedule::{LeaveRow, PractitionerRow, RoomRow, ShiftRow};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{BranchId, LeaveBlockId, MembershipId, PractitionerId, RoomId};
-use aarogyam_domain::permission::require::{AppointmentsRead, AppointmentsWrite, SettingsManage};
+use aarogyam_domain::permission::require::{
+    AppointmentsRead, AppointmentsWrite, ClinicalWrite, SettingsManage,
+};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -16,7 +18,7 @@ use uuid::Uuid;
 
 use super::{clock, parse_clock, parse_day, parse_id, parse_instant, rfc3339};
 use crate::AppState;
-use crate::extract::Require;
+use crate::extract::{Require, RequireEither};
 use crate::failure::ApiFailure;
 
 fn logged(what: &'static str, id: Uuid) {
@@ -714,4 +716,102 @@ pub(crate) async fn remove_leave(
     .await?;
     logged("leave", id);
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// A doctor's conflict policy.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ConflictPolicy {
+    /// The doctor's own choice: `request`, `strict`, or null to follow the clinic's.
+    pub policy: Option<String>,
+    /// What applies to this doctor now: `request` or `strict`.
+    pub effective: String,
+}
+
+/// A doctor's conflict policy to set.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ConflictPolicyChange {
+    /// `request`, `strict`, or null to follow the clinic's default
+    /// (`PATCH /settings/clinic`, `online_booking.conflict_policy`).
+    pub policy: Option<String>,
+}
+
+impl From<app::ConflictPolicyView> for ConflictPolicy {
+    fn from(view: app::ConflictPolicyView) -> Self {
+        Self {
+            policy: view.own.map(|p| p.as_str().to_owned()),
+            effective: view.effective.as_str().to_owned(),
+        }
+    }
+}
+
+/// What happens when a patient asks online for a time this doctor already holds.
+#[utoipa::path(
+    get,
+    path = "/api/v1/practitioners/{id}/conflict-policy",
+    operation_id = "getConflictPolicy",
+    tag = "schedule",
+    params(("id" = String, Path, description = "The doctor")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = ConflictPolicy),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks appointments.read"),
+        (status = 404, description = "No such doctor in this clinic")
+    )
+)]
+pub(crate) async fn conflict_policy(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<AppointmentsRead>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<ConflictPolicy>, ApiFailure> {
+    let view = app::conflict_policy(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PractitionerId::from_uuid(id),
+    )
+    .await?;
+    Ok(Json(view.into()))
+}
+
+/// Sets a doctor's conflict policy. The owner (`settings.manage`) sets any doctor's; a doctor
+/// (`clinical.write`) sets only their own; front desk and assistants can only read.
+#[utoipa::path(
+    put,
+    path = "/api/v1/practitioners/{id}/conflict-policy",
+    operation_id = "setConflictPolicy",
+    tag = "schedule",
+    params(("id" = String, Path, description = "The doctor")),
+    request_body = ConflictPolicyChange,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = ConflictPolicy),
+        (status = 400, description = "Not `request`, `strict` or null"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "Neither settings.manage nor a doctor setting their own"),
+        (status = 404, description = "No such doctor in this clinic")
+    )
+)]
+pub(crate) async fn set_conflict_policy(
+    State(state): State<AppState>,
+    RequireEither { request, .. }: RequireEither<SettingsManage, ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<ConflictPolicyChange>,
+) -> Result<Json<ConflictPolicy>, ApiFailure> {
+    let policy = body
+        .policy
+        .as_deref()
+        .map(aarogyam_domain::booking::ConflictPolicy::parse)
+        .transpose()
+        .map_err(|error| aarogyam_app::error::AppError::invalid("policy", error))?;
+    let view = app::set_conflict_policy(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PractitionerId::from_uuid(id),
+        policy,
+    )
+    .await?;
+    logged("conflict_policy", id);
+    Ok(Json(view.into()))
 }

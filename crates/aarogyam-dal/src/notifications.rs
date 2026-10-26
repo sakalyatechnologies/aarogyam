@@ -1,7 +1,9 @@
 //! Staff notifications, their per-member read state, and the clinic inbox (migration 0320).
 //! Who sees a row is decided here, by the caller's reach: a booking notification by
 //! `appointments.read` and `app.practitioner_in_reach`, a lab one (0395) by `labs.read` and
-//! `app.clinical_in_reach`, each narrowed to a member (`own` scope) or not. The reminder job
+//! `app.clinical_in_reach`, each narrowed to a member (`own` scope) or not; the visit ones (0678,
+//! `app.visit_notification_visible`) by who is assigned or on duty, and by `billing.write` or
+//! `payments.collect`. The reminder job
 //! works across clinics through the definer functions, since it acts for no one clinic.
 
 use sakalya_db::DbError;
@@ -51,6 +53,26 @@ pub async fn handle(
     .execute(conn)
     .await?;
     Ok(done.rows_affected())
+}
+
+/// Writes `collect_payment` for the draft or issued bills of a visit that still have a balance,
+/// once per bill, and handles the bill's `payment_due` row (`app.write_collect_payment`). For a
+/// visit sent for payment without a queue token; the token's own move does this in a trigger.
+/// Returns how many were written.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn write_collect_payment(
+    conn: &mut PgConnection,
+    encounter_id: Uuid,
+) -> Result<i32, DbError> {
+    let written = sqlx::query_scalar!(
+        r#"select app.write_collect_payment(app.tenant_id(), $1) as "written!""#,
+        encounter_id
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(written)
 }
 
 /// Tells the clinic a patient cancelled in the app, and marks the appointment's open
@@ -139,6 +161,13 @@ pub struct FeedRow {
     pub days_cover: Option<f64>,
     /// The time-off request, for `time_off_*`; ids only, no names or reason.
     pub time_off_request_id: Option<Uuid>,
+    /// Who the row was written for: `doctor` or `front_desk`; `None` for older rows.
+    pub audience: Option<String>,
+    /// What the bill is worth, for `payment_due` and `collect_payment` (read now, never stored;
+    /// a draft's is a preview).
+    pub invoice_total_paise: Option<i64>,
+    /// What is left to pay on it, read now.
+    pub invoice_balance_paise: Option<i64>,
 }
 
 /// Whether a member sees one kind of notification, and how far.
@@ -185,6 +214,12 @@ pub struct Viewer {
     pub inventory: bool,
     /// The member holds `time_off.manage` (`time_off_requested`).
     pub time_off: bool,
+    /// The member holds `clinical.write`: a doctor who may be told of an unassigned patient
+    /// (`patient_waiting`, `send_in`). Their own assigned patients are theirs whatever they
+    /// hold; the member's practitioner is looked up inside the statement.
+    pub clinical_write: bool,
+    /// The member holds `billing.write` or `payments.collect` (`collect_payment`).
+    pub collect: bool,
 }
 
 /// The member's notifications within reach, newest first, before the notification `before`
@@ -214,7 +249,9 @@ pub async fn feed(
                   n.task_occurrence_id as "task_occurrence_id?", tk.title as "task_title?",
                   tk.due_at as "task_due_at?", n.inventory_item_id as "item_id?",
                   it.name as "item_name?", n.stock_days_cover::float8 as "days_cover?",
-                  n.time_off_request_id as "time_off_request_id?"
+                  n.time_off_request_id as "time_off_request_id?", n.audience,
+                  case when i.id is not null then app.invoice_total_paise(i) end as "invoice_total_paise?",
+                  case when i.id is not null then app.invoice_balance_paise(i) end as "invoice_balance_paise?"
            from aarogyam.staff_notifications n
            left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
            left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
@@ -231,17 +268,16 @@ pub async fn feed(
              on r.org_id = n.org_id and r.notification_id = n.id and r.membership_id = $1
            left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.handled_by
            left join aarogyam.users u on u.id = m.user_id
-           where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))
-                  or ($7 and q.id is not null
-                      and (q.practitioner_id is null or app.practitioner_in_reach(q.practitioner_id, $2)))
+           where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2) and app.booking_conflict_visible(n, a.practitioner_id, $1))
                   or ($8 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9))
-                  or ($10 and i.id is not null)
+                  or ($10 and i.id is not null and n.kind <> 'collect_payment')
                   or ($11 and rc.id is not null and app.patient_in_reach(rc.patient_id, $12))
-                  or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16))
+                  or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16)
+                  or app.visit_notification_visible(n, $1, $17, $18))
              and app.staff_ops_notification_newest(n, $1, $13, $14)
              and ($4::uuid is null or n.id < $4)
-             and (not $3 or (r.read_at is null
+             and (not $3 or (r.read_at is null and app.notification_counts_unread(n)
                              and n.created_at > now() - make_interval(days => $6::int)))
            order by n.id desc
            limit $5"#,
@@ -261,6 +297,8 @@ pub async fn feed(
         viewer.tasks,
         viewer.inventory,
         viewer.time_off,
+        viewer.clinical_write,
+        viewer.collect,
     )
     .fetch_all(conn)
     .await?;
@@ -282,19 +320,18 @@ pub async fn unread_count(
              select 1 from aarogyam.staff_notifications n
              left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
            left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
-           left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id
            left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id
            left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id
              where n.created_at > now() - make_interval(days => $3::int)
-               and (($5 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))
-                  or ($5 and q.id is not null
-                      and (q.practitioner_id is null or app.practitioner_in_reach(q.practitioner_id, $2)))
+               and (($5 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2) and app.booking_conflict_visible(n, a.practitioner_id, $1))
                   or ($6 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $7))
-                  or ($8 and i.id is not null)
+                  or ($8 and i.id is not null and n.kind <> 'collect_payment')
                   or ($9 and rc.id is not null and app.patient_in_reach(rc.patient_id, $10))
-                  or app.staff_ops_notification_visible(n, $1, $11, $12, $13, $14))
+                  or app.staff_ops_notification_visible(n, $1, $11, $12, $13, $14)
+                  or app.visit_notification_visible(n, $1, $15, $16))
                and app.staff_ops_notification_newest(n, $1, $11, $12)
+               and app.notification_counts_unread(n)
                and not exists (select 1 from aarogyam.staff_notification_reads r
                                where r.org_id = n.org_id and r.notification_id = n.id
                                  and r.membership_id = $1)
@@ -314,6 +351,8 @@ pub async fn unread_count(
         viewer.tasks,
         viewer.inventory,
         viewer.time_off,
+        viewer.clinical_write,
+        viewer.collect,
     )
     .fetch_one(conn)
     .await?;
@@ -331,17 +370,15 @@ pub async fn mark_read(conn: &mut PgConnection, id: Uuid, viewer: Viewer) -> Res
              select n.id from aarogyam.staff_notifications n
              left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
            left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
-           left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id
            left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id
            left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id
-             where n.id = $1 and (($4 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $3))
-                  or ($4 and q.id is not null
-                      and (q.practitioner_id is null or app.practitioner_in_reach(q.practitioner_id, $3)))
+             where n.id = $1 and (($4 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $3) and app.booking_conflict_visible(n, a.practitioner_id, $2))
                   or ($5 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $6))
-                  or ($7 and i.id is not null)
+                  or ($7 and i.id is not null and n.kind <> 'collect_payment')
                   or ($8 and rc.id is not null and app.patient_in_reach(rc.patient_id, $9))
-                  or app.staff_ops_notification_visible(n, $2, $10, $11, $12, $13))
+                  or app.staff_ops_notification_visible(n, $2, $10, $11, $12, $13)
+                  or app.visit_notification_visible(n, $2, $14, $15))
            ), saved as (
              insert into aarogyam.staff_notification_reads (notification_id, membership_id)
              select id, $2 from target
@@ -361,6 +398,8 @@ pub async fn mark_read(conn: &mut PgConnection, id: Uuid, viewer: Viewer) -> Res
         viewer.tasks,
         viewer.inventory,
         viewer.time_off,
+        viewer.clinical_write,
+        viewer.collect,
     )
     .fetch_one(conn)
     .await?;
@@ -377,17 +416,15 @@ pub async fn mark_all_read(conn: &mut PgConnection, viewer: Viewer) -> Result<u6
            select n.id, $1 from aarogyam.staff_notifications n
            left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
            left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
-           left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id
            left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id
            left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id
-           where (($3 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))
-                  or ($3 and q.id is not null
-                      and (q.practitioner_id is null or app.practitioner_in_reach(q.practitioner_id, $2)))
+           where (($3 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2) and app.booking_conflict_visible(n, a.practitioner_id, $1))
                   or ($4 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $5))
-                  or ($6 and i.id is not null)
+                  or ($6 and i.id is not null and n.kind <> 'collect_payment')
                   or ($7 and rc.id is not null and app.patient_in_reach(rc.patient_id, $8))
-                  or app.staff_ops_notification_visible(n, $1, $9, $10, $11, $12))
+                  or app.staff_ops_notification_visible(n, $1, $9, $10, $11, $12)
+                  or app.visit_notification_visible(n, $1, $13, $14))
            on conflict do nothing"#,
         viewer.member,
         viewer.bookings.reach,
@@ -401,6 +438,8 @@ pub async fn mark_all_read(conn: &mut PgConnection, viewer: Viewer) -> Result<u6
         viewer.tasks,
         viewer.inventory,
         viewer.time_off,
+        viewer.clinical_write,
+        viewer.collect,
     )
     .execute(conn)
     .await?;
@@ -555,6 +594,41 @@ pub async fn flag_due_recalls(
     .fetch_one(pool)
     .await?;
     Ok(written)
+}
+
+/// Marks appointments nobody came to as no-shows (`app.auto_no_show`), with a history row and a
+/// `missed_visit` follow-up each. Returns how many were marked.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn auto_no_show(pool: &PgPool, now: OffsetDateTime, limit: i32) -> Result<i32, DbError> {
+    let marked = sqlx::query_scalar!(
+        r#"select app.auto_no_show($1, $2) as "marked!""#,
+        now,
+        limit
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(marked)
+}
+
+/// Closes tokens left open on an earlier clinic day (`app.close_stale_tokens`). Returns how many.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn close_stale_tokens(
+    pool: &PgPool,
+    now: OffsetDateTime,
+    limit: i32,
+) -> Result<i32, DbError> {
+    let closed = sqlx::query_scalar!(
+        r#"select app.close_stale_tokens($1, $2) as "closed!""#,
+        now,
+        limit
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(closed)
 }
 
 /// Writes a `patient_waiting` alert for every token still waiting after `min_minutes`

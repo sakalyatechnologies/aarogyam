@@ -174,6 +174,8 @@ pub struct Analytics {
     /// bill lines came to.
     pub procedures_by_category: Vec<ProcedureCategory>,
     /// Booked chair time by hour of the day: per chair, and per weekday.
+    /// Optional in the schema, so apps built before it read on.
+    #[schema(required = false)]
     pub occupancy: Occupancy,
     /// Booked chair minutes by what they were spent on, from the appointment kind.
     pub chair_time: ChairTimeSplit,

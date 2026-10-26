@@ -42,7 +42,7 @@ import type {
 import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview } from "./schemas.js";
 import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
-import type { Allergy, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
+import type { Allergy, FamilyLink, FamilyList, NewFamilyLink, ConsentLink, ConsentRequestInput, ConsentRequested, ConsentSigned, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PatientsSummary, PhoneMatchPage, QuickPicks, SignConsentInput, StartedVisit, WalkIn, WalkInRequest, ConflictPolicy, ConflictPolicyChange, MoveAppointment } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -100,6 +100,7 @@ import type {
   InvoiceEdit,
   InvoiceId,
   UpiLink,
+  CollectSummary,
   InvoicePage,
   IssueRequest,
   Leave,
@@ -190,7 +191,11 @@ import type {
   ProcedureId,
   ProcedurePage,
   QualityReport,
+  MissedListPage,
+  Recall,
+  RecallListPage,
   QueueDayPage,
+  ToCollectPage,
   QueueToken,
   QueueTokenId,
   Reason,
@@ -471,9 +476,22 @@ export interface ApiClient {
   changeAppointment(id: AppointmentId, changes: AppointmentChanges, options?: RequestOptions): Promise<ApiResult<SavedAppointment>>;
   /** Clinic host: moves an appointment's status along, or cancels (with a reason) or marks a no-show. Needs `appointments.write`. */
   setAppointmentStatus(id: AppointmentId, change: StatusChange, options?: RequestOptions): Promise<ApiResult<StatusChanged>>;
+  /** Reschedules a requested, booked or confirmed appointment and confirms it. 409 `slot_occupied` when the new time is held. */
+  moveAppointment(id: AppointmentId, to: MoveAppointment, options?: RequestOptions): Promise<ApiResult<StatusChanged>>;
+  /** A doctor's own answer to a taken time (`null` follows the clinic). Owner reads any; a doctor only their own. */
+  getConflictPolicy(id: PractitionerId, options?: RequestOptions): Promise<ApiResult<ConflictPolicy>>;
+  setConflictPolicy(id: PractitionerId, policy: ConflictPolicyChange, options?: RequestOptions): Promise<ApiResult<ConflictPolicy>>;
 
   /** Clinic host: the queue of a clinic day, with each token's wait. Needs `appointments.read`. */
   listQueue(date: string | undefined, options?: QueueOptions): Promise<ApiResult<QueueDayPage>>;
+  /** Clinic host: a clinic day's no-shows (today when `date` is left out), ids and numbers only. Needs `appointments.read`. */
+  listMissedAppointments(date: string | undefined, options?: RequestOptions): Promise<ApiResult<MissedListPage>>;
+  /** Clinic host: earlier days' visits whose bill still has a balance. Needs `payments.collect` or `billing.read`. */
+  listQueueToCollect(options?: RequestOptions): Promise<ApiResult<ToCollectPage>>;
+  /** Clinic host: open follow-ups, soonest first. Needs `patients.read`. */
+  listRecallsDue(options?: RequestOptions): Promise<ApiResult<RecallListPage>>;
+  /** Clinic host: marks a follow-up done. Needs `patients.write`. */
+  markRecallDone(id: string, options?: RequestOptions): Promise<ApiResult<Recall>>;
   /** Clinic host: issues a token to a patient without an appointment. Needs `appointments.write`. */
   addWalkIn(input: WalkInBody, options?: RequestOptions): Promise<ApiResult<QueueToken>>;
   /** Clinic host: moves a token along; a token with an appointment moves the appointment too. Needs `appointments.write`. */
@@ -845,6 +863,11 @@ export interface ApiClient {
   getInvoice(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<Invoice>>;
   /** Clinic host: the UPI link and QR text for what is left on an issued bill; records nothing. Needs `billing.read`. */
   getInvoiceUpiLink(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<UpiLink>>;
+  /**
+   * Clinic host: what to collect on a bill (number, total, what is left, the UPI link when the clinic has a UPI ID).
+   * Needs `payments.collect` or `billing.read`. `404` when the bill is not in the clinic; `409` for a void bill.
+   */
+  getInvoiceCollectSummary(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<CollectSummary>>;
   /** Clinic host: starts a draft bill for a patient. Needs `billing.write`. */
   createInvoice(input: NewInvoice, options?: RequestOptions): Promise<ApiResult<Invoice>>;
   /** Clinic host: edits a draft bill. Needs `billing.write`. */
@@ -858,7 +881,7 @@ export interface ApiClient {
   listPayments(range: Partial<DateRange>, options?: RequestOptions): Promise<ApiResult<PaymentPage>>;
   /** Clinic host: one payment, for its receipt. Needs `billing.read`. */
   getPayment(id: PaymentId, options?: RequestOptions): Promise<ApiResult<Payment>>;
-  /** Clinic host: records a payment; `idempotencyKey` should be generated once per submission. Needs `billing.write`. */
+  /** Clinic host: records a payment; `idempotencyKey` should be generated once per submission. Needs `billing.write`, or `payments.collect` for a bill that is draft or issued with a balance. */
   recordPayment(input: NewPayment, idempotencyKey: string, options?: RequestOptions): Promise<ApiResult<Payment>>;
   /** Clinic host: voids a payment with a reason. Needs `billing.write`. */
   voidPayment(id: PaymentId, reason: Reason, options?: RequestOptions): Promise<ApiResult<Payment>>;
@@ -951,6 +974,26 @@ export interface ApiClient {
   registerWalkIn(input: WalkInRequest, options?: RequestOptions): Promise<ApiResult<WalkIn>>;
   /** Clinic host: patients registered with a phone (sent in the body), with only id, number, name, age and sex. Needs `patients.read`. */
   lookupPatientsByPhone(phone: string, options?: RequestOptions): Promise<ApiResult<PhoneMatchPage>>;
+  /** Clinic host: total, new this month and recalls due (and, with `billing.read`, how many owe money). Needs `patients.read`. */
+  getPatientsSummary(options?: RequestOptions): Promise<ApiResult<PatientsSummary>>;
+  /** Clinic host: sets the patient's photo (`FormData` with a PNG or JPEG `file` of at most 2 MB). Needs `patients.write`. */
+  putPatientPhoto(id: PatientId, form: FormData, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: the patient's photo; `404` when there is none. Needs `patients.read`. */
+  getPatientPhoto(id: PatientId, options?: RequestOptions): Promise<ApiResult<Blob>>;
+  /** Clinic host: removes the patient's photo. Needs `patients.write`. */
+  deletePatientPhoto(id: PatientId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** The patient's relatives (`patients.read`). */
+  listFamily(id: PatientId, options?: RequestOptions): Promise<ApiResult<FamilyList>>;
+  /** Links a relative (and the patient back to them); `patients.write`. */
+  addFamilyLink(id: PatientId, input: NewFamilyLink, options?: RequestOptions): Promise<ApiResult<FamilyLink>>;
+  /** Removes a link and its inverse; `patients.write`. */
+  removeFamilyLink(id: PatientId, linkId: string, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: emails the patient a one-time link to read the notice and sign consent (`409` without an email address). Needs `patients.write`. */
+  requestConsent(id: PatientId, input?: ConsentRequestInput, options?: RequestOptions): Promise<ApiResult<ConsentRequested>>;
+  /** Clinic host, public: what a consent link shows; `404` for an unknown token. */
+  getConsentLink(token: string, options?: RequestOptions): Promise<ApiResult<ConsentLink>>;
+  /** Clinic host, public: signs through the link, once (`409` if already signed or expired). */
+  signConsentLink(token: string, input: SignConsentInput, options?: RequestOptions): Promise<ApiResult<ConsentSigned>>;
   /** Clinic host: seats a token and starts (or returns) its visit. Needs `clinical.write`. */
   startVisitFromQueue(id: QueueTokenId, options?: RequestOptions): Promise<ApiResult<StartedVisit>>;
   /** Clinic host: confirms an allergy the patient reported at the desk. Needs `clinical.write`. */

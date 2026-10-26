@@ -527,7 +527,13 @@ async fn follow_ups_are_planned_listed_and_done_per_clinic() {
     assert_eq!(later["items"], json!([]));
     let done = format!("/api/v1/recalls/{}/done", recall["id"].as_str().unwrap());
     let (status, _) = app
-        .send(Method::POST, ALPHA, &done, Some(&assistant), None)
+        .send(
+            Method::POST,
+            ALPHA,
+            &done,
+            Some(&app.token(ALPHA_NOTHING)),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     let beta = app.token(BETA_OWNER);

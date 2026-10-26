@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.queue_tokens set last_reminded_at = $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2e9f71cdcfd261327e4a2943179c79078408e74c35c8f33b01585b8abfd1c036"
+}

@@ -64,6 +64,18 @@ async fn clinic(app: &TestApp) -> (String, String) {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
+    // These tests walk the strict journey; the request-a-taken-slot journey is in
+    // conflict_policy.rs.
+    let (status, body) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            "/api/v1/settings/clinic",
+            Some(&owner),
+            Some(json!({ "online_booking": { "conflict_policy": "strict" } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
     (doctor, owner)
 }
 
@@ -361,7 +373,7 @@ async fn a_verified_patient_requests_and_the_front_desk_decides() {
         "/api/v1/appointments/{}/status",
         booked["id"].as_str().unwrap()
     );
-    let assistant = app.token(ALPHA_ASSISTANT);
+    let assistant = app.token(ALPHA_NOTHING);
     let (status, _) = app
         .send(
             Method::POST,

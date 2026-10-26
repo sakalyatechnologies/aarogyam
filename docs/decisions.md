@@ -4,7 +4,7 @@ Newest first. Change a decision by adding an entry that supersedes it.
 
 ## 2026-10-10: Reports, stock orders and payment proof (Portal v2, B6)
 
-**Decision.** Additive endpoints and fields only (migrations 0630 to 0634).
+**Decision.** Additive endpoints and fields only (migrations 0686 to 0690).
 - **Collections.** `GET /reports/collections` gains `compare=prev` (`previous` totals for the same number of days just before `from`; any other value is `400`), `by_method` on days, weeks and the period, and `discount_paise`. Works with `weeks`.
 - **Analytics.** `procedures_by_category[].amount_paise` (null without `finance.view`) and `occupancy.by_chair_hour` and `by_weekday_hour` (minutes booked).
 - **UPI.** The payment link takes an optional part amount: `400` for 0 or more than the balance.
@@ -507,6 +507,7 @@ What `own` means, per record:
 | `lab_work` | Lab orders with their items, history and payments | 8 years | Order recorded | The payments are clinic accounts (as bills); the orders describe work on a patient |
 | `lab_contacts` | People at labs, after the clinic removes them | 365 days | Removal | Business contacts, named with phone and email; not needed once removed |
 | `message_templates` | Message templates Meta rejected or paused | 365 days | Last change | No patient data; a dead template is clutter once nobody revisits it |
+| `consent_requests` | Consent-to-sign links, signed or not | 30 days | Expiry | Only the link; the signed consent is a consent record and stays with the patient |
 | `campaigns` | Campaigns sent or cancelled | 365 days | Last change | No patient data (a name, a filter, an offer); the messages it made are the `messages` class |
 | `stock_imports` | Uploaded stock lists (the rows checked, and the result once committed) | 30 days | Upload | Working copy only; the items and stock are in the clinic's inventory; no patient data |
 | `purchase_orders` | Orders to suppliers with lines and receipts | 8 years | Order made | Money spent by the clinic, kept like bills (GST law and company law); no patient data |
@@ -545,6 +546,16 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Queue states** (migration 0610, expand only): `called` and `ready_to_bill` join `queue_tokens.status`. Order: waiting, called, in_chair, ready_to_bill, done. Allowed moves: waiting to called, in_chair, done or left; called to in_chair, done or left; in_chair to ready_to_bill or done; ready_to_bill to done. Every earlier move stays valid. `POST /queue/{id}/call` (`clinical.write`, the patient in the member's reach or the token naming them as the doctor) sets `called` and stamps `called_at`; repeating it changes nothing; past `called` it is refused with `409` and the token as it is. An appointment stays `arrived` while its token is called, and stays `in_chair` while the token is ready to bill. Start visit seats a called token. Closing the visit still marks the token done. `GET /queue` takes `practitioner_id` (`GET /appointments` already did). Today's `counts` gain `called` and `ready_to_bill`; `waiting` counts waiting tokens only.
 
 **Why.** The Today board shows any day, the calendar shades busy days, and the doctor's phone sends patients in; the desk needs to see who is called and who is ready to pay.
+
+## 2026-10-10: Patient directory, photos, consent links and family (B4)
+
+**Decision.** Additive API for the patient directory and the walk-in path.
+- **Flags and money.** List and record rows carry `allergy_alert`, `consent_pending` and `has_photo` (from `app.patient_flags()`). `balance_paise` and `lifetime_paid_paise` are `null` (key present, so the apps see no shape change) without `billing.read`; mobile clients must treat them as optional. `GET /patients/summary` gives total, new this month and recalls due, plus `with_balance` only with `billing.read`.
+- **Walk-ins.** A walk-in may carry reported `conditions` (recorded as patient-reported, deduplicated against active ones) and `family_of {patient_id, relation}` (what the walk-in is to that patient; the response carries `family_link_id`). The family routes match the mobile app's contract: `GET/POST /patients/{id}/family`, `DELETE /patients/{id}/family/{link_id}`, and the phone lookup's top-level `family_group`. Relations (guardian, child, spouse, parent, sibling, other) are stored both ways and removed together; a relative of another clinic is a 404.
+- **Photo.** `PUT/GET/DELETE /patients/{id}/photo` (`patients.write` to change); one row per patient, no support access.
+- **Consent links.** `POST /patients/{id}/consents/request` (email only for now; a phone-only patient gets 409) issues a one-time link; the public `GET/POST /public/consents/{token}` shows the notice and records the signature. Only the token's hash is stored, and the public routes are throttled (`ip-public-consent`).
+- **Data rules.** The four new tables have `org_id`, RLS, composite keys and the restrictive `patient_account` deny; erasure steps 55 (photos), 45 (consent requests) and 36 (relations, both columns). Photos and relations ride the `patient_record` class; consent requests have their own class (`consent_requests`, 30 days after expiry, report only).
+- **Backlog.** Photo bytes in storage are not removed when a patient is erased (the row is).
 
 ## 2026-10-10: Own profile, notification switches and more staff notification kinds (portal v2 settings)
 
@@ -592,3 +603,72 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Invites.** New look: one "Phone or email" box and a role picker. The API signs people in by email, so a phone invite also asks for their email and then shows the join link with a WhatsApp share link. The old look keeps the email-only form.
 
 **Why.** The founder found the detailed editor too much for everyday use; most clinics only ever decide "can the front desk see money".
+
+## 2026-10-11: Visit notifications and `payments.collect`
+
+**Decision.** Backend of the staff notifications for the visit journey (migrations 0678 and 0679). The portal bell and the phone apps read the same rows. All additive: new optional fields and one new endpoint.
+- **Writing** (database triggers, same transaction, `on conflict do nothing` on the unique indexes of 0617, so repeats add no rows).
+  - `patient_waiting`: when a token is created `waiting` (walk-in or check-in), href `/queue`, audience `doctor`. It is handled when the token leaves waiting; a token put back to waiting reopens it. `app.flag_waiting_tokens` stays as a safety net for older tokens.
+  - `send_in`: when the token becomes `called` (or goes waiting to in the chair), audience `doctor`.
+  - `arrival` is no longer written (a check-in already writes `patient_waiting`); the kind stays valid for old rows.
+  - `collect_payment`: for a draft or issued bill with a balance, in three places: the visit's token reaches `ready_to_bill`; a bill gets lines while its visit's token is already there; the app, inside the close or finish transaction, when `queue_status` is `ready_to_bill` and the visit has no token (`app.write_collect_payment`). Audience `front_desk`, href `/billing/invoices/<id>`. Its subject stays the bill; the token is found through the visit (`invoices.encounter_id`, `encounters.queue_token_id`). It marks the bill's `payment_due` row handled, so the bell shows one entry. It is handled by payment in full, a void, or the token becoming done or left. Choosing Done writes none (the encounter trigger of 0617 is dropped); a bare close with no bill writes none.
+- **Audience** is decided when the feed, the count, the badges and mark-read read, through `app.visit_notification_visible`:
+  - `patient_waiting` and `send_in` go to the member of the token's practitioner. An unassigned token goes to the doctors on duty: a practitioner with a member, a `working_hours` row for the token's weekday (its day is the clinic's local date) at the token's branch, and no leave block or approved time off covering now. When nobody is on duty, to every `clinical.write` holder. An assigned practitioner with no member falls back the same way. A reassigned token changes audience at once.
+  - `collect_payment` goes to holders of `billing.write` or `payments.collect`. A doctor with only `billing.read` is not told.
+  - The member's own practitioner is looked up inside the statement, so the feed and the badges stay one statement each and no round trip is added.
+- **Unread.** A handled row of `patient_waiting`, `send_in`, `collect_payment`, `arrival` or `payment_due` no longer counts as unread, in the feed's `unread_only`, the count and the badges (`app.notification_counts_unread`). It still shows, muted, as handled. Booking and lab rows are unchanged.
+- **Feed fields.** `audience` (`doctor`, `front_desk`; absent on older rows), and `invoice.total_paise` and `invoice.balance_paise`, read when listed and never stored. A draft's total is a preview: GST per line, rounded to the rupee (an inter-state draft can differ by a paisa before rounding). Rows never store a patient name and the API returns none; the portal looks the name up from the queue and Today data and from the collect summary.
+- **`payments.collect`** (new permission, module `payments`; granted to owner, front desk and assistant, and backfilled into existing clinics' roles). It lets a member record a payment against named, unpaid bills of the patient (`POST /payments`: a draft is issued first, in the same request; an advance is refused) and read `GET /invoices/{id}/collect-summary` (number, status, patient, total, balance, UPI link; also open to `billing.read`; `404` across clinics; `409` for a void or settled bill). It opens no reading, listing, creating or voiding of bills, no payment list and no reports; `billing.read` and `billing.write` keep working as before. `PermissionSet` is a `u64` now, since this is the 32nd permission.
+- **Clash with the iOS chain.** `feat/v9` must not merge `0421_queue_staff_notifications.sql` or its app-side `notify_queue`: this work writes the same rows, with the same `audience` column name and values.
+
+**Why.** The doctor should hear of a waiting patient at once, the desk should hear when there is money to collect (and the assistant, who has no billing access, must be able to collect it), and a bell that stays red after the work is done gets ignored.
+
+## 2026-10-12: Visit roles: the assistant at the front, the doctor starts the bill
+
+**Decision.** Two gaps in the visit journey (migration 0680; additive API).
+- **Assistant.** The seeded `assistant` template gets `appointments.write` and `patients.write`, scope `all` like `front_desk`, backfilled into existing clinics' assistant roles. With the `intake.write` it already had, that is exactly what check-in, queue add and the one-step walk-in need. Still not granted: `patients.contact` (phones stay masked), `billing.read`, `billing.write`, `finance.view`; collecting stays `payments.collect`. The earlier note that this "broke front_desk tests" was tests using the assistant as "the role that cannot register or edit patients"; they now use `finance` or `nothing` for that.
+- **Doctor starts the draft.** A holder of `clinical.write` can start a visit's draft bill without `billing.write`, in the app layer (`billing.rs`, `finish.rs`):
+  - `fee_paise` on close and finish needs only `clinical.write` (already required) with reach over the visit.
+  - The generic `POST /invoices` and `PATCH /invoices/{id}` accept `clinical.write` too, but then only for a draft that is linked to a visit within that member's `clinical.write` reach (the patient must be that visit's patient), lines only: a discount, a place of supply, a replaced bill or moving the bill to another visit answers 403, and a bill with no visit (or a visit out of reach) is 404.
+  - Issuing, voiding, refunds and payments stay `billing.write` or `payments.collect`. The seeded `doctor` already has `billing.read`, so a doctor reads the list and the price list as before; a custom role without it finds the draft only through the response it got.
+- **Web follow-up (not done here).** The visit bar gates the bill on `can("billing.write")` (`visit-bar.tsx`, `useBillDraft` enabled flag); it should gate on `clinical.write` plus `billing.read` so the doctor's itemised lines are saved at Send for payment.
+
+- **Doctor may collect too (migration 0681).** The seeded `doctor` template also gets `payments.collect`, backfilled into existing clinics' doctor roles. The doctor chooses: add a fee and Send for payment (the desk collects), or record the payment themselves. Still no voiding, reports or finance. The web visit bar shows the itemised bill for `clinical.write` or `billing.write` and Collect for `payments.collect` or `billing.write`.
+
+**Why.** The founder wants the shortest journey: the assistant checks in or registers, the doctor treats and presses Send for payment, the assistant collects, with no money powers handed to either.
+
+## 2026-10-25: No-shows are automatic and reversible; stale queue tokens close at day end
+
+**Decision.** Migration 0682 (+ 0684 for the message template). Additive API.
+- **Auto no-show.** The drain job (`app.auto_no_show`, called from `flag_alerts`) moves a Booked or Confirmed appointment to `no_show` when `ends_at` plus the grace has passed and the patient never got a queue token. One guarded `UPDATE` with `FOR UPDATE SKIP LOCKED` re-checks status and token, and writes the `appointment_events` row (note `auto_no_show`, no actor) and a `missed_visit` recall (due on the appointment's clinic day) in the same statement. `recalls.source_appointment_id` with a partial unique index (org, appointment, kind) makes a re-run or a reopened appointment give one follow-up. The function is security definer, an empty `search_path` (everything schema-qualified, as the lint requires), execute revoked from public and granted to the API role; the clinic day uses each organisation's time zone.
+- **Settings** in `org_settings.booking` (read with defaults, so no backfill): `no_show_auto` (default true) and `no_show_grace_minutes` (default 30, 0 to 240; 422-style `booking.no_show_grace_minutes` error beyond that). Exposed in `online_booking` of the clinic settings API.
+- **Reversible.** `NoShow` may become `Arrived` or `Confirmed`, but only on the appointment's own clinic day (checked in the app, `set_status` and `check_in`; an older no-show is 409). The status event for the reversal carries the note `Late arrival`. A staff check-in racing the job always wins: the job skips locked rows and re-checks the token, and a check-in after the job simply reverses it.
+- **Message.** `reminder.missed_visit` (email and WhatsApp draft) uses template variables only (`clinic_name`, `booking_link`), purpose `reminders`, so it needs messaging consent. Templates are per-clinic copies of the defaults (0375), so 0684 seeds it into each clinic rather than a shared global row.
+- **Day-end close.** `app.close_stale_tokens` sets tokens of an earlier clinic day that are `waiting`, `called` or `in_chair` to `left` with `left_reason = 'Closed at day end'`, in batches (the first run clears the backlog). `ready_to_bill` stays open: the money is still to collect, it leaves the queue but is listed as "to collect".
+
+**Why.** No-shows piled up in the queue and analytics; the doctor and desk should not clean them by hand, but a patient who turns up late must not be turned away.
+
+## 2026-10-25: The Missed list and "To collect"
+
+**Decision.** Two additive read endpoints (no migration).
+- `GET /appointments/missed?date=` (`appointments.read`, within the caller's doctor reach): the day's `no_show` appointments with `appointment_id`, `patient_id`, `patient_number`, `practitioner_id`, `starts_at` and `recall_id` (the `missed_visit` follow-up; absent for a hand-marked no-show). No names. Check in and reschedule use the existing appointment calls.
+- `GET /queue/to-collect` (`payments.collect` or `billing.read`): tokens of earlier clinic days still `ready_to_bill` whose draft or issued bill has a balance, with `invoice_id` and `balance_paise`. These stay open after the day-end close but are not in today's queue or its counts.
+
+## 2026-10-25: Remind the doctor, and overpayment is a conflict
+
+**Decision.** Two additive changes (migration 0701).
+- **`POST /api/v1/queue/{id}/remind`.** For a `waiting` token, needs `clinical.write` or `appointments.write`. It re-opens the token's `patient_waiting` notification (unhandled, and unread again for everyone who had read it: `staff_notification_reads` rows for it are deleted, so that table is now `ephemeral` with updates still forbidden) instead of writing a second row. `queue_tokens.last_reminded_at` limits it to one press per token per minute: `409 remind_too_soon` with `retry_after_seconds`; a token past waiting gets `409 not_waiting`. The feed still sorts by id, so a re-raised row is not moved to the top, only made unread and open again.
+- **Overpayment.** A payment above the named bills' balance is now `409 overpayment` with `balance_paise` (was `400 invalid`), so the second of two simultaneous collectors learns what is left. A malformed amount stays a validation error. `lock_invoices` now locks the bills in one statement and sums their payments in a second: in one statement the sums came from the snapshot before a concurrent payment committed (a payment never changes the bill row), so two full-balance payments could both pass.
+
+**Why.** Assistants and the desk need to nudge a doctor without spamming; the desk and the doctor can collect at once.
+
+## 2026-10-25: A taken slot can be requested (booking conflict policy)
+
+**Decision.** Migrations 0683 and 0685. Additive API.
+- **Policy.** `booking.conflict_policy` in `org_settings.booking` (`request` by default, or `strict`; read with defaults, so no backfill) and a nullable `practitioners.conflict_policy` (null follows the clinic). A doctor sets their own (`PUT /practitioners/{id}/conflict-policy`, `clinical.write` and their own practitioner row); the owner (`settings.manage`) sets any doctor's and the clinic default (`PATCH /settings/clinic`); everyone with `appointments.read` can read it. `strict` is exactly the old behaviour: a taken time is a 409.
+- **Request.** Under `request`, a slot that only another appointment holds is returned as `requestable_slots` (a sibling of `slots`, so old apps are unaffected) and can be booked. The appointment is `requested` (never auto-confirmed) with `appointments.requested_overlap = true`. Leave is not requestable: it still wins, with 422 `practitioner_on_leave` (under `request`; `strict` keeps its 409).
+- **Notification.** `booking_conflict` (appointment id only, no names) is written instead of `booking_requested` for an overlap request (one bell row); 0683 extends the reminder job (`app.open_booking_requests`, `record_booking_request_step`) to cover it with the same cadence. `app.booking_conflict_visible` narrows who sees it: the doctor of that practitioner and staff who are not a doctor of another practitioner. A doctor otherwise sees every appointment notification (`appointments.read` is `all` for doctors), so this is the one place a colleague's row is hidden. Deciding the appointment (approve, move, decline) marks all its open notifications handled, so the first decision wins.
+- **Approve.** Confirming a request re-checks the doctor's time under `lock_doctor_bookings`: another confirmed, arrived or booked appointment overlapping gives 409 `slot_occupied` unless the body says `double_book: true`. Pending requests hold nothing, so two requests for one time both land and the first approved wins; the other stays `requested` and approving it is refused the same way. `POST /appointments/{id}/move {starts_at, practitioner_id?}` reschedules and confirms in one call under the same lock (a held new time is 409 `slot_occupied`, leave is 422); the patient who booked online gets `BookingConfirmed` with the new time. Decline is the existing Requested to Cancelled (`BookingDeclined`). Staff booking stays soft (the `practitioner_busy` warning).
+- **Index (expand/contract).** `appointments_self_booking_slot` (0091) refuses two active self-bookings with one start, so it would refuse a request. A predicate can't be altered and an index can't be added under the same name, so 0685 drops and recreates it in one transaction under the same name with `and not requested_overlap` added: no moment without the backstop, the 409 mapping by constraint name keeps working in old and new binaries, and every non-overlap booking is covered exactly as before. The request rows rely on the per-doctor advisory lock instead. Two indexes side by side would have kept the old one refusing requests, which defeats the feature; so the "contract" step (dropping the old shape) is done here, safely, because the new index is strictly weaker only for rows that did not exist before this release. Old binaries never set `requested_overlap`, so they behave as before.
+
+**Why.** A patient who wants the one time a busy doctor holds should be able to ask; the desk or the doctor decides, with the choice of moving them.

@@ -412,7 +412,12 @@ pub async fn on_leave(
 ///
 /// # Errors
 /// [`DbError`] on a database failure; a conflict (constraint `appointments_self_booking_slot`)
-/// when another self-booking has the same doctor and start.
+/// when another self-booking has the same doctor and start (a request over a taken time,
+/// `requested_overlap`, is outside that index).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one insert; the columns are the arguments"
+)]
 pub async fn insert_self_booked(
     conn: &mut PgConnection,
     id: Uuid,
@@ -420,13 +425,14 @@ pub async fn insert_self_booked(
     account: Uuid,
     status: &str,
     source: &str,
+    requested_overlap: bool,
     booking: &Booking<'_>,
 ) -> Result<(), DbError> {
     sqlx::query!(
         r#"insert into aarogyam.appointments
              (id, patient_id, practitioner_id, branch_id, room_id, starts_at, ends_at, kind, reason,
-              notes, source, status, booked_by_account)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $13, $11, $12)"#,
+              notes, source, status, booked_by_account, requested_overlap)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $13, $11, $12, $14)"#,
         id,
         patient_id,
         booking.practitioner_id,
@@ -439,7 +445,8 @@ pub async fn insert_self_booked(
         booking.notes,
         status,
         account,
-        source
+        source,
+        requested_overlap
     )
     .execute(conn)
     .await?;
@@ -558,4 +565,112 @@ pub async fn set_room(
     .fetch_optional(conn)
     .await?;
     Ok(row)
+}
+
+/// A no-show with the follow-up written for it. Ids and numbers only.
+#[derive(Debug, Clone)]
+pub struct MissedRow {
+    /// The appointment.
+    pub appointment_id: Uuid,
+    /// The patient.
+    pub patient_id: Uuid,
+    /// The patient's clinic number.
+    pub patient_number: String,
+    /// The doctor.
+    pub practitioner_id: Uuid,
+    /// When it was to start (UTC).
+    pub starts_at: OffsetDateTime,
+    /// The `missed_visit` follow-up, if one exists.
+    pub recall_id: Option<Uuid>,
+}
+
+/// Appointments with status `no_show` that start in `[from, to)`, within the member's reach.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn missed(
+    conn: &mut PgConnection,
+    from: OffsetDateTime,
+    to: OffsetDateTime,
+    member: Option<Uuid>,
+) -> Result<Vec<MissedRow>, DbError> {
+    let rows = sqlx::query_as!(
+        MissedRow,
+        r#"select a.id as appointment_id, a.patient_id, p.number as patient_number,
+                  a.practitioner_id, a.starts_at, r.id as "recall_id?"
+           from aarogyam.appointments a
+           join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id
+           left join aarogyam.recalls r on r.org_id = a.org_id
+                and r.source_appointment_id = a.id and r.kind = 'missed_visit'
+           where a.deleted_at is null and a.status = 'no_show'
+             and a.starts_at >= $1 and a.starts_at < $2
+             and app.practitioner_in_reach(a.practitioner_id, $3)
+           order by a.starts_at, a.id
+           limit 500"#,
+        from,
+        to,
+        member
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// Whether another appointment that holds the doctor's time (anything but cancelled, no-show or
+/// still requested) overlaps `[starts_at, ends_at)`. A pending request holds nothing: the first
+/// one decided wins.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn slot_held(
+    conn: &mut PgConnection,
+    practitioner_id: Uuid,
+    starts_at: OffsetDateTime,
+    ends_at: OffsetDateTime,
+    except: Uuid,
+) -> Result<bool, DbError> {
+    let held = sqlx::query_scalar!(
+        r#"select exists (
+             select 1 from aarogyam.appointments
+             where practitioner_id = $1 and id <> $4 and deleted_at is null
+               and status not in ('cancelled', 'no_show', 'requested')
+               and starts_at < $3 and ends_at > $2
+           ) as "held!""#,
+        practitioner_id,
+        starts_at,
+        ends_at,
+        except
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(held)
+}
+
+/// Whether the account already holds an active appointment with the doctor overlapping
+/// `[starts_at, ends_at)`: a patient can't ask for a time they have already booked.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn account_holds(
+    conn: &mut PgConnection,
+    account: Uuid,
+    practitioner_id: Uuid,
+    starts_at: OffsetDateTime,
+    ends_at: OffsetDateTime,
+) -> Result<bool, DbError> {
+    let held = sqlx::query_scalar!(
+        r#"select exists (
+             select 1 from aarogyam.appointments
+             where booked_by_account = $1 and practitioner_id = $2 and deleted_at is null
+               and status not in ('cancelled', 'no_show')
+               and starts_at < $4 and ends_at > $3
+           ) as "held!""#,
+        account,
+        practitioner_id,
+        starts_at,
+        ends_at
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(held)
 }

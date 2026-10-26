@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select a.id as appointment_id, a.patient_id, p.number as patient_number,\n                  a.practitioner_id, a.starts_at, r.id as \"recall_id?\"\n           from aarogyam.appointments a\n           join aarogyam.patients p on p.org_id = a.org_id and p.id = a.patient_id\n           left join aarogyam.recalls r on r.org_id = a.org_id\n                and r.source_appointment_id = a.id and r.kind = 'missed_visit'\n           where a.deleted_at is null and a.status = 'no_show'\n             and a.starts_at >= $1 and a.starts_at < $2\n             and app.practitioner_in_reach(a.practitioner_id, $3)\n           order by a.starts_at, a.id\n           limit 500",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "appointment_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "patient_number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "practitioner_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "practitioner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "starts_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "recall_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recalls",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b84a9fe7c587e1f559c761217136bc0414b116b261755a5182ac15812a6bbe1e"
+}

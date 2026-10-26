@@ -225,15 +225,16 @@ async fn merges_are_refused_when_unsafe_and_follow_roles_and_clinics() {
     let (status, _) = merge(&app, ALPHA, &owner, &second, &known).await;
     assert_eq!(status, StatusCode::CONFLICT);
 
-    // The assistant sees the flags but can't resolve them; a role with nothing can't see them.
+    // The assistant sees the flags; a role with nothing can't see or resolve them.
     let assistant = app.token(ALPHA_ASSISTANT);
     let (status, listed) = flags(&app, ALPHA, &assistant).await;
     assert_eq!(status, StatusCode::OK);
     let flag = listed["items"][0]["id"].as_str().unwrap().to_owned();
     let dismiss = format!("/api/v1/patient-duplicates/{flag}/dismiss");
-    let (status, _) = send(&app, ALPHA, &assistant, Method::POST, &dismiss, None).await;
+    let nothing = app.token(ALPHA_NOTHING);
+    let (status, _) = send(&app, ALPHA, &nothing, Method::POST, &dismiss, None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
-    let (status, _) = merge(&app, ALPHA, &assistant, &first, &known).await;
+    let (status, _) = merge(&app, ALPHA, &nothing, &first, &known).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     let (status, _) = flags(&app, ALPHA, &app.token(ALPHA_NOTHING)).await;
     assert_eq!(status, StatusCode::FORBIDDEN);

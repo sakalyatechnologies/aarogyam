@@ -2,6 +2,7 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import { appointmentId } from "@aarogyam/api-client";
 import { fakeTokenFor } from "@aarogyam/api-client/fake";
 
 import { NOW, PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
@@ -57,6 +58,8 @@ describe("Book an appointment (public)", () => {
     await user.type(await screen.findByLabelText(/full name/i), "Late Comer");
     await user.type(screen.getByLabelText(/^phone/i), "9876543211");
 
+    // This clinic doesn't take requests for a taken time.
+    await backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.asha }), now: () => NOW }).updateClinicSettings({ online_booking: { conflict_policy: "strict" } });
     // Someone else takes 9:00 with the first doctor first.
     const doctors = await backend.client({ host: SUNRISE, now: () => NOW }).getBookingOptions();
     if (!doctors.ok) throw new Error("expected options");
@@ -78,6 +81,45 @@ describe("Book an appointment (public)", () => {
     await user.click(screen.getByRole("button", { name: "Request appointment" }));
     expect(await screen.findByText(/someone just took that time/i)).toBeTruthy();
     expect(screen.queryByLabelText(/full name/i)).toBeNull();
+  });
+
+  it("offers a taken time as Request this time, and only that, with its own confirmation copy", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi();
+    const owner = backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.asha }), now: () => NOW });
+    const rival = backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: "d0d0d0d0-0000-4000-8000-000000000009", email: "rival@example.test" }), now: () => NOW });
+    const options = await rival.getBookingOptions();
+    if (!options.ok) throw new Error("expected options");
+    const doctor = options.value.doctors[0]?.id ?? "";
+    const free = await rival.getAvailability("2026-10-05", doctor);
+    if (!free.ok) throw new Error("expected slots");
+    const first = await rival.createOnlineBooking({ starts_at: free.value.slots[0] ?? "", practitioner_id: doctor, full_name: "Rival", phone: "9876543212" });
+    if (!first.ok) throw new Error("expected a booking");
+    await owner.setAppointmentStatus(appointmentId.parse(first.value.id), { status: "confirmed" });
+
+    renderPortal(BOOK, { backend });
+    await user.click(await screen.findByRole("button", { name: "Mon 5 Oct" }));
+    const times = await screen.findByRole("group", { name: "Free times" });
+    expect(within(times).queryByRole("button", { name: "9:00 am" })).toBeNull();
+    const requestable = await screen.findByRole("group", { name: "Request this time" });
+    expect(within(requestable).getAllByRole("button")).toHaveLength(1);
+    await user.click(within(requestable).getByRole("button", { name: "Request 9:00 am" }));
+
+    await user.type(await screen.findByLabelText(/your email/i), "late@example.test");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.type(await screen.findByLabelText(/full name/i), "Late Comer");
+    await user.type(screen.getByLabelText(/^phone/i), "9876543211");
+    await user.click(screen.getByRole("button", { name: "Request appointment" }));
+    expect(await screen.findByText("Request received")).toBeTruthy();
+    expect(screen.getByText(/already booked, so .* will check and confirm it/i)).toBeTruthy();
+  });
+
+  it("shows no request group when no time is taken", async () => {
+    const user = userEvent.setup();
+    renderPortal(BOOK, { backend: fakeApi() });
+    await user.click(await screen.findByRole("button", { name: "Mon 5 Oct" }));
+    await screen.findByRole("group", { name: "Free times" });
+    expect(screen.queryByRole("group", { name: "Request this time" })).toBeNull();
   });
 
   it("says online booking isn't available when the clinic has switched it off", async () => {

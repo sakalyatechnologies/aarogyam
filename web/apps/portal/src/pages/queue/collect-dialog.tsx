@@ -1,17 +1,23 @@
 /**
- * Collect at the front desk: the patient's open bill, the method, and for UPI the QR from the bill's UPI link. Recording
- * is one `POST /payments` with an idempotency key made once per attempt, so a retry after a dropped connection never
- * charges twice. Once the bill is settled, "Mark done" closes the token.
+ * Collect at the front desk or from the bell: the bill's summary (`GET /invoices/{id}/collect-summary`, open to anyone who
+ * collects payments, with or without billing access), the method, and for UPI the QR from the summary's link. Recording is
+ * one `POST /payments` with an idempotency key made once per attempt, so a retry after a dropped connection never charges
+ * twice; a draft bill is issued by the payment itself. From the queue, "Mark done" then closes the token.
+ *
+ * The bill is named by the bell's row, or found from the token: through the patient's open bills for someone who may read
+ * billing, otherwise through the token's "collect payment" notice.
  */
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
-import { apiErrorOf, randomUuid, unwrap, type InvoiceId, type PaymentMethod, type QueueToken } from "@aarogyam/api-client";
+import { apiErrorOf, invoiceId, randomUuid, unwrap, type PaymentMethod, type QueueToken } from "@aarogyam/api-client";
 import { formatRupees } from "@aarogyam/app-kit";
 import { Button, Dialog } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { QrCode } from "../../components/qr-code.js";
+import { useRefreshVisitData } from "../../lib/visit-refresh.js";
+import { useNotifications } from "../../lib/notifications-query.js";
 import { useInvoices, useRecordPayment } from "../billing/queries.js";
 
 const METHODS = [
@@ -21,68 +27,107 @@ const METHODS = [
 ] as const;
 type Method = Extract<PaymentMethod, "cash" | "upi" | "card">;
 
-export function CollectDialog({ token, onClose, onMarkDone }: { token: QueueToken | undefined; onClose: () => void; onMarkDone: (token: QueueToken) => void }) {
+/** What to collect: a bill by id (from the bell), or a queue token whose bill is found for it. */
+export interface CollectTarget {
+  invoiceId?: string | undefined;
+  token?: QueueToken | undefined;
+  /** The patient's name, when the caller already knows it; the summary names them once it loads. */
+  patientName?: string | undefined;
+}
+
+export function CollectDialog({
+  target,
+  onClose,
+  onMarkDone,
+}: {
+  target: CollectTarget | undefined;
+  onClose: () => void;
+  onMarkDone?: (token: QueueToken) => void;
+}) {
+  const token = target?.token;
+  const name = token?.patient.full_name ?? target?.patientName;
   return (
     <Dialog
-      open={token !== undefined}
+      open={target !== undefined}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
       title="Collect payment"
-      description={token === undefined ? undefined : `${token.patient.full_name} · token #${String(token.token_number)}`}
+      description={token === undefined ? name : `${token.patient.full_name} · token #${String(token.token_number)}`}
       size="sm"
     >
-      {token === undefined ? null : <CollectBody token={token} onMarkDone={onMarkDone} onClose={onClose} />}
+      {target === undefined ? null : <CollectBody target={target} onMarkDone={onMarkDone} onClose={onClose} />}
     </Dialog>
   );
 }
 
-function CollectBody({ token, onMarkDone, onClose }: { token: QueueToken; onMarkDone: (token: QueueToken) => void; onClose: () => void }) {
-  const { api, access } = useClinic();
-  const queryClient = useQueryClient();
-  const invoices = useInvoices({ patientId: token.patient.id });
+/** The id of the bill to collect: the one named, else the token's open bill from the patient's bills or from the bell's notice. */
+function useBillToCollect(target: CollectTarget): { id: string | undefined; pending: boolean } {
+  const { can } = useClinic();
+  const token = target.token;
+  const named = target.invoiceId;
+  const viaInvoices = named === undefined && token !== undefined && can("billing.read");
+  const viaNotices = named === undefined && token !== undefined && !viaInvoices;
+  const invoices = useInvoices(token === undefined ? {} : { patientId: token.patient.id }, viaInvoices);
+  const notices = useNotifications(viaNotices);
+  if (named !== undefined) return { id: named, pending: false };
+  if (viaInvoices) {
+    const open = (invoices.data?.items ?? []).filter((i) => i.status !== "void");
+    const found = open.find((i) => i.status === "issued" && i.balance_paise > 0) ?? open.find((i) => i.status === "draft");
+    return { id: found?.id, pending: invoices.isPending };
+  }
+  const notice = (notices.data?.items ?? []).find((n) => n.kind === "collect_payment" && n.handled == null && n.queue_token?.id === token?.id);
+  return { id: notice?.invoice?.id, pending: viaNotices && notices.isPending };
+}
+
+function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; onMarkDone: ((token: QueueToken) => void) | undefined; onClose: () => void }) {
+  const { api, access, can } = useClinic();
+  const refresh = useRefreshVisitData();
+  const token = target.token;
+  const bill = useBillToCollect(target);
   const [method, setMethod] = useState<Method>("cash");
   const [error, setError] = useState<string | undefined>(undefined);
   const [paid, setPaid] = useState(0);
   const record = useRecordPayment();
 
-  const candidates = (invoices.data?.items ?? []).filter((i) => i.status !== "void");
-  const issued = candidates.find((i) => i.status === "issued" && i.balance_paise > 0);
-  const draft = candidates.find((i) => i.status === "draft");
-  const justSettled = paid > 0 && issued === undefined;
-  const balance = issued?.balance_paise ?? 0;
-
-  const issue = useMutation({
-    mutationFn: (id: InvoiceId) => unwrap(api.issueInvoice(id)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["invoices", access.org_id] }),
-    onError: (thrown) => {
-      setError(apiErrorOf(thrown)?.message ?? "Couldn't issue the bill.");
-    },
-  });
-
-  const upi = useQuery({
-    queryKey: ["upi-link", access.org_id, issued?.id, balance],
-    queryFn: () => (issued === undefined ? Promise.reject(new Error("no bill")) : unwrap(api.getInvoiceUpiLink(issued.id))),
-    enabled: issued !== undefined && method === "upi",
+  const summary = useQuery({
+    queryKey: ["collect-summary", access.org_id, bill.id],
+    queryFn: ({ signal }) => (bill.id === undefined ? Promise.reject(new Error("no bill")) : unwrap(api.getInvoiceCollectSummary(invoiceId.parse(bill.id), { signal }))),
+    enabled: bill.id !== undefined && paid === 0,
     retry: false,
   });
+  const due = summary.data;
+  const justSettled = paid > 0;
+  const balance = due?.balance_paise ?? 0;
+  const upi = due?.upi ?? undefined;
+  const nothing = !justSettled && !bill.pending && (bill.id === undefined || summary.isError);
+  const loading = !justSettled && !nothing && (bill.pending || due === undefined);
 
   // One key per attempt: the same while retrying the same payment, a new one once it went through.
   const attempt = useRef<{ signature: string; key: string } | undefined>(undefined);
-  const pay = () => {
-    if (issued === undefined) return;
+  const pay = async () => {
+    if (due === undefined) return;
     setError(undefined);
-    const signature = `${issued.id}|${method}|${String(balance)}`;
+    // The API issues a draft as part of a collect-only payment; billing.write holders issue it first.
+    if (due.status === "draft" && can("billing.write")) {
+      const issued = await api.issueInvoice(invoiceId.parse(due.invoice_id));
+      if (!issued.ok) {
+        setError(issued.error.message);
+        return;
+      }
+    }
+    const signature = `${due.invoice_id}|${method}|${String(balance)}`;
     if (attempt.current?.signature !== signature) attempt.current = { signature, key: randomUuid() };
     record.mutate(
       {
-        input: { patient_id: token.patient.id, method, amount_paise: balance, allocations: [{ invoice_id: issued.id, amount_paise: balance }] },
+        input: { patient_id: due.patient.id, method, amount_paise: balance, allocations: [{ invoice_id: due.invoice_id, amount_paise: balance }] },
         idempotencyKey: attempt.current.key,
       },
       {
         onSuccess: (payment) => {
           attempt.current = undefined;
           setPaid((n) => n + payment.amount_paise);
+          void refresh();
         },
         onError: (thrown) => {
           setError(apiErrorOf(thrown)?.message ?? "Couldn't record the payment. Try again; it won't be charged twice.");
@@ -93,7 +138,7 @@ function CollectBody({ token, onMarkDone, onClose }: { token: QueueToken; onMark
 
   return (
     <div className="flex flex-col gap-4">
-      {invoices.isPending ? (
+      {loading ? (
         <p role="status" className="text-sm text-muted">
           Getting the bill…
         </p>
@@ -103,30 +148,24 @@ function CollectBody({ token, onMarkDone, onClose }: { token: QueueToken; onMark
             <span>Paid in full</span>
             <b>{formatRupees(paid)}</b>
           </p>
-          <Button
-            onClick={() => {
-              onMarkDone(token);
-            }}
-          >
-            Mark done
-          </Button>
-        </>
-      ) : issued === undefined ? (
-        draft !== undefined ? (
-          <>
-            <p className="text-sm text-muted">The bill is still a draft. Issue it to collect.</p>
+          {token !== undefined && onMarkDone !== undefined ? (
             <Button
-              disabled={issue.isPending}
               onClick={() => {
-                issue.mutate(draft.id);
+                onMarkDone(token);
               }}
             >
-              {issue.isPending ? "Issuing…" : "Issue the bill"}
+              Mark done
             </Button>
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-muted">There is nothing to collect: no open bill for this patient. Make the bill from the visit, or mark the token done.</p>
+          ) : (
+            <Button onClick={onClose}>Close</Button>
+          )}
+        </>
+      ) : nothing || due === undefined ? (
+        <>
+          <p className="text-sm text-muted">
+            {token === undefined ? "There is nothing left to collect on this bill." : "There is nothing to collect: no open bill for this patient. Make the bill from the visit, or mark the token done."}
+          </p>
+          {token !== undefined && onMarkDone !== undefined ? (
             <Button
               variant="secondary"
               onClick={() => {
@@ -135,14 +174,15 @@ function CollectBody({ token, onMarkDone, onClose }: { token: QueueToken; onMark
             >
               Mark done
             </Button>
-          </>
-        )
+          ) : null}
+        </>
       ) : (
         <>
           <p className="fd-due" aria-live="polite">
-            <span>{issued.number ?? "Bill"} · due</span>
+            <span>{due.number ?? "Bill"} · due</span>
             <b>{formatRupees(balance)}</b>
           </p>
+          <p className="text-sm text-muted">{due.patient.name}</p>
           <div role="group" aria-label="Payment method" className="fd-methods">
             {METHODS.map((m) => (
               <button
@@ -159,20 +199,20 @@ function CollectBody({ token, onMarkDone, onClose }: { token: QueueToken; onMark
             ))}
           </div>
           {method === "upi" ? (
-            upi.data === undefined ? (
+            upi === undefined ? (
               <p role="status" className="text-sm text-muted">
-                {upi.isError ? (apiErrorOf(upi.error)?.message ?? "No UPI QR for this bill.") : "Loading the QR…"}
+                This clinic has no UPI ID set. Take cash or card, or add one in Settings.
               </p>
             ) : (
               <figure className="fd-qr">
-                <QrCode value={upi.data.qr_data} size={176} label={`UPI QR for ${formatRupees(upi.data.amount_paise)} to ${upi.data.payee_name}`} />
+                <QrCode value={upi.qr_data} size={176} label={`UPI QR for ${formatRupees(balance)} to ${upi.payee_name}`} />
                 <figcaption className="text-xs text-muted">
-                  {upi.data.payee_name} · {upi.data.upi_id}. Record the payment once it arrives.
+                  {upi.payee_name} · {upi.upi_id}. Record the payment once it arrives.
                 </figcaption>
               </figure>
             )
           ) : null}
-          <Button disabled={record.isPending} onClick={pay}>
+          <Button disabled={record.isPending} onClick={() => void pay()}>
             {record.isPending ? "Recording…" : `Record ${formatRupees(balance)} ${method === "upi" ? "UPI" : method}`}
           </Button>
         </>

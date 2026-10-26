@@ -64,6 +64,8 @@ entities! {
     QueueToken, QueueTokenId;
     /// Another number a patient is known by.
     PatientIdentifier, PatientIdentifierId;
+    /// A family link between two patients of one clinic.
+    PatientRelation, PatientRelationId;
     /// A data import.
     Import, ImportId;
     /// An uploaded file being mapped and checked before it is imported.

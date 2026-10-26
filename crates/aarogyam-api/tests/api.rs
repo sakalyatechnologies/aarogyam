@@ -150,7 +150,7 @@ async fn permissions_and_masking_follow_the_role() {
     assert_eq!(patient["phone"], "+919810000007");
     let path = format!("/api/v1/patients/{}", patient["id"].as_str().unwrap());
 
-    // The assistant may read but not register, and sees the phone masked.
+    // The assistant may read (phone masked); a role with nothing may not register.
     let (status, body) = app
         .send(Method::GET, ALPHA, &path, Some(&assistant), None)
         .await;
@@ -162,7 +162,7 @@ async fn permissions_and_masking_follow_the_role() {
             Method::POST,
             ALPHA,
             "/api/v1/patients",
-            Some(&assistant),
+            Some(&app.token(ALPHA_NOTHING)),
             Some(json!({ "full_name": "X Y" })),
         )
         .await;
@@ -270,15 +270,36 @@ async fn editing_contact_details_needs_patients_contact() {
     let patient = register(&app, ALPHA, &desk, "Kavya Rao", "98100 00011").await;
     let path = format!("/api/v1/patients/{}", patient["id"].as_str().unwrap());
 
-    // Without patients.write: 403. With it but without patients.contact: names yes, phone no.
+    // Without patients.write: 403. With it but without patients.contact: names yes, phone no
+    // (the assistant has patients.write since 0680, and no patients.contact).
     let assistant = app.token(ALPHA_ASSISTANT);
     let (status, _) = app
         .send(
             Method::PATCH,
             ALPHA,
             &path,
-            Some(&assistant),
+            Some(&app.token(ALPHA_NOTHING)),
             Some(json!({ "sex": "male" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, body) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &path,
+            Some(&assistant),
+            Some(json!({ "preferred_language": "kn-IN" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &path,
+            Some(&assistant),
+            Some(json!({ "phone": "+919810000012" })),
         )
         .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
@@ -502,6 +523,9 @@ async fn every_route_requires_sign_in_and_a_permission() {
             // One-click unsubscribe: the opaque token is the proof, throttled per IP, and the
             // answer names nobody (tests/messaging.rs).
             "/api/v1/public/unsubscribe/{token}",
+            // Consent-to-sign link: the one-time token is the proof, throttled per IP, no
+            // patient data in the answer (tests/patient_directory.rs).
+            "/api/v1/public/consents/{token}",
             // Resend's webhook: checked by its Svix signature instead (tests/messaging.rs).
             "/api/v1/webhooks/resend",
             // Meta's webhook: the verify token (GET) or the app secret's HMAC (POST) instead

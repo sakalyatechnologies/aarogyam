@@ -230,12 +230,26 @@ async fn a_spreadsheet_is_mapped_previewed_and_imported_once() {
     );
 
     // Only patients.write imports; another clinic can't see the session at all.
-    let (status, _) = upload(&app, ALPHA, &assistant, "x.csv", b"Name\nA\n", None).await;
+    let (status, _) = upload(
+        &app,
+        ALPHA,
+        &app.token(ALPHA_NOTHING),
+        "x.csv",
+        b"Name\nA\n",
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     for path in [&preview_path, &commit_path] {
         let body = Some(json!({ "mapping": mapping }));
         let (status, _) = app
-            .send(Method::POST, ALPHA, path, Some(&assistant), body.clone())
+            .send(
+                Method::POST,
+                ALPHA,
+                path,
+                Some(&app.token(ALPHA_NOTHING)),
+                body.clone(),
+            )
             .await;
         assert_eq!(status, StatusCode::FORBIDDEN, "{path}");
         let (status, _) = app.send(Method::POST, BETA, path, Some(&beta), body).await;
@@ -457,7 +471,13 @@ async fn a_spreadsheet_is_mapped_previewed_and_imported_once() {
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     let (status, _) = app
-        .send(Method::POST, ALPHA, &dismiss, Some(&assistant), None)
+        .send(
+            Method::POST,
+            ALPHA,
+            &dismiss,
+            Some(&app.token(ALPHA_NOTHING)),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     for _ in 0..2 {

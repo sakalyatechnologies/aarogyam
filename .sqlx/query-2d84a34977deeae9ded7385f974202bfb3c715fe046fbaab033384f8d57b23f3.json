@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select last_reminded_at from aarogyam.queue_tokens where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "last_reminded_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.queue_tokens",
+            "name": "last_reminded_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "2d84a34977deeae9ded7385f974202bfb3c715fe046fbaab033384f8d57b23f3"
+}

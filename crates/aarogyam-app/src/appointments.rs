@@ -666,6 +666,17 @@ pub(crate) fn plan_status(
     }
 }
 
+/// Whether `current` is a no-show being brought back on a later clinic day than its own: a late
+/// arrival is allowed on the appointment's day only.
+pub(crate) fn late_reversal_too_old(
+    current: &AppointmentRow,
+    timezone: &str,
+    now: OffsetDateTime,
+) -> bool {
+    current.status == AppointmentStatus::NoShow.as_str()
+        && clinic_today(timezone, current.starts_at) != clinic_today(timezone, now)
+}
+
 /// Applies a status change that [`plan_status`] allowed, inside an open transaction: saves it,
 /// appends the history, issues a queue token on arrival and moves an existing token along.
 pub(crate) async fn apply_status(
@@ -700,7 +711,7 @@ pub(crate) async fn apply_status(
             from_status: Some(from.as_str()),
             to_status: Some(to.as_str()),
             changes: None,
-            note: reason,
+            note: reason.or((from == AppointmentStatus::NoShow).then_some("Late arrival")),
             at: now,
         },
     )
@@ -769,6 +780,38 @@ pub async fn set_status(
     reason: Option<&str>,
     now: OffsetDateTime,
 ) -> Result<Moved<StatusChanged>, AppError> {
+    set_status_with(
+        db,
+        actor,
+        request_id,
+        appointment_id,
+        status,
+        reason,
+        false,
+        now,
+    )
+    .await
+}
+
+/// [`set_status`] with a choice for approving a request into a time another appointment holds:
+/// refused with [`AppError::SlotOccupied`] unless `double_book` is set.
+///
+/// # Errors
+/// As [`set_status`], and [`AppError::SlotOccupied`].
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one request, flattened from the body"
+)]
+pub async fn set_status_with(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    appointment_id: AppointmentId,
+    status: &str,
+    reason: Option<&str>,
+    double_book: bool,
+    now: OffsetDateTime,
+) -> Result<Moved<StatusChanged>, AppError> {
     actor.require(Permission::AppointmentsWrite)?;
     let to =
         AppointmentStatus::parse(status).map_err(|error| AppError::invalid("status", error))?;
@@ -788,6 +831,12 @@ pub async fn set_status(
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
         let current = locked(tx, actor, appointment_id).await?;
+        if late_reversal_too_old(&current, &profile.timezone, now) {
+            return Ok(Moved::Refused {
+                reason: "a missed appointment can only be reopened on its own day".to_owned(),
+                current: status_changed(tx, current.id, today).await?,
+            });
+        }
         let token_id = match plan_status(&current.status, to, reason)? {
             StatusPlan::Same => {
                 return Ok(Moved::AlreadyDone(
@@ -807,6 +856,21 @@ pub async fn set_status(
                     && let Ok(slot) = TimeSlot::new(current.starts_at, current.ends_at)
                 {
                     refuse_on_leave(tx, current.practitioner_id, slot).await?;
+                    // The slot may have been taken since the request came in: decide under the
+                    // doctor's lock, so two approvals can't both win.
+                    dal::lock_doctor_bookings(tx.conn(), current.practitioner_id).await?;
+                    if !double_book
+                        && dal::slot_held(
+                            tx.conn(),
+                            current.practitioner_id,
+                            current.starts_at,
+                            current.ends_at,
+                            current.id,
+                        )
+                        .await?
+                    {
+                        return Err(AppError::SlotOccupied);
+                    }
                 }
                 apply_status(
                     tx,
@@ -831,4 +895,176 @@ pub async fn set_status(
         }))
     })
     .await
+}
+
+/// Saves a changed appointment and its history entry; nothing when nothing changed.
+async fn save_change(
+    tx: &mut ScopedTx,
+    current: &AppointmentRow,
+    next: &Booking<'_>,
+    now: OffsetDateTime,
+) -> Result<(), AppError> {
+    let changes = history_changes(current, next);
+    if !changes.is_empty() {
+        dal::update(tx.conn(), current.id, next)
+            .await
+            .map_err(room_taken)?;
+        dal::insert_event(
+            tx.conn(),
+            &dal::NewEvent {
+                appointment_id: current.id,
+                kind: "changed",
+                from_status: None,
+                to_status: None,
+                changes: Some(Value::Object(changes)),
+                note: None,
+                at: now,
+            },
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+/// Where to move an appointment.
+#[derive(Debug, Clone, Copy)]
+pub struct MoveTo {
+    /// The new start; the appointment keeps its length.
+    pub starts_at: OffsetDateTime,
+    /// Another doctor, or `None` to keep the same one.
+    pub practitioner_id: Option<PractitionerId>,
+}
+
+/// Reschedules a waiting or confirmed appointment and confirms it in one step, deciding under
+/// the doctor's lock that the new time is free. A request is answered like a confirmation: the
+/// patient who booked online is told the new time (`BookingConfirmed`).
+///
+/// # Errors
+/// [`AppError::NotFound`] when it isn't in this clinic; [`AppError::Conflict`] when it is past
+/// confirming; [`AppError::SlotOccupied`] when the new time is held;
+/// [`AppError::PractitionerOnLeave`]; [`AppError::Invalid`] for a bad doctor or time.
+pub async fn move_to(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    appointment_id: AppointmentId,
+    target: MoveTo,
+    now: OffsetDateTime,
+) -> Result<StatusChanged, AppError> {
+    actor.require(Permission::AppointmentsWrite)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let today = clinic_today(&actor.timezone, now);
+        let profile = clinic::profile(tx.conn())
+            .await?
+            .ok_or(AppError::NotFound("clinic"))?;
+        let current = locked(tx, actor, appointment_id).await?;
+        let status = AppointmentStatus::parse(&current.status)
+            .map_err(|_| AppError::Internal("unknown appointment status"))?;
+        if !matches!(
+            status,
+            AppointmentStatus::Requested | AppointmentStatus::Booked | AppointmentStatus::Confirmed
+        ) {
+            return Err(AppError::Conflict(
+                "only a requested, booked or confirmed appointment can be moved",
+            ));
+        }
+        let practitioner_id = match target.practitioner_id {
+            Some(id) => {
+                if id.uuid() != current.practitioner_id {
+                    check_practitioner(tx, id, actor.reach(Permission::AppointmentsWrite)).await?;
+                }
+                id.uuid()
+            }
+            None => current.practitioner_id,
+        };
+        let slot = TimeSlot::new(
+            target.starts_at,
+            target.starts_at + (current.ends_at - current.starts_at),
+        )
+        .map_err(|error| AppError::invalid("starts_at", error))?;
+        refuse_on_leave(tx, practitioner_id, slot).await?;
+        dal::lock_doctor_bookings(tx.conn(), practitioner_id).await?;
+        if dal::slot_held(
+            tx.conn(),
+            practitioner_id,
+            slot.starts_at(),
+            slot.ends_at(),
+            current.id,
+        )
+        .await?
+        {
+            return Err(AppError::SlotOccupied);
+        }
+        let next = Booking {
+            practitioner_id,
+            branch_id: current.branch_id,
+            room_id: current.room_id,
+            starts_at: slot.starts_at(),
+            ends_at: slot.ends_at(),
+            kind: &current.kind,
+            reason: current.reason.as_deref(),
+            notes: current.notes.as_deref(),
+        };
+        save_change(tx, &current, &next, now).await?;
+        if status != AppointmentStatus::Confirmed {
+            apply_status(
+                tx,
+                &profile.timezone,
+                &current,
+                AppointmentStatus::Confirmed,
+                None,
+                Some(actor.membership_id),
+                now,
+            )
+            .await?;
+        }
+        if current.source == BookingSource::Website.as_str()
+            && status == AppointmentStatus::Requested
+        {
+            // The patient is told the time they now have, so tell it from the moved row.
+            let moved = dal::get(tx.conn(), current.id, None)
+                .await?
+                .ok_or(AppError::NotFound("appointment"))?;
+            crate::self_booking::notify_decision(
+                tx,
+                &profile,
+                &moved,
+                AppointmentStatus::Confirmed,
+            )
+            .await?;
+        }
+        status_changed(tx, current.id, today).await
+    })
+    .await
+}
+
+/// The day's no-shows (`appointments.read`, within the caller's reach), for the Missed list.
+/// `date` is a clinic day, today when absent.
+///
+/// # Errors
+/// [`AppError::Denied`] without `appointments.read`; [`AppError::Db`] on failures.
+pub async fn missed(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    date: Option<Date>,
+    now: OffsetDateTime,
+) -> Result<(Date, Vec<dal::MissedRow>), AppError> {
+    actor.require(Permission::AppointmentsRead)?;
+    let day = date.unwrap_or_else(|| clinic_today(&actor.timezone, now));
+    let (start, end) = days_bounds(&actor.timezone, day, day);
+    let rows = db
+        .scoped(&scope(actor, request_id), async |tx| {
+            Ok::<_, AppError>(
+                dal::missed(
+                    tx.conn(),
+                    start,
+                    end,
+                    actor.reach(Permission::AppointmentsRead).member(),
+                )
+                .await?,
+            )
+        })
+        .await?;
+    Ok((day, rows))
 }

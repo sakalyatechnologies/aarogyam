@@ -115,6 +115,12 @@ pub struct BookingChanges {
     pub reminder_minutes: Option<u16>,
     /// How long an appointment booked by staff lasts by default: 15, 30, 45 or 60 minutes.
     pub default_visit_minutes: Option<u16>,
+    /// Whether appointments nobody came to are marked no-show automatically.
+    pub no_show_auto: Option<bool>,
+    /// Minutes after an appointment's end before it is marked no-show (0 to 240).
+    pub no_show_grace_minutes: Option<u16>,
+    /// What a patient asking online for a taken time gets: a request or a refusal.
+    pub conflict_policy: Option<aarogyam_domain::booking::ConflictPolicy>,
 }
 
 fn text(object: &Value, key: &str) -> Option<String> {
@@ -222,6 +228,11 @@ fn apply_booking(stored: &Value, booking: &BookingChanges) -> Result<Value, AppE
     settings.default_visit_minutes = booking
         .default_visit_minutes
         .unwrap_or(settings.default_visit_minutes);
+    settings.no_show_auto = booking.no_show_auto.unwrap_or(settings.no_show_auto);
+    settings.no_show_grace_minutes = booking
+        .no_show_grace_minutes
+        .unwrap_or(settings.no_show_grace_minutes);
+    settings.conflict_policy = booking.conflict_policy.unwrap_or(settings.conflict_policy);
     Ok(settings_value(&settings.validate().map_err(|error| {
         let field = match error {
             BookingError::SlotMinutes => "booking.slot_minutes",
@@ -230,6 +241,8 @@ fn apply_booking(stored: &Value, booking: &BookingChanges) -> Result<Value, AppE
             BookingError::MinNotice => "booking.min_notice_minutes",
             BookingError::ReminderMinutes => "booking.reminder_minutes",
             BookingError::DefaultVisitMinutes => "booking.default_visit_minutes",
+            BookingError::NoShowGraceMinutes => "booking.no_show_grace_minutes",
+            BookingError::ConflictPolicy => "booking.conflict_policy",
         };
         AppError::invalid(field, error)
     })?))

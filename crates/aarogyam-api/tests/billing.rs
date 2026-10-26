@@ -394,6 +394,10 @@ async fn pay(app: &TestApp, token: &str, key: &str, body: Value) -> (StatusCode,
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one scenario walks each payment in turn"
+)]
 async fn payments_are_idempotent_and_never_overpay_a_bill() {
     let app = TestApp::start().await;
     let desk = app.token(ALPHA_FRONT_DESK);
@@ -443,7 +447,9 @@ async fn payments_are_idempotent_and_never_overpay_a_bill() {
     let over = json!({ "patient_id": patient, "method": "cash", "amount_paise": 70_000,
                        "allocations": [{ "invoice_id": bill_id, "amount_paise": 60_001 }] });
     let (status, body) = pay(&app, &desk, "key-0000-0002", over).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"]["code"], "overpayment");
+    assert_eq!(body["error"]["balance_paise"], 60_000);
     let past = json!({ "patient_id": patient, "method": "cash", "amount_paise": 100,
                        "allocations": [{ "invoice_id": bill_id, "amount_paise": 200 }] });
     let (status, _) = pay(&app, &desk, "key-0000-0003", past).await;
@@ -520,12 +526,15 @@ async fn a_payment_larger_than_the_balance_due_is_refused() {
     let over = json!({ "patient_id": patient, "method": "cash", "amount_paise": 400_000,
                        "allocations": [{ "invoice_id": bill_id, "amount_paise": 100_000 }] });
     let (status, body) = pay(&app, &desk, "key-over-0001", over).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
-    assert_eq!(
-        body["error"]["message"],
-        "amount: must not be more than the balance due"
-    );
-    assert_eq!(body["error"]["code"], "invalid_request");
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"]["code"], "overpayment");
+    assert_eq!(body["error"]["balance_paise"], 100_000);
+
+    // A malformed amount stays a validation error.
+    let zero = json!({ "patient_id": patient, "method": "cash", "amount_paise": 0,
+                       "allocations": [{ "invoice_id": bill_id, "amount_paise": 0 }] });
+    let (status, _) = pay(&app, &desk, "key-zero-0001", zero).await;
+    assert!(status == StatusCode::BAD_REQUEST || status == StatusCode::UNPROCESSABLE_ENTITY);
 
     // Exactly the balance succeeds, and the bill becomes paid.
     let exact = json!({ "patient_id": patient, "method": "upi", "amount_paise": 100_000,
@@ -543,12 +552,34 @@ async fn a_payment_larger_than_the_balance_due_is_refused() {
     let second = json!({ "patient_id": patient, "method": "cash", "amount_paise": 50_000,
                          "allocations": [{ "invoice_id": bill_id, "amount_paise": 50_000 }] });
     let (status, body) = pay(&app, &desk, "key-second-0003", second).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
-    assert_eq!(
-        body["error"]["message"],
-        "amount: must not be more than the balance due"
-    );
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"]["code"], "overpayment");
+    assert_eq!(body["error"]["balance_paise"], 0);
 
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn two_payments_for_the_full_balance_at_once_take_one() {
+    let app = TestApp::start().await;
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let owner = app.token(ALPHA_OWNER);
+    let patient = patient(&app, ALPHA, &owner).await;
+    let bill = issued_bill(&app, &owner, &patient).await;
+    let bill_id = bill["id"].as_str().unwrap();
+    let body = json!({ "patient_id": patient, "method": "cash", "amount_paise": 100_000,
+                       "allocations": [{ "invoice_id": bill_id, "amount_paise": 100_000 }] });
+    let (a, b) = tokio::join!(
+        pay(&app, &desk, "key-race-0001", body.clone()),
+        pay(&app, &owner, "key-race-0002", body.clone())
+    );
+    let mut results = [a, b];
+    results.sort_by_key(|(status, _)| status.as_u16());
+    assert_eq!(results[0].0, StatusCode::CREATED, "{}", results[0].1);
+    assert_eq!(results[1].0, StatusCode::CONFLICT, "{}", results[1].1);
+    assert_eq!(results[1].1["error"]["code"], "overpayment");
+    assert_eq!(results[1].1["error"]["balance_paise"], 0);
     app.finish().await;
 }
 

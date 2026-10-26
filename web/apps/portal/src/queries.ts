@@ -6,6 +6,8 @@ import {
   unwrap,
   type AllergyFields,
   type AppointmentChanges,
+  type ConflictPolicyChange,
+  type MoveAppointment,
   type AppointmentFilter,
   type AppointmentId,
   type AppointmentStatus,
@@ -496,6 +498,35 @@ export function useChangeAppointment() {
   });
 }
 
+/** Reschedules a request and confirms it in one step. */
+export function useMoveAppointment() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, to }: { id: AppointmentId; to: MoveAppointment }) => unwrap(api.moveAppointment(id, to)),
+    onSuccess: () => { invalidateSchedule(queryClient, access.org_id); },
+  });
+}
+
+/** A doctor's own answer to a taken time. */
+export function useConflictPolicy(id: PractitionerId) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["conflict-policy", access.org_id, id],
+    queryFn: ({ signal }) => unwrap(api.getConflictPolicy(id, { signal })),
+    ...REFERENCE,
+  });
+}
+
+export function useSetConflictPolicy() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, policy }: { id: PractitionerId; policy: ConflictPolicyChange }) => unwrap(api.setConflictPolicy(id, policy)),
+    onSuccess: (saved, { id }) => { queryClient.setQueryData(["conflict-policy", access.org_id, id], saved); },
+  });
+}
+
 /** What the optimistic update changes on a cached Today when an appointment moves to `status`. */
 function applyStatus(today: Today, id: AppointmentId, status: AppointmentStatus): Today {
   const found = today.appointments.find((a) => a.id === id);
@@ -560,13 +591,17 @@ export function useSetAppointmentStatus() {
 
 // Queue -------------------------------------------------------------------------------------
 
-export function useQueue(date?: string) {
+/** How often the queue board asks again: patients arrive and move while it is open. */
+export const QUEUE_POLL_MS = 20_000;
+
+export function useQueue(date?: string, options: { enabled?: boolean } = {}) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["queue", access.org_id, date],
     queryFn: ({ signal }) => unwrap(api.listQueue(date, { signal })),
     ...SCHEDULE,
-    refetchInterval: 30_000,
+    enabled: options.enabled ?? true,
+    refetchInterval: QUEUE_POLL_MS,
   });
 }
 

@@ -106,6 +106,17 @@ async fn an_issued_bill_has_a_upi_link_for_its_balance() {
         get(BETA, &app.token(BETA_OWNER)).await.0,
         StatusCode::NOT_FOUND
     );
+    // The same with a part amount: still not found across clinics.
+    let (status, _) = app
+        .send(
+            Method::GET,
+            BETA,
+            &format!("{path}?amount_paise=100"),
+            Some(&app.token(BETA_OWNER)),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(
         get(ALPHA, &app.token(ALPHA_NOTHING)).await.0,
         StatusCode::FORBIDDEN

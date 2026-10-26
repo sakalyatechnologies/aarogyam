@@ -1,22 +1,49 @@
 package com.aarogyam.staff
 
+import com.aarogyam.staff.analytics.AnalyticsStateHolder
 import com.aarogyam.staff.billing.BillingStateHolder
+import com.aarogyam.staff.booking.BookingStateHolder
 import com.aarogyam.staff.calendar.CalendarStateHolder
 import com.aarogyam.staff.chart.ChartStateHolder
+import com.aarogyam.staff.chart.ToothSheetStateHolder
 import com.aarogyam.staff.clinic.ClinicBranding
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.clinic.ClinicPickerStateHolder
 import com.aarogyam.staff.config.AppConfig
+import com.aarogyam.staff.desk.FamilyStateHolder
+import com.aarogyam.staff.desk.registerDeskPayments
+import com.aarogyam.staff.device.Dictation
+import com.aarogyam.staff.device.UserDefaultsPreferences
+import com.aarogyam.staff.expenses.ExpensesStateHolder
 import com.aarogyam.staff.files.FilesStateHolder
+import com.aarogyam.staff.labs.LabsStateHolder
+import com.aarogyam.staff.labs.NewLabCaseStateHolder
 import com.aarogyam.staff.notes.PatientNotesStateHolder
+import com.aarogyam.staff.outbox.JsonOutboxPersistence
+import com.aarogyam.staff.outbox.PersistentOutboxStore
+import com.aarogyam.staff.outbox.ProtectedOutboxFile
+import com.aarogyam.staff.outbox.ProtectedOutboxFiles
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
 import com.aarogyam.staff.patients.PatientsStateHolder
 import com.aarogyam.staff.prescriptions.RxListStateHolder
 import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
+import com.aarogyam.staff.schedule.ScheduleStateHolder
+import com.aarogyam.staff.signin.InviteStateHolder
+import com.aarogyam.staff.signin.RegistrationStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
+import com.aarogyam.staff.team.BadgesStateHolder
+import com.aarogyam.staff.team.ChatListStateHolder
+import com.aarogyam.staff.team.ChatThreadStateHolder
+import com.aarogyam.staff.team.InboxStateHolder
+import com.aarogyam.staff.team.NotificationsStateHolder
+import com.aarogyam.staff.team.StockStateHolder
+import com.aarogyam.staff.team.TeamStateHolder
 import com.aarogyam.staff.today.TodayStateHolder
+import com.aarogyam.staff.visit.RecallsStateHolder
+import com.aarogyam.staff.visit.VisitShareStateHolder
+import com.aarogyam.staff.visit.VisitStateHolder
 import com.aarogyam.staff.walkin.WalkInStateHolder
 import com.sakalya.mobile.design.ThemeMode
 import com.sakalya.mobile.http.PathNetworkMonitor
@@ -35,10 +62,24 @@ private val appScope: CoroutineScope = MainScope()
 
 /**
  * Builds the app graph on iOS: Keychain storage, `NWPathMonitor` connectivity and the unified
- * log. Returns null when this build has no Supabase settings.
+ * log, UserDefaults for small settings, and the Swift speech recogniser as [dictation]. Returns
+ * null when this build has no Supabase settings.
  */
-suspend fun createAppGraph(config: AppConfig): AppGraph? =
-    AppGraph.create(config, PlatformSecureStore(KEYCHAIN_SERVICE), appScope, PathNetworkMonitor())
+suspend fun createAppGraph(
+    config: AppConfig,
+    dictation: Dictation = Dictation.None,
+): AppGraph? =
+    AppGraph
+        .create(
+            config,
+            PlatformSecureStore(KEYCHAIN_SERVICE),
+            appScope,
+            PathNetworkMonitor(),
+            preferences = UserDefaultsPreferences(),
+            dictation = dictation,
+            outboxStore = PersistentOutboxStore(JsonOutboxPersistence(ProtectedOutboxFile())),
+            outboxFiles = ProtectedOutboxFiles(),
+        )?.also { it.registerDeskPayments() }
 
 /** One screen's coroutine scope: the SwiftUI view that owns a state holder closes it when it goes. */
 class ScreenScope {
@@ -150,3 +191,142 @@ fun AppGraph.queue(
     clinic: ClinicContext,
     screen: ScreenScope,
 ): QueueStateHolder = queue(clinic, screen.scope)
+
+/** The Schedule tab for [clinic], living as long as [screen]. */
+fun AppGraph.schedule(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): ScheduleStateHolder = schedule(clinic, screen.scope)
+
+/** The booking sheet for [patientId] on [date], living as long as [screen]. */
+fun AppGraph.booking(
+    clinic: ClinicContext,
+    patientId: String,
+    date: LocalDate,
+    screen: ScreenScope,
+): BookingStateHolder = booking(clinic, patientId, date, screen.scope)
+
+/** The Analytics page for [clinic], living as long as [screen]. */
+fun AppGraph.analytics(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): AnalyticsStateHolder = analytics(clinic, screen.scope)
+
+/** The Expenses page for [clinic], living as long as [screen]. */
+fun AppGraph.expenses(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): ExpensesStateHolder = expenses(clinic, screen.scope)
+
+/** The tooth sheet's treatment form over [chart], living as long as [screen]. */
+fun AppGraph.toothSheet(
+    clinic: ClinicContext,
+    chart: ChartStateHolder,
+    visitId: String?,
+    screen: ScreenScope,
+): ToothSheetStateHolder = toothSheet(clinic, chart, visitId, screen.scope)
+
+/** The Rx sheet for a prescription written inside [visitId], living as long as [screen]. */
+fun AppGraph.rxSheetInVisit(
+    clinic: ClinicContext,
+    patientId: String,
+    allergies: List<AllergyView>,
+    visitId: String,
+    screen: ScreenScope,
+): RxSheetStateHolder = rxSheet(clinic, patientId, allergies, screen.scope, visitId)
+
+/** Start treatment and the Visit screen, living as long as [screen]. */
+fun AppGraph.visit(
+    clinic: ClinicContext,
+    patientId: String,
+    tokenId: String?,
+    appointmentId: String?,
+    screen: ScreenScope,
+): VisitStateHolder = visit(clinic, patientId, tokenId, appointmentId, screen.scope)
+
+/** "Share visit summary" for [visitId], living as long as [screen]. */
+fun AppGraph.visitShare(
+    clinic: ClinicContext,
+    visitId: String,
+    screen: ScreenScope,
+): VisitShareStateHolder = VisitShareStateHolder(clinic, visitId, screen.scope)
+
+/** The family section for [patientId] (desk flow), living as long as [screen]. */
+fun AppGraph.family(
+    clinic: ClinicContext,
+    patientId: String,
+    screen: ScreenScope,
+): FamilyStateHolder = FamilyStateHolder(clinic, patientId, screen.scope)
+
+/** A patient's follow-ups, living as long as [screen]. */
+fun AppGraph.recalls(
+    clinic: ClinicContext,
+    patientId: String,
+    screen: ScreenScope,
+): RecallsStateHolder = RecallsStateHolder(clinic, patientId, screen.scope)
+
+/** Joining from an invitation [link], living as long as [screen]. */
+fun AppGraph.invite(
+    link: String?,
+    screen: ScreenScope,
+): InviteStateHolder = invite(screen.scope, link)
+
+/** "Register your clinic", living as long as [screen]. */
+fun AppGraph.registration(screen: ScreenScope): RegistrationStateHolder = registration(screen.scope)
+
+/** The team chat list, living as long as [screen]. */
+fun AppGraph.chatList(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): ChatListStateHolder = chatList(clinic, screen.scope)
+
+/** One conversation, living as long as [screen]. */
+fun AppGraph.chatThread(
+    clinic: ClinicContext,
+    conversationId: String,
+    screen: ScreenScope,
+): ChatThreadStateHolder = chatThread(clinic, conversationId, screen.scope)
+
+/** The team list, living as long as [screen]. */
+fun AppGraph.team(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): TeamStateHolder = team(clinic, screen.scope)
+
+/** Low stock, living as long as [screen]. */
+fun AppGraph.stock(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): StockStateHolder = stock(clinic, screen.scope)
+
+/** The notifications sheet, living as long as [screen]. */
+fun AppGraph.notifications(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): NotificationsStateHolder = notifications(clinic, screen.scope)
+
+/** The Messages page, living as long as [screen]. */
+fun AppGraph.inbox(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): InboxStateHolder = inbox(clinic, screen.scope)
+
+/** Unread badges, living as long as [screen]. */
+fun AppGraph.badges(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): BadgesStateHolder = badges(clinic, screen.scope)
+
+/** Lab work, living as long as [screen]. */
+fun AppGraph.labs(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): LabsStateHolder = labs(clinic, screen.scope)
+
+/** A new lab case, living as long as [screen]. */
+fun AppGraph.newLabCase(
+    clinic: ClinicContext,
+    patientId: String,
+    visitId: String?,
+    screen: ScreenScope,
+): NewLabCaseStateHolder = newLabCase(clinic, patientId, visitId, screen.scope)

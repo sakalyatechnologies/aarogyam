@@ -3,6 +3,7 @@ package com.aarogyam.staff.walkin
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.registerWalkIn
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.config.caps.FamilyOfBody
 import com.aarogyam.staff.patients.Sex
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
@@ -86,6 +87,12 @@ class WalkInStateHolder(
 
     fun setDoctor(id: String?) = edit { copy(doctorId = id) }
 
+    /** Puts the new walk-in in [patientId]'s family as [relation]; null clears it. */
+    fun setFamilyOf(
+        patientId: String?,
+        relation: String,
+    ) = edit { copy(familyOf = patientId?.let { FamilyOf(it, relation) }) }
+
     /** "Add to queue": validates, then sends one request. A second tap while sending is ignored. */
     fun submit() {
         val form = (mutableState.value as? WalkInState.Editing)?.form ?: return
@@ -97,7 +104,13 @@ class WalkInStateHolder(
             }
         edit { copy(submitting = true, problem = null, error = null) }
         scope.launch {
-            when (val result = clinic.api.registerWalkIn(request)) {
+            when (
+                val result =
+                    clinic.api.registerWalkIn(
+                        request,
+                        form.familyOf?.let { FamilyOfBody(it.patientId, it.relation) },
+                    )
+            ) {
                 is Outcome.Success -> {
                     val done = result.value
                     log.info("walkin.registered") {
@@ -105,7 +118,12 @@ class WalkInStateHolder(
                         id("queue_token_id", done.token.id)
                     }
                     mutableState.value =
-                        WalkInState.Done(done.patient.fullName, done.token.tokenNumber, done.registered)
+                        WalkInState.Done(
+                            done.patient.fullName,
+                            done.token.tokenNumber,
+                            done.registered,
+                            done.patient.id,
+                        )
                 }
 
                 is Outcome.Failure -> {

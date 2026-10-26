@@ -142,6 +142,16 @@ pub enum Event {
     PatientLinkEnded,
     /// A patient cancelled their own appointment in the app.
     AppointmentCancelledByPatient,
+    /// Staff sent a patient a link to sign consent.
+    ConsentRequested,
+    /// A patient signed consent through a link.
+    ConsentSigned,
+    /// A patient's photo was set or removed.
+    PatientPhotoChanged,
+    /// Two patients were linked as family.
+    FamilyLinked,
+    /// A family link was removed.
+    FamilyUnlinked,
     /// A file's sharing with the patient changed.
     AttachmentSharingChanged,
     /// A clinic expense was recorded.
@@ -209,7 +219,8 @@ pub enum Event {
 impl Event {
     /// The name logged in the `event` field.
     #[must_use]
-    #[expect(clippy::too_many_lines, reason = "one arm per event name")]
+    // A flat table of names: one arm per event, so it grows with the events.
+    #[expect(clippy::too_many_lines)]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::PatientUpdated => "patient.updated",
@@ -285,6 +296,11 @@ impl Event {
             Self::ExpenseRecorded => "expense.recorded",
             Self::ExpenseVoided => "expense.voided",
             Self::WalkInRegistered => "walk_in.registered",
+            Self::ConsentRequested => "consent.requested",
+            Self::ConsentSigned => "consent.signed",
+            Self::PatientPhotoChanged => "patient.photo_changed",
+            Self::FamilyLinked => "family.linked",
+            Self::FamilyUnlinked => "family.unlinked",
             Self::AllergyConfirmed => "allergy.confirmed",
             Self::SupportGranted => "support.granted",
             Self::SupportRevoked => "support.revoked",

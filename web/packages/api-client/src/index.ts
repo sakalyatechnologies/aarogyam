@@ -15,3 +15,4 @@ export {
   type ClientErrorCode,
 } from "./result.js";
 export * from "./schemas.js";
+export { createSseParser, type LiveEvent, type SubscribeEventsOptions } from "./sse.js";

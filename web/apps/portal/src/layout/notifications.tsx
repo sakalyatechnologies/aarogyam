@@ -10,12 +10,13 @@ import { Button, Drawer } from "@sakalya/ui";
 import { useClinic } from "../clinic.js";
 import { SCHEDULE } from "../lib/cache-policy.js";
 import { useNotifications } from "../lib/notifications-query.js";
+import { useLiveConnected } from "../lib/live-events.js";
 import { useRefreshVisitData } from "../lib/visit-refresh.js";
 import { CollectDialog, type CollectTarget } from "../pages/queue/collect-dialog.js";
 import { useCallToken } from "../pages/queue/queue-v2-queries.js";
 import { useCompleteTask, useMyTasks } from "../pages/today/v2/queries.js";
 import { useQueue } from "../queries.js";
-import { alertNewPatient, readVisitAlerts } from "./visit-alerts.js";
+import { alertedIds, alertNewPatient, readVisitAlerts } from "./visit-alerts.js";
 
 export { useNotifications };
 
@@ -24,7 +25,10 @@ export const BADGE_POLL_MS = 60_000;
 export const BADGE_POLL_FAST_MS = 20_000;
 
 /** The pages that show who is waiting, where a new patient should reach the bell within seconds. */
-export function badgePollMs(pathname: string): number {
+export const BADGE_POLL_LIVE_MS = 120_000;
+
+export function badgePollMs(pathname: string, streaming = false): number {
+  if (streaming) return BADGE_POLL_LIVE_MS;
   const live = ["/today", "/queue"].some((path) => pathname === path || pathname.startsWith(`${path}/`));
   return live ? BADGE_POLL_FAST_MS : BADGE_POLL_MS;
 }
@@ -42,6 +46,7 @@ export function useBadges() {
   const { api, access, session } = useClinic();
   const queryClient = useQueryClient();
   const { pathname } = useLocation();
+  const live = useLiveConnected();
   const query = useQuery({
     queryKey: ["badges", access.org_id],
     queryFn: async ({ signal }) => {
@@ -54,7 +59,7 @@ export function useBadges() {
       return { chat_unread: badges.ok ? badges.value.chat_unread : 0, notifications_unread: count.ok ? count.value.unread : null, tasks_open };
     },
     ...SCHEDULE,
-    refetchInterval: badgePollMs(pathname),
+    refetchInterval: badgePollMs(pathname, live),
     refetchIntervalInBackground: false,
     retry: false,
   });
@@ -73,7 +78,7 @@ export function useBadges() {
     void api.listNotifications({ unreadOnly: true, limit: 20 }).then((result) => {
       if (!result.ok) return;
       const fresh = result.value.items.filter(
-        (n) => n.kind === "patient_waiting" && !n.read && n.handled == null && !alerted.current.has(n.id) && Date.now() - new Date(n.created_at).getTime() < FRESH_MS,
+        (n) => n.kind === "patient_waiting" && !n.read && n.handled == null && !alerted.current.has(n.id) && !alertedIds.has(n.id) && Date.now() - new Date(n.created_at).getTime() < FRESH_MS,
       );
       for (const n of result.value.items) if (n.kind === "patient_waiting") alerted.current.add(n.id);
       if (fresh.length > 0) alertNewPatient(session.user.id);

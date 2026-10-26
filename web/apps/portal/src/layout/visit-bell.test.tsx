@@ -2,7 +2,7 @@ import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { collectSummary, notification, payment, practitionerId, success, type ApiClient, type Notification } from "@aarogyam/api-client";
+import { collectSummary, failure, notification, payment, practitionerId, success, type ApiClient, type Notification } from "@aarogyam/api-client";
 import { fakeTokenFor, type Fixtures } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../lib/new-look.js";
@@ -234,7 +234,8 @@ describe("polling", () => {
   it("schedules the badge poll at 20 s on Today and at 60 s on Settings", async () => {
     const delays = async (path: string) => {
       const spy = vi.spyOn(globalThis, "setInterval");
-      renderPortal(path, { as: PEOPLE.asha });
+      // No live stream here: the polls are the only way the bell hears.
+      renderPortal(path, { as: PEOPLE.asha, wrap: (client) => ({ ...client, subscribeEvents: () => Promise.resolve(failure({ status: 0, code: "network_error", message: "down" })) }) });
       await screen.findByRole("button", { name: /^Notifications/ });
       await waitFor(() => {
         expect(spy.mock.calls.length).toBeGreaterThan(0);

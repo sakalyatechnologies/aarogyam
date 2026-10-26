@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLiveConnected } from "./lib/live-events.js";
 
 import {
   appointmentStatus,
@@ -593,15 +594,18 @@ export function useSetAppointmentStatus() {
 
 /** How often the queue board asks again: patients arrive and move while it is open. */
 export const QUEUE_POLL_MS = 20_000;
+/** The board's poll while the live stream is open: the stream is the fast path. */
+export const QUEUE_POLL_LIVE_MS = 120_000;
 
 export function useQueue(date?: string, options: { enabled?: boolean } = {}) {
   const { api, access } = useClinic();
+  const live = useLiveConnected();
   return useQuery({
     queryKey: ["queue", access.org_id, date],
     queryFn: ({ signal }) => unwrap(api.listQueue(date, { signal })),
     ...SCHEDULE,
     enabled: options.enabled ?? true,
-    refetchInterval: QUEUE_POLL_MS,
+    refetchInterval: live ? QUEUE_POLL_LIVE_MS : QUEUE_POLL_MS,
   });
 }
 

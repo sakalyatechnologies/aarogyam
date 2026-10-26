@@ -59,6 +59,9 @@ function chime(): void {
   }
 }
 
+/** Notice ids already alerted, so the stream and the badge check never both sound for one notice. */
+export const alertedIds = new Set<string>();
+
 /** Sounds the chime and shows a desktop notice, if this person turned them on. Generic text only. */
 export function alertNewPatient(userId: string): void {
   if (!readVisitAlerts(userId)) return;

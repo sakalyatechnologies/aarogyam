@@ -106,6 +106,7 @@ import {
 import { MAX_MOVEMENT, addDays, byUrgency, daysBetween, isExpired, isStockUnit, levelOf, pickFefo, projectStock, wireItem } from "./stock.js";
 import { readCsv, readRow, suggestColumns, type CsvTable } from "./smart-import.js";
 import * as notices from "./visit-notices.js";
+import { listenFakeEvents } from "./events.js";
 import {
   TIME_OFF_KINDS,
   affectedAppointments,
@@ -4733,6 +4734,14 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             });
           return reply({ items } satisfies C.NotificationList);
         }),
+
+      subscribeEvents: async (opts) => {
+        const caller = await inClinic();
+        if (!isCaller(caller)) return failure({ status: 401, code: "unauthorized", message: "Sign in again." });
+        opts.onOpen?.();
+        await listenFakeEvents(state, opts.signal, opts.onEvent);
+        return success(undefined);
+      },
 
       countUnreadNotifications: (opts) =>
         respond(S.unreadCount, opts?.signal, async () => {

@@ -1,6 +1,7 @@
 // Staff notices along a visit: a patient waiting, sent in, and money to collect. The API writes them from
 // database triggers in the same transaction as the change; the fake writes them from the same places and
 // decides who sees them when the bell is read, as the API does.
+import { publishFakeEvent } from "./events.js";
 import { hasPermission } from "../permissions.js";
 import type { FakeInvoice, FakeMembership, FakeNotification, FakeQueueToken, Fixtures } from "./fixtures.js";
 import { onLeave } from "./time-off.js";
@@ -40,6 +41,7 @@ function emit(ctx: NoticeContext, clinicId: string, row: Pick<FakeNotification, 
     ...row,
   };
   all.push(created);
+  publishFakeEvent(ctx.state, "notification.created", { kind: created.kind, id: created.id });
   return created;
 }
 
@@ -53,6 +55,7 @@ function markHandled(ctx: NoticeContext, matches: (n: FakeNotification) => boole
 
 /** A walk-in, a check-in or a waiting token tells the doctor at once. An old `arrival` is not written any more. */
 export function patientWaiting(ctx: NoticeContext, token: FakeQueueToken): void {
+  publishFakeEvent(ctx.state, "queue.changed", { kind: "queue_token", id: token.id });
   if (token.status === "waiting") {
     emit(ctx, token.clinic_id, { kind: "patient_waiting", audience: "doctor", href: "/queue", token_id: token.id });
   }
@@ -86,6 +89,7 @@ export function collectPayment(ctx: NoticeContext, invoice: FakeInvoice, token: 
  * asks the desk to collect on an unpaid bill; `done` or `left` settles what was open for its bills.
  */
 export function tokenMoved(ctx: NoticeContext, token: FakeQueueToken): void {
+  publishFakeEvent(ctx.state, "queue.changed", { kind: "queue_token", id: token.id });
   if (token.status !== "waiting") {
     markHandled(ctx, (n) => n.kind === "patient_waiting" && n.token_id === token.id);
   }
@@ -107,6 +111,7 @@ export function tokenMoved(ctx: NoticeContext, token: FakeQueueToken): void {
 
 /** Runs after a bill is paid or voided: nothing is left to collect on it. */
 export function invoiceSettled(ctx: NoticeContext, invoice: FakeInvoice): void {
+  publishFakeEvent(ctx.state, "visit.changed", { kind: "invoice", id: invoice.id });
   if (invoice.status === "void" || ctx.money(invoice).balance_paise <= 0) {
     markHandled(ctx, (n) => n.kind === "collect_payment" && n.invoice_id === invoice.id);
   }

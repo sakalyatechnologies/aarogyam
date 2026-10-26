@@ -167,6 +167,7 @@ import {
   messageTemplates,
   messagesQueued,
 } from "./schemas.js";
+import { createSseParser, type SubscribeEventsOptions } from "./sse.js";
 import { markedRead, notificationList, notificationSettings, profile, revokedSessions, unreadCount } from "./schemas.js";
 
 /** Returns the current access token, or `null` when signed out. */
@@ -677,6 +678,37 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "PATCH", path: "/api/v1/settings/notifications", schema: notificationSettings, body: changes, signal: opts?.signal }),
     uploadClinicLogo: (form, opts) =>
       call({ method: "POST", path: "/api/v1/settings/clinic/logo", schema: clinicSettings, body: form, signal: opts?.signal }),
+
+    subscribeEvents: async (opts: SubscribeEventsOptions) => {
+      const headers = new Headers({ accept: "text/event-stream" });
+      const token = await getToken();
+      if (token !== null && token !== "") headers.set("authorization", `Bearer ${token}`);
+      if (opts.lastEventId !== undefined) headers.set("last-event-id", opts.lastEventId);
+      let response: Response;
+      try {
+        response = await send(`${root}/api/v1/events${toSearch({ branch_id: opts.branchId })}`, { method: "GET", headers, cache: "no-store", signal: opts.signal });
+      } catch (thrown) {
+        if (opts.signal.aborted || isAbortError(thrown)) return success(undefined);
+        return failure({ status: 0, code: "network_error", message: "Can't reach Aarogyam. Check your connection and try again." });
+      }
+      if (!response.ok || response.body === null) {
+        return failure(parseApiError(response.status, await readJson(response), readRequestId(response)));
+      }
+      opts.onOpen?.();
+      const parser = createSseParser(opts.onEvent);
+      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+      try {
+        for (;;) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          parser.push(chunk.value);
+        }
+      } catch (thrown) {
+        if (opts.signal.aborted || isAbortError(thrown)) return success(undefined);
+        return failure({ status: 0, code: "network_error", message: "The live connection dropped." });
+      }
+      return success(undefined);
+    },
 
     listNotifications: (params, opts) =>
       call({

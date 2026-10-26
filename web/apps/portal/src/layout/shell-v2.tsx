@@ -15,6 +15,7 @@ import { PRESETS } from "../pages/settings/my-profile.js";
 import { useClinicSetup } from "../pages/setup/queries.js";
 import { ClinicMark } from "./clinic-mark.js";
 import { CommandPalette } from "./command-palette.js";
+import { useLiveEvents } from "../lib/live-events.js";
 import { badgeLabel, bellCount, NotificationsDrawer, useBadges } from "./notifications.js";
 import { glyphFor, SpecialtyEmblem } from "./specialty-emblem.js";
 import { PageTransition } from "./page-transition.js";
@@ -104,6 +105,7 @@ function FrameV2() {
   const reduceMotion = useReducedMotion();
   const mainId = useId();
   const mainRef = useRef<HTMLElement>(null);
+  useLiveEvents();
   const badges = useBadges();
   const unread = bellCount(badges.data);
   const bellBadge = badgeLabel(unread);

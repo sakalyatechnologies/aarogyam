@@ -1,6 +1,7 @@
 /** The one interface both the HTTP client and the fake client implement. */
 
 import type { ApiResult } from "./result.js";
+import type { SubscribeEventsOptions } from "./sse.js";
 import type {
   Audience,
   AudiencePreview,
@@ -584,6 +585,9 @@ export interface ApiClient {
   updateNotificationSettings(changes: NotificationSettingsChanges, options?: RequestOptions): Promise<ApiResult<NotificationSettings>>;
   /** Clinic host: uploads the clinic logo (PNG or JPEG, up to 2 MB; form field `file`) and returns the clinic's settings. Needs `settings.manage`. */
   uploadClinicLogo(form: FormData, options?: RequestOptions): Promise<ApiResult<ClinicSettings>>;
+
+  /** Clinic host: the live-event stream (`GET /api/v1/events`). Resolves when the stream ends (the server closes it every 8 minutes) or the signal aborts; an error result when it can't be opened. */
+  subscribeEvents(options: SubscribeEventsOptions): Promise<ApiResult<void>>;
 
   /** Clinic host: the caller's notifications, newest first, each with a portal link (`href`) when it has one. Needs a read permission that one of the kinds uses (appointments, labs, billing or patients). */
   listNotifications(params?: NotificationQuery, options?: RequestOptions): Promise<ApiResult<NotificationList>>;

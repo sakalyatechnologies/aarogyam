@@ -205,6 +205,7 @@ fun patientJson(
 ): String =
     """{"id":"$id","number":"$number","full_name":"$name","sex":"female","registration_incomplete":false,"age_years":34,"birth_date_estimated":false,
        "preferred_language":"en-IN","status":"active","created_at":"2026-01-01T00:00:00Z","recall_due":true,"row_version":1,
-       "phone":"+91******3210","balance_paise":${balance ?: "null"},"next_appointment":${next ?: "null"}}"""
+       "phone":"+91******3210","balance_paise":${balance ?: "null"},"next_appointment":${next ?: "null"},
+       "has_photo":false,"allergy_alert":false,"consent_pending":false,"lifetime_paid_paise":null}"""
 
 fun patientListJson(vararg patients: String): String = """{"items":${patients.joinToString(",", "[", "]")}}"""

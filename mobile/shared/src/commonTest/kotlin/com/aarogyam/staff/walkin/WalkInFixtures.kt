@@ -35,8 +35,9 @@ fun tokenJson(
 fun walkInJson(registered: Boolean = true): String =
     """{"patient":{"id":"p9","number":"SD-1050","full_name":"Ravi Kulkarni","sex":"male","registration_incomplete":false,"age_years":40,
        "birth_date_estimated":true,"preferred_language":"en-IN","status":"active","created_at":"2026-10-08T04:00:00Z",
-       "recall_due":false,"row_version":1},"registered":$registered,"token":${tokenJson(
+       "recall_due":false,"row_version":1,"has_photo":false,"allergy_alert":false,"consent_pending":false,
+       "balance_paise":null,"lifetime_paid_paise":null},"registered":$registered,"token":${tokenJson(
         patientId = "p9",
         name = "Ravi Kulkarni",
     )},
-       "allergies_recorded":1,"consents_recorded":["care","reminders"]}"""
+       "allergies_recorded":1,"conditions_recorded":0,"consents_recorded":["care","reminders"]}"""

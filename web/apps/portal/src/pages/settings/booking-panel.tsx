@@ -167,12 +167,12 @@ function DoctorPolicyRow({ id, name }: { id: PractitionerId; name: string }) {
     <Field label={name}>
       <Select
         options={DOCTOR_POLICY_OPTIONS}
-        value={policy.data?.conflict_policy ?? "default"}
+        value={policy.data?.policy ?? "default"}
         disabled={policy.data === undefined || set.isPending}
         onValueChange={(value) => {
           const next: ConflictPolicyValue | null = value === "request" || value === "strict" ? value : null;
           set.mutate(
-            { id, policy: { conflict_policy: next } },
+            { id, policy: { policy: next } },
             {
               onSuccess: () => { toast.show({ title: `${name}: saved`, tone: "success" }); },
               onError: (thrown) => { toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't save that. Please try again.", tone: "danger" }); },

@@ -6,7 +6,7 @@ import {
   unwrap,
   type AllergyFields,
   type AppointmentChanges,
-  type ConflictPolicy,
+  type ConflictPolicyChange,
   type MoveAppointment,
   type AppointmentFilter,
   type AppointmentId,
@@ -522,7 +522,7 @@ export function useSetConflictPolicy() {
   const { api, access } = useClinic();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, policy }: { id: PractitionerId; policy: ConflictPolicy }) => unwrap(api.setConflictPolicy(id, policy)),
+    mutationFn: ({ id, policy }: { id: PractitionerId; policy: ConflictPolicyChange }) => unwrap(api.setConflictPolicy(id, policy)),
     onSuccess: (saved, { id }) => { queryClient.setQueryData(["conflict-policy", access.org_id, id], saved); },
   });
 }

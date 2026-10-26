@@ -165,15 +165,15 @@ describe("createHttpClient requests", () => {
       const stub = stubFetch(response);
       return { stub, client: createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stub.fetch }) };
     };
-    const policy = make(json(200, { conflict_policy: null }));
+    const policy = make(json(200, { policy: null, effective: "request" }));
     const read = await policy.client.getConflictPolicy(PRACTITIONER);
     expect(policy.stub.calls[0]?.url).toBe(`http://sunrise.localtest.me/api/v1/practitioners/${PRACTITIONER}/conflict-policy`);
-    expect(read.ok && read.value.conflict_policy).toBeNull();
-    const put = make(json(200, { conflict_policy: "strict" }));
-    await put.client.setConflictPolicy(PRACTITIONER, { conflict_policy: "strict" });
+    expect(read.ok && read.value.policy).toBeNull();
+    const put = make(json(200, { policy: "strict", effective: "strict" }));
+    await put.client.setConflictPolicy(PRACTITIONER, { policy: "strict" });
     expect(put.stub.calls[0]?.init?.method).toBe("PUT");
-    expect(put.stub.calls[0]?.init?.body).toBe(JSON.stringify({ conflict_policy: "strict" }));
-    expect((await make(json(200, { conflict_policy: "maybe" })).client.getConflictPolicy(PRACTITIONER)).ok).toBe(false);
+    expect(put.stub.calls[0]?.init?.body).toBe(JSON.stringify({ policy: "strict" }));
+    expect((await make(json(200, { policy: "maybe", effective: "request" })).client.getConflictPolicy(PRACTITIONER)).ok).toBe(false);
 
     const moved = make(json(409, { error: { code: "slot_occupied", message: "Another appointment holds that time." } }));
     const result = await moved.client.moveAppointment(appointmentId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170"), { starts_at: "2026-10-05T11:00:00+05:30" });

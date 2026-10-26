@@ -75,15 +75,15 @@ describe("fake client: a taken time can be requested", () => {
     const ashaDoc = practitioners.find((p) => p.membership_id != null && p.display_name.length > 0);
     const devDoc = practitioners.find((p) => p.id !== ashaDoc?.id && p.membership_id != null);
     expect(ashaDoc && devDoc).toBeTruthy();
-    expect(value(await owner.getConflictPolicy(pid(devDoc?.id)))).toEqual({ conflict_policy: null });
-    expect(value(await owner.setConflictPolicy(pid(devDoc?.id), { conflict_policy: "strict" }))).toEqual({ conflict_policy: "strict" });
+    expect(value(await owner.getConflictPolicy(pid(devDoc?.id)))).toMatchObject({ policy: null });
+    expect(value(await owner.setConflictPolicy(pid(devDoc?.id), { policy: "strict" }))).toMatchObject({ policy: "strict" });
     // The doctor edits their own; not a colleague's; front desk none.
     const dev = as(DEV);
-    expect(value(await dev.setConflictPolicy(pid(devDoc?.id), { conflict_policy: null }))).toEqual({ conflict_policy: null });
-    expect(errorOf(await dev.setConflictPolicy(pid(ashaDoc?.id), { conflict_policy: "strict" }))?.status).toBe(403);
+    expect(value(await dev.setConflictPolicy(pid(devDoc?.id), { policy: null }))).toMatchObject({ policy: null });
+    expect(errorOf(await dev.setConflictPolicy(pid(ashaDoc?.id), { policy: "strict" }))?.status).toBe(403);
     expect(errorOf(await as(FARAH).getConflictPolicy(pid(devDoc?.id)))?.status).toBe(403);
 
-    value(await owner.setConflictPolicy(pid(ashaDoc?.id), { conflict_policy: "strict" }));
+    value(await owner.setConflictPolicy(pid(ashaDoc?.id), { policy: "strict" }));
     const p = patient(3);
     const doctor = ashaDoc?.id ?? "";
     const slot = value(await p.getAvailability("2026-10-05", doctor)).slots[0] ?? "";

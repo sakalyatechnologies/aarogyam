@@ -492,7 +492,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     const isCaller = (value: Caller | Outcome): value is Caller => "clinic" in value;
 
     /** The doctor a conflict policy call is about: settings.manage reaches any, a doctor only their own. */
-    async function policyTarget(id: string): Promise<{ practitioner: FakePractitioner } | Outcome> {
+    async function policyTarget(id: string): Promise<{ practitioner: FakePractitioner; clinic: FakeClinic } | Outcome> {
       const caller = await inClinic();
       if (!isCaller(caller)) {
         return caller;
@@ -506,8 +506,12 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       if (!hasPermission(perms, "settings.manage") && !own) {
         return refuse(403, "forbidden", "You don't have permission to do that.");
       }
-      return { practitioner };
+      return { practitioner, clinic: caller.clinic };
     }
+    const policyView = (practitioner: FakePractitioner, clinic: FakeClinic): S.ConflictPolicy => {
+      const own = policyOf(practitioner);
+      return { policy: own, effective: own ?? (bookingSettings(clinic).conflict_policy === "strict" ? "strict" : "request") };
+    };
     const policyOf = (practitioner: FakePractitioner): "request" | "strict" | null =>
       practitioner.conflict_policy === "request" || practitioner.conflict_policy === "strict" ? practitioner.conflict_policy : null;
 
@@ -2402,7 +2406,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       getConflictPolicy: (id, opts) =>
         respond(S.conflictPolicy, opts?.signal, async () => {
           const found = await policyTarget(id);
-          return "practitioner" in found ? reply({ conflict_policy: policyOf(found.practitioner) } satisfies S.ConflictPolicy) : found;
+          return "practitioner" in found ? reply(policyView(found.practitioner, found.clinic)) : found;
         }),
 
       setConflictPolicy: (id, policy, opts) =>
@@ -2411,12 +2415,12 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!("practitioner" in found)) {
             return found;
           }
-          const value = policy.conflict_policy;
+          const value = policy.policy ?? null;
           if (value !== null && !["request", "strict"].includes(value)) {
-            return invalid("conflict_policy", "must be request, strict or null");
+            return invalid("policy", "must be request, strict or null");
           }
           found.practitioner.conflict_policy = value;
-          return reply({ conflict_policy: policyOf(found.practitioner) } satisfies S.ConflictPolicy);
+          return reply(policyView(found.practitioner, found.clinic));
         }),
 
       listQueue: (dateValue, opts) =>

@@ -621,16 +621,18 @@ export const statusChanged = z.object({
 export type StatusChanged = z.output<typeof statusChanged>;
 
 /** Body of `POST /api/v1/appointments/{id}/move`: a new time (and maybe doctor); the appointment is confirmed there. */
-export interface MoveAppointment {
-  starts_at: string;
-  practitioner_id?: string | null;
-}
+export type MoveAppointment = C.MoveRequest;
 
-/** A doctor's own answer to a taken time; `null` follows the clinic's. Hand-written: the generated paths don't list the route yet. */
+/** A doctor's own answer to a taken time: `policy` is theirs (`null` follows the clinic), `effective` what applies. */
 export const conflictPolicyValue = z.enum(["request", "strict"]);
 export type ConflictPolicyValue = z.output<typeof conflictPolicyValue>;
-export const conflictPolicy = z.object({ conflict_policy: conflictPolicyValue.nullable() });
+export const conflictPolicy = z.object({
+  effective: conflictPolicyValue,
+  policy: conflictPolicyValue.nullable(),
+}) satisfies z.ZodType<C.ConflictPolicy>;
 export type ConflictPolicy = z.output<typeof conflictPolicy>;
+/** Body of `PUT /api/v1/practitioners/{id}/conflict-policy`. */
+export type ConflictPolicyChange = C.ConflictPolicyChange;
 
 // Rooms, practitioners, hours and leave (M3) -----------------------------------------------------
 

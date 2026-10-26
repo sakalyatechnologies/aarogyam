@@ -3042,6 +3042,13 @@
      "nullable": false,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "conflict_policy",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "request or strict: what a patient asking online for a taken time gets; null follows org_settings.booking.conflict_policy"
     }
    ],
    "referenced_by": [
@@ -3414,6 +3421,13 @@
      "nullable": true,
      "ref": null,
      "note": "Supabase auth id of the patient who booked online; null for staff bookings"
+    },
+    {
+     "name": "requested_overlap",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "the patient asked online for a time another appointment held (conflict policy request); outside the self-booking unique index"
     },
     {
      "name": "row_version",
@@ -8316,7 +8330,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert"
+     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, booking_conflict, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert"
     },
     {
      "name": "appointment_id",

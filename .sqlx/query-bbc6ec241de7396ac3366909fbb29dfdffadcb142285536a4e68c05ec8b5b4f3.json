@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.practitioners set conflict_policy = $2 where id = $1 and deleted_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bbc6ec241de7396ac3366909fbb29dfdffadcb142285536a4e68c05ec8b5b4f3"
+}

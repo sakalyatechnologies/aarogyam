@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.appointments\n             (id, patient_id, practitioner_id, branch_id, room_id, starts_at, ends_at, kind, reason,\n              notes, source, status, booked_by_account, requested_overlap)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $13, $11, $12, $14)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Uuid",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f3bddd432fb4cecbbb487ade9259345d73a6f2c4171f5a6b22391e730216be62"
+}

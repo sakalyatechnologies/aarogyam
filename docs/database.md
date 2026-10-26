@@ -1047,6 +1047,7 @@ Doctors who see patients at the clinic, with registration and fees.
 | `specialty` | `text?` |  |
 | `calendar_color` | `text` | #RRGGBB |
 | `active` | `bool` |  |
+| `conflict_policy` | `text?` | request or strict: what a patient asking online for a taken time gets; null follows org_settings.booking.conflict_policy |
 
 Built in M3 with the columns the calendar needs. Planned: slug (public page), qualifications, council, signature_asset_id -> assets, default_fee_paise, is_visiting.
 
@@ -1185,6 +1186,7 @@ A booked slot with a doctor, optionally in a room or chair.
 | `seated_at` | `timestamptz?` |  |
 | `completed_at` | `timestamptz?` |  |
 | `booked_by_account` | `uuid?` | Supabase auth id of the patient who booked online; null for staff bookings |
+| `requested_overlap` | `bool` | the patient asked online for a time another appointment held (conflict policy request); outside the self-booking unique index |
 | `row_version` | `bigint` | starts at 1 and goes up when the record changes; sent as the ETag, checked against If-Match on edits |
 
 Online self-bookings start as requested (or confirmed when the clinic auto-confirms); a unique index on (doctor, start) for active self-bookings backs the per-doctor check. An exclusion constraint on (org_id, room_id, time range) for active rows (not cancelled, not no-show, not deleted) stops two bookings in one chair; a doctor in two chairs at once is a warning, not an error. Status changes follow the transition table in aarogyam_domain::schedule. Visits point at appointments, not the other way round.
@@ -2555,7 +2557,7 @@ Something clinic staff are told about: an online booking waiting for an answer, 
 
 | Column | Type | Notes |
 |---|---|---|
-| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert |
+| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, booking_conflict, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert |
 | `appointment_id` | `uuid?` | → `appointments`. booking kinds and arrival |
 | `lab_order_id` | `uuid?` | → `lab_orders`. lab_overdue |
 | `invoice_id` | `uuid?` | → `invoices`. payment_due and collect_payment |

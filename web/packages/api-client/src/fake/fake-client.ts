@@ -7117,6 +7117,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             practitioner_id: practitionerId,
             slot_minutes: bookingSettings(clinic).slot_minutes,
             slots: freeSlots(state, clinic, practitionerId, date, clock()),
+            requestable_slots: [],
           } satisfies C.Availability);
         }),
 
@@ -8411,6 +8412,7 @@ const BOOKING_DEFAULTS: C.OnlineBooking = {
   default_visit_minutes: 30,
   no_show_auto: true,
   no_show_grace_minutes: 30,
+  conflict_policy: "request",
 };
 /** Most open self-bookings one verified person may hold in a clinic. */
 const MAX_OPEN_SELF_BOOKINGS = 2;
@@ -8449,6 +8451,9 @@ function validateOnlineBooking(changes: C.OnlineBookingChanges): Outcome | null 
   }
   if (changes.no_show_grace_minutes != null && (changes.no_show_grace_minutes < 0 || changes.no_show_grace_minutes > 240)) {
     return invalid("booking.no_show_grace_minutes", "must be 0 to 240 minutes");
+  }
+  if (changes.conflict_policy != null && !["request", "strict"].includes(changes.conflict_policy)) {
+    return invalid("booking.conflict_policy", "must be request or strict");
   }
   return null;
 }

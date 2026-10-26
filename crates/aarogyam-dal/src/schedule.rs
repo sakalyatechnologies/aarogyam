@@ -543,3 +543,40 @@ pub async fn delete_leave(
     .await?;
     Ok(done.rows_affected() == 1)
 }
+
+/// A doctor's own conflict policy (`request` or `strict`); `None` follows the clinic's.
+/// The outer `None` is "no such doctor in this clinic".
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn practitioner_conflict_policy(
+    conn: &mut PgConnection,
+    id: Uuid,
+) -> Result<Option<Option<String>>, DbError> {
+    let row = sqlx::query!(
+        "select conflict_policy from aarogyam.practitioners where id = $1 and deleted_at is null",
+        id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.map(|row| row.conflict_policy))
+}
+
+/// Sets a doctor's conflict policy; `None` goes back to the clinic's.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn set_practitioner_conflict_policy(
+    conn: &mut PgConnection,
+    id: Uuid,
+    policy: Option<&str>,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        "update aarogyam.practitioners set conflict_policy = $2 where id = $1 and deleted_at is null",
+        id,
+        policy
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}

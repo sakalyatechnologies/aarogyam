@@ -685,6 +685,7 @@ describe("createHttpClient settings v2", () => {
         default_visit_minutes: 45,
         no_show_auto: true,
         no_show_grace_minutes: 30,
+        conflict_policy: "request",
       },
       letterhead: {
         mode: "template",

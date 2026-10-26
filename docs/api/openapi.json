@@ -378,6 +378,78 @@
         ]
       }
     },
+    "/api/v1/appointments/{id}/move": {
+      "post": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Reschedules a requested, booked or confirmed appointment and confirms it in one step, after\nchecking the new time is free (leave and other appointments). A patient who booked online is\ntold the confirmed time.",
+        "operationId": "moveAppointment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The appointment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusChanged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad time or doctor id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.write"
+          },
+          "404": {
+            "description": "No such appointment in this clinic"
+          },
+          "409": {
+            "description": "The appointment is past confirming (`conflict`), or the new time is held by another appointment (`slot_occupied`)"
+          },
+          "422": {
+            "description": "The doctor is on leave then (`practitioner_on_leave`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/appointments/{id}/status": {
       "post": {
         "tags": [
@@ -437,7 +509,7 @@
             "description": "No such appointment in this clinic"
           },
           "409": {
-            "description": "A move the table doesn't allow; `current` is the appointment as it is",
+            "description": "A move the table doesn't allow (`current` is the appointment as it is), or confirming a request into a time another appointment holds without `double_book` (`slot_occupied`)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11022,6 +11094,107 @@
         ]
       }
     },
+    "/api/v1/practitioners/{id}/conflict-policy": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "What happens when a patient asks online for a time this doctor already holds.",
+        "operationId": "getConflictPolicy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The doctor",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictPolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Sets a doctor's conflict policy. The owner (`settings.manage`) sets any doctor's; a doctor\n(`clinical.write`) sets only their own; front desk and assistants can only read.",
+        "operationId": "setConflictPolicy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The doctor",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConflictPolicyChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictPolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not `request`, `strict` or null"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Neither settings.manage nor a doctor setting their own"
+          },
+          "404": {
+            "description": "No such doctor in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/practitioners/{id}/working-hours": {
       "get": {
         "tags": [
@@ -18302,7 +18475,8 @@
           "date",
           "practitioner_id",
           "slot_minutes",
-          "slots"
+          "slots",
+          "requestable_slots"
         ],
         "properties": {
           "date": {
@@ -18312,6 +18486,13 @@
           "practitioner_id": {
             "type": "string",
             "description": "The doctor."
+          },
+          "requestable_slots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Start of each slot another appointment holds that the patient may still ask for; the\nfront desk or doctor decides. Empty when the doctor's policy is `strict`. A booking for\none comes back `requested`."
           },
           "slot_minutes": {
             "type": "integer",
@@ -20391,6 +20572,39 @@
               "$ref": "#/components/schemas/Condition"
             },
             "description": "The conditions."
+          }
+        }
+      },
+      "ConflictPolicy": {
+        "type": "object",
+        "description": "A doctor's conflict policy.",
+        "required": [
+          "effective"
+        ],
+        "properties": {
+          "effective": {
+            "type": "string",
+            "description": "What applies to this doctor now: `request` or `strict`."
+          },
+          "policy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The doctor's own choice: `request`, `strict`, or null to follow the clinic's."
+          }
+        }
+      },
+      "ConflictPolicyChange": {
+        "type": "object",
+        "description": "A doctor's conflict policy to set.",
+        "properties": {
+          "policy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`request`, `strict`, or null to follow the clinic's default\n(`PATCH /settings/clinic`, `online_booking.conflict_policy`)."
           }
         }
       },
@@ -26082,6 +26296,26 @@
           }
         }
       },
+      "MoveRequest": {
+        "type": "object",
+        "description": "Where to move an appointment.",
+        "required": [
+          "starts_at"
+        ],
+        "properties": {
+          "practitioner_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Another doctor; left out keeps the same one."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "The new start, RFC 3339; the appointment keeps its length."
+          }
+        }
+      },
       "MuteBody": {
         "type": "object",
         "description": "Whether a conversation is muted.",
@@ -28258,7 +28492,8 @@
           "reminder_minutes",
           "default_visit_minutes",
           "no_show_auto",
-          "no_show_grace_minutes"
+          "no_show_grace_minutes",
+          "conflict_policy"
         ],
         "properties": {
           "auto_confirm": {
@@ -28270,6 +28505,10 @@
             "format": "int32",
             "description": "Gap kept free around other appointments, in minutes (0 to 120).",
             "minimum": 0
+          },
+          "conflict_policy": {
+            "type": "string",
+            "description": "What a patient asking online for a time the doctor already holds gets, unless the doctor\nchose their own (`PUT /practitioners/{id}/conflict-policy`): `request` (default; the front\ndesk or doctor decides) or `strict` (refused with 409)."
           },
           "default_visit_minutes": {
             "type": "integer",
@@ -28336,6 +28575,13 @@
             "format": "int32",
             "description": "Buffer in minutes.",
             "minimum": 0
+          },
+          "conflict_policy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`request` or `strict`."
           },
           "default_visit_minutes": {
             "type": [
@@ -34642,6 +34888,13 @@
           "status"
         ],
         "properties": {
+          "double_book": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Confirming a request into a time another appointment holds is refused (`409\nslot_occupied`) unless this is `true`: a deliberate double booking."
+          },
           "reason": {
             "type": [
               "string",

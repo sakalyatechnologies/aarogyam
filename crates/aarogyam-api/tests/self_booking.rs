@@ -64,6 +64,18 @@ async fn clinic(app: &TestApp) -> (String, String) {
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
+    // These tests walk the strict journey; the request-a-taken-slot journey is in
+    // conflict_policy.rs.
+    let (status, body) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            "/api/v1/settings/clinic",
+            Some(&owner),
+            Some(json!({ "online_booking": { "conflict_policy": "strict" } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
     (doctor, owner)
 }
 

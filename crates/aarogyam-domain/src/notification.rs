@@ -55,6 +55,8 @@ stored_enum!(
         BookingConfirmedAuto => "booking_confirmed_auto",
         /// A patient cancelled an appointment themselves.
         BookingCancelledByPatient => "booking_cancelled_by_patient",
+        /// A patient asked online for a time the doctor already holds; it waits for a decision.
+        BookingConflict => "booking_conflict",
         /// Lab work is past its due date and still at the lab.
         LabOverdue => "lab_overdue",
         /// A booked patient arrived at the clinic.

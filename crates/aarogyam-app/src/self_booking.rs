@@ -514,17 +514,16 @@ async fn record_booked(
         },
     )
     .await?;
-    let kind = if auto_confirmed {
+    // An overlap request writes booking_conflict alone: one bell row, which also carries the
+    // reminder clock (0683); other bookings write their usual kind.
+    let kind = if overlap {
+        NotificationKind::BookingConflict
+    } else if auto_confirmed {
         NotificationKind::BookingConfirmedAuto
     } else {
         NotificationKind::BookingRequested
     };
     crate::notifications::notify(tx, kind, id).await?;
-    if overlap {
-        // The same row also carries the reminder clock (booking_requested); this one flags that
-        // the time is held, to the desk and that doctor. It names no one.
-        crate::notifications::notify(tx, NotificationKind::BookingConflict, id).await?;
-    }
     Ok(())
 }
 

@@ -8,6 +8,8 @@ struct DeskPayTarget: Identifiable, Hashable {
     let name: String
     /// The `collect_payment` notification behind a To-pay card, when the desk knows it (v10).
     var notificationId: String?
+    /// The bill to collect, when the caller knows it (Wrap up, a `collect_payment` card); nil lets the sheet pick.
+    var invoiceId: String?
     var id: String { patientId }
 }
 

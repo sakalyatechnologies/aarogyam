@@ -39,3 +39,16 @@ final class TasksV10Tests: XCTestCase {
         XCTAssertNil(TasksV10.quantity(""))
     }
 }
+
+final class TodayV10LogicTests: XCTestCase {
+    func testTasksButtonNeedsTheTasksPermission() {
+        XCTAssertTrue(TodayV10Logic.showsTasks(permissions: ["tasks.use", "patients.read"]))
+        XCTAssertFalse(TodayV10Logic.showsTasks(permissions: ["patients.read"]))
+    }
+
+    func testDeskPersonGetsDeskHomeAndDoctorGetsToday() {
+        XCTAssertTrue(TodayV10Logic.usesDesk(permissions: ["queue.write", "payments.collect"]))
+        XCTAssertFalse(TodayV10Logic.usesDesk(permissions: ["queue.call", "queue.write"]))
+        XCTAssertFalse(TodayV10Logic.usesDesk(permissions: []))
+    }
+}

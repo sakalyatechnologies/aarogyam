@@ -154,7 +154,7 @@ struct DeskBoardScreen: View {
                         .disabled(loaded.calling.contains(row.id)).accessibilityLabel(dvf("d9.board.send_in.a11y", row.name))
                 } else if row.state == .readyToBill, clinic.permissions.contains("billing.write") {
                     SkPillButton(dv("d9.board.collect"), variant: .tonal) {
-                        onCollect(DeskPayTarget(patientId: row.patientId, name: row.name, notificationId: feed?.payNotification[row.id]))
+                        onCollect(DeskPayTarget(patientId: row.patientId, name: row.name, notificationId: feed?.payNotification[row.id], invoiceId: feed?.payInvoice[row.id]))
                     }
                 }
             }

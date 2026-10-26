@@ -23,6 +23,9 @@ struct MainTabs: View {
     @State private var addExpense = false
     @State private var morePath: [MoreRoute] = []
     @State private var expenseRevision = 0
+    @State private var intake: IntakeRequest?
+    @State private var tasksOpen = false
+    @State private var deskRevision = 0
 
     private var nav: NavModel { NavModel.companion.of(permissions: clinic.permissions, clinicCount: clinicCount) }
 
@@ -43,6 +46,13 @@ struct MainTabs: View {
             RoutesV10Doctor.hook(graph: graph, clinic: clinic)
             RoutesV10Tasks.hook(graph: graph, clinic: clinic)
         }
+        .sheet(item: $intake) { request in
+            RoutesV10Intake.screen(graph: graph, clinic: clinic, phone: request.phone.isEmpty ? nil : request.phone) {
+                intake = nil
+                deskRevision += 1
+            }
+        }
+        .sheet(isPresented: $tasksOpen) { RoutesV10Tasks.screen(graph: graph, clinic: clinic) }
         .sheet(isPresented: $walkIn) { RoutesDesk.sheet(graph: graph, clinic: clinic) }
         .sheet(isPresented: $addExpense, onDismiss: { expenseRevision += 1 }) { ExpenseSheetHost(graph: graph, clinic: clinic) }
         .devClinicalHooks(graph: graph, clinic: clinic, selected: $selected, morePath: $morePath)
@@ -59,10 +69,34 @@ struct MainTabs: View {
         switch tab {
         case .today:
             NavigationStack(path: $todayPath) {
-                RoutesA.today(
-                    graph: graph, clinic: clinic, onOpenPatient: { todayPath.append(PatientRoute(id: $0)) },
-                    onOpenSchedule: { selected = .schedule }, onAddExpense: { addExpense = true }
-                )
+                VStack(spacing: 0) {
+                    RoutesV10Doctor.waitingTop(graph: graph, clinic: clinic)
+                    if TodayV10Logic.usesDesk(permissions: clinic.permissions) {
+                        RoutesV10Desk.home(
+                            graph: graph, clinic: clinic, onNewPatient: { intake = IntakeRequest(phone: $0) },
+                            onOpenPatient: { todayPath.append(PatientRoute(id: $0)) }
+                        )
+                        .id(deskRevision)
+                    } else {
+                        RoutesA.today(
+                            graph: graph, clinic: clinic, onOpenPatient: { todayPath.append(PatientRoute(id: $0)) },
+                            onOpenSchedule: { selected = .schedule }, onAddExpense: { addExpense = true }
+                        )
+                    }
+                }
+                .toolbar {
+                    if TodayV10Logic.showsTasks(permissions: clinic.permissions) {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button { tasksOpen = true } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "checklist")
+                                    RoutesV10Tasks.badge(graph: graph, clinic: clinic)
+                                }
+                            }
+                            .accessibilityLabel(String(localized: "tasks10.title", table: "TasksV10"))
+                        }
+                    }
+                }
                 .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense)
                 .patientDestination(graph: graph, clinic: clinic)
             }

@@ -500,3 +500,82 @@ async fn the_day_end_close_leaves_open_bills_in_the_queue() {
     assert_eq!(close("2100-01-01T00:00:00Z").await, 0);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_check_in_endpoint_reopens_a_no_show_on_its_own_day_only() {
+    let app = TestApp::start().await;
+    let k = kit(&app, ALPHA, app.token(ALPHA_OWNER)).await;
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let body = json!({
+        "sex": "female", "age_years": 34, "no_known_allergies": true,
+        "consents": [{ "purpose": "care", "method": "verbal" }]
+    });
+    let check_in = |id: String| {
+        let (app, desk, body) = (&app, desk.clone(), body.clone());
+        async move {
+            app.send(
+                Method::POST,
+                ALPHA,
+                &format!("/api/v1/appointments/{id}/check-in"),
+                Some(&desk),
+                Some(body),
+            )
+            .await
+        }
+    };
+
+    // Same clinic day: marked by the job, then checked in at the desk.
+    let today = book(
+        &app,
+        &k,
+        "Today",
+        "2030-02-07T10:00:00+05:30",
+        "2030-02-07T10:30:00+05:30",
+    )
+    .await;
+    let ends = move_to_today_noon(&app, &today).await;
+    let after = sqlx::query_scalar::<_, String>(
+        "select to_char(($1::timestamptz + interval '31 minutes') at time zone 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
+    )
+    .bind(&ends)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(run(&app, &after).await, 1);
+    assert_eq!(status_of(&app, &today).await, "no_show");
+    let (status, done) = check_in(today.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{done}");
+    assert_eq!(status_of(&app, &today).await, "arrived");
+    let token: Uuid =
+        sqlx::query_scalar("select id from aarogyam.queue_tokens where appointment_id = $1")
+            .bind(uuid_of(&today))
+            .fetch_one(&app.owner)
+            .await
+            .unwrap();
+    let alerts: i64 = sqlx::query_scalar(
+        "select count(*) from aarogyam.staff_notifications
+         where queue_token_id = $1 and kind = 'patient_waiting' and audience = 'doctor'",
+    )
+    .bind(token)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(alerts, 1, "the doctor is told the patient is waiting");
+    assert_eq!(events(&app, &today, "Late arrival").await, 1);
+
+    // A prior day's no-show is refused and stays a no-show.
+    let old = book(
+        &app,
+        &k,
+        "Old",
+        "2030-01-07T10:00:00+05:30",
+        "2030-01-07T10:30:00+05:30",
+    )
+    .await;
+    assert_eq!(run(&app, "2030-01-07T06:00:00Z").await, 1);
+    let (status, refused) = check_in(old.clone()).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{refused}");
+    assert_eq!(status_of(&app, &old).await, "no_show");
+    app.finish().await;
+}

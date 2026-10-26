@@ -127,8 +127,12 @@ class AppGraph private constructor(
     /** Images of unsent photo uploads, in protected storage beside the queue. */
     internal val outboxFiles: OutboxFiles,
     private val clock: Clock,
-    /** False keeps the event stream off (tests that count requests); the apps leave it on. */
-    liveStream: Boolean = true,
+    /**
+     * True opens the server's event stream (`GET /events`) while a clinic is open. Off by default:
+     * an open stream bills Cloud Run CPU the whole time, so the apps poll every 20 s until the
+     * founder decides (backend note, 26 Oct 2026).
+     */
+    liveStream: Boolean = false,
 ) {
     private val clients = mutableMapOf<BaseUrl, HttpClient>()
 
@@ -162,8 +166,9 @@ class AppGraph private constructor(
     val writes: WriteQueue = WriteQueue(outbox, outboxFiles, connectivity)
 
     /**
-     * Reload signals for screens: the server's event stream while signed in with a clinic open (stopped
-     * at sign-out and on a clinic switch, polling alone when the server refuses it), plus the poll.
+     * Reload signals for screens: the 20 s poll, plus the server's event stream when `liveStream` is on
+     * (while signed in with a clinic open; stopped at sign-out and on a clinic switch, polling alone
+     * when the server refuses it).
      */
     val live: SseLiveUpdates = SseLiveUpdates(logger("aarogyam.live"))
 
@@ -521,7 +526,7 @@ class AppGraph private constructor(
             dictation: Dictation = Dictation.None,
             outboxStore: OutboxStore = MemoryOutboxStore(),
             outboxFiles: OutboxFiles = MemoryOutboxFiles(),
-            liveStream: Boolean = true,
+            liveStream: Boolean = false,
         ): AppGraph? {
             val level = if (config.debug) LogLevel.Debug else LogLevel.Info
             val logger = { tag: String -> Logger(tag, logSink, level) }

@@ -134,3 +134,4 @@ Paused by the founder. This is the one place to resume from. The approved plan i
 - **Overpayment (G12):** a 409 `overpayment` on `POST /payments` refetches the bill and gives `DeskPayOutcome.BalanceChanged(balancePaise)`; the sheet shows "₹X is still due; nothing was recorded".
 - **Fix:** the board's Collect button now uses `DeskV10Collect.canCollect` (`payments.collect`, or both bill keys), like Desk home.
 - **Not adopted yet:** `GET /appointments/missed` and `GET /queue/to-collect` (not needed by the current screens).
+- **Event stream off by default (26 Oct, backend cost hold):** `/events` is on main f59b0ef4, but an open stream bills Cloud Run CPU continuously. `AppGraph.create(liveStream = false)` is now the default, so both apps poll every 20 s. Until now the phone only stopped trying because `/events` answered 404. Turn it on only after the founder says go. Test: `live/LiveStreamDefaultTest`.

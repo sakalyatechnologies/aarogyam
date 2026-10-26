@@ -47,8 +47,8 @@ final class TodayV10LogicTests: XCTestCase {
     }
 
     func testDeskPersonGetsDeskHomeAndDoctorGetsToday() {
-        XCTAssertTrue(TodayV10Logic.usesDesk(permissions: ["queue.write", "payments.collect"]))
-        XCTAssertFalse(TodayV10Logic.usesDesk(permissions: ["queue.call", "queue.write"]))
+        XCTAssertTrue(TodayV10Logic.usesDesk(permissions: ["appointments.write", "payments.collect"]))
+        XCTAssertFalse(TodayV10Logic.usesDesk(permissions: ["clinical.write", "appointments.write"]))
         XCTAssertFalse(TodayV10Logic.usesDesk(permissions: []))
     }
 }

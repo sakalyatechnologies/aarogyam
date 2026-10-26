@@ -32,7 +32,11 @@ struct DeskHomeScreen: View {
         _feed = State(initialValue: DeskV10Feed(clinic: clinic))
     }
 
-    private var canCollect: Bool { clinic.permissions.contains("billing.write") && clinic.permissions.contains("billing.read") }
+    /// Collecting needs the bill keys, or `payments.collect` (assistant, front desk, doctor) through collect-summary.
+    private var canCollect: Bool {
+        clinic.permissions.contains("payments.collect")
+            || (clinic.permissions.contains("billing.write") && clinic.permissions.contains("billing.read"))
+    }
 
     var body: some View {
         ScrollView {

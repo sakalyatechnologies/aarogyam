@@ -70,7 +70,10 @@ struct MainTabs: View {
         case .today:
             NavigationStack(path: $todayPath) {
                 VStack(spacing: 0) {
-                    RoutesV10Doctor.waitingTop(graph: graph, clinic: clinic)
+                    if clinic.permissions.contains("clinical.write") {
+                        // Sized to its rows: an empty host must not split the screen with Today.
+                        RoutesV10Doctor.waitingTop(graph: graph, clinic: clinic).fixedSize(horizontal: false, vertical: true)
+                    }
                     if TodayV10Logic.usesDesk(permissions: clinic.permissions) {
                         RoutesV10Desk.home(
                             graph: graph, clinic: clinic, onNewPatient: { intake = IntakeRequest(phone: $0) },

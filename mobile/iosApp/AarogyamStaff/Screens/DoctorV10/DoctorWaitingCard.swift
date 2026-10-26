@@ -42,6 +42,14 @@ private struct DoctorWaitingPresenter: View {
             if collapsed {
                 Button(dv10("dv10.waiting.title")) { collapsed = false }
                     .v7Text(15, .bold).frame(maxWidth: .infinity, minHeight: SkSpacing.minTouchTarget)
+            } else if state.loaded && state.rows.isEmpty && banner == nil {
+                // Nobody waiting: one quiet line, so Today keeps the screen.
+                HStack {
+                    Text(dv10("dv10.waiting.title")).v7Text(15, .bold)
+                    Spacer()
+                    Text(dv10("dv10.waiting.empty")).v7Text(14)
+                }
+                .padding(.horizontal, SkSpacing.l).frame(minHeight: SkSpacing.minTouchTarget)
             } else {
                 DoctorWaitingCard(holder: holder, state: state, banner: banner) { collapsed = true }
                     .frame(maxHeight: 300)

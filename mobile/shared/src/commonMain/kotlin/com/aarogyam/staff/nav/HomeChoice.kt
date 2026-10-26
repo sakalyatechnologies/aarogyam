@@ -22,15 +22,16 @@ data class HomeChoice(
     val practitionerId: String? = null,
 )
 
-private const val QUEUE_CALL = "queue.call"
-private const val QUEUE_WRITE = "queue.write"
+// The server's keys: `POST /queue/{id}/call` (Send in) needs clinical.write; walk-in, check-in and
+// the queue need appointments.write; collecting needs payments.collect.
+private const val CLINICAL_WRITE = "clinical.write"
+private const val APPOINTMENTS_WRITE = "appointments.write"
 private const val PAYMENTS_COLLECT = "payments.collect"
-private const val BILLING_WRITE = "billing.write"
 
-/** By permission key, never by role name: `queue.call` is Doctor; desk keys without it are Desk. */
+/** By permission key, never by role name: `clinical.write` is Doctor; desk keys without it are Desk. */
 fun homeChoiceOf(permissions: Set<String>): HomeChoice {
-    val doctor = QUEUE_CALL in permissions
-    val desk = QUEUE_WRITE in permissions || PAYMENTS_COLLECT in permissions || BILLING_WRITE in permissions
+    val doctor = CLINICAL_WRITE in permissions
+    val desk = APPOINTMENTS_WRITE in permissions || PAYMENTS_COLLECT in permissions
     return when {
         doctor -> HomeChoice(Home.Doctor, deskReachable = desk)
         desk -> HomeChoice(Home.Desk, deskReachable = true)

@@ -16,23 +16,25 @@ import kotlin.test.assertTrue
 class HomeChoiceTest {
     @Test
     fun queue_call_is_doctor_home() {
-        val choice = homeChoiceOf(setOf("queue.call", "appointments.read"))
+        val choice = homeChoiceOf(setOf("clinical.write", "appointments.read"))
         assertEquals(Home.Doctor, choice.home)
         assertFalse(choice.deskReachable)
     }
 
     @Test
-    fun each_desk_key_without_queue_call_is_desk_home() {
-        listOf("queue.write", "payments.collect", "billing.write").forEach {
+    fun each_desk_key_without_clinical_write_is_desk_home() {
+        listOf("appointments.write", "payments.collect").forEach {
             val choice = homeChoiceOf(setOf(it, "patients.read"))
             assertEquals(Home.Desk, choice.home, it)
             assertTrue(choice.deskReachable, it)
         }
+        // Finance bills but neither seats patients nor collects at the desk: its own Today.
+        assertEquals(Home.Default, homeChoiceOf(setOf("billing.write", "billing.read", "finance.view")).home)
     }
 
     @Test
     fun a_person_with_both_gets_doctor_home_and_desk_as_a_tab() {
-        val choice = homeChoiceOf(setOf("queue.call", "queue.write", "billing.write"))
+        val choice = homeChoiceOf(setOf("clinical.write", "appointments.write", "billing.write"))
         assertEquals(Home.Doctor, choice.home)
         assertTrue(choice.deskReachable)
     }
@@ -58,7 +60,7 @@ class HomeChoiceTest {
                 },
             )
             val graph = testGraph(backend, backgroundScope)
-            val clinic = openClinic(backend, graph, this, listOf("queue.call", "appointments.read"))
+            val clinic = openClinic(backend, graph, this, listOf("clinical.write", "appointments.read"))
             val holder = graph.homeChoice(clinic, backgroundScope)
             assertEquals(Home.Doctor, holder.choice.value.home)
             assertEquals("d1", holder.choice.first { it.practitionerId != null }.practitionerId)
@@ -69,7 +71,7 @@ class HomeChoiceTest {
         runTest {
             val backend = FakeBackend()
             val graph = testGraph(backend, backgroundScope)
-            val clinic = openClinic(backend, graph, this, listOf("queue.write"))
+            val clinic = openClinic(backend, graph, this, listOf("appointments.write"))
             val holder = graph.homeChoice(clinic, backgroundScope)
             assertEquals(Home.Desk, holder.choice.value.home)
             assertNull(holder.choice.value.practitionerId)

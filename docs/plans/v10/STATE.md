@@ -88,3 +88,23 @@ Paused by the founder. This is the one place to resume from. The approved plan i
   - **collect-summary:** `payments.collect` is enough. `upi` is `{upi://pay link, upi_id, ...}`; render the link as the QR and use it as the open-app link. A settled bill doesn't move the token to `done` yet.
   - **The backend takes all of pb** (SSE, auto messages, recall dismiss, payment→done) after no-show and the conflict policy. **The phone keeps polling every 20 s.**
   - **Next from the backend:** G1 remind and G12 overpayment, right after no-show.
+
+## 25 Oct progress (after resume)
+- **Merged into feat/v10 (not on main yet):**
+  - r1: family models, collect-summary, PUT photo, no_show hidden
+  - the fake-backend snapshot fix
+  - t8: iOS intake + signature, at `RoutesV10Intake.screen`
+  - t6: My tasks holder + kinds
+  - t9: iOS doctor waiting card, chair mode, Wrap up
+- **Running:**
+  - r2: desk collect with `payments.collect` + `invoiceId`
+  - t10: iOS My tasks + bell kinds
+- **Next, the integration step (coordinator, commonMain + shell):**
+  - expose the Rx draft id on `RxSheetStateHolder` (t9's duplicate-draft risk)
+  - make `AppGraph.outboxFiles` internal for the audio wrapper
+  - expose the visit note id for `enqueueAudio`
+  - Collect now opens `deskPayment(…, invoiceId, …)`
+  - rebase T7 (Desk home), then mount it in `MainTabs` by `HomeChoice`
+  - the doctor's Waiting card goes on Today, not in a sheet
+  - the Tasks screen and badge; the Desk "New patient" opens the intake
+- **Then:** the first simulator run of every v10 screen (none has been seen yet), then T12.

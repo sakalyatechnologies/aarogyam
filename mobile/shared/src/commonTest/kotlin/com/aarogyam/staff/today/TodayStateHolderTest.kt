@@ -51,6 +51,31 @@ class TodayStateHolderTest {
     }
 
     @Test
+    fun cancelled_and_no_show_bookings_are_not_in_the_live_schedule() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(
+                "$SUNRISE/api/v1/today",
+                {
+                    json(
+                        todayBody(
+                            appointments =
+                                listOf(
+                                    appointment("1", "2026-10-05T03:30:00Z", "no_show", "Meera Shah"),
+                                    appointment("2", "2026-10-05T04:45:00Z", "booked", "Kavya Reddy"),
+                                    appointment("3", "2026-10-05T05:15:00Z", "cancelled", "Rohan Iyer"),
+                                ),
+                        ),
+                    )
+                },
+            )
+            val (graph, clinic) = open(backend, this, backgroundScope)
+            val view = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view
+            assertEquals(listOf("Kavya Reddy"), view.schedule.map { it.patientName })
+            assertEquals("Kavya Reddy", view.hero?.patientName)
+        }
+
+    @Test
     fun one_request_builds_the_day_in_the_clinic_time_zone() =
         runTest {
             val backend = FakeBackend()

@@ -115,7 +115,9 @@ internal fun TodayResponse.toView(
         appointments
             .mapNotNull {
                 it.toItem(zone)
-            }.filter { it.status != VisitStatus.Cancelled }
+            }.filter {
+                it.status != VisitStatus.Cancelled && it.status != VisitStatus.NoShow
+            } // not live: no_show still checks in by search
             .sortedBy { it.starts }
     val now = items.firstOrNull { it.status == VisitStatus.InChair }
     val next = items.firstOrNull { it.status in WAITING_OR_BOOKED }

@@ -2,6 +2,7 @@ package com.aarogyam.staff.desk
 
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.collectSummary
 import com.aarogyam.staff.api.invoice
 import com.aarogyam.staff.api.model.CollectUpi
 import com.aarogyam.staff.billing.PayMethod
@@ -89,10 +90,14 @@ class DeskPaymentStateHolder(
     private val patientId: String,
     private val scope: CoroutineScope,
     private val graph: AppGraph,
+    private val invoiceId: String? = null,
     private val log: Logger = Logger("aarogyam.deskpay"),
     private val clock: () -> Instant = { Clock.System.now() },
 ) {
-    private val allowed = BILLING_READ in clinic.permissions && BILLING_WRITE in clinic.permissions
+    private val canCollect = PAYMENTS_COLLECT in clinic.permissions
+    private val allowed =
+        (BILLING_READ in clinic.permissions && BILLING_WRITE in clinic.permissions) ||
+            (canCollect && invoiceId != null)
     private val canProof get() = BILLING_WRITE in clinic.permissions && ServerCaps.paymentProof
     private val runner = graph.outbox
     private val mutableState =
@@ -139,6 +144,10 @@ class DeskPaymentStateHolder(
     }
 
     private fun load() {
+        if (canCollect && invoiceId != null) {
+            loadOne(invoiceId)
+            return
+        }
         scope.launch {
             when (val result = clinic.api.invoices(patientId)) {
                 is Outcome.Success -> {
@@ -163,6 +172,31 @@ class DeskPaymentStateHolder(
                 }
             }
         }
+    }
+
+    /** One bill by `collect-summary` (`payments.collect`): one request, with the UPI link filled in. */
+    private fun loadOne(id: String) {
+        scope.launch {
+            when (val result = clinic.api.collectSummary(id)) {
+                is Outcome.Success -> {
+                    val bill = result.value
+                    val due = dueBillOf(bill.invoiceId, bill.number, bill.status, bill.totalPaise, bill.balancePaise)
+                    val dues = listOfNotNull(due?.copy(upi = bill.upi))
+                    dues.forEach { showUpiOf(it) }
+                    mutableState.value = DeskPayState.Ready(dues, canProof)
+                    if (dues.isEmpty()) mutableCardOpen.value = false
+                }
+
+                is Outcome.Failure -> {
+                    log.warn("deskpay.load_failed") { code("error", result.error.code.value) }
+                    mutableState.value = DeskPayState.Failed(ScreenError.of(result.error))
+                }
+            }
+        }
+    }
+
+    private fun showUpiOf(due: DueBill) {
+        due.upi?.let { upis[due.id] = it }
     }
 
     /** Clears a shown outcome (a failure the person has read). */
@@ -206,7 +240,7 @@ class DeskPaymentStateHolder(
             }
             // R8: the balance is read again just before sending; the screen's list may be stale.
             val fresh =
-                when (val check = recheck(clinic.api, job, log)) {
+                when (val check = recheck(clinic.api, job, log, canCollect)) {
                     is Recheck.Proceed -> {
                         showUpi(invoiceId, check.upi)
                         check.job
@@ -244,10 +278,19 @@ class DeskPaymentStateHolder(
                 is Delivery.Rejected -> {
                     // A 409 means the bill changed under us: show the server's state, not ours.
                     if (delivery.conflict && invoiceId != null) {
-                        val now = (clinic.api.invoice(invoiceId) as? Outcome.Success)?.value
+                        val now =
+                            if (canCollect) {
+                                (clinic.api.collectSummary(invoiceId) as? Outcome.Success)
+                                    ?.value
+                                    ?.let { it.status to it.balancePaise }
+                            } else {
+                                (clinic.api.invoice(invoiceId) as? Outcome.Success)
+                                    ?.value
+                                    ?.let { it.status to it.balancePaise }
+                            }
                         keyed = null
                         mutableOutcome.value =
-                            if (now != null && now.status == "issued" && now.balancePaise <= 0) {
+                            if (now != null && now.first == "issued" && now.second <= 0) {
                                 DeskPayOutcome.AlreadyPaid
                             } else {
                                 DeskPayOutcome.Failed(delivery.error)
@@ -301,6 +344,7 @@ class DeskPaymentStateHolder(
     private companion object {
         const val BILLING_READ = "billing.read"
         const val BILLING_WRITE = "billing.write"
+        const val PAYMENTS_COLLECT = "payments.collect"
     }
 }
 

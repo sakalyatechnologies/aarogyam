@@ -25,4 +25,14 @@ fun AppGraph.deskPayment(
     clinic: ClinicContext,
     patientId: String,
     screen: ScreenScope,
-): DeskPaymentStateHolder = DeskPaymentStateHolder(clinic, patientId, screen.scope, this, Logger("aarogyam.deskpay"))
+): DeskPaymentStateHolder =
+    DeskPaymentStateHolder(clinic, patientId, screen.scope, this, log = Logger("aarogyam.deskpay"))
+
+/** Collect payment for one bill; works with `payments.collect` alone (assistant), one collect-summary request. */
+fun AppGraph.deskPayment(
+    clinic: ClinicContext,
+    patientId: String,
+    invoiceId: String,
+    screen: ScreenScope,
+): DeskPaymentStateHolder =
+    DeskPaymentStateHolder(clinic, patientId, screen.scope, this, invoiceId, Logger("aarogyam.deskpay"))

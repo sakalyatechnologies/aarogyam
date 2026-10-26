@@ -35,7 +35,7 @@ class DeskCollectRaceTest {
     private val issue = "$SUNRISE/api/v1/invoices/i1/issue"
     private val payments = "$SUNRISE/api/v1/payments"
     private val list = "$SUNRISE/api/v1/invoices"
-    private val billing = listOf("billing.read", "billing.write")
+    private val billing = listOf("billing.read", "billing.write", "payments.collect")
     private val ended = Instant.parse("2026-10-08T04:00:00Z")
 
     private fun summaryJson(
@@ -130,8 +130,8 @@ class DeskCollectRaceTest {
     fun a_409_refetches_the_bill_and_shows_the_server_state() =
         runTest {
             val backend = FakeBackend()
-            backend.on(summary, { json(summaryJson("issued", 5000, 5000)) })
-            backend.on(invoice, { json(invoiceJson("i1", "v1", 5000, 5000)) })
+            var reads = 0
+            backend.on(summary, { json(summaryJson("issued", 5000, if (reads++ < 1) 5000 else 0)) })
             backend.on(payments, { apiError(HttpStatusCode.Conflict, "conflict") })
             val h = holder(backend)
             until { h.state.value is DeskPayState.Ready }
@@ -140,7 +140,7 @@ class DeskCollectRaceTest {
             until { h.outcome.value.let { it !is DeskPayOutcome.Idle && it !is DeskPayOutcome.Sending } }
             // GET (race check), POST (409), GET again, then the list reload.
             assertEquals(
-                listOf("invoices/i1/collect-summary", "payments", "invoices/i1"),
+                listOf("invoices/i1/collect-summary", "payments", "invoices/i1/collect-summary"),
                 order(backend).drop(before).take(3),
             )
             assertEquals(DeskPayOutcome.AlreadyPaid, h.outcome.value)

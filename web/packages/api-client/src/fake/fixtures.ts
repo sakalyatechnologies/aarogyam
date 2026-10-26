@@ -183,6 +183,8 @@ export interface FakePractitioner {
   registration_number?: string | null;
   qualifications?: string | null;
   specialty?: string | null;
+  /** Their own answer to a taken time (`request` or `strict`); absent follows the clinic. */
+  conflict_policy?: string | null;
 }
 
 /** One stretch of a doctor's week, local time. */

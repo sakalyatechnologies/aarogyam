@@ -254,6 +254,9 @@ export type NewAppointmentBody = Schemas["NewAppointmentBody"];
 export type BookingWarning = Schemas["BookingWarning"];
 export type SavedAppointment = Schemas["SavedAppointment"];
 export type StatusChange = Schemas["StatusChange"];
+export type MoveRequest = Schemas["MoveRequest"];
+export type ConflictPolicy = Schemas["ConflictPolicy"];
+export type ConflictPolicyChange = Schemas["ConflictPolicyChange"];
 export type StatusChanged = Schemas["StatusChanged"];
 
 /** These replace the web draft's `scheduled`/`in_progress`/`teleconsult` (`docs/decisions.md`, 4 Oct). */

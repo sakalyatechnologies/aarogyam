@@ -49,4 +49,40 @@ describe("Settings: online booking", () => {
     renderPortal("/settings?tab=booking", { as: PEOPLE.farah });
     expect(await screen.findByText("Only the clinic owner can change online booking.")).toBeTruthy();
   });
+
+  it("saves the clinic policy and a doctor's own", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi();
+    renderPortal("/settings?tab=booking", { as: PEOPLE.asha, backend });
+    const clinic = await screen.findByLabelText("When a time is already booked");
+    await user.selectOptions(clinic, "Don't allow");
+    expect(await screen.findByText("Online booking updated")).toBeTruthy();
+    const client = backend.client({ host: "sunrise.localtest.me", getToken: () => fakeTokenFor({ id: PEOPLE.asha }), now: () => NOW });
+    const settings = await client.getClinicSettings();
+    if (!settings.ok) throw new Error("expected settings");
+    expect(settings.value.online_booking.conflict_policy).toBe("strict");
+
+    const rows = await screen.findByRole("group", { name: /Each doctor's answer/ });
+    const selects = await within(rows).findAllByRole("combobox");
+    expect(selects.length).toBeGreaterThan(1);
+    const own = selects[0];
+    if (own === undefined) throw new Error("expected a doctor row");
+    await user.selectOptions(own, "Ask the desk");
+    expect(await screen.findByText(/: saved/)).toBeTruthy();
+  });
+
+  it("lets a doctor edit only their own row", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi();
+    renderPortal("/settings?tab=booking", { as: PEOPLE.dev, backend });
+    await user.click(await screen.findByRole("button", { name: /Sunrise Dental/ }));
+    const rows = await screen.findByRole("group", { name: /Each doctor's answer/ });
+    const selects = await within(rows).findAllByRole("combobox");
+    expect(selects).toHaveLength(1);
+    expect(screen.queryByLabelText("When a time is already booked")).toBeNull();
+    const own = selects[0];
+    if (own === undefined) throw new Error("expected a doctor row");
+    await user.selectOptions(own, "Don't allow");
+    expect(await screen.findByText(/: saved/)).toBeTruthy();
+  });
 });

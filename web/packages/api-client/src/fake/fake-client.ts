@@ -161,6 +161,7 @@ const refuse = (status: number, code: string, message: string): Outcome => ({ ok
 const invalid = (field: string, problem: string): Outcome => refuse(400, "invalid_request", `${field}: ${problem}`);
 const notFound = refuse(404, "not_found", "Not found.");
 /** A doctor with approved leave can't be booked, moved onto or have a request confirmed into it. */
+const slotOccupiedRefusal = refuse(409, "slot_occupied", "Another appointment holds that time.");
 const onLeaveRefusal = refuse(422, "practitioner_on_leave", "The doctor is on leave at this time. Choose another time or doctor.");
 /** A well-formed body the rules refuse: `400`, the field, a colon, then what is wrong. */
 const refused = (message: string): Outcome => refuse(400, "invalid_layout", message);
@@ -502,6 +503,29 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       const granted = caller.membership.role.permissions;
       return [first, ...rest].some((p) => hasPermission(granted, p)) ? caller : refuse(403, "forbidden", "You don't have permission to do that.");
     }
+    /** The doctor a conflict policy call is about: settings.manage reaches any, a doctor only their own. */
+    async function policyTarget(id: string): Promise<{ practitioner: FakePractitioner; clinic: FakeClinic } | Outcome> {
+      const caller = await inClinic();
+      if (!isCaller(caller)) {
+        return caller;
+      }
+      const practitioner = state.practitioners.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+      if (practitioner === undefined) {
+        return notFound;
+      }
+      const perms = caller.membership.role.permissions;
+      const own = hasPermission(perms, "clinical.write") && practitioner.membership_id === caller.membership.id;
+      if (!hasPermission(perms, "settings.manage") && !own) {
+        return refuse(403, "forbidden", "You don't have permission to do that.");
+      }
+      return { practitioner, clinic: caller.clinic };
+    }
+    const policyView = (practitioner: FakePractitioner, clinic: FakeClinic): S.ConflictPolicy => {
+      const own = policyOf(practitioner);
+      return { policy: own, effective: own ?? (bookingSettings(clinic).conflict_policy === "strict" ? "strict" : "request") };
+    };
+    const policyOf = (practitioner: FakePractitioner): "request" | "strict" | null =>
+      practitioner.conflict_policy === "request" || practitioner.conflict_policy === "strict" ? practitioner.conflict_policy : null;
 
     /** Approves or declines a pending time-off request. */
     function decideTimeOff(id: string, decision: C.TimeOffDecision | undefined, approve: boolean, signal: AbortSignal | undefined): Promise<ApiResult<S.TimeOff>> {
@@ -2317,6 +2341,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (found.status === "requested" && target === "confirmed" && onApprovedLeave(state, caller.clinic.id, found.practitioner_id, found.starts_at, found.ends_at)) {
             return onLeaveRefusal;
           }
+          if (found.status === "requested" && target === "confirmed" && change.double_book !== true && holdsTime(state, found, found.starts_at, found.practitioner_id)) {
+            return slotOccupiedRefusal;
+          }
           const now = clock();
           let queueTokenId: string | null = null;
           found.status = target;
@@ -2375,6 +2402,69 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return notFound;
           }
           return reply({ appointment: wired, queue_token_id: queueTokenId } satisfies C.StatusChanged);
+        }),
+
+      moveAppointment: (id, to, opts) =>
+        respond(S.statusChanged, opts?.signal, async () => {
+          const caller = await inClinic("appointments.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.appointments.find((a) => a.id === id && a.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "requested" && found.status !== "booked" && found.status !== "confirmed") {
+            return refuse(409, "conflict", "That appointment can't be moved any more.");
+          }
+          const start = new Date(to.starts_at);
+          if (Number.isNaN(start.getTime())) {
+            return invalid("starts_at", "must be a date and time");
+          }
+          let doctorId = found.practitioner_id;
+          if (to.practitioner_id != null) {
+            if (!state.practitioners.some((p) => p.id === to.practitioner_id && p.clinic_id === caller.clinic.id && p.active)) {
+              return invalid("practitioner_id", "no such doctor");
+            }
+            doctorId = to.practitioner_id;
+          }
+          const length = Date.parse(found.ends_at) - Date.parse(found.starts_at);
+          const endsAt = new Date(start.getTime() + length).toISOString();
+          if (onApprovedLeave(state, caller.clinic.id, doctorId, start.toISOString(), endsAt)) {
+            return onLeaveRefusal;
+          }
+          if (holdsTime(state, found, start.toISOString(), doctorId)) {
+            return slotOccupiedRefusal;
+          }
+          found.starts_at = start.toISOString();
+          found.ends_at = endsAt;
+          found.practitioner_id = doctorId;
+          found.status = "confirmed";
+          const wired = wireAppointment(found, state, clock());
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply({ appointment: wired, queue_token_id: null } satisfies C.StatusChanged);
+        }),
+
+      getConflictPolicy: (id, opts) =>
+        respond(S.conflictPolicy, opts?.signal, async () => {
+          const found = await policyTarget(id);
+          return "practitioner" in found ? reply(policyView(found.practitioner, found.clinic)) : found;
+        }),
+
+      setConflictPolicy: (id, policy, opts) =>
+        respond(S.conflictPolicy, opts?.signal, async () => {
+          const found = await policyTarget(id);
+          if (!("practitioner" in found)) {
+            return found;
+          }
+          const value = policy.policy ?? null;
+          if (value !== null && !["request", "strict"].includes(value)) {
+            return invalid("policy", "must be request, strict or null");
+          }
+          found.practitioner.conflict_policy = value;
+          return reply(policyView(found.practitioner, found.clinic));
         }),
 
       listQueue: (dateValue, opts) =>
@@ -7117,7 +7207,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             practitioner_id: practitionerId,
             slot_minutes: bookingSettings(clinic).slot_minutes,
             slots: freeSlots(state, clinic, practitionerId, date, clock()),
-            requestable_slots: [],
+            requestable_slots: requestableSlots(state, clinic, practitionerId, date, clock()),
           } satisfies C.Availability);
         }),
 
@@ -7408,7 +7498,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           const start = new Date(input.starts_at);
           const day = localClock(start, clinic.timezone).date;
-          if (!freeSlots(state, clinic, doctor.id, day, now).some((slot) => Date.parse(slot) === start.getTime())) {
+          const isFree = freeSlots(state, clinic, doctor.id, day, now).some((slot) => Date.parse(slot) === start.getTime());
+          const isRequestable = !isFree && requestableSlots(state, clinic, doctor.id, day, now).some((slot) => Date.parse(slot) === start.getTime());
+          if (!isFree && !isRequestable) {
             return refuse(409, "conflict", "that time is no longer available; choose another");
           }
           const settings = bookingSettings(clinic);
@@ -7442,7 +7534,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             room_id: null,
             starts_at: start.toISOString(),
             ends_at: new Date(start.getTime() + settings.slot_minutes * 60_000).toISOString(),
-            status: settings.auto_confirm ? "confirmed" : "requested",
+            status: settings.auto_confirm && !isRequestable ? "confirmed" : "requested",
             kind: isNew ? "new" : "follow_up",
             source: "website",
             reason: input.reason ?? null,
@@ -7455,6 +7547,23 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             booked_by_account: who.id,
           };
           state.appointments.push(record);
+          if (isRequestable) {
+            (state.notifications ??= []).push({
+              id: fakeUuid(random, now),
+              clinic_id: clinic.id,
+              kind: "booking_conflict",
+              created_at: now.toISOString(),
+              appointment: {
+                id: record.id,
+                starts_at: record.starts_at,
+                ends_at: record.ends_at,
+                status: record.status,
+                practitioner_id: doctor.id,
+                practitioner_name: doctor.display_name,
+              },
+              href: "/calendar",
+            });
+          }
           const offsetStart = localIso(day, localClock(start, clinic.timezone).minutes, clinic.timezone);
           const endLocal = localClock(new Date(record.ends_at), clinic.timezone);
           return reply({
@@ -9063,37 +9172,67 @@ function localIso(date: string, minutes: number, timezone: string): string {
   return `${date}T${two(Math.floor(minutes / 60))}:${two(minutes % 60)}:00${sign}${two(Math.floor(abs / 60))}:${two(abs % 60)}`;
 }
 
-/** The slots a patient may take: working hours minus leave minus active appointments (widened by the buffer). */
-function freeSlots(state: Fixtures, clinic: FakeClinic, practitionerId: string, date: string, now: Date): string[] {
+/** Every slot in working hours past the notice, split by what holds it: nothing (free), an appointment (requestable if the policy allows), or leave (neither). */
+function slotLists(state: Fixtures, clinic: FakeClinic, practitionerId: string, date: string, now: Date): { free: string[]; held: string[] } {
   const settings = bookingSettings(clinic);
   const ahead = daysBetween(localClock(now, clinic.timezone).date, date);
   if (ahead < 0 || ahead >= settings.horizon_days) {
-    return [];
+    return { free: [], held: [] };
   }
   const weekday = isoWeekday(date);
   const earliest = now.getTime() + settings.min_notice_minutes * 60_000;
   const buffer = settings.buffer_minutes * 60_000;
-  const slots: string[] = [];
+  const free: string[] = [];
+  const held: string[] = [];
   for (const shift of state.workingShifts.filter((s) => s.clinic_id === clinic.id && s.practitioner_id === practitionerId && s.weekday === weekday)) {
     for (let at = toMinutes(shift.starts); at + settings.slot_minutes <= toMinutes(shift.ends); at += settings.slot_minutes) {
       const start = atLocalTime(date, at, clinic.timezone).getTime();
       const end = start + settings.slot_minutes * 60_000;
-      const taken =
-        state.appointments.some(
-          (a) =>
-            a.clinic_id === clinic.id &&
-            a.practitioner_id === practitionerId &&
-            a.status !== "cancelled" &&
-            a.status !== "no_show" &&
-            Date.parse(a.starts_at) < end + buffer &&
-            start - buffer < Date.parse(a.ends_at),
-        ) || state.leave.some((l) => l.clinic_id === clinic.id && l.practitioner_id === practitionerId && Date.parse(l.starts_at) < end && start < Date.parse(l.ends_at));
-      if (start >= earliest && !taken) {
-        slots.push(localIso(date, at, clinic.timezone));
+      if (start < earliest || state.leave.some((l) => l.clinic_id === clinic.id && l.practitioner_id === practitionerId && Date.parse(l.starts_at) < end && start < Date.parse(l.ends_at))) {
+        continue;
       }
+      const taken = state.appointments.some(
+        (a) =>
+          a.clinic_id === clinic.id &&
+          a.practitioner_id === practitionerId &&
+          a.status !== "cancelled" &&
+          a.status !== "no_show" &&
+          Date.parse(a.starts_at) < end + buffer &&
+          start - buffer < Date.parse(a.ends_at),
+      );
+      (taken ? held : free).push(localIso(date, at, clinic.timezone));
     }
   }
-  return slots.sort();
+  return { free: free.sort(), held: held.sort() };
+}
+
+/** The slots a patient may take: working hours minus leave minus active appointments (widened by the buffer). */
+function freeSlots(state: Fixtures, clinic: FakeClinic, practitionerId: string, date: string, now: Date): string[] {
+  return slotLists(state, clinic, practitionerId, date, now).free;
+}
+
+/** Slots another appointment holds that the patient may still ask for; none when the doctor's (or clinic's) policy is strict. */
+function requestableSlots(state: Fixtures, clinic: FakeClinic, practitionerId: string, date: string, now: Date): string[] {
+  const own = state.practitioners.find((p) => p.id === practitionerId)?.conflict_policy;
+  const policy = own === "request" || own === "strict" ? own : bookingSettings(clinic).conflict_policy;
+  return policy === "strict" ? [] : slotLists(state, clinic, practitionerId, date, now).held;
+}
+
+/** Whether another live appointment of the doctor overlaps `startsAt` for the length of `appointment`. */
+function holdsTime(state: Fixtures, appointment: FakeAppointment, startsAt: string, practitionerId: string): boolean {
+  const start = Date.parse(startsAt);
+  const end = start + (Date.parse(appointment.ends_at) - Date.parse(appointment.starts_at));
+  return state.appointments.some(
+    (a) =>
+      a.id !== appointment.id &&
+      a.clinic_id === appointment.clinic_id &&
+      a.practitioner_id === practitionerId &&
+      a.status !== "requested" &&
+      a.status !== "cancelled" &&
+      a.status !== "no_show" &&
+      Date.parse(a.starts_at) < end &&
+      start < Date.parse(a.ends_at),
+  );
 }
 
 /** Warnings for booking or moving an appointment: busy elsewhere or outside hours. Never blocks (a doctor on leave is refused before this). */

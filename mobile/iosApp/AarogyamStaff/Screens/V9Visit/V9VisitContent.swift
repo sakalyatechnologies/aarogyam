@@ -45,6 +45,7 @@ struct V9VisitContent: View {
                             V9Summary(graph: graph, clinic: clinic, visitId: view.visitId, phone: person?.phone, firstName: firstName, patientNumber: view.number, snapshot: snapshot, minutes: minutes) { dismiss() }
                         } else {
                             if !connectivity.online { V9OfflineBanner() }
+                            DoctorV10VisitEntry(graph: graph, clinic: clinic, patientId: route.patientId, patientName: person?.name ?? "", holder: holder, view: view, rx: rx)
                             V9Notes(holder: holder, view: view).id("notes")
                             V9RxCard(
                                 rx: rx, state: rxState, phone: person?.phone, canIssue: clinic.permissions.contains("prescriptions.issue"),

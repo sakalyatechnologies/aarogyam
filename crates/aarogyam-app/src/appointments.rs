@@ -846,3 +846,34 @@ pub async fn set_status(
     })
     .await
 }
+
+/// The day's no-shows (`appointments.read`, within the caller's reach), for the Missed list.
+/// `date` is a clinic day, today when absent.
+///
+/// # Errors
+/// [`AppError::Denied`] without `appointments.read`; [`AppError::Db`] on failures.
+pub async fn missed(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    date: Option<Date>,
+    now: OffsetDateTime,
+) -> Result<(Date, Vec<dal::MissedRow>), AppError> {
+    actor.require(Permission::AppointmentsRead)?;
+    let day = date.unwrap_or_else(|| clinic_today(&actor.timezone, now));
+    let (start, end) = days_bounds(&actor.timezone, day, day);
+    let rows = db
+        .scoped(&scope(actor, request_id), async |tx| {
+            Ok::<_, AppError>(
+                dal::missed(
+                    tx.conn(),
+                    start,
+                    end,
+                    actor.reach(Permission::AppointmentsRead).member(),
+                )
+                .await?,
+            )
+        })
+        .await?;
+    Ok((day, rows))
+}

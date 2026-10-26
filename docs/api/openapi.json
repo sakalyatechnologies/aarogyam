@@ -137,6 +137,51 @@
         ]
       }
     },
+    "/api/v1/appointments/missed": {
+      "get": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "The appointments of one clinic day that ended as no-shows, with the follow-up written for\neach, for the Missed card. Check in or reschedule with the usual appointment calls.",
+        "operationId": "listMissedAppointments",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The clinic day, `YYYY-MM-DD`; today when left out",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissedList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad date"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/appointments/month-summary": {
       "get": {
         "tags": [
@@ -11562,6 +11607,37 @@
           },
           "404": {
             "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/queue/to-collect": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Visits from earlier days that finished treatment and still have a bill to collect. They left\nthe queue at day end but stay open here until paid. Open to `payments.collect` as well as\n`billing.read`.",
+        "operationId": "listQueueToCollect",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToCollectList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role has neither payments.collect nor billing.read"
           }
         },
         "security": [
@@ -25114,6 +25190,67 @@
           }
         }
       },
+      "MissedAppointment": {
+        "type": "object",
+        "description": "One appointment nobody came to. Ids and numbers only: look the patient up by `patient_id`.",
+        "required": [
+          "appointment_id",
+          "patient_id",
+          "patient_number",
+          "practitioner_id",
+          "starts_at"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "patient_number": {
+            "type": "string",
+            "description": "The patient's clinic number, such as `SC-1042`."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "recall_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The `missed_visit` follow-up written for it; absent when the clinic switched automatic\nno-shows off and staff marked it by hand."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "When it was to start."
+          }
+        }
+      },
+      "MissedList": {
+        "type": "object",
+        "description": "A day's no-shows.",
+        "required": [
+          "date",
+          "items"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MissedAppointment"
+            },
+            "description": "By start time."
+          }
+        }
+      },
       "MixItem": {
         "type": "object",
         "description": "Billed revenue in one price list category.",
@@ -34960,6 +35097,67 @@
               "null"
             ],
             "description": "The visit it belongs to."
+          }
+        }
+      },
+      "ToCollectItem": {
+        "type": "object",
+        "description": "A bill left unpaid from an earlier day. Ids and numbers only.",
+        "required": [
+          "token_id",
+          "day",
+          "token_number",
+          "patient_id",
+          "patient_number",
+          "invoice_id",
+          "balance_paise"
+        ],
+        "properties": {
+          "balance_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What is left to pay, in paise."
+          },
+          "day": {
+            "type": "string",
+            "description": "Its clinic day, `YYYY-MM-DD`."
+          },
+          "invoice_id": {
+            "type": "string",
+            "description": "The bill; ask `/invoices/{id}/collect-summary` to collect it."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "patient_number": {
+            "type": "string",
+            "description": "The patient's clinic number, such as `SC-1042`."
+          },
+          "token_id": {
+            "type": "string",
+            "description": "The queue token, still `ready_to_bill`."
+          },
+          "token_number": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The number it had that day."
+          }
+        }
+      },
+      "ToCollectList": {
+        "type": "object",
+        "description": "Bills still to collect from earlier days.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToCollectItem"
+            },
+            "description": "Oldest first."
           }
         }
       },

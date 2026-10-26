@@ -617,3 +617,9 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Day-end close.** `app.close_stale_tokens` sets tokens of an earlier clinic day that are `waiting`, `called` or `in_chair` to `left` with `left_reason = 'Closed at day end'`, in batches (the first run clears the backlog). `ready_to_bill` stays open: the money is still to collect, it leaves the queue but is listed as "to collect".
 
 **Why.** No-shows piled up in the queue and analytics; the doctor and desk should not clean them by hand, but a patient who turns up late must not be turned away.
+
+## 2026-10-25: The Missed list and "To collect"
+
+**Decision.** Two additive read endpoints (no migration).
+- `GET /appointments/missed?date=` (`appointments.read`, within the caller's doctor reach): the day's `no_show` appointments with `appointment_id`, `patient_id`, `patient_number`, `practitioner_id`, `starts_at` and `recall_id` (the `missed_visit` follow-up; absent for a hand-marked no-show). No names. Check in and reschedule use the existing appointment calls.
+- `GET /queue/to-collect` (`payments.collect` or `billing.read`): tokens of earlier clinic days still `ready_to_bill` whose draft or issued bill has a balance, with `invoice_id` and `balance_paise`. These stay open after the day-end close but are not in today's queue or its counts.

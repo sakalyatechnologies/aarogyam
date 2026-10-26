@@ -2351,6 +2351,39 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ date: day, items } satisfies C.QueueDay);
         }),
 
+      listMissedAppointments: (dateValue, opts) =>
+        respond(S.missedList, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const day = dateValue ?? localClock(clock(), caller.clinic.timezone).date;
+          const items = state.appointments
+            .filter((a) => a.clinic_id === caller.clinic.id && a.status === "no_show")
+            .filter((a) => localClock(new Date(a.starts_at), caller.clinic.timezone).date === day)
+            .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+            .flatMap((a) => {
+              const patient = state.patients.find((p) => p.id === a.patient_id);
+              return patient === undefined
+                ? []
+                : [{ appointment_id: a.id, patient_id: a.patient_id, patient_number: patient.number, practitioner_id: a.practitioner_id, starts_at: a.starts_at }];
+            });
+          return reply({ date: day, items } satisfies C.MissedList);
+        }),
+
+      listQueueToCollect: (opts) =>
+        respond(S.toCollectList, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const allowed = caller.membership.role.permissions;
+          if (!hasPermission(allowed, "billing.read") && !hasPermission(allowed, "payments.collect")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          return reply({ items: [] } satisfies C.ToCollectList);
+        }),
+
       addWalkIn: (input, opts) =>
         respond(S.queueToken, opts?.signal, async () => {
           const caller = await inClinic("appointments.write");

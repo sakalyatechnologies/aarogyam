@@ -16726,7 +16726,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description No such branch in this clinic */
+            /** @description No such branch in this clinic, or live events are switched off on this server */
             404: {
                 headers: {
                     [name: string]: unknown;

@@ -92,7 +92,7 @@ fn wanted(signal: &Signal, clinic: Uuid, branch: Option<Uuid>) -> bool {
         (status = 400, description = "Bad branch id"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks appointments.read"),
-        (status = 404, description = "No such branch in this clinic")
+        (status = 404, description = "No such branch in this clinic, or live events are switched off on this server")
     )
 )]
 pub(crate) async fn stream(
@@ -101,6 +101,10 @@ pub(crate) async fn stream(
     headers: HeaderMap,
     ApiQuery(query): ApiQuery<EventsQuery>,
 ) -> Result<impl IntoResponse, ApiFailure> {
+    // Off unless the server turns it on: a 404 tells clients to keep polling.
+    if !state.live_events() {
+        return Err(aarogyam_app::AppError::NotFound("live events").into());
+    }
     let branch = query
         .branch_id
         .as_deref()

@@ -668,3 +668,10 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Index (expand/contract).** `appointments_self_booking_slot` (0091) refuses two active self-bookings with one start, so it would refuse a request. A predicate can't be altered and an index can't be added under the same name, so 0685 drops and recreates it in one transaction under the same name with `and not requested_overlap` added: no moment without the backstop, the 409 mapping by constraint name keeps working in old and new binaries, and every non-overlap booking is covered exactly as before. The request rows rely on the per-doctor advisory lock instead. Two indexes side by side would have kept the old one refusing requests, which defeats the feature; so the "contract" step (dropping the old shape) is done here, safely, because the new index is strictly weaker only for rows that did not exist before this release. Old binaries never set `requested_overlap`, so they behave as before.
 
 **Why.** A patient who wants the one time a busy doctor holds should be able to ask; the desk or the doctor decides, with the choice of moving them.
+
+## Live events are off unless the server turns them on (26 Oct 2026)
+`GET /events` answers 404 unless `ARO_HTTP__LIVE_EVENTS=true`. On Cloud Run's request-based
+billing an open stream keeps CPU billed for its whole life, so a portal or phone left open all
+day costs far more than 20-second polling. The phone and the portal stop trying for the session
+on a 404 and keep polling. The founder decides when to switch it on; the library default is on
+so tests exercise the stream.

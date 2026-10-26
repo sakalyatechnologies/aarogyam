@@ -3123,7 +3123,7 @@
             "description": "The role lacks appointments.read"
           },
           "404": {
-            "description": "No such branch in this clinic"
+            "description": "No such branch in this clinic, or live events are switched off on this server"
           }
         },
         "security": [

@@ -80,7 +80,9 @@ export function VisitBar() {
   const [sending, setSending] = useState(false);
   const [reason, setReason] = useState("");
   const prescriptions = usePrescriptions(session.canRx ? session.patientId : undefined);
-  const canBill = can("billing.write");
+  // The itemised bill and fee: a doctor (clinical.write) or the desk (billing.write). Collect: payments.collect or billing.write.
+  const canBill = can("billing.write") || can("clinical.write");
+  const canCollect = can("billing.write") || can("payments.collect");
   // The bill's lines, shared by the suggested total below, Send for payment and the Collect panel.
   const draft = useBillDraft({ patientId: session.patientId, visitId: (session.ended?.visit ?? session.visit)?.id, stage: session.ended === undefined ? "active" : "ended", enabled: session.canWrite && canBill });
   const [billError, setBillError] = useState<string | undefined>(undefined);
@@ -160,7 +162,7 @@ export function VisitBar() {
           ) : null}
           {ended !== undefined ? (
             <>
-              {canBill ? (
+              {canCollect ? (
                 <PillButton
                   icon={<Wallet aria-hidden="true" />}
                   disabled={session.celebrating}
@@ -172,7 +174,7 @@ export function VisitBar() {
                 </PillButton>
               ) : null}
               <PillButton
-                variant={canBill ? "ghost" : "primary"}
+                variant={canCollect ? "ghost" : "primary"}
                 icon={<Send aria-hidden="true" />}
                 disabled={sending || session.celebrating}
                 onClick={() => void sendForPayment()}

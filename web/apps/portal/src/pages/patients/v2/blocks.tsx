@@ -372,7 +372,7 @@ export function WrapBlock() {
           </Chip>
         ))}
       </div>
-      {can("billing.write") ? (
+      {can("billing.write") || can("clinical.write") ? (
         <Field label="Fee (₹)" hint="Leave blank to bill later." className="mt-3">
           <TextInput
             inputMode="decimal"

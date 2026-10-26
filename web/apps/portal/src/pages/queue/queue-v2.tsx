@@ -44,7 +44,8 @@ export function QueueV2() {
   const toast = useToast();
   const canWrite = can("appointments.write");
   const canCall = can("clinical.write");
-  const canBill = can("billing.write");
+  // The Collect dialog reads the bill's summary, which payments.collect and billing.read holders may.
+  const canBill = can("payments.collect") || can("billing.read");
   const [adding, setAdding] = useState(false);
   const [seating, setSeating] = useState<QueueToken | undefined>(undefined);
   const [collecting, setCollecting] = useState<QueueToken | undefined>(undefined);
@@ -283,7 +284,7 @@ export function QueueV2() {
         }}
       />
       <CollectDialog
-        token={collecting}
+        target={collecting === undefined ? undefined : { token: collecting }}
         onClose={() => {
           setCollecting(undefined);
         }}

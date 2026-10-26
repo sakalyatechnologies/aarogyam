@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select n.id, n.kind, n.created_at, r.read_at as \"read_at?\", n.handled_at, n.handled_by,\n                  u.display_name as \"handled_by_name?\", n.reminded_at, n.escalated_at,\n                  a.id as \"appointment_id?\", a.starts_at as \"starts_at?\", a.ends_at as \"ends_at?\",\n                  a.status as \"appointment_status?\", p.id as \"practitioner_id?\",\n                  p.display_name as \"practitioner_name?\", o.id as \"lab_order_id?\",\n                  o.number as \"lab_order_number?\", v.name as \"lab_vendor_name?\",\n                  o.due_on as \"lab_due_on?\", n.href, q.id as \"queue_token_id?\",\n                  q.token_number as \"queue_token_number?\", i.id as \"invoice_id?\",\n                  i.number as \"invoice_number?\", rc.id as \"recall_id?\",\n                  rc.kind as \"recall_kind?\", rc.due_on as \"recall_due_on?\",\n                  n.task_occurrence_id as \"task_occurrence_id?\", tk.title as \"task_title?\",\n                  tk.due_at as \"task_due_at?\", n.inventory_item_id as \"item_id?\",\n                  it.name as \"item_name?\", n.stock_days_cover::float8 as \"days_cover?\",\n                  n.time_off_request_id as \"time_off_request_id?\"\n           from aarogyam.staff_notifications n\n           left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id\n           left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id\n           left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id\n           left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id\n           left join aarogyam.task_occurrences tk\n             on tk.org_id = n.org_id and tk.id = n.task_occurrence_id\n           left join aarogyam.inventory_items it\n             on it.org_id = n.org_id and it.id = n.inventory_item_id\n           left join aarogyam.practitioners p on p.org_id = a.org_id and p.id = a.practitioner_id\n           left join aarogyam.lab_vendors v on v.org_id = o.org_id and v.id = o.vendor_id\n           left join aarogyam.staff_notification_reads r\n             on r.org_id = n.org_id and r.notification_id = n.id and r.membership_id = $1\n           left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.handled_by\n           left join aarogyam.users u on u.id = m.user_id\n           where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))\n                  or ($7 and q.id is not null\n                      and (q.practitioner_id is null or app.practitioner_in_reach(q.practitioner_id, $2)))\n                  or ($8 and o.id is not null\n                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9))\n                  or ($10 and i.id is not null)\n                  or ($11 and rc.id is not null and app.patient_in_reach(rc.patient_id, $12))\n                  or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16))\n             and app.staff_ops_notification_newest(n, $1, $13, $14)\n             and ($4::uuid is null or n.id < $4)\n             and (not $3 or (r.read_at is null\n                             and n.created_at > now() - make_interval(days => $6::int)))\n           order by n.id desc\n           limit $5",
+  "query": "select n.id, n.kind, n.created_at, r.read_at as \"read_at?\", n.handled_at, n.handled_by,\n                  u.display_name as \"handled_by_name?\", n.reminded_at, n.escalated_at,\n                  a.id as \"appointment_id?\", a.starts_at as \"starts_at?\", a.ends_at as \"ends_at?\",\n                  a.status as \"appointment_status?\", p.id as \"practitioner_id?\",\n                  p.display_name as \"practitioner_name?\", o.id as \"lab_order_id?\",\n                  o.number as \"lab_order_number?\", v.name as \"lab_vendor_name?\",\n                  o.due_on as \"lab_due_on?\", n.href, q.id as \"queue_token_id?\",\n                  q.token_number as \"queue_token_number?\", i.id as \"invoice_id?\",\n                  i.number as \"invoice_number?\", rc.id as \"recall_id?\",\n                  rc.kind as \"recall_kind?\", rc.due_on as \"recall_due_on?\",\n                  n.task_occurrence_id as \"task_occurrence_id?\", tk.title as \"task_title?\",\n                  tk.due_at as \"task_due_at?\", n.inventory_item_id as \"item_id?\",\n                  it.name as \"item_name?\", n.stock_days_cover::float8 as \"days_cover?\",\n                  n.time_off_request_id as \"time_off_request_id?\", n.audience,\n                  case when i.id is not null then app.invoice_total_paise(i) end as \"invoice_total_paise?\",\n                  case when i.id is not null then app.invoice_balance_paise(i) end as \"invoice_balance_paise?\"\n           from aarogyam.staff_notifications n\n           left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id\n           left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id\n           left join aarogyam.queue_tokens q on q.org_id = n.org_id and q.id = n.queue_token_id\n           left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id\n           left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id\n           left join aarogyam.task_occurrences tk\n             on tk.org_id = n.org_id and tk.id = n.task_occurrence_id\n           left join aarogyam.inventory_items it\n             on it.org_id = n.org_id and it.id = n.inventory_item_id\n           left join aarogyam.practitioners p on p.org_id = a.org_id and p.id = a.practitioner_id\n           left join aarogyam.lab_vendors v on v.org_id = o.org_id and v.id = o.vendor_id\n           left join aarogyam.staff_notification_reads r\n             on r.org_id = n.org_id and r.notification_id = n.id and r.membership_id = $1\n           left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.handled_by\n           left join aarogyam.users u on u.id = m.user_id\n           where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))\n                  or ($8 and o.id is not null\n                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9))\n                  or ($10 and i.id is not null and n.kind <> 'collect_payment')\n                  or ($11 and rc.id is not null and app.patient_in_reach(rc.patient_id, $12))\n                  or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16)\n                  or app.visit_notification_visible(n, $1, $17, $18))\n             and app.staff_ops_notification_newest(n, $1, $13, $14)\n             and ($4::uuid is null or n.id < $4)\n             and (not $3 or (r.read_at is null and app.notification_counts_unread(n)\n                             and n.created_at > now() - make_interval(days => $6::int)))\n           order by n.id desc\n           limit $5",
   "describe": {
     "columns": [
       {
@@ -371,6 +371,29 @@
             "name": "time_off_request_id"
           }
         }
+      },
+      {
+        "ordinal": 34,
+        "name": "audience",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.staff_notifications",
+            "name": "audience"
+          }
+        }
+      },
+      {
+        "ordinal": 35,
+        "name": "invoice_total_paise?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 36,
+        "name": "invoice_balance_paise?",
+        "type_info": "Int8",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -387,6 +410,8 @@
         "Bool",
         "Bool",
         "Uuid",
+        "Bool",
+        "Bool",
         "Bool",
         "Bool",
         "Bool",
@@ -427,8 +452,11 @@
       true,
       false,
       null,
-      true
+      true,
+      true,
+      null,
+      null
     ]
   },
-  "hash": "6d366249154631191297c19639e8cf4c775e978f253a0eadc55672b60c5c48fb"
+  "hash": "9d6577731a2b94955aa4174af82a19ab10751edacc10bc827d3cf66fdae55acf"
 }

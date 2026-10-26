@@ -25,6 +25,10 @@ pub const MAX_RESULTS: i64 = 50;
 /// A patient as the API shows it. Contact details are masked unless the member's role has
 /// `patients.contact`.
 #[derive(Debug, Clone)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the patient's status flags, each read straight from one statement"
+)]
 pub struct PatientView {
     /// Identifier.
     pub id: PatientId,
@@ -62,6 +66,12 @@ pub struct PatientView {
     pub lifetime_paid_paise: Option<i64>,
     /// Whether an open recall is due.
     pub recall_due: bool,
+    /// An allergy is active, whoever recorded it.
+    pub allergy_alert: bool,
+    /// No active consent to care is on record.
+    pub consent_pending: bool,
+    /// The patient has a photo (`GET /patients/{id}/photo`).
+    pub has_photo: bool,
 }
 
 /// A patient's next booking.
@@ -298,7 +308,12 @@ pub(crate) fn age_on(date_of_birth: Option<Date>, estimated: bool, today: Date) 
     })
 }
 
-fn view(row: patients::PatientRow, actor: &ClinicActor, today: Date) -> PatientView {
+fn view(
+    row: patients::PatientRow,
+    flags: patients::Flags,
+    actor: &ClinicActor,
+    today: Date,
+) -> PatientView {
     let contact = actor.permissions.allows(Permission::PatientsContact);
     let phone = row.phone_e164.map(|raw| {
         if contact {
@@ -330,6 +345,9 @@ fn view(row: patients::PatientRow, actor: &ClinicActor, today: Date) -> PatientV
         balance_paise: None,
         lifetime_paid_paise: None,
         recall_due: false,
+        allergy_alert: flags.allergy_alert,
+        consent_pending: flags.consent_pending,
+        has_photo: flags.has_photo,
     }
 }
 
@@ -338,7 +356,7 @@ fn view(row: patients::PatientRow, actor: &ClinicActor, today: Date) -> PatientV
 fn listed(row: patients::ListedPatient, actor: &ClinicActor, today: Date) -> PatientView {
     let (row, summary) = row.into_parts();
     let money = actor.permissions.allows(Permission::BillingRead);
-    let mut view = view(row, actor, today);
+    let mut view = view(row, summary.flags, actor, today);
     view.next_appointment =
         summary
             .next_starts_at
@@ -386,10 +404,10 @@ pub(crate) async fn existing(
     today: Date,
 ) -> Result<PatientView, AppError> {
     let reach = actor.reach(Permission::PatientsRead).member();
-    let row = patients::get(tx.conn(), patient_id.uuid(), reach)
+    let found = patients::get_flagged(tx.conn(), patient_id.uuid(), reach)
         .await?
         .ok_or(AppError::NotFound("patient"))?;
-    Ok(view(row, actor, today))
+    Ok(view(found.patient, found.flags, actor, today))
 }
 
 /// Issues the clinic's next number and saves a validated patient, inside an open transaction.
@@ -419,7 +437,13 @@ pub(crate) async fn insert_new(
         },
     )
     .await?;
-    Ok(view(row, actor, today))
+    // Nothing is on record for a patient registered a moment ago.
+    let flags = patients::Flags {
+        allergy_alert: false,
+        consent_pending: true,
+        has_photo: false,
+    };
+    Ok(view(row, flags, actor, today))
 }
 
 /// Edits a patient's details with the same rules as registration. Changing the phone or email
@@ -462,9 +486,10 @@ pub(crate) async fn edit_in(
 ) -> Result<PatientView, AppError> {
     // The edit answers with the record, so it reaches only patients the member can read.
     let reach = actor.reach(Permission::PatientsRead).member();
-    let current = patients::get_for_update(tx.conn(), patient_id.uuid(), reach)
+    let found = patients::get_for_update_flagged(tx.conn(), patient_id.uuid(), reach)
         .await?
         .ok_or(AppError::NotFound("patient"))?;
+    let (current, flags) = (found.patient, found.flags);
     AppError::check_version(expected_version, current.row_version)?;
     let edited = apply_edit(&current, input, today)?;
     let row = patients::update(
@@ -481,7 +506,7 @@ pub(crate) async fn edit_in(
         },
     )
     .await?;
-    Ok(view(row, actor, today))
+    Ok(view(row, flags, actor, today))
 }
 
 /// Finds patients by what the front desk typed: a number (`SD-1042` or `1042`), a phone
@@ -575,6 +600,51 @@ pub async fn search(
         Ok(views)
     })
     .await
+}
+
+/// The directory's headline numbers.
+#[derive(Debug, Clone, Copy)]
+pub struct DirectorySummary {
+    /// Patients on the list.
+    pub total: i64,
+    /// Registered this month, in the clinic's time zone.
+    pub new_this_month: i64,
+    /// With an open recall due on or before today.
+    pub recalls_due: i64,
+    /// With a balance on issued bills; only with `billing.read`.
+    pub with_balance: Option<i64>,
+}
+
+/// The counts behind the directory's ribbon, in one statement: how many patients the caller
+/// reaches, how many are new this month, how many have a recall due and, with `billing.read`,
+/// how many owe money.
+///
+/// # Errors
+/// [`AppError::Denied`] without `patients.read`; [`AppError::Db`] on database failures.
+pub async fn directory_summary(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    now: OffsetDateTime,
+) -> Result<DirectorySummary, AppError> {
+    actor.require(Permission::PatientsRead)?;
+    let money = actor.permissions.allows(Permission::BillingRead);
+    let today = clinic_today(&actor.timezone, now);
+    let month_start = day_bounds(&actor.timezone, today.replace_day(1).unwrap_or(today)).0;
+    let reach = actor.reach(Permission::PatientsRead).member();
+    let counts = db
+        .scoped(&scope(actor, request_id), async |tx| {
+            Ok::<_, AppError>(
+                patients::directory_counts(tx.conn(), month_start, today, money, reach).await?,
+            )
+        })
+        .await?;
+    Ok(DirectorySummary {
+        total: counts.total,
+        new_this_month: counts.new_this_month,
+        recalls_due: counts.recalls_due,
+        with_balance: money.then_some(counts.with_balance),
+    })
 }
 
 /// Opens a patient's record and writes the access record in the same transaction.
@@ -829,6 +899,30 @@ pub struct PhoneMatch {
     pub age_years: Option<u16>,
 }
 
+/// A linked relative of a patient the lookup matched, who doesn't share the number.
+#[derive(Debug, Clone)]
+pub struct FamilyMember {
+    /// The matched patient they are linked to.
+    pub of_patient_id: PatientId,
+    /// The relative.
+    pub id: PatientId,
+    /// Readable number.
+    pub number: String,
+    /// Full name.
+    pub full_name: String,
+    /// What they are to the matched patient.
+    pub relation: String,
+}
+
+/// The matches of a phone lookup and the relatives linked to them.
+#[derive(Debug, Clone)]
+pub struct PhoneLookupResult {
+    /// Patients with the phone.
+    pub matches: Vec<PhoneMatch>,
+    /// Relatives of those, not already among them.
+    pub family_group: Vec<FamilyMember>,
+}
+
 /// Patients already registered with this phone (main or second number), so the desk can pick
 /// "this is them" before registering someone new. Families share numbers: there may be several.
 ///
@@ -840,7 +934,7 @@ pub async fn lookup_phone(
     request_id: Option<Uuid>,
     phone: &str,
     now: OffsetDateTime,
-) -> Result<Vec<PhoneMatch>, AppError> {
+) -> Result<PhoneLookupResult, AppError> {
     actor.require(Permission::PatientsRead)?;
     let phone = parse_phone(phone)?.ok_or(AppError::invalid("phone", "is required"))?;
     let today = clinic_today(&actor.timezone, now);
@@ -848,7 +942,8 @@ pub async fn lookup_phone(
     db.scoped(&scope(actor, request_id), async |tx| {
         let rows =
             patients::lookup_phone(tx.conn(), phone.as_e164(), MAX_PHONE_MATCHES, reach).await?;
-        Ok(rows
+        let ids: Vec<Uuid> = rows.iter().map(|row| row.id).collect();
+        let matches: Vec<PhoneMatch> = rows
             .into_iter()
             .map(|row| PhoneMatch {
                 id: PatientId::from_uuid(row.id),
@@ -857,7 +952,23 @@ pub async fn lookup_phone(
                 sex: row.sex,
                 age_years: age_on(row.date_of_birth, row.birth_date_estimated, today),
             })
-            .collect())
+            .collect();
+        let family_group = aarogyam_dal::family::groups(tx.conn(), &ids, reach)
+            .await?
+            .into_iter()
+            .filter(|row| !ids.contains(&row.related_patient_id))
+            .map(|row| FamilyMember {
+                of_patient_id: PatientId::from_uuid(row.patient_id),
+                id: PatientId::from_uuid(row.related_patient_id),
+                number: row.number,
+                full_name: row.full_name,
+                relation: row.relation,
+            })
+            .collect();
+        Ok(PhoneLookupResult {
+            matches,
+            family_group,
+        })
     })
     .await
 }

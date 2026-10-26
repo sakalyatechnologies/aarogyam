@@ -111,6 +111,8 @@ pub struct NotificationView {
     pub subject: Subject,
     /// A path inside the portal that opens what it is about, when the writer gave one.
     pub href: Option<String>,
+    /// Who it was written for: `doctor` or `front_desk`; `None` for older rows.
+    pub audience: Option<String>,
 }
 
 /// The lab order an overdue alert is about.
@@ -142,6 +144,10 @@ pub struct NotifiedInvoice {
     pub id: InvoiceId,
     /// Its number once issued; `None` for a draft.
     pub number: Option<String>,
+    /// What it is worth now (a draft's is a preview), in paise.
+    pub total_paise: i64,
+    /// What is left to pay now, in paise.
+    pub balance_paise: i64,
 }
 
 /// The follow-up a recall alert is about. No reason: it can hold health information.
@@ -218,6 +224,7 @@ fn view(mut row: FeedRow, offset: UtcOffset) -> Result<NotificationView, AppErro
         reminded_at: row.reminded_at,
         escalated_at: row.escalated_at,
         href: row.href.take(),
+        audience: row.audience.take(),
         subject: subject(row, offset)?,
     })
 }
@@ -251,6 +258,8 @@ fn subject(row: FeedRow, offset: UtcOffset) -> Result<Subject, AppError> {
         return Ok(Subject::Invoice(NotifiedInvoice {
             id: InvoiceId::from_uuid(id),
             number: row.invoice_number,
+            total_paise: row.invoice_total_paise.ok_or_else(missing)?,
+            balance_paise: row.invoice_balance_paise.ok_or_else(missing)?,
         }));
     }
     if let Some(id) = row.recall_id {
@@ -299,9 +308,11 @@ fn sees(actor: &ClinicActor, permission: Permission) -> Sees {
     }
 }
 
-/// Which notifications `actor` sees: bookings, arrivals and the queue with `appointments.read`,
-/// lab work with `labs.read`, bills with `billing.read`, recalls with `patients.read`, each
-/// within its scope; tasks with `tasks.use` (the assignee or their role; escalations only the
+/// Which notifications `actor` sees: bookings and old arrivals with `appointments.read`, lab
+/// work with `labs.read`, bills with `billing.read`, recalls with `patients.read`, each within
+/// its scope; a waiting or called-in patient when assigned to them or, if unassigned, when they
+/// hold `clinical.write` and are on duty (or nobody is); `collect_payment` with `billing.write`
+/// or `payments.collect`; tasks with `tasks.use` (the assignee or their role; escalations only the
 /// owner role), time-off requests with `time_off.manage`, stock alerts with `inventory.read`.
 /// `None` when none.
 #[must_use]
@@ -314,6 +325,9 @@ pub fn viewer(actor: &ClinicActor) -> Option<Viewer> {
     let tasks = actor.permissions.allows(Permission::TasksUse);
     let inventory = actor.permissions.allows(Permission::InventoryRead);
     let time_off = actor.permissions.allows(Permission::TimeOffManage);
+    let clinical_write = actor.permissions.allows(Permission::ClinicalWrite);
+    let collect = actor.permissions.allows(Permission::BillingWrite)
+        || actor.permissions.allows(Permission::PaymentsCollect);
     // A time-off decision goes to the requester, whatever they hold.
     let any = bookings.shown
         || labs.shown
@@ -322,6 +336,8 @@ pub fn viewer(actor: &ClinicActor) -> Option<Viewer> {
         || tasks
         || inventory
         || time_off
+        || clinical_write
+        || collect
         || actor.permissions.allows(Permission::TimeOffRequest);
     any.then_some(Viewer {
         member: actor.membership_id.uuid(),
@@ -334,6 +350,8 @@ pub fn viewer(actor: &ClinicActor) -> Option<Viewer> {
         tasks,
         inventory,
         time_off,
+        clinical_write,
+        collect,
     })
 }
 

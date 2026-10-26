@@ -4134,6 +4134,54 @@
         ]
       }
     },
+    "/api/v1/invoices/{id}/collect-summary": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "What to collect on a bill, for the queue's Collect dialog and the bell's Collect action.\nRead-only: it records nothing and lists no other bill. Open to `payments.collect` as well as\n`billing.read`.",
+        "operationId": "getInvoiceCollectSummary",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The bill",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role has neither payments.collect nor billing.read"
+          },
+          "404": {
+            "description": "No such bill in this clinic"
+          },
+          "409": {
+            "description": "The bill is void or has nothing left to pay"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/invoices/{id}/issue": {
       "post": {
         "tags": [
@@ -7931,6 +7979,40 @@
         ]
       }
     },
+    "/api/v1/patients/summary": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The directory's headline numbers in one request: how many patients, how many are new this\nmonth, how many have a recall due and, with `billing.read`, how many owe money.",
+        "operationId": "getPatientsSummary",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientsSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}": {
       "get": {
         "tags": [
@@ -8805,6 +8887,67 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/consents/request": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Sends the patient a link to read the clinic's notice and sign, by email through the message\nqueue (a care message, so it goes even before any consent is on record). The link works once\nfor seven days. Needs `patients.write`. Phone-only patients can't be sent one yet.",
+        "operationId": "requestPatientConsent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestConsent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentRequested"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown or repeated purpose, or an unknown notice"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or out of the role's reach"
+          },
+          "409": {
+            "description": "The patient has no email address, or the clinic has no portal address yet"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/contact-preferences": {
       "post": {
         "tags": [
@@ -8971,6 +9114,158 @@
           },
           "409": {
             "description": "The visit is closed, the corrected entry is no longer current, the chart changed at the same moment, or `id_conflict`: the client_id made other entries"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/family": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The patient's relatives.",
+        "operationId": "listFamily",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Links a relative to the patient (and the patient back to the relative).",
+        "operationId": "addFamilyLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewFamilyLink"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown relation or a bad id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "Either patient isn't in this clinic"
+          },
+          "409": {
+            "description": "A patient linked to themselves, or a pair already linked"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/family/{link_id}": {
+      "delete": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Removes a family link and its inverse.",
+        "operationId": "removeFamilyLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "link_id",
+            "in": "path",
+            "description": "The link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed, with its inverse"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such link in this clinic"
           }
         },
         "security": [
@@ -9374,6 +9669,135 @@
           },
           "403": {
             "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or out of the role's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/photo": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The patient's photo, with its media type. Needs `patients.read`; the response is private to\nthe caller's browser.",
+        "operationId": "getPatientPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The photo, with its media type"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read, or Sakalya support"
+          },
+          "404": {
+            "description": "No photo, no such patient in this clinic, or out of the role's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Sets the patient's photo as `multipart/form-data` with a `file` (PNG or JPEG, up to 2 MB,\nchecked by content), replacing the old one. Needs `patients.write`.",
+        "operationId": "putPatientPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Saved"
+          },
+          "400": {
+            "description": "Not a PNG or JPEG, or no file"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or out of the role's reach"
+          },
+          "413": {
+            "description": "Larger than 2 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Removes the patient's photo (removing none is fine). Needs `patients.write`.",
+        "operationId": "deletePatientPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed (also when there was none)"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
           },
           "404": {
             "description": "No such patient in this clinic, or out of the role's reach"
@@ -10159,7 +10583,7 @@
         "tags": [
           "billing"
         ],
-        "summary": "Records a payment against issued bills and issues a receipt number. Needs an\n`Idempotency-Key` header.",
+        "summary": "Records a payment against issued bills and issues a receipt number. Needs an\n`Idempotency-Key` header. `payments.collect` alone may pay only named, unpaid bills of the\npatient: a draft is issued first, in the same request, and an advance is refused.",
         "operationId": "recordPayment",
         "parameters": [
           {
@@ -10210,13 +10634,13 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks billing.write"
+            "description": "The role has neither billing.write nor payments.collect"
           },
           "404": {
             "description": "No such patient or bill in this clinic"
           },
           "409": {
-            "description": "The key was used for a different payment, or a bill isn't issued"
+            "description": "The key was used for a different payment, or a bill isn't issued (a draft is issued first for `payments.collect`)"
           }
         },
         "security": [
@@ -11322,6 +11746,91 @@
             "bearer": []
           }
         ]
+      }
+    },
+    "/api/v1/public/consents/{token}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Reads a consent link on the clinic's host, with no sign-in: the clinic, what it asks and the\nnotice.",
+        "operationId": "getConsentLink",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentLink"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such link"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "The patient signs, on the clinic's host with no sign-in: records consent (method `app`)\nagainst the notice the link showed and closes the link. Works once.",
+        "operationId": "signConsentLink",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignConsent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Signed"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`agree` is not true, or a purpose the clinic didn't ask about"
+          },
+          "404": {
+            "description": "No such link"
+          },
+          "409": {
+            "description": "Already signed"
+          },
+          "410": {
+            "description": "Expired"
+          }
+        }
       }
     },
     "/api/v1/public/site": {
@@ -19286,6 +19795,87 @@
           }
         }
       },
+      "CollectSummary": {
+        "type": "object",
+        "description": "What the desk collects on a bill: a draft or issued bill with something left to pay.",
+        "required": [
+          "invoice_id",
+          "status",
+          "patient",
+          "total_paise",
+          "balance_paise"
+        ],
+        "properties": {
+          "balance_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What is left to pay, in paise: the amount to record."
+          },
+          "invoice_id": {
+            "type": "string",
+            "description": "The bill."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its number once issued; absent for a draft, which is issued when the payment is\nrecorded (`POST /payments`, naming it in `allocations`)."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientRef",
+            "description": "Who pays; send `patient.id` as the payment's `patient_id`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`draft` or `issued`."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What the bill is worth, in paise; a draft's is a preview."
+          },
+          "upi": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CollectUpi",
+                "description": "A UPI link for the balance; absent when the clinic has no UPI ID in settings."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "CollectUpi": {
+        "type": "object",
+        "description": "How a patient pays what is to be collected, as a UPI link.",
+        "required": [
+          "uri",
+          "qr_data",
+          "upi_id",
+          "payee_name"
+        ],
+        "properties": {
+          "payee_name": {
+            "type": "string",
+            "description": "The payee name shown in the UPI app (the clinic's name)."
+          },
+          "qr_data": {
+            "type": "string",
+            "description": "The same text, to encode in a QR code."
+          },
+          "upi_id": {
+            "type": "string",
+            "description": "The clinic's UPI ID from settings."
+          },
+          "uri": {
+            "type": "string",
+            "description": "The `upi://pay` link to open in a UPI app."
+          }
+        }
+      },
       "Collections": {
         "type": "object",
         "description": "Collections over clinic days `from` to `to`.",
@@ -19751,6 +20341,42 @@
           }
         }
       },
+      "ConsentLink": {
+        "type": "object",
+        "description": "What anyone holding a consent link may read: no patient data.",
+        "required": [
+          "clinic_name",
+          "state",
+          "purposes",
+          "notice",
+          "expires_at"
+        ],
+        "properties": {
+          "clinic_name": {
+            "type": "string",
+            "description": "The clinic's name."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When the link stops working (RFC 3339)."
+          },
+          "notice": {
+            "$ref": "#/components/schemas/LinkNotice",
+            "description": "The notice to read."
+          },
+          "purposes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The purposes the clinic asks about."
+          },
+          "state": {
+            "type": "string",
+            "description": "`pending`, `signed` or `expired`."
+          }
+        }
+      },
       "ConsentList": {
         "type": "object",
         "description": "A patient's consents, newest first.",
@@ -19821,6 +20447,42 @@
               "$ref": "#/components/schemas/ConsentNotice"
             },
             "description": "Newest first; the first is the current notice. Empty until the clinic publishes one\n(consents then record the template's label, `v1 2026-10`)."
+          }
+        }
+      },
+      "ConsentRequested": {
+        "type": "object",
+        "description": "A consent request sent to the patient.",
+        "required": [
+          "id",
+          "channel",
+          "purposes",
+          "notice_version",
+          "expires_at"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "How the link was sent: `email`."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When the link stops working (RFC 3339)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "notice_version": {
+            "type": "string",
+            "description": "The label of the notice the patient will read."
+          },
+          "purposes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The purposes asked about."
           }
         }
       },
@@ -21209,6 +21871,111 @@
               "$ref": "#/components/schemas/ExpiringBatch"
             },
             "description": "Earliest first; already expired batches come first."
+          }
+        }
+      },
+      "FamilyLink": {
+        "type": "object",
+        "description": "A relative of a patient.",
+        "required": [
+          "id",
+          "patient_id",
+          "number",
+          "full_name",
+          "relation",
+          "is_primary_contact"
+        ],
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "Their full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The link; pass it to the delete route."
+          },
+          "is_primary_contact": {
+            "type": "boolean",
+            "description": "Whether they are this patient's contact person."
+          },
+          "number": {
+            "type": "string",
+            "description": "Their readable number, such as `SD-1042`."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The relative; open them at `/patients/{id}`."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What they are to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling` or\n`other`."
+          }
+        }
+      },
+      "FamilyList": {
+        "type": "object",
+        "description": "A patient's relatives.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FamilyLink"
+            },
+            "description": "The relatives, by name."
+          }
+        }
+      },
+      "FamilyMember": {
+        "type": "object",
+        "description": "A linked relative of a matched patient.",
+        "required": [
+          "of_patient_id",
+          "id",
+          "number",
+          "full_name",
+          "relation"
+        ],
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "Full name."
+          },
+          "id": {
+            "type": "string",
+            "description": "The relative."
+          },
+          "number": {
+            "type": "string",
+            "description": "Readable number, such as `SD-1043`."
+          },
+          "of_patient_id": {
+            "type": "string",
+            "description": "The matched patient they are linked to."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What they are to the matched patient: `guardian`, `child`, `spouse`, `parent`,\n`sibling` or `other`."
+          }
+        }
+      },
+      "FamilyOfFields": {
+        "type": "object",
+        "description": "Puts the walk-in in an existing patient's family.",
+        "required": [
+          "patient_id",
+          "relation"
+        ],
+        "properties": {
+          "patient_id": {
+            "type": "string",
+            "description": "The existing patient (a patient of this clinic)."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What the walk-in is to that patient: `guardian`, `child`, `spouse`, `parent`, `sibling`\nor `other`. `child` means the walk-in is that patient's child."
           }
         }
       },
@@ -24245,6 +25012,26 @@
           }
         }
       },
+      "LinkNotice": {
+        "type": "object",
+        "description": "The notice a link shows.",
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The notice text; null when the clinic hasn't published one (show its standard privacy\npage)."
+          },
+          "version": {
+            "type": "string",
+            "description": "The clinic's label for it, such as `v2 2026-11`."
+          }
+        }
+      },
       "LinkedByCode": {
         "type": "object",
         "description": "The clinic a code linked.",
@@ -25567,6 +26354,28 @@
           }
         }
       },
+      "NewFamilyLink": {
+        "type": "object",
+        "description": "A relative to link.",
+        "required": [
+          "related_patient_id",
+          "relation"
+        ],
+        "properties": {
+          "is_primary_contact": {
+            "type": "boolean",
+            "description": "Whether the relative is this patient's contact person."
+          },
+          "related_patient_id": {
+            "type": "string",
+            "description": "The relative, a patient of this clinic."
+          },
+          "relation": {
+            "type": "string",
+            "description": "What the relative is to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling`\nor `other`. The relative's own page shows the inverse (a guardian's dependant lists\nthem as `child`)."
+          }
+        }
+      },
       "NewHandoff": {
         "type": "object",
         "description": "Where the signed-in person is going.",
@@ -26668,6 +27477,13 @@
               }
             ]
           },
+          "audience": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who it was written for, `doctor` or `front_desk`; absent for older notifications."
+          },
           "created_at": {
             "type": "string",
             "description": "When it happened (RFC 3339)."
@@ -26982,6 +27798,14 @@
           "id"
         ],
         "properties": {
+          "balance_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What is left to pay now, in paise. Always sent; typed optional like `total_paise`."
+          },
           "id": {
             "type": "string",
             "description": "The bill; open it at `/billing/invoices/{id}`."
@@ -26992,6 +27816,14 @@
               "null"
             ],
             "description": "Its number once issued; absent for a draft."
+          },
+          "total_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What it is worth now, in paise; a draft's is a preview. Read when listed, never stored.\nAlways sent; typed optional so clients written before it keep parsing."
           }
         }
       },
@@ -27577,7 +28409,12 @@
           "status",
           "created_at",
           "row_version",
-          "recall_due"
+          "balance_paise",
+          "lifetime_paid_paise",
+          "recall_due",
+          "allergy_alert",
+          "consent_pending",
+          "has_photo"
         ],
         "properties": {
           "age_years": {
@@ -27589,17 +28426,25 @@
             "description": "Age in whole years today.",
             "minimum": 0
           },
+          "allergy_alert": {
+            "type": "boolean",
+            "description": "Whether an allergy is active, whoever recorded it (a patient-reported one counts until a\nclinician rules it out). Details are in the clinical flags, which need `clinical.read`."
+          },
           "balance_paise": {
             "type": [
               "integer",
               "null"
             ],
             "format": "int64",
-            "description": "Paise owed on issued bills; null without `billing.read`."
+            "description": "Paise owed on issued bills. Sent only by the list, search and record responses and only\nwith `billing.read`: without it the key is `null`, never zero."
           },
           "birth_date_estimated": {
             "type": "boolean",
             "description": "Whether the date of birth was estimated from an age."
+          },
+          "consent_pending": {
+            "type": "boolean",
+            "description": "Whether no active consent to care is on record (never recorded, or withdrawn)."
           },
           "created_at": {
             "type": "string",
@@ -27623,6 +28468,10 @@
             "type": "string",
             "description": "Full name."
           },
+          "has_photo": {
+            "type": "boolean",
+            "description": "Whether the patient has a photo (`GET /patients/{id}/photo`)."
+          },
           "id": {
             "type": "string",
             "description": "Identifier."
@@ -27640,13 +28489,13 @@
               "null"
             ],
             "format": "int64",
-            "description": "Paise received in total; null without `billing.read`."
+            "description": "Paise received in total; `null` without `billing.read`, like `balance_paise`."
           },
           "next_appointment": {
             "oneOf": [
               {
                 "$ref": "#/components/schemas/NextAppointment",
-                "description": "The next booked or confirmed appointment, from the list and the record only."
+                "description": "The next booked or confirmed appointment, from the list and the record only: `null` is\n\"none booked\" on those, and always `null` on a registration or an edit."
               },
               {
                 "type": "null"
@@ -28820,6 +29669,41 @@
           }
         }
       },
+      "PatientsSummary": {
+        "type": "object",
+        "description": "The numbers behind the directory's ribbon.",
+        "required": [
+          "total",
+          "new_this_month",
+          "recalls_due",
+          "with_balance"
+        ],
+        "properties": {
+          "new_this_month": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Registered this month, in the clinic's time zone."
+          },
+          "recalls_due": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Patients with an open recall due on or before today."
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Patients on the list (those the role reaches)."
+          },
+          "with_balance": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Patients who owe money on issued bills. `null` without `billing.read`."
+          }
+        }
+      },
       "Payment": {
         "type": "object",
         "description": "A payment and its receipt number.",
@@ -29097,9 +29981,17 @@
         "type": "object",
         "description": "Patients registered with a phone.",
         "required": [
-          "items"
+          "items",
+          "family_group"
         ],
         "properties": {
+          "family_group": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FamilyMember"
+            },
+            "description": "Relatives linked to the matches (`/patients/{id}/family`) who are not themselves matches,\nso the desk can offer the whole family. Empty when nothing is linked."
+          },
           "items": {
             "type": "array",
             "items": {
@@ -30931,6 +31823,26 @@
           }
         }
       },
+      "RequestConsent": {
+        "type": "object",
+        "description": "What to ask the patient.",
+        "properties": {
+          "notice_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The published notice to show (`GET /consent-notices`); the clinic's current notice when\nleft out."
+          },
+          "purposes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The purposes to ask about, each once: `care`, `reminders`, `promotional`, `sharing` or\n`research`. `[\"care\"]` when left out."
+          }
+        }
+      },
       "ResentOwnerInvitation": {
         "type": "object",
         "description": "An owner invitation sent again. `invite_link` is shown once; it was also emailed, and the\nprevious link no longer works.",
@@ -32282,6 +33194,45 @@
           "url": {
             "type": "string",
             "description": "Where to fetch it: a signed path on the clinic's host, good for ten minutes (never past\nthe link's own expiry). Open the link again for a new one."
+          }
+        }
+      },
+      "SignConsent": {
+        "type": "object",
+        "description": "The patient's answer.",
+        "required": [
+          "agree"
+        ],
+        "properties": {
+          "agree": {
+            "type": "boolean",
+            "description": "Must be `true`: the patient has read the notice and agrees."
+          },
+          "purposes": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Which of the asked purposes they agree to; all of them when left out."
+          }
+        }
+      },
+      "Signed": {
+        "type": "object",
+        "description": "What signing recorded.",
+        "required": [
+          "recorded"
+        ],
+        "properties": {
+          "recorded": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The purposes consent was recorded for now (ones already in force are left as they are)."
           }
         }
       },
@@ -35661,6 +36612,7 @@
           "registered",
           "token",
           "allergies_recorded",
+          "conditions_recorded",
           "consents_recorded"
         ],
         "properties": {
@@ -35670,12 +36622,25 @@
             "description": "How many allergies were recorded.",
             "minimum": 0
           },
+          "conditions_recorded": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many conditions were recorded.",
+            "minimum": 0
+          },
           "consents_recorded": {
             "type": "array",
             "items": {
               "type": "string"
             },
             "description": "The purposes whose consent was recorded."
+          },
+          "family_link_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The family link made, from the existing patient's side; absent without `family_of`."
           },
           "patient": {
             "$ref": "#/components/schemas/Patient",
@@ -35743,12 +36708,30 @@
             ],
             "description": "Branch; the default branch when left out."
           },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Conditions the patient says they have, such as `Diabetes` or `High blood pressure`, each\n1 to 300 characters (at most 20). Recorded as patient-reported conditions that show in the\nclinical flags until a clinician confirms or rules them out; ones already active are not\nrepeated."
+          },
           "consents": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DeskConsentFields"
             },
             "description": "Consents given at the desk, each purpose once. Purposes already in force are left as\nthey are."
+          },
+          "family_of": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FamilyOfFields",
+                "description": "Add the walk-in to an existing patient's family (the link is written both ways)."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "no_known_allergies": {
             "type": "boolean",

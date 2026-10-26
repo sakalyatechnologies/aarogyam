@@ -443,22 +443,31 @@ pub(crate) async fn close_in(
 ) -> Result<VisitView, AppError> {
     let row = visits::close_encounter(tx.conn(), visit.id, now).await?;
     // A visit started from the queue finishes its token (and the token's appointment).
-    if let Some(token_id) = visits::token_of(tx.conn(), row.id).await?
-        && let Some(token) = aarogyam_dal::queue::lock(tx.conn(), token_id).await?
-        && matches!(
-            token.status.as_str(),
-            "waiting" | "called" | "in_chair" | "ready_to_bill"
-        )
-    {
-        crate::queue::move_token(
-            tx,
-            &actor.timezone,
-            &token,
-            token_to,
-            actor.membership_id,
-            now,
-        )
-        .await?;
+    match visits::token_of(tx.conn(), row.id).await? {
+        Some(token_id) => {
+            if let Some(token) = aarogyam_dal::queue::lock(tx.conn(), token_id).await?
+                && matches!(
+                    token.status.as_str(),
+                    "waiting" | "called" | "in_chair" | "ready_to_bill"
+                )
+            {
+                crate::queue::move_token(
+                    tx,
+                    &actor.timezone,
+                    &token,
+                    token_to,
+                    actor.membership_id,
+                    now,
+                )
+                .await?;
+            }
+        }
+        // A visit started from the patient page has no token whose move could ask the desk to
+        // collect, so ask here, in the same transaction (once per bill). Done asks for nothing.
+        None if token_to == QueueStatus::ReadyToBill => {
+            aarogyam_dal::notifications::write_collect_payment(tx.conn(), row.id).await?;
+        }
+        None => {}
     }
     let names = Names::load(tx, [row.clinician_id]).await?;
     visit_view(row, &names)

@@ -70,11 +70,14 @@ pub enum Permission {
     TimeOffRequest,
     /// Approve or decline time off, and record it for others.
     TimeOffManage,
+    /// Take payment against a bill that still has a balance, and see its amount to collect.
+    /// Grants no reading of bills and no way to create, void or list them.
+    PaymentsCollect,
 }
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 31] = [
+    pub const ALL: [Self; 32] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -106,6 +109,7 @@ impl Permission {
         Self::TasksManage,
         Self::TimeOffRequest,
         Self::TimeOffManage,
+        Self::PaymentsCollect,
     ];
 
     /// The catalogue key, such as `patients.read`.
@@ -143,6 +147,7 @@ impl Permission {
             Self::TasksManage => "tasks.manage",
             Self::TimeOffRequest => "time_off.request",
             Self::TimeOffManage => "time_off.manage",
+            Self::PaymentsCollect => "payments.collect",
         }
     }
 
@@ -171,8 +176,8 @@ impl Permission {
         }
     }
 
-    const fn bit(self) -> u32 {
-        1 << self as u32
+    const fn bit(self) -> u64 {
+        1 << self as u64
     }
 }
 
@@ -219,9 +224,9 @@ impl Scope {
 /// The permissions a membership holds, each with its scope. Copyable and allocation-free.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PermissionSet {
-    all: u32,
-    own: u32,
-    assigned: u32,
+    all: u64,
+    own: u64,
+    assigned: u64,
 }
 
 impl PermissionSet {
@@ -372,6 +377,7 @@ required!(
     TasksManage,
     TimeOffRequest,
     TimeOffManage,
+    PaymentsCollect,
 );
 
 #[cfg(test)]
@@ -413,6 +419,24 @@ mod tests {
         assert!(set.allows(Permission::PatientsRead));
         assert!(!set.allows(Permission::BillingRead));
         assert_eq!(unknown, ["root.everything", "billing.read"]);
+    }
+
+    #[test]
+    fn bits_above_the_old_u32_limit_still_work() {
+        // The set was a u32 until the 32nd permission arrived; every bit must stay distinct.
+        let last = Permission::ALL[Permission::ALL.len() - 1];
+        assert_eq!(last, Permission::PaymentsCollect);
+        let set = PermissionSet::EMPTY
+            .with(last, Scope::All)
+            .with(Permission::PatientsRead, Scope::Own);
+        assert!(set.allows(last));
+        assert_eq!(set.scope(last), Some(Scope::All));
+        assert_eq!(set.scope(Permission::PatientsRead), Some(Scope::Own));
+        assert_eq!(set.iter().count(), 2);
+        let all = Permission::ALL
+            .into_iter()
+            .fold(PermissionSet::EMPTY, |set, p| set.with(p, Scope::All));
+        assert_eq!(all.iter().count(), Permission::ALL.len());
     }
 
     #[test]

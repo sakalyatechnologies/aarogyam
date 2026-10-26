@@ -380,6 +380,37 @@ pub async fn insert_reported(
     Ok(u64::try_from(count).unwrap_or_default())
 }
 
+/// Records conditions the patient reported at the desk (`source = 'patient'`, flagged, not yet
+/// confirmed), skipping ones already active for the patient (same words, any case). Returns how
+/// many were recorded. One statement.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn insert_reported_conditions(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    conditions: &[String],
+) -> Result<u64, DbError> {
+    let count = sqlx::query_scalar!(
+        r#"with wanted as (
+             select distinct on (lower(c)) c as display_text
+             from unnest($2::text[]) as c),
+           added as (
+             insert into aarogyam.conditions (patient_id, display_text, flagged, source)
+             select $1, w.display_text, true, 'patient' from wanted w
+             where not exists (select 1 from aarogyam.conditions c
+                               where c.patient_id = $1 and c.status = 'active'
+                                 and lower(c.display_text) = lower(w.display_text))
+             returning id)
+           select count(*) as "count!" from added"#,
+        patient_id,
+        conditions
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(u64::try_from(count).unwrap_or_default())
+}
+
 /// Marks that the patient knows of no allergies, unless an active allergy is on record.
 /// Returns whether it was marked.
 ///

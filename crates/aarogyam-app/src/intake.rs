@@ -17,6 +17,9 @@ use crate::visits::invalid;
 /// Most allergies one arrival may report.
 pub const MAX_ALLERGIES: usize = 20;
 
+/// Most conditions (diabetes, high blood pressure...) one arrival may report.
+pub const MAX_CONDITIONS: usize = 20;
+
 /// A consent given at the desk.
 #[derive(Debug, Clone, Copy)]
 pub struct DeskConsent {
@@ -33,6 +36,9 @@ pub struct Intake {
     pub allergies: Vec<String>,
     /// The patient knows of no allergies. Not with `allergies`.
     pub no_known_allergies: bool,
+    /// Conditions the patient says they have (diabetes, high blood pressure, pregnancy...).
+    /// Recorded as patient-reported flagged conditions until a clinician confirms them.
+    pub conditions: Vec<String>,
     /// Consents given at the desk.
     pub consents: Vec<DeskConsent>,
     /// The published notice shown; the clinic's current notice when neither this nor
@@ -47,9 +53,21 @@ pub struct Intake {
 pub(crate) struct Checked {
     allergies: Vec<String>,
     no_known_allergies: bool,
+    conditions: Vec<String>,
     consents: Vec<DeskConsent>,
     notice_id: Option<Uuid>,
     pub(crate) notice_version: Option<String>,
+}
+
+/// What recording an intake did.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Recorded {
+    /// Allergies recorded (ones already on record are not repeated).
+    pub(crate) allergies: u64,
+    /// Conditions recorded (ones already active are not repeated).
+    pub(crate) conditions: u64,
+    /// The purposes consented (ones already in force are left as they are).
+    pub(crate) consents: Vec<Purpose>,
 }
 
 /// Checks the allergy list, the consents and the notice version.
@@ -74,6 +92,17 @@ pub(crate) fn check(input: &Intake) -> Result<Checked, AppError> {
         .iter()
         .map(|text| clinical_text(text, 1, 200).map_err(invalid("allergies")))
         .collect::<Result<Vec<_>, _>>()?;
+    if input.conditions.len() > MAX_CONDITIONS {
+        return Err(AppError::invalid(
+            "conditions",
+            format!("at most {MAX_CONDITIONS}"),
+        ));
+    }
+    let conditions = input
+        .conditions
+        .iter()
+        .map(|text| clinical_text(text, 1, 300).map_err(invalid("conditions")))
+        .collect::<Result<Vec<_>, _>>()?;
     let mut purposes: Vec<Purpose> = input.consents.iter().map(|c| c.purpose).collect();
     purposes.sort_by_key(|p| p.as_str());
     purposes.dedup();
@@ -89,6 +118,7 @@ pub(crate) fn check(input: &Intake) -> Result<Checked, AppError> {
     Ok(Checked {
         allergies,
         no_known_allergies: input.no_known_allergies,
+        conditions,
         consents: input.consents.clone(),
         notice_id: input.notice_id,
         notice_version: version,
@@ -96,8 +126,8 @@ pub(crate) fn check(input: &Intake) -> Result<Checked, AppError> {
 }
 
 /// Records a checked intake for the patient inside an open transaction: returns how many
-/// allergies were recorded (ones on record are not repeated) and the purposes consented
-/// (ones already in force are left as they are).
+/// allergies and conditions were recorded (ones on record are not repeated) and the purposes
+/// consented (ones already in force are left as they are).
 ///
 /// # Errors
 /// [`AppError::Conflict`] for "No known allergies" when an allergy is on record.
@@ -106,7 +136,7 @@ pub(crate) async fn record(
     patient_id: Uuid,
     intake: &Checked,
     recorded_by: Uuid,
-) -> Result<(u64, Vec<Purpose>), AppError> {
+) -> Result<Recorded, AppError> {
     let allergies = if intake.allergies.is_empty() {
         0
     } else {
@@ -117,8 +147,17 @@ pub(crate) async fn record(
             "this patient has an allergy on record; a doctor must review it first",
         ));
     }
+    let conditions = if intake.conditions.is_empty() {
+        0
+    } else {
+        facts::insert_reported_conditions(tx.conn(), patient_id, &intake.conditions).await?
+    };
     if intake.consents.is_empty() {
-        return Ok((allergies, Vec::new()));
+        return Ok(Recorded {
+            allergies,
+            conditions,
+            consents: Vec::new(),
+        });
     }
     let purposes: Vec<String> = intake
         .consents
@@ -151,5 +190,9 @@ pub(crate) async fn record(
     .iter()
     .map(|key| Purpose::parse(key).map_err(|_| AppError::Internal("unknown purpose")))
     .collect::<Result<Vec<_>, _>>()?;
-    Ok((allergies, recorded))
+    Ok(Recorded {
+        allergies,
+        conditions,
+        consents: recorded,
+    })
 }

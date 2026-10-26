@@ -94,7 +94,7 @@ pub async fn check_in(
             )
             .await?;
         }
-        let (allergies_recorded, consents_recorded) =
+        let recorded =
             intake::record(tx, current.patient_id, &checked, actor.membership_id.uuid()).await?;
         if let StatusPlan::Move(reason) = plan {
             apply_status(
@@ -110,8 +110,8 @@ pub async fn check_in(
         }
         Ok(CheckedIn {
             arrived: status_changed(tx, current.id, today).await?,
-            allergies_recorded,
-            consents_recorded,
+            allergies_recorded: recorded.allergies,
+            consents_recorded: recorded.consents,
         })
     })
     .await

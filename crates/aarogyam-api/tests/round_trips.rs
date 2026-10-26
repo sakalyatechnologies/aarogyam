@@ -229,7 +229,8 @@ async fn walk_in_routes(app: &TestApp, owner: &str) -> [Route; 4] {
             "POST /patients/lookup",
             "/api/v1/patients/lookup".into(),
             json!({ "phone": "9876500001" }),
-            0,
+            // The family group of the matches: one statement more.
+            1,
         ),
         // The patient's number and row, the allergies, the consents, the branch, the token's
         // number, the token and its row: one statement each, seven over (eight with a doctor).

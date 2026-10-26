@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists (select 1 from aarogyam.patients\n                          where id = $1 and deleted_at is null\n                            and app.patient_in_reach(id, $2)) as \"found!\",\n                  coalesce((\n                    select jsonb_agg(to_jsonb(v) order by v.full_name, v.id)\n                    from (select r.id, r.related_patient_id, p.number, p.full_name,\n                                 r.relation, r.is_primary_contact\n                          from aarogyam.patient_relations r\n                          join aarogyam.patients p\n                            on p.org_id = r.org_id and p.id = r.related_patient_id\n                          where r.patient_id = $1 and p.deleted_at is null\n                            and app.patient_in_reach(p.id, $2)) v\n                  ), '[]'::jsonb) as \"items!: Json<Vec<RelationRow>>\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "items!: Json<Vec<RelationRow>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "633c59c7ede534c63adbf9a457622e817d859be42367864cde439d3eff902706"
+}

@@ -12,6 +12,8 @@ export const PERMISSIONS = [
   "clinical.write",
   "billing.read",
   "billing.write",
+  /** Take a payment against a bill and read its amount to collect, with no other billing access (assistant, front desk, owner). */
+  "payments.collect",
   "prescriptions.issue",
   /** Revenue and money totals (Today's money tiles, reports). */
   "finance.view",

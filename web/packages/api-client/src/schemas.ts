@@ -191,11 +191,17 @@ export const patient = z.object({
   last_visit_at: optionalTimestamp,
   /** The next booked or confirmed appointment; absent on a freshly registered patient. */
   next_appointment: z.object({ starts_at: timestamp, practitioner: z.string() }).nullable().exactOptional(),
-  /** Owed on issued bills; null without `billing.read`. */
-  balance_paise: paise.nullable().exactOptional(),
-  /** Received in total; null without `billing.read`. */
-  lifetime_paid_paise: paise.nullable().exactOptional(),
+  /** Owed on issued bills; absent without `billing.read`. */
+  balance_paise: paise.nullable(),
+  /** Received in total; absent without `billing.read`. */
+  lifetime_paid_paise: paise.nullable(),
   recall_due: z.boolean(),
+  /** A recorded allergy or a flagged condition. */
+  allergy_alert: z.boolean(),
+  /** A consent request was sent and not yet signed. */
+  consent_pending: z.boolean(),
+  /** The patient has a photo (`getPatientPhoto`). */
+  has_photo: z.boolean(),
 }) satisfies z.ZodType<C.Patient>;
 export type Patient = z.output<typeof patient>;
 
@@ -2028,6 +2034,26 @@ export const upiLink = z.object({
 }) satisfies z.ZodType<C.UpiLink>;
 export type UpiLink = z.output<typeof upiLink>;
 
+export const collectUpi = z.object({
+  uri: z.string(),
+  qr_data: z.string(),
+  upi_id: z.string(),
+  payee_name: z.string(),
+}) satisfies z.ZodType<C.CollectUpi>;
+export type CollectUpi = z.output<typeof collectUpi>;
+
+/** What the Collect action shows: who pays, the bill's number (absent for a draft), what it comes to and what is left, and the UPI link when the clinic has a UPI ID. */
+export const collectSummary = z.object({
+  invoice_id: z.string(),
+  number: optionalText,
+  patient: patientRef,
+  status: z.string(),
+  total_paise: paise,
+  balance_paise: paise,
+  upi: collectUpi.nullable().exactOptional(),
+}) satisfies z.ZodType<C.CollectSummary>;
+export type CollectSummary = z.output<typeof collectSummary>;
+
 export const invoice = z.object({
   id: invoiceId,
   status: invoiceStatus,
@@ -2873,6 +2899,37 @@ export type SetupUpdate = C.SetupUpdate;
 
 // Walk-in fast path ---------------------------------------------------------------------------
 
+/** What a relative is to a patient. */
+export const familyRelation = z.enum(["guardian", "child", "spouse", "parent", "sibling", "other"]);
+export type FamilyRelation = z.output<typeof familyRelation>;
+
+/** A relative of a matched patient, offered by the phone lookup: `relation` is what they are to `of_patient_id`. */
+export const familyMember = z.object({
+  of_patient_id: patientId,
+  id: patientId,
+  number: z.string(),
+  full_name: z.string(),
+  relation: familyRelation,
+}) satisfies z.ZodType<Omit<C.FamilyMember, "relation"> & { relation: string }>;
+export type FamilyMember = z.output<typeof familyMember>;
+
+/** A relative of a patient (`GET /patients/{id}/family`). */
+export const familyLink = z.object({
+  id: z.uuid(),
+  patient_id: patientId,
+  number: z.string(),
+  full_name: z.string(),
+  relation: familyRelation,
+  is_primary_contact: z.boolean(),
+}) satisfies z.ZodType<Omit<C.FamilyLink, "relation"> & { relation: string }>;
+export type FamilyLink = z.output<typeof familyLink>;
+
+export const familyList = z.object({ items: z.array(familyLink) }) satisfies z.ZodType<Omit<C.FamilyList, "items"> & { items: unknown[] }>;
+export type FamilyList = z.output<typeof familyList>;
+
+/** Body of `POST /api/v1/patients/{id}/family`. */
+export type NewFamilyLink = { related_patient_id: string; relation: FamilyRelation; is_primary_contact?: boolean };
+
 /** A registered patient with the phone the desk typed: just enough to say "this is them". */
 export const phoneMatch = z.object({
   id: patientId,
@@ -2883,7 +2940,7 @@ export const phoneMatch = z.object({
 }) satisfies z.ZodType<C.PhoneMatch>;
 export type PhoneMatch = z.output<typeof phoneMatch>;
 
-export const phoneMatches = z.object({ items: z.array(phoneMatch) }) satisfies z.ZodType<C.PhoneMatches>;
+export const phoneMatches = z.object({ items: z.array(phoneMatch), family_group: z.array(familyMember) }) satisfies z.ZodType<C.PhoneMatches>;
 export type PhoneMatchPage = z.output<typeof phoneMatches>;
 
 /** What `POST /api/v1/walk-ins` did. */
@@ -2892,12 +2949,56 @@ export const walkIn = z.object({
   registered: z.boolean(),
   token: queueToken,
   allergies_recorded: z.number().int().nonnegative(),
+  conditions_recorded: z.number().int().nonnegative(),
+  /** The family link made, when `family_of` was given. */
+  family_link_id: z.string().nullable().exactOptional(),
   consents_recorded: z.array(consentPurpose),
 }) satisfies z.ZodType<C.WalkIn>;
 export type WalkIn = z.output<typeof walkIn>;
 
 /** Body of `POST /api/v1/walk-ins`: `patient` (new) or `patient_id` (registered). */
 export type WalkInRequest = C.WalkInRequest;
+
+/** `GET /api/v1/patients/summary`: the directory's headline counts. */
+export const patientsSummary = z.object({
+  total: z.number().int().nonnegative(),
+  new_this_month: z.number().int().nonnegative(),
+  recalls_due: z.number().int().nonnegative(),
+  /** Patients who owe money; absent without `billing.read`. */
+  with_balance: z.number().int().nonnegative().nullable(),
+}) satisfies z.ZodType<C.PatientsSummary>;
+export type PatientsSummary = z.output<typeof patientsSummary>;
+
+/** Body of `POST /api/v1/patients/{id}/consents/request`. */
+export type ConsentRequestInput = { purposes?: ConsentPurpose[]; notice_id?: string };
+
+/** A consent link sent to the patient. */
+export const consentRequested = z.object({
+  id: z.uuid(),
+  channel: z.string(),
+  purposes: z.array(consentPurpose),
+  notice_version: z.string(),
+  expires_at: timestamp,
+}) satisfies z.ZodType<Omit<C.ConsentRequested, "purposes"> & { purposes: string[] }>;
+export type ConsentRequested = z.output<typeof consentRequested>;
+
+/** What anyone holding a consent link may read: no patient data. */
+export const consentLink = z.object({
+  clinic_name: z.string(),
+  state: z.enum(["pending", "signed", "expired"]),
+  purposes: z.array(consentPurpose),
+  notice: z.object({ version: z.string(), body: z.string().nullable() }),
+  expires_at: timestamp,
+}) satisfies z.ZodType<Omit<C.ConsentLink, "state" | "purposes"> & { state: string; purposes: string[] }>;
+export type ConsentLink = z.output<typeof consentLink>;
+
+/** Body of `POST /api/v1/public/consents/{token}`. */
+export type SignConsentInput = { agree: boolean; purposes?: ConsentPurpose[] };
+
+export const consentSigned = z.object({ recorded: z.array(consentPurpose) }) satisfies z.ZodType<
+  Omit<C.Signed, "recorded"> & { recorded: string[] }
+>;
+export type ConsentSigned = z.output<typeof consentSigned>;
 
 /** A visit started from a queue token, and the token, now in the chair. */
 export const startedVisit = z.object({
@@ -3001,8 +3102,14 @@ export const notification = z.object({
   lab_order: z.object({ id: z.string(), number: z.string(), vendor_name: z.string(), due_on: optionalText }).nullable().exactOptional(),
   /** A path inside the portal that opens what it is about, such as `/queue`. */
   href: optionalText,
+  /** Who it is for (`doctor` or `front_desk`). Any string parses: the server may add audiences. */
+  audience: optionalText,
+  /** The token it is about. There is no patient field: look the name up from the queue. */
   queue_token: z.object({ id: z.string(), number: z.number().int() }).nullable().exactOptional(),
-  invoice: z.object({ id: z.string(), number: optionalText }).nullable().exactOptional(),
+  invoice: z
+    .object({ id: z.string(), number: optionalText, total_paise: paise.nullable().exactOptional(), balance_paise: paise.nullable().exactOptional() })
+    .nullable()
+    .exactOptional(),
   recall: z.object({ id: z.string(), kind: z.string(), due_on: z.string() }).nullable().exactOptional(),
   /** `task_*`: the occurrence, its snapshot title and when it falls due. Only the newest step is listed. */
   task_occurrence_id: optionalText,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\"\n           from (select * from aarogyam.patients\n                 where deleted_at is null and app.patient_in_reach(id, $4)\n                 order by created_at desc\n                 limit $1) p\n           cross join lateral app.patient_summary(p.id, $2, $3) s\n           order by p.created_at desc",
+  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated, p.phone_e164,\n                  p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,\n                  f.allergy_alert as \"allergy_alert!\", f.consent_pending as \"consent_pending!\",\n                  f.has_photo as \"has_photo!\"\n           from aarogyam.patients p\n           cross join lateral app.patient_flags(p.id) f\n           where p.id = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $2)\n           for update of p",
   "describe": {
     "columns": [
       {
@@ -148,40 +148,26 @@
       },
       {
         "ordinal": 13,
-        "name": "next_starts_at",
-        "type_info": "Timestamptz",
+        "name": "allergy_alert!",
+        "type_info": "Bool",
         "origin": "Expression"
       },
       {
         "ordinal": 14,
-        "name": "next_practitioner",
-        "type_info": "Text",
+        "name": "consent_pending!",
+        "type_info": "Bool",
         "origin": "Expression"
       },
       {
         "ordinal": 15,
-        "name": "balance_paise!",
-        "type_info": "Int8",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 16,
-        "name": "lifetime_paid_paise!",
-        "type_info": "Int8",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 17,
-        "name": "recall_due!",
+        "name": "has_photo!",
         "type_info": "Bool",
         "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Int8",
-        "Timestamptz",
-        "Date",
+        "Uuid",
         "Uuid"
       ]
     },
@@ -201,10 +187,8 @@
       false,
       null,
       null,
-      null,
-      null,
       null
     ]
   },
-  "hash": "504517686b86e0fa5a878626fc80cc9a3f4dc2214479f20018705dc3f147374a"
+  "hash": "a4bf0976def01fa96ecf970665bad438bbd1d424679e5fa3cd4bfa4be29ca116"
 }

@@ -35,6 +35,11 @@ const patientBody = {
   status: "active",
   created_at: "2026-10-01T04:30:00Z",
   recall_due: false,
+  allergy_alert: false,
+  consent_pending: false,
+  has_photo: false,
+  balance_paise: null,
+  lifetime_paid_paise: null,
 };
 
 const ID = queueTokenId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405163");
@@ -154,6 +159,27 @@ describe("createHttpClient requests", () => {
     expect(result.ok && result.value.amount_paise).toBe(50000);
     const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { uri: 1 })).fetch });
     expect((await bad.getInvoiceUpiLink(invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170"))).ok).toBe(false);
+  });
+
+  it("reads the collect summary of a bill from its own path, with the UPI link optional, and checks the body", async () => {
+    const id = invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170");
+    const upi = { uri: "upi://pay?pa=a@b", qr_data: "upi://pay?pa=a@b", upi_id: "a@b", payee_name: "Sunrise Dental" };
+    const patient = { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405180", name: "Neha Rao", number: "SD-1042" };
+    const full = { invoice_id: id, number: "INV-1", patient, status: "issued", total_paise: 50000, balance_paise: 30000, upi };
+    const { fetch, calls } = stubFetch(json(200, full));
+    const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });
+
+    const result = await client.getInvoiceCollectSummary(id);
+
+    expect(calls[0]?.url).toBe(`http://sunrise.localtest.me/api/v1/invoices/${id}/collect-summary`);
+    expect(calls[0]?.init?.method).toBe("GET");
+    expect(result.ok && [result.value.number, result.value.balance_paise, result.value.upi?.upi_id]).toEqual(["INV-1", 30000, "a@b"]);
+    const bare = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), {
+      fetch: stubFetch(json(200, { invoice_id: id, patient, status: "draft", total_paise: 50000, balance_paise: 50000 })).fetch,
+    });
+    expect((await bare.getInvoiceCollectSummary(id)).ok).toBe(true);
+    const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { invoice_id: id })).fetch });
+    expect((await bad.getInvoiceCollectSummary(id)).ok).toBe(false);
   });
 
   it("reads and finishes tasks on their own paths and checks the bodies against the contract", async () => {
@@ -469,6 +495,66 @@ describe("createHttpClient visit wrap-up, share links and medicine sets", () => 
   });
 });
 
+describe("createHttpClient patient directory, photo and consent link", () => {
+  it("calls the family routes and decodes the lookup's family group", async () => {
+    const id = patientId.parse("01a103b1-ea26-7120-ad93-41b6b4b4ebf2");
+    const other = "01a103b1-ea26-7120-ad93-41b6b4b4ebf3";
+    const link = { id: "01a103b1-ea26-7120-ad93-41b6b4b4ebf4", patient_id: other, number: "SD-2", full_name: "Aarav Patil", relation: "child", is_primary_contact: false };
+    const bodies = [json(200, { items: [link] }), json(200, link), new Response(null, { status: 204 }), json(200, { items: [], family_group: [{ of_patient_id: id, id: other, number: "SD-2", full_name: "Aarav Patil", relation: "sibling" }] })];
+    const { calls, fetch } = stubFetch(() => Promise.resolve(bodies.shift() ?? json(500, {})));
+    const client = createHttpClient("", () => "abc", { fetch });
+    expect((await unwrap(client.listFamily(id))).items[0]?.relation).toBe("child");
+    expect((await unwrap(client.addFamilyLink(id, { related_patient_id: other, relation: "child" }))).full_name).toBe("Aarav Patil");
+    await unwrap(client.removeFamilyLink(id, link.id));
+    expect((await unwrap(client.lookupPatientsByPhone("9876543210"))).family_group[0]?.relation).toBe("sibling");
+    expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
+      `GET /api/v1/patients/${id}/family`,
+      `POST /api/v1/patients/${id}/family`,
+      `DELETE /api/v1/patients/${id}/family/${link.id}`,
+      "POST /api/v1/patients/lookup",
+    ]);
+    expect(calls[1]?.init?.body).toBe(JSON.stringify({ related_patient_id: other, relation: "child" }));
+  });
+
+  it("calls the summary, photo and consent routes", async () => {
+    const summary = stubFetch(() => Promise.resolve(json(200, { total: 3, new_this_month: 1, recalls_due: 0, with_balance: null })));
+    const got = await unwrap(createHttpClient("", () => "abc", { fetch: summary.fetch }).getPatientsSummary());
+    // Null without billing.read.
+    expect(got.with_balance).toBeNull();
+    expect(summary.calls[0]?.url).toBe("/api/v1/patients/summary");
+
+    const id = patientId.parse("01a103b1-ea26-7120-ad93-41b6b4b4ebf2");
+    const bytes = stubFetch(() => Promise.resolve(new Response(new Blob(["png"], { type: "image/png" }), { status: 200 })));
+    const photo = await unwrap(createHttpClient("", () => "abc", { fetch: bytes.fetch }).getPatientPhoto(id));
+    expect(photo.size).toBe(3);
+    expect(`${bytes.calls[0]?.init?.method ?? ""} ${bytes.calls[0]?.url ?? ""}`).toBe(`GET /api/v1/patients/${id}/photo`);
+
+    const missing = stubFetch(() => Promise.resolve(json(404, { error: { code: "not_found", message: "Not found." } })));
+    const none = await createHttpClient("", () => "abc", { fetch: missing.fetch }).getPatientPhoto(id);
+    expect(none.ok ? 0 : none.error.status).toBe(404);
+
+    const form = new FormData();
+    form.set("file", new File(["x"], "me.png", { type: "image/png" }));
+    const saved = stubFetch(() => Promise.resolve(new Response(null, { status: 204 })));
+    const client = createHttpClient("", () => "abc", { fetch: saved.fetch });
+    expect((await client.putPatientPhoto(id, form)).ok).toBe(true);
+    expect((await client.deletePatientPhoto(id)).ok).toBe(true);
+    expect(saved.calls.map((c) => `${c.init?.method ?? ""} ${c.url}`)).toEqual([`PUT /api/v1/patients/${id}/photo`, `DELETE /api/v1/patients/${id}/photo`]);
+
+    const link = stubFetch(() =>
+      Promise.resolve(
+        json(200, { clinic_name: "Sunrise", state: "pending", purposes: ["care"], notice: { version: "v1", body: null }, expires_at: "2026-10-17T04:30:00Z" }),
+      ),
+    );
+    const shown = await unwrap(createHttpClient("", () => null, { fetch: link.fetch }).getConsentLink("tok/en"));
+    expect(shown.state).toBe("pending");
+    expect(link.calls[0]?.url).toBe("/api/v1/public/consents/tok%2Fen");
+    const signed = stubFetch(() => Promise.resolve(json(200, { recorded: ["care"] })));
+    expect((await unwrap(createHttpClient("", () => null, { fetch: signed.fetch }).signConsentLink("tok", { agree: true }))).recorded).toEqual(["care"]);
+    expect(signed.calls[0]?.init?.body).toBe(JSON.stringify({ agree: true }));
+  });
+});
+
 describe("createHttpClient settings v2", () => {
   const prefs = {
     reminder_24h: true,
@@ -492,7 +578,7 @@ describe("createHttpClient settings v2", () => {
     lab_order: null,
     href: "/billing/invoices/0192f1c4-7a10-7c3e-9b2a-1d2e3f405171",
     queue_token: null,
-    invoice: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171", number: "AD/26-27/000001" },
+    invoice: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171", number: "AD/26-27/000001", total_paise: 50000, balance_paise: 20000 },
     recall: null,
   };
 
@@ -547,6 +633,29 @@ describe("createHttpClient settings v2", () => {
       `POST /api/v1/notifications/${alert.id}/read`,
       "POST /api/v1/notifications/read-all",
     ]);
+  });
+
+  it("reads visit notices: audience, the token's id and number, an invoice with or without totals, and a handled row", async () => {
+    const waiting = {
+      ...alert,
+      id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405172",
+      kind: "patient_waiting",
+      audience: "doctor",
+      href: "/queue",
+      invoice: null,
+      queue_token: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405173", number: 7 },
+      handled: { at: "2026-10-10T05:40:00Z", name: "Dr Dev" },
+    };
+    const collect = { ...alert, id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405174", kind: "collect_payment", audience: "front_desk", invoice: { id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171" } };
+    const { fetch } = stubFetch(json(200, { items: [waiting, collect] }));
+    const client = createHttpClient("http://sunrise.localtest.me", () => "token", { fetch });
+    const feed = await unwrap(client.listNotifications());
+    expect(feed.items[0]).toMatchObject({ audience: "doctor", queue_token: { number: 7 }, handled: { name: "Dr Dev" } });
+    expect(feed.items[1]?.invoice?.total_paise).toBeUndefined();
+    const bad = createHttpClient("http://sunrise.localtest.me", () => "token", {
+      fetch: stubFetch(json(200, { items: [{ ...waiting, queue_token: { id: "x" } }] })).fetch,
+    });
+    expect((await bad.listNotifications()).ok).toBe(false);
   });
 
   it("posts the logo as a form to the clinic logo route and decodes the settings, with branding mode auto and the default visit length", async () => {

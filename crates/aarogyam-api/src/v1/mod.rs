@@ -225,6 +225,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/queue", get(queue::list).post(queue::walk_in))
         .route("/queue/{id}/status", post(queue::set_status))
         .route("/queue/{id}/call", post(queue::call))
+        .route("/queue/{id}/remind", post(queue::remind))
         .route("/queue/{id}/start-visit", post(queue::start_visit))
         .route("/walk-ins", post(walk_ins::register))
         .route("/quick-picks", get(quick_picks::get))

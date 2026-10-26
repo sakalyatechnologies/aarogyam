@@ -3509,6 +3509,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/queue/{id}/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reminds the doctor that a patient is still waiting: the token's "patient waiting"
+         *     notification comes back as unread and unhandled. At most one reminder per token per minute.
+         */
+        post: operations["remindQueueToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/queue/{id}/start-visit": {
         parameters: {
             query?: never;
@@ -6633,6 +6653,31 @@ export interface components {
             created: boolean;
             /** @description The conversation. */
             id: string;
+        };
+        /**
+         * @description A `409` that carries one number to act on: `retry_after_seconds` for `remind_too_soon`,
+         *     `balance_paise` for `overpayment`.
+         */
+        CountedConflict: {
+            /** @description The refusal. */
+            error: components["schemas"]["CountedDetail"];
+        };
+        /** @description The error inside [`CountedConflict`]. */
+        CountedDetail: {
+            /**
+             * Format: int64
+             * @description `overpayment`: what is still due on the named bills, in paise.
+             */
+            balance_paise?: number | null;
+            /** @description `remind_too_soon` or `overpayment`. */
+            code: string;
+            /** @description A message for people, without patient data. */
+            message: string;
+            /**
+             * Format: int64
+             * @description `remind_too_soon`: seconds until another reminder is accepted.
+             */
+            retry_after_seconds?: number | null;
         };
         /** @description A draft campaign to save. */
         CreateCampaign: {
@@ -10914,6 +10959,11 @@ export interface components {
         RejectApplication: {
             /** @description A short reason, for the console only. */
             reason?: string | null;
+        };
+        /** @description A token with the time its doctor was reminded. */
+        Reminded: components["schemas"]["QueueToken"] & {
+            /** @description When the reminder was sent (RFC 3339). */
+            reminded_at: string;
         };
         /** @description A new label. */
         RenameDentalTerm: {
@@ -23122,12 +23172,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The key was used for a different payment, or a bill isn't issued (a draft is issued first for `payments.collect`) */
+            /** @description The key was used for a different payment, a bill isn't issued (a draft is issued first for `payments.collect`), or `overpayment`: the payment is more than the bills' balance now (`balance_paise`) */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CountedConflict"];
+                };
             };
         };
     };
@@ -24511,6 +24563,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoveRefused"];
+                };
+            };
+        };
+    };
+    remindQueueToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The token */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reminded"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role has neither clinical.write nor appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such token in this clinic, or its patient isn't yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_waiting`: the patient was already called or has left; `remind_too_soon`: reminded under a minute ago (`retry_after_seconds`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountedConflict"];
                 };
             };
         };

@@ -10264,7 +10264,14 @@
             "description": "No such patient or bill in this clinic"
           },
           "409": {
-            "description": "The key was used for a different payment, or a bill isn't issued (a draft is issued first for `payments.collect`)"
+            "description": "The key was used for a different payment, a bill isn't issued (a draft is issued first for `payments.collect`), or `overpayment`: the payment is more than the bills' balance now (`balance_paise`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountedConflict"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -11614,6 +11621,61 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MoveRefused"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/queue/{id}/remind": {
+      "post": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Reminds the doctor that a patient is still waiting: the token's \"patient waiting\"\nnotification comes back as unread and unhandled. At most one reminder per token per minute.",
+        "operationId": "remindQueueToken",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role has neither clinical.write nor appointments.write"
+          },
+          "404": {
+            "description": "No such token in this clinic, or its patient isn't yours"
+          },
+          "409": {
+            "description": "`not_waiting`: the patient was already called or has left; `remind_too_soon`: reminded under a minute ago (`retry_after_seconds`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountedConflict"
                 }
               }
             }
@@ -20285,6 +20347,53 @@
           "id": {
             "type": "string",
             "description": "The conversation."
+          }
+        }
+      },
+      "CountedConflict": {
+        "type": "object",
+        "description": "A `409` that carries one number to act on: `retry_after_seconds` for `remind_too_soon`,\n`balance_paise` for `overpayment`.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/CountedDetail",
+            "description": "The refusal."
+          }
+        }
+      },
+      "CountedDetail": {
+        "type": "object",
+        "description": "The error inside [`CountedConflict`].",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "balance_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "`overpayment`: what is still due on the named bills, in paise."
+          },
+          "code": {
+            "type": "string",
+            "description": "`remind_too_soon` or `overpayment`."
+          },
+          "message": {
+            "type": "string",
+            "description": "A message for people, without patient data."
+          },
+          "retry_after_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "`remind_too_soon`: seconds until another reminder is accepted."
           }
         }
       },
@@ -31062,6 +31171,27 @@
             "description": "A short reason, for the console only."
           }
         }
+      },
+      "Reminded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/QueueToken",
+            "description": "The token as it is now."
+          },
+          {
+            "type": "object",
+            "required": [
+              "reminded_at"
+            ],
+            "properties": {
+              "reminded_at": {
+                "type": "string",
+                "description": "When the reminder was sent (RFC 3339)."
+              }
+            }
+          }
+        ],
+        "description": "A token with the time its doctor was reminded."
       },
       "RenameDentalTerm": {
         "type": "object",

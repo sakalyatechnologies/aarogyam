@@ -345,3 +345,52 @@ pub async fn seat_in_room(
     .await?;
     Ok(row)
 }
+
+/// When the token's doctor was last reminded, if ever.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn last_reminded_at(
+    conn: &mut PgConnection,
+    id: Uuid,
+) -> Result<Option<OffsetDateTime>, DbError> {
+    let at = sqlx::query_scalar!(
+        "select last_reminded_at from aarogyam.queue_tokens where id = $1",
+        id
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(at)
+}
+
+/// Stamps the reminder and re-opens the token's `patient_waiting` notification: unhandled, and
+/// unread again for everyone who had read it (its `updated_at` moves to now). Writes the row if
+/// the token has none. Writes ids only.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn remind(conn: &mut PgConnection, id: Uuid, now: OffsetDateTime) -> Result<(), DbError> {
+    sqlx::query!(
+        "update aarogyam.queue_tokens set last_reminded_at = $2 where id = $1",
+        id,
+        now
+    )
+    .execute(&mut *conn)
+    .await?;
+    sqlx::query!(
+        r#"with raised as (
+             insert into aarogyam.staff_notifications (kind, queue_token_id, href, audience)
+             values ('patient_waiting', $1, '/queue', 'doctor')
+             on conflict (org_id, queue_token_id, kind) where queue_token_id is not null
+             do update set handled_at = null, handled_by = null
+             returning id
+           )
+           delete from aarogyam.staff_notification_reads r
+           using raised
+           where r.notification_id = raised.id"#,
+        id
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}

@@ -3578,6 +3578,13 @@
      "note": ""
     },
     {
+     "name": "last_reminded_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "last remind press; one per minute"
+    },
+    {
      "name": "room_id",
      "type": "uuid",
      "nullable": true,
@@ -8453,7 +8460,7 @@
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": "append_only",
+   "lifecycle": "ephemeral",
    "schema": "aarogyam",
    "notes": "Built (migration 0320). Primary key (org_id, notification_id, membership_id). The change history keeps metadata only.",
    "cols": [

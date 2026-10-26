@@ -1192,6 +1192,7 @@ Walk-in tokens shown on the waiting-room screen.
 | `issued_at` | `timestamptz` |  |
 | `called_at` | `timestamptz?` |  |
 | `done_at` | `timestamptz?` |  |
+| `last_reminded_at` | `timestamptz?` | last remind press; one per minute |
 | `room_id` | `uuid?` | → `rooms`. the chair chosen when seated; a room of the token's branch (migration 0384) |
 
 Unique (org_id, branch_id, day, token_number) and one token per appointment. Unique (org_id, id, patient_id) so a visit started from a token is the same patient's. Numbers come from number_sequences (kind queue_token, series = branch, period = local date). Starting a visit from a token seats it; closing that visit marks it done.
@@ -2550,7 +2551,7 @@ Referenced by: `staff_inbox_messages.notification_id`, `staff_notification_reads
 
 Which member has read which notification: read state is per person.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only · lifecycle: append only*
+*Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only · lifecycle: ephemeral*
 
 | Column | Type | Notes |
 |---|---|---|

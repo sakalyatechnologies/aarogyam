@@ -189,13 +189,13 @@ class IntakeFormHolderTest {
         }
 
     @Test
-    fun the_reason_and_family_fields_follow_their_flags() =
+    fun the_reason_and_family_fields_are_shown_and_sent() =
         runTest {
             val backend = FakeBackend()
             backend.on(WALK_INS, { json(walkInJson(), HttpStatusCode.Created) })
             val holder = holder(backend)
             assertTrue(holder.state.value.showReason, "G6 is in the spec: the reason field is on")
-            assertFalse(holder.state.value.showFamily)
+            assertTrue(holder.state.value.showFamily)
             holder.fillValid()
             holder.setReason("  Toothache  ")
             holder.setFamilyOf("p1", "child")
@@ -203,22 +203,7 @@ class IntakeFormHolderTest {
             holder.state.first { it.done != null }
             val body = backend.walkInBody()
             assertTrue(""""reason":"Toothache"""" in body)
-            assertFalse("family_of" in body, "family is off: not sent")
-        }
-
-    @Test
-    fun family_of_is_sent_when_the_family_flag_is_on() =
-        runTest {
-            ServerCaps.markFamily()
-            val backend = FakeBackend()
-            backend.on(WALK_INS, { json(walkInJson(), HttpStatusCode.Created) })
-            val holder = holder(backend)
-            assertTrue(holder.state.value.showFamily)
-            holder.fillValid()
-            holder.setFamilyOf("p1", "child")
-            holder.saveAndQueue()
-            holder.state.first { it.done != null }
-            assertTrue(""""family_of":{"patient_id":"p1","relation":"child"}""" in backend.walkInBody())
+            assertTrue(""""family_of":{"patient_id":"p1","relation":"child"}""" in body)
         }
 
     @Test

@@ -1,6 +1,7 @@
 package com.aarogyam.staff.api
 
 import com.aarogyam.staff.api.model.Analytics
+import com.aarogyam.staff.api.model.CollectSummary
 import com.aarogyam.staff.api.model.Expense
 import com.aarogyam.staff.api.model.ExpenseList
 import com.aarogyam.staff.api.model.Invoice
@@ -59,6 +60,13 @@ suspend fun ClinicApi.issueInvoice(id: String): Outcome<Invoice, ApiError> =
         method = HttpMethod.Post
         url("api/v1/invoices/${id.encodeURLPathPart()}/issue")
     }
+
+/**
+ * `GET /api/v1/invoices/{id}/collect-summary` (`getCollectSummary`): what the desk collects on a bill
+ * (draft or issued), with its UPI link. Needs `payments.collect`, not `billing.read`.
+ */
+suspend fun ClinicApi.collectSummary(id: String): Outcome<CollectSummary, ApiError> =
+    client.call { url("api/v1/invoices/${id.encodeURLPathPart()}/collect-summary") }
 
 /** `GET /api/v1/invoices/{id}` (`getInvoice`): one bill with its lines; a draft's amounts are a preview of the lines. */
 suspend fun ClinicApi.invoice(id: String): Outcome<Invoice, ApiError> =

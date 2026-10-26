@@ -40,8 +40,13 @@ private fun fromAppointment(
 ): PatientState? =
     when (status) {
         "arrived" -> PatientState.Waiting
+
         "in_chair" -> if (openVisit) PatientState.InConsult else PatientState.InChair
+
         "completed" -> PatientState.Done
-        "cancelled", "no_show" -> PatientState.Left
+
+        "cancelled" -> PatientState.Left
+
+        // A same-day no_show can still be checked in: it is not "left", so the desk offers check-in.
         else -> null
     }

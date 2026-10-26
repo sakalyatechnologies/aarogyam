@@ -6,10 +6,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.Json
 
-/** The server features that ship behind a flag (plan v10 R1); every flag is off until a real response shows its field. */
+/** The server features that ship behind a flag (plan v10 R1); every other flag is off until a real response shows its field. */
 data class CapsSnapshot(
-    /** `family_group` came back from the phone lookup. */
-    val family: Boolean = false,
+    /** Family links: shipped by the server, so on from the start. */
+    val family: Boolean = true,
     /** A payment answer carried `attachment_id`. */
     val paymentProof: Boolean = false,
     /** A notification carried `audience` / `handled`. */

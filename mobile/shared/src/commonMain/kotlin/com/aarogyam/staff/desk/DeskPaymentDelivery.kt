@@ -3,9 +3,10 @@ package com.aarogyam.staff.desk
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.ClinicApi
-import com.aarogyam.staff.api.invoice
+import com.aarogyam.staff.api.collectSummary
 import com.aarogyam.staff.api.issueInvoice
 import com.aarogyam.staff.api.model.Allocation
+import com.aarogyam.staff.api.model.CollectUpi
 import com.aarogyam.staff.api.model.NewPayment
 import com.aarogyam.staff.billing.PayMethod
 import com.aarogyam.staff.config.caps.ServerCaps
@@ -195,6 +196,7 @@ internal sealed interface Recheck {
     /** Send [job]: its allocation and issue-first now follow the bill as the server has it. */
     data class Proceed(
         val job: PaymentJob,
+        val upi: CollectUpi? = null,
     ) : Recheck
 
     /** The balance is 0: show "Already paid" and send nothing. */
@@ -211,9 +213,9 @@ internal sealed interface Recheck {
 }
 
 /**
- * Before `POST /payments`: re-GET `/invoices/{id}` and use its current balance. An issued bill with a
- * balance of 0 is [Recheck.AlreadyPaid]; a draft is issued first (its total is the preview); a void
- * bill is refused. A job with no invoice is sent as it is.
+ * Before `POST /payments`: re-GET `/invoices/{id}/collect-summary` (`payments.collect`) and use its
+ * current balance. An issued bill with a balance of 0 is [Recheck.AlreadyPaid]; a draft is allocated
+ * by its total and the server issues it when the payment is recorded; any other bill is refused. A job with no invoice is sent as it is.
  */
 internal suspend fun recheck(
     api: ClinicApi,
@@ -221,7 +223,7 @@ internal suspend fun recheck(
     log: Logger,
 ): Recheck {
     val invoiceId = job.invoiceId ?: return Recheck.Proceed(job)
-    return when (val fresh = api.invoice(invoiceId)) {
+    return when (val fresh = api.collectSummary(invoiceId)) {
         is Outcome.Failure -> {
             log.warn("deskpay.recheck_failed") { code("error", fresh.error.code.value) }
             when (val send = fresh.toSendResult()) {
@@ -235,7 +237,12 @@ internal suspend fun recheck(
             when (bill.status) {
                 "draft" -> {
                     Recheck.Proceed(
-                        job.copy(issueFirst = true, allocatedPaise = minOf(job.amountPaise, bill.totalPaise)),
+                        job.copy(
+                            patientId = bill.patient.id,
+                            issueFirst = false,
+                            allocatedPaise = minOf(job.amountPaise, bill.totalPaise),
+                        ),
+                        bill.upi,
                     )
                 }
 
@@ -244,7 +251,12 @@ internal suspend fun recheck(
                         Recheck.AlreadyPaid
                     } else {
                         Recheck.Proceed(
-                            job.copy(issueFirst = false, allocatedPaise = minOf(job.amountPaise, bill.balancePaise)),
+                            job.copy(
+                                patientId = bill.patient.id,
+                                issueFirst = false,
+                                allocatedPaise = minOf(job.amountPaise, bill.balancePaise),
+                            ),
+                            bill.upi,
                         )
                     }
                 }

@@ -27,7 +27,7 @@ class PatientStateTest {
             Row(null, null, false, "in_chair", PatientState.InChair),
             Row(null, null, true, "in_chair", PatientState.InConsult),
             Row(null, null, false, "completed", PatientState.Done),
-            Row(null, null, false, "no_show", PatientState.Left),
+            Row(null, null, false, "no_show", null),
             Row(null, null, false, "cancelled", PatientState.Left),
             Row(null, null, false, "booked", null),
             Row(null, null, false, "confirmed", null),

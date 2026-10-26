@@ -31,11 +31,20 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 class DeskCollectRaceTest {
     private val invoice = "$SUNRISE/api/v1/invoices/i1"
+    private val summary = "$SUNRISE/api/v1/invoices/i1/collect-summary"
     private val issue = "$SUNRISE/api/v1/invoices/i1/issue"
     private val payments = "$SUNRISE/api/v1/payments"
     private val list = "$SUNRISE/api/v1/invoices"
     private val billing = listOf("billing.read", "billing.write")
     private val ended = Instant.parse("2026-10-08T04:00:00Z")
+
+    private fun summaryJson(
+        status: String,
+        total: Long,
+        balance: Long,
+    ) = """{"invoice_id":"i1","number":${if (status == "draft") "null" else "\"INV-i1\""},"status":"$status",
+        "patient":{"id":"p1","name":"Meera Shah","number":"SD-1042"},"total_paise":$total,"balance_paise":$balance,
+        "upi":{"uri":"upi://pay?pa=clinic@bank","qr_data":"upi://pay?pa=clinic@bank","upi_id":"clinic@bank","payee_name":"Sunrise"}}"""
 
     private fun order(backend: FakeBackend) = backend.requests.map { it.url.encodedPath.substringAfter("/api/v1/") }
 
@@ -67,14 +76,14 @@ class DeskCollectRaceTest {
         runTest {
             val backend = FakeBackend()
             // The list said 5000; the bill now owes 3000 (a part payment came in).
-            backend.on(invoice, { json(invoiceJson("i1", "v1", 5000, 2000)) })
+            backend.on(summary, { json(summaryJson("issued", 5000, 3000)) })
             paid(backend)
             val h = holder(backend)
             until { h.state.value is DeskPayState.Ready }
             val before = backend.requests.size
             h.record("i1", 5000, PayMethod.Cash, null)
             until { h.outcome.value.let { it !is DeskPayOutcome.Idle && it !is DeskPayOutcome.Sending } }
-            assertEquals(listOf("invoices/i1", "payments"), order(backend).drop(before).take(2))
+            assertEquals(listOf("invoices/i1/collect-summary", "payments"), order(backend).drop(before).take(2))
             val body =
                 backend.requests
                     .first { it.url.encodedPath.endsWith("/payments") }
@@ -82,13 +91,15 @@ class DeskCollectRaceTest {
                     .toString()
             assertTrue(body.isNotEmpty())
             assertIs<DeskPayOutcome.Recorded>(h.outcome.value)
+            val due = (h.state.value as DeskPayState.Ready).dues.single()
+            assertEquals("upi://pay?pa=clinic@bank", due.upi?.uri)
         }
 
     @Test
     fun a_zero_balance_shows_already_paid_and_sends_nothing() =
         runTest {
             val backend = FakeBackend()
-            backend.on(invoice, { json(invoiceJson("i1", "v1", 5000, 5000)) })
+            backend.on(summary, { json(summaryJson("issued", 5000, 0)) })
             paid(backend)
             val h = holder(backend)
             until { h.state.value is DeskPayState.Ready }
@@ -100,37 +111,27 @@ class DeskCollectRaceTest {
         }
 
     @Test
-    fun a_draft_is_issued_before_the_payment() =
+    fun a_draft_is_paid_by_its_total_and_never_issued_by_the_phone() =
         runTest {
             val backend = FakeBackend()
-            val draft =
-                invoiceJson(
-                    "i1",
-                    "v1",
-                    5000,
-                    0,
-                    "draft",
-                ).replace("\"balance_paise\":5000", "\"balance_paise\":0")
-            backend.on(invoice, { json(draft) })
-            backend.on(issue, { json(invoiceJson("i1", "v1", 5000, 0)) })
+            backend.on(summary, { json(summaryJson("draft", 5000, 5000)) })
             paid(backend)
             val h = holder(backend)
             until { h.state.value is DeskPayState.Ready }
             val before = backend.requests.size
             h.record("i1", 5000, PayMethod.Cash, null)
             until { h.outcome.value.let { it !is DeskPayOutcome.Idle && it !is DeskPayOutcome.Sending } }
-            assertEquals(listOf("invoices/i1", "invoices/i1/issue", "payments"), order(backend).drop(before).take(3))
+            assertEquals(listOf("invoices/i1/collect-summary", "payments"), order(backend).drop(before).take(2))
+            assertEquals(0, backend.count(issue))
+            assertIs<DeskPayOutcome.Recorded>(h.outcome.value)
         }
 
     @Test
     fun a_409_refetches_the_bill_and_shows_the_server_state() =
         runTest {
             val backend = FakeBackend()
-            backend.on(
-                invoice,
-                { json(invoiceJson("i1", "v1", 5000, 0)) },
-                { json(invoiceJson("i1", "v1", 5000, 5000)) },
-            )
+            backend.on(summary, { json(summaryJson("issued", 5000, 5000)) })
+            backend.on(invoice, { json(invoiceJson("i1", "v1", 5000, 5000)) })
             backend.on(payments, { apiError(HttpStatusCode.Conflict, "conflict") })
             val h = holder(backend)
             until { h.state.value is DeskPayState.Ready }
@@ -138,7 +139,10 @@ class DeskCollectRaceTest {
             h.record("i1", 5000, PayMethod.Cash, null)
             until { h.outcome.value.let { it !is DeskPayOutcome.Idle && it !is DeskPayOutcome.Sending } }
             // GET (race check), POST (409), GET again, then the list reload.
-            assertEquals(listOf("invoices/i1", "payments", "invoices/i1"), order(backend).drop(before).take(3))
+            assertEquals(
+                listOf("invoices/i1/collect-summary", "payments", "invoices/i1"),
+                order(backend).drop(before).take(3),
+            )
             assertEquals(DeskPayOutcome.AlreadyPaid, h.outcome.value)
         }
 
@@ -146,7 +150,7 @@ class DeskCollectRaceTest {
     fun a_409_with_a_balance_left_is_a_failure_and_the_list_reloads() =
         runTest {
             val backend = FakeBackend()
-            backend.on(invoice, { json(invoiceJson("i1", "v1", 5000, 0)) })
+            backend.on(summary, { json(summaryJson("issued", 5000, 5000)) })
             backend.on(payments, { apiError(HttpStatusCode.Conflict, "conflict") })
             val h = holder(backend)
             until { h.state.value is DeskPayState.Ready }

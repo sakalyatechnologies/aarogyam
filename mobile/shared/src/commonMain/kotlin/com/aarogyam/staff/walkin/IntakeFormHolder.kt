@@ -2,9 +2,9 @@ package com.aarogyam.staff.walkin
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.consentNotices
+import com.aarogyam.staff.api.model.FamilyOfFields
 import com.aarogyam.staff.api.registerWalkIn
 import com.aarogyam.staff.clinic.ClinicContext
-import com.aarogyam.staff.config.caps.FamilyOfBody
 import com.aarogyam.staff.config.caps.ServerCaps
 import com.aarogyam.staff.outbox.OUTBOX_FILES_MAX_BYTES
 import com.aarogyam.staff.outbox.OutboxFiles
@@ -196,7 +196,7 @@ internal class IntakeFormStateHolder(
         val request = buildRequest(form)
         edit { copy(errors = emptyMap(), submitError = null, submitting = true) }
         scope.launch {
-            val family = form.familyOf?.takeIf { ServerCaps.family }?.let { FamilyOfBody(it.patientId, it.relation) }
+            val family = form.familyOf?.let { FamilyOfFields(it.patientId, it.relation) }
             when (val result = clinic.api.registerWalkIn(request, family)) {
                 is Outcome.Success -> {
                     val done = result.value

@@ -155,6 +155,38 @@ class ClinicApi(
         client.call { url("api/v1/patients/${patientId.encodeURLPathPart()}/attachments") }
 
     /**
+     * `PUT /api/v1/patients/{id}/photo` (`putPatientPhoto`): the profile picture, `multipart/form-data` with
+     * the picture in the field `file` (PNG or JPEG, at most [PATIENT_PHOTO_MAX_BYTES]); needs `patients.write`; 204.
+     * A repeat replaces the picture, so a retry is safe.
+     */
+    suspend fun putPatientPhoto(
+        patientId: String,
+        bytes: ByteArray,
+        contentType: String = if (bytes.isPng()) "image/png" else "image/jpeg",
+    ): Outcome<Unit, ApiError> =
+        client.call {
+            method = HttpMethod.Put
+            url("api/v1/patients/${patientId.encodeURLPathPart()}/photo")
+            setBody(
+                MultiPartFormDataContent(
+                    formData {
+                        append(
+                            "file",
+                            bytes,
+                            Headers.build {
+                                append(HttpHeaders.ContentType, contentType)
+                                append(
+                                    HttpHeaders.ContentDisposition,
+                                    "filename=\"photo.${if (contentType == "image/png") "png" else "jpg"}\"",
+                                )
+                            },
+                        )
+                    },
+                ),
+            )
+        }
+
+    /**
      * `POST /api/v1/patients/{id}/attachments` (`uploadAttachment`): a JPEG already resized on the
      * device, with its optional [label] and FDI [tooth]. [id] is the client's UUID v7, so a retry
      * returns the stored file instead of making another. The file goes through the API, never to a
@@ -354,3 +386,6 @@ class ClinicApi(
 internal fun ByteArray.isPng(): Boolean =
     size >= 8 && this[0] == 0x89.toByte() && this[1] == 'P'.code.toByte() &&
         this[2] == 'N'.code.toByte() && this[3] == 'G'.code.toByte()
+
+/** The server refuses a profile picture over 2 MB. */
+const val PATIENT_PHOTO_MAX_BYTES = 2 * 1024 * 1024

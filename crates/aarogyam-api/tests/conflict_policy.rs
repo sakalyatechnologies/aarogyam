@@ -5,6 +5,10 @@
     clippy::unwrap_used,
     reason = "tests fail loudly instead of returning errors"
 )]
+#![expect(
+    clippy::too_many_lines,
+    reason = "each test walks one journey end to end, step by step"
+)]
 
 mod support;
 
@@ -273,6 +277,50 @@ async fn the_default_lets_a_patient_ask_for_a_taken_time_and_tells_the_desk_and_
             .await
             .contains(&"booking_conflict".to_owned())
     );
+    // One bell row per appointment: the held booking wrote booking_requested, the request
+    // booking_conflict alone.
+    let kinds: Vec<(String, String)> = sqlx::query_as(
+        "select appointment_id::text, kind from aarogyam.staff_notifications
+         where kind in ('booking_requested', 'booking_conflict') order by created_at",
+    )
+    .fetch_all(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(kinds.len(), 2, "{kinds:?}");
+    assert_eq!(kinds[0].1, "booking_requested");
+    assert_eq!(
+        (kinds[1].0.as_str(), kinds[1].1.as_str()),
+        (id.as_str(), "booking_conflict")
+    );
+    let desk_rows = feed_kinds(&app, &c.desk).await;
+    assert_eq!(
+        desk_rows
+            .iter()
+            .filter(|k| *k == "booking_conflict")
+            .count(),
+        1
+    );
+    assert_eq!(
+        feed_kinds(&app, &c.a_token)
+            .await
+            .iter()
+            .filter(|k| *k == "booking_conflict")
+            .count(),
+        1
+    );
+    // The reminder clock runs on it like on a request.
+    let at = OffsetDateTime::now_utc() + Duration::minutes(16);
+    let report = aarogyam_notify::remind(
+        &app.api_db(),
+        at,
+        aarogyam_domain::notification::OpenHours {
+            opens: time::Time::MIDNIGHT,
+            closes: time::Time::from_hms(23, 59, 59).unwrap(),
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(report.reminded, 1, "{report:?}");
     // The row names no one: only the appointment.
     let row: (Option<Uuid>, Option<Uuid>) = sqlx::query_as(
         "select appointment_id, queue_token_id from aarogyam.staff_notifications

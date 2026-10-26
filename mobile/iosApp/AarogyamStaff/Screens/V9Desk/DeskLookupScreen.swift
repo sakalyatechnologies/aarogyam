@@ -84,14 +84,16 @@ struct DeskLookupScreen: View {
             VStack(spacing: 8) {
                 ForEach(found.profiles, id: \.id) { profile in
                     DeskProfileRow(profile: profile, ofName: found.profiles.first { $0.id == profile.familyOf }?.name,
-                                   canCollect: canCollect, canFamily: clinic.permissions.contains("patients.read"),
+                                   canCollect: canCollect, canFamily: clinic.permissions.contains("patients.read") && ServerCaps.shared.family,
                                    onCheckIn: { holder.checkIn(patientId: profile.id) },
                                    onCollect: { onCollect(DeskPayTarget(patientId: profile.id, name: profile.name)) },
                                    onFamily: { relatives = DeskPayTarget(patientId: profile.id, name: profile.name) })
                 }
             }
-            SkPillButton(dv("d9.lookup.family"), variant: .tonal, wide: true) {
-                onFamily(found.phone, found.profiles.filter { $0.familyOf == nil }.map { DeskFamilyAnchor(id: $0.id, name: $0.name) })
+            if ServerCaps.shared.family {
+                SkPillButton(dv("d9.lookup.family"), variant: .tonal, wide: true) {
+                    onFamily(found.phone, found.profiles.filter { $0.familyOf == nil }.map { DeskFamilyAnchor(id: $0.id, name: $0.name) })
+                }
             }
             SkPillButton(dv("d9.lookup.new"), variant: .warm, wide: true) { onNewPatient(found.phone) }
         case .notAllowed, .checkedIn:
@@ -121,6 +123,8 @@ struct DeskProfileRow: View {
     let onCheckIn: () -> Void
     let onCollect: () -> Void
     let onFamily: () -> Void
+    /// v10: "Check in · Dr X"; nil keeps the plain label.
+    var checkInTitle: String?
     private var name: String { profile.name.isEmpty ? profile.initials : profile.name }
     @Environment(\.skTheme) private var theme
 
@@ -153,7 +157,7 @@ struct DeskProfileRow: View {
             }
             FlowLayout(spacing: 8) {
                 if !profile.checkedInToday {
-                    SkPillButton(dv("d9.lookup.check_in"), action: onCheckIn)
+                    SkPillButton(checkInTitle ?? dv("d9.lookup.check_in"), action: onCheckIn)
                         .accessibilityLabel(dvf("d9.lookup.check_in.a11y", name))
                 }
                 if canCollect { SkPillButton(dv("d9.lookup.collect"), variant: .tonal, action: onCollect) }

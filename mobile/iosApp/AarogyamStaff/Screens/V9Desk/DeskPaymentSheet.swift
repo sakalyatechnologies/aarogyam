@@ -10,10 +10,12 @@ struct DeskPaymentSheet: View {
     let graph: AppGraph
     let clinic: ClinicContext
     let target: DeskPayTarget
+    /// Changes on every live refresh of the desk; the sheet then re-checks its notification (A10).
+    var refreshTick = 0
 
     var body: some View {
         ScreenHost(make: { graph.deskPayment(clinic: clinic, patientId: target.patientId, screen: $0) }, state: { $0.state }) { holder, state in
-            DeskPaymentScreen(holder: holder, state: state, target: target)
+            DeskPaymentScreen(holder: holder, state: state, target: target, refreshTick: refreshTick)
         }
         .presentationDetents([.large])
     }
@@ -23,6 +25,7 @@ private struct DeskPaymentScreen: View {
     let holder: DeskPaymentStateHolder
     let state: DeskPayState
     let target: DeskPayTarget
+    let refreshTick: Int
     @State private var invoiceId: String?
     @State private var amount = ""
     @State private var amountEdited = false
@@ -52,6 +55,11 @@ private struct DeskPaymentScreen: View {
         .scrollDismissesKeyboard(.interactively)
         .skSheet()
         .task { for await next in holder.outcome { outcome = next } }
+        .task { for await open in holder.cardOpen where !open.boolValue {
+            // Someone else collected it (handled, or no balance): close, unless this sheet is showing its own result.
+            if case .idle = onEnum(of: outcome) { dismiss() }
+        } }
+        .task(id: refreshTick) { if let id = target.notificationId { holder.checkHandled(notificationId: id) } }
         .task { for await next in holder.pending { pending = Int(truncating: next) } }
         .task { await DeskLaunch.attachSampleProof { proof = $0 } }
         .onChange(of: library) { _, item in
@@ -117,7 +125,7 @@ private struct DeskPaymentScreen: View {
             if problems.contains(.method) {
                 Text(dv("d9.pay.method.required")).v7Text(12, .semibold).foregroundStyle(r.error.color)
             }
-            proofSection(ready.canAttachProof)
+            if ServerCaps.shared.paymentProof { proofSection(ready.canAttachProof) }
             if case .failed(let failed) = onEnum(of: outcome) {
                 Text(failed.error.message).v7Text(12.5, .semibold).foregroundStyle(r.error.color)
             }

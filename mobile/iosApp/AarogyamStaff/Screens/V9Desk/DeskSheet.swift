@@ -6,6 +6,8 @@ import SwiftUI
 struct DeskPayTarget: Identifiable, Hashable {
     let patientId: String
     let name: String
+    /// The `collect_payment` notification behind a To-pay card, when the desk knows it (v10).
+    var notificationId: String?
     var id: String { patientId }
 }
 
@@ -20,8 +22,14 @@ struct DeskSheet: View {
         case form(phone: String, family: [DeskFamilyAnchor]?)
     }
 
-    @State private var mode: Mode = DeskLaunch.firstMode
+    @State private var mode: Mode
     @State private var paying: DeskPayTarget? = DeskLaunch.firstPayTarget
+
+    init(graph: AppGraph, clinic: ClinicContext, start: Mode? = nil) {
+        self.graph = graph
+        self.clinic = clinic
+        _mode = State(initialValue: start ?? DeskLaunch.firstMode)
+    }
 
     var body: some View {
         Group {
@@ -71,7 +79,7 @@ private struct DeskFormScreen: View {
                 Spacer()
             }
             .padding(.horizontal, 18).padding(.top, 14)
-            if let family { familyBar(family) }
+            if let family, ServerCaps.shared.family { familyBar(family) }
             WalkInScreen(holder: holder, state: state)
         }
         .onAppear {

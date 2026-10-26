@@ -60,14 +60,7 @@ enum DeskAlert {
         }
     }
 
-    static func icon(_ kind: String) -> String {
-        switch kind {
-        case "patient_waiting": "clock"
-        case "send_in": "bell"
-        case "collect_payment": "check"
-        default: "msg"
-        }
-    }
+    static func icon(_ kind: String) -> String { NotificationKinds.shared.of(kind: kind).icon }
 
     /// `#7 · SC-1042 · Dr. Patil`: the token and the clinic number, never the patient's name.
     static func detail(token: Int?, number: String?, doctor: String?) -> String? {

@@ -94,7 +94,7 @@ final class BillingMappingTests: XCTestCase {
     }
 
     func test_the_upi_share_is_a_whole_percentage() {
-        let money = MoneyView(collectedPaise: 4_820_000, paymentsToday: 9, pendingDuesPaise: 1_250_000, pendingDuesPatients: 4, upiShareBps: 6800)
+        let money = MoneyView(collectedPaise: 4_820_000, paymentsToday: 9, pendingDuesPaise: 1_250_000, pendingDuesPatients: 4, upiShareBps: 6800, collectedThisMonthPaise: 0, mix: [], expensesTodayPaise: nil)
         XCTAssertEqual(money.upiShareText, "68%")
     }
 }

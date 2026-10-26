@@ -214,6 +214,28 @@ Review prompts are in `~/project/ux-review/ux-review-prompts.md` (outside the re
 - **Before the pilot:** a native Marathi speaker and a native Hindi speaker who know clinic work review every string (clinical terms such as caries, crown and the tooth surfaces are transliterated for now; dentists may prefer the English words), and check the screens for truncation. Until then the translations are drafts.
 - **Not yet:** the portal (its i18n layer is part C4 of the walk-in plan), patient-facing text (prescriptions, the patient app), and a check that fails the build when a string has no Marathi or Hindi version on iOS (Android lint already does).
 
+## Mobile v7 gaps (9 Oct 2026, from the native v7 plan)
+The staff apps build these screens fully but show "Preview: needs server support" until the backend lands (`docs/plans/mobile-v7-plan.md`).
+- **BK-1** Chart edit when the surface changes: `NewChartEntry.supersedes_id` (task B1 in the v7 plan).
+- **BK-2** Labs: vendors, cases, WhatsApp updates (planned as T1 in `docs/handoff.md`), plus a future lab app.
+- **BK-3** Staff chat: team group and direct messages (T2 in `docs/handoff.md`).
+- **BK-4** Analytics: patients by sex, procedures by category, chair time split (treatment, consults, admin).
+- **BK-5** Expenses: payment method and bill photo.
+- **BK-6** Expenses: `Idempotency-Key` on `POST /expenses`, so a retry can't record twice.
+- **BK-7** Notifications feed API (A in `docs/handoff.md`).
+- **BK-8** Messages inbox for clinic and patient conversations (T3 in `docs/handoff.md`).
+- **BK-9** Share links: expiry choice (1 h, 24 h, 7 d) and sharing the chart, X-rays and bills, not just prescriptions.
+- **BK-10** The staff avatar choice and photo stored on the server (today on the device only).
+- **BK-11** Phone number OTP by SMS (needs DLT and a paid provider) and Google/Apple sign-in.
+- **BK-12** App Links and Universal Links on the product domain (today `aarogyam://invite`).
+- **BK-13** UPI collect request or payment link from a bill.
+- **BK-14** Seat a queued patient in a chosen chair (`/queue/{id}/status` has no room).
+- **BK-15** Monthly revenue target for the clinic.
+- **BK-16** Me-card extras: sterilisation cycles, estimated end of day.
+- **BK-17** Queue summary (average wait, no-shows) if `/queue` and `/today` can't provide it.
+- **BK-18** In-app support chat with Sakalya.
+- **BK-19** Analytics: booked vs walk-in split.
+
 ## Left over from the backend plan (10 Oct 2026)
 - Messaging extras: promo codes, two-person approval for campaigns, "has balance" and treatment filters for marketing audiences.
 - Admin chair time: add an admin appointment kind; until then `chair_time.admin` is always 0.

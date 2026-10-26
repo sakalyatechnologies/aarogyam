@@ -2,8 +2,13 @@ package com.aarogyam.staff.android
 
 import android.app.Application
 import com.aarogyam.staff.AppGraph
+import com.aarogyam.staff.android.device.FilesDirOutboxFile
+import com.aarogyam.staff.android.device.SharedPreferencesStore
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.AppEnvironment
+import com.aarogyam.staff.outbox.AndroidOutboxFiles
+import com.aarogyam.staff.outbox.JsonOutboxPersistence
+import com.aarogyam.staff.outbox.PersistentOutboxStore
 import com.sakalya.mobile.http.ConnectivityNetworkMonitor
 import com.sakalya.mobile.securestorage.PlatformSecureStore
 import kotlinx.coroutines.MainScope
@@ -50,6 +55,9 @@ class AarogyamApp : Application() {
                     PlatformSecureStore(this@AarogyamApp, "aarogyam"),
                     scope,
                     ConnectivityNetworkMonitor(this@AarogyamApp),
+                    preferences = SharedPreferencesStore(this@AarogyamApp),
+                    outboxStore = PersistentOutboxStore(JsonOutboxPersistence(FilesDirOutboxFile(this@AarogyamApp))),
+                    outboxFiles = AndroidOutboxFiles(this@AarogyamApp),
                 )
             mutableGraph.value = graph?.let(GraphState::Ready) ?: GraphState.NotConfigured
         }

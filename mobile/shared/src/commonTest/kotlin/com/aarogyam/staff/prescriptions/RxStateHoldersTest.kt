@@ -125,7 +125,7 @@ class RxSheetStateHolderTest {
         on(issue, { json(rx("r1", "issued", "RX-412")) })
         on(share, {
             json(
-                """{"id":"s1","token":"tok123","pin":"482913","expires_at":"2026-10-08T05:00:00Z"}""",
+                """{"id":"s1","channel":"link","token":"tok123","pin":"482913","expires_at":"2026-10-08T05:00:00Z"}""",
                 HttpStatusCode.Created,
             )
         })
@@ -207,6 +207,19 @@ class RxSheetStateHolderTest {
                     .isNotEmpty(),
                 "an issued prescription is frozen",
             )
+        }
+
+    @Test
+    fun an_issued_prescription_can_be_sent_again_without_a_new_draft() =
+        runTest {
+            val backend = FakeBackend().also { it.serve() }
+            val sheet = holder(backend)
+            sheet.shareIssued("r1", "RX-9")
+            val done = sheet.state.first { it.share is ShareState.Ready }
+            assertEquals(RxPhase.Issued, done.phase)
+            assertEquals("RX-9", done.issued?.number)
+            assertEquals(1, backend.count(share))
+            assertEquals(0, backend.count(issue), "nothing is issued twice")
         }
 
     @Test
@@ -307,7 +320,7 @@ class RxSheetStateHolderTest {
                 apiError(HttpStatusCode.ServiceUnavailable, "unavailable")
             }, {
                 json(
-                    """{"id":"s1","token":"t","pin":"111111","expires_at":"2026-10-08T05:00:00Z"}""",
+                    """{"id":"s1","channel":"link","token":"t","pin":"111111","expires_at":"2026-10-08T05:00:00Z"}""",
                     HttpStatusCode.Created,
                 )
             })

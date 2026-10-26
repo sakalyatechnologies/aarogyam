@@ -25,6 +25,9 @@ struct RootView: View {
             SkEmptyState(String(localized: "not_configured.title"), message: String(localized: "not_configured.message"))
         case .ready(let graph):
             signed(graph)
+            #if DEBUG && AARO_ENV_Local
+            .task { await DevSession.applyLaunchEnv(graph: graph) }
+            #endif
         }
     }
 
@@ -40,16 +43,16 @@ struct RootView: View {
                 action: graph.restore
             )
         case .signedOut:
-            ScreenHost(make: { graph.signIn(screen: $0) }, state: { $0.state }) { holder, state in
-                SignInScreen(holder: holder, state: state)
-            }
+            RoutesA.signedOut(graph: graph, app: app)
             .onAppear { app.choseToLeave = false }
             #if DEBUG && AARO_ENV_Local
             .safeAreaInset(edge: .bottom) { DevSignInPanel(graph: graph) }
             #endif
             .id("sign-in")
         case .signedIn:
-            if let clinic = app.clinic {
+            if let link = app.pendingInvite {
+                RoutesA.joinInvite(graph: graph, link: link) { app.pendingInvite = nil }.id("invite")
+            } else if let clinic = app.clinic {
                 MainTabs(
                     graph: graph,
                     clinic: clinic,
@@ -59,6 +62,7 @@ struct RootView: View {
                     }
                 )
                 .id("main-\(clinic.slug)")
+                .background { RoutesV10Live.hook(graph: graph) }
             } else {
                 let autoOpen = !app.choseToLeave
                 NavigationStack {

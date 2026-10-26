@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tab_queue">Queue</string>
     <string name="walk_in_add">+ Walk-in</string>
     <string name="walk_in_title">Walk-in</string>
     <string name="walk_in_subtitle">Register and add to the queue in one step</string>
@@ -44,6 +43,8 @@
     <string name="queue_token">#%1$d</string>
     <string name="queue_wait_minutes">%1$d\u00A0min</string>
     <string name="queue_status_waiting">Waiting</string>
+    <string name="queue_status_called">Called</string>
+    <string name="queue_status_ready_to_bill">Ready to bill</string>
     <string name="queue_status_in_chair">In chair</string>
     <string name="queue_status_done">Done</string>
     <string name="queue_status_left">Left</string>

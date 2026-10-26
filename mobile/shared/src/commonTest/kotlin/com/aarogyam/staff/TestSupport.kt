@@ -2,6 +2,8 @@ package com.aarogyam.staff
 
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.AppEnvironment
+import com.aarogyam.staff.outbox.MemoryOutboxStore
+import com.aarogyam.staff.outbox.OutboxStore
 import com.sakalya.mobile.auth.EmailAddress
 import com.sakalya.mobile.auth.OneTimeCode
 import com.sakalya.mobile.core.MemoryLogSink
@@ -18,6 +20,8 @@ import io.ktor.http.headersOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.io.encoding.Base64
 import kotlin.test.assertIs
 
@@ -71,14 +75,22 @@ class FakeBackend {
 
     val engine: MockEngine =
         MockEngine { request ->
-            requests += request
-            val answers = routes["${request.url.host}${request.url.encodedPath}"]
-            when {
-                answers == null -> apiError(HttpStatusCode.NotFound, "not_found")
-                answers.size > 1 -> answers.removeAt(0)(request)
-                else -> answers[0](request)
-            }
+            // The engine answers on several threads: record and pick under one lock, or a busy
+            // machine loses a request from the list.
+            val answer =
+                lock.withLock {
+                    requests += request
+                    val answers = routes["${request.url.host}${request.url.encodedPath}"]
+                    when {
+                        answers == null -> null
+                        answers.size > 1 -> answers.removeAt(0)
+                        else -> answers[0]
+                    }
+                }
+            answer?.invoke(this, request) ?: apiError(HttpStatusCode.NotFound, "not_found")
         }
+
+    private val lock = Mutex()
 }
 
 /**
@@ -90,6 +102,7 @@ suspend fun testGraph(
     scope: CoroutineScope,
     environment: AppEnvironment = AppEnvironment.Demo,
     logs: MemoryLogSink = MemoryLogSink(),
+    outboxStore: OutboxStore = MemoryOutboxStore(),
 ): AppGraph {
     val graph =
         assertIs<AppGraph>(
@@ -99,6 +112,9 @@ suspend fun testGraph(
                 scope,
                 engine = backend.engine,
                 logSink = logs,
+                outboxStore = outboxStore,
+                // The event stream would add a request to every count; it has its own tests.
+                liveStream = false,
             ),
         )
     graph.sessions.state.first { it !is com.sakalya.mobile.auth.SessionState.Restoring }
@@ -141,10 +157,10 @@ fun appointment(
     reason: String? = null,
 ): String =
     """{"id":"$id","branch_id":"b1","starts_at":"$startsAt","ends_at":"$startsAt","status":"$status","kind":"follow_up",
-       "has_notes":false,"row_version":1,"source":"front_desk","reason":${reason?.let {
+       "has_notes":false,"patient_type":"existing","row_version":1,"source":"front_desk","reason":${reason?.let {
         "\"$it\""
     } ?: "null"},"room":"Chair 1",
-       "patient":{"id":"p-$id","number":"SC-10$id","full_name":"$name","sex":"female","age_years":34},
+       "patient":{"id":"p-$id","number":"SC-10$id","full_name":"$name","sex":"female","registration_incomplete":false,"age_years":34},
        "practitioner":{"id":"d1","display_name":"Dr. Patil","calendar_color":null}}"""
 
 fun todayBody(
@@ -158,9 +174,9 @@ fun todayBody(
         ),
 ): String =
     """{"date":"2026-10-05","as_of":"$asOf","appointments":${appointments.joinToString(",", "[", "]")},
-       "counts":{"total":3,"booked":1,"arrived":1,"in_chair":0,"done":1,"no_shows":0,"cancelled":1,"waiting":2},
+       "counts":{"total":3,"booked":1,"arrived":1,"in_chair":0,"done":1,"no_shows":0,"cancelled":1,"waiting":2,"called":0,"ready_to_bill":0},
        "by_hour":[{"hour":9,"booked":1,"completed":1}],"chairs":[{"room_id":"r1","name":"Chair 1","kind":"chair","status":"free","current":null,"next":null}],
-       "recent_patients":[],"team":[],"attention":[]}"""
+       "recent_patients":[],"team":[],"attention":[],"completed_visits":[]}"""
 
 /** Opens the Sunrise clinic through the fake backend and returns its context. */
 suspend fun openClinic(
@@ -187,8 +203,9 @@ fun patientJson(
     balance: Long? = 125000,
     next: String? = """{"starts_at":"2026-10-12T04:30:00Z","practitioner":"Dr. Patil"}""",
 ): String =
-    """{"id":"$id","number":"$number","full_name":"$name","sex":"female","age_years":34,"birth_date_estimated":false,
+    """{"id":"$id","number":"$number","full_name":"$name","sex":"female","registration_incomplete":false,"age_years":34,"birth_date_estimated":false,
        "preferred_language":"en-IN","status":"active","created_at":"2026-01-01T00:00:00Z","recall_due":true,"row_version":1,
-       "phone":"+91******3210","balance_paise":${balance ?: "null"},"next_appointment":${next ?: "null"}}"""
+       "phone":"+91******3210","balance_paise":${balance ?: "null"},"next_appointment":${next ?: "null"},
+       "has_photo":false,"allergy_alert":false,"consent_pending":false,"lifetime_paid_paise":null}"""
 
 fun patientListJson(vararg patients: String): String = """{"items":${patients.joinToString(",", "[", "]")}}"""

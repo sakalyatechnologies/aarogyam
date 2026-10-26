@@ -33,6 +33,8 @@ import com.aarogyam.staff.api.model.SummaryNote
 import com.aarogyam.staff.api.model.TodayMoney
 import com.aarogyam.staff.api.model.TodayResponse
 import com.aarogyam.staff.api.model.VisitList
+import com.aarogyam.staff.config.caps.ServerCaps
+import com.aarogyam.staff.config.caps.capsJson
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Outcome
@@ -54,10 +56,13 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 
 /** Calls on the app host, which knows the person but no clinic. */
 class AppApi(
-    private val client: HttpClient,
+    internal val client: HttpClient,
 ) {
     /** `GET /api/v1/me` (`getMe`): the clinics the person belongs to, with their hosts. */
     suspend fun me(): Outcome<Me, ApiError> = client.call { url("api/v1/me") }
@@ -93,14 +98,34 @@ class ClinicApi(
     suspend fun recordPayment(
         payment: NewPayment,
         key: IdempotencyKey,
-    ): Outcome<Payment, ApiError> =
-        client.call {
-            method = HttpMethod.Post
-            url("api/v1/payments")
-            idempotencyKey(key)
-            contentType(ContentType.Application.Json)
-            setBody(payment)
+        attachmentId: String? = null,
+    ): Outcome<Payment, ApiError> {
+        val answer: Outcome<JsonObject, ApiError> =
+            client.call {
+                method = HttpMethod.Post
+                url("api/v1/payments")
+                idempotencyKey(key)
+                contentType(ContentType.Application.Json)
+                if (attachmentId != null && ServerCaps.paymentProof) {
+                    // `attachment_id` is not in main's `NewPayment`: it travels beside it, only while the flag is on.
+                    val body = capsJson.encodeToJsonElement(NewPayment.serializer(), payment).jsonObject
+                    setBody(JsonObject(body + ("attachment_id" to JsonPrimitive(attachmentId))))
+                } else {
+                    setBody(payment)
+                }
+            }
+        return when (answer) {
+            is Outcome.Failure -> {
+                answer
+            }
+
+            is Outcome.Success -> {
+                // `attachment_id` in a real answer is what turns payment proof on.
+                if ("attachment_id" in answer.value) ServerCaps.markPaymentProof()
+                Outcome.Success(capsJson.decodeFromJsonElement(Payment.serializer(), answer.value))
+            }
         }
+    }
 
     /**
      * `POST /api/v1/patients/search` (`searchPatients`): by number, phone or the start of a name.
@@ -134,6 +159,8 @@ class ClinicApi(
      * device, with its optional [label] and FDI [tooth]. [id] is the client's UUID v7, so a retry
      * returns the stored file instead of making another. The file goes through the API, never to a
      * bucket address, and carries a fixed name: nothing about the patient is in the form.
+     * [contentType] and [fileName] default from the bytes (PNG for a signature, else JPEG); audio
+     * passes its own.
      */
     suspend fun uploadAttachment(
         patientId: String,
@@ -142,6 +169,8 @@ class ClinicApi(
         jpeg: ByteArray,
         label: String?,
         tooth: Int?,
+        contentType: String? = null,
+        fileName: String? = null,
     ): Outcome<Attachment, ApiError> =
         client.call {
             method = HttpMethod.Post
@@ -157,8 +186,10 @@ class ClinicApi(
                             "file",
                             jpeg,
                             Headers.build {
-                                append(HttpHeaders.ContentType, "image/jpeg")
-                                append(HttpHeaders.ContentDisposition, "filename=\"photo.jpg\"")
+                                val png = jpeg.isPng()
+                                append(HttpHeaders.ContentType, contentType ?: if (png) "image/png" else "image/jpeg")
+                                val name = fileName ?: if (png) "signature.png" else "photo.jpg"
+                                append(HttpHeaders.ContentDisposition, "filename=\"$name\"")
                             },
                         )
                     },
@@ -318,3 +349,8 @@ class ClinicApi(
         const val INVOICE_LIMIT = 50L
     }
 }
+
+/** Whether [this] starts with the PNG signature (a drawn signature; photos are JPEG). */
+internal fun ByteArray.isPng(): Boolean =
+    size >= 8 && this[0] == 0x89.toByte() && this[1] == 'P'.code.toByte() &&
+        this[2] == 'N'.code.toByte() && this[3] == 'G'.code.toByte()

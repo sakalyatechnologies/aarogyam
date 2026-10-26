@@ -2,13 +2,9 @@ package com.aarogyam.staff.prescriptions
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.model.Drug
-import com.aarogyam.staff.api.model.RxItem
 import com.aarogyam.staff.api.model.RxValues
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.AllergyView
-import com.aarogyam.staff.patients.ClinicMoment
-import com.aarogyam.staff.patients.Severity
-import com.aarogyam.staff.today.parseInstant
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
@@ -20,117 +16,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.datetime.toLocalDateTime
-
-/** Quick choices for a medicine line; codes the doctor writes, not copy. */
-object RxPresets {
-    val doses: List<String> = listOf("1 tablet", "2 tablets", "5 ml", "10 ml")
-    val frequencies: List<String> = listOf("1-0-0", "0-1-0", "0-0-1", "1-0-1", "1-1-1", "SOS")
-    val durations: List<Int> = listOf(3, 5, 7, 10, 14)
-}
-
-/** A medicine from the catalogue. */
-data class DrugView(
-    val id: String,
-    val name: String,
-    val brand: String?,
-    val strength: String,
-    val form: String,
-    val defaultDose: String,
-    val defaultFrequency: String,
-    val defaultDays: Int?,
-    val defaultTiming: String?,
-)
-
-/** One medicine on the prescription being written. [key] is stable while the line is on screen. */
-data class RxLine(
-    val key: Int,
-    val drugId: String?,
-    val name: String,
-    val detail: String,
-    val dose: String,
-    val frequency: String,
-    val durationDays: Int,
-    val timing: String?,
-)
-
-/**
- * One alert from the clinic's own allergy check, as the server worded it: [message] names the
- * medicine and the recorded allergy (clinical text: show it, never log it).
- */
-data class ServerAlert(
-    val severity: Severity,
-    val message: String,
-)
-
-/** A medicine whose name matches a recorded allergy. */
-data class AllergyWarning(
-    val lineKey: Int,
-    val drug: String,
-    val substance: String,
-    val severity: Severity,
-)
-
-enum class RxPhase { Composing, Issuing, Issued }
-
-data class IssuedRx(
-    val id: String,
-    val number: String?,
-    val clinicName: String,
-)
-
-/** The patient's link and PIN. The PIN is shown once and never goes into the shared text. */
-data class ShareView(
-    val url: String,
-    val pin: String,
-    val expiresAt: ClinicMoment?,
-)
-
-sealed interface ShareState {
-    data object Creating : ShareState
-
-    data class Ready(
-        val link: ShareView,
-    ) : ShareState
-
-    data class Failed(
-        val error: ScreenError,
-    ) : ShareState
-}
-
-data class RxSheetState(
-    /** False when the role lacks `prescriptions.issue`; nothing is requested then. */
-    val allowed: Boolean = true,
-    val query: String = "",
-    val results: List<DrugView> = emptyList(),
-    val searching: Boolean = false,
-    val lines: List<RxLine> = emptyList(),
-    /** Local match of the lines against the patient's recorded allergies. */
-    val warnings: List<AllergyWarning> = emptyList(),
-    /** The clinic's own allergy check stopped the issue (it also knows drug classes). */
-    val serverAlert: Boolean = false,
-    /** What the clinic's check said; empty when it stopped the issue without a readable body. */
-    val serverAlerts: List<ServerAlert> = emptyList(),
-    val overrideReason: String = "",
-    val phase: RxPhase = RxPhase.Composing,
-    val error: ScreenError? = null,
-    val issued: IssuedRx? = null,
-    val share: ShareState? = null,
-) {
-    /** Issuing needs an override reason while any allergy alert stands. */
-    val needsOverride: Boolean get() = warnings.isNotEmpty() || serverAlert
-
-    val canIssue: Boolean
-        get() =
-            allowed &&
-                phase == RxPhase.Composing &&
-                lines.isNotEmpty() &&
-                (!needsOverride || overrideReason.trim().length >= MIN_REASON)
-
-    internal companion object {
-        const val MIN_REASON = 3
-    }
-}
 
 /**
  * Writing and issuing one prescription. Issuing is a draft (`createPrescription`, once), the issue
@@ -142,6 +27,8 @@ class RxSheetStateHolder(
     private val patientId: String,
     private val allergies: List<AllergyView>,
     private val scope: CoroutineScope,
+    /** The open visit this prescription belongs to, from the Visit screen; null from Patient 360. */
+    private val visitId: String? = null,
     private val log: Logger = Logger("aarogyam.rxsheet"),
 ) {
     private val mutableState =
@@ -152,7 +39,8 @@ class RxSheetStateHolder(
 
     private var searchJob: Job? = null
     private var nextKey = 0
-    private var draftId: String? = null
+    private val sync = RxDraftSync(clinic, patientId, visitId)
+    private var frozen = false
 
     /** Searches the catalogue as the doctor types. */
     fun search(query: String) {
@@ -203,13 +91,31 @@ class RxSheetStateHolder(
                 timing = drug.defaultTiming,
             )
         mutableState.update {
-            recompute(it.copy(lines = it.lines + line, query = "", results = emptyList(), searching = false))
+            recompute(
+                it.copy(
+                    draft = dirty(it),
+                    lines = it.lines + line,
+                    query = "",
+                    results = emptyList(),
+                    searching = false,
+                ),
+            )
         }
     }
 
     fun remove(key: Int) {
         if (!editable()) return
-        mutableState.update { recompute(it.copy(lines = it.lines.filterNot { line -> line.key == key })) }
+        mutableState.update {
+            recompute(
+                it.copy(
+                    draft = dirty(it),
+                    lines =
+                        it.lines.filterNot { line ->
+                            line.key == key
+                        },
+                ),
+            )
+        }
     }
 
     fun setDose(
@@ -226,6 +132,47 @@ class RxSheetStateHolder(
         key: Int,
         days: Int,
     ) = change(key) { it.copy(durationDays = days.coerceIn(1, MAX_DAYS)) }
+
+    /** The dose cells (morning, afternoon, night) become the line's frequency text, e.g. "1-0-1". */
+    fun setDose(
+        key: Int,
+        dose: RxDose,
+    ) = change(key) { it.copy(frequency = dose.format()) }
+
+    /** Timing chip; null clears it. */
+    fun setTiming(
+        key: Int,
+        timing: RxTiming?,
+    ) = change(key) { it.copy(timing = timing?.api) }
+
+    fun setDays(
+        key: Int,
+        days: Int,
+    ) = setDuration(key, days)
+
+    /**
+     * Keeps what is on screen as a server draft (created once, then edited), so it can be issued
+     * later. Lines stay editable; a change after saving marks the draft unsaved again.
+     */
+    fun saveDraft() {
+        val current = mutableState.value
+        if (!current.allowed || current.phase != RxPhase.Composing || current.lines.isEmpty()) return
+        if (current.draft == DraftSave.Saving) return
+        mutableState.update { it.copy(draft = DraftSave.Saving, error = null) }
+        scope.launch {
+            when (val result = sync.push(mutableState.value.lines)) {
+                is Outcome.Success -> {
+                    log.info("rxsheet.draft_saved") { id("prescription", result.value) }
+                    mutableState.update { it.copy(draft = DraftSave.Saved) }
+                }
+
+                is Outcome.Failure -> {
+                    log.warn("rxsheet.draft_failed") { code("error", result.error.code.value) }
+                    mutableState.update { it.copy(draft = DraftSave.Failed, error = ScreenError.of(result.error)) }
+                }
+            }
+        }
+    }
 
     fun setOverrideReason(text: String) {
         // Still allowed once the draft exists: the clinic's own check may ask for the reason late.
@@ -257,9 +204,10 @@ class RxSheetStateHolder(
     fun issue() {
         val current = mutableState.value
         if (!current.canIssue) return
+        frozen = true
         mutableState.update { it.copy(phase = RxPhase.Issuing, error = null) }
         scope.launch {
-            val id = draftId ?: createDraft() ?: return@launch
+            val id = sync.id ?: createDraft() ?: return@launch
             val reason = current.overrideReason.trim().takeIf { current.needsOverride }
             when (val result = clinic.api.issuePrescription(id, reason)) {
                 is Outcome.Success -> {
@@ -289,25 +237,32 @@ class RxSheetStateHolder(
         }
     }
 
+    /**
+     * Sends an already issued prescription again (Visit detail): opens the delivery step for [id] and
+     * makes a fresh link and PIN. Does nothing while composing or once a prescription is set.
+     */
+    fun shareIssued(
+        id: String,
+        number: String?,
+    ) {
+        val current = mutableState.value
+        if (current.issued != null || current.phase != RxPhase.Composing || current.lines.isNotEmpty()) return
+        frozen = true
+        mutableState.update {
+            it.copy(phase = RxPhase.Issued, issued = IssuedRx(id, number, clinic.session.clinic.name))
+        }
+        share()
+    }
+
     /** Creates the patient's link and PIN for the issued prescription; call again after a failure. */
     fun share() {
         val issued = mutableState.value.issued ?: return
         if (mutableState.value.share is ShareState.Creating) return
         mutableState.update { it.copy(share = ShareState.Creating) }
         scope.launch {
-            when (val result = clinic.api.sharePrescription(issued.id)) {
+            when (val result = shareView(clinic, issued.id)) {
                 is Outcome.Success -> {
-                    val link = result.value
-                    val view =
-                        ShareView(
-                            url = "${clinic.api.origin}/shared/${link.token}",
-                            pin = link.pin,
-                            expiresAt =
-                                parseInstant(
-                                    link.expiresAt,
-                                )?.toLocalDateTime(clinic.timeZone)?.let { ClinicMoment(it.date, it.time) },
-                        )
-                    mutableState.update { it.copy(share = ShareState.Ready(view)) }
+                    mutableState.update { it.copy(share = ShareState.Ready(result.value)) }
                 }
 
                 is Outcome.Failure -> {
@@ -321,11 +276,10 @@ class RxSheetStateHolder(
         }
     }
 
-    private suspend fun createDraft(): String? {
-        val items = mutableState.value.lines.map { it.toItem() }
-        return when (val result = clinic.api.createPrescription(patientId, RxValues(items = items))) {
+    private suspend fun createDraft(): String? =
+        when (val result = sync.push(mutableState.value.lines)) {
             is Outcome.Success -> {
-                result.value.id.also { draftId = it }
+                result.value
             }
 
             is Outcome.Failure -> {
@@ -333,7 +287,6 @@ class RxSheetStateHolder(
                 null
             }
         }
-    }
 
     private fun fail(error: ApiError) {
         log.warn("rxsheet.issue_failed") {
@@ -346,7 +299,7 @@ class RxSheetStateHolder(
     /** Lines are frozen once a draft exists on the server; a retry only resumes. */
     private fun editable(): Boolean {
         val state = mutableState.value
-        return state.allowed && state.phase == RxPhase.Composing && draftId == null
+        return state.allowed && state.phase == RxPhase.Composing && !frozen
     }
 
     private fun change(
@@ -356,6 +309,7 @@ class RxSheetStateHolder(
         if (editable()) {
             mutableState.update {
                 it.copy(
+                    draft = dirty(it),
                     lines =
                         it.lines.map { line ->
                             if (line.key ==
@@ -371,6 +325,8 @@ class RxSheetStateHolder(
         }
     }
 
+    private fun dirty(state: RxSheetState) = if (state.draft == DraftSave.Saved) DraftSave.None else state.draft
+
     private fun recompute(state: RxSheetState): RxSheetState =
         state.copy(warnings = warningsFor(state.lines, allergies))
 
@@ -381,65 +337,3 @@ class RxSheetStateHolder(
         const val MAX_REASON = 500
     }
 }
-
-private fun Drug.toView() =
-    DrugView(
-        id = id,
-        name = genericName,
-        brand = brandName,
-        strength = strength,
-        form = form,
-        defaultDose = defaultDose,
-        defaultFrequency = defaultFrequency,
-        defaultDays = defaultDurationDays,
-        defaultTiming = defaultTiming,
-    )
-
-private fun RxLine.toItem() =
-    RxItem(
-        drugId = drugId,
-        drugName = if (drugId == null) name else null,
-        dose = dose,
-        frequency = frequency,
-        durationDays = durationDays,
-        timing = timing,
-    )
-
-private fun RxItem.toLine(key: Int): RxLine? {
-    val name = drugName?.takeIf { it.isNotBlank() } ?: return null
-    return RxLine(
-        key = key,
-        drugId = drugId,
-        name = name,
-        detail = listOfNotNull(strength, form).joinToString(" "),
-        dose = dose.orEmpty(),
-        frequency = frequency.orEmpty(),
-        durationDays = durationDays ?: 5,
-        timing = timing,
-    )
-}
-
-/** Name matches only (the clinic's check also knows classes such as penicillins). */
-internal fun warningsFor(
-    lines: List<RxLine>,
-    allergies: List<AllergyView>,
-): List<AllergyWarning> =
-    lines.flatMap { line ->
-        val drug = line.name.lowercase()
-        allergies.mapNotNull { allergy ->
-            val substance = allergy.substance.trim().lowercase()
-            val matches = substance.length >= 3 && (drug.contains(substance) || substance.contains(drug))
-            if (matches) AllergyWarning(line.key, line.name, allergy.substance.trim(), allergy.severity) else null
-        }
-    }
-
-private const val ALLERGY_ALERTS = "allergy_alerts"
-
-/** The API's alert severity: `info`, `caution` or `serious`. */
-private fun severityOf(text: String): Severity =
-    when (text) {
-        "serious" -> Severity.Severe
-        "caution" -> Severity.Moderate
-        "info" -> Severity.Mild
-        else -> Severity.Unknown
-    }

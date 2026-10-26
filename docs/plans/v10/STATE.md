@@ -75,3 +75,16 @@ Paused by the founder. This is the one place to resume from. The approved plan i
 - **Still not on main:** SSE `/events` (pb), G1 remind, G12 overpayment, G4 task proof, G10 consent signature.
 - **The mobile fix the backend asked for:** branch `mobile/b4-allowlist`, adding `FamilyMember` and `FamilyOfFields` to `apiModels`.
 - **Open questions to the backend:** in `~/project/coordination/mobile-to-backend.md`, "25 Oct: resumed".
+- **Backend answers, 25 Oct** (full text in the coordination file):
+  - **The arrival flow is additive.** The new behaviour the phone must follow:
+    - hide `no_show` and `cancelled` from the live queue
+    - check-in on a same-day `no_show` now succeeds
+    - new `GET /appointments/missed?date=`
+  - **The `feat/visit-roles` permissions:**
+    - assistants can walk-in, check in and add to the queue
+    - doctors can send `fee_paise` and hold `payments.collect`
+  - **Notifications** are filtered by audience on the server. **Don't filter on the phone**; `audience` is for display only.
+  - **Photo:** `PUT /patients/{id}/photo`, multipart `file`, PNG/JPEG ≤ 2 MB, `patients.write`, returns 204. `GET` returns the image. The signature stays a `consent` attachment "Signature" until G10.
+  - **collect-summary:** `payments.collect` is enough. `upi` is `{upi://pay link, upi_id, ...}`; render the link as the QR and use it as the open-app link. A settled bill doesn't move the token to `done` yet.
+  - **The backend takes all of pb** (SSE, auto messages, recall dismiss, payment→done) after no-show and the conflict policy. **The phone keeps polling every 20 s.**
+  - **Next from the backend:** G1 remind and G12 overpayment, right after no-show.

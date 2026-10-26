@@ -944,6 +944,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       return reply(result === null ? undefined : result);
     }
 
+    /** Demo follow-ups, made on first look per clinic; the fake has no recall engine. */
+    const demoRecalls = new Map<string, C.Recall[]>();
     const clinicPatients = (caller: Caller) => state.patients.filter((p) => p.clinic_id === caller.clinic.id && p.status !== "merged");
 
     const labsOf = (): FakeLabs => (state.labs ??= emptyLabs());
@@ -2281,7 +2283,11 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return invalid("status", "unknown status");
           }
           const target = parsedStatus.data;
-          if (found.status === "completed" || found.status === "cancelled" || found.status === "no_show") {
+          const lateArrival =
+            found.status === "no_show" &&
+            target === "arrived" &&
+            localClock(new Date(found.starts_at), caller.clinic.timezone).date === localClock(clock(), caller.clinic.timezone).date;
+          if (!lateArrival && (found.status === "completed" || found.status === "cancelled" || found.status === "no_show")) {
             return refuse(409, "conflict", "That appointment is already finished.");
           }
           if (target === "cancelled" && (change.reason ?? "").trim() === "") {
@@ -2413,6 +2419,53 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return refuse(403, "forbidden", "You don't have permission to do that.");
           }
           return reply({ items: [] } satisfies C.ToCollectList);
+        }),
+
+      listRecallsDue: (opts) =>
+        respond(S.recallList, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!demoRecalls.has(caller.clinic.id)) {
+            const today = localClock(clock(), caller.clinic.timezone).date;
+            const kinds: readonly (readonly [string, string])[] = [
+              ["missed_visit", "Missed their visit"],
+              ["follow_up", "Follow-up check"],
+              ["cleaning", "Six-month cleaning"],
+            ];
+            demoRecalls.set(
+              caller.clinic.id,
+              clinicPatients(caller)
+                .slice(0, kinds.length)
+                .map((p, index) => ({
+                  id: fakeUuid(random, clock()),
+                  patient: { id: p.id, name: p.full_name, number: p.number },
+                  kind: kinds[index]?.[0] ?? "follow_up",
+                  reason: kinds[index]?.[1] ?? "Follow-up",
+                  due_on: today,
+                  status: "due",
+                  done_at: null,
+                })),
+            );
+          }
+          const items = (demoRecalls.get(caller.clinic.id) ?? []).filter((r) => r.status !== "done" && r.status !== "dismissed");
+          return reply({ items } satisfies C.RecallList);
+        }),
+
+      markRecallDone: (id, opts) =>
+        respond(S.recall, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = (demoRecalls.get(caller.clinic.id) ?? []).find((r) => r.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          found.status = "done";
+          found.done_at = clock().toISOString();
+          return reply(found satisfies C.Recall);
         }),
 
       addWalkIn: (input, opts) =>

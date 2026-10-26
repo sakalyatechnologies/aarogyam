@@ -2475,6 +2475,8 @@ export const recall = z.object({
   done_at: optionalTimestamp,
 }) satisfies z.ZodType<C.Recall>;
 export type Recall = z.output<typeof recall>;
+export const recallList = z.object({ items: z.array(recall) }) satisfies z.ZodType<C.RecallList>;
+export type RecallListPage = z.output<typeof recallList>;
 
 /** Body of `POST /api/v1/visits/{id}/close`: the whole body and each field are optional. */
 export type CloseVisitInput = C.CloseRequest;

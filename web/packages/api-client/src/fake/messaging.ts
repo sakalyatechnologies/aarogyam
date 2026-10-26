@@ -124,6 +124,7 @@ const hasPromotionalConsent = (state: MessagingStore, patient: FakePatient): boo
 const TEMPLATES: readonly [string, string, string, string][] = [
   ["care.note", "utility", "approved", "Hello {{name}}, a note from {{clinic}}: {{body}}"],
   ["reminder.follow_up", "utility", "approved", "Hello {{name}}, it is time for your follow-up at {{clinic}}. Reply to this email to book a slot."],
+  ["reminder.missed_visit", "utility", "approved", "Hello {{name}}, we missed you at {{clinic}} today. Reply to this email to book a new slot."],
   ["promo.offer", "marketing", "approved", "{{offer}}\n\nYou get this because you agreed to hear about offers from {{clinic}}. Reply STOP to opt out."],
   ["appointment.reminder", "utility", "submitted", "Reminder: your visit at {{clinic}} is on {{date}}."],
 ];

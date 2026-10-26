@@ -58,6 +58,7 @@ object NotificationKinds {
             info("booking_requested", NotificationCategory.Booking, "calendar", "t7.notif.requested"),
             info("booking_confirmed_auto", NotificationCategory.Booking, "calendar", "t7.notif.confirmed"),
             info("booking_cancelled_by_patient", NotificationCategory.Booking, "calendar", "t7.notif.cancelled"),
+            info("booking_conflict", NotificationCategory.Booking, "calendar", "v10.notif.booking_conflict"),
             info("arrival", NotificationCategory.Queue, "clock", "v10.notif.arrival"),
             info("lab_overdue", NotificationCategory.Lab, "alert", "v10.notif.lab_overdue"),
             info("payment_due", NotificationCategory.Payment, "check", "v10.notif.payment_due"),

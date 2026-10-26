@@ -25,7 +25,6 @@ enum TasksV10 {
     }
 
     static func notificationTitle(kind: String) -> String {
-        if kind == "booking_conflict" { return title(key: "v10.notif.booking_conflict") }
         let info = NotificationKinds.shared.of(kind: kind)
         let key = info.known || info.titleKey == "v10.notif.generic" ? info.titleKey : "v10.notif.generic"
         return title(key: key)

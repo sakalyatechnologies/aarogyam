@@ -4,9 +4,7 @@ import com.aarogyam.staff.api.callToken
 import com.aarogyam.staff.api.queue
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.outbox.AudioEnqueue
-import com.aarogyam.staff.outbox.ProtectedOutboxFiles
 import com.aarogyam.staff.outbox.enqueueAudio
-import com.aarogyam.staff.prescriptions.RxDraftSync
 import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.visit.FinishSources
 import com.aarogyam.staff.visit.RxSave
@@ -126,13 +124,11 @@ fun AppGraph.doctorWaiting(
 ): DoctorWaitingHolder = DoctorWaitingHolder(clinic, practitionerId, screen.scope)
 
 /**
- * What Wrap up hands the finish holder. The Rx draft is pushed through its own [RxDraftSync] because the Rx sheet
- * holder keeps its draft id private (seam: see docs/plans/v10/t9.md). Call [prepare] when Wrap up opens and
- * `attach(sources)` again once it reports ready.
+ * What Wrap up hands the finish holder. The Rx draft is saved by the visit's own [RxSheetStateHolder], so there is
+ * one draft. Call [prepare] when Wrap up opens and `attach(sources)` again once it reports ready.
  */
 class DoctorFinishSources internal constructor(
     private val rx: RxSheetStateHolder,
-    private val sync: RxDraftSync,
     private val scope: CoroutineScope,
     visit: VisitStateHolder,
     patientId: String,
@@ -142,24 +138,25 @@ class DoctorFinishSources internal constructor(
             patientId = patientId,
             saveNote = { visit.saveNow() },
             saveRx = {
-                val lines = rx.state.value.lines
-                if (lines.isEmpty()) {
-                    RxSave.Saved(sync.id)
+                if (rx.state.value.lines
+                        .isEmpty()
+                ) {
+                    RxSave.Saved(rx.saveDraftNow())
                 } else {
-                    when (val pushed = sync.push(lines)) {
-                        is Outcome.Success -> RxSave.Saved(pushed.value)
-                        is Outcome.Failure -> RxSave.Failed
-                    }
+                    rx.saveDraftNow()?.let { RxSave.Saved(it) } ?: RxSave.Failed
                 }
             },
-            rxDraftId = { sync.id },
+            rxDraftId = { rx.draftId },
         )
 
-    /** Pushes the Rx lines as a draft (when there are any), then calls [onReady] on the main thread. */
+    /** Saves the Rx lines as a draft (when there are any), then calls [onReady] on the main thread. */
     fun prepare(onReady: () -> Unit) {
-        val lines = rx.state.value.lines
         scope.launch {
-            if (lines.isNotEmpty()) sync.push(lines)
+            if (rx.state.value.lines
+                    .isNotEmpty()
+            ) {
+                rx.saveDraftNow()
+            }
             onReady()
         }
     }
@@ -172,8 +169,7 @@ fun AppGraph.finishSources(
     patientId: String,
     visitId: String,
     screen: ScreenScope,
-): DoctorFinishSources =
-    DoctorFinishSources(rx, RxDraftSync(clinic, patientId, visitId), screen.scope, visit, patientId)
+): DoctorFinishSources = DoctorFinishSources(rx, screen.scope, visit, patientId)
 
 /** Saves a dictation recording for upload once its text is in the note. The files store is the app's one. */
 fun AppGraph.enqueueDictationAudio(
@@ -187,7 +183,7 @@ fun AppGraph.enqueueDictationAudio(
 ): AudioEnqueue =
     enqueueAudio(
         runner = writes.runner,
-        files = ProtectedOutboxFiles(),
+        files = outboxFiles,
         clinicSlug = clinic.slug,
         patientId = patientId,
         visitId = visitId,

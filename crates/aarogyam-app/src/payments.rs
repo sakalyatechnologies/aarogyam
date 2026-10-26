@@ -318,11 +318,11 @@ pub async fn record(
                 balance_due = balance_due.saturating_add(bill.total_paise - bill.paid_paise);
             }
             // The total payment must not exceed the balance due.
+            // Bills are row-locked above, so a concurrent payment has already been counted.
             if !input.allocations.is_empty() && input.amount_paise > balance_due {
-                return Err(AppError::invalid(
-                    "amount",
-                    "must not be more than the balance due",
-                ));
+                return Err(AppError::Overpayment {
+                    balance_paise: balance_due,
+                });
             }
             // Each allocation must not exceed its bill's remaining balance.
             for (invoice, amount) in &input.allocations {

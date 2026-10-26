@@ -637,3 +637,11 @@ A clinic may keep records longer where its profession or a dispute requires; per
 **Decision.** Two additive read endpoints (no migration).
 - `GET /appointments/missed?date=` (`appointments.read`, within the caller's doctor reach): the day's `no_show` appointments with `appointment_id`, `patient_id`, `patient_number`, `practitioner_id`, `starts_at` and `recall_id` (the `missed_visit` follow-up; absent for a hand-marked no-show). No names. Check in and reschedule use the existing appointment calls.
 - `GET /queue/to-collect` (`payments.collect` or `billing.read`): tokens of earlier clinic days still `ready_to_bill` whose draft or issued bill has a balance, with `invoice_id` and `balance_paise`. These stay open after the day-end close but are not in today's queue or its counts.
+
+## 2026-10-25: Remind the doctor, and overpayment is a conflict
+
+**Decision.** Two additive changes (migration 0701).
+- **`POST /api/v1/queue/{id}/remind`.** For a `waiting` token, needs `clinical.write` or `appointments.write`. It re-opens the token's `patient_waiting` notification (unhandled, and unread again for everyone who had read it: `staff_notification_reads` rows for it are deleted, so that table is now `ephemeral` with updates still forbidden) instead of writing a second row. `queue_tokens.last_reminded_at` limits it to one press per token per minute: `409 remind_too_soon` with `retry_after_seconds`; a token past waiting gets `409 not_waiting`. The feed still sorts by id, so a re-raised row is not moved to the top, only made unread and open again.
+- **Overpayment.** A payment above the named bills' balance is now `409 overpayment` with `balance_paise` (was `400 invalid`), so the second of two simultaneous collectors learns what is left. A malformed amount stays a validation error. `lock_invoices` now locks the bills in one statement and sums their payments in a second: in one statement the sums came from the snapshot before a concurrent payment committed (a payment never changes the bill row), so two full-balance payments could both pass.
+
+**Why.** Assistants and the desk need to nudge a doctor without spamming; the desk and the doctor can collect at once.

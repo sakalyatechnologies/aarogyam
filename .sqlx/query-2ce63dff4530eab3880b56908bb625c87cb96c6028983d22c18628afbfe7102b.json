@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with raised as (\n             insert into aarogyam.staff_notifications (kind, queue_token_id, href, audience)\n             values ('patient_waiting', $1, '/queue', 'doctor')\n             on conflict (org_id, queue_token_id, kind) where queue_token_id is not null\n             do update set handled_at = null, handled_by = null\n             returning id\n           )\n           delete from aarogyam.staff_notification_reads r\n           using raised\n           where r.notification_id = raised.id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2ce63dff4530eab3880b56908bb625c87cb96c6028983d22c18628afbfe7102b"
+}

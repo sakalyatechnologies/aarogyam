@@ -21,7 +21,7 @@ use super::visits::Visit;
 use super::{parse_day, parse_id, rfc3339};
 use crate::AppState;
 use crate::extract::{Require, RequireEither};
-use crate::failure::{ApiFailure, MoveRefused};
+use crate::failure::{ApiFailure, CountedConflict, MoveRefused};
 
 /// A waiting-room token.
 #[derive(Debug, Serialize, ToSchema)]
@@ -461,5 +461,51 @@ pub(crate) async fn to_collect(
                 balance_paise: row.balance_paise,
             })
             .collect(),
+    }))
+}
+
+/// A token with the time its doctor was reminded.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct Reminded {
+    /// The token as it is now.
+    #[serde(flatten)]
+    pub token: QueueToken,
+    /// When the reminder was sent (RFC 3339).
+    pub reminded_at: String,
+}
+
+/// Reminds the doctor that a patient is still waiting: the token's "patient waiting"
+/// notification comes back as unread and unhandled. At most one reminder per token per minute.
+#[utoipa::path(
+    post,
+    path = "/api/v1/queue/{id}/remind",
+    operation_id = "remindQueueToken",
+    tag = "queue",
+    params(("id" = String, Path, description = "The token")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Reminded),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role has neither clinical.write nor appointments.write"),
+        (status = 404, description = "No such token in this clinic, or its patient isn't yours"),
+        (status = 409, body = CountedConflict, description = "`not_waiting`: the patient was already called or has left; `remind_too_soon`: reminded under a minute ago (`retry_after_seconds`)")
+    )
+)]
+pub(crate) async fn remind(
+    State(state): State<AppState>,
+    RequireEither { request, .. }: RequireEither<ClinicalWrite, AppointmentsWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<Reminded>, ApiFailure> {
+    let (token, at) = app::remind(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        QueueTokenId::from_uuid(id),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(Reminded {
+        token: token.into(),
+        reminded_at: rfc3339(at),
     }))
 }

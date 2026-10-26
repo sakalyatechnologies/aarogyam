@@ -17,7 +17,7 @@ use super::billing::{PatientRef, Reason};
 use super::{parse_day, rfc3339};
 use crate::AppState;
 use crate::extract::{Require, RequireEither};
-use crate::failure::ApiFailure;
+use crate::failure::{ApiFailure, CountedConflict};
 
 /// Part of a payment going to a bill.
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -132,7 +132,7 @@ pub struct NewPayment {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role has neither billing.write nor payments.collect"),
         (status = 404, description = "No such patient or bill in this clinic"),
-        (status = 409, description = "The key was used for a different payment, or a bill isn't issued (a draft is issued first for `payments.collect`)")
+        (status = 409, body = CountedConflict, description = "The key was used for a different payment, a bill isn't issued (a draft is issued first for `payments.collect`), or `overpayment`: the payment is more than the bills' balance now (`balance_paise`)")
     )
 )]
 pub(crate) async fn record(

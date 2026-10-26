@@ -345,6 +345,15 @@ pub async fn lock_invoices(
     conn: &mut PgConnection,
     ids: &[Uuid],
 ) -> Result<Vec<InvoiceLock>, DbError> {
+    // Lock first, then read the paid sums in a second statement: in one statement the sums come
+    // from the snapshot taken before a concurrent payment committed, and a payment never
+    // changes the bill row, so waiting on its lock would not refresh them.
+    sqlx::query!(
+        "select id from aarogyam.invoices where id = any($1) order by id for update",
+        ids
+    )
+    .fetch_all(&mut *conn)
+    .await?;
     let rows = sqlx::query_as!(
         InvoiceLock,
         r#"select i.id, i.patient_id, i.status, i.total_paise, i.place_of_supply,
@@ -355,8 +364,7 @@ pub async fn lock_invoices(
                            0)::bigint as "paid_paise!"
            from aarogyam.invoices i
            where i.id = any($1)
-           order by i.id
-           for update of i"#,
+           order by i.id"#,
         ids
     )
     .fetch_all(conn)

@@ -1225,6 +1225,7 @@ Walk-in tokens shown on the waiting-room screen.
 | `issued_at` | `timestamptz` |  |
 | `called_at` | `timestamptz?` |  |
 | `done_at` | `timestamptz?` |  |
+| `last_reminded_at` | `timestamptz?` | last remind press; one per minute |
 | `left_reason` | `text?` | why a token was closed without the patient being seen, e.g. Closed at day end (migration 0682) |
 | `room_id` | `uuid?` | → `rooms`. the chair chosen when seated; a room of the token's branch (migration 0384) |
 
@@ -2584,7 +2585,7 @@ Referenced by: `staff_inbox_messages.notification_id`, `staff_notification_reads
 
 Which member has read which notification: read state is per person.
 
-*Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only · lifecycle: append only*
+*Clinic-scoped: org_id + row-level security · sensitivity: internal · offline: server only · lifecycle: ephemeral*
 
 | Column | Type | Notes |
 |---|---|---|

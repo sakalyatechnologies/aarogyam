@@ -1598,3 +1598,77 @@ async fn collect_bill_without_visit(app: &TestApp, owner: &str, patient: &str) -
     assert_eq!(status, StatusCode::CREATED, "{bill}");
     id_of(&bill)
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn remind_re_raises_the_doctors_notification_once_a_minute() {
+    let app = TestApp::start().await;
+    let clinic = app.clinic_id("alpha").await;
+    let owner = app.token(ALPHA_OWNER);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let nothing = app.token(ALPHA_NOTHING);
+    let (doctor, member) = new_member(&app, clinic, "doctor").await;
+    let practitioner = on_rota(&app, clinic, member, branch(&app, clinic).await, "Dr Rao").await;
+    let patient = register(&app, &owner, "Meera Shah").await;
+    let token = walk_in(&app, &owner, &patient, Some(practitioner)).await;
+    let path = format!("/api/v1/queue/{token}/remind");
+
+    // The doctor reads everything: nothing is unread.
+    post_ok(&app, &doctor, "/api/v1/notifications/read-all", None).await;
+    assert_eq!(count(&app, &doctor).await, 0);
+
+    // The assistant presses remind: the same row is unread again, not a second one.
+    let reminded = post_ok(&app, &assistant, &path, None).await;
+    assert_eq!(reminded["id"], token.as_str());
+    assert_eq!(reminded["status"], "waiting");
+    assert!(reminded["reminded_at"].is_string());
+    assert_eq!(token_rows(&app, &token, "patient_waiting").await, 1);
+    assert_eq!(count(&app, &doctor).await, 1);
+    assert_eq!(badge(&app, &doctor).await, 1);
+    let row = about_token(&feed(&app, &doctor).await, "patient_waiting", &token);
+    assert_eq!(row.len(), 1);
+    assert_eq!(row[0]["read"], false);
+    assert!(row[0]["handled"].is_null());
+
+    // A second press inside the minute is refused, with the wait.
+    let (status, body) = call(&app, &assistant, Method::POST, &path, None).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"]["code"], "remind_too_soon");
+    let wait = body["error"]["retry_after_seconds"].as_i64().unwrap();
+    assert!((1..=60).contains(&wait), "{wait}");
+
+    // After the minute the doctor, who has read it again, is re-raised once more.
+    post_ok(&app, &doctor, "/api/v1/notifications/read-all", None).await;
+    assert_eq!(count(&app, &doctor).await, 0);
+    sqlx::query(
+        "update aarogyam.queue_tokens set last_reminded_at = now() - interval '61 seconds' where id = $1",
+    )
+    .bind(uuid_of(&token))
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    post_ok(&app, &owner, &path, None).await;
+    assert_eq!(count(&app, &doctor).await, 1);
+
+    // A role without either permission can't; another clinic gets a 404.
+    let (status, _) = call(&app, &nothing, Method::POST, &path, None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = app
+        .send(
+            Method::POST,
+            BETA,
+            &path,
+            Some(&app.token(BETA_OWNER)),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // A called token can't be reminded about.
+    post_ok(&app, &owner, &format!("/api/v1/queue/{token}/call"), None).await;
+    let (status, body) = call(&app, &assistant, Method::POST, &path, None).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"]["code"], "not_waiting");
+
+    app.finish().await;
+}

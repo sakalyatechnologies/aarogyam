@@ -42,6 +42,22 @@ pub enum AppError {
         /// The record's version now.
         current: i64,
     },
+    /// Only a waiting patient can be reminded about (`409 not_waiting`).
+    #[error("the patient is not waiting")]
+    NotWaiting,
+    /// A waiting patient was reminded less than a minute ago (`409 remind_too_soon`).
+    #[error("this patient was reminded a moment ago")]
+    RemindTooSoon {
+        /// Seconds until another reminder is accepted.
+        retry_after_seconds: i64,
+    },
+    /// The payment is more than the bills' balance (`409 overpayment`): someone else may have
+    /// collected first.
+    #[error("the payment is more than the balance due")]
+    Overpayment {
+        /// What is still due on the named bills, in paise.
+        balance_paise: i64,
+    },
     /// A rule beyond the permission forbids it (only owners may make owners).
     #[error("forbidden: {0}")]
     Forbidden(&'static str),

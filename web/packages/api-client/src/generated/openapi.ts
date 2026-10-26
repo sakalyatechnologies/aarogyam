@@ -108,6 +108,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/appointments/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reschedules a requested, booked or confirmed appointment and confirms it in one step, after
+         *     checking the new time is free (leave and other appointments). A patient who booked online is
+         *     told the confirmed time.
+         */
+        post: operations["moveAppointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/appointments/{id}/status": {
         parameters: {
             query?: never;
@@ -3208,6 +3229,27 @@ export interface paths {
         head?: never;
         /** Changes a doctor's details. */
         patch: operations["updatePractitioner"];
+        trace?: never;
+    };
+    "/api/v1/practitioners/{id}/conflict-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What happens when a patient asks online for a time this doctor already holds. */
+        get: operations["getConflictPolicy"];
+        /**
+         * Sets a doctor's conflict policy. The owner (`settings.manage`) sets any doctor's; a doctor
+         *     (`clinical.write`) sets only their own; front desk and assistants can only read.
+         */
+        put: operations["setConflictPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/practitioners/{id}/working-hours": {
@@ -6495,6 +6537,21 @@ export interface components {
             /** @description The conditions. */
             items: components["schemas"]["Condition"][];
         };
+        /** @description A doctor's conflict policy. */
+        ConflictPolicy: {
+            /** @description What applies to this doctor now: `request` or `strict`. */
+            effective: string;
+            /** @description The doctor's own choice: `request`, `strict`, or null to follow the clinic's. */
+            policy?: string | null;
+        };
+        /** @description A doctor's conflict policy to set. */
+        ConflictPolicyChange: {
+            /**
+             * @description `request`, `strict`, or null to follow the clinic's default
+             *     (`PATCH /settings/clinic`, `online_booking.conflict_policy`).
+             */
+            policy?: string | null;
+        };
         /** @description One consent a patient gave, and whether it still stands. */
         Consent: {
             /** @description When the patient agreed (RFC 3339). */
@@ -8704,6 +8761,13 @@ export interface components {
             current: Record<string, unknown>;
             /** @description The refusal. */
             error: components["schemas"]["ErrorDetail"];
+        };
+        /** @description Where to move an appointment. */
+        MoveRequest: {
+            /** @description Another doctor; left out keeps the same one. */
+            practitioner_id?: string | null;
+            /** @description The new start, RFC 3339; the appointment keeps its length. */
+            starts_at: string;
         };
         /** @description Whether a conversation is muted. */
         MuteBody: {
@@ -13580,6 +13644,76 @@ export interface operations {
             };
             /** @description The appointment can't arrive from its status, or "No known allergies" with an allergy on record */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    moveAppointment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The appointment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description The `row_version` in quotes */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusChanged"];
+                };
+            };
+            /** @description Bad time or doctor id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such appointment in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The appointment is past confirming (`conflict`), or the new time is held by another appointment (`slot_occupied`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The doctor is on leave then (`practitioner_on_leave`) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -23649,6 +23783,103 @@ export interface operations {
             };
             /** @description The member is already a doctor */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getConflictPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The doctor */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConflictPolicy"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such doctor in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setConflictPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The doctor */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConflictPolicyChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConflictPolicy"];
+                };
+            };
+            /** @description Not `request`, `strict` or null */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Neither settings.manage nor a doctor setting their own */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such doctor in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

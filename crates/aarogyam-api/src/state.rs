@@ -26,6 +26,7 @@ use crate::cache::TtlCache;
 use crate::dev::DevTokens;
 use crate::error_report::ErrorReporting;
 use crate::failure::ApiFailure;
+use crate::live::Hub;
 use crate::metrics::ServiceMetrics;
 use crate::v1::client_errors::Budget;
 
@@ -152,6 +153,7 @@ struct Inner {
     error_reporting: Option<Arc<ErrorReporting>>,
     staff_mfa: bool,
     client_errors: Budget,
+    live: Hub,
 }
 
 /// Shared state; cheap to clone.
@@ -185,6 +187,7 @@ impl AppState {
                 error_reporting: None,
                 staff_mfa: true,
                 client_errors: Budget::default(),
+                live: Hub::new(),
             }),
         }
     }
@@ -354,6 +357,10 @@ impl AppState {
 
     pub(crate) fn throttle(&self) -> Option<&Throttle> {
         self.inner.throttle.as_ref()
+    }
+
+    pub(crate) fn live(&self) -> &Hub {
+        &self.inner.live
     }
 
     /// The database handle.

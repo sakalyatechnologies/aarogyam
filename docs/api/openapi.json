@@ -3070,6 +3070,69 @@
         ]
       }
     },
+    "/api/v1/events": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "A stream of change signals for the caller's clinic (`text/event-stream`).",
+        "description": "Events: `ready` (sent once when the stream is open; data `{}`), `queue.changed`,\n`visit.changed`, `appointment.changed`, `notification.created` (data `{kind, id, branch_id}`: identifiers only, never\npatient data; refetch the list or record they name) and `resync` (signals may have been\nmissed, or a resume is impossible; refetch everything). Each change event has an `id:` (a\nnumber that only grows). A `: hb` comment arrives every 25 seconds; the stream closes after 8 minutes (reconnect with `Last-Event-ID`).\n\nResume: send `Last-Event-ID` (browsers' `EventSource` does it by itself) and the server replays\nthe clinic's events after that id from a buffer of the last 2000 events, then goes live\n(`ready` is sent first). When the buffer no longer reaches back that far (or the id is\nunknown, or over 500 events were missed) it sends `resync` straight away instead: refetch everything. Without\nthe header nothing is replayed: fetch, then listen. Polling stays the fallback.",
+        "operationId": "streamEvents",
+        "parameters": [
+          {
+            "name": "branch_id",
+            "in": "query",
+            "description": "Only this branch",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "description": "The id of the last event seen: replay what came after",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The event stream; see the operation description for the events",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad branch id"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          },
+          "404": {
+            "description": "No such branch in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/expenses": {
       "get": {
         "tags": [

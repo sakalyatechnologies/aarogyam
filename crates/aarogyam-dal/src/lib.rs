@@ -45,6 +45,7 @@ pub mod lab_orders;
 pub mod lab_payments;
 pub mod labs;
 pub mod legal_hold;
+pub mod live;
 pub mod lookups;
 pub mod medicine_sets;
 pub mod merge;

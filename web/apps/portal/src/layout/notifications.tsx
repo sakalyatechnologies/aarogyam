@@ -107,6 +107,13 @@ export function describeNotification(item: Notification, timeZone: string): Desc
   switch (item.kind) {
     case "booking_requested":
       return { title: "Booking request", body: slot === "" ? "A patient asked for a visit." : `${slot}. Confirm or decline it.`, icon: CalendarPlus };
+    case "booking_conflict":
+      return {
+        title: "Time already booked",
+        body: `${slot === "" ? "" : `${slot}. `}A patient asked for a time that's taken — confirm, move or decline.`,
+        icon: CalendarX,
+        ...(item.appointment == null ? {} : { to: `/calendar?from=${new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(item.appointment.starts_at))}` }),
+      };
     case "booking_confirmed_auto":
       return { title: "Booking confirmed", body: slot === "" ? "A booking was confirmed." : `${slot}.`, icon: CalendarCheck };
     case "booking_cancelled_by_patient":

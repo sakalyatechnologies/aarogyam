@@ -531,9 +531,14 @@ describe("fake client: patient self-booking", () => {
     const first = value(await book(priya, slots[0]));
     expect(first.status).toBe("requested");
     expect(value(await priya.getAvailability("2026-10-05", doctor)).slots).not.toContain(slots[0]);
-    // The same slot again, from someone else: taken.
+    // The same slot again, from someone else: no longer free, but it can be asked for (policy "request").
     const other = clientFor(backend, person("d0d0d0d0-0000-4000-8000-000000000003", "meera@example.test"));
+    expect(value(await other.getAvailability("2026-10-05", doctor)).requestable_slots).toContain(slots[0]);
+    // Under "strict" it is refused.
+    value(await backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.asha }), now: () => NOW }).updateClinicSettings({ online_booking: { conflict_policy: "strict" } }));
+    expect(value(await other.getAvailability("2026-10-05", doctor)).requestable_slots).toEqual([]);
     expect(errorOf(await book(other, slots[0]))?.status).toBe(409);
+    value(await backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.asha }), now: () => NOW }).updateClinicSettings({ online_booking: { conflict_policy: "request" } }));
 
     expect(value(await book(priya, slots[1])).status).toBe("requested");
     expect(errorOf(await book(priya, slots[2]))?.status).toBe(409);

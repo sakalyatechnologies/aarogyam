@@ -42,7 +42,7 @@ import type {
 import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview } from "./schemas.js";
 import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
-import type { Allergy, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
+import type { ConflictPolicy, MoveAppointment, Allergy, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PhoneMatchPage, QuickPicks, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -463,6 +463,11 @@ export interface ApiClient {
   changeAppointment(id: AppointmentId, changes: AppointmentChanges, options?: RequestOptions): Promise<ApiResult<SavedAppointment>>;
   /** Clinic host: moves an appointment's status along, or cancels (with a reason) or marks a no-show. Needs `appointments.write`. */
   setAppointmentStatus(id: AppointmentId, change: StatusChange, options?: RequestOptions): Promise<ApiResult<StatusChanged>>;
+  /** Reschedules a requested, booked or confirmed appointment and confirms it. 409 `slot_occupied` when the new time is held. */
+  moveAppointment(id: AppointmentId, to: MoveAppointment, options?: RequestOptions): Promise<ApiResult<StatusChanged>>;
+  /** A doctor's own answer to a taken time (`null` follows the clinic). Owner reads any; a doctor only their own. */
+  getConflictPolicy(id: PractitionerId, options?: RequestOptions): Promise<ApiResult<ConflictPolicy>>;
+  setConflictPolicy(id: PractitionerId, policy: ConflictPolicy, options?: RequestOptions): Promise<ApiResult<ConflictPolicy>>;
 
   /** Clinic host: the queue of a clinic day, with each token's wait. Needs `appointments.read`. */
   listQueue(date: string | undefined, options?: QueueOptions): Promise<ApiResult<QueueDayPage>>;

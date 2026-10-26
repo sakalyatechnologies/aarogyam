@@ -132,6 +132,7 @@ import {
   sharedPreview,
   staffResponse,
   statusChanged,
+  conflictPolicy,
   patientNotes,
   consent,
   consentList,
@@ -390,6 +391,12 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "PATCH", path: `/api/v1/appointments/${encodeURIComponent(id)}`, schema: savedAppointment, body: changes, signal: opts?.signal }),
     setAppointmentStatus: (id, change, opts) =>
       call({ method: "POST", path: `/api/v1/appointments/${encodeURIComponent(id)}/status`, schema: statusChanged, body: change, signal: opts?.signal }),
+    moveAppointment: (id, to, opts) =>
+      call({ method: "POST", path: `/api/v1/appointments/${encodeURIComponent(id)}/move`, schema: statusChanged, body: to, signal: opts?.signal }),
+    getConflictPolicy: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/practitioners/${encodeURIComponent(id)}/conflict-policy`, schema: conflictPolicy, signal: opts?.signal }),
+    setConflictPolicy: (id, policy, opts) =>
+      call({ method: "PUT", path: `/api/v1/practitioners/${encodeURIComponent(id)}/conflict-policy`, schema: conflictPolicy, body: policy, signal: opts?.signal }),
 
     listQueue: (dateValue, opts) =>
       call({

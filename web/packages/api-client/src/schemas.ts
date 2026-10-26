@@ -620,6 +620,18 @@ export const statusChanged = z.object({
 }) satisfies z.ZodType<C.StatusChanged>;
 export type StatusChanged = z.output<typeof statusChanged>;
 
+/** Body of `POST /api/v1/appointments/{id}/move`: a new time (and maybe doctor); the appointment is confirmed there. */
+export interface MoveAppointment {
+  starts_at: string;
+  practitioner_id?: string | null;
+}
+
+/** A doctor's own answer to a taken time; `null` follows the clinic's. Hand-written: the generated paths don't list the route yet. */
+export const conflictPolicyValue = z.enum(["request", "strict"]);
+export type ConflictPolicyValue = z.output<typeof conflictPolicyValue>;
+export const conflictPolicy = z.object({ conflict_policy: conflictPolicyValue.nullable() });
+export type ConflictPolicy = z.output<typeof conflictPolicy>;
+
 // Rooms, practitioners, hours and leave (M3) -----------------------------------------------------
 
 export const roomKind = z.enum(["chair", "room", "lab"]) satisfies z.ZodType<C.RoomKind>;
@@ -3001,6 +3013,7 @@ export const notificationKind = z.enum([
   "time_off_requested",
   "time_off_decided",
   "stock_alert",
+  "booking_conflict",
 ]);
 /** The kinds this client knows. `Notification.kind` is any string: the server adds kinds without waiting for old apps. */
 export type NotificationKind = z.output<typeof notificationKind>;

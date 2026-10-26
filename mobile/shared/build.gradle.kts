@@ -241,6 +241,11 @@ val apiModels =
         "PatientMessage",
         "RootCanal",
         "ShareMessage",
+        // v10 T6: My tasks.
+        "MyTasks",
+        "TaskOccurrence",
+        "CompleteBody",
+        "UsageBody",
     )
 val generatedApi = layout.buildDirectory.dir("generated/openapi")
 

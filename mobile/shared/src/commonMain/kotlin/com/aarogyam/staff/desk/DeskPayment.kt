@@ -3,6 +3,7 @@ package com.aarogyam.staff.desk
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.invoice
+import com.aarogyam.staff.api.model.CollectUpi
 import com.aarogyam.staff.billing.PayMethod
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.config.caps.ServerCaps
@@ -29,6 +30,8 @@ data class DueBill(
     val number: String?,
     val balancePaise: Long,
     val draft: Boolean = false,
+    /** The UPI link for this bill, set once the collect-summary was read (QR and open-app link). */
+    val upi: CollectUpi? = null,
 )
 
 /** What the collect-payment sheet draws before a payment is sent. */
@@ -123,6 +126,18 @@ class DeskPaymentStateHolder(
         load()
     }
 
+    private val upis = mutableMapOf<String, CollectUpi>()
+
+    private fun showUpi(
+        invoiceId: String?,
+        upi: CollectUpi?,
+    ) {
+        if (invoiceId != null && upi != null) upis[invoiceId] = upi
+        val ready = mutableState.value as? DeskPayState.Ready ?: return
+        mutableState.value =
+            ready.copy(dues = ready.dues.map { if (it.id == invoiceId) it.copy(upi = upi) else it })
+    }
+
     private fun load() {
         scope.launch {
             when (val result = clinic.api.invoices(patientId)) {
@@ -138,7 +153,7 @@ class DeskPaymentStateHolder(
                                 dueBillOf(row.id, row.number, row.status, row.totalPaise, row.balancePaise)
                             }
                         }
-                    mutableState.value = DeskPayState.Ready(dues, canProof)
+                    mutableState.value = DeskPayState.Ready(dues.map { it.copy(upi = upis[it.id]) }, canProof)
                     if (dues.isEmpty()) mutableCardOpen.value = false
                 }
 
@@ -193,6 +208,7 @@ class DeskPaymentStateHolder(
             val fresh =
                 when (val check = recheck(clinic.api, job, log)) {
                     is Recheck.Proceed -> {
+                        showUpi(invoiceId, check.upi)
                         check.job
                     }
 

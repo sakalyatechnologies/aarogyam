@@ -310,7 +310,8 @@ async fn the_outbox_drain_delivers_to_the_log_and_abandons_broken_messages() {
                 // No lab work due (tests/labs.rs).
                 "lab_reminders_queued": 0, "lab_reminders_skipped": 0, "lab_orders_overdue": 0,
                 // No follow-ups due or patients waiting (tests/settings_v2.rs).
-                "recalls_flagged": 0, "waiting_flagged": 0 })
+                "recalls_flagged": 0, "waiting_flagged": 0,
+                "no_shows_marked": 0, "tokens_closed": 0 })
     );
     let rows: Vec<OutboxRow> = sqlx::query_as(
         "select event_key, status, provider, secret, last_error, attempts
@@ -552,7 +553,7 @@ async fn suspending_or_changing_a_member_takes_effect_at_once() {
             ALPHA,
             &path,
             Some(&owner),
-            Some(json!({ "status": "active", "role_key": "assistant" })),
+            Some(json!({ "status": "active", "role_key": "finance" })),
         )
         .await;
     assert_eq!(status, StatusCode::OK);
@@ -560,8 +561,8 @@ async fn suspending_or_changing_a_member_takes_effect_at_once() {
         .send(Method::GET, ALPHA, "/api/v1/session", Some(&desk), None)
         .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(session["membership"]["role_key"], "assistant");
-    // The new role applies at once: an assistant can't register patients.
+    assert_eq!(session["membership"]["role_key"], "finance");
+    // The new role applies at once: a finance member can't register patients.
     let (status, _) = app
         .send(
             Method::POST,

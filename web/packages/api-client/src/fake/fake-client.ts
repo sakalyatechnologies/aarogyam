@@ -2382,6 +2382,39 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ date: day, items } satisfies C.QueueDay);
         }),
 
+      listMissedAppointments: (dateValue, opts) =>
+        respond(S.missedList, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const day = dateValue ?? localClock(clock(), caller.clinic.timezone).date;
+          const items = state.appointments
+            .filter((a) => a.clinic_id === caller.clinic.id && a.status === "no_show")
+            .filter((a) => localClock(new Date(a.starts_at), caller.clinic.timezone).date === day)
+            .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+            .flatMap((a) => {
+              const patient = state.patients.find((p) => p.id === a.patient_id);
+              return patient === undefined
+                ? []
+                : [{ appointment_id: a.id, patient_id: a.patient_id, patient_number: patient.number, practitioner_id: a.practitioner_id, starts_at: a.starts_at }];
+            });
+          return reply({ date: day, items } satisfies C.MissedList);
+        }),
+
+      listQueueToCollect: (opts) =>
+        respond(S.toCollectList, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const allowed = caller.membership.role.permissions;
+          if (!hasPermission(allowed, "billing.read") && !hasPermission(allowed, "payments.collect")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          return reply({ items: [] } satisfies C.ToCollectList);
+        }),
+
       addWalkIn: (input, opts) =>
         respond(S.queueToken, opts?.signal, async () => {
           const caller = await inClinic("appointments.write");
@@ -8310,6 +8343,8 @@ const BOOKING_DEFAULTS: C.OnlineBooking = {
   min_notice_minutes: 60,
   reminder_minutes: 15,
   default_visit_minutes: 30,
+  no_show_auto: true,
+  no_show_grace_minutes: 30,
 };
 /** Most open self-bookings one verified person may hold in a clinic. */
 const MAX_OPEN_SELF_BOOKINGS = 2;
@@ -8345,6 +8380,9 @@ function validateOnlineBooking(changes: C.OnlineBookingChanges): Outcome | null 
   }
   if (changes.default_visit_minutes != null && ![15, 30, 45, 60].includes(changes.default_visit_minutes)) {
     return invalid("booking.default_visit_minutes", "must be 15, 30, 45 or 60 minutes");
+  }
+  if (changes.no_show_grace_minutes != null && (changes.no_show_grace_minutes < 0 || changes.no_show_grace_minutes > 240)) {
+    return invalid("booking.no_show_grace_minutes", "must be 0 to 240 minutes");
   }
   return null;
 }

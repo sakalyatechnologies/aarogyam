@@ -4,7 +4,9 @@ use aarogyam_app::Moved;
 use aarogyam_app::queue::{self as app, TokenView, WalkIn};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{BranchId, PatientId, PractitionerId, QueueTokenId, RoomId};
-use aarogyam_domain::permission::require::{AppointmentsRead, AppointmentsWrite, ClinicalWrite};
+use aarogyam_domain::permission::require::{
+    AppointmentsRead, AppointmentsWrite, BillingRead, ClinicalWrite, PaymentsCollect,
+};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -18,7 +20,7 @@ use super::appointments::{PatientBrief, PractitionerBrief};
 use super::visits::Visit;
 use super::{parse_day, parse_id, rfc3339};
 use crate::AppState;
-use crate::extract::Require;
+use crate::extract::{Require, RequireEither};
 use crate::failure::{ApiFailure, MoveRefused};
 
 /// A waiting-room token.
@@ -392,4 +394,72 @@ pub(crate) async fn start_visit(
             created: started.created,
         }),
     ))
+}
+
+/// A bill left unpaid from an earlier day. Ids and numbers only.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ToCollectItem {
+    /// The queue token, still `ready_to_bill`.
+    pub token_id: String,
+    /// Its clinic day, `YYYY-MM-DD`.
+    pub day: String,
+    /// The number it had that day.
+    pub token_number: i32,
+    /// The patient.
+    pub patient_id: String,
+    /// The patient's clinic number, such as `SC-1042`.
+    pub patient_number: String,
+    /// The bill; ask `/invoices/{id}/collect-summary` to collect it.
+    pub invoice_id: String,
+    /// What is left to pay, in paise.
+    pub balance_paise: i64,
+}
+
+/// Bills still to collect from earlier days.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ToCollectList {
+    /// Oldest first.
+    pub items: Vec<ToCollectItem>,
+}
+
+/// Visits from earlier days that finished treatment and still have a bill to collect. They left
+/// the queue at day end but stay open here until paid. Open to `payments.collect` as well as
+/// `billing.read`.
+#[utoipa::path(
+    get,
+    path = "/api/v1/queue/to-collect",
+    operation_id = "listQueueToCollect",
+    tag = "queue",
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = ToCollectList),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role has neither payments.collect nor billing.read")
+    )
+)]
+pub(crate) async fn to_collect(
+    State(state): State<AppState>,
+    RequireEither { request, .. }: RequireEither<PaymentsCollect, BillingRead>,
+) -> Result<Json<ToCollectList>, ApiFailure> {
+    let rows = app::to_collect(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(ToCollectList {
+        items: rows
+            .into_iter()
+            .map(|row| ToCollectItem {
+                token_id: row.token_id.to_string(),
+                day: row.day.to_string(),
+                token_number: row.token_number,
+                patient_id: row.patient_id.to_string(),
+                patient_number: row.patient_number,
+                invoice_id: row.invoice_id.to_string(),
+                balance_paise: row.balance_paise,
+            })
+            .collect(),
+    }))
 }

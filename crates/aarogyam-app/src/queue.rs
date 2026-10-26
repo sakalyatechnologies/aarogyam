@@ -540,3 +540,25 @@ pub async fn start_visit(
     })
     .await
 }
+
+/// Tokens from earlier days whose bills still have a balance, for the desk's "To collect" list.
+/// They stay `ready_to_bill` but are not part of today's queue. Needs `billing.read` or
+/// `payments.collect`.
+///
+/// # Errors
+/// [`AppError::Denied`] without either; [`AppError::Db`] on failures.
+pub async fn to_collect(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    now: OffsetDateTime,
+) -> Result<Vec<dal::ToCollectRow>, AppError> {
+    if actor.require(Permission::BillingRead).is_err() {
+        actor.require(Permission::PaymentsCollect)?;
+    }
+    let today = clinic_today(&actor.timezone, now);
+    db.scoped(&scope(actor, request_id), async |tx| {
+        Ok(dal::to_collect(tx.conn(), today).await?)
+    })
+    .await
+}

@@ -17,6 +17,7 @@ use crate::scope::staff_scope as scope;
 pub const KEYS: &[&str] = &[
     "care.note",
     "reminder.follow_up",
+    "reminder.missed_visit",
     "promo.offer",
     "appointment.reminder",
     "booking.requested",

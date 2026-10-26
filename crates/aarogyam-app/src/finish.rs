@@ -33,8 +33,9 @@ use aarogyam_dal::visits;
 pub struct WrapUp {
     /// When the patient should come back; plans a follow-up (needs `patients.write`).
     pub follow_up_on: Option<Date>,
-    /// What the visit costs, in paise; starts a draft bill linked to the visit (needs
-    /// `billing.write`).
+    /// What the visit costs, in paise; starts a draft bill linked to the visit. Needs only
+    /// `clinical.write` over the visit: the bill stays a draft (issuing and payment are the
+    /// desk's, `billing.write` and `payments.collect`).
     pub fee_paise: Option<i64>,
     /// The follow-up's reason (1 to 300 characters); with a fee but no follow-up, the note
     /// printed on the draft bill.
@@ -73,7 +74,6 @@ fn check_wrap_up(
     let fee = match wrap.fee_paise {
         None => None,
         Some(paise) => {
-            actor.require(Permission::BillingWrite)?;
             let amount = fee(paise).map_err(|e| AppError::invalid("fee_paise", e))?;
             if amount.get() == 0 {
                 return Err(AppError::invalid("fee_paise", "must be more than 0"));
@@ -249,7 +249,7 @@ pub enum FinishOutcome {
 /// # Errors
 /// [`AppError::VisitClosed`] when the visit is already closed; [`AppError::NotFound`] when it
 /// isn't in this clinic; [`AppError::Denied`] when issuing, the follow-up or the fee needs a
-/// permission the member lacks (`prescriptions.issue`, `patients.write`, `billing.write`);
+/// permission the member lacks (`prescriptions.issue`, `patients.write`);
 /// [`AppError::Invalid`] for a prescription that isn't a draft of this patient or bad values.
 pub async fn finish(
     db: &Db,

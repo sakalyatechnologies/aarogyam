@@ -526,3 +526,86 @@ impl From<app::StatusChanged> for StatusChanged {
         }
     }
 }
+
+/// Which day's no-shows to list.
+#[derive(Debug, Deserialize)]
+pub struct MissedQuery {
+    /// The clinic day, `YYYY-MM-DD`; today when left out.
+    pub date: Option<String>,
+}
+
+/// One appointment nobody came to. Ids and numbers only: look the patient up by `patient_id`.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MissedAppointment {
+    /// The appointment.
+    pub appointment_id: String,
+    /// The patient.
+    pub patient_id: String,
+    /// The patient's clinic number, such as `SC-1042`.
+    pub patient_number: String,
+    /// The doctor.
+    pub practitioner_id: String,
+    /// When it was to start.
+    pub starts_at: String,
+    /// The `missed_visit` follow-up written for it; absent when the clinic switched automatic
+    /// no-shows off and staff marked it by hand.
+    pub recall_id: Option<String>,
+}
+
+/// A day's no-shows.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MissedList {
+    /// The clinic day, `YYYY-MM-DD`.
+    pub date: String,
+    /// By start time.
+    pub items: Vec<MissedAppointment>,
+}
+
+/// The appointments of one clinic day that ended as no-shows, with the follow-up written for
+/// each, for the Missed card. Check in or reschedule with the usual appointment calls.
+#[utoipa::path(
+    get,
+    path = "/api/v1/appointments/missed",
+    operation_id = "listMissedAppointments",
+    tag = "appointments",
+    params(("date" = Option<String>, Query, description = "The clinic day, `YYYY-MM-DD`; today when left out")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = MissedList),
+        (status = 400, description = "Bad date"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks appointments.read")
+    )
+)]
+pub(crate) async fn missed(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<AppointmentsRead>,
+    ApiQuery(query): ApiQuery<MissedQuery>,
+) -> Result<Json<MissedList>, ApiFailure> {
+    let (date, rows) = app::missed(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        query
+            .date
+            .as_deref()
+            .map(|text| parse_day("date", text))
+            .transpose()?,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(MissedList {
+        date: date.to_string(),
+        items: rows
+            .into_iter()
+            .map(|row| MissedAppointment {
+                appointment_id: row.appointment_id.to_string(),
+                patient_id: row.patient_id.to_string(),
+                patient_number: row.patient_number,
+                practitioner_id: row.practitioner_id.to_string(),
+                starts_at: rfc3339(row.starts_at),
+                recall_id: row.recall_id.map(|id| id.to_string()),
+            })
+            .collect(),
+    }))
+}

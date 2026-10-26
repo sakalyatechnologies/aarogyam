@@ -56,6 +56,8 @@ describe("createHttpClient Today requests", () => {
     await client.callQueueToken(ID);
     await client.listQueue("2026-10-03", { practitionerId: PRACTITIONER });
     await client.getCollections({ weeks: 8 });
+    await client.listMissedAppointments("2026-10-03");
+    await client.listQueueToCollect();
 
     expect(calls.map((c) => c.url)).toEqual([
       "/api/v1/today?date=2026-10-01",
@@ -64,6 +66,8 @@ describe("createHttpClient Today requests", () => {
       `/api/v1/queue/${ID}/call`,
       `/api/v1/queue?date=2026-10-03&practitioner_id=${PRACTITIONER}`,
       "/api/v1/reports/collections?weeks=8",
+      "/api/v1/appointments/missed?date=2026-10-03",
+      "/api/v1/queue/to-collect",
     ]);
     expect(calls[3]?.init?.method).toBe("POST");
   });
@@ -679,6 +683,8 @@ describe("createHttpClient settings v2", () => {
         min_notice_minutes: 60,
         reminder_minutes: 15,
         default_visit_minutes: 45,
+        no_show_auto: true,
+        no_show_grace_minutes: 30,
       },
       letterhead: {
         mode: "template",

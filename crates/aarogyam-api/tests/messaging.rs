@@ -251,7 +251,7 @@ async fn contact_preferences_are_recorded_within_the_clinic() {
     let (status, _) = call(
         &app,
         ALPHA,
-        ALPHA_ASSISTANT,
+        ALPHA_NOTHING,
         Method::POST,
         &prefs,
         Some(opt_out.clone()),

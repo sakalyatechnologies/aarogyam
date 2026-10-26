@@ -97,7 +97,9 @@ import {
   procedure,
   procedureList,
   qualityReport,
+  missedList,
   queueDay,
+  toCollectList,
   queueToken,
   monthSummary,
   labBalance,
@@ -412,6 +414,9 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         query: { date: dateValue, practitioner_id: opts?.practitionerId },
         signal: opts?.signal,
       }),
+    listMissedAppointments: (dateValue, opts) =>
+      call({ method: "GET", path: "/api/v1/appointments/missed", schema: missedList, query: { date: dateValue }, signal: opts?.signal }),
+    listQueueToCollect: (opts) => call({ method: "GET", path: "/api/v1/queue/to-collect", schema: toCollectList, signal: opts?.signal }),
     addWalkIn: (input, opts) => call({ method: "POST", path: "/api/v1/queue", schema: queueToken, body: input, signal: opts?.signal }),
     callQueueToken: (id, opts) =>
       call({ method: "POST", path: `/api/v1/queue/${encodeURIComponent(id)}/call`, schema: queueToken, signal: opts?.signal }),

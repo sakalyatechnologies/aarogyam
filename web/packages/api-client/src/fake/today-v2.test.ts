@@ -119,3 +119,14 @@ describe("fake client: weekly collections", () => {
     expect(status(await as(FARAH).getCollections({ weeks: 4 }))).toBe(403);
   });
 });
+
+describe("fake client: Missed list and To collect", () => {
+  it("lists a day's no-shows for appointments.read and nothing to collect", async () => {
+    const { as } = setup();
+    const missed = value(await as(ASHA).listMissedAppointments("2026-10-03"));
+    expect(missed.date).toBe("2026-10-03");
+    expect(Array.isArray(missed.items)).toBe(true);
+    expect(value(await as(ASHA).listQueueToCollect()).items).toEqual([]);
+    expect(status(await as(ASHA, "unknown.localtest.me").listMissedAppointments(undefined))).toBe(404);
+  });
+});

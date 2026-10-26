@@ -352,6 +352,8 @@ export const onlineBooking = z.object({
   min_notice_minutes: z.number().int(),
   reminder_minutes: z.number().int(),
   default_visit_minutes: z.number().int(),
+  no_show_auto: z.boolean(),
+  no_show_grace_minutes: z.number().int(),
 }) satisfies z.ZodType<C.OnlineBooking>;
 export type OnlineBooking = z.output<typeof onlineBooking>;
 
@@ -782,6 +784,29 @@ export type QueueToken = z.output<typeof queueToken>;
 
 export const queueDay = z.object({ date, items: z.array(queueToken) }) satisfies z.ZodType<C.QueueDay>;
 export type QueueDayPage = z.output<typeof queueDay>;
+
+export const missedAppointment = z.object({
+  appointment_id: appointmentId,
+  patient_id: patientId,
+  patient_number: z.string(),
+  practitioner_id: practitionerId,
+  starts_at: timestamp,
+  recall_id: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.MissedAppointment>;
+export const missedList = z.object({ date, items: z.array(missedAppointment) }) satisfies z.ZodType<C.MissedList>;
+export type MissedListPage = z.output<typeof missedList>;
+
+export const toCollectItem = z.object({
+  token_id: queueTokenId,
+  day: date,
+  token_number: z.number().int(),
+  patient_id: patientId,
+  patient_number: z.string(),
+  invoice_id: z.string().min(1),
+  balance_paise: z.number().int(),
+}) satisfies z.ZodType<C.ToCollectItem>;
+export const toCollectList = z.object({ items: z.array(toCollectItem) }) satisfies z.ZodType<C.ToCollectList>;
+export type ToCollectPage = z.output<typeof toCollectList>;
 
 /** Body of `POST /api/v1/queue`. */
 export type WalkInBody = C.WalkInBody;

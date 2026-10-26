@@ -361,7 +361,7 @@ async fn a_verified_patient_requests_and_the_front_desk_decides() {
         "/api/v1/appointments/{}/status",
         booked["id"].as_str().unwrap()
     );
-    let assistant = app.token(ALPHA_ASSISTANT);
+    let assistant = app.token(ALPHA_NOTHING);
     let (status, _) = app
         .send(
             Method::POST,

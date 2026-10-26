@@ -36,7 +36,7 @@ pub mod people {
     use uuid::{Uuid, uuid};
     /// Owner of Alpha Dental.
     pub const ALPHA_OWNER: Uuid = uuid!("a0000000-0000-4000-8000-000000000001");
-    /// Assistant at Alpha (patients.read, no patients.write, no patients.contact).
+    /// Assistant at Alpha (patients.read and write, appointments.write, intake.write; no patients.contact, no billing).
     pub const ALPHA_ASSISTANT: Uuid = uuid!("a0000000-0000-4000-8000-000000000002");
     /// Front desk at Alpha (patients.read, write and contact).
     pub const ALPHA_FRONT_DESK: Uuid = uuid!("a0000000-0000-4000-8000-000000000003");

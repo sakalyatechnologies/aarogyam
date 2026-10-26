@@ -152,15 +152,12 @@ async fn reading_needs_patients_read_and_changing_needs_patients_write() {
     assert_eq!(status, StatusCode::CREATED, "{made}");
 
     assert_eq!(family(&app, ALPHA, &assistant, &a).await.len(), 1);
-    assert_eq!(
-        link(&app, &assistant, &a, &b, "sibling").await.0,
-        StatusCode::FORBIDDEN
-    );
     let path = format!(
         "/api/v1/patients/{a}/family/{}",
         made["id"].as_str().unwrap()
     );
-    let (status, _) = send(&app, Method::DELETE, ALPHA, &assistant, &path, None).await;
+    // The assistant has patients.write (0680), so only a role without it is refused.
+    let (status, _) = send(&app, Method::DELETE, ALPHA, &nothing, &path, None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     let (status, _) = send(
         &app,

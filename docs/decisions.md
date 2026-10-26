@@ -606,3 +606,32 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Clash with the iOS chain.** `feat/v9` must not merge `0421_queue_staff_notifications.sql` or its app-side `notify_queue`: this work writes the same rows, with the same `audience` column name and values.
 
 **Why.** The doctor should hear of a waiting patient at once, the desk should hear when there is money to collect (and the assistant, who has no billing access, must be able to collect it), and a bell that stays red after the work is done gets ignored.
+
+## 2026-10-12: Visit roles: the assistant at the front, the doctor starts the bill
+
+**Decision.** Two gaps in the visit journey (migration 0680; additive API).
+- **Assistant.** The seeded `assistant` template gets `appointments.write` and `patients.write`, scope `all` like `front_desk`, backfilled into existing clinics' assistant roles. With the `intake.write` it already had, that is exactly what check-in, queue add and the one-step walk-in need. Still not granted: `patients.contact` (phones stay masked), `billing.read`, `billing.write`, `finance.view`; collecting stays `payments.collect`. The earlier note that this "broke front_desk tests" was tests using the assistant as "the role that cannot register or edit patients"; they now use `finance` or `nothing` for that.
+- **Doctor starts the draft.** A holder of `clinical.write` can start a visit's draft bill without `billing.write`, in the app layer (`billing.rs`, `finish.rs`):
+  - `fee_paise` on close and finish needs only `clinical.write` (already required) with reach over the visit.
+  - The generic `POST /invoices` and `PATCH /invoices/{id}` accept `clinical.write` too, but then only for a draft that is linked to a visit within that member's `clinical.write` reach (the patient must be that visit's patient), lines only: a discount, a place of supply, a replaced bill or moving the bill to another visit answers 403, and a bill with no visit (or a visit out of reach) is 404.
+  - Issuing, voiding, refunds and payments stay `billing.write` or `payments.collect`. The seeded `doctor` already has `billing.read`, so a doctor reads the list and the price list as before; a custom role without it finds the draft only through the response it got.
+- **Web follow-up (not done here).** The visit bar gates the bill on `can("billing.write")` (`visit-bar.tsx`, `useBillDraft` enabled flag); it should gate on `clinical.write` plus `billing.read` so the doctor's itemised lines are saved at Send for payment.
+
+**Why.** The founder wants the shortest journey: the assistant checks in or registers, the doctor treats and presses Send for payment, the assistant collects, with no money powers handed to either.
+
+## 2026-10-25: No-shows are automatic and reversible; stale queue tokens close at day end
+
+**Decision.** Migration 0682 (+ 0684 for the message template). Additive API.
+- **Auto no-show.** The drain job (`app.auto_no_show`, called from `flag_alerts`) moves a Booked or Confirmed appointment to `no_show` when `ends_at` plus the grace has passed and the patient never got a queue token. One guarded `UPDATE` with `FOR UPDATE SKIP LOCKED` re-checks status and token, and writes the `appointment_events` row (note `auto_no_show`, no actor) and a `missed_visit` recall (due on the appointment's clinic day) in the same statement. `recalls.source_appointment_id` with a partial unique index (org, appointment, kind) makes a re-run or a reopened appointment give one follow-up. The function is security definer, an empty `search_path` (everything schema-qualified, as the lint requires), execute revoked from public and granted to the API role; the clinic day uses each organisation's time zone.
+- **Settings** in `org_settings.booking` (read with defaults, so no backfill): `no_show_auto` (default true) and `no_show_grace_minutes` (default 30, 0 to 240; 422-style `booking.no_show_grace_minutes` error beyond that). Exposed in `online_booking` of the clinic settings API.
+- **Reversible.** `NoShow` may become `Arrived` or `Confirmed`, but only on the appointment's own clinic day (checked in the app, `set_status` and `check_in`; an older no-show is 409). The status event for the reversal carries the note `Late arrival`. A staff check-in racing the job always wins: the job skips locked rows and re-checks the token, and a check-in after the job simply reverses it.
+- **Message.** `reminder.missed_visit` (email and WhatsApp draft) uses template variables only (`clinic_name`, `booking_link`), purpose `reminders`, so it needs messaging consent. Templates are per-clinic copies of the defaults (0375), so 0684 seeds it into each clinic rather than a shared global row.
+- **Day-end close.** `app.close_stale_tokens` sets tokens of an earlier clinic day that are `waiting`, `called` or `in_chair` to `left` with `left_reason = 'Closed at day end'`, in batches (the first run clears the backlog). `ready_to_bill` stays open: the money is still to collect, it leaves the queue but is listed as "to collect".
+
+**Why.** No-shows piled up in the queue and analytics; the doctor and desk should not clean them by hand, but a patient who turns up late must not be turned away.
+
+## 2026-10-25: The Missed list and "To collect"
+
+**Decision.** Two additive read endpoints (no migration).
+- `GET /appointments/missed?date=` (`appointments.read`, within the caller's doctor reach): the day's `no_show` appointments with `appointment_id`, `patient_id`, `patient_number`, `practitioner_id`, `starts_at` and `recall_id` (the `missed_visit` follow-up; absent for a hand-marked no-show). No names. Check in and reschedule use the existing appointment calls.
+- `GET /queue/to-collect` (`payments.collect` or `billing.read`): tokens of earlier clinic days still `ready_to_bill` whose draft or issued bill has a balance, with `invoice_id` and `balance_paise`. These stay open after the day-end close but are not in today's queue or its counts.

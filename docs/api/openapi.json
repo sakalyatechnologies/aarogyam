@@ -137,6 +137,51 @@
         ]
       }
     },
+    "/api/v1/appointments/missed": {
+      "get": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "The appointments of one clinic day that ended as no-shows, with the follow-up written for\neach, for the Missed card. Check in or reschedule with the usual appointment calls.",
+        "operationId": "listMissedAppointments",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The clinic day, `YYYY-MM-DD`; today when left out",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissedList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad date"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/appointments/month-summary": {
       "get": {
         "tags": [
@@ -4017,7 +4062,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks billing.write"
+            "description": "Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill)"
           },
           "404": {
             "description": "No such patient in this clinic"
@@ -4118,7 +4163,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks billing.write"
+            "description": "Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill)"
           },
           "404": {
             "description": "No such bill in this clinic"
@@ -12032,6 +12077,37 @@
         ]
       }
     },
+    "/api/v1/queue/to-collect": {
+      "get": {
+        "tags": [
+          "queue"
+        ],
+        "summary": "Visits from earlier days that finished treatment and still have a bill to collect. They left\nthe queue at day end but stay open here until paid. Open to `payments.collect` as well as\n`billing.read`.",
+        "operationId": "listQueueToCollect",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToCollectList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role has neither payments.collect nor billing.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/queue/{id}/call": {
       "post": {
         "tags": [
@@ -16212,7 +16288,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee"
+            "description": "The role lacks clinical.write, or patients.write for a follow-up"
           },
           "404": {
             "description": "No such visit in this clinic"
@@ -16279,7 +16355,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks clinical.write, or prescriptions.issue, patients.write or billing.write for what was asked"
+            "description": "The role lacks clinical.write, or prescriptions.issue or patients.write for what was asked"
           },
           "404": {
             "description": "No such visit or prescription in this clinic"
@@ -19712,7 +19788,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.\nNeeds `billing.write`."
+            "description": "What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.\nNeeds only `clinical.write`; the bill stays a draft for the desk."
           },
           "follow_up_on": {
             "type": [
@@ -21328,7 +21404,9 @@
           "lab_reminders_skipped",
           "lab_orders_overdue",
           "recalls_flagged",
-          "waiting_flagged"
+          "waiting_flagged",
+          "no_shows_marked",
+          "tokens_closed"
         ],
         "properties": {
           "address_provider": {
@@ -21439,6 +21517,11 @@
             "description": "Patient messages not sent, for a reason (consent, an opt-out, no address).",
             "minimum": 0
           },
+          "no_shows_marked": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Appointments marked no-show."
+          },
           "purged": {
             "type": "integer",
             "format": "int64",
@@ -21463,6 +21546,11 @@
             "type": "integer",
             "description": "Delivered.",
             "minimum": 0
+          },
+          "tokens_closed": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Stale queue tokens closed."
           },
           "waiting_flagged": {
             "type": "integer",
@@ -22040,7 +22128,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.\nNeeds `billing.write`."
+            "description": "What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.\nNeeds only `clinical.write`; the bill stays a draft for the desk."
           },
           "follow_up_on": {
             "type": [
@@ -25760,6 +25848,67 @@
           }
         }
       },
+      "MissedAppointment": {
+        "type": "object",
+        "description": "One appointment nobody came to. Ids and numbers only: look the patient up by `patient_id`.",
+        "required": [
+          "appointment_id",
+          "patient_id",
+          "patient_number",
+          "practitioner_id",
+          "starts_at"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": "string",
+            "description": "The appointment."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "patient_number": {
+            "type": "string",
+            "description": "The patient's clinic number, such as `SC-1042`."
+          },
+          "practitioner_id": {
+            "type": "string",
+            "description": "The doctor."
+          },
+          "recall_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The `missed_visit` follow-up written for it; absent when the clinic switched automatic\nno-shows off and staff marked it by hand."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "When it was to start."
+          }
+        }
+      },
+      "MissedList": {
+        "type": "object",
+        "description": "A day's no-shows.",
+        "required": [
+          "date",
+          "items"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MissedAppointment"
+            },
+            "description": "By start time."
+          }
+        }
+      },
       "MixItem": {
         "type": "object",
         "description": "Billed revenue in one price list category.",
@@ -27998,7 +28147,9 @@
           "horizon_days",
           "min_notice_minutes",
           "reminder_minutes",
-          "default_visit_minutes"
+          "default_visit_minutes",
+          "no_show_auto",
+          "no_show_grace_minutes"
         ],
         "properties": {
           "auto_confirm": {
@@ -28031,6 +28182,16 @@
             "type": "integer",
             "format": "int32",
             "description": "How soon before a slot it stops being offered, in minutes (0 to 10080).",
+            "minimum": 0
+          },
+          "no_show_auto": {
+            "type": "boolean",
+            "description": "Whether appointments nobody came to are marked no-show automatically (default true)."
+          },
+          "no_show_grace_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Minutes after an appointment's end before it is marked no-show (0 to 240, default 30).",
             "minimum": 0
           },
           "reminder_minutes": {
@@ -28099,6 +28260,22 @@
             ],
             "format": "int32",
             "description": "Minimum notice in minutes.",
+            "minimum": 0
+          },
+          "no_show_auto": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Mark missed appointments as no-show automatically."
+          },
+          "no_show_grace_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "No-show grace in minutes, 0 to 240.",
             "minimum": 0
           },
           "reminder_minutes": {
@@ -35726,6 +35903,67 @@
               "null"
             ],
             "description": "The visit it belongs to."
+          }
+        }
+      },
+      "ToCollectItem": {
+        "type": "object",
+        "description": "A bill left unpaid from an earlier day. Ids and numbers only.",
+        "required": [
+          "token_id",
+          "day",
+          "token_number",
+          "patient_id",
+          "patient_number",
+          "invoice_id",
+          "balance_paise"
+        ],
+        "properties": {
+          "balance_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What is left to pay, in paise."
+          },
+          "day": {
+            "type": "string",
+            "description": "Its clinic day, `YYYY-MM-DD`."
+          },
+          "invoice_id": {
+            "type": "string",
+            "description": "The bill; ask `/invoices/{id}/collect-summary` to collect it."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "patient_number": {
+            "type": "string",
+            "description": "The patient's clinic number, such as `SC-1042`."
+          },
+          "token_id": {
+            "type": "string",
+            "description": "The queue token, still `ready_to_bill`."
+          },
+          "token_number": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The number it had that day."
+          }
+        }
+      },
+      "ToCollectList": {
+        "type": "object",
+        "description": "Bills still to collect from earlier days.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToCollectItem"
+            },
+            "description": "Oldest first."
           }
         }
       },

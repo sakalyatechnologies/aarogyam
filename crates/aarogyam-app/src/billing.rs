@@ -734,21 +734,98 @@ async fn load(tx: &mut ScopedTx, id: Uuid) -> Result<InvoiceView, AppError> {
 /// Starts a draft bill for a patient.
 ///
 /// # Errors
-/// [`AppError::Denied`] without `billing.write`; [`AppError::NotFound`] for an unknown
-/// patient; [`AppError::Invalid`] for bad lines.
+/// [`AppError::Denied`] without `billing.write` (a holder of `clinical.write` alone may start
+/// the draft of a visit within reach, with no discount, place of supply or replaced bill);
+/// [`AppError::NotFound`] for an unknown patient or visit; [`AppError::Invalid`] for bad lines.
 pub async fn create(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     input: DraftInvoice,
 ) -> Result<InvoiceView, AppError> {
-    actor.require(Permission::BillingWrite)?;
+    let writer = bill_writer(actor)?;
+    if writer == BillWriter::VisitDraft {
+        visit_draft_input(
+            actor,
+            input.encounter_id,
+            input.place_of_supply.is_some() || input.replaces_invoice_id.is_some(),
+            &input.items,
+        )?;
+    }
     let place = place_of_supply(input.place_of_supply.as_deref())?;
     let notes = trimmed(input.notes.as_deref(), "notes", 1000)?;
     db.scoped(&scope(actor, request_id), async |tx| {
+        if writer == BillWriter::VisitDraft {
+            let visit = visit_in_reach(tx, actor, input.encounter_id).await?;
+            if visit.patient_id != input.patient_id.uuid() {
+                return Err(AppError::invalid(
+                    "encounter_id",
+                    "is not a visit of this patient",
+                ));
+            }
+        }
         create_in(tx, input, place.as_deref(), notes.as_deref()).await
     })
     .await
+}
+
+/// How far a member's right to write bills goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BillWriter {
+    /// `billing.write`: any bill.
+    Any,
+    /// `clinical.write` only: the draft bill of a visit within reach (docs/decisions.md,
+    /// "Visit roles"), never issuing, voiding, other discounts or payments.
+    VisitDraft,
+}
+
+fn bill_writer(actor: &ClinicActor) -> Result<BillWriter, AppError> {
+    match actor.require(Permission::BillingWrite) {
+        Ok(()) => Ok(BillWriter::Any),
+        Err(_) if actor.require(Permission::ClinicalWrite).is_ok() => Ok(BillWriter::VisitDraft),
+        Err(denied) => Err(denied.into()),
+    }
+}
+
+/// What a clinician may put on a visit's draft: lines at the price on the list or typed, with no
+/// discount, and no place of supply or replaced bill; those need `billing.write`.
+fn visit_draft_input(
+    actor: &ClinicActor,
+    encounter_id: Option<Uuid>,
+    beyond: bool,
+    items: &[LineInput],
+) -> Result<(), AppError> {
+    if encounter_id.is_none() {
+        return Err(AppError::invalid(
+            "encounter_id",
+            "is required to bill without billing.write",
+        ));
+    }
+    if beyond
+        || items
+            .iter()
+            .any(|i| i.discount_paise.is_some_and(|d| d != 0))
+    {
+        actor.require(Permission::BillingWrite)?;
+    }
+    Ok(())
+}
+
+/// The visit a clinician bills, when they can write to it.
+async fn visit_in_reach(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    encounter_id: Option<Uuid>,
+) -> Result<aarogyam_dal::visits::EncounterRow, AppError> {
+    let id = encounter_id.ok_or(AppError::NotFound("visit"))?;
+    aarogyam_dal::visits::get_encounter(
+        tx.conn(),
+        id,
+        false,
+        actor.reach(Permission::ClinicalWrite).member(),
+    )
+    .await?
+    .ok_or(AppError::NotFound("visit"))
 }
 
 /// [`create`] inside the caller's clinic transaction, with the place of supply and notes already
@@ -809,7 +886,8 @@ pub(crate) async fn create_in(
 /// Edits a draft bill.
 ///
 /// # Errors
-/// As [`create`], and [`AppError::Conflict`] once the bill is issued or void.
+/// As [`create`], and [`AppError::Conflict`] once the bill is issued or void. Without
+/// `billing.write`, only the draft of a visit within `clinical.write` reach, lines only.
 pub async fn edit(
     db: &Db,
     actor: &ClinicActor,
@@ -817,10 +895,28 @@ pub async fn edit(
     id: InvoiceId,
     changes: InvoiceChanges,
 ) -> Result<InvoiceView, AppError> {
-    actor.require(Permission::BillingWrite)?;
+    let writer = bill_writer(actor)?;
+    if writer == BillWriter::VisitDraft {
+        let beyond = changes.place_of_supply.is_some() || changes.encounter_id.is_some();
+        let no_items = Vec::new();
+        let items = changes.items.as_ref().unwrap_or(&no_items);
+        if beyond
+            || items
+                .iter()
+                .any(|i| i.discount_paise.is_some_and(|d| d != 0))
+        {
+            actor.require(Permission::BillingWrite)?;
+        }
+    }
     db.scoped(&scope(actor, request_id), async |tx| {
         dal::lock_invoices(tx.conn(), &[id.uuid()]).await?;
         let current = load(tx, id.uuid()).await?;
+        if writer == BillWriter::VisitDraft {
+            // A bill that is no visit's, or a visit out of reach, is as good as absent.
+            visit_in_reach(tx, actor, current.encounter_id)
+                .await
+                .map_err(|_| AppError::NotFound("invoice"))?;
+        }
         if current.status != InvoiceStatus::Draft {
             return Err(AppError::Conflict(
                 "only a draft bill can be edited; void it and bill again",

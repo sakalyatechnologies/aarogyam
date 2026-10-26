@@ -26,6 +26,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/appointments/missed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The appointments of one clinic day that ended as no-shows, with the follow-up written for
+         *     each, for the Missed card. Check in or reschedule with the usual appointment calls.
+         */
+        get: operations["listMissedAppointments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/appointments/month-summary": {
         parameters: {
             query?: never;
@@ -3613,6 +3633,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/queue/to-collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Visits from earlier days that finished treatment and still have a bill to collect. They left
+         *     the queue at day end but stay open here until paid. Open to `payments.collect` as well as
+         *     `billing.read`.
+         */
+        get: operations["listQueueToCollect"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/queue/{id}/call": {
         parameters: {
             query?: never;
@@ -6361,7 +6402,7 @@ export interface components {
             /**
              * Format: int64
              * @description What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
-             *     Needs `billing.write`.
+             *     Needs only `clinical.write`; the bill stays a draft for the desk.
              */
             fee_paise?: number | null;
             /**
@@ -7069,6 +7110,11 @@ export interface components {
             /** @description Patient messages not sent, for a reason (consent, an opt-out, no address). */
             messages_skipped: number;
             /**
+             * Format: int32
+             * @description Appointments marked no-show.
+             */
+            no_shows_marked: number;
+            /**
              * Format: int64
              * @description Old processed messages deleted.
              */
@@ -7087,6 +7133,11 @@ export interface components {
             retrying: number;
             /** @description Delivered. */
             sent: number;
+            /**
+             * Format: int32
+             * @description Stale queue tokens closed.
+             */
+            tokens_closed: number;
             /**
              * Format: int32
              * @description Waiting-patient alerts newly written for staff.
@@ -7323,7 +7374,7 @@ export interface components {
             /**
              * Format: int64
              * @description What the visit costs, in paise (more than 0): starts a draft bill linked to the visit.
-             *     Needs `billing.write`.
+             *     Needs only `clinical.write`; the bill stays a draft for the desk.
              */
             fee_paise?: number | null;
             /**
@@ -8801,6 +8852,31 @@ export interface components {
             /** @description The permission needed to see it, such as `finance.view`; hide the number without it. */
             requires?: string | null;
         };
+        /** @description One appointment nobody came to. Ids and numbers only: look the patient up by `patient_id`. */
+        MissedAppointment: {
+            /** @description The appointment. */
+            appointment_id: string;
+            /** @description The patient. */
+            patient_id: string;
+            /** @description The patient's clinic number, such as `SC-1042`. */
+            patient_number: string;
+            /** @description The doctor. */
+            practitioner_id: string;
+            /**
+             * @description The `missed_visit` follow-up written for it; absent when the clinic switched automatic
+             *     no-shows off and staff marked it by hand.
+             */
+            recall_id?: string | null;
+            /** @description When it was to start. */
+            starts_at: string;
+        };
+        /** @description A day's no-shows. */
+        MissedList: {
+            /** @description The clinic day, `YYYY-MM-DD`. */
+            date: string;
+            /** @description By start time. */
+            items: components["schemas"]["MissedAppointment"][];
+        };
         /** @description Billed revenue in one price list category. */
         MixItem: {
             /**
@@ -9681,6 +9757,13 @@ export interface components {
              * @description How soon before a slot it stops being offered, in minutes (0 to 10080).
              */
             min_notice_minutes: number;
+            /** @description Whether appointments nobody came to are marked no-show automatically (default true). */
+            no_show_auto: boolean;
+            /**
+             * Format: int32
+             * @description Minutes after an appointment's end before it is marked no-show (0 to 240, default 30).
+             */
+            no_show_grace_minutes: number;
             /**
              * Format: int32
              * @description Minutes a booking request may wait, in opening hours, before everyone who handles
@@ -9719,6 +9802,13 @@ export interface components {
              * @description Minimum notice in minutes.
              */
             min_notice_minutes?: number | null;
+            /** @description Mark missed appointments as no-show automatically. */
+            no_show_auto?: boolean | null;
+            /**
+             * Format: int32
+             * @description No-show grace in minutes, 0 to 240.
+             */
+            no_show_grace_minutes?: number | null;
             /**
              * Format: int32
              * @description Reminder wait in minutes.
@@ -12785,6 +12875,34 @@ export interface components {
             /** @description The visit it belongs to. */
             visit_id?: string | null;
         };
+        /** @description A bill left unpaid from an earlier day. Ids and numbers only. */
+        ToCollectItem: {
+            /**
+             * Format: int64
+             * @description What is left to pay, in paise.
+             */
+            balance_paise: number;
+            /** @description Its clinic day, `YYYY-MM-DD`. */
+            day: string;
+            /** @description The bill; ask `/invoices/{id}/collect-summary` to collect it. */
+            invoice_id: string;
+            /** @description The patient. */
+            patient_id: string;
+            /** @description The patient's clinic number, such as `SC-1042`. */
+            patient_number: string;
+            /** @description The queue token, still `ready_to_bill`. */
+            token_id: string;
+            /**
+             * Format: int32
+             * @description The number it had that day.
+             */
+            token_number: number;
+        };
+        /** @description Bills still to collect from earlier days. */
+        ToCollectList: {
+            /** @description Oldest first. */
+            items: components["schemas"]["ToCollectItem"][];
+        };
         /** @description The day's numbers. */
         TodayCounts: {
             /** @description Arrived and waiting. */
@@ -13525,6 +13643,49 @@ export interface operations {
             };
             /** @description The doctor is on leave then (`practitioner_on_leave`) */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMissedAppointments: {
+        parameters: {
+            query?: {
+                /** @description The clinic day, `YYYY-MM-DD`; today when left out */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MissedList"];
+                };
+            };
+            /** @description Bad date */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -17313,7 +17474,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks billing.write */
+            /** @description Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -17410,7 +17571,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks billing.write */
+            /** @description Neither billing.write nor clinical.write, or clinical.write only and more than a visit draft asked (discount, place of supply, replaced bill) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -25255,6 +25416,39 @@ export interface operations {
             };
         };
     };
+    listQueueToCollect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToCollectList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role has neither payments.collect nor billing.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     callQueueToken: {
         parameters: {
             query?: never;
@@ -29528,7 +29722,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks clinical.write, or patients.write for a follow-up, or billing.write for a fee */
+            /** @description The role lacks clinical.write, or patients.write for a follow-up */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -29589,7 +29783,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks clinical.write, or prescriptions.issue, patients.write or billing.write for what was asked */
+            /** @description The role lacks clinical.write, or prescriptions.issue or patients.write for what was asked */
             403: {
                 headers: {
                     [name: string]: unknown;

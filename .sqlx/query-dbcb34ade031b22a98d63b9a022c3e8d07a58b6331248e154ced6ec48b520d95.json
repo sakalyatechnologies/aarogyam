@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.auto_no_show($1, $2) as \"marked!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "marked!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "dbcb34ade031b22a98d63b9a022c3e8d07a58b6331248e154ced6ec48b520d95"
+}

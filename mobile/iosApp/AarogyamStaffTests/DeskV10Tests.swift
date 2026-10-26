@@ -86,6 +86,24 @@ final class DeskV10Tests: XCTestCase {
         XCTAssertTrue(on.showsFamily && on.showsProof && on.showsRemind)
     }
 
+    func testRemindShowsOnNoReplyForDeskRolesAndHidesForAMinute() {
+        let caps = DeskV10Caps(queueRemind: true)
+        let desk: Set<String> = ["appointments.write"]
+        let now = Date()
+        XCTAssertFalse(DeskV10Wait.showsRemind(caps: caps, permissions: desk, seconds: 59, remindedAt: nil, now: now))
+        XCTAssertTrue(DeskV10Wait.showsRemind(caps: caps, permissions: desk, seconds: 60, remindedAt: nil, now: now))
+        XCTAssertFalse(DeskV10Wait.showsRemind(caps: caps, permissions: ["appointments.read"], seconds: 90, remindedAt: nil, now: now))
+        XCTAssertFalse(DeskV10Wait.showsRemind(caps: DeskV10Caps(), permissions: desk, seconds: 90, remindedAt: nil, now: now))
+        XCTAssertFalse(DeskV10Wait.showsRemind(caps: caps, permissions: desk, seconds: 90, remindedAt: now.addingTimeInterval(-59), now: now))
+        XCTAssertTrue(DeskV10Wait.showsRemind(caps: caps, permissions: ["clinical.write"], seconds: 90, remindedAt: now.addingTimeInterval(-60), now: now))
+    }
+
+    func testCollectNeedsPaymentsCollectOrBothBillKeys() {
+        XCTAssertTrue(DeskV10Collect.canCollect(["payments.collect"]))
+        XCTAssertTrue(DeskV10Collect.canCollect(["billing.read", "billing.write"]))
+        XCTAssertFalse(DeskV10Collect.canCollect(["billing.write"]))
+    }
+
     func testRfc3339MinuteOfDayIsClinicLocal() {
         XCTAssertEqual(DeskV10Feed.minuteOfDay(rfc3339: "2026-10-12T04:30:00Z", zoneId: "Asia/Kolkata"), 10 * 60)
         XCTAssertEqual(DeskV10Feed.minuteOfDay(rfc3339: "2026-10-12T09:15:30.250+05:30", zoneId: "Asia/Kolkata"), 9 * 60 + 15)

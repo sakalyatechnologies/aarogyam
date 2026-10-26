@@ -68,6 +68,17 @@ suspend fun ClinicApi.callToken(id: String): Outcome<QueueToken, ApiError> =
         url("api/v1/queue/${id.encodeURLPathPart()}/call")
     }
 
+/**
+ * `POST /api/v1/queue/{id}/remind` (`remindQueueToken`, G1): the doctor's "patient waiting" notice
+ * comes back as unread. At most one per token per minute: 409 `remind_too_soon`; 409 `not_waiting`
+ * once the patient was called or left. The answer body is not needed.
+ */
+suspend fun ClinicApi.remindToken(id: String): Outcome<Unit, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/queue/${id.encodeURLPathPart()}/remind")
+    }
+
 /** `POST /api/v1/queue/{id}/status` (`setQueueTokenStatus`): `in_chair`, `done` or `left`; a repeat is a no-op. */
 suspend fun ClinicApi.setTokenStatus(
     id: String,

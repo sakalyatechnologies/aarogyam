@@ -33,10 +33,7 @@ struct DeskHomeScreen: View {
     }
 
     /// Collecting needs the bill keys, or `payments.collect` (assistant, front desk, doctor) through collect-summary.
-    private var canCollect: Bool {
-        clinic.permissions.contains("payments.collect")
-            || (clinic.permissions.contains("billing.write") && clinic.permissions.contains("billing.read"))
-    }
+    private var canCollect: Bool { DeskV10Collect.canCollect(clinic.permissions) }
 
     var body: some View {
         ScrollView {

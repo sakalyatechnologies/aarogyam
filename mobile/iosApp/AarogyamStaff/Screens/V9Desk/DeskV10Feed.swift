@@ -40,6 +40,8 @@ final class DeskV10Feed {
     /// Token id to the finish time, for "Doctor may be collecting".
     private(set) var endedAt: [String: Date] = [:]
     private(set) var caps = DeskV10Caps()
+    /// Token id to when this phone last reminded its doctor (G1), so Remind hides for a minute.
+    private(set) var remindedAt: [String: Date] = [:]
     /// Counts every completed refresh, so a sheet can re-check its notification on each one.
     private(set) var version = 0
     @ObservationIgnored private var loading = false
@@ -117,6 +119,16 @@ final class DeskV10Feed {
         }
         payNotification = map
         payInvoice = bills
+    }
+
+    /// Reminds the token's doctor (G1). "Too soon" counts as reminded; "not waiting" reloads the board.
+    func remind(tokenId: String) async {
+        guard let result = try? await clinic.api.remindDoctor(tokenId: tokenId) else { return }
+        switch result {
+        case .sent, .tooSoon: remindedAt[tokenId] = Date()
+        case .notWaiting: await refresh()
+        case .failed: break
+        }
     }
 
     /// Checks `patientId` in with `doctorId` (or the server's default when nil); the token number, or nil on failure.

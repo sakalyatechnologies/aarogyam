@@ -1,10 +1,13 @@
 package com.aarogyam.staff.desk
 
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.ClinicApi
 import com.aarogyam.staff.api.queue
+import com.aarogyam.staff.api.remindToken
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.config.caps.ServerCaps
 import com.aarogyam.staff.today.parseInstant
+import com.sakalya.mobile.core.ApiErrorKind
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -21,12 +24,16 @@ enum class WaitState { Fresh, NoReply }
 /** The seconds after which a waiting token with no call turns [WaitState.NoReply] (R11). */
 const val NO_REPLY_AFTER_SECONDS: Long = 60
 
+/** The server takes one Remind per token per minute (G1); the button comes back after this many seconds. */
+const val REMIND_AGAIN_AFTER_SECONDS: Long = 60
+
 /** The display text key for a [WaitState.NoReply] card: "Check with Dr X" (the screen's strings table maps it). */
 const val CHECK_WITH_DOCTOR_KEY: String = "wait.check_with_doctor"
 
 /**
  * One waiting token for the A7 card. [doctor] is the practitioner's display name, null when the
- * token has none (the card then reads "Check with the doctor"). Display only.
+ * token has none (the card then reads "Check with the doctor"). [canRemind] is true on a
+ * [WaitState.NoReply] card not reminded in the last [REMIND_AGAIN_AFTER_SECONDS].
  */
 data class WaitEntry(
     val tokenId: String,
@@ -34,6 +41,7 @@ data class WaitEntry(
     val doctor: String?,
     val elapsedSeconds: Long,
     val state: WaitState,
+    val canRemind: Boolean = false,
 ) {
     /** "0:42"; minutes are not capped ("75:03"). */
     val clock: String get() = "${elapsedSeconds / 60}:${(elapsedSeconds % 60).toString().padStart(2, '0')}"
@@ -59,8 +67,8 @@ sealed interface WaitTimerState {
 /**
  * The shared desk wait timer (A7, R11): for each waiting token the time since `issued_at` on an
  * injected clock, Fresh under 60 s, NoReply from 60 s while the token has no `called_at`. A called
- * token leaves the list. Display only: no notifications, no chat. Remind needs G1 (`ServerCaps.queueRemind`);
- * until then [canRemind] is false and [remind] sends nothing.
+ * token leaves the list. [remind] asks the server to re-notify the doctor (G1, `ServerCaps.queueRemind`);
+ * the phone sends no notification itself.
  *
  * The screen calls [refresh] when the queue changes (live update or poll) and [tick] every second
  * (the holder also ticks itself every [tickMillis]; pass 0 to tick only by hand).
@@ -68,7 +76,7 @@ sealed interface WaitTimerState {
 interface WaitTimerHolder {
     val state: StateFlow<WaitTimerState>
 
-    /** True only when the server has the Remind call (G1). False today. */
+    /** True when the server has the Remind call (G1). */
     val canRemind: Boolean
 
     /** Reloads `GET /queue`. */
@@ -77,7 +85,10 @@ interface WaitTimerHolder {
     /** Recomputes every elapsed time from the clock without a request. */
     fun tick()
 
-    /** Remind the doctor. Does nothing while [canRemind] is false (no call exists yet). */
+    /**
+     * `POST /queue/{id}/remind`. Success or `remind_too_soon` hides the button for a minute;
+     * `not_waiting` reloads the queue. Does nothing while [canRemind] is false.
+     */
     fun remind(tokenId: String)
 }
 
@@ -99,6 +110,7 @@ internal class WaitTimerStateHolder(
     )
 
     private var raw: List<Raw> = emptyList()
+    private val remindedAt = mutableMapOf<String, Instant>()
     private var loaded = false
     private val mutable = MutableStateFlow<WaitTimerState>(WaitTimerState.Loading)
 
@@ -150,15 +162,59 @@ internal class WaitTimerStateHolder(
             WaitTimerState.Ready(
                 raw.map {
                     val seconds = maxOf(0L, (now - it.issuedAt).inWholeSeconds)
-                    WaitEntry(it.id, it.number, it.doctor, seconds, waitStateOf(seconds))
+                    val state = waitStateOf(seconds)
+                    val quiet =
+                        remindedAt[it.id]?.let { at -> (now - at).inWholeSeconds < REMIND_AGAIN_AFTER_SECONDS } ?: false
+                    WaitEntry(
+                        it.id,
+                        it.number,
+                        it.doctor,
+                        seconds,
+                        state,
+                        canRemind && state == WaitState.NoReply && !quiet,
+                    )
                 },
             )
     }
 
     override fun remind(tokenId: String) {
-        // G1 is not shipped: there is no call to make.
+        if (!canRemind) return
+        scope.launch {
+            when (clinic.api.remindDoctor(tokenId)) {
+                RemindResult.Sent, RemindResult.TooSoon -> {
+                    remindedAt[tokenId] = clock()
+                    tick()
+                }
+
+                RemindResult.NotWaiting -> {
+                    refresh()
+                }
+
+                // A network or permission failure leaves the button as it was, to try again.
+                RemindResult.Failed -> {}
+            }
+        }
     }
 }
+
+/** What one Remind (G1) came to. [TooSoon] counts as sent: the doctor was reminded under a minute ago. */
+enum class RemindResult { Sent, TooSoon, NotWaiting, Failed }
+
+/** `POST /queue/{id}/remind`, folded to a [RemindResult] so each screen handles the four cases the same way. */
+suspend fun ClinicApi.remindDoctor(tokenId: String): RemindResult =
+    when (val result = remindToken(tokenId)) {
+        is Outcome.Success -> {
+            RemindResult.Sent
+        }
+
+        is Outcome.Failure -> {
+            when {
+                result.error.kind != ApiErrorKind.Conflict -> RemindResult.Failed
+                result.error.code.value == "remind_too_soon" -> RemindResult.TooSoon
+                else -> RemindResult.NotWaiting
+            }
+        }
+    }
 
 internal fun createWaitTimer(
     clinic: ClinicContext,

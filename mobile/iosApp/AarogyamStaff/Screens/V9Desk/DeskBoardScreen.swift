@@ -126,9 +126,11 @@ struct DeskBoardScreen: View {
                 VStack(alignment: .leading, spacing: 6) {
                     card(row, loaded, badge: DeskV10Wait.waitingLine(doctor: wait.doctor, seconds: seconds), note: nil)
                     if DeskV10Wait.isNoReply(seconds: seconds) {
-                        SkChip(DeskV10Wait.checkLine(doctor: wait.doctor), tone: .warning)
-                            .padding(.horizontal, 6)
-                            .accessibilityLabel(DeskV10Wait.checkLine(doctor: wait.doctor))
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) { noReply(row, wait, seconds: seconds, now: context.date) }
+                            VStack(alignment: .leading, spacing: 6) { noReply(row, wait, seconds: seconds, now: context.date) }
+                        }
+                        .padding(.horizontal, 6)
                     }
                 }
             }
@@ -137,6 +139,22 @@ struct DeskBoardScreen: View {
                 DeskV10Collect.mayBeCollecting(status: "ready_to_bill", endedAt: $0, now: Date())
             } ?? false
             card(row, loaded, badge: dvf("d9.board.wait", Int(row.waitMinutes)), note: collecting ? dx("dx.pay.may_collect") : nil)
+        }
+    }
+
+    /// The amber "Check with Dr X", then Remind (G1) or "Reminded" for the minute after.
+    @ViewBuilder private func noReply(_ row: BoardTicket, _ wait: DeskV10Feed.Waiting, seconds: Int, now: Date) -> some View {
+        SkChip(DeskV10Wait.checkLine(doctor: wait.doctor), tone: .warning)
+            .accessibilityLabel(DeskV10Wait.checkLine(doctor: wait.doctor))
+        if let feed {
+            if DeskV10Wait.showsRemind(caps: feed.caps, permissions: clinic.permissions, seconds: seconds,
+                                       remindedAt: feed.remindedAt[row.id], now: now) {
+                SkPillButton(DeskV10Wait.remindTitle(doctor: wait.doctor), variant: .tonal) {
+                    Task { await feed.remind(tokenId: row.id) }
+                }
+            } else if feed.remindedAt[row.id] != nil {
+                Text(dx("dx.wait.reminded")).v7Text(12.5, .semibold).foregroundStyle(theme.roles.onSurfaceVariant.color)
+            }
         }
     }
 
@@ -152,7 +170,7 @@ struct DeskBoardScreen: View {
                 if DeskBoard.showsSendIn(roleKey: roleKey, state: row.state) {
                     SkPillButton(dv("d9.board.send_in"), variant: .tonal) { holder.sendIn(tokenId: row.id) }
                         .disabled(loaded.calling.contains(row.id)).accessibilityLabel(dvf("d9.board.send_in.a11y", row.name))
-                } else if row.state == .readyToBill, clinic.permissions.contains("billing.write") {
+                } else if row.state == .readyToBill, DeskV10Collect.canCollect(clinic.permissions) {
                     SkPillButton(dv("d9.board.collect"), variant: .tonal) {
                         onCollect(DeskPayTarget(patientId: row.patientId, name: row.name, notificationId: feed?.payNotification[row.id], invoiceId: feed?.payInvoice[row.id]))
                     }

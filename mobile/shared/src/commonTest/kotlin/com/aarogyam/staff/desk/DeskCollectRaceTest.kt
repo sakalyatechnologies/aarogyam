@@ -164,6 +164,21 @@ class DeskCollectRaceTest {
         }
 
     @Test
+    fun an_overpayment_409_shows_the_new_balance_and_records_nothing() =
+        runTest {
+            val backend = FakeBackend()
+            var reads = 0
+            backend.on(summary, { json(summaryJson("issued", 5000, if (reads++ < 1) 5000 else 2000)) })
+            backend.on(payments, { apiError(HttpStatusCode.Conflict, "overpayment") })
+            val h = holder(backend)
+            until { h.state.value is DeskPayState.Ready }
+            h.record("i1", 5000, PayMethod.Cash, null)
+            until { h.outcome.value.let { it !is DeskPayOutcome.Idle && it !is DeskPayOutcome.Sending } }
+            assertEquals(DeskPayOutcome.BalanceChanged(2000), h.outcome.value)
+            assertEquals(1, backend.count(payments))
+        }
+
+    @Test
     fun the_card_closes_when_the_notification_is_handled() =
         runTest {
             ServerCaps.reset()

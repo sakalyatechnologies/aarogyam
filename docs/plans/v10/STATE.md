@@ -124,3 +124,13 @@ Paused by the founder. This is the one place to resume from. The approved plan i
   - **Doctor Today:** a one-line "Waiting for you", then the normal Today
 - **Not yet driven** (needs taps: XCUITest or by hand): check-in, intake form, Send in, chair mode, Wrap up, collect, My tasks.
 - **Small:** the number field has no visible box in light mode.
+
+## 26 Oct: main `ce58f077` merged (roles 0680/0681, no-show 0682/0684, G1 remind 0701, G12 409 overpayment)
+- **Remind (G1) is on:**
+  - `ServerCaps.queueRemind` defaults to true
+  - `ClinicApi.remindToken` and `remindDoctor` give a `RemindResult` (Sent, TooSoon, NotWaiting, Failed)
+  - `WaitTimerHolder.remind` and `WaitEntry.canRemind` hide the button for 60 s after a send or a `remind_too_soon`; `not_waiting` reloads the queue
+  - iOS: the board's amber card shows "Remind Dr X" (for `appointments.write` or `clinical.write`), then "Reminded"
+- **Overpayment (G12):** a 409 `overpayment` on `POST /payments` refetches the bill and gives `DeskPayOutcome.BalanceChanged(balancePaise)`; the sheet shows "₹X is still due; nothing was recorded".
+- **Fix:** the board's Collect button now uses `DeskV10Collect.canCollect` (`payments.collect`, or both bill keys), like Desk home.
+- **Not adopted yet:** `GET /appointments/missed` and `GET /queue/to-collect` (not needed by the current screens).

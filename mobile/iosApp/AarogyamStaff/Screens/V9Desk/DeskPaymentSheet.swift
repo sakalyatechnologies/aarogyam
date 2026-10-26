@@ -136,6 +136,10 @@ private struct DeskPaymentScreen: View {
             if case .failed(let failed) = onEnum(of: outcome) {
                 Text(failed.error.message).v7Text(12.5, .semibold).foregroundStyle(r.error.color)
             }
+            if case .balanceChanged(let changed) = onEnum(of: outcome) {
+                Text(dxf("dx.pay.balance_changed", DeskPay.rupeesText(paise: changed.balancePaise)))
+                    .v7Text(12.5, .semibold).foregroundStyle(r.error.color)
+            }
             SkPillButton(dv("d9.pay.record"), wide: true, loading: isSending) { record(chosen) }
         }
     }

@@ -392,6 +392,29 @@
         }
       }
     },
+    "dx.pay.balance_changed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part of this bill was just collected. ₹%@ is still due; nothing was recorded."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस बिल का कुछ हिस्सा अभी लिया गया। ₹%@ अभी बाकी है; कुछ दर्ज नहीं हुआ।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या बिलाचा काही भाग आत्ताच घेतला गेला. ₹%@ अजून बाकी आहे; काहीही नोंदले नाही."
+          }
+        }
+      }
+    },
     "dx.pay.may_collect": {
       "extractionState": "manual",
       "localizations": {
@@ -687,6 +710,75 @@
           "stringUnit": {
             "state": "translated",
             "value": "प्रतीक्षा · %@"
+          }
+        }
+      }
+    },
+    "dx.wait.remind": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remind %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ को याद दिलाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ यांना आठवण करून द्या"
+          }
+        }
+      }
+    },
+    "dx.wait.remind.nodoc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remind the doctor"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "डॉक्टर को याद दिलाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "डॉक्टरांना आठवण करून द्या"
+          }
+        }
+      }
+    },
+    "dx.wait.reminded": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminded"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "याद दिलाया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आठवण दिली"
           }
         }
       }

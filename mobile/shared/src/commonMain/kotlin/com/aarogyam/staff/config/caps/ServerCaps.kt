@@ -16,8 +16,8 @@ data class CapsSnapshot(
     val notificationAudience: Boolean = false,
     /** A walk-in answer carried `reason`. */
     val walkInReason: Boolean = false,
-    /** The spec has the queue Remind call. */
-    val queueRemind: Boolean = false,
+    /** The queue Remind call (G1): shipped by the server, so on from the start. */
+    val queueRemind: Boolean = true,
     /** A message carried `status`. */
     val messageStatus: Boolean = false,
 )

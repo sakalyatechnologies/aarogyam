@@ -73,6 +73,14 @@ sealed interface DeskPayOutcome {
     /** Offline or the network dropped: saved on the phone, "Saved, will send". */
     data object Saved : DeskPayOutcome
 
+    /**
+     * 409 `overpayment` (G12): someone collected part of the bill meanwhile; [balancePaise] is what
+     * is still due. Nothing was recorded; the screen shows the new balance to pay.
+     */
+    data class BalanceChanged(
+        val balancePaise: Long,
+    ) : DeskPayOutcome
+
     data class Failed(
         val error: ScreenError,
     ) : DeskPayOutcome
@@ -290,10 +298,20 @@ class DeskPaymentStateHolder(
                             }
                         keyed = null
                         mutableOutcome.value =
-                            if (now != null && now.first == "issued" && now.second <= 0) {
-                                DeskPayOutcome.AlreadyPaid
-                            } else {
-                                DeskPayOutcome.Failed(delivery.error)
+                            when {
+                                now != null && now.first == "issued" && now.second <= 0 -> {
+                                    DeskPayOutcome.AlreadyPaid
+                                }
+
+                                now != null && delivery.code == "overpayment" -> {
+                                    DeskPayOutcome.BalanceChanged(
+                                        now.second,
+                                    )
+                                }
+
+                                else -> {
+                                    DeskPayOutcome.Failed(delivery.error)
+                                }
                             }
                         load()
                     } else {

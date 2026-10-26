@@ -43,6 +43,23 @@ enum DeskV10Wait {
         guard let doctor, !doctor.isEmpty else { return dx("dx.wait.check.nodoc") }
         return dxf("dx.wait.check", DeskV10Doctors.label(doctor))
     }
+
+    /// The server takes one Remind per token per minute (G1); the button comes back after this many seconds.
+    static let remindAgainAfter: TimeInterval = 60
+
+    /// Remind (G1) shows on an amber card when the server has the call, the role may remind
+    /// (`appointments.write` or `clinical.write`), and this phone did not remind in the last minute.
+    static func showsRemind(caps: DeskV10Caps, permissions: Set<String>, seconds: Int, remindedAt: Date?, now: Date) -> Bool {
+        guard caps.showsRemind, isNoReply(seconds: seconds),
+              permissions.contains("appointments.write") || permissions.contains("clinical.write") else { return false }
+        guard let remindedAt else { return true }
+        return now.timeIntervalSince(remindedAt) >= remindAgainAfter
+    }
+
+    static func remindTitle(doctor: String?) -> String {
+        guard let doctor, !doctor.isEmpty else { return dx("dx.wait.remind.nodoc") }
+        return dxf("dx.wait.remind", DeskV10Doctors.label(doctor))
+    }
 }
 
 /// A doctor the desk can check a patient in with.
@@ -88,6 +105,11 @@ enum DeskV10Banner {
 }
 
 enum DeskV10Collect {
+    /// Collecting needs `payments.collect` (assistant, front desk, doctor; through collect-summary), or both bill keys.
+    static func canCollect(_ permissions: Set<String>) -> Bool {
+        permissions.contains("payments.collect") || (permissions.contains("billing.write") && permissions.contains("billing.read"))
+    }
+
     /// A `ready_to_bill` token finished less than two minutes ago: the doctor may still be collecting.
     /// Display only; the payment is never blocked.
     static func mayBeCollecting(status: String, endedAt: Date?, now: Date) -> Bool {

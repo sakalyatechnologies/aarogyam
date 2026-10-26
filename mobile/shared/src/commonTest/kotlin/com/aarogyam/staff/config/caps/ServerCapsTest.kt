@@ -42,7 +42,7 @@ class ServerCapsTest {
             assertIs<Outcome.Success<*>>(paid)
             assertEquals(CapsSnapshot(), ServerCaps.state.value)
             assertTrue(ServerCaps.family && !ServerCaps.paymentProof && !ServerCaps.notificationAudience)
-            assertTrue(!ServerCaps.walkInReason && !ServerCaps.queueRemind && !ServerCaps.messageStatus)
+            assertTrue(!ServerCaps.walkInReason && ServerCaps.queueRemind && !ServerCaps.messageStatus)
         }
 
     @Test

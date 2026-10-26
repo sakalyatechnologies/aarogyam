@@ -81,7 +81,7 @@ struct NotificationsSheet: View {
                 } else {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(Array(items.prefix(30).enumerated()), id: \.offset) { _, row in
-                            DeskAlertRow(row: row)
+                            NotificationKindRow(row: row)
                         }
                         if items.contains(where: { !$0.read }) {
                             SkPillButton(String(localized: "t7.notifications.read_all", table: "TodayV7"), variant: .tonal, wide: true) { holder.readAll() }

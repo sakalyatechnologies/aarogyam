@@ -60,3 +60,18 @@ Paused by the founder. This is the one place to resume from. The approved plan i
 - `ServerCaps` is per process, not per clinic
 - T5 guessed the procedure statuses excluded from the fee prefill
 - T5 issues the Rx with `notify_patient=false`
+
+## Resumed 25 Oct 2026: what changed while paused
+- **Backend shipped B4 and N1–N3 on 12 Oct.** They're deployed as API `aarogyam-api-00022-8jl`, but **were not pushed to GitHub**: 10 commits on the local `main` in `~/project/aarogyam`, which the backend agent will push. What's in them:
+  - **Family (B4)** in mobile's shape: `GET/POST/DELETE /patients/{id}/family`, lookup `family_group`, walk-in `family_of` (+ `family_link_id`), relation `guardian|child|spouse|parent|sibling|other`. So `ServerCaps.family` turns on by itself. Switch `FamilyStateHolder` from the hand-written `config/caps/FamilyDtos.kt` to the generated `FamilyMember` / `FamilyOfFields`.
+  - **Notifications (N1):**
+    - rows carry `audience` (`doctor|front_desk`), `queue_token {id, number}`, `invoice {id, number, total_paise?, balance_paise?}`, `href`, `handled`; handled rows aren't unread
+    - `patient_waiting` on token insert, `send_in` on `called`, `collect_payment` on `ready_to_bill` with an unpaid bill
+    - `arrival` is retired
+  - **The `payments.collect` permission** (owner, front_desk, assistant) and **`GET /invoices/{id}/collect-summary`** (`invoice_id`, `number`, `status`, `total_paise`, `balance_paise`, `patient`, `upi`).
+    - **Change T4:** the desk re-check must use collect-summary, not `GET /invoices/{id}` (an assistant lacks `billing.read`).
+  - **Patient photo:** `/patients/{id}/photo` + `PatientBrief.has_photo`. This replaces the G7 fallback: the intake's "Profile" photo should go there, not to a generic attachment.
+- **Pending a founder decision** (`feat/visit-roles`, migration 0680): assistants get `appointments.write` and `patients.write` (check-in, walk-in registration), and a doctor with `clinical.write` can set `fee_paise`. **Until it merges, an assistant's walk-in and a hired doctor's fee are refused with 403.** The phone journeys depend on it.
+- **Still not on main:** SSE `/events` (pb), G1 remind, G12 overpayment, G4 task proof, G10 consent signature.
+- **The mobile fix the backend asked for:** branch `mobile/b4-allowlist`, adding `FamilyMember` and `FamilyOfFields` to `apiModels`.
+- **Open questions to the backend:** in `~/project/coordination/mobile-to-backend.md`, "25 Oct: resumed".

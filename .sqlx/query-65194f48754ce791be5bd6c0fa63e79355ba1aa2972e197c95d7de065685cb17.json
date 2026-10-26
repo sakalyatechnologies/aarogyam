@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.recalls set status = 'dismissed', dismissed_at = $2, dismissed_by = $3, dismiss_reason = $4 where id = $1 and status in ('due', 'notified', 'booked')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "65194f48754ce791be5bd6c0fa63e79355ba1aa2972e197c95d7de065685cb17"
+}

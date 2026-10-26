@@ -2566,6 +2566,26 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(found satisfies C.Recall);
         }),
 
+      dismissRecall: (id, input, opts) =>
+        respond(S.recall, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if ((input.reason ?? "").trim().length > 200) {
+            return refuse(400, "invalid", "reason is at most 200 characters");
+          }
+          const found = (demoRecalls.get(caller.clinic.id) ?? []).find((r) => r.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status === "done" || found.status === "dismissed") {
+            return refuse(409, "conflict", "this follow-up is already closed");
+          }
+          found.status = "dismissed";
+          return reply(found satisfies C.Recall);
+        }),
+
       addWalkIn: (input, opts) =>
         respond(S.queueToken, opts?.signal, async () => {
           const caller = await inClinic("appointments.write");

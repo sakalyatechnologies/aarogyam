@@ -174,6 +174,29 @@ pub struct TokenState {
     pub appointment_id: Option<Uuid>,
 }
 
+/// The `ready_to_bill` token of a bill's visit, locked until the transaction ends.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn ready_to_bill_for_invoice(
+    conn: &mut PgConnection,
+    invoice_id: Uuid,
+) -> Result<Option<TokenState>, DbError> {
+    let row = sqlx::query_as!(
+        TokenState,
+        r#"select q.id, q.status, q.appointment_id
+           from aarogyam.invoices i
+           join aarogyam.encounters e on e.org_id = i.org_id and e.id = i.encounter_id
+           join aarogyam.queue_tokens q on q.org_id = e.org_id and q.id = e.queue_token_id
+           where i.id = $1 and q.status = 'ready_to_bill'
+           for update of q"#,
+        invoice_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
 /// A token, locked until the transaction ends.
 ///
 /// # Errors

@@ -100,3 +100,26 @@ pub async fn done(conn: &mut PgConnection, id: Uuid, at: OffsetDateTime) -> Resu
     .await?;
     Ok(result.rows_affected() > 0)
 }
+
+/// Dismisses an open follow-up; returns whether it was open.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn dismiss(
+    conn: &mut PgConnection,
+    id: Uuid,
+    at: OffsetDateTime,
+    by: Uuid,
+    reason: Option<&str>,
+) -> Result<bool, DbError> {
+    let result = sqlx::query!(
+        "update aarogyam.recalls set status = 'dismissed', dismissed_at = $2, dismissed_by = $3, dismiss_reason = $4 where id = $1 and status in ('due', 'notified', 'booked')",
+        id,
+        at,
+        by,
+        reason
+    )
+    .execute(conn)
+    .await?;
+    Ok(result.rows_affected() > 0)
+}

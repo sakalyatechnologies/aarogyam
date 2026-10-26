@@ -3818,6 +3818,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recalls/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismisses a follow-up that is no longer needed. */
+        post: operations["dismissRecall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recalls/{id}/done": {
         parameters: {
             query?: never;
@@ -7157,6 +7174,11 @@ export interface components {
              * @description Seconds until it expires.
              */
             expires_in: number;
+        };
+        /** @description Why a follow-up is dismissed. */
+        DismissRecall: {
+            /** @description Optional, at most 200 characters. */
+            reason?: string | null;
         };
         /** @description A short-lived link to a file. */
         DownloadLink: {
@@ -26047,6 +26069,67 @@ export interface operations {
             };
             /** @description The role lacks patients.read */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    dismissRecall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The follow-up */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissRecall"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recall"];
+                };
+            };
+            /** @description A reason over 200 characters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such follow-up in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already done or dismissed */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

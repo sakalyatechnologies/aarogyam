@@ -3,6 +3,7 @@
 
 use aarogyam_dal::billing::{self as dal, PaymentFilter};
 use aarogyam_dal::patients;
+use aarogyam_dal::queue as queue_dal;
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::billing::{
     FinancialYear, InvoiceStatus, PaymentMethod, PaymentStatus, RECEIPT_PREFIX, serial_number,
@@ -11,6 +12,7 @@ use aarogyam_domain::ids::{InvoiceId, PatientId, PaymentId};
 use aarogyam_domain::messaging::receipt_dedupe_key;
 use aarogyam_domain::outbox::MessageKind;
 use aarogyam_domain::permission::Permission;
+use aarogyam_domain::schedule::QueueStatus;
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::Paise;
 use serde_json::json;
@@ -373,6 +375,24 @@ pub async fn record(
                     *amount,
                 )
                 .await?;
+            }
+            // A bill paid in full finishes its visit's token (`ready_to_bill` -> `done`).
+            let settled = dal::lock_invoices(tx.conn(), &ids).await?;
+            for bill in settled.iter().filter(|b| b.total_paise - b.paid_paise <= 0) {
+                if let Some(token) =
+                    queue_dal::ready_to_bill_for_invoice(tx.conn(), bill.id).await?
+                {
+                    // A refusal from the appointment's table leaves the token where it is.
+                    crate::queue::move_token(
+                        tx,
+                        &timezone,
+                        &token,
+                        QueueStatus::Done,
+                        actor.membership_id,
+                        now,
+                    )
+                    .await?;
+                }
             }
             // The clinic's `receipts` switch: an email receipt, queued with the payment.
             if patient.email.is_some() && crate::settings::prefs_in(tx).await?.receipts {

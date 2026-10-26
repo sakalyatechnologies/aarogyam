@@ -315,6 +315,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::recalls::create,
         crate::v1::recalls::due,
         crate::v1::recalls::done,
+        crate::v1::recalls::dismiss,
         crate::v1::prescriptions::search_drugs,
         crate::v1::prescriptions::create,
         crate::v1::prescriptions::for_patient,

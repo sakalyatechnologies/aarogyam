@@ -32,7 +32,7 @@ class BookingStateHolderTest {
     // 04:30Z and 05:00Z are 10:00 and 10:30 in Kolkata.
     private val slots =
         """{"date":"2026-10-09","practitioner_id":"d1","slot_minutes":30,
-           "slots":["2026-10-09T10:00:00+05:30","2026-10-09T10:30:00+05:30"]}"""
+           "slots":["2026-10-09T10:00:00+05:30","2026-10-09T10:30:00+05:30"],"requestable_slots":[]}"""
     private val saved =
         """{"appointment":${appointment("7", "2026-10-09T04:30:00Z", "booked", "Meera Shah")},
            "warnings":[{"code":"outside_working_hours","message":"x"}]}"""

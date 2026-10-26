@@ -155,3 +155,41 @@ pub async fn done(
     })
     .await
 }
+
+/// Dismisses a follow-up that is no longer needed, with an optional reason (at most 200
+/// characters).
+///
+/// # Errors
+/// [`AppError::Denied`] without `patients.write`; [`AppError::NotFound`];
+/// [`AppError::Invalid`] for a long reason; [`AppError::Conflict`] when already done or dismissed.
+pub async fn dismiss(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: RecallId,
+    reason: Option<&str>,
+    now: OffsetDateTime,
+) -> Result<RecallView, AppError> {
+    actor.require(Permission::PatientsWrite)?;
+    let reason = reason.map(str::trim).filter(|r| !r.is_empty());
+    if reason.is_some_and(|r| r.chars().count() > 200) {
+        return Err(AppError::invalid("reason", "is at most 200 characters"));
+    }
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let reach = actor.reach(Permission::PatientsRead).member();
+        load(tx, id.uuid(), reach).await?;
+        if !dal::dismiss(
+            tx.conn(),
+            id.uuid(),
+            now,
+            actor.membership_id.uuid(),
+            reason,
+        )
+        .await?
+        {
+            return Err(AppError::Conflict("this follow-up is already closed"));
+        }
+        load(tx, id.uuid(), reach).await
+    })
+    .await
+}

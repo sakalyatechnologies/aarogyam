@@ -12664,6 +12664,67 @@
         ]
       }
     },
+    "/api/v1/recalls/{id}/dismiss": {
+      "post": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Dismisses a follow-up that is no longer needed.",
+        "operationId": "dismissRecall",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The follow-up",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DismissRecall"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recall"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A reason over 200 characters"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such follow-up in this clinic"
+          },
+          "409": {
+            "description": "Already done or dismissed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/recalls/{id}/done": {
       "post": {
         "tags": [
@@ -21738,6 +21799,19 @@
             "type": "integer",
             "format": "int64",
             "description": "Seconds until it expires."
+          }
+        }
+      },
+      "DismissRecall": {
+        "type": "object",
+        "description": "Why a follow-up is dismissed.",
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional, at most 200 characters."
           }
         }
       },

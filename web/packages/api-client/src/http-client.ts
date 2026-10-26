@@ -428,6 +428,7 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     listQueueToCollect: (opts) => call({ method: "GET", path: "/api/v1/queue/to-collect", schema: toCollectList, signal: opts?.signal }),
     listRecallsDue: (opts) => call({ method: "GET", path: "/api/v1/recalls", schema: recallList, signal: opts?.signal }),
     markRecallDone: (id, opts) => call({ method: "POST", path: `/api/v1/recalls/${encodeURIComponent(id)}/done`, schema: recall, signal: opts?.signal }),
+    dismissRecall: (id, input, opts) => call({ method: "POST", path: `/api/v1/recalls/${encodeURIComponent(id)}/dismiss`, body: input, schema: recall, signal: opts?.signal }),
     addWalkIn: (input, opts) => call({ method: "POST", path: "/api/v1/queue", schema: queueToken, body: input, signal: opts?.signal }),
     callQueueToken: (id, opts) =>
       call({ method: "POST", path: `/api/v1/queue/${encodeURIComponent(id)}/call`, schema: queueToken, signal: opts?.signal }),

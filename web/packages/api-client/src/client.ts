@@ -482,6 +482,8 @@ export interface ApiClient {
   listRecallsDue(options?: RequestOptions): Promise<ApiResult<RecallListPage>>;
   /** Clinic host: marks a follow-up done. Needs `patients.write`. */
   markRecallDone(id: string, options?: RequestOptions): Promise<ApiResult<Recall>>;
+  /** Clinic host: dismisses a follow-up no longer needed, with an optional reason (at most 200 characters). Needs `patients.write`. */
+  dismissRecall(id: string, input: { reason?: string }, options?: RequestOptions): Promise<ApiResult<Recall>>;
   /** Clinic host: issues a token to a patient without an appointment. Needs `appointments.write`. */
   addWalkIn(input: WalkInBody, options?: RequestOptions): Promise<ApiResult<QueueToken>>;
   /** Clinic host: moves a token along; a token with an appointment moves the appointment too. Needs `appointments.write`. */

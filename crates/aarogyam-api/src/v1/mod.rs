@@ -687,6 +687,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/patients/{id}/recalls", post(recalls::create))
         .route("/recalls", get(recalls::due))
         .route("/recalls/{id}/done", post(recalls::done))
+        .route("/recalls/{id}/dismiss", post(recalls::dismiss))
         .route("/drugs/search", post(prescriptions::search_drugs))
         .route(
             "/patients/{id}/prescriptions",

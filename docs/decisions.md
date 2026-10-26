@@ -668,3 +668,11 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Index (expand/contract).** `appointments_self_booking_slot` (0091) refuses two active self-bookings with one start, so it would refuse a request. A predicate can't be altered and an index can't be added under the same name, so 0685 drops and recreates it in one transaction under the same name with `and not requested_overlap` added: no moment without the backstop, the 409 mapping by constraint name keeps working in old and new binaries, and every non-overlap booking is covered exactly as before. The request rows rely on the per-doctor advisory lock instead. Two indexes side by side would have kept the old one refusing requests, which defeats the feature; so the "contract" step (dropping the old shape) is done here, safely, because the new index is strictly weaker only for rows that did not exist before this release. Old binaries never set `requested_overlap`, so they behave as before.
 
 **Why.** A patient who wants the one time a busy doctor holds should be able to ask; the desk or the doctor decides, with the choice of moving them.
+
+## 2026-10-26: Full payment finishes the token; recalls can be dismissed
+
+**Decision.** Migration 0704. Additive API.
+- **Payment done.** When `payments::record` brings a bill's balance to 0 and that bill's encounter has a `ready_to_bill` token, the token moves to `done` in the same transaction through `queue::move_token` (the one `set_status` uses, so the appointment follows and `done_at` is set). A part payment leaves it; a void never reopens it; a bill with no token is unaffected. The `collect_payment` notification handling is unchanged.
+- **Dismiss.** `POST /api/v1/recalls/{id}/dismiss {reason?}` (`patients.write`, reason at most 200 characters) sets `dismissed` with `dismissed_at`, `dismissed_by` and `dismiss_reason` (new nullable columns; a check ties `dismissed_at` to the status). 404 outside the clinic, 409 when already done or dismissed. Dismissed recalls are not in `GET /recalls`. The api-client has `dismissRecall` with a fake.
+
+**Why.** The desk should not close a paid visit by hand, and a follow-up that is no longer needed should leave the list without being marked done.

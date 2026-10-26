@@ -178,3 +178,46 @@ pub(crate) async fn done(
     .await?;
     Ok(Json(view.into()))
 }
+
+/// Why a follow-up is dismissed.
+#[derive(Debug, Default, Deserialize, ToSchema)]
+pub struct DismissRecall {
+    /// Optional, at most 200 characters.
+    pub reason: Option<String>,
+}
+
+/// Dismisses a follow-up that is no longer needed.
+#[utoipa::path(
+    post,
+    path = "/api/v1/recalls/{id}/dismiss",
+    operation_id = "dismissRecall",
+    tag = "patients",
+    params(("id" = String, Path, description = "The follow-up")),
+    request_body = DismissRecall,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Recall),
+        (status = 400, description = "A reason over 200 characters"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks patients.write"),
+        (status = 404, description = "No such follow-up in this clinic"),
+        (status = 409, description = "Already done or dismissed")
+    )
+)]
+pub(crate) async fn dismiss(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<PatientsWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<DismissRecall>,
+) -> Result<Json<Recall>, ApiFailure> {
+    let view = app::dismiss(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        RecallId::from_uuid(id),
+        body.reason.as_deref(),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(view.into()))
+}

@@ -65,75 +65,97 @@ enum ArtCache {
 }
 
 /// Draws a picture from the shared art catalogue (avatar, illustration) with its gradients, theme
-/// colours and loops (blink, bob, rock...). Under Reduce Motion it stays still.
+/// colours and loops (blink, bob, rock...). Under Reduce Motion, or while the app isn't active, it
+/// stays still. The loops are slow, so 30 frames a second is enough.
 struct ArtView: View {
     let piece: ArtPiece
     var tint: Color = .primary
     @Environment(\.skTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         let art = ArtCache.art(piece)
+        let painter = ArtPainter(art: art, roles: theme.roles, tint: tint)
         Group {
             if art.animated, !reduceMotion {
-                TimelineView(.animation) { context in
-                    canvas(art, ms: context.date.timeIntervalSinceReferenceDate * 1000)
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: scenePhase != .active)) { context in
+                    canvas(painter, ms: context.date.timeIntervalSinceReferenceDate * 1000)
                 }
             } else {
-                canvas(art, ms: nil)
+                canvas(painter, ms: nil)
             }
         }
         .accessibilityHidden(true)
     }
 
-    private func canvas(_ art: PreparedArt, ms: Double?) -> some View {
-        let roles = theme.roles
-        return Canvas { ctx, size in
-            ArtPainter(art: art, roles: roles, tint: tint, ms: ms).draw(in: &ctx, size: size)
-        }
+    private func canvas(_ painter: ArtPainter, ms: Double?) -> some View {
+        Canvas { ctx, size in painter.draw(in: &ctx, size: size, ms: ms) }
     }
 }
 
-/// The drawing itself, kept apart from the view so it can be unit-tested for its transforms.
-struct ArtPainter {
-    let art: PreparedArt
-    let roles: SkRoles
-    let tint: Color
-    let ms: Double?
+/// One layer with its paints and loops resolved for a theme, so a frame touches no Kotlin objects.
+struct PaintedLayer {
+    let path: Path
+    let opacity: Double
+    /// Applied in this order: the innermost group's loop first.
+    let loops: [(loop: SkLoop, offset: Double, box: CGRect)]
+    let fill: ArtShading?
+    let stroke: ArtShading?
+    let style: StrokeStyle
+}
 
-    func draw(in ctx: inout GraphicsContext, size: CGSize) {
-        let vb = art.viewBox
+/// The drawing itself, kept apart from the view so it can be unit-tested for its transforms.
+/// Everything read from the shared catalogue is resolved once here, not on every frame.
+struct ArtPainter {
+    let viewBox: CGRect
+    let rootLoops: [(loop: SkLoop, offset: Double)]
+    let layers: [PaintedLayer]
+
+    init(art: PreparedArt, roles: SkRoles, tint: Color) {
+        let paints = ArtPaints(roles: roles, tint: tint)
+        viewBox = art.viewBox
+        rootLoops = art.rootLoops.compactMap { ArtLoops.loop($0).map { (loop: $0.0, offset: $0.1) } }
+        layers = art.layers.map { item in
+            let layer = item.layer
+            return PaintedLayer(
+                path: item.path,
+                opacity: layer.opacity,
+                loops: layer.loops.reversed().compactMap { l in
+                    ArtLoops.loop(l.kind).map { (loop: $0.0, offset: $0.1, box: art.nodeBoxes[l.node] ?? item.box) }
+                },
+                fill: paints.shading(layer.fill, box: item.box),
+                stroke: paints.shading(layer.stroke, box: item.box),
+                style: StrokeStyle(
+                    lineWidth: layer.strokeWidth,
+                    lineCap: layer.roundCaps ? .round : .butt,
+                    lineJoin: layer.roundJoins ? .round : .miter
+                )
+            )
+        }
+    }
+
+    func draw(in ctx: inout GraphicsContext, size: CGSize, ms: Double?) {
+        let vb = viewBox
         let s = min(size.width / vb.width, size.height / vb.height)
         ctx.translateBy(x: (size.width - vb.width * s) / 2 - vb.minX * s, y: (size.height - vb.height * s) / 2 - vb.minY * s)
         ctx.scaleBy(x: s, y: s)
-        if let ms, !art.rootLoops.isEmpty {
-            for name in art.rootLoops { apply(name, box: vb, ms: ms, to: &ctx) }
+        if let ms {
+            for r in rootLoops { apply(r.loop, offset: r.offset, box: vb, ms: ms, to: &ctx) }
         }
-        for item in art.layers {
+        for item in layers {
             var c = ctx
-            c.opacity = item.layer.opacity
+            c.opacity = item.opacity
             if let ms {
-                for loop in item.layer.loops.reversed() {
-                    apply(loop.kind, box: art.nodeBoxes[loop.node] ?? item.box, ms: ms, to: &c)
-                }
+                for l in item.loops { apply(l.loop, offset: l.offset, box: l.box, ms: ms, to: &c) }
             }
-            if let fill = shading(item.layer.fill, box: item.box) {
-                fill.apply(item.path, &c)
-            }
-            if let stroke = shading(item.layer.stroke, box: item.box) {
-                let style = StrokeStyle(
-                    lineWidth: item.layer.strokeWidth,
-                    lineCap: item.layer.roundCaps ? .round : .butt,
-                    lineJoin: item.layer.roundJoins ? .round : .miter
-                )
-                stroke.stroke(item.path, style, &c)
-            }
+            item.fill?.apply(item.path, &c)
+            item.stroke?.stroke(item.path, item.style, &c)
         }
     }
 
     /// A loop's frame at `ms`, around its pivot on `box`, added to `ctx`.
-    func apply(_ kind: String, box: CGRect, ms: Double, to ctx: inout GraphicsContext) {
-        guard let (loop, offset) = ArtLoops.loop(kind) else { return }
+    func apply(_ loop: SkLoop, offset: Double, box: CGRect, ms: Double, to ctx: inout GraphicsContext) {
         let f = loop.sample(ms + offset)
         let pivot: CGPoint =
             switch loop.pivot {
@@ -147,6 +169,12 @@ struct ArtPainter {
         ctx.translateBy(x: -pivot.x, y: -pivot.y)
         ctx.opacity *= f.alpha
     }
+}
+
+/// A layer's paints in the theme's colours.
+struct ArtPaints {
+    let roles: SkRoles
+    let tint: Color
 
     /// How to paint a layer, or nil for none.
     func shading(_ paint: ArtPaint, box: CGRect) -> ArtShading? {

@@ -45,6 +45,16 @@ final class V7ShellTests: XCTestCase {
         XCTAssertFalse(art.layers.isEmpty)
     }
 
+    /// The avatar redraws 30 times a second, so its paints and loops are resolved up front.
+    func test_art_painter_resolves_paints_and_loops_once() {
+        let art = ArtCache.art(AvatarArt.shared.all["d3"]!)
+        let roles = SkRoles(tokens: roleTokens(ClinicBranding.companion.Default.theme(systemDark: false).palette))!
+        let painter = ArtPainter(art: art, roles: roles, tint: .blue)
+        XCTAssertEqual(painter.layers.count, art.layers.count)
+        let loopCount = art.layers.reduce(0) { $0 + $1.layer.loops.count }
+        XCTAssertEqual(painter.layers.reduce(0) { $0 + $1.loops.count } + painter.rootLoops.count, loopCount + art.rootLoops.count)
+    }
+
     func test_palette_roles_come_through_as_hex() {
         let theme = ClinicBranding.companion.Default.theme(systemDark: false)
         let tokens = roleTokens(theme.palette)

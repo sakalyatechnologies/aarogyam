@@ -56,7 +56,11 @@ struct DeskHomeScreen: View {
             if board == nil { board = ScreenModel(make: { graph.deskBoard(clinic: clinic, screen: $0) }, state: { $0.state }) }
             focused = true
         }
-        .sheet(item: $paying) { DeskPaymentSheet(graph: graph, clinic: clinic, target: $0, refreshTick: feed.version) }
+        // A payment that settles the bill moves the visit to done on the server, so reload at once
+        // rather than leaving the card up until the next 20-second poll.
+        .sheet(item: $paying, onDismiss: { board?.holder.refresh(); Task { await feed.refresh() } }) {
+            DeskPaymentSheet(graph: graph, clinic: clinic, target: $0, refreshTick: feed.version)
+        }
         .sheet(item: $walkIn) { mode in
             DeskSheet(graph: graph, clinic: clinic, start: mode.mode)
         }
@@ -72,6 +76,11 @@ struct DeskHomeScreen: View {
                 .font(.system(.title2, design: .rounded, weight: .bold))
                 .padding(.horizontal, 14).frame(minHeight: SkSpacing.minTouchTarget + 8)
                 .background(theme.roles.card.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                // In light mode the card matches the page, so the outline is what shows the box.
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(focused ? theme.roles.primary.color : theme.roles.outline.color, lineWidth: focused ? 2 : 1)
+                }
                 .accessibilityLabel(dx("dx.home.number.a11y"))
                 .accessibilityHint(dx("dx.home.number.hint"))
         }

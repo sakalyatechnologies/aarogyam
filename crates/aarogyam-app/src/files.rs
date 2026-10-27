@@ -658,6 +658,46 @@ struct Checked {
     tooth: Option<Tooth>,
 }
 
+/// Whether a file is read or written.
+#[derive(Clone, Copy)]
+enum ProofAccess {
+    Read,
+    Write,
+}
+
+/// The permission that lets billing staff use a payment proof when they lack clinical access:
+/// `billing.read`/`billing.write`, or `payments.collect` (the desk that records the payment).
+fn proof_permission(actor: &ClinicActor, access: ProofAccess) -> Option<Permission> {
+    let billing = match access {
+        ProofAccess::Read => Permission::BillingRead,
+        ProofAccess::Write => Permission::BillingWrite,
+    };
+    [billing, Permission::PaymentsCollect]
+        .into_iter()
+        .find(|permission| actor.require(*permission).is_ok())
+}
+
+/// The permission an upload runs under: `clinical.write`, or for a payment proof alone
+/// `billing.write` or `payments.collect`. `kind` is `None` before the file has been read, when
+/// any of them lets the request in.
+fn upload_permission(
+    actor: &ClinicActor,
+    kind: Option<AttachmentKind>,
+) -> Result<Permission, AppError> {
+    if actor.require(Permission::ClinicalWrite).is_ok() {
+        return Ok(Permission::ClinicalWrite);
+    }
+    match proof_permission(actor, ProofAccess::Write) {
+        Some(permission) if kind.is_none_or(|kind| kind == AttachmentKind::PaymentProof) => {
+            Ok(permission)
+        }
+        _ => actor
+            .require(Permission::ClinicalWrite)
+            .map(|()| Permission::ClinicalWrite)
+            .map_err(AppError::from),
+    }
+}
+
 fn check_fields(input: &Upload) -> Result<Checked, AppError> {
     if input.bytes.is_empty() || input.bytes.len() > MAX_BYTES {
         return Err(AppError::invalid("file", "must be 1 byte to 10 MB"));
@@ -700,7 +740,7 @@ pub async fn upload(
     patient_id: PatientId,
     input: Upload,
 ) -> Result<AttachmentView, AppError> {
-    actor.require(Permission::ClinicalWrite)?;
+    upload_permission(actor, None)?;
     let Checked {
         file_type,
         kind,
@@ -709,6 +749,7 @@ pub async fn upload(
         label,
         tooth,
     } = check_fields(&input)?;
+    let permission = upload_permission(actor, Some(kind))?;
     let size = i64::try_from(input.bytes.len()).map_err(|_| AppError::Internal("file size"))?;
     let sha256 = sha256_hex(&input.bytes);
     let described = Described {
@@ -728,7 +769,7 @@ pub async fn upload(
     // Set once this attempt has stored the bytes, so a failure removes only what it wrote: with a
     // client-chosen id the key may already hold an earlier upload's file.
     let mut wrote = false;
-    let reach = actor.reach(Permission::ClinicalWrite);
+    let reach = actor.reach(permission);
     let stored = db
         .scoped(&scope(actor, request_id), async |tx| {
             let patient = require_patient(tx, patient_id, reach).await?;
@@ -857,13 +898,23 @@ pub async fn list(
     request_id: Option<Uuid>,
     patient_id: PatientId,
 ) -> Result<Vec<AttachmentView>, AppError> {
-    actor.require(Permission::ClinicalRead)?;
+    let clinical = actor.require(Permission::ClinicalRead).is_ok();
+    let reader = proof_permission(actor, ProofAccess::Read);
+    if !clinical && reader.is_none() {
+        actor.require(Permission::ClinicalRead)?;
+    }
+    let reach = actor.reach(if clinical {
+        Permission::ClinicalRead
+    } else {
+        reader.unwrap_or(Permission::ClinicalRead)
+    });
     db.scoped(&scope(actor, request_id), async |tx| {
-        let patient =
-            require_patient(tx, patient_id, actor.reach(Permission::ClinicalRead)).await?;
+        let patient = require_patient(tx, patient_id, reach).await?;
+        // Billing staff without clinical.read see the payment proofs and nothing else.
         attachments::list(tx.conn(), patient.id)
             .await?
             .into_iter()
+            .filter(|row| clinical || row.kind == AttachmentKind::PaymentProof.as_str())
             .map(view)
             .collect()
     })
@@ -894,17 +945,31 @@ pub async fn link(
     attachment_id: AttachmentId,
     now: OffsetDateTime,
 ) -> Result<DownloadLink, AppError> {
-    actor.require(Permission::ClinicalRead)?;
+    let clinical = actor.require(Permission::ClinicalRead).is_ok();
+    let reader = proof_permission(actor, ProofAccess::Read);
+    if !clinical && reader.is_none() {
+        actor.require(Permission::ClinicalRead)?;
+    }
     if actor.support_grant.is_some() {
         return Err(AppError::Forbidden(
             "Support access doesn't download files.",
         ));
     }
     db.scoped(&scope(actor, request_id), async |tx| {
-        let reach = actor.reach(Permission::ClinicalRead).member();
-        attachments::get(tx.conn(), attachment_id.uuid(), reach)
+        let reach = actor
+            .reach(if clinical {
+                Permission::ClinicalRead
+            } else {
+                reader.unwrap_or(Permission::ClinicalRead)
+            })
+            .member();
+        let row = attachments::get(tx.conn(), attachment_id.uuid(), reach)
             .await?
             .ok_or(AppError::NotFound("attachment"))?;
+        // A file that is not a payment proof is clinical: not found for billing staff.
+        if !clinical && row.kind != AttachmentKind::PaymentProof.as_str() {
+            return Err(AppError::NotFound("attachment"));
+        }
         Ok::<_, AppError>(())
     })
     .await?;

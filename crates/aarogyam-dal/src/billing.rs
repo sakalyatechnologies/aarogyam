@@ -695,6 +695,8 @@ pub struct PaymentRow {
     pub void_reason: Option<String>,
     /// Hash of the request that created it.
     pub request_hash: String,
+    /// The file that proves it, if one was attached.
+    pub attachment_id: Option<Uuid>,
     /// Allocated to bills.
     pub allocated_paise: i64,
 }
@@ -726,7 +728,7 @@ pub async fn payments(
         PaymentRow,
         r#"select m.id, m.number, m.patient_id, p.full_name as patient_name, p.number as patient_number,
                   m.received_at, m.amount_paise, m.method, m.reference, m.status, m.void_reason,
-                  m.request_hash,
+                  m.request_hash, m.attachment_id,
                   coalesce((select sum(a.amount_paise) from aarogyam.payment_allocations a
                             where a.org_id = m.org_id and a.payment_id = m.id), 0)::bigint as "allocated_paise!"
            from aarogyam.payments m
@@ -806,6 +808,8 @@ pub struct NewPayment<'a> {
     pub idempotency_key: &'a str,
     /// Hash of the request.
     pub request_hash: &'a str,
+    /// A file of kind `payment_proof` of the same patient.
+    pub attachment_id: Option<Uuid>,
 }
 
 /// Records a payment.
@@ -817,8 +821,8 @@ pub async fn insert_payment(conn: &mut PgConnection, new: &NewPayment<'_>) -> Re
     sqlx::query!(
         r#"insert into aarogyam.payments
              (id, number, patient_id, received_at, amount_paise, method, reference, received_by,
-              idempotency_key, request_hash)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"#,
+              idempotency_key, request_hash, attachment_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"#,
         new.id,
         new.number,
         new.patient_id,
@@ -828,11 +832,29 @@ pub async fn insert_payment(conn: &mut PgConnection, new: &NewPayment<'_>) -> Re
         new.reference,
         new.received_by,
         new.idempotency_key,
-        new.request_hash
+        new.request_hash,
+        new.attachment_id
     )
     .execute(conn)
     .await?;
     Ok(())
+}
+
+/// The kind of a patient's file, and its patient, when it is in this clinic and not deleted.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn attachment_kind(
+    conn: &mut PgConnection,
+    id: Uuid,
+) -> Result<Option<(String, Uuid)>, DbError> {
+    let row = sqlx::query!(
+        "select kind, patient_id from aarogyam.attachments where id = $1 and deleted_at is null",
+        id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.map(|row| (row.kind, row.patient_id)))
 }
 
 /// Allocates part of a payment to a bill of the same patient.
@@ -948,6 +970,8 @@ pub struct MoneyOverview {
     pub collections: Vec<CollectionRow>,
     /// Bills issued and not void: how many, and their total in paise.
     pub invoiced: (i64, i64),
+    /// Discount given on those bills, in paise (the sum of their line discounts).
+    pub discount_paise: i64,
     /// Lines of bills issued and not void, by category, largest first.
     pub mix: Vec<MixRow>,
 }
@@ -985,6 +1009,10 @@ pub async fn money_overview(
            from aarogyam.invoices i
            where i.status = 'issued' and i.issued_at >= $4 and i.issued_at < $5
            union all
+           select 'd', null, null, coalesce(sum(i.discount_paise), 0)::bigint, 0
+           from aarogyam.invoices i
+           where i.status = 'issued' and i.issued_at >= $4 and i.issued_at < $5
+           union all
            select 'm', null, coalesce(l.category, 'other'), sum(l.total_paise)::bigint, count(*)
            from aarogyam.invoice_items l
            join aarogyam.invoices i on i.org_id = l.org_id and i.id = l.invoice_id
@@ -1010,6 +1038,7 @@ pub async fn money_overview(
                 payments: row.count,
             }),
             ("i", _, _) => overview.invoiced = (row.count, row.amount),
+            ("d", _, _) => overview.discount_paise = row.amount,
             ("m", _, Some(category)) => overview.mix.push(MixRow {
                 category,
                 amount_paise: row.amount,

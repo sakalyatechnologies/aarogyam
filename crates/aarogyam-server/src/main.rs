@@ -237,6 +237,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         }
     });
     let mut http = config.http.limits();
+    let live_events = config.http.live_events;
     match config.http.edge_secret {
         Some(secret) => {
             let secret =
@@ -299,7 +300,9 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         }
     };
     let files = Files::new(storage, signer);
-    let mut state = AppState::new(db, http, tokens, hosts).with_quality_dir(config.quality.dir);
+    let mut state = AppState::new(db, http, tokens, hosts)
+        .with_quality_dir(config.quality.dir)
+        .with_live_events(live_events);
     if let Some(admin) = accounts {
         state = state.with_accounts(Arc::new(admin));
     } else if !local {

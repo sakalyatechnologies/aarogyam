@@ -26,6 +26,7 @@ use crate::cache::TtlCache;
 use crate::dev::DevTokens;
 use crate::error_report::ErrorReporting;
 use crate::failure::ApiFailure;
+use crate::live::Hub;
 use crate::metrics::ServiceMetrics;
 use crate::v1::client_errors::Budget;
 
@@ -151,7 +152,10 @@ struct Inner {
     clients: Arc<ClientPolicy>,
     error_reporting: Option<Arc<ErrorReporting>>,
     staff_mfa: bool,
+    /// Whether `GET /events` streams; off answers 404 so clients fall back to polling.
+    live_events: bool,
     client_errors: Budget,
+    live: Hub,
 }
 
 /// Shared state; cheap to clone.
@@ -184,7 +188,9 @@ impl AppState {
                 clients: Arc::new(ClientPolicy::default()),
                 error_reporting: None,
                 staff_mfa: true,
+                live_events: true,
                 client_errors: Budget::default(),
+                live: Hub::new(),
             }),
         }
     }
@@ -237,6 +243,17 @@ impl AppState {
     pub fn with_staff_mfa(mut self, required: bool) -> Self {
         if let Some(inner) = Arc::get_mut(&mut self.inner) {
             inner.staff_mfa = required;
+        }
+        self
+    }
+
+    /// Turns the live event stream (`GET /events`) on or off. On by default here; the server
+    /// keeps it off unless `ARO_HTTP__LIVE_EVENTS` is set, since an open stream keeps Cloud Run
+    /// billing CPU. Call before the state is shared (cloned).
+    #[must_use]
+    pub fn with_live_events(mut self, enabled: bool) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.live_events = enabled;
         }
         self
     }
@@ -329,6 +346,10 @@ impl AppState {
     }
 
     /// Whether console calls need the staff member's authenticator code (`aal2`).
+    pub(crate) fn live_events(&self) -> bool {
+        self.inner.live_events
+    }
+
     pub(crate) fn staff_mfa(&self) -> bool {
         self.inner.staff_mfa
     }
@@ -354,6 +375,10 @@ impl AppState {
 
     pub(crate) fn throttle(&self) -> Option<&Throttle> {
         self.inner.throttle.as_ref()
+    }
+
+    pub(crate) fn live(&self) -> &Hub {
+        &self.inner.live
     }
 
     /// The database handle.

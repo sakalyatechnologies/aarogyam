@@ -9,6 +9,7 @@ use aarogyam_domain::schedule::AppointmentKind;
 use axum::Json;
 use axum::extract::State;
 use sakalya_http::ApiQuery;
+use sakalya_types::Paise;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
@@ -169,8 +170,13 @@ pub struct Analytics {
     /// Who the patients are.
     pub patients: PatientBreakdown,
     /// Procedures done in the range by the category of the bill line that charged them
-    /// (`uncategorised` when not billed or without a category), most first. Counts only.
-    pub procedures_by_category: Vec<KeyCount>,
+    /// (`uncategorised` when not billed or without a category), most first, with what those
+    /// bill lines came to.
+    pub procedures_by_category: Vec<ProcedureCategory>,
+    /// Booked chair time by hour of the day: per chair, and per weekday.
+    /// Optional in the schema, so apps built before it read on.
+    #[schema(required = false)]
+    pub occupancy: Occupancy,
     /// Booked chair minutes by what they were spent on, from the appointment kind.
     pub chair_time: ChairTimeSplit,
     /// Booked appointments against walk-ins.
@@ -179,6 +185,55 @@ pub struct Analytics {
     pub busy_hours: Vec<BusyHour>,
     /// Lab work received back in the range.
     pub lab_turnaround: LabTurnaround,
+}
+
+/// Procedures done under one bill category.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProcedureCategory {
+    /// The category, or `uncategorised`.
+    pub key: String,
+    /// Procedures done.
+    pub count: i64,
+    /// What their issued bill lines came to, in paise, including GST. Null without
+    /// `finance.view`.
+    pub amount_paise: Option<i64>,
+}
+
+/// One hour of the day on one chair, over the range.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChairHour {
+    /// The chair.
+    #[schema(value_type = String)]
+    pub room_id: Uuid,
+    /// Hour of the day in clinic time, 0 to 23.
+    pub hour: u8,
+    /// Booked minutes in the hour, all days of the range added (no-shows included).
+    pub booked_minutes: i64,
+    /// Appointments touching the hour.
+    pub appointments: i64,
+}
+
+/// One hour of one weekday over the range, all chairs.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct WeekdayHour {
+    /// ISO weekday: 1 Monday to 7 Sunday.
+    pub weekday: u8,
+    /// Hour of the day in clinic time, 0 to 23.
+    pub hour: u8,
+    /// Booked minutes in the hour, that weekday's days of the range and every chair added.
+    pub booked_minutes: i64,
+    /// Appointments touching the hour.
+    pub appointments: i64,
+}
+
+/// How busy the chairs are by hour. Only cells with bookings are listed, so a missing cell is
+/// zero.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct Occupancy {
+    /// Chair by hour of the day, weekdays added; for the chair-by-hour heatmap.
+    pub by_chair_hour: Vec<ChairHour>,
+    /// Weekday by hour, chairs added; for the weekday-by-hour heatmap.
+    pub by_weekday_hour: Vec<WeekdayHour>,
 }
 
 /// Booked chair minutes (no-shows included) by what they were spent on.
@@ -268,9 +323,10 @@ fn counts<K>(rows: Vec<(K, i64)>, key: impl Fn(K) -> &'static str) -> Vec<KeyCou
         .collect()
 }
 
-/// Chair utilization, income, expenses (stock received counts as material) and patients by
-/// month or week. The last twelve months by default; at most 731 days. Money fields are null
-/// unless the caller also has `finance.view`.
+/// Chair utilization, occupancy by chair and weekday and hour, income, expenses (stock
+/// received counts as material), the procedure mix and patients by month or week. The last
+/// twelve months by default; at most 731 days. Money fields (income, expenses, procedure
+/// amounts) are null unless the caller also has `finance.view`.
 #[utoipa::path(
     get,
     path = "/api/v1/reports/analytics",
@@ -288,6 +344,10 @@ fn counts<K>(rows: Vec<(K, i64)>, key: impl Fn(K) -> &'static str) -> Vec<KeyCou
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks analytics.view")
     )
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one response assembled from many parts"
 )]
 pub(crate) async fn analytics(
     State(state): State<AppState>,
@@ -344,8 +404,36 @@ pub(crate) async fn analytics(
         procedures_by_category: report
             .procedures
             .into_iter()
-            .map(|(key, count)| KeyCount { key, count })
+            .map(|mix| ProcedureCategory {
+                key: mix.category,
+                count: mix.count,
+                amount_paise: mix.amount.map(Paise::get),
+            })
             .collect(),
+        occupancy: Occupancy {
+            by_chair_hour: report
+                .occupancy
+                .by_chair_hour
+                .into_iter()
+                .map(|(room, load)| ChairHour {
+                    room_id: room.uuid(),
+                    hour: load.hour,
+                    booked_minutes: load.booked_minutes,
+                    appointments: load.appointments,
+                })
+                .collect(),
+            by_weekday_hour: report
+                .occupancy
+                .by_weekday_hour
+                .into_iter()
+                .map(|(weekday, load)| WeekdayHour {
+                    weekday,
+                    hour: load.hour,
+                    booked_minutes: load.booked_minutes,
+                    appointments: load.appointments,
+                })
+                .collect(),
+        },
         chair_time: {
             let minutes = |class: ChairTime| {
                 report

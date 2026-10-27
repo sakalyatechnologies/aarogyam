@@ -1161,12 +1161,14 @@ pub struct UpiLink {
 ///
 /// # Errors
 /// [`AppError::Denied`] without `billing.read`; [`AppError::NotFound`];
-/// [`AppError::Conflict`] unless the bill is issued with a balance and the clinic has a UPI ID.
+/// [`AppError::Conflict`] unless the bill is issued with a balance and the clinic has a UPI ID;
+/// [`AppError::Invalid`] when `part` is not between 1 paisa and the balance.
 pub async fn upi_link(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     id: InvoiceId,
+    part: Option<Paise>,
 ) -> Result<UpiLink, AppError> {
     actor.require(Permission::BillingRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
@@ -1176,6 +1178,14 @@ pub async fn upi_link(
         };
         if view.balance <= Paise::ZERO {
             return Err(AppError::Conflict("the bill has nothing left to pay"));
+        }
+        // A part payment asks for less than the balance, never more.
+        let amount = part.unwrap_or(view.balance);
+        if amount <= Paise::ZERO || amount > view.balance {
+            return Err(AppError::invalid(
+                "amount_paise",
+                "must be above zero and at most the balance",
+            ));
         }
         let clinic = aarogyam_dal::settings::get(tx.conn())
             .await?
@@ -1190,11 +1200,11 @@ pub async fn upi_link(
             ))?
             .to_owned();
         Ok(UpiLink {
-            uri: aarogyam_domain::upi::pay_link(&upi_id, &clinic.name, view.balance.get(), &number),
+            uri: aarogyam_domain::upi::pay_link(&upi_id, &clinic.name, amount.get(), &number),
             upi_id,
             payee_name: clinic.name,
             invoice_number: number,
-            amount: view.balance,
+            amount,
         })
     })
     .await

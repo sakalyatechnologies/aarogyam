@@ -6,6 +6,8 @@ import {
   unwrap,
   type AllergyFields,
   type AppointmentChanges,
+  type ConflictPolicyChange,
+  type MoveAppointment,
   type AppointmentFilter,
   type AppointmentId,
   type AppointmentStatus,
@@ -493,6 +495,35 @@ export function useChangeAppointment() {
   return useMutation({
     mutationFn: ({ id, changes }: { id: AppointmentId; changes: AppointmentChanges }) => unwrap(api.changeAppointment(id, changes)),
     onSuccess: () => { invalidateSchedule(queryClient, access.org_id); },
+  });
+}
+
+/** Reschedules a request and confirms it in one step. */
+export function useMoveAppointment() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, to }: { id: AppointmentId; to: MoveAppointment }) => unwrap(api.moveAppointment(id, to)),
+    onSuccess: () => { invalidateSchedule(queryClient, access.org_id); },
+  });
+}
+
+/** A doctor's own answer to a taken time. */
+export function useConflictPolicy(id: PractitionerId) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["conflict-policy", access.org_id, id],
+    queryFn: ({ signal }) => unwrap(api.getConflictPolicy(id, { signal })),
+    ...REFERENCE,
+  });
+}
+
+export function useSetConflictPolicy() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, policy }: { id: PractitionerId; policy: ConflictPolicyChange }) => unwrap(api.setConflictPolicy(id, policy)),
+    onSuccess: (saved, { id }) => { queryClient.setQueryData(["conflict-policy", access.org_id, id], saved); },
   });
 }
 

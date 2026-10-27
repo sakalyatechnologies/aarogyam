@@ -14,6 +14,7 @@ use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use sakalya_http::{ApiError, ApiJson, ApiPath, ApiQuery};
+use sakalya_types::Paise;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
@@ -661,16 +662,28 @@ pub struct UpiLink {
     pub amount_paise: i64,
 }
 
-/// The UPI payment link and QR text for what is left on an issued bill. Records nothing.
+/// Options for the UPI link.
+#[derive(Debug, Deserialize)]
+pub struct UpiLinkParams {
+    /// A part payment, in paise.
+    pub amount_paise: Option<i64>,
+}
+
+/// The UPI payment link and QR text for what is left on an issued bill, or for part of it with
+/// `amount_paise`. Records nothing.
 #[utoipa::path(
     get,
     path = "/api/v1/invoices/{id}/upi-link",
     operation_id = "getInvoiceUpiLink",
     tag = "billing",
-    params(("id" = String, Path, description = "The bill")),
+    params(
+        ("id" = String, Path, description = "The bill"),
+        ("amount_paise" = Option<i64>, Query, description = "A part payment in paise, above zero and at most the balance (default: the whole balance)")
+    ),
     security(("bearer" = [])),
     responses(
         (status = 200, body = UpiLink),
+        (status = 400, description = "amount_paise is zero, negative or above the balance"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks billing.read"),
         (status = 404, description = "No such bill in this clinic"),
@@ -681,12 +694,14 @@ pub(crate) async fn get_upi_link(
     State(state): State<AppState>,
     Require { request, .. }: Require<BillingRead>,
     ApiPath(id): ApiPath<Uuid>,
+    ApiQuery(params): ApiQuery<UpiLinkParams>,
 ) -> Result<Json<UpiLink>, ApiFailure> {
     let link = app::upi_link(
         state.db(),
         &request.actor,
         request.request_id,
         InvoiceId::from_uuid(id),
+        params.amount_paise.map(Paise::new),
     )
     .await?;
     Ok(Json(UpiLink {

@@ -3,14 +3,17 @@
 
 use aarogyam_dal::billing::{self as dal, PaymentFilter};
 use aarogyam_dal::patients;
+use aarogyam_dal::queue as queue_dal;
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::billing::{
     FinancialYear, InvoiceStatus, PaymentMethod, PaymentStatus, RECEIPT_PREFIX, serial_number,
 };
+use aarogyam_domain::clinical::AttachmentKind;
 use aarogyam_domain::ids::{InvoiceId, PatientId, PaymentId};
 use aarogyam_domain::messaging::receipt_dedupe_key;
 use aarogyam_domain::outbox::MessageKind;
 use aarogyam_domain::permission::Permission;
+use aarogyam_domain::schedule::QueueStatus;
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::Paise;
 use serde_json::json;
@@ -39,6 +42,8 @@ pub struct RecordPayment {
     pub reference: Option<String>,
     /// Which bills it pays, and how much of each.
     pub allocations: Vec<(InvoiceId, i64)>,
+    /// A file of kind `payment_proof` of the same patient that proves it.
+    pub attachment_id: Option<Uuid>,
 }
 
 /// Part of a payment going to a bill.
@@ -79,6 +84,8 @@ pub struct PaymentView {
     pub unallocated: Paise,
     /// The allocations.
     pub allocations: Vec<AllocationView>,
+    /// The file that proves it, if one was attached.
+    pub attachment_id: Option<Uuid>,
 }
 
 /// Valid keys: 8 to 100 of letters, digits, `_`, `-`, `.` and `:` (a UUID works).
@@ -106,14 +113,20 @@ fn request_hash(input: &RecordPayment, method: PaymentMethod, reference: Option<
         .map(|(invoice, amount)| format!("{}={amount}", invoice.uuid()))
         .collect();
     allocations.sort();
-    hash_token(&format!(
+    let mut request = format!(
         "{}|{}|{}|{}|{}",
         input.patient_id.uuid(),
         method.as_str(),
         input.amount_paise,
         reference.unwrap_or_default(),
         allocations.join(",")
-    ))
+    );
+    // Added after the first release: without a proof the hash is what it always was, so keys
+    // already stored still match.
+    if let Some(proof) = input.attachment_id {
+        request = format!("{request}|{proof}");
+    }
+    hash_token(&request)
 }
 
 async fn load_many(
@@ -152,6 +165,7 @@ async fn load_many(
                 allocated: Paise::new(row.allocated_paise),
                 unallocated: Paise::new((row.amount_paise - row.allocated_paise).max(0)),
                 allocations: mine,
+                attachment_id: row.attachment_id,
             };
             (view, row.request_hash)
         })
@@ -284,6 +298,18 @@ pub async fn record(
             let patient = patients::get(tx.conn(), input.patient_id.uuid(), None)
                 .await?
                 .ok_or(AppError::NotFound("patient"))?;
+            if let Some(proof) = input.attachment_id {
+                let (kind, owner) = dal::attachment_kind(tx.conn(), proof)
+                    .await?
+                    .ok_or(AppError::NotFound("attachment"))?;
+                if kind != AttachmentKind::PaymentProof.as_str() || owner != input.patient_id.uuid()
+                {
+                    return Err(AppError::invalid(
+                        "attachment_id",
+                        "must be a payment proof file of the patient",
+                    ));
+                }
+            }
             let ids: Vec<Uuid> = input.allocations.iter().map(|(id, _)| id.uuid()).collect();
             let mut bills = dal::lock_invoices(tx.conn(), &ids).await?;
             if collect_only {
@@ -361,6 +387,7 @@ pub async fn record(
                     received_by: actor.membership_id.uuid(),
                     idempotency_key: &key,
                     request_hash: &hash,
+                    attachment_id: input.attachment_id,
                 },
             )
             .await?;
@@ -373,6 +400,24 @@ pub async fn record(
                     *amount,
                 )
                 .await?;
+            }
+            // A bill paid in full finishes its visit's token (`ready_to_bill` -> `done`).
+            let settled = dal::lock_invoices(tx.conn(), &ids).await?;
+            for bill in settled.iter().filter(|b| b.total_paise - b.paid_paise <= 0) {
+                if let Some(token) =
+                    queue_dal::ready_to_bill_for_invoice(tx.conn(), bill.id).await?
+                {
+                    // A refusal from the appointment's table leaves the token where it is.
+                    crate::queue::move_token(
+                        tx,
+                        &timezone,
+                        &token,
+                        QueueStatus::Done,
+                        actor.membership_id,
+                        now,
+                    )
+                    .await?;
+                }
             }
             // The clinic's `receipts` switch: an email receipt, queued with the payment.
             if patient.email.is_some() && crate::settings::prefs_in(tx).await?.receipts {
@@ -513,6 +558,7 @@ mod tests {
             amount_paise: 500,
             reference: None,
             allocations: vec![(invoice, 200), (other, 300)],
+            attachment_id: None,
         };
         let mut reordered = input.clone();
         reordered.allocations.reverse();

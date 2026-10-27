@@ -268,7 +268,7 @@ pub async fn feed(
              on r.org_id = n.org_id and r.notification_id = n.id and r.membership_id = $1
            left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.handled_by
            left join aarogyam.users u on u.id = m.user_id
-           where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))
+           where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2) and app.booking_conflict_visible(n, a.practitioner_id, $1))
                   or ($8 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9))
                   or ($10 and i.id is not null and n.kind <> 'collect_payment')
@@ -323,7 +323,7 @@ pub async fn unread_count(
            left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id
            left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id
              where n.created_at > now() - make_interval(days => $3::int)
-               and (($5 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))
+               and (($5 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2) and app.booking_conflict_visible(n, a.practitioner_id, $1))
                   or ($6 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $7))
                   or ($8 and i.id is not null and n.kind <> 'collect_payment')
@@ -372,7 +372,7 @@ pub async fn mark_read(conn: &mut PgConnection, id: Uuid, viewer: Viewer) -> Res
            left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
            left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id
            left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id
-             where n.id = $1 and (($4 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $3))
+             where n.id = $1 and (($4 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $3) and app.booking_conflict_visible(n, a.practitioner_id, $2))
                   or ($5 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $6))
                   or ($7 and i.id is not null and n.kind <> 'collect_payment')
@@ -418,7 +418,7 @@ pub async fn mark_all_read(conn: &mut PgConnection, viewer: Viewer) -> Result<u6
            left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
            left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id
            left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id
-           where (($3 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2))
+           where (($3 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2) and app.booking_conflict_visible(n, a.practitioner_id, $1))
                   or ($4 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $5))
                   or ($6 and i.id is not null and n.kind <> 'collect_payment')

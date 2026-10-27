@@ -6,7 +6,7 @@ import { Button, DateInput, Dialog, Field, Pill, Select, TextArea, TextInput, us
 
 import { ageSex, patientPath } from "../../lib/patients.js";
 import { localDateHour, localInstant } from "../../lib/time.js";
-import { useChangeAppointment, useSetAppointmentStatus } from "../../queries.js";
+import { useChangeAppointment, useMoveAppointment, useSetAppointmentStatus } from "../../queries.js";
 
 const STATUS_TONE: Readonly<Record<AppointmentStatus, Tone>> = {
   requested: "warning",
@@ -70,6 +70,10 @@ function AppointmentDetail({
   const toast = useToast();
   const setStatus = useSetAppointmentStatus();
   const change = useChangeAppointment();
+  const move = useMoveAppointment();
+  const requested = appointment.status === "requested";
+  const [moving, setMoving] = useState(false);
+  const [taken, setTaken] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
@@ -81,20 +85,46 @@ function AppointmentDetail({
   const [editPractitionerId, setEditPractitionerId] = useState(appointment.practitioner.id);
   const durationMinutes = Math.round((Date.parse(appointment.ends_at) - Date.parse(appointment.starts_at)) / 60_000);
 
-  const moveTo = (status: AppointmentStatus, reason?: string) => {
+  const moveTo = (status: AppointmentStatus, reason?: string, doubleBook = false) => {
     setError(undefined);
+    setTaken(false);
     setStatus.mutate(
-      { id: appointment.id, change: { status, ...(reason === undefined ? {} : { reason }) } },
+      { id: appointment.id, change: { status, ...(reason === undefined ? {} : { reason }), ...(doubleBook ? { double_book: true } : {}) } },
       {
         onSuccess: () => {
           toast.show({
-            title: appointment.status === "requested" && status === "cancelled" ? "Request declined" : `Marked ${STATUS_LABEL[status].toLowerCase()}`,
+            title: appointment.status === "requested" && status === "cancelled" ? "Request declined" : doubleBook ? "Confirmed, double-booked" : `Marked ${STATUS_LABEL[status].toLowerCase()}`,
             tone: "success",
           });
           onClose();
         },
         onError: (thrown) => {
+          if (apiErrorOf(thrown)?.code === "slot_occupied") {
+            setTaken(true);
+            return;
+          }
           setError(apiErrorOf(thrown)?.message ?? "Couldn't update that appointment. Please try again.");
+        },
+      },
+    );
+  };
+
+  /** A request: reschedule and confirm in one call. */
+  const moveRequest = () => {
+    setError(undefined);
+    setTaken(false);
+    move.mutate(
+      {
+        id: appointment.id,
+        to: { starts_at: localInstant(editDate, editTime, timeZone), ...(editPractitionerId === appointment.practitioner.id ? {} : { practitioner_id: editPractitionerId }) },
+      },
+      {
+        onSuccess: () => {
+          toast.show({ title: "Moved and confirmed", tone: "success" });
+          onClose();
+        },
+        onError: (thrown) => {
+          setError(apiErrorOf(thrown)?.code === "slot_occupied" ? "That time is taken too. Pick another time." : (apiErrorOf(thrown)?.message ?? "Couldn't move that request. Please try again."));
         },
       },
     );
@@ -169,9 +199,23 @@ function AppointmentDetail({
         <p className="text-sm text-muted">Cancelled: {appointment.cancel_reason}</p>
       )}
 
-      {editable ? (
+      {taken ? (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-warning-soft px-4 py-3 text-sm font-medium text-warning-text">
+          <span>That time is taken.</span>
+          <span className="flex gap-2">
+            <Button variant="secondary" disabled={setStatus.isPending} onClick={() => { moveTo("confirmed", undefined, true); }}>
+              Double-book
+            </Button>
+            <Button variant="secondary" onClick={() => { setTaken(false); setMoving(true); }}>
+              Move
+            </Button>
+          </span>
+        </div>
+      ) : null}
+
+      {editable && (!requested || moving) ? (
         <div className="rounded-2xl border border-border p-4">
-          <p className="mb-3 text-sm font-bold text-text">Reschedule</p>
+          <p className="mb-3 text-sm font-bold text-text">{requested ? "Move and confirm" : "Reschedule"}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Doctor">
               <Select options={practitioners.map((p) => ({ value: p.id, label: p.display_name }))} value={editPractitionerId} onValueChange={setEditPractitionerId} />
@@ -192,8 +236,8 @@ function AppointmentDetail({
             </Field>
           </div>
           <div className="mt-3 flex justify-end">
-            <Button variant="secondary" onClick={saveReschedule} disabled={change.isPending}>
-              {change.isPending ? "Moving…" : "Move appointment"}
+            <Button variant="secondary" onClick={requested ? moveRequest : saveReschedule} disabled={change.isPending || move.isPending}>
+              {change.isPending || move.isPending ? "Moving…" : requested ? "Move and confirm" : "Move appointment"}
             </Button>
           </div>
         </div>
@@ -237,6 +281,11 @@ function AppointmentDetail({
           {appointment.status === "booked" || appointment.status === "requested" ? (
             <Button variant={appointment.status === "requested" ? "primary" : "secondary"} disabled={setStatus.isPending} onClick={() => { moveTo("confirmed"); }}>
               Confirm
+            </Button>
+          ) : null}
+          {requested && !moving && !taken ? (
+            <Button variant="secondary" disabled={setStatus.isPending} onClick={() => { setMoving(true); }}>
+              Move
             </Button>
           ) : null}
           {appointment.status === "booked" || appointment.status === "confirmed" ? (

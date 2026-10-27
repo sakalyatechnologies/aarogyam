@@ -79,6 +79,22 @@ async fn an_issued_bill_has_a_upi_link_for_its_balance() {
     assert!(uri.contains(&number.replace('/', "%2F")), "{uri}");
     assert_eq!(link["qr_data"], link["uri"]);
 
+    // A part payment: a link for that amount; zero or more than the balance is a 400.
+    let part_path = format!("{path}?amount_paise=50000");
+    let (status, part) = app
+        .send(Method::GET, ALPHA, &part_path, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{part}");
+    assert_eq!(part["amount_paise"], 50_000);
+    assert!(part["uri"].as_str().unwrap().contains("&am=500.00&"));
+    for bad in [0, 123_501] {
+        let bad_path = format!("{path}?amount_paise={bad}");
+        let (status, _) = app
+            .send(Method::GET, ALPHA, &bad_path, Some(&owner), None)
+            .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
+    }
+
     // A draft has no number to pay against; 404 across clinics; 403 without billing.read.
     let draft = bill(&app, &owner, false).await;
     let draft_path = format!("/api/v1/invoices/{draft}/upi-link");
@@ -90,6 +106,17 @@ async fn an_issued_bill_has_a_upi_link_for_its_balance() {
         get(BETA, &app.token(BETA_OWNER)).await.0,
         StatusCode::NOT_FOUND
     );
+    // The same with a part amount: still not found across clinics.
+    let (status, _) = app
+        .send(
+            Method::GET,
+            BETA,
+            &format!("{path}?amount_paise=100"),
+            Some(&app.token(BETA_OWNER)),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(
         get(ALPHA, &app.token(ALPHA_NOTHING)).await.0,
         StatusCode::FORBIDDEN

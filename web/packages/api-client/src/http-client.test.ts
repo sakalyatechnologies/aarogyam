@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, createDevTokenSource, createHttpClient, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, queueTokenId, sessionId, taskId, taskOccurrenceId, unwrap, visitId } from "./index.js";
+import { ApiFailure, appointmentId, createDevTokenSource, createHttpClient, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, purchaseOrderId, queueTokenId, sessionId, taskId, taskOccurrenceId, unwrap, visitId } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -165,6 +165,63 @@ describe("createHttpClient requests", () => {
     expect((await bad.getInvoiceUpiLink(invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170"))).ok).toBe(false);
   });
 
+  it("sends purchase orders and the stock import to their own paths and checks each body against the contract", async () => {
+    const order = {
+      id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405180",
+      number: "PO-1",
+      supplier_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405181",
+      supplier_name: "Depot",
+      status: "draft",
+      expected_on: null,
+      notes: null,
+      ordered_at: null,
+      received_at: null,
+      cancelled_at: null,
+      created_at: "2026-10-01T04:30:00Z",
+      total_paise: 45000,
+      lines: [{ id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405182", line_no: 1, item_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405183", item_name: "Gloves", unit: "box", quantity: 10, received_quantity: 0, unit_cost_paise: 4500 }],
+      receipts: [],
+    };
+    const { fetch, calls } = stubFetch(() => Promise.resolve(json(200, order)));
+    const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });
+    const id = purchaseOrderId.parse(order.id);
+
+    const made = await client.createPurchaseOrder({ supplier_id: order.supplier_id, lines: [{ item_id: order.lines[0]?.item_id ?? "", quantity: 10, unit_cost_paise: 4500 }] });
+    await client.updatePurchaseOrder(id, { status: "ordered" });
+    await client.receivePurchaseOrder(id, {});
+    await client.listPurchaseOrders({ status: "ordered" });
+    await client.getPurchaseOrder(id);
+
+    expect(made.ok && made.value.total_paise).toBe(45000);
+    expect(calls.map((c) => `${c.init?.method ?? ""} ${c.url.replace("http://sunrise.localtest.me", "")}`)).toEqual([
+      "POST /api/v1/purchase-orders",
+      `PATCH /api/v1/purchase-orders/${order.id}`,
+      `POST /api/v1/purchase-orders/${order.id}/receive`,
+      "GET /api/v1/purchase-orders?status=ordered",
+      `GET /api/v1/purchase-orders/${order.id}`,
+    ]);
+    expect(calls[0]?.init?.body).toContain('"quantity":10');
+    const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { ...order, status: "lost" })).fetch });
+    expect((await bad.getPurchaseOrder(id)).ok).toBe(false);
+
+    const preview = { token: "t0k3n", file_name: "stock.csv", row_count: 2, valid_rows: 1, error_rows: 1, errors: [{ row: 3, field: "name", message: "is required" }], rows: [{ row: 2, name: "Gloves", quantity: 5, new_item: true }], new_items: 1, warnings: [], expires_at: "2026-10-02T04:30:00Z" };
+    const importing = stubFetch(json(201, preview));
+    const importer = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: importing.fetch });
+    const form = new FormData();
+    form.set("file", new File(["name,qty\nGloves,5\n"], "stock.csv"));
+    const shown = await importer.previewStockImport(form);
+    expect(importing.calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/stock/import");
+    expect(importing.calls[0]?.init?.body).toBe(form);
+    expect(shown.ok && shown.value.errors[0]?.field).toBe("name");
+
+    const committing = stubFetch(json(200, { items_created: 1, items_updated: 0, batches_received: 1, units_received: 5, skipped: [], replayed: false }));
+    const committer = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: committing.fetch });
+    const done = await committer.commitStockImport({ token: "t0k3n" });
+    expect(committing.calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/stock/import/commit");
+    expect(committing.calls[0]?.init?.body).toBe(JSON.stringify({ token: "t0k3n" }));
+    expect(done.ok && done.value.replayed).toBe(false);
+  });
+
   it("reads the collect summary of a bill from its own path, with the UPI link optional, and checks the body", async () => {
     const id = invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170");
     const upi = { uri: "upi://pay?pa=a@b", qr_data: "upi://pay?pa=a@b", upi_id: "a@b", payee_name: "Sunrise Dental" };
@@ -184,6 +241,28 @@ describe("createHttpClient requests", () => {
     expect((await bare.getInvoiceCollectSummary(id)).ok).toBe(true);
     const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { invoice_id: id })).fetch });
     expect((await bad.getInvoiceCollectSummary(id)).ok).toBe(false);
+  });
+
+  it("moves an appointment and reads and sets a doctor's conflict policy on their own paths", async () => {
+    const make = (response: Response) => {
+      const stub = stubFetch(response);
+      return { stub, client: createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stub.fetch }) };
+    };
+    const policy = make(json(200, { policy: null, effective: "request" }));
+    const read = await policy.client.getConflictPolicy(PRACTITIONER);
+    expect(policy.stub.calls[0]?.url).toBe(`http://sunrise.localtest.me/api/v1/practitioners/${PRACTITIONER}/conflict-policy`);
+    expect(read.ok && read.value.policy).toBeNull();
+    const put = make(json(200, { policy: "strict", effective: "strict" }));
+    await put.client.setConflictPolicy(PRACTITIONER, { policy: "strict" });
+    expect(put.stub.calls[0]?.init?.method).toBe("PUT");
+    expect(put.stub.calls[0]?.init?.body).toBe(JSON.stringify({ policy: "strict" }));
+    expect((await make(json(200, { policy: "maybe", effective: "request" })).client.getConflictPolicy(PRACTITIONER)).ok).toBe(false);
+
+    const moved = make(json(409, { error: { code: "slot_occupied", message: "Another appointment holds that time." } }));
+    const result = await moved.client.moveAppointment(appointmentId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170"), { starts_at: "2026-10-05T11:00:00+05:30" });
+    expect(moved.stub.calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/appointments/0192f1c4-7a10-7c3e-9b2a-1d2e3f405170/move");
+    expect(moved.stub.calls[0]?.init?.method).toBe("POST");
+    expect(!result.ok && result.error.code).toBe("slot_occupied");
   });
 
   it("reads and finishes tasks on their own paths and checks the bodies against the contract", async () => {
@@ -685,6 +764,7 @@ describe("createHttpClient settings v2", () => {
         default_visit_minutes: 45,
         no_show_auto: true,
         no_show_grace_minutes: 30,
+        conflict_policy: "request",
       },
       letterhead: {
         mode: "template",

@@ -183,6 +183,8 @@ export interface FakePractitioner {
   registration_number?: string | null;
   qualifications?: string | null;
   specialty?: string | null;
+  /** Their own answer to a taken time (`request` or `strict`); absent follows the clinic. */
+  conflict_policy?: string | null;
 }
 
 /** One stretch of a doctor's week, local time. */
@@ -471,6 +473,8 @@ export interface FakeInventoryItem {
   category?: string | null;
   unit: "piece" | "ml" | "g" | "box" | "pack";
   reorder_level: number;
+  /** What to order up to; null when not set. */
+  max_level?: number | null;
   active: boolean;
   /** Days from ordering to delivery; 7 when never set. */
   lead_time_days?: number;
@@ -694,6 +698,10 @@ export interface Fixtures {
   inventoryItems: FakeInventoryItem[];
   stockBatches: FakeStockBatch[];
   stockMovements: FakeStockMovement[];
+  /** Purchase orders, made on first use. */
+  purchaseOrders?: import("./purchasing.js").FakePurchaseOrder[];
+  /** Stock import previews, made on first use. */
+  stockImports?: import("./purchasing.js").FakeStockImport[];
   /** Clinic expenses (stock deliveries count as material on their own). */
   expenses?: import("./analytics.js").FakeExpense[];
   /** Labs, lab orders and lab payments. */

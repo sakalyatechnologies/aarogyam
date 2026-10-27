@@ -14,7 +14,7 @@ pub struct AttachmentRow {
     pub patient_id: Uuid,
     /// The visit.
     pub encounter_id: Option<Uuid>,
-    /// `photo`, `xray`, `report`, `document`, `audio` or `consent`.
+    /// `photo`, `xray`, `report`, `document`, `audio`, `consent` or `payment_proof`.
     pub kind: String,
     /// Media type, from the content.
     pub mime_type: String,

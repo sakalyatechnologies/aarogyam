@@ -1,0 +1,131 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id,\n                  case when status = 'open' and expires_at < now() then 'expired' else status end\n                    as \"status!\",\n                  file_name, row_count, valid_rows, error_rows, rows, errors, result, expires_at\n           from aarogyam.stock_import_previews\n           where token_hash = $1\n           for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_import_previews",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "status!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "file_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_import_previews",
+            "name": "file_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "row_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_import_previews",
+            "name": "row_count"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "valid_rows",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_import_previews",
+            "name": "valid_rows"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "error_rows",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_import_previews",
+            "name": "error_rows"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "rows",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_import_previews",
+            "name": "rows"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "errors",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_import_previews",
+            "name": "errors"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "result",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_import_previews",
+            "name": "result"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.stock_import_previews",
+            "name": "expires_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "135e7251bebf4b91f5e4494d8a458316d3df11f0bc63016aff90ce748de4ed29"
+}

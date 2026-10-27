@@ -2,6 +2,32 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-12: Live updates over Server-Sent Events, with resume
+
+**Decision.** `GET /api/v1/events?branch_id=` streams change signals as Server-Sent Events (permission `appointments.read`; a branch of another clinic is `404`). The source is Postgres `LISTEN/NOTIFY`, written by row triggers (migration 0702, `app.live_signal`) on `queue_tokens` (`queue.changed`: status, doctor, room, `left_reason`, `last_reminded_at`), `appointments` (`appointment.changed`: status incl. `no_show`, time, `requested_overlap`), `encounters` (`visit.changed`) and `staff_notifications` (`notification.created`, every kind, on insert and on a re-raise such as remind). Each instance holds one listener connection, started on the first subscriber, and fans signals out to streams of the same clinic and branch.
+
+- **Payload.** Event id, clinic id (routing only, never sent), branch id, kind and record id. No names, numbers or clinical detail. Clients refetch the list or record.
+- **Cloud Run.** Min 0 / max 1, CPU only during requests: a stream sends a `: hb` comment every 25 s and closes after 8 minutes, so it cannot pin the instance; the client reconnects with `Last-Event-ID` and gets the replay. The listener starts on the first subscriber only. Payloads and logs carry ids only.
+- **Resume (`Last-Event-ID`).** Each trigger also writes a row to `private.live_events`, a buffer of the newest 2000 events of all clinics (each insert trims older rows). The row id is the event id sent as `id:`. A reconnect with `Last-Event-ID` gets the clinic's missed events replayed from the buffer after `ready`; when the buffer no longer reaches back (trimmed, an id from the future, or over 500 missed) the stream sends `resync` straight away and the client refetches everything. Without the header nothing is replayed. The table sits in `private` (no application role touches it; two definer functions read it, filtered to the caller's clinic). Ids come from a sequence, so a reconnect at the instant two transactions commit out of order can miss one signal; clients also refetch on a timer.
+- **Why not the outbox.** A poll adds latency and rows per queue move; NOTIFY fires at commit.
+- **Heartbeat** comment `: hb` every 25 s. `resync` is the one refetch-everything signal (listener reconnected, stream lagged, or a resume is impossible); there is no separate `reset`.
+- **Needs a session connection.** LISTEN does not work through a transaction-mode pooler (port 6543).
+- **Reach.** Events are not narrowed to a doctor's own patients: they carry identifiers only and the refetch applies reach.
+
+## 2026-10-10: Reports, stock orders and payment proof (Portal v2, B6)
+
+**Decision.** Additive endpoints and fields only (migrations 0686 to 0690).
+- **Collections.** `GET /reports/collections` gains `compare=prev` (`previous` totals for the same number of days just before `from`; any other value is `400`), `by_method` on days, weeks and the period, and `discount_paise`. Works with `weeks`.
+- **Analytics.** `procedures_by_category[].amount_paise` (null without `finance.view`) and `occupancy.by_chair_hour` and `by_weekday_hour` (minutes booked).
+- **UPI.** The payment link takes an optional part amount: `400` for 0 or more than the balance.
+- **Stock.** `max_level` on items (`0` clears; `400` below the reorder level) and `suggested_order` on stock levels.
+- **Purchase orders.** `GET/POST /purchase-orders`, `GET/PATCH/DELETE /purchase-orders/{id}`, `POST /purchase-orders/{id}/receive`. Draft, then ordered, then received or cancelled; receiving goes through the usual receive path, so each line makes a batch and a movement. Costs show and are set only with `finance.view`. Numbers come from the `purchase_order` number kind.
+- **Stock import.** `POST /stock/import` (multipart CSV or xlsx, 5 MB, 1,000 rows) checks every row and returns a token with row errors; `POST /stock/import/commit {token}` applies it once: items are found by name or created, the cells given change the item, each quantity is received. Committing a token again returns the first result with `replayed: true`. A preview ends after 24 hours (`409`). Unknown suppliers are row errors, not creations.
+- **Payment proof.** Attachment kind `payment_proof` and `attachment_id` on a payment (same patient, kind checked, `400` otherwise).
+- **Data rules.** The four new tables have `org_id`, RLS, composite keys and the restrictive `patient_account` deny and hold no patient data (no erasure step). Retention classes `stock_imports` (30 days) and `purchase_orders` (8 years), report only. The change history leaves out a preview's rows, errors and token hash.
+
+**Why.** The reports and stock screens of the new portal need totals to compare, stock to reorder and a way to load a clinic's existing list; proof of a UPI payment belongs to the payment.
+
 ## 2026-10-10: Finishing a visit in one step (Portal v2, B5)
 
 **Decision.** A visit can be finished and handed over with additive endpoints (migrations 0625 to 0629).
@@ -495,6 +521,8 @@ What `own` means, per record:
 | `message_templates` | Message templates Meta rejected or paused | 365 days | Last change | No patient data; a dead template is clutter once nobody revisits it |
 | `consent_requests` | Consent-to-sign links, signed or not | 30 days | Expiry | Only the link; the signed consent is a consent record and stays with the patient |
 | `campaigns` | Campaigns sent or cancelled | 365 days | Last change | No patient data (a name, a filter, an offer); the messages it made are the `messages` class |
+| `stock_imports` | Uploaded stock lists (the rows checked, and the result once committed) | 30 days | Upload | Working copy only; the items and stock are in the clinic's inventory; no patient data |
+| `purchase_orders` | Orders to suppliers with lines and receipts | 8 years | Order made | Money spent by the clinic, kept like bills (GST law and company law); no patient data |
 | `time_off_requests` | Staff time off decided or cancelled | 365 days | Last change | No patient data; holds a member's private reason, so it should not outlive its use |
 | `task_occurrences` | Each day's run of a clinic's recurring staff tasks, with who did it and an optional note | 3 years | When the task fell due | Compliance history (sterilisation, end-of-day checks); no patient data, and the note is kept out of the change history |
 
@@ -645,3 +673,29 @@ A clinic may keep records longer where its profession or a dispute requires; per
 - **Overpayment.** A payment above the named bills' balance is now `409 overpayment` with `balance_paise` (was `400 invalid`), so the second of two simultaneous collectors learns what is left. A malformed amount stays a validation error. `lock_invoices` now locks the bills in one statement and sums their payments in a second: in one statement the sums came from the snapshot before a concurrent payment committed (a payment never changes the bill row), so two full-balance payments could both pass.
 
 **Why.** Assistants and the desk need to nudge a doctor without spamming; the desk and the doctor can collect at once.
+
+## 2026-10-25: A taken slot can be requested (booking conflict policy)
+
+**Decision.** Migrations 0683 and 0685. Additive API.
+- **Policy.** `booking.conflict_policy` in `org_settings.booking` (`request` by default, or `strict`; read with defaults, so no backfill) and a nullable `practitioners.conflict_policy` (null follows the clinic). A doctor sets their own (`PUT /practitioners/{id}/conflict-policy`, `clinical.write` and their own practitioner row); the owner (`settings.manage`) sets any doctor's and the clinic default (`PATCH /settings/clinic`); everyone with `appointments.read` can read it. `strict` is exactly the old behaviour: a taken time is a 409.
+- **Request.** Under `request`, a slot that only another appointment holds is returned as `requestable_slots` (a sibling of `slots`, so old apps are unaffected) and can be booked. The appointment is `requested` (never auto-confirmed) with `appointments.requested_overlap = true`. Leave is not requestable: it still wins, with 422 `practitioner_on_leave` (under `request`; `strict` keeps its 409).
+- **Notification.** `booking_conflict` (appointment id only, no names) is written instead of `booking_requested` for an overlap request (one bell row); 0683 extends the reminder job (`app.open_booking_requests`, `record_booking_request_step`) to cover it with the same cadence. `app.booking_conflict_visible` narrows who sees it: the doctor of that practitioner and staff who are not a doctor of another practitioner. A doctor otherwise sees every appointment notification (`appointments.read` is `all` for doctors), so this is the one place a colleague's row is hidden. Deciding the appointment (approve, move, decline) marks all its open notifications handled, so the first decision wins.
+- **Approve.** Confirming a request re-checks the doctor's time under `lock_doctor_bookings`: another confirmed, arrived or booked appointment overlapping gives 409 `slot_occupied` unless the body says `double_book: true`. Pending requests hold nothing, so two requests for one time both land and the first approved wins; the other stays `requested` and approving it is refused the same way. `POST /appointments/{id}/move {starts_at, practitioner_id?}` reschedules and confirms in one call under the same lock (a held new time is 409 `slot_occupied`, leave is 422); the patient who booked online gets `BookingConfirmed` with the new time. Decline is the existing Requested to Cancelled (`BookingDeclined`). Staff booking stays soft (the `practitioner_busy` warning).
+- **Index (expand/contract).** `appointments_self_booking_slot` (0091) refuses two active self-bookings with one start, so it would refuse a request. A predicate can't be altered and an index can't be added under the same name, so 0685 drops and recreates it in one transaction under the same name with `and not requested_overlap` added: no moment without the backstop, the 409 mapping by constraint name keeps working in old and new binaries, and every non-overlap booking is covered exactly as before. The request rows rely on the per-doctor advisory lock instead. Two indexes side by side would have kept the old one refusing requests, which defeats the feature; so the "contract" step (dropping the old shape) is done here, safely, because the new index is strictly weaker only for rows that did not exist before this release. Old binaries never set `requested_overlap`, so they behave as before.
+
+**Why.** A patient who wants the one time a busy doctor holds should be able to ask; the desk or the doctor decides, with the choice of moving them.
+
+## 2026-10-26: Full payment finishes the token; recalls can be dismissed
+
+**Decision.** Migration 0704. Additive API.
+- **Payment done.** When `payments::record` brings a bill's balance to 0 and that bill's encounter has a `ready_to_bill` token, the token moves to `done` in the same transaction through `queue::move_token` (the one `set_status` uses, so the appointment follows and `done_at` is set). A part payment leaves it; a void never reopens it; a bill with no token is unaffected. The `collect_payment` notification handling is unchanged.
+- **Dismiss.** `POST /api/v1/recalls/{id}/dismiss {reason?}` (`patients.write`, reason at most 200 characters) sets `dismissed` with `dismissed_at`, `dismissed_by` and `dismiss_reason` (new nullable columns; a check ties `dismissed_at` to the status). 404 outside the clinic, 409 when already done or dismissed. Dismissed recalls are not in `GET /recalls`. The api-client has `dismissRecall` with a fake.
+
+**Why.** The desk should not close a paid visit by hand, and a follow-up that is no longer needed should leave the list without being marked done.
+
+## Live events are off unless the server turns them on (26 Oct 2026)
+`GET /events` answers 404 unless `ARO_HTTP__LIVE_EVENTS=true`. On Cloud Run's request-based
+billing an open stream keeps CPU billed for its whole life, so a portal or phone left open all
+day costs far more than 20-second polling. The phone and the portal stop trying for the session
+on a 404 and keep polling. The founder decides when to switch it on; the library default is on
+so tests exercise the stream.

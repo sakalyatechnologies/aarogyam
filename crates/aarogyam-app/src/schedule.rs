@@ -44,6 +44,46 @@ pub(crate) async fn resolve_branch(
     }
 }
 
+/// Checks that a branch belongs to the caller's clinic, for a live stream that follows it.
+///
+/// # Errors
+/// [`AppError::Denied`] without `appointments.read`; [`AppError::NotFound`] when the branch isn't
+/// in this clinic (another clinic's branch looks the same as none).
+pub async fn require_branch(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    branch_id: BranchId,
+) -> Result<(), AppError> {
+    actor.require(Permission::AppointmentsRead)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        if dal::branch_exists(tx.conn(), branch_id.uuid()).await? {
+            Ok(())
+        } else {
+            Err(AppError::NotFound("branch"))
+        }
+    })
+    .await
+}
+
+/// The change signals a reconnecting live stream missed, after the event id it last saw.
+///
+/// # Errors
+/// [`AppError::Denied`] without `appointments.read`.
+pub async fn live_replay(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    after: i64,
+) -> Result<aarogyam_dal::live::Replay, AppError> {
+    actor.require(Permission::AppointmentsRead)?;
+    let clinic = actor.clinic_id.uuid();
+    db.scoped(&scope(actor, request_id), async |tx| {
+        Ok(aarogyam_dal::live::replay(tx.conn(), clinic, after).await?)
+    })
+    .await
+}
+
 /// The clinic's chairs and rooms, in list order.
 ///
 /// # Errors
@@ -712,6 +752,88 @@ pub async fn remove_leave(
         } else {
             Err(AppError::NotFound("leave"))
         }
+    })
+    .await
+}
+
+/// A doctor's conflict policy: their own choice, and what applies to them now.
+#[derive(Debug, Clone, Copy)]
+pub struct ConflictPolicyView {
+    /// The doctor's own choice; `None` follows the clinic's.
+    pub own: Option<aarogyam_domain::booking::ConflictPolicy>,
+    /// What applies: their own, or the clinic's.
+    pub effective: aarogyam_domain::booking::ConflictPolicy,
+}
+
+async fn policy_view(
+    tx: &mut ScopedTx,
+    own: Option<String>,
+) -> Result<ConflictPolicyView, AppError> {
+    let clinic =
+        crate::self_booking::read_settings(&aarogyam_dal::settings::booking(tx.conn()).await?);
+    let own = own
+        .as_deref()
+        .and_then(|text| aarogyam_domain::booking::ConflictPolicy::parse(text).ok());
+    Ok(ConflictPolicyView {
+        own,
+        effective: own.unwrap_or(clinic.conflict_policy),
+    })
+}
+
+/// A doctor's conflict policy (`appointments.read`).
+///
+/// # Errors
+/// [`AppError::Denied`] without `appointments.read`; [`AppError::NotFound`] for a doctor that
+/// isn't in this clinic.
+pub async fn conflict_policy(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: PractitionerId,
+) -> Result<ConflictPolicyView, AppError> {
+    actor.require(Permission::AppointmentsRead)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let own = dal::practitioner_conflict_policy(tx.conn(), id.uuid())
+            .await?
+            .ok_or(AppError::NotFound("practitioner"))?;
+        policy_view(tx, own).await
+    })
+    .await
+}
+
+/// Sets a doctor's conflict policy; `None` goes back to the clinic's. The owner
+/// (`settings.manage`) sets any doctor's; a doctor (`clinical.write`) only their own.
+///
+/// # Errors
+/// [`AppError::NotFound`] for a doctor that isn't in this clinic; [`AppError::Denied`] for
+/// someone who is neither; [`AppError::Forbidden`] for a doctor naming a colleague.
+pub async fn set_conflict_policy(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: PractitionerId,
+    policy: Option<aarogyam_domain::booking::ConflictPolicy>,
+) -> Result<ConflictPolicyView, AppError> {
+    let owner = actor.require(Permission::SettingsManage).is_ok();
+    if !owner {
+        actor.require(Permission::ClinicalWrite)?;
+    }
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let doctor = dal::practitioner(tx.conn(), id.uuid())
+            .await?
+            .ok_or(AppError::NotFound("practitioner"))?;
+        if !owner && doctor.membership_id != Some(actor.membership_id.uuid()) {
+            return Err(AppError::Forbidden(
+                "a doctor sets only their own booking conflict policy",
+            ));
+        }
+        dal::set_practitioner_conflict_policy(
+            tx.conn(),
+            id.uuid(),
+            policy.map(aarogyam_domain::booking::ConflictPolicy::as_str),
+        )
+        .await?;
+        policy_view(tx, policy.map(|p| p.as_str().to_owned())).await
     })
     .await
 }

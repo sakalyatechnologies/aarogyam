@@ -117,6 +117,21 @@ describe("bell: tasks, time off and stock", () => {
     expect(bellCount({ notifications_unread: 2, tasks_open: 3 })).toBe(5);
   });
 
+  it("words a booking conflict and links to the appointment's day", () => {
+    const item = notification.parse({
+      id: "c1",
+      kind: "booking_conflict",
+      created_at: AT,
+      read: false,
+      appointment: { id: "a1", starts_at: "2026-10-05T03:30:00Z", ends_at: "2026-10-05T04:00:00Z", status: "requested", practitioner_id: "p1", practitioner_name: "Dr Asha Rao" },
+    });
+    const view = describeNotification(item, "Asia/Kolkata");
+    expect(view.title).toBe("Time already booked");
+    expect(view.body).toContain("A patient asked for a time that's taken — confirm, move or decline.");
+    expect(view.body).toContain("Dr Asha Rao");
+    expect(view.to).toBe("/calendar?from=2026-10-05");
+  });
+
   it("has no axe violations with the new rows open", async () => {
     await openBell(withBell());
     const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });

@@ -19,8 +19,19 @@ use crate::scope::staff_scope as scope;
 /// Longest range a collections report covers.
 pub const MAX_DAYS: i64 = 366;
 
-/// An amount on one day.
+/// An amount received by one method.
 #[derive(Debug, Clone, Copy)]
+pub struct MethodAmount {
+    /// The method.
+    pub method: PaymentMethod,
+    /// Received.
+    pub amount: Paise,
+    /// How many payments.
+    pub payments: i64,
+}
+
+/// An amount on one day.
+#[derive(Debug, Clone)]
 pub struct DayTotal {
     /// The clinic day (a Monday for weeks).
     pub date: Date,
@@ -28,6 +39,8 @@ pub struct DayTotal {
     pub amount: Paise,
     /// How many payments.
     pub payments: i64,
+    /// The same split by method, every method listed.
+    pub by_method: Vec<MethodAmount>,
 }
 
 /// An amount by payment method.
@@ -77,8 +90,40 @@ pub struct Collections {
     pub invoiced: Paise,
     /// How many bills were issued.
     pub invoices: i64,
+    /// Discount given on the bills issued in the range.
+    pub discount: Paise,
     /// Left to pay on every issued bill, now.
     pub outstanding: Paise,
+    /// The previous period of the same length, when asked for.
+    pub previous: Option<PeriodTotals>,
+}
+
+/// Totals for a whole period, to set beside the current one.
+#[derive(Debug, Clone)]
+pub struct PeriodTotals {
+    /// First day.
+    pub from: Date,
+    /// Last day, included.
+    pub to: Date,
+    /// Everything received.
+    pub collected: Paise,
+    /// How many payments.
+    pub payments: i64,
+    /// By method, every method listed.
+    pub by_method: Vec<MethodTotal>,
+    /// Total of bills issued.
+    pub invoiced: Paise,
+    /// How many bills were issued.
+    pub invoices: i64,
+    /// Discount given on them.
+    pub discount: Paise,
+}
+
+/// What to set the range beside.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Compare {
+    /// The days just before the range, as many as it has.
+    Previous,
 }
 
 fn share(part: i64, whole: i64) -> i64 {
@@ -93,6 +138,38 @@ fn monday(date: Date) -> Date {
     date - Duration::days(i64::from(date.weekday().number_days_from_monday()))
 }
 
+fn method_amounts(rows: &[&dal::CollectionRow]) -> Vec<MethodAmount> {
+    PaymentMethod::ALL
+        .iter()
+        .map(|method| {
+            let (amount, payments) = rows
+                .iter()
+                .filter(|row| row.method == method.as_str())
+                .fold((0, 0), |(a, n), row| {
+                    (a + row.amount_paise, n + row.payments)
+                });
+            MethodAmount {
+                method: *method,
+                amount: Paise::new(amount),
+                payments,
+            }
+        })
+        .collect()
+}
+
+fn by_method_totals(rows: &[dal::CollectionRow]) -> Vec<MethodTotal> {
+    let whole: i64 = rows.iter().map(|row| row.amount_paise).sum();
+    method_amounts(&rows.iter().collect::<Vec<_>>())
+        .into_iter()
+        .map(|m| MethodTotal {
+            method: m.method,
+            amount: m.amount,
+            payments: m.payments,
+            share_bps: share(m.amount.get(), whole),
+        })
+        .collect()
+}
+
 fn summarise(
     from: Date,
     to: Date,
@@ -101,16 +178,12 @@ fn summarise(
     let mut by_day = Vec::new();
     let mut day = from;
     while day <= to {
-        let (amount, payments) = rows
-            .iter()
-            .filter(|row| row.day == day)
-            .fold((0, 0), |(a, n), row| {
-                (a + row.amount_paise, n + row.payments)
-            });
+        let todays: Vec<&dal::CollectionRow> = rows.iter().filter(|row| row.day == day).collect();
         by_day.push(DayTotal {
             date: day,
-            amount: Paise::new(amount),
-            payments,
+            amount: Paise::new(todays.iter().map(|row| row.amount_paise).sum()),
+            payments: todays.iter().map(|row| row.payments).sum(),
+            by_method: method_amounts(&todays),
         });
         match day.next_day() {
             Some(next) => day = next,
@@ -124,32 +197,18 @@ fn summarise(
             Some(last) if last.date == week => {
                 last.amount = Paise::new(last.amount.get() + total.amount.get());
                 last.payments += total.payments;
+                for (sum, add) in last.by_method.iter_mut().zip(&total.by_method) {
+                    sum.amount = Paise::new(sum.amount.get() + add.amount.get());
+                    sum.payments += add.payments;
+                }
             }
             _ => by_week.push(DayTotal {
                 date: week,
-                ..*total
+                ..total.clone()
             }),
         }
     }
-    let whole: i64 = rows.iter().map(|row| row.amount_paise).sum();
-    let by_method = PaymentMethod::ALL
-        .iter()
-        .map(|method| {
-            let (amount, payments) = rows
-                .iter()
-                .filter(|row| row.method == method.as_str())
-                .fold((0, 0), |(a, n), row| {
-                    (a + row.amount_paise, n + row.payments)
-                });
-            MethodTotal {
-                method: *method,
-                amount: Paise::new(amount),
-                payments,
-                share_bps: share(amount, whole),
-            }
-        })
-        .collect();
-    (by_day, by_week, by_method)
+    (by_day, by_week, by_method_totals(rows))
 }
 
 fn mix(rows: Vec<dal::MixRow>) -> Vec<MixTotal> {
@@ -164,6 +223,8 @@ fn mix(rows: Vec<dal::MixRow>) -> Vec<MixTotal> {
 }
 
 /// Collections and revenue mix for clinic days `from` to `to`; the last seven days by default.
+/// With [`Compare::Previous`] the totals of the days just before, as many as the range has,
+/// come too.
 ///
 /// # Errors
 /// [`AppError::Denied`] without `finance.view`; [`AppError::Invalid`] for a backwards or
@@ -174,6 +235,7 @@ pub async fn collections(
     request_id: Option<Uuid>,
     from: Option<Date>,
     to: Option<Date>,
+    compare: Option<Compare>,
     now: OffsetDateTime,
 ) -> Result<Collections, AppError> {
     actor.require(Permission::FinanceView)?;
@@ -207,7 +269,37 @@ pub async fn collections(
         let (by_day, by_week, by_method) = summarise(from, to, &rows);
         let revenue_mix = mix(overview.mix);
         let (bill_count, billed) = overview.invoiced;
+        let discount = overview.discount_paise;
         let pending = pending_rows(tx).await?;
+        let previous = match compare {
+            Some(Compare::Previous) => {
+                let prev_to = from - Duration::days(1);
+                let prev_from = prev_to - Duration::days(days);
+                let (prev_start, prev_end) = day_range(timezone, prev_from, prev_to);
+                let before = dal::money_overview(
+                    tx.conn(),
+                    dal::MoneyRanges {
+                        payments: (prev_start, prev_end),
+                        bills: (prev_start, prev_end),
+                        // The mix is not compared.
+                        mix: (prev_start, prev_start),
+                    },
+                    timezone,
+                )
+                .await?;
+                Some(PeriodTotals {
+                    from: prev_from,
+                    to: prev_to,
+                    collected: Paise::new(before.collections.iter().map(|r| r.amount_paise).sum()),
+                    payments: before.collections.iter().map(|r| r.payments).sum(),
+                    by_method: by_method_totals(&before.collections),
+                    invoiced: Paise::new(before.invoiced.1),
+                    invoices: before.invoiced.0,
+                    discount: Paise::new(before.discount_paise),
+                })
+            }
+            None => None,
+        };
         Ok(Collections {
             from,
             to,
@@ -219,12 +311,14 @@ pub async fn collections(
             revenue_mix,
             invoiced: Paise::new(billed),
             invoices: bill_count,
+            discount: Paise::new(discount),
             outstanding: Paise::new(
                 pending
                     .iter()
                     .map(|row| row.total_paise - row.paid_paise)
                     .sum(),
             ),
+            previous,
         })
     })
     .await
@@ -244,6 +338,7 @@ pub async fn weekly_collections(
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     weeks: u32,
+    compare: Option<Compare>,
     now: OffsetDateTime,
 ) -> Result<Collections, AppError> {
     actor.require(Permission::FinanceView)?;
@@ -252,7 +347,7 @@ pub async fn weekly_collections(
     }
     let to = clinic_today(&actor.timezone, now);
     let from = monday(to) - Duration::weeks(i64::from(weeks - 1));
-    collections(db, actor, request_id, Some(from), Some(to), now).await
+    collections(db, actor, request_id, Some(from), Some(to), compare, now).await
 }
 
 /// An issued bill with something left to pay.
@@ -490,6 +585,20 @@ mod tests {
         assert_eq!(days.len(), 6);
         assert_eq!(days[0].amount, Paise::new(40_000));
         assert_eq!(days[1].amount, Paise::ZERO);
+        // Each day splits by method, every method listed; a week adds its days' splits.
+        assert_eq!(days[0].by_method.len(), 4);
+        let on = |totals: &DayTotal, method| {
+            totals
+                .by_method
+                .iter()
+                .find(|m| m.method == method)
+                .map_or(0, |m| m.amount.get())
+        };
+        assert_eq!(on(&days[0], PaymentMethod::Upi), 30_000);
+        assert_eq!(on(&days[0], PaymentMethod::Cash), 10_000);
+        assert_eq!(on(&days[1], PaymentMethod::Upi), 0);
+        assert_eq!(on(&weeks[0], PaymentMethod::Upi), 30_000);
+        assert_eq!(on(&weeks[1], PaymentMethod::Upi), 60_000);
         assert_eq!(weeks.len(), 2);
         assert_eq!(weeks[0].date, date!(2026 - 09 - 28));
         assert_eq!(weeks[1].amount, Paise::new(60_000));

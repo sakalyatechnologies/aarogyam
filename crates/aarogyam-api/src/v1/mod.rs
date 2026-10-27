@@ -20,6 +20,7 @@ pub(crate) mod console_support;
 pub(crate) mod dashboard;
 pub(crate) mod dental_terms;
 pub(crate) mod duplicates;
+pub(crate) mod events;
 pub(crate) mod expenses;
 pub(crate) mod facts;
 pub(crate) mod family;
@@ -53,6 +54,7 @@ pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
 pub(crate) mod public_booking;
+pub(crate) mod purchase_orders;
 pub(crate) mod quality;
 pub(crate) mod queue;
 pub(crate) mod quick_picks;
@@ -67,6 +69,7 @@ pub(crate) mod setup;
 pub(crate) mod smart_import;
 pub(crate) mod staff;
 pub(crate) mod staff_ops;
+pub(crate) mod stock_import;
 pub(crate) mod stock_insights;
 pub(crate) mod support_grants;
 pub(crate) mod tasks;
@@ -206,6 +209,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             patch(schedule::change_practitioner).delete(schedule::remove_practitioner),
         )
         .route(
+            "/practitioners/{id}/conflict-policy",
+            get(schedule::conflict_policy).put(schedule::set_conflict_policy),
+        )
+        .route(
             "/practitioners/{id}/working-hours",
             get(schedule::hours).put(schedule::set_hours),
         )
@@ -226,7 +233,12 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/appointments/missed", get(appointments::missed))
         .route("/appointments/{id}", patch(appointments::change))
         .route("/appointments/{id}/status", post(appointments::set_status))
+        .route(
+            "/appointments/{id}/move",
+            post(appointments::move_appointment),
+        )
         .route("/appointments/{id}/check-in", post(check_in::check_in))
+        .route("/events", get(events::stream))
         .route("/queue", get(queue::list).post(queue::walk_in))
         .route("/queue/to-collect", get(queue::to_collect))
         .route("/queue/{id}/status", post(queue::set_status))
@@ -596,6 +608,25 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/stock", get(inventory::summary))
         .route("/stock/low", get(inventory::low))
         .route("/stock/expiring", get(inventory::expiring))
+        .route(
+            "/stock/import",
+            post(stock_import::preview).layer(DefaultBodyLimit::max(stock_import::MAX_UPLOAD_BODY)),
+        )
+        .route("/stock/import/commit", post(stock_import::commit))
+        .route(
+            "/purchase-orders",
+            get(purchase_orders::list).post(purchase_orders::create),
+        )
+        .route(
+            "/purchase-orders/{id}",
+            get(purchase_orders::get)
+                .patch(purchase_orders::update)
+                .delete(purchase_orders::delete),
+        )
+        .route(
+            "/purchase-orders/{id}/receive",
+            post(purchase_orders::receive),
+        )
         .route("/stock/receive", post(inventory::receive))
         .route("/stock/use", post(inventory::use_stock))
         .route("/stock/adjust", post(inventory::adjust))
@@ -677,6 +708,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/patients/{id}/recalls", post(recalls::create))
         .route("/recalls", get(recalls::due))
         .route("/recalls/{id}/done", post(recalls::done))
+        .route("/recalls/{id}/dismiss", post(recalls::dismiss))
         .route("/drugs/search", post(prescriptions::search_drugs))
         .route(
             "/patients/{id}/prescriptions",

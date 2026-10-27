@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from aarogyam.purchase_order_lines where order_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2866c4a77b32bf67ac394c6351659829bd56f6dd0e694d53dd649517c4b9874b"
+}

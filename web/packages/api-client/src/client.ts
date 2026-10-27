@@ -42,7 +42,7 @@ import type {
 import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview } from "./schemas.js";
 import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
-import type { Allergy, FamilyLink, FamilyList, NewFamilyLink, ConsentLink, ConsentRequestInput, ConsentRequested, ConsentSigned, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PatientsSummary, PhoneMatchPage, QuickPicks, SignConsentInput, StartedVisit, WalkIn, WalkInRequest } from "./schemas.js";
+import type { Allergy, FamilyLink, FamilyList, NewFamilyLink, ConsentLink, ConsentRequestInput, ConsentRequested, ConsentSigned, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PatientsSummary, PhoneMatchPage, QuickPicks, SignConsentInput, StartedVisit, WalkIn, WalkInRequest, ConflictPolicy, ConflictPolicyChange, MoveAppointment } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -154,6 +154,7 @@ import type {
   PrescriptionId,
   PrescriptionPage,
   AdjustStock,
+  CommitStockImport,
   ExpireBatch,
   ExpiringPage,
   InventoryItem,
@@ -161,12 +162,21 @@ import type {
   InventoryItemId,
   InventoryItemPage,
   InventoryItemValues,
+  NewPurchaseOrder,
+  PurchaseOrder,
+  PurchaseOrderChanges,
+  PurchaseOrderId,
+  PurchaseOrderPage,
+  PurchaseOrderStatus,
+  ReceivePurchaseOrder,
   InventoryItemAlertChanges,
   InventoryItemAlerts,
   StockAnalytics,
   ReceiveStock,
   StockBatchId,
   StockChange,
+  StockImportPreview,
+  StockImportResult,
   StockSummary,
   Supplier,
   SupplierId,
@@ -466,6 +476,11 @@ export interface ApiClient {
   changeAppointment(id: AppointmentId, changes: AppointmentChanges, options?: RequestOptions): Promise<ApiResult<SavedAppointment>>;
   /** Clinic host: moves an appointment's status along, or cancels (with a reason) or marks a no-show. Needs `appointments.write`. */
   setAppointmentStatus(id: AppointmentId, change: StatusChange, options?: RequestOptions): Promise<ApiResult<StatusChanged>>;
+  /** Reschedules a requested, booked or confirmed appointment and confirms it. 409 `slot_occupied` when the new time is held. */
+  moveAppointment(id: AppointmentId, to: MoveAppointment, options?: RequestOptions): Promise<ApiResult<StatusChanged>>;
+  /** A doctor's own answer to a taken time (`null` follows the clinic). Owner reads any; a doctor only their own. */
+  getConflictPolicy(id: PractitionerId, options?: RequestOptions): Promise<ApiResult<ConflictPolicy>>;
+  setConflictPolicy(id: PractitionerId, policy: ConflictPolicyChange, options?: RequestOptions): Promise<ApiResult<ConflictPolicy>>;
 
   /** Clinic host: the queue of a clinic day, with each token's wait. Needs `appointments.read`. */
   listQueue(date: string | undefined, options?: QueueOptions): Promise<ApiResult<QueueDayPage>>;
@@ -477,6 +492,8 @@ export interface ApiClient {
   listRecallsDue(options?: RequestOptions): Promise<ApiResult<RecallListPage>>;
   /** Clinic host: marks a follow-up done. Needs `patients.write`. */
   markRecallDone(id: string, options?: RequestOptions): Promise<ApiResult<Recall>>;
+  /** Clinic host: dismisses a follow-up no longer needed, with an optional reason (at most 200 characters). Needs `patients.write`. */
+  dismissRecall(id: string, input: { reason?: string }, options?: RequestOptions): Promise<ApiResult<Recall>>;
   /** Clinic host: issues a token to a patient without an appointment. Needs `appointments.write`. */
   addWalkIn(input: WalkInBody, options?: RequestOptions): Promise<ApiResult<QueueToken>>;
   /** Clinic host: moves a token along; a token with an appointment moves the appointment too. Needs `appointments.write`. */
@@ -798,6 +815,25 @@ export interface ApiClient {
   adjustStock(input: AdjustStock, options?: RequestOptions): Promise<ApiResult<StockChange>>;
   /** Clinic host: writes off what is left of an expired batch. Needs `inventory.manage`. */
   expireBatch(id: StockBatchId, input: ExpireBatch, options?: RequestOptions): Promise<ApiResult<StockChange>>;
+  /** Clinic host: checks a CSV or Excel list of items and opening stock (form field `file`, optional `sheet`), row by row; saves nothing. Needs `inventory.manage`. */
+  previewStockImport(form: FormData, options?: RequestOptions): Promise<ApiResult<StockImportPreview>>;
+  /** Clinic host: commits a stock import preview by its token; committing it again returns the first result (`replayed`). 409 once the preview has expired. Needs `inventory.manage`. */
+  commitStockImport(input: CommitStockImport, options?: RequestOptions): Promise<ApiResult<StockImportResult>>;
+  /** Clinic host: purchase orders, newest first, optionally of one status or supplier. Costs show only with `finance.view`. Needs `inventory.read`. */
+  listPurchaseOrders(
+    filter?: { status?: PurchaseOrderStatus | undefined; supplierId?: SupplierId | undefined },
+    options?: RequestOptions,
+  ): Promise<ApiResult<PurchaseOrderPage>>;
+  /** Clinic host: one purchase order with its lines and receipts. Needs `inventory.read`. */
+  getPurchaseOrder(id: PurchaseOrderId, options?: RequestOptions): Promise<ApiResult<PurchaseOrder>>;
+  /** Clinic host: makes an order, a draft or sent at once (`order_now`). Needs `inventory.manage`; costs need `finance.view`. */
+  createPurchaseOrder(input: NewPurchaseOrder, options?: RequestOptions): Promise<ApiResult<PurchaseOrder>>;
+  /** Clinic host: changes a draft, sends it (`status: ordered`) or cancels an order nothing has come in against. 409 when its state doesn't allow it. Needs `inventory.manage`. */
+  updatePurchaseOrder(id: PurchaseOrderId, input: PurchaseOrderChanges, options?: RequestOptions): Promise<ApiResult<PurchaseOrder>>;
+  /** Clinic host: deletes a draft order. Needs `inventory.manage`. */
+  deletePurchaseOrder(id: PurchaseOrderId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: receives goods against a sent order (an empty body receives everything still to come), making stock batches. Needs `inventory.manage`. */
+  receivePurchaseOrder(id: PurchaseOrderId, input: ReceivePurchaseOrder, options?: RequestOptions): Promise<ApiResult<PurchaseOrder>>;
 
   /** Clinic host: the caller's tasks for a clinic day (today by default), plus any still open from earlier. A `confirm_photos` task carries `patients_without_photos_today`. Needs `tasks.use`. */
   listMyTasks(date?: string, options?: RequestOptions): Promise<ApiResult<MyTasks>>;
@@ -856,7 +892,7 @@ export interface ApiClient {
    * Clinic host: collections by day, week and method, and the revenue mix. With `weeks` (1 to 52, not with `from` or `to`),
    * the last that many weeks, the current one included. Needs `finance.view`.
    */
-  getCollections(range: Partial<DateRange> & { weeks?: number | undefined }, options?: RequestOptions): Promise<ApiResult<Collections>>;
+  getCollections(range: Partial<DateRange> & { weeks?: number | undefined; compare?: "prev" | undefined }, options?: RequestOptions): Promise<ApiResult<Collections>>;
   /** Clinic host: issued bills with a balance, oldest first. Needs `finance.view`. */
   getPendingReport(options?: RequestOptions): Promise<ApiResult<PendingReport>>;
   /** Clinic host: today's collections, pending dues and revenue mix for the Today screen. Needs `finance.view`. */

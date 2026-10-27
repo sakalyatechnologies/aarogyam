@@ -215,6 +215,8 @@ pub struct InventoryItem {
     pub unit: String,
     /// At or below this the item is low.
     pub reorder_level: i64,
+    /// What to order up to; null when not set.
+    pub max_level: Option<i64>,
     /// Still stocked.
     pub active: bool,
 }
@@ -227,6 +229,7 @@ impl From<ItemView> for InventoryItem {
             category: view.category,
             unit: view.unit.as_str().to_owned(),
             reorder_level: view.reorder_level,
+            max_level: view.max_level,
             active: view.active,
         }
     }
@@ -244,6 +247,9 @@ pub struct StockLevel {
     /// `ok`, `low` (at or below the reorder level), `critical` (out, or at a fifth of the
     /// reorder level or less) or `expiring` (enough, but a batch expires within 30 days).
     pub status: String,
+    /// Units to order to get back up to the item's max level (the max level less what is on
+    /// hand); null without a max level or when nothing is needed.
+    pub suggested_order: Option<i64>,
     /// Whole days the stock lasts at the recent rate of use. Filled only on the low-stock list,
     /// and only for items with enough use history.
     pub days_cover: Option<i64>,
@@ -258,6 +264,7 @@ impl From<StockItem> for StockLevel {
             on_hand: stock.on_hand,
             next_expiry: stock.next_expiry.map(|date| date.to_string()),
             status: stock.status.as_str().to_owned(),
+            suggested_order: stock.suggested_order,
             days_cover: None,
             runs_out_on: None,
         }
@@ -283,6 +290,8 @@ pub struct ItemValues {
     pub unit: Option<String>,
     /// At or below this the item is low; 0 by default.
     pub reorder_level: Option<i64>,
+    /// What to order up to, at least the reorder level; 0 clears it.
+    pub max_level: Option<i64>,
     /// Still stocked.
     pub active: Option<bool>,
 }
@@ -294,6 +303,7 @@ impl From<ItemValues> for ItemInput {
             category: body.category,
             unit: body.unit,
             reorder_level: body.reorder_level,
+            max_level: body.max_level,
             active: body.active,
         }
     }

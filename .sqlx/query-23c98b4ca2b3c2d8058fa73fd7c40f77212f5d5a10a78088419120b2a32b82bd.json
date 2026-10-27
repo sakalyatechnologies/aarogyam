@@ -1,0 +1,106 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.inventory_items\n           set name = $2, category = $3, unit = $4, reorder_level = $5, max_level = $6,\n               active = $7\n           where id = $1 and deleted_at is null\n           returning id, name, category, unit, reorder_level, max_level, active",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "category",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "unit",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "unit"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "reorder_level",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "reorder_level"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "max_level",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "max_level"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "active"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "23c98b4ca2b3c2d8058fa73fd7c40f77212f5d5a10a78088419120b2a32b82bd"
+}

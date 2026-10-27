@@ -88,6 +88,7 @@ import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photos
 import { createRandom, fakeUuid } from "./random.js";
 import * as M from "./messaging.js";
 import { CLINIC_STEPS, MEMBER_STEPS, applySetup, setupOf, wireSetup } from "./setup.js";
+import { MAX_PO_LINES, parseStockCsv, type FakeImportRow, type FakePoLine, type FakePurchaseOrder } from "./purchasing.js";
 import {
   NOTE_MAX as TASK_NOTE_MAX,
   USAGE_REASON,
@@ -161,6 +162,7 @@ const refuse = (status: number, code: string, message: string): Outcome => ({ ok
 const invalid = (field: string, problem: string): Outcome => refuse(400, "invalid_request", `${field}: ${problem}`);
 const notFound = refuse(404, "not_found", "Not found.");
 /** A doctor with approved leave can't be booked, moved onto or have a request confirmed into it. */
+const slotOccupiedRefusal = refuse(409, "slot_occupied", "Another appointment holds that time.");
 const onLeaveRefusal = refuse(422, "practitioner_on_leave", "The doctor is on leave at this time. Choose another time or doctor.");
 /** A well-formed body the rules refuse: `400`, the field, a colon, then what is wrong. */
 const refused = (message: string): Outcome => refuse(400, "invalid_layout", message);
@@ -502,6 +504,29 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       const granted = caller.membership.role.permissions;
       return [first, ...rest].some((p) => hasPermission(granted, p)) ? caller : refuse(403, "forbidden", "You don't have permission to do that.");
     }
+    /** The doctor a conflict policy call is about: settings.manage reaches any, a doctor only their own. */
+    async function policyTarget(id: string): Promise<{ practitioner: FakePractitioner; clinic: FakeClinic } | Outcome> {
+      const caller = await inClinic();
+      if (!isCaller(caller)) {
+        return caller;
+      }
+      const practitioner = state.practitioners.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+      if (practitioner === undefined) {
+        return notFound;
+      }
+      const perms = caller.membership.role.permissions;
+      const own = hasPermission(perms, "clinical.write") && practitioner.membership_id === caller.membership.id;
+      if (!hasPermission(perms, "settings.manage") && !own) {
+        return refuse(403, "forbidden", "You don't have permission to do that.");
+      }
+      return { practitioner, clinic: caller.clinic };
+    }
+    const policyView = (practitioner: FakePractitioner, clinic: FakeClinic): S.ConflictPolicy => {
+      const own = policyOf(practitioner);
+      return { policy: own, effective: own ?? (bookingSettings(clinic).conflict_policy === "strict" ? "strict" : "request") };
+    };
+    const policyOf = (practitioner: FakePractitioner): "request" | "strict" | null =>
+      practitioner.conflict_policy === "request" || practitioner.conflict_policy === "strict" ? practitioner.conflict_policy : null;
 
     /** Approves or declines a pending time-off request. */
     function decideTimeOff(id: string, decision: C.TimeOffDecision | undefined, approve: boolean, signal: AbortSignal | undefined): Promise<ApiResult<S.TimeOff>> {
@@ -786,6 +811,92 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
     function inventoryItemOf(clinic: FakeClinic, id: string): FakeInventoryItem | undefined {
       return state.inventoryItems.find((i) => i.id === id && i.clinic_id === clinic.id);
+    }
+
+    function supplierNamed(clinic: FakeClinic, name: string): FakeSupplier | undefined {
+      return state.suppliers.find((s) => s.clinic_id === clinic.id && s.name.toLowerCase() === name.toLowerCase());
+    }
+
+    function purchaseOrderOf(clinic: FakeClinic, id: string): FakePurchaseOrder | undefined {
+      return (state.purchaseOrders ?? []).find((o) => o.id === id && o.clinic_id === clinic.id);
+    }
+
+    /** Checks the lines of an order as the API does; the lines, or the refusal. Costs need `finance.view`. */
+    function poLinesOf(clinic: FakeClinic, input: readonly C.PurchaseOrderLineInput[], costs: boolean): FakePoLine[] | Outcome {
+      if (input.length < 1 || input.length > MAX_PO_LINES) {
+        return invalid("lines", `must have 1 to ${String(MAX_PO_LINES)} lines`);
+      }
+      const lines: FakePoLine[] = [];
+      for (const line of input) {
+        if (!Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > MAX_MOVEMENT) {
+          return invalid("quantity", "must be between 1 and 1000000");
+        }
+        if (line.unit_cost_paise != null && (!Number.isInteger(line.unit_cost_paise) || line.unit_cost_paise < 0 || line.unit_cost_paise > 100_000_000)) {
+          return invalid("unit_cost_paise", "must be between 0 and 100000000");
+        }
+        if (line.unit_cost_paise != null && !costs) {
+          return refuse(403, "forbidden", "setting costs needs finance.view");
+        }
+        if (inventoryItemOf(clinic, line.item_id) === undefined) {
+          return notFound;
+        }
+        if (lines.some((l) => l.item_id === line.item_id)) {
+          return invalid("lines", "an item can be on an order once");
+        }
+        lines.push({ id: fakeUuid(random, clock()), item_id: line.item_id, quantity: line.quantity, unit_cost_paise: line.unit_cost_paise ?? null, received_quantity: 0 });
+      }
+      return lines;
+    }
+
+    function wirePurchaseOrder(clinic: FakeClinic, order: FakePurchaseOrder, costs: boolean): C.PurchaseOrder {
+      const lines = order.lines.map((line): C.PurchaseOrderLine => {
+        const item = inventoryItemOf(clinic, line.item_id);
+        return {
+          id: line.id,
+          line_no: order.lines.indexOf(line) + 1,
+          item_id: line.item_id,
+          item_name: item?.name ?? "",
+          unit: item?.unit ?? "piece",
+          quantity: line.quantity,
+          received_quantity: line.received_quantity,
+          unit_cost_paise: costs ? line.unit_cost_paise : null,
+        };
+      });
+      return {
+        id: order.id,
+        number: order.number,
+        supplier_id: order.supplier_id,
+        supplier_name: state.suppliers.find((s) => s.id === order.supplier_id)?.name ?? "",
+        status: order.status,
+        expected_on: order.expected_on,
+        notes: order.notes,
+        ordered_at: order.ordered_at,
+        received_at: order.received_at,
+        cancelled_at: order.cancelled_at,
+        created_at: order.created_at,
+        total_paise: costs && order.lines.every((l) => l.unit_cost_paise !== null) ? order.lines.reduce((sum, l) => sum + l.quantity * (l.unit_cost_paise ?? 0), 0) : null,
+        lines,
+        receipts: order.receipts.map((r) => ({ ...r })),
+      };
+    }
+
+    /** One delivery into stock: a batch and a `receive` movement, as the API's one receive path makes. */
+    function receiveInto(caller: Caller, item: FakeInventoryItem, supplierId: string | null, batchNo: string | null, expiry: string | null, quantity: number, cost: number, receivedOn: string): FakeStockBatch {
+      const batch: FakeStockBatch = {
+        id: fakeUuid(random, clock()),
+        clinic_id: caller.clinic.id,
+        item_id: item.id,
+        supplier_id: supplierId,
+        batch_no: batchNo,
+        expiry,
+        received_quantity: quantity,
+        quantity,
+        unit_cost_paise: cost,
+        received_on: receivedOn,
+      };
+      state.stockBatches.push(batch);
+      record(caller, item, batch, "receive", quantity, null);
+      return batch;
     }
 
     function inventoryItemNamed(clinic: FakeClinic, name: string): FakeInventoryItem | undefined {
@@ -2317,6 +2428,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (found.status === "requested" && target === "confirmed" && onApprovedLeave(state, caller.clinic.id, found.practitioner_id, found.starts_at, found.ends_at)) {
             return onLeaveRefusal;
           }
+          if (found.status === "requested" && target === "confirmed" && change.double_book !== true && holdsTime(state, found, found.starts_at, found.practitioner_id)) {
+            return slotOccupiedRefusal;
+          }
           const now = clock();
           let queueTokenId: string | null = null;
           found.status = target;
@@ -2375,6 +2489,69 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return notFound;
           }
           return reply({ appointment: wired, queue_token_id: queueTokenId } satisfies C.StatusChanged);
+        }),
+
+      moveAppointment: (id, to, opts) =>
+        respond(S.statusChanged, opts?.signal, async () => {
+          const caller = await inClinic("appointments.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.appointments.find((a) => a.id === id && a.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "requested" && found.status !== "booked" && found.status !== "confirmed") {
+            return refuse(409, "conflict", "That appointment can't be moved any more.");
+          }
+          const start = new Date(to.starts_at);
+          if (Number.isNaN(start.getTime())) {
+            return invalid("starts_at", "must be a date and time");
+          }
+          let doctorId = found.practitioner_id;
+          if (to.practitioner_id != null) {
+            if (!state.practitioners.some((p) => p.id === to.practitioner_id && p.clinic_id === caller.clinic.id && p.active)) {
+              return invalid("practitioner_id", "no such doctor");
+            }
+            doctorId = to.practitioner_id;
+          }
+          const length = Date.parse(found.ends_at) - Date.parse(found.starts_at);
+          const endsAt = new Date(start.getTime() + length).toISOString();
+          if (onApprovedLeave(state, caller.clinic.id, doctorId, start.toISOString(), endsAt)) {
+            return onLeaveRefusal;
+          }
+          if (holdsTime(state, found, start.toISOString(), doctorId)) {
+            return slotOccupiedRefusal;
+          }
+          found.starts_at = start.toISOString();
+          found.ends_at = endsAt;
+          found.practitioner_id = doctorId;
+          found.status = "confirmed";
+          const wired = wireAppointment(found, state, clock());
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply({ appointment: wired, queue_token_id: null } satisfies C.StatusChanged);
+        }),
+
+      getConflictPolicy: (id, opts) =>
+        respond(S.conflictPolicy, opts?.signal, async () => {
+          const found = await policyTarget(id);
+          return "practitioner" in found ? reply(policyView(found.practitioner, found.clinic)) : found;
+        }),
+
+      setConflictPolicy: (id, policy, opts) =>
+        respond(S.conflictPolicy, opts?.signal, async () => {
+          const found = await policyTarget(id);
+          if (!("practitioner" in found)) {
+            return found;
+          }
+          const value = policy.policy ?? null;
+          if (value !== null && !["request", "strict"].includes(value)) {
+            return invalid("policy", "must be request, strict or null");
+          }
+          found.practitioner.conflict_policy = value;
+          return reply(policyView(found.practitioner, found.clinic));
         }),
 
       listQueue: (dateValue, opts) =>
@@ -2473,6 +2650,26 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           found.status = "done";
           found.done_at = clock().toISOString();
+          return reply(found satisfies C.Recall);
+        }),
+
+      dismissRecall: (id, input, opts) =>
+        respond(S.recall, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if ((input.reason ?? "").trim().length > 200) {
+            return refuse(400, "invalid", "reason is at most 200 characters");
+          }
+          const found = (demoRecalls.get(caller.clinic.id) ?? []).find((r) => r.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status === "done" || found.status === "dismissed") {
+            return refuse(409, "conflict", "this follow-up is already closed");
+          }
+          found.status = "dismissed";
           return reply(found satisfies C.Recall);
         }),
 
@@ -5614,6 +5811,10 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (inventoryItemNamed(caller.clinic, name) !== undefined) {
             return refuse(409, "conflict", "an item has this name");
           }
+          const maxLevel = input.max_level === undefined || input.max_level === 0 ? null : input.max_level;
+          if (maxLevel !== null && (!Number.isInteger(maxLevel) || maxLevel < reorder || maxLevel > MAX_MOVEMENT)) {
+            return invalid("max_level", "must be between the reorder level and 1000000");
+          }
           const item: FakeInventoryItem = {
             id: fakeUuid(random, clock()),
             clinic_id: caller.clinic.id,
@@ -5621,6 +5822,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             category: (input.category ?? "").trim().toLowerCase() || null,
             unit,
             reorder_level: reorder,
+            max_level: maxLevel,
             active: input.active ?? true,
           };
           state.inventoryItems.push(item);
@@ -5659,6 +5861,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               return invalid("reorder_level", "must be between 0 and 1000000");
             }
             item.reorder_level = input.reorder_level;
+          }
+          if (input.max_level != null) {
+            const level = input.max_level === 0 ? null : input.max_level;
+            if (level !== null && (!Number.isInteger(level) || level > MAX_MOVEMENT)) {
+              return invalid("max_level", "must be between the reorder level and 1000000");
+            }
+            item.max_level = level;
+          }
+          if (item.max_level != null && item.max_level < item.reorder_level) {
+            return invalid("max_level", "must not be below the reorder level");
           }
           if (input.category != null) item.category = input.category.trim().toLowerCase() || null;
           if (input.active != null) item.active = input.active;
@@ -6225,6 +6437,321 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(stockChangeOf(caller.clinic, item, [movement]) satisfies C.StockChange);
         }),
 
+      previewStockImport: (form, opts) =>
+        respond(S.stockImportPreview, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const file = form.get("file");
+          if (!(file instanceof File)) {
+            return invalid("file", "is required");
+          }
+          if (file.size > 5 * 1024 * 1024) {
+            return refuse(413, "too_large", "file: must be at most 5 MB");
+          }
+          if (/\.xlsx?$/i.test(file.name)) {
+            return invalid("file", "the demo reads CSV files only");
+          }
+          const text = await file.text();
+          const parsed = parseStockCsv(text);
+          if (typeof parsed === "string") {
+            return invalid("file", parsed);
+          }
+          const imports = (state.stockImports ??= []);
+          const errors = [...parsed.errors];
+          const passed: FakeImportRow[] = [];
+          const seenNew = new Set<string>();
+          let newItems = 0;
+          for (const row of parsed.rows) {
+            const item = inventoryItemNamed(caller.clinic, row.name);
+            const max = row.max_level ?? item?.max_level ?? null;
+            const reorder = row.reorder_level ?? item?.reorder_level ?? 0;
+            if (max !== null && max < reorder) {
+              errors.push({ row: row.row, field: "max_level", message: "must not be below the reorder level" });
+            } else if (row.supplier !== null && supplierNamed(caller.clinic, row.supplier) === undefined) {
+              errors.push({ row: row.row, field: "supplier", message: "is not one of the clinic's suppliers" });
+            } else {
+              if (item === undefined && !seenNew.has(row.name.toLowerCase())) {
+                seenNew.add(row.name.toLowerCase());
+                newItems += 1;
+              }
+              passed.push(row);
+            }
+          }
+          errors.sort((a, b) => a.row - b.row);
+          const sha = String(text.length) + ":" + text.slice(0, 64);
+          const warnings = imports.some((i) => i.clinic_id === caller.clinic.id && i.status === "committed" && i.file_sha === sha)
+            ? ["a file with exactly these contents was imported before; committing it again receives the stock again"]
+            : [];
+          const now = clock();
+          const token = fakeUuid(random, now);
+          const expires = new Date(now.getTime() + 24 * 3600 * 1000).toISOString();
+          imports.push({ clinic_id: caller.clinic.id, token, file_name: file.name, file_sha: sha, rows: passed, status: "open", result: null, expires_at: expires });
+          return reply({
+            token,
+            file_name: file.name,
+            row_count: parsed.rowCount,
+            valid_rows: passed.length,
+            error_rows: parsed.rowCount - passed.length,
+            errors,
+            rows: passed.map((r) => ({ row: r.row, name: r.name, quantity: r.quantity, new_item: inventoryItemNamed(caller.clinic, r.name) === undefined })),
+            new_items: newItems,
+            warnings,
+            expires_at: expires,
+          } satisfies C.StockImportPreview);
+        }),
+
+      commitStockImport: (input, opts) =>
+        respond(S.stockImportResult, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (input.token.trim() === "") {
+            return invalid("token", "is required");
+          }
+          const held = (state.stockImports ?? []).find((i) => i.clinic_id === caller.clinic.id && i.token === input.token.trim());
+          if (held === undefined) {
+            return notFound;
+          }
+          if (held.status === "committed" && held.result !== null) {
+            return reply({ ...held.result, replayed: true } satisfies C.StockImportResult);
+          }
+          if (held.status === "expired" || held.expires_at < clock().toISOString()) {
+            held.status = "expired";
+            return refuse(409, "conflict", "this preview has expired; upload the file again");
+          }
+          const result: C.StockImportResult = { items_created: 0, items_updated: 0, batches_received: 0, units_received: 0, skipped: [], replayed: false };
+          const today = clinicToday(caller.clinic);
+          for (const row of held.rows) {
+            let item = inventoryItemNamed(caller.clinic, row.name);
+            if (item === undefined) {
+              item = {
+                id: fakeUuid(random, clock()),
+                clinic_id: caller.clinic.id,
+                name: row.name,
+                category: row.category,
+                unit: row.unit !== null && isStockUnit(row.unit) ? row.unit : "piece",
+                reorder_level: row.reorder_level ?? 0,
+                max_level: row.max_level,
+                active: true,
+              };
+              state.inventoryItems.push(item);
+              result.items_created += 1;
+            } else {
+              const before = JSON.stringify([item.category, item.unit, item.reorder_level, item.max_level]);
+              if (row.category !== null) item.category = row.category;
+              if (row.unit !== null && isStockUnit(row.unit)) item.unit = row.unit;
+              if (row.reorder_level !== null) item.reorder_level = row.reorder_level;
+              if (row.max_level !== null) item.max_level = row.max_level;
+              if (before !== JSON.stringify([item.category, item.unit, item.reorder_level, item.max_level])) result.items_updated += 1;
+            }
+            if (row.quantity > 0) {
+              receiveInto(caller, item, row.supplier === null ? null : (supplierNamed(caller.clinic, row.supplier)?.id ?? null), row.batch_no, row.expiry, row.quantity, row.unit_cost_paise ?? 0, today);
+              result.batches_received += 1;
+              result.units_received += row.quantity;
+            }
+          }
+          held.status = "committed";
+          held.result = result;
+          held.rows = [];
+          return reply(result satisfies C.StockImportResult);
+        }),
+
+      listPurchaseOrders: (filter, opts) =>
+        respond(S.purchaseOrderList, opts?.signal, async () => {
+          const caller = await inClinic("inventory.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const costs = hasPermission(caller.membership.role.permissions, "finance.view");
+          const items = (state.purchaseOrders ?? [])
+            .filter((o) => o.clinic_id === caller.clinic.id && (filter?.status === undefined || o.status === filter.status) && (filter?.supplierId === undefined || o.supplier_id === filter.supplierId))
+            .sort((a, b) => b.created_at.localeCompare(a.created_at))
+            .slice(0, 200)
+            .map((o) => wirePurchaseOrder(caller.clinic, o, costs));
+          return reply({ items } satisfies C.PurchaseOrderList);
+        }),
+
+      getPurchaseOrder: (id, opts) =>
+        respond(S.purchaseOrder, opts?.signal, async () => {
+          const caller = await inClinic("inventory.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const order = purchaseOrderOf(caller.clinic, id);
+          if (order === undefined) {
+            return notFound;
+          }
+          return reply(wirePurchaseOrder(caller.clinic, order, hasPermission(caller.membership.role.permissions, "finance.view")) satisfies C.PurchaseOrder);
+        }),
+
+      createPurchaseOrder: (input, opts) =>
+        respond(S.purchaseOrder, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const costs = hasPermission(caller.membership.role.permissions, "finance.view");
+          const lines = poLinesOf(caller.clinic, input.lines, costs);
+          if ("ok" in lines) {
+            return lines;
+          }
+          if (!state.suppliers.some((s) => s.id === input.supplier_id && s.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          if (input.expected_on != null && !/^\d{4}-\d{2}-\d{2}$/.test(input.expected_on)) {
+            return invalid("expected_on", "must be YYYY-MM-DD");
+          }
+          const orders = (state.purchaseOrders ??= []);
+          const now = clock().toISOString();
+          const order: FakePurchaseOrder = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            number: `PO-${String(orders.filter((o) => o.clinic_id === caller.clinic.id).length + 1)}`,
+            supplier_id: input.supplier_id,
+            status: input.order_now === true ? "ordered" : "draft",
+            expected_on: input.expected_on || null,
+            notes: input.notes?.trim() || null,
+            ordered_at: input.order_now === true ? now : null,
+            received_at: null,
+            cancelled_at: null,
+            created_at: now,
+            lines,
+            receipts: [],
+          };
+          orders.push(order);
+          return reply(wirePurchaseOrder(caller.clinic, order, costs) satisfies C.PurchaseOrder);
+        }),
+
+      updatePurchaseOrder: (id, input, opts) =>
+        respond(S.purchaseOrder, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const costs = hasPermission(caller.membership.role.permissions, "finance.view");
+          const order = purchaseOrderOf(caller.clinic, id);
+          if (order === undefined) {
+            return notFound;
+          }
+          if (order.status === "received" || order.status === "cancelled") {
+            return refuse(409, "conflict", `a ${order.status} order can't be changed`);
+          }
+          if ((input.lines != null || input.supplier_id != null) && order.status !== "draft") {
+            return refuse(409, "conflict", "the lines and supplier of a sent order can't be changed");
+          }
+          if (input.status != null && input.status !== "ordered" && input.status !== "cancelled") {
+            return invalid("status", "must be ordered or cancelled");
+          }
+          if (input.status === "ordered" && order.status !== "draft") {
+            return refuse(409, "conflict", "the order was already sent");
+          }
+          if (input.status === "cancelled" && order.receipts.length > 0) {
+            return refuse(409, "conflict", "stock has come in against this order; it can't be cancelled");
+          }
+          let lines: FakePoLine[] | undefined;
+          if (input.lines != null) {
+            const made = poLinesOf(caller.clinic, input.lines, costs);
+            if ("ok" in made) {
+              return made;
+            }
+            lines = made;
+          }
+          if (input.supplier_id != null && !state.suppliers.some((s) => s.id === input.supplier_id && s.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          if (input.expected_on != null && !/^\d{4}-\d{2}-\d{2}$/.test(input.expected_on)) {
+            return invalid("expected_on", "must be YYYY-MM-DD");
+          }
+          if (lines !== undefined) order.lines = lines;
+          if (input.supplier_id != null) order.supplier_id = input.supplier_id;
+          if (input.expected_on !== undefined) order.expected_on = input.expected_on || null;
+          if (input.notes != null) order.notes = input.notes.trim() || null;
+          if (input.status === "ordered") {
+            order.status = "ordered";
+            order.ordered_at = clock().toISOString();
+          } else if (input.status === "cancelled") {
+            order.status = "cancelled";
+            order.cancelled_at = clock().toISOString();
+          }
+          return reply(wirePurchaseOrder(caller.clinic, order, costs) satisfies C.PurchaseOrder);
+        }),
+
+      deletePurchaseOrder: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const order = purchaseOrderOf(caller.clinic, id);
+          if (order === undefined) {
+            return notFound;
+          }
+          if (order.status !== "draft") {
+            return refuse(409, "conflict", "only a draft can be deleted; cancel an order that was sent");
+          }
+          state.purchaseOrders = (state.purchaseOrders ?? []).filter((o) => o.id !== order.id);
+          return { ok: true, body: undefined };
+        }),
+
+      receivePurchaseOrder: (id, input, opts) =>
+        respond(S.purchaseOrder, opts?.signal, async () => {
+          const caller = await inClinic("inventory.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const costs = hasPermission(caller.membership.role.permissions, "finance.view");
+          const order = purchaseOrderOf(caller.clinic, id);
+          if (order === undefined) {
+            return notFound;
+          }
+          const asked = input.lines ?? [];
+          if (asked.some((l) => l.unit_cost_paise != null) && !costs) {
+            return refuse(403, "forbidden", "setting costs needs finance.view");
+          }
+          const picks: { line: FakePoLine; quantity: number; batch_no: string | null; expiry: string | null; cost: number }[] = [];
+          for (const line of asked) {
+            const found = order.lines.find((l) => l.id === line.line_id);
+            if (found === undefined) {
+              return notFound;
+            }
+            if (picks.some((p) => p.line.id === found.id)) {
+              return invalid("lines", "a line can be received once per call");
+            }
+            if (!Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > found.quantity - found.received_quantity) {
+              return invalid("quantity", "must be between 1 and what is still to come");
+            }
+            picks.push({ line: found, quantity: line.quantity, batch_no: line.batch_no?.trim() || null, expiry: line.expiry || null, cost: line.unit_cost_paise ?? found.unit_cost_paise ?? 0 });
+          }
+          if (order.status !== "ordered") {
+            return refuse(409, "conflict", "only an order that was sent can be received");
+          }
+          if (asked.length === 0) {
+            for (const line of order.lines) {
+              if (line.quantity > line.received_quantity) {
+                picks.push({ line, quantity: line.quantity - line.received_quantity, batch_no: null, expiry: null, cost: line.unit_cost_paise ?? 0 });
+              }
+            }
+          }
+          const today = input.received_on || clinicToday(caller.clinic);
+          for (const pick of picks) {
+            const item = inventoryItemOf(caller.clinic, pick.line.item_id);
+            if (item === undefined) {
+              return notFound;
+            }
+            const batch = receiveInto(caller, item, order.supplier_id, pick.batch_no, pick.expiry, pick.quantity, pick.cost, today);
+            pick.line.received_quantity += pick.quantity;
+            order.receipts.push({ line_id: pick.line.id, batch_id: batch.id, quantity: pick.quantity, at: clock().toISOString() });
+          }
+          if (order.lines.every((l) => l.received_quantity === l.quantity)) {
+            order.status = "received";
+            order.received_at = clock().toISOString();
+          }
+          return reply(wirePurchaseOrder(caller.clinic, order, costs) satisfies C.PurchaseOrder);
+        }),
+
       listInvoices: (filter, opts) =>
         respond(S.invoiceList, opts?.signal, async () => {
           const caller = await inClinic("billing.read");
@@ -6616,12 +7143,21 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (days > 366) {
             return invalid("from", "the range is too long");
           }
-          const clinicPayments = state.payments.filter(
-            (p) => p.clinic_id === caller.clinic.id && p.status === "received" && p.received_at.slice(0, 10) >= from && p.received_at.slice(0, 10) <= to,
-          );
-          const invoicesInRange = state.invoices.filter(
-            (i) => i.clinic_id === caller.clinic.id && i.status === "issued" && (i.issued_at ?? "").slice(0, 10) >= from && (i.issued_at ?? "").slice(0, 10) <= to,
-          );
+          const compareWith: string | undefined = range.compare;
+          if (compareWith !== undefined && compareWith !== "prev") {
+            return invalid("compare", "must be prev");
+          }
+          const paymentsIn = (start: string, end: string): FakePayment[] =>
+            state.payments.filter((p) => p.clinic_id === caller.clinic.id && p.status === "received" && p.received_at.slice(0, 10) >= start && p.received_at.slice(0, 10) <= end);
+          const invoicesIn = (start: string, end: string): FakeInvoice[] =>
+            state.invoices.filter((i) => i.clinic_id === caller.clinic.id && i.status === "issued" && (i.issued_at ?? "").slice(0, 10) >= start && (i.issued_at ?? "").slice(0, 10) <= end);
+          const clinicPayments = paymentsIn(from, to);
+          const invoicesInRange = invoicesIn(from, to);
+          const sum = (values: readonly number[]): number => values.reduce((a, b) => a + b, 0);
+          const previousFrom = dateOnly(new Date(new Date(`${from}T00:00:00Z`).getTime() - days * 86_400_000));
+          const previousTo = dateOnly(new Date(new Date(`${from}T00:00:00Z`).getTime() - 86_400_000));
+          const previousPayments = paymentsIn(previousFrom, previousTo);
+          const previousInvoices = invoicesIn(previousFrom, previousTo);
           const outstanding = state.invoices
             .filter((i) => i.clinic_id === caller.clinic.id && i.status === "issued")
             .reduce((sum, i) => sum + wireInvoice(i, state, false).balance_paise, 0);
@@ -6630,6 +7166,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             to,
             collected_paise: clinicPayments.reduce((sum, p) => sum + p.amount_paise, 0),
             invoiced_paise: invoicesInRange.reduce((sum, i) => sum + computeInvoiceAmounts(i.items).total_paise, 0),
+            discount_paise: sum(invoicesInRange.map((i) => computeInvoiceAmounts(i.items).discount_paise)),
             outstanding_paise: outstanding,
             invoices: invoicesInRange.length,
             payments: clinicPayments.length,
@@ -6637,6 +7174,20 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             by_week: buildWeekTotals(clinicPayments, from, to),
             by_method: buildMethodTotals(clinicPayments),
             revenue_mix: buildRevenueMix(invoicesInRange, state.priceItems.filter((p) => p.clinic_id === caller.clinic.id)),
+            ...(range.compare === "prev"
+              ? {
+                  previous: {
+                    from: previousFrom,
+                    to: previousTo,
+                    collected_paise: sum(previousPayments.map((p) => p.amount_paise)),
+                    payments: previousPayments.length,
+                    by_method: buildMethodTotals(previousPayments),
+                    invoiced_paise: sum(previousInvoices.map((i) => computeInvoiceAmounts(i.items).total_paise)),
+                    invoices: previousInvoices.length,
+                    discount_paise: sum(previousInvoices.map((i) => computeInvoiceAmounts(i.items).discount_paise)),
+                  },
+                }
+              : {}),
           } satisfies C.Collections);
         }),
 
@@ -7117,6 +7668,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             practitioner_id: practitionerId,
             slot_minutes: bookingSettings(clinic).slot_minutes,
             slots: freeSlots(state, clinic, practitionerId, date, clock()),
+            requestable_slots: requestableSlots(state, clinic, practitionerId, date, clock()),
           } satisfies C.Availability);
         }),
 
@@ -7407,7 +7959,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           const start = new Date(input.starts_at);
           const day = localClock(start, clinic.timezone).date;
-          if (!freeSlots(state, clinic, doctor.id, day, now).some((slot) => Date.parse(slot) === start.getTime())) {
+          const isFree = freeSlots(state, clinic, doctor.id, day, now).some((slot) => Date.parse(slot) === start.getTime());
+          const isRequestable = !isFree && requestableSlots(state, clinic, doctor.id, day, now).some((slot) => Date.parse(slot) === start.getTime());
+          if (!isFree && !isRequestable) {
             return refuse(409, "conflict", "that time is no longer available; choose another");
           }
           const settings = bookingSettings(clinic);
@@ -7441,7 +7995,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             room_id: null,
             starts_at: start.toISOString(),
             ends_at: new Date(start.getTime() + settings.slot_minutes * 60_000).toISOString(),
-            status: settings.auto_confirm ? "confirmed" : "requested",
+            status: settings.auto_confirm && !isRequestable ? "confirmed" : "requested",
             kind: isNew ? "new" : "follow_up",
             source: "website",
             reason: input.reason ?? null,
@@ -7454,6 +8008,23 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             booked_by_account: who.id,
           };
           state.appointments.push(record);
+          if (isRequestable) {
+            (state.notifications ??= []).push({
+              id: fakeUuid(random, now),
+              clinic_id: clinic.id,
+              kind: "booking_conflict",
+              created_at: now.toISOString(),
+              appointment: {
+                id: record.id,
+                starts_at: record.starts_at,
+                ends_at: record.ends_at,
+                status: record.status,
+                practitioner_id: doctor.id,
+                practitioner_name: doctor.display_name,
+              },
+              href: "/calendar",
+            });
+          }
           const offsetStart = localIso(day, localClock(start, clinic.timezone).minutes, clinic.timezone);
           const endLocal = localClock(new Date(record.ends_at), clinic.timezone);
           return reply({
@@ -8411,6 +8982,7 @@ const BOOKING_DEFAULTS: C.OnlineBooking = {
   default_visit_minutes: 30,
   no_show_auto: true,
   no_show_grace_minutes: 30,
+  conflict_policy: "request",
 };
 /** Most open self-bookings one verified person may hold in a clinic. */
 const MAX_OPEN_SELF_BOOKINGS = 2;
@@ -8449,6 +9021,9 @@ function validateOnlineBooking(changes: C.OnlineBookingChanges): Outcome | null 
   }
   if (changes.no_show_grace_minutes != null && (changes.no_show_grace_minutes < 0 || changes.no_show_grace_minutes > 240)) {
     return invalid("booking.no_show_grace_minutes", "must be 0 to 240 minutes");
+  }
+  if (changes.conflict_policy != null && !["request", "strict"].includes(changes.conflict_policy)) {
+    return invalid("booking.conflict_policy", "must be request or strict");
   }
   return null;
 }
@@ -9058,37 +9633,67 @@ function localIso(date: string, minutes: number, timezone: string): string {
   return `${date}T${two(Math.floor(minutes / 60))}:${two(minutes % 60)}:00${sign}${two(Math.floor(abs / 60))}:${two(abs % 60)}`;
 }
 
-/** The slots a patient may take: working hours minus leave minus active appointments (widened by the buffer). */
-function freeSlots(state: Fixtures, clinic: FakeClinic, practitionerId: string, date: string, now: Date): string[] {
+/** Every slot in working hours past the notice, split by what holds it: nothing (free), an appointment (requestable if the policy allows), or leave (neither). */
+function slotLists(state: Fixtures, clinic: FakeClinic, practitionerId: string, date: string, now: Date): { free: string[]; held: string[] } {
   const settings = bookingSettings(clinic);
   const ahead = daysBetween(localClock(now, clinic.timezone).date, date);
   if (ahead < 0 || ahead >= settings.horizon_days) {
-    return [];
+    return { free: [], held: [] };
   }
   const weekday = isoWeekday(date);
   const earliest = now.getTime() + settings.min_notice_minutes * 60_000;
   const buffer = settings.buffer_minutes * 60_000;
-  const slots: string[] = [];
+  const free: string[] = [];
+  const held: string[] = [];
   for (const shift of state.workingShifts.filter((s) => s.clinic_id === clinic.id && s.practitioner_id === practitionerId && s.weekday === weekday)) {
     for (let at = toMinutes(shift.starts); at + settings.slot_minutes <= toMinutes(shift.ends); at += settings.slot_minutes) {
       const start = atLocalTime(date, at, clinic.timezone).getTime();
       const end = start + settings.slot_minutes * 60_000;
-      const taken =
-        state.appointments.some(
-          (a) =>
-            a.clinic_id === clinic.id &&
-            a.practitioner_id === practitionerId &&
-            a.status !== "cancelled" &&
-            a.status !== "no_show" &&
-            Date.parse(a.starts_at) < end + buffer &&
-            start - buffer < Date.parse(a.ends_at),
-        ) || state.leave.some((l) => l.clinic_id === clinic.id && l.practitioner_id === practitionerId && Date.parse(l.starts_at) < end && start < Date.parse(l.ends_at));
-      if (start >= earliest && !taken) {
-        slots.push(localIso(date, at, clinic.timezone));
+      if (start < earliest || state.leave.some((l) => l.clinic_id === clinic.id && l.practitioner_id === practitionerId && Date.parse(l.starts_at) < end && start < Date.parse(l.ends_at))) {
+        continue;
       }
+      const taken = state.appointments.some(
+        (a) =>
+          a.clinic_id === clinic.id &&
+          a.practitioner_id === practitionerId &&
+          a.status !== "cancelled" &&
+          a.status !== "no_show" &&
+          Date.parse(a.starts_at) < end + buffer &&
+          start - buffer < Date.parse(a.ends_at),
+      );
+      (taken ? held : free).push(localIso(date, at, clinic.timezone));
     }
   }
-  return slots.sort();
+  return { free: free.sort(), held: held.sort() };
+}
+
+/** The slots a patient may take: working hours minus leave minus active appointments (widened by the buffer). */
+function freeSlots(state: Fixtures, clinic: FakeClinic, practitionerId: string, date: string, now: Date): string[] {
+  return slotLists(state, clinic, practitionerId, date, now).free;
+}
+
+/** Slots another appointment holds that the patient may still ask for; none when the doctor's (or clinic's) policy is strict. */
+function requestableSlots(state: Fixtures, clinic: FakeClinic, practitionerId: string, date: string, now: Date): string[] {
+  const own = state.practitioners.find((p) => p.id === practitionerId)?.conflict_policy;
+  const policy = own === "request" || own === "strict" ? own : bookingSettings(clinic).conflict_policy;
+  return policy === "strict" ? [] : slotLists(state, clinic, practitionerId, date, now).held;
+}
+
+/** Whether another live appointment of the doctor overlaps `startsAt` for the length of `appointment`. */
+function holdsTime(state: Fixtures, appointment: FakeAppointment, startsAt: string, practitionerId: string): boolean {
+  const start = Date.parse(startsAt);
+  const end = start + (Date.parse(appointment.ends_at) - Date.parse(appointment.starts_at));
+  return state.appointments.some(
+    (a) =>
+      a.id !== appointment.id &&
+      a.clinic_id === appointment.clinic_id &&
+      a.practitioner_id === practitionerId &&
+      a.status !== "requested" &&
+      a.status !== "cancelled" &&
+      a.status !== "no_show" &&
+      Date.parse(a.starts_at) < end &&
+      start < Date.parse(a.ends_at),
+  );
 }
 
 /** Warnings for booking or moving an appointment: busy elsewhere or outside hours. Never blocks (a doctor on leave is refused before this). */
@@ -9652,29 +10257,42 @@ function weekStart(date: string): string {
   return dateOnly(new Date(d.getTime() - diff * 86_400_000));
 }
 
+const METHODS = ["cash", "upi", "card", "bank"] as const;
+
+/** Every method with what came in by it, zero when nothing did. */
+function amountsByMethod(payments: readonly FakePayment[]): C.MethodAmountItem[] {
+  return METHODS.map((method) => {
+    const mine = payments.filter((p) => p.method === method);
+    return { method, amount_paise: mine.reduce((sum, p) => sum + p.amount_paise, 0), payments: mine.length };
+  });
+}
+
 function buildDayTotals(payments: readonly FakePayment[], from: string, to: string): C.DayTotal[] {
   return eachDate(from, to).map((date) => {
     const dayPayments = payments.filter((p) => p.received_at.slice(0, 10) === date);
-    return { date, amount_paise: dayPayments.reduce((sum, p) => sum + p.amount_paise, 0), payments: dayPayments.length };
+    return { date, amount_paise: dayPayments.reduce((sum, p) => sum + p.amount_paise, 0), payments: dayPayments.length, by_method: amountsByMethod(dayPayments) };
   });
 }
 
 function buildWeekTotals(payments: readonly FakePayment[], from: string, to: string): C.DayTotal[] {
-  const weeks = new Map<string, { amount: number; count: number }>();
+  const weeks = new Map<string, { amount: number; count: number; paid: FakePayment[] }>();
   for (const date of eachDate(from, to)) {
     const key = weekStart(date);
     if (!weeks.has(key)) {
-      weeks.set(key, { amount: 0, count: 0 });
+      weeks.set(key, { amount: 0, count: 0, paid: [] });
     }
   }
   for (const p of payments) {
     const key = weekStart(p.received_at.slice(0, 10));
-    const bucket = weeks.get(key) ?? { amount: 0, count: 0 };
+    const bucket = weeks.get(key) ?? { amount: 0, count: 0, paid: [] };
     bucket.amount += p.amount_paise;
     bucket.count += 1;
+    bucket.paid.push(p);
     weeks.set(key, bucket);
   }
-  return [...weeks.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, amount_paise: v.amount, payments: v.count }));
+  return [...weeks.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({ date, amount_paise: v.amount, payments: v.count, by_method: amountsByMethod(v.paid) }));
 }
 
 function buildMethodTotals(payments: readonly FakePayment[]): C.MethodTotal[] {

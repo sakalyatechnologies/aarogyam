@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.purchase_orders\n           set supplier_id = $2, expected_on = $3, notes = $4\n           where id = $1 and deleted_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e2056325cfa545ce8e8a6c11925b0dee57093e078cc472be27f6d72a56675776"
+}

@@ -14,6 +14,20 @@ Newest first. Change a decision by adding an entry that supersedes it.
 - **Needs a session connection.** LISTEN does not work through a transaction-mode pooler (port 6543).
 - **Reach.** Events are not narrowed to a doctor's own patients: they carry identifiers only and the refetch applies reach.
 
+## 2026-10-10: Reports, stock orders and payment proof (Portal v2, B6)
+
+**Decision.** Additive endpoints and fields only (migrations 0686 to 0690).
+- **Collections.** `GET /reports/collections` gains `compare=prev` (`previous` totals for the same number of days just before `from`; any other value is `400`), `by_method` on days, weeks and the period, and `discount_paise`. Works with `weeks`.
+- **Analytics.** `procedures_by_category[].amount_paise` (null without `finance.view`) and `occupancy.by_chair_hour` and `by_weekday_hour` (minutes booked).
+- **UPI.** The payment link takes an optional part amount: `400` for 0 or more than the balance.
+- **Stock.** `max_level` on items (`0` clears; `400` below the reorder level) and `suggested_order` on stock levels.
+- **Purchase orders.** `GET/POST /purchase-orders`, `GET/PATCH/DELETE /purchase-orders/{id}`, `POST /purchase-orders/{id}/receive`. Draft, then ordered, then received or cancelled; receiving goes through the usual receive path, so each line makes a batch and a movement. Costs show and are set only with `finance.view`. Numbers come from the `purchase_order` number kind.
+- **Stock import.** `POST /stock/import` (multipart CSV or xlsx, 5 MB, 1,000 rows) checks every row and returns a token with row errors; `POST /stock/import/commit {token}` applies it once: items are found by name or created, the cells given change the item, each quantity is received. Committing a token again returns the first result with `replayed: true`. A preview ends after 24 hours (`409`). Unknown suppliers are row errors, not creations.
+- **Payment proof.** Attachment kind `payment_proof` and `attachment_id` on a payment (same patient, kind checked, `400` otherwise).
+- **Data rules.** The four new tables have `org_id`, RLS, composite keys and the restrictive `patient_account` deny and hold no patient data (no erasure step). Retention classes `stock_imports` (30 days) and `purchase_orders` (8 years), report only. The change history leaves out a preview's rows, errors and token hash.
+
+**Why.** The reports and stock screens of the new portal need totals to compare, stock to reorder and a way to load a clinic's existing list; proof of a UPI payment belongs to the payment.
+
 ## 2026-10-10: Finishing a visit in one step (Portal v2, B5)
 
 **Decision.** A visit can be finished and handed over with additive endpoints (migrations 0625 to 0629).
@@ -507,6 +521,8 @@ What `own` means, per record:
 | `message_templates` | Message templates Meta rejected or paused | 365 days | Last change | No patient data; a dead template is clutter once nobody revisits it |
 | `consent_requests` | Consent-to-sign links, signed or not | 30 days | Expiry | Only the link; the signed consent is a consent record and stays with the patient |
 | `campaigns` | Campaigns sent or cancelled | 365 days | Last change | No patient data (a name, a filter, an offer); the messages it made are the `messages` class |
+| `stock_imports` | Uploaded stock lists (the rows checked, and the result once committed) | 30 days | Upload | Working copy only; the items and stock are in the clinic's inventory; no patient data |
+| `purchase_orders` | Orders to suppliers with lines and receipts | 8 years | Order made | Money spent by the clinic, kept like bills (GST law and company law); no patient data |
 | `time_off_requests` | Staff time off decided or cancelled | 365 days | Last change | No patient data; holds a member's private reason, so it should not outlive its use |
 | `task_occurrences` | Each day's run of a clinic's recurring staff tasks, with who did it and an optional note | 3 years | When the task fell due | Compliance history (sterilisation, end-of-day checks); no patient data, and the note is kept out of the change history |
 

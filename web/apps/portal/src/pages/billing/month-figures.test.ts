@@ -5,7 +5,7 @@ import { computeMonthFigures } from "./month-figures.js";
 
 function day(date: string, amount_paise: number, payments: number): DayTotal {
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  return { date, amount_paise: amount_paise as DayTotal["amount_paise"], payments };
+  return { date, amount_paise: amount_paise as DayTotal["amount_paise"], payments, by_method: [] };
 }
 
 function method(method: string, share_bps: number): MethodTotal {

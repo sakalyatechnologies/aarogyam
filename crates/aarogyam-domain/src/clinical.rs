@@ -269,6 +269,8 @@ text_enum!(
         Audio => "audio",
         /// A signed consent form.
         Consent => "consent",
+        /// A screenshot or slip that proves a payment (attached to the payment).
+        PaymentProof => "payment_proof",
     }
 );
 

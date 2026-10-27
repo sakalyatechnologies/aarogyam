@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select l.id, l.order_id, l.line_no, l.item_id, i.name as item_name, i.unit, l.quantity,\n                  l.unit_cost_paise, l.received_quantity\n           from aarogyam.purchase_order_lines l\n           join aarogyam.inventory_items i on i.org_id = l.org_id and i.id = l.item_id\n           where l.order_id = $1\n           order by l.line_no\n           for update of l",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_lines",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "order_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_lines",
+            "name": "order_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "line_no",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_lines",
+            "name": "line_no"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "item_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_lines",
+            "name": "item_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "item_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "unit",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "unit"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "quantity",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_lines",
+            "name": "quantity"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "unit_cost_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_lines",
+            "name": "unit_cost_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "received_quantity",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_order_lines",
+            "name": "received_quantity"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "5a3048c4e3144ac79af6a7301668ab9e2437d26c1d50f0c79913e3483fcd1f63"
+}

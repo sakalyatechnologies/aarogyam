@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, category, unit, reorder_level, active\n           from aarogyam.inventory_items where id = $1 and deleted_at is null",
+  "query": "update aarogyam.inventory_items\n           set name = $2, category = $3, unit = $4, reorder_level = $5, max_level = $6,\n               active = $7\n           where id = $1 and deleted_at is null\n           returning id, name, category, unit, reorder_level, max_level, active",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "max_level",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.inventory_items",
+            "name": "max_level"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "active",
         "type_info": "Bool",
         "origin": {
@@ -72,7 +83,13 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Bool"
       ]
     },
     "nullable": [
@@ -81,8 +98,9 @@
       true,
       false,
       false,
+      true,
       false
     ]
   },
-  "hash": "dcb7e6db16b11bbb4f00a2d79e2e6c38f12bc9c8c80dc0668cfc156b2f9c7f68"
+  "hash": "23c98b4ca2b3c2d8058fa73fd7c40f77212f5d5a10a78088419120b2a32b82bd"
 }

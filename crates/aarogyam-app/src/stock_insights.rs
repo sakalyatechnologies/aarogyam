@@ -86,6 +86,7 @@ pub fn insight_of(row: UsageRow, today: Date) -> ItemInsight {
         today,
         reorder_level: row.reorder_level,
         lead_time_days: i64::from(row.lead_time_days),
+        max_level: row.max_level,
         batches: &batches,
         daily_use: &daily_use,
         first_use_on: row.first_use_on,

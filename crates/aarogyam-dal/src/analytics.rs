@@ -100,6 +100,33 @@ pub struct KeyCount {
     pub count: i64,
 }
 
+/// Procedures done under a bill category.
+#[derive(Debug, Clone)]
+pub struct ProcedureCount {
+    /// The category of the bill line that charged them (`None`: not billed yet or none).
+    pub key: Option<String>,
+    /// Procedures done.
+    pub count: i64,
+    /// What their bill lines on issued bills came to, in paise, including GST; zero unless
+    /// money was asked for.
+    pub amount_paise: i64,
+}
+
+/// Booked chair minutes in one hour of a weekday on a chair.
+#[derive(Debug, Clone, Copy)]
+pub struct OccupancyCell {
+    /// The chair.
+    pub room_id: Uuid,
+    /// ISO weekday, 1 Monday to 7 Sunday.
+    pub weekday: i64,
+    /// Hour of the day in clinic time, 0 to 23.
+    pub hour: i64,
+    /// Minutes of appointments (no-shows included) that fall in the hour.
+    pub minutes: i64,
+    /// Appointments that touch the hour.
+    pub appointments: i64,
+}
+
 /// Booked chair minutes under an appointment kind.
 #[derive(Debug, Clone)]
 pub struct KindMinutes {
@@ -159,8 +186,10 @@ pub struct AnalyticsRows {
     /// Patients seen, by recorded sex.
     pub sexes: Vec<KeyCount>,
     /// Procedures done, by the category of the bill line that charged them (`None`: not billed
-    /// yet or no category).
-    pub procedures: Vec<KeyCount>,
+    /// yet or no category), with what those lines came to when money was asked for.
+    pub procedures: Vec<ProcedureCount>,
+    /// Booked minutes per chair, weekday and hour in clinic time; only cells with bookings.
+    pub occupancy: Vec<OccupancyCell>,
     /// Booked chair minutes by appointment kind.
     pub chair_kinds: Vec<KindMinutes>,
     /// Visits that were booked appointments, and walk-in tokens that were not.
@@ -192,7 +221,7 @@ pub async fn analytics(
 ) -> Result<AnalyticsRows, DbError> {
     let rows = sqlx::query!(
         r#"with booked as (
-             select a.patient_id, a.room_id, a.kind, a.status, a.starts_at, a.ends_at,
+             select a.id, a.patient_id, a.room_id, a.kind, a.status, a.starts_at, a.ends_at,
                     a.starts_at at time zone $1 as local_start
              from aarogyam.appointments a
              where a.deleted_at is null and a.status not in ('cancelled', 'requested')
@@ -283,7 +312,12 @@ pub async fn analytics(
            select 'procedure', null,
                   (select nullif(btrim(ii.category), '') from aarogyam.invoice_items ii
                     where ii.procedure_id = pr.id and ii.category is not null limit 1),
-                  null, count(*), 0, 0, null
+                  null, count(*),
+                  sum(case when $7 then coalesce((select sum(ii.total_paise)
+                         from aarogyam.invoice_items ii
+                         join aarogyam.invoices bi on bi.org_id = ii.org_id and bi.id = ii.invoice_id
+                         where ii.procedure_id = pr.id and bi.status = 'issued'), 0) else 0 end)::bigint,
+                  0, null
            from aarogyam.procedures pr
            where pr.status = 'done' and pr.performed_at >= $5 and pr.performed_at < $6
            group by 3
@@ -294,6 +328,22 @@ pub async fn analytics(
            join aarogyam.rooms r on r.id = b.room_id
            where r.kind = 'chair'
            group by 3
+           union all
+           -- A cell of the occupancy grid: the chair in the key, the appointments touching the
+           -- hour in the label (as text), then weekday, hour and booked minutes.
+           select 'occ', null, o.room_id::text, o.n::text, o.wd, o.hr, o.mins, null
+           from (select b.room_id, extract(isodow from h)::bigint as wd,
+                        extract(hour from h)::bigint as hr, count(*)::bigint as n,
+                        sum(extract(epoch from
+                              least(b.ends_at at time zone $1, h + interval '1 hour')
+                              - greatest(b.local_start, h)) / 60)::bigint as mins
+                 from booked b
+                 join aarogyam.rooms r on r.id = b.room_id and r.kind = 'chair'
+                 cross join lateral generate_series(
+                   date_trunc('hour', b.local_start),
+                   date_trunc('hour', (b.ends_at at time zone $1) - interval '1 second'),
+                   interval '1 hour') as h
+                 group by 1, 2, 3) o
            union all
            select 'booked', null, null, null, count(*), 0, 0, null from visits
            union all
@@ -375,10 +425,26 @@ pub async fn analytics(
                 key: row.key,
                 count: a,
             }),
-            ("procedure", _) => out.procedures.push(KeyCount {
+            ("procedure", _) => out.procedures.push(ProcedureCount {
                 key: row.key,
                 count: a,
+                amount_paise: b,
             }),
+            ("occ", _) => {
+                if let Some(room_id) = room_id {
+                    out.occupancy.push(OccupancyCell {
+                        room_id,
+                        weekday: a,
+                        hour: b,
+                        minutes: c,
+                        appointments: row
+                            .label
+                            .as_deref()
+                            .and_then(|n| n.parse().ok())
+                            .unwrap_or(0),
+                    });
+                }
+            }
             ("chair_kind", _) => out.chair_kinds.push(KindMinutes {
                 key: row.key,
                 minutes: a,

@@ -59,6 +59,8 @@ The last deploy may still be in flight; check `scripts/cloud-run-deploy.sh` outp
 **Committed, not merged:** `feat/v2-patients` dd16ddc (B4 + family profiles; passed the hook).
 - **Before merging, check mobile compatibility.** Money keys are now *omitted* rather than null without `billing.read`. If the mobile apps' decoders expect the keys, return null instead, since API changes must be additive only.
 
+**Committed, not merged:** `feat/v2-reports` (B6, migrations 0686 to 0690): collections compare and per-method totals, analytics procedure amounts and occupancy, UPI part amount, item `max_level` and `suggested_order`, purchase orders (`/purchase-orders`, receiving into stock), stock import (`POST /stock/import`, then `/stock/import/commit {token}`, idempotent), payment proof (`attachment_id`). All additive. API client methods, a fake and contract tests are in; no portal UI yet.
+
 **Paused, each with a HANDOFF.md in its worktree:**
 - `wt-v2-tooth`: chart like the zip.
   - Rows and 3D arch views; Adult 32 and Child 20.

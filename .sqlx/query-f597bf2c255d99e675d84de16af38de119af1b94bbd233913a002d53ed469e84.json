@@ -1,0 +1,158 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.id, o.number, o.supplier_id, s.name as supplier_name, o.status, o.expected_on,\n                  o.notes, o.ordered_at, o.received_at, o.cancelled_at, o.created_at,\n                  coalesce((select sum(l.quantity * coalesce(l.unit_cost_paise, 0))\n                            from aarogyam.purchase_order_lines l\n                            where l.org_id = o.org_id and l.order_id = o.id), 0)::bigint as \"total_paise!\"\n           from aarogyam.purchase_orders o\n           join aarogyam.suppliers s on s.org_id = o.org_id and s.id = o.supplier_id\n           where o.deleted_at is null\n             and ($1::uuid is null or o.id = $1)\n             and ($2::text is null or o.status = $2)\n             and ($3::uuid is null or o.supplier_id = $3)\n           order by o.created_at desc, o.id desc\n           limit $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_orders",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_orders",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "supplier_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_orders",
+            "name": "supplier_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "supplier_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.suppliers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_orders",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "expected_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_orders",
+            "name": "expected_on"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "notes",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_orders",
+            "name": "notes"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "ordered_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_orders",
+            "name": "ordered_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "received_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_orders",
+            "name": "received_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "cancelled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_orders",
+            "name": "cancelled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.purchase_orders",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "total_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "f597bf2c255d99e675d84de16af38de119af1b94bbd233913a002d53ed469e84"
+}

@@ -2291,7 +2291,8 @@ async fn other_clinics_get_not_found() {
     app.finish().await;
 }
 
-/// Reading needs clinical.read (the front desk has none); writing needs clinical.write (the
+/// Reading needs clinical.read (the front desk has none, but lists and links payment proofs;
+/// see `payment_proof.rs`); writing needs clinical.write (the
 /// assistant only reads). The clinical flags need only patients.read, so the front desk sees
 /// that a flag exists.
 #[tokio::test]
@@ -2303,8 +2304,12 @@ async fn clinical_routes_need_their_permission() {
     for (method, path, body) in every_route(&app).await {
         let flags = path.ends_with("/clinical-flags");
         if method == Method::GET {
-            let expected = if flags {
+            // Billing staff list a patient's files (payment proofs only) and ask for a link to
+            // one, which is not found unless it is a proof.
+            let expected = if flags || path.ends_with("/attachments") {
                 StatusCode::OK
+            } else if path.ends_with("/download") {
+                StatusCode::NOT_FOUND
             } else {
                 StatusCode::FORBIDDEN
             };

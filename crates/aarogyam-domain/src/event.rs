@@ -202,6 +202,18 @@ pub enum Event {
     CampaignCancelled,
     /// The job expanded a batch of a campaign's recipients into messages.
     CampaignFanOut,
+    /// A purchase order was made.
+    PurchaseOrderCreated,
+    /// A purchase order was sent to the supplier.
+    PurchaseOrderOrdered,
+    /// Stock was received against a purchase order.
+    PurchaseOrderReceived,
+    /// A purchase order was cancelled.
+    PurchaseOrderCancelled,
+    /// A stock import file was checked and held as a preview.
+    StockImportPreviewed,
+    /// A stock import preview was committed.
+    StockImportCommitted,
 }
 
 impl Event {
@@ -310,6 +322,12 @@ impl Event {
             Self::CampaignScheduled => "campaign.scheduled",
             Self::CampaignCancelled => "campaign.cancelled",
             Self::CampaignFanOut => "campaign.fan_out",
+            Self::PurchaseOrderCreated => "purchase_order.created",
+            Self::PurchaseOrderOrdered => "purchase_order.ordered",
+            Self::PurchaseOrderReceived => "purchase_order.received",
+            Self::PurchaseOrderCancelled => "purchase_order.cancelled",
+            Self::StockImportPreviewed => "stock_import.previewed",
+            Self::StockImportCommitted => "stock_import.committed",
         }
     }
 }

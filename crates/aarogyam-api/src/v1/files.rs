@@ -4,7 +4,6 @@ use aarogyam_app::files::{self as app, AttachmentView, DownloadRefusal, Upload};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::files::MAX_BYTES;
 use aarogyam_domain::ids::{AttachmentId, EncounterId, PatientId};
-use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite};
 use axum::Json;
 use axum::extract::State;
 use axum::extract::multipart::{Multipart, MultipartError, MultipartRejection};
@@ -18,7 +17,7 @@ use uuid::Uuid;
 
 use super::{client_id, rfc3339};
 use crate::AppState;
-use crate::extract::{ClinicHost, Require};
+use crate::extract::{ClinicHost, FileAccess, FileRead, FileWrite};
 use crate::failure::{ApiFailure, not_found};
 
 /// Largest upload body: the file plus room for the other form fields.
@@ -33,7 +32,7 @@ pub struct Attachment {
     /// The visit it belongs to.
     #[schema(value_type = Option<String>)]
     pub visit_id: Option<Uuid>,
-    /// `photo`, `xray`, `report`, `document`, `audio` or `consent`.
+    /// `photo`, `xray`, `report`, `document`, `audio`, `consent` or `payment_proof`.
     pub kind: String,
     /// `image/jpeg`, `image/png`, `application/pdf`, `application/dicom`, `audio/webm`,
     /// `audio/mp4` or `audio/ogg`, from the content.
@@ -113,7 +112,7 @@ pub struct UploadForm {
     /// read from its content.
     #[schema(value_type = String, format = Binary)]
     file: Vec<u8>,
-    /// `photo`, `xray`, `report`, `document` (default), `audio` or `consent`.
+    /// `photo`, `xray`, `report`, `document` (default), `audio`, `consent` or `payment_proof`.
     kind: Option<String>,
     /// The visit it belongs to.
     visit_id: Option<String>,
@@ -234,14 +233,14 @@ async fn read_form(mut form: Multipart) -> Result<Upload, ApiFailure> {
         (status = 400, description = "Not an accepted file, a bad field, a visit of another patient, or a signed note without an addendum"),
         (status = 409, description = "The note is not the uploader's draft, or is entered in error, or `id_conflict`: the id belongs to a different file"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks clinical.write"),
+        (status = 403, description = "The role lacks clinical.write (billing.write or payments.collect may add a file of kind `payment_proof`)"),
         (status = 404, description = "No such patient in this clinic"),
         (status = 413, description = "Larger than 10 MB")
     )
 )]
 pub(crate) async fn upload(
     State(state): State<AppState>,
-    Require { request, .. }: Require<ClinicalWrite>,
+    FileAccess { request, .. }: FileAccess<FileWrite>,
     ApiPath(id): ApiPath<Uuid>,
     form: Result<Multipart, MultipartRejection>,
 ) -> Result<(StatusCode, Json<Attachment>), ApiFailure> {
@@ -271,13 +270,13 @@ pub(crate) async fn upload(
     responses(
         (status = 200, body = AttachmentList),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks clinical.read"),
+        (status = 403, description = "The role lacks clinical.read (billing.read or payments.collect see payment proofs only)"),
         (status = 404, description = "No such patient in this clinic")
     )
 )]
 pub(crate) async fn list(
     State(state): State<AppState>,
-    Require { request, .. }: Require<ClinicalRead>,
+    FileAccess { request, .. }: FileAccess<FileRead>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<Json<AttachmentList>, ApiFailure> {
     let rows = app::list(
@@ -318,7 +317,7 @@ pub struct DownloadLink {
 )]
 pub(crate) async fn link(
     State(state): State<AppState>,
-    Require { request, .. }: Require<ClinicalRead>,
+    FileAccess { request, .. }: FileAccess<FileRead>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<Json<DownloadLink>, ApiFailure> {
     let link = app::link(

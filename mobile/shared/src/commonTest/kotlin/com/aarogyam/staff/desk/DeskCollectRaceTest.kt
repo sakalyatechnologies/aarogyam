@@ -64,11 +64,13 @@ class DeskCollectRaceTest {
     private suspend fun TestScope.holder(
         backend: FakeBackend,
         now: Instant = ended,
+        permissions: List<String> = billing,
+        invoiceId: String? = null,
     ): DeskPaymentStateHolder {
         backend.on(list, { json(items(invoiceJson("i1", "v1", 5000, 0))) })
         val graph = testGraph(backend, backgroundScope)
-        val clinic = openClinic(backend, graph, this, billing)
-        return DeskPaymentStateHolder(clinic, "p1", backgroundScope, graph, clock = { now })
+        val clinic = openClinic(backend, graph, this, permissions)
+        return DeskPaymentStateHolder(clinic, "p1", backgroundScope, graph, invoiceId = invoiceId, clock = { now })
     }
 
     @Test
@@ -110,13 +112,33 @@ class DeskCollectRaceTest {
             assertEquals(0, backend.count(issue))
         }
 
+    /** Found by the T12 run: the server issues a draft with the payment only for a role without `billing.write`. */
     @Test
-    fun a_draft_is_paid_by_its_total_and_never_issued_by_the_phone() =
+    fun a_draft_is_issued_by_a_role_with_billing_write_before_it_is_paid() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(summary, { json(summaryJson("draft", 5000, 5000)) })
+            backend.on(issue, { json(invoiceJson("i1", "v1", 5000, 0)) })
+            paid(backend)
+            val h = holder(backend)
+            until { h.state.value is DeskPayState.Ready }
+            val before = backend.requests.size
+            h.record("i1", 5000, PayMethod.Cash, null)
+            until { h.outcome.value.let { it !is DeskPayOutcome.Idle && it !is DeskPayOutcome.Sending } }
+            assertEquals(
+                listOf("invoices/i1/collect-summary", "invoices/i1/issue", "payments"),
+                order(backend).drop(before).take(3),
+            )
+            assertIs<DeskPayOutcome.Recorded>(h.outcome.value)
+        }
+
+    @Test
+    fun a_collect_only_role_pays_a_draft_and_the_server_issues_it() =
         runTest {
             val backend = FakeBackend()
             backend.on(summary, { json(summaryJson("draft", 5000, 5000)) })
             paid(backend)
-            val h = holder(backend)
+            val h = holder(backend, permissions = listOf("payments.collect"), invoiceId = "i1")
             until { h.state.value is DeskPayState.Ready }
             val before = backend.requests.size
             h.record("i1", 5000, PayMethod.Cash, null)

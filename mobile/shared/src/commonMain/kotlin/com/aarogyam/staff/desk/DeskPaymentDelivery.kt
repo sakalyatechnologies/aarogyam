@@ -215,14 +215,19 @@ internal sealed interface Recheck {
 
 /**
  * Before `POST /payments`: re-GET `/invoices/{id}/collect-summary` (`payments.collect`) and use its
- * current balance. An issued bill with a balance of 0 is [Recheck.AlreadyPaid]; a draft is allocated
- * by its total and the server issues it when the payment is recorded; any other bill is refused. A job with no invoice is sent as it is.
+ * current balance. An issued bill with a balance of 0 is [Recheck.AlreadyPaid]; any bill that is
+ * neither draft nor issued is refused. A job with no invoice is sent as it is.
+ *
+ * A draft is allocated by its total. The server issues it with the payment only for a role without
+ * `billing.write`; a role that has it ([canIssue]) must issue it first, or the payment gets 409
+ * "only issued bills take payments".
  */
 internal suspend fun recheck(
     api: ClinicApi,
     job: PaymentJob,
     log: Logger,
     canCollect: Boolean = true,
+    canIssue: Boolean = false,
 ): Recheck {
     val invoiceId = job.invoiceId ?: return Recheck.Proceed(job)
     if (!canCollect) return recheckByInvoice(api, job, invoiceId, log)
@@ -242,7 +247,7 @@ internal suspend fun recheck(
                     Recheck.Proceed(
                         job.copy(
                             patientId = bill.patient.id,
-                            issueFirst = false,
+                            issueFirst = canIssue,
                             allocatedPaise = minOf(job.amountPaise, bill.totalPaise),
                         ),
                         bill.upi,

@@ -232,7 +232,8 @@ class DeskPaymentStateHolder(
                 amountPaise = amountPaise,
                 invoiceId = invoiceId,
                 allocatedPaise = invoiceId?.let { id -> minOf(amountPaise, dueOf(id)) } ?: 0,
-                issueFirst = invoiceId?.let { id -> draftOf(id) } ?: false,
+                // Only a role with billing.write issues a draft; for the others the server issues it with the payment.
+                issueFirst = BILLING_WRITE in clinic.permissions && invoiceId?.let { id -> draftOf(id) } == true,
                 proofId = proof?.let { IdempotencyKey.generate().toString() },
                 proofJpegBase64 = proof?.let(::encodeProof),
             )
@@ -248,7 +249,17 @@ class DeskPaymentStateHolder(
             }
             // R8: the balance is read again just before sending; the screen's list may be stale.
             val fresh =
-                when (val check = recheck(clinic.api, job, log, canCollect)) {
+                when (
+                    val check =
+                        recheck(
+                            clinic.api,
+                            job,
+                            log,
+                            canCollect,
+                            canIssue =
+                                BILLING_WRITE in clinic.permissions,
+                        )
+                ) {
                     is Recheck.Proceed -> {
                         showUpi(invoiceId, check.upi)
                         check.job

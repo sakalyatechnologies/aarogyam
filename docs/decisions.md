@@ -699,3 +699,11 @@ billing an open stream keeps CPU billed for its whole life, so a portal or phone
 day costs far more than 20-second polling. The phone and the portal stop trying for the session
 on a 404 and keep polling. The founder decides when to switch it on; the library default is on
 so tests exercise the stream.
+
+## 2026-10-29: A consent signature and a task proof photo
+**Decision.** Migrations 0705 and 0706. Additive API, asked for by the mobile app.
+- **Consent signature (G10).** `POST /patients/{id}/consents` takes an optional `signature_attachment_id`; `Consent` returns it (optional in the schema, so older apps read on). It must be a patient file of kind `consent` of the same patient: a composite key `(org_id, signature_attachment_id, patient_id)` onto `attachments_id_patient` plus a before-insert trigger on the kind, as for the payment proof (0690). The API answers 400 naming the field for the wrong kind or another patient's file, and 404 for a file that does not exist in the clinic.
+- **Task proof photo (G4).** Tasks are not patient-bound and `attachments.patient_id` is not null, so the photo is not a patient attachment. It follows the staff avatar: `task_occurrences.proof_file_id` and `proof_mime` (PNG or JPEG, at most 2 MB, checked by content) point to a file in the clinic's file storage. `POST /tasks/occurrences/{id}/proof` (multipart `file`) returns `{proof_file_id}`; `complete` takes an optional `proof_file_id` that must be the current proof (400 otherwise); `TaskOccurrence.has_proof` says whether one exists; `GET /tasks/occurrences/{id}/proof` streams it.
+- **Access.** All three need `tasks.use`. Unlike avatars there are no signed links: the photo can show the clinic's premises, so it is read only through the signed-in route, by the person the task is for (or holding its role), whoever finished it, or a role with `tasks.manage`; anyone else gets 403 and another clinic 404. Uploading needs the task to be the caller's and open (or done by them). A replaced photo is removed from storage. No patient data is logged.
+
+**Why.** The phone needs a signed consent on file and evidence that a cleaning or sterilisation task was done, without making tasks depend on patients.

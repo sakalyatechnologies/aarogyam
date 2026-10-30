@@ -8,6 +8,10 @@ use aarogyam_app::tasks::{
 use aarogyam_domain::ids::InventoryItemId;
 use aarogyam_domain::permission::require::{TasksManage, TasksUse};
 use aarogyam_domain::tasks::{OccurrenceStatus, ScheduleKind, TaskAction};
+use axum::extract::DefaultBodyLimit;
+use axum::extract::multipart::{Multipart, MultipartRejection};
+use axum::http::{HeaderValue, header};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router, extract::State, http::StatusCode};
 use sakalya_http::{ApiError, ApiJson, ApiPath, ApiQuery};
@@ -16,6 +20,7 @@ use time::OffsetDateTime;
 use utoipa::{OpenApi, ToSchema};
 use uuid::Uuid;
 
+use super::files::{bad_form, form_error};
 use super::{bad, clock, optional_uuid, parse_clock, parse_day, parse_id, parse_instant, rfc3339};
 use crate::AppState;
 use crate::extract::Require;
@@ -31,12 +36,29 @@ pub(crate) fn routes() -> Router<AppState> {
         .route("/tasks/{id}/preview", get(preview))
         .route("/tasks/occurrences/{id}/complete", post(complete))
         .route("/tasks/occurrences/{id}/reopen", post(reopen))
+        .route(
+            "/tasks/occurrences/{id}/proof",
+            get(get_proof)
+                .post(upload_proof)
+                .layer(DefaultBodyLimit::max(MAX_PROOF_BODY)),
+        )
 }
 
 /// This module's part of the OpenAPI document, merged in `crate::openapi::openapi`.
 #[derive(OpenApi)]
 #[openapi(paths(
-    mine, complete, reopen, list, create, read, update, remove, preview, history
+    mine,
+    complete,
+    reopen,
+    list,
+    create,
+    read,
+    update,
+    remove,
+    preview,
+    history,
+    upload_proof,
+    get_proof
 ))]
 pub(crate) struct Doc;
 
@@ -81,6 +103,10 @@ pub struct TaskOccurrence {
     /// photo.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub patients_without_photos_today: Option<i64>,
+    /// Whether a proof photo is attached; fetch it with `GET /tasks/occurrences/{id}/proof`.
+    /// Optional in the schema, so apps built before it read on.
+    #[schema(required = false)]
+    pub has_proof: bool,
 }
 
 impl From<OccurrenceView> for TaskOccurrence {
@@ -100,6 +126,7 @@ impl From<OccurrenceView> for TaskOccurrence {
             completed_by_name: view.completed_by_name,
             note: view.note,
             patients_without_photos_today: view.patients_without_photos_today,
+            has_proof: view.has_proof,
         }
     }
 }
@@ -181,6 +208,10 @@ pub struct CompleteBody {
     /// twice as the same person is harmless either way.
     #[schema(value_type = Option<String>)]
     pub client_id: Option<Uuid>,
+    /// The proof photo uploaded for this occurrence (`POST /tasks/occurrences/{id}/proof`); it
+    /// must be the occurrence's current proof, else `400`.
+    #[schema(value_type = Option<String>)]
+    pub proof_file_id: Option<Uuid>,
 }
 
 /// Finishes an occurrence. The caller must be the person it is for or hold the role it is for;
@@ -230,6 +261,7 @@ pub(crate) async fn complete(
         CompleteInput {
             note: body.note.clone(),
             usage,
+            proof_file_id: body.proof_file_id,
         },
         OffsetDateTime::now_utc(),
     )
@@ -241,6 +273,124 @@ pub(crate) async fn complete(
         "task completed"
     );
     Ok(Json(done.occurrence.into()))
+}
+
+/// Largest proof upload body: the photo plus room for the form.
+const MAX_PROOF_BODY: usize = aarogyam_domain::letterhead::MAX_IMAGE_BYTES + 64 * 1024;
+
+/// The proof upload form.
+#[derive(Debug, ToSchema)]
+#[expect(dead_code, reason = "documents the multipart form for OpenAPI")]
+pub struct ProofForm {
+    /// A PNG or JPEG photo of at most 2 MB.
+    #[schema(value_type = String, format = Binary)]
+    file: String,
+}
+
+/// A stored proof photo.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProofUploaded {
+    /// Send this as `proof_file_id` when finishing the task.
+    #[schema(value_type = String)]
+    pub proof_file_id: Uuid,
+}
+
+/// Keeps a proof photo for an occurrence as `multipart/form-data` with one `file` (PNG or JPEG,
+/// up to 2 MB, checked by content). The caller must be the person it is for or hold the role
+/// it is for, and it must be open (or done by them). Replaces an earlier proof. Then send the
+/// returned `proof_file_id` with the completion.
+#[utoipa::path(
+    post,
+    path = "/api/v1/tasks/occurrences/{id}/proof",
+    operation_id = "uploadTaskProof",
+    tag = "tasks",
+    params(("id" = String, Path, description = "The occurrence")),
+    request_body(content = ProofForm, content_type = "multipart/form-data"),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = ProofUploaded),
+        (status = 400, description = "Not a PNG or JPEG, or empty"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks tasks.use, or the task is for someone else"),
+        (status = 404, description = "No such task in this clinic"),
+        (status = 409, description = "The task is closed"),
+        (status = 413, description = "Larger than 2 MB")
+    )
+)]
+pub(crate) async fn upload_proof(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<TasksUse>,
+    ApiPath(id): ApiPath<Uuid>,
+    form: Result<Multipart, MultipartRejection>,
+) -> Result<Json<ProofUploaded>, ApiFailure> {
+    let mut form = form.map_err(|_| bad_form("send the photo as multipart/form-data"))?;
+    let mut photo = None;
+    while let Some(field) = form.next_field().await.map_err(|e| form_error(&e))? {
+        if field.name() == Some("file") {
+            photo = Some(field.bytes().await.map_err(|e| form_error(&e))?.to_vec());
+        }
+    }
+    let bytes = photo.ok_or_else(|| bad_form("send the photo as the file field"))?;
+    let proof_file_id = app::upload_proof(
+        state.db(),
+        state.files()?,
+        &request.actor,
+        request.request_id,
+        id,
+        bytes,
+    )
+    .await?;
+    Ok(Json(ProofUploaded { proof_file_id }))
+}
+
+/// The proof photo of an occurrence, with its media type. Only the person it is for, whoever
+/// finished it, or a role with `tasks.manage` may read it.
+#[utoipa::path(
+    get,
+    path = "/api/v1/tasks/occurrences/{id}/proof",
+    operation_id = "getTaskProof",
+    tag = "tasks",
+    params(("id" = String, Path, description = "The occurrence")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, description = "The photo, with its media type"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks tasks.use, or the task is for someone else"),
+        (status = 404, description = "No such task in this clinic, or it has no proof")
+    )
+)]
+pub(crate) async fn get_proof(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<TasksUse>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Response, ApiFailure> {
+    let image = app::proof(
+        state.db(),
+        state.files()?,
+        &request.actor,
+        request.request_id,
+        id,
+    )
+    .await?;
+    let mut response = image.bytes.into_response();
+    let headers = response.headers_mut();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static(image.mime_type),
+    );
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    headers.insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static("sandbox; default-src 'none'"),
+    );
+    Ok(response)
 }
 
 /// Opens a done or skipped occurrence again, for a mistake. Stock already recorded for it stays

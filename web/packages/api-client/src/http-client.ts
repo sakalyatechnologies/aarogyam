@@ -155,7 +155,7 @@ import {
   workingHours,
   type RequestId,
 } from "./schemas.js";
-import { myTasks, task, taskHistory, taskList, taskOccurrence, taskPreview } from "./schemas.js";
+import { myTasks, task, taskHistory, taskList, taskOccurrence, taskPreview, taskProofUploaded } from "./schemas.js";
 import { consentLink, consentRequested, consentSigned, familyLink, familyList, patientsSummary, phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
 import {
   audience,
@@ -811,6 +811,16 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: "/api/v1/tasks/mine", schema: myTasks, query: { date }, signal: opts?.signal }),
     completeTask: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/tasks/occurrences/${encodeURIComponent(id)}/complete`, schema: taskOccurrence, body: input, signal: opts?.signal }),
+    uploadTaskProof: (id, form, opts) =>
+      call({ method: "POST", path: `/api/v1/tasks/occurrences/${encodeURIComponent(id)}/proof`, schema: taskProofUploaded, body: form, signal: opts?.signal }),
+    getTaskProof: (id, opts) =>
+      call({
+        method: "GET",
+        path: `/api/v1/tasks/occurrences/${encodeURIComponent(id)}/proof`,
+        schema: z.instanceof(Blob),
+        binary: true,
+        signal: opts?.signal,
+      }),
     reopenTask: (id, opts) =>
       call({ method: "POST", path: `/api/v1/tasks/occurrences/${encodeURIComponent(id)}/reopen`, schema: taskOccurrence, signal: opts?.signal }),
     listTasks: (opts) => call({ method: "GET", path: "/api/v1/tasks", schema: taskList, signal: opts?.signal }),

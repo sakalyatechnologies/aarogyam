@@ -38,6 +38,8 @@ pub struct ConsentRow {
     pub note: Option<String>,
     /// A short remark about the withdrawal.
     pub withdrawal_note: Option<String>,
+    /// The signature file (a patient file of kind `consent`).
+    pub signature_attachment_id: Option<Uuid>,
 }
 
 /// The patient's consents, newest first; `None` when the patient isn't in this clinic or is out
@@ -71,7 +73,7 @@ pub async fn list(
                   (select u.display_name from aarogyam.memberships m
                    join aarogyam.users u on u.id = m.user_id
                    where m.org_id = c.org_id and m.id = c.withdrawn_by) as withdrawn_by_name,
-                  c.withdrawn_method, c.note, c.withdrawal_note
+                  c.withdrawn_method, c.note, c.withdrawal_note, c.signature_attachment_id
            from aarogyam.patient_consents c
            where c.patient_id = $1
            order by c.given_at desc, c.id desc"#,
@@ -101,6 +103,8 @@ pub struct NewConsent<'a> {
     pub recorded_by: Uuid,
     /// A short remark.
     pub note: Option<&'a str>,
+    /// The signature file, already checked to be a `consent` file of the patient.
+    pub signature_attachment_id: Option<Uuid>,
 }
 
 /// Records a consent; `None` when the patient already has an active one for the purpose.
@@ -113,8 +117,9 @@ pub async fn insert(
 ) -> Result<Option<Uuid>, DbError> {
     let id = sqlx::query_scalar!(
         r#"insert into aarogyam.patient_consents
-             (patient_id, purpose, notice_version, given_at, method, recorded_by, note, notice_id)
-           values ($1, $2, $3, coalesce($4, now()), $5, $6, $7, $8)
+             (patient_id, purpose, notice_version, given_at, method, recorded_by, note, notice_id,
+              signature_attachment_id)
+           values ($1, $2, $3, coalesce($4, now()), $5, $6, $7, $8, $9)
            on conflict (org_id, patient_id, purpose) where status = 'given' do nothing
            returning id"#,
         new.patient_id,
@@ -124,7 +129,8 @@ pub async fn insert(
         new.method,
         new.recorded_by,
         new.note,
-        new.notice_id
+        new.notice_id,
+        new.signature_attachment_id
     )
     .fetch_optional(conn)
     .await?;

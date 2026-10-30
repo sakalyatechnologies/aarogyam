@@ -5179,6 +5179,7 @@
     "consent_forms.pdf_attachment_id",
     "consent_forms.signature_attachment_id",
     "document_extractions.attachment_id",
+    "patient_consents.signature_attachment_id",
     "payments.attachment_id",
     "voice_notes.attachment_id"
    ],
@@ -7571,6 +7572,20 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "proof_file_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "a proof photo in clinic file storage (migration 0706), read only through GET /tasks/occurrences/{id}/proof"
+    },
+    {
+     "name": "proof_mime",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "image/png or image/jpeg, set with proof_file_id"
     }
    ],
    "referenced_by": [
@@ -10656,6 +10671,13 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "signature_attachment_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "attachments",
+     "note": "the patient's signature, a file of kind consent of the same patient (migration 0705)"
     }
    ],
    "referenced_by": [],

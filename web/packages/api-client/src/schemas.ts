@@ -1564,6 +1564,8 @@ export const consent = z.object({
   withdrawn_method: consentMethod.nullable().exactOptional(),
   note: optionalText,
   withdrawal_note: optionalText,
+  /** The patient's signature, a file of kind `consent`. Absent from older servers. */
+  signature_attachment_id: z.string().min(1).nullable().exactOptional(),
 }) satisfies z.ZodType<C.Consent>;
 export type Consent = z.output<typeof consent>;
 
@@ -3642,7 +3644,12 @@ export const taskOccurrence = z.object({
   note: optionalText,
   /** Only on a confirm_photos task. */
   patients_without_photos_today: z.number().int().exactOptional(),
+  /** Whether a proof photo is attached; read it with `getTaskProof`. Absent from older servers. */
+  has_proof: z.boolean().exactOptional(),
 }) satisfies z.ZodType<C.TaskOccurrence>;
+/** The answer to a proof upload: send `proof_file_id` when completing the task. */
+export const taskProofUploaded = z.object({ proof_file_id: z.string().min(1) }) satisfies z.ZodType<C.ProofUploaded>;
+export type TaskProofUploaded = z.output<typeof taskProofUploaded>;
 export type TaskOccurrence = z.output<typeof taskOccurrence>;
 
 export const myTasks = z.object({

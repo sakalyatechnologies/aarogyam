@@ -2,6 +2,17 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-29: Automatic patient messages (welcome, visit summary, follow-up booking)
+
+**Ported to main on 2026-10-29** from the v9 WIP (`e2e91223`, written on the pre-no-show main): the same design, rebased onto the current visit close (payment, no-show, overpayment) and onto migration 0684's template defaults (0703 wraps that version). The portal's Booking and notifications tab has the three switches.
+
+**Decision.** Three messages are queued by the event itself, in its transaction (migration 0703 adds the templates only): `patient.welcome` when a walk-in registers a new patient, `visit.summary` and then `visit.summary_pin` when a visit closes (a new visit link is made; none when the visit already has a live one), and `visit.follow_up_booking` when the close plans a follow-up (sent at 09:00 clinic time, 2 days before the date, or now when closer).
+
+- **Switches.** `welcome` (on), `visit_summary` (on) and `follow_up_booking` (off) are keys of `org_settings.notifications`, read and written through `GET/PATCH /settings/notifications` like the other switches; there is no second settings column.
+- **Content.** Links, the PIN, minutes and a date only: never a patient name or clinical word. The welcome says the estimated wait in minutes: people ahead of the token (waiting, called or in the chair, lower number) times the clinic's average closed-visit length over 14 days (10 when unknown, clamped 5 to 30), rounded up to 5, between 5 and 120.
+- **PIN apart from the link.** The PIN is a second message scheduled 30 s later, on the same channel as the link (WhatsApp when the patient opted in and the clinic has approved templates, else email). A different channel is not used: the patient has one address per channel, and a second channel would need a second consent and template.
+- **Consent.** Welcome and summary are care messages; the follow-up needs `reminders` consent. A message the patient cannot receive is recorded as `skipped` with its reason, and no link is made for them.
+
 ## 2026-10-12: Live updates over Server-Sent Events, with resume
 
 **Decision.** `GET /api/v1/events?branch_id=` streams change signals as Server-Sent Events (permission `appointments.read`; a branch of another clinic is `404`). The source is Postgres `LISTEN/NOTIFY`, written by row triggers (migration 0702, `app.live_signal`) on `queue_tokens` (`queue.changed`: status, doctor, room, `left_reason`, `last_reminded_at`), `appointments` (`appointment.changed`: status incl. `no_show`, time, `requested_overlap`), `encounters` (`visit.changed`) and `staff_notifications` (`notification.created`, every kind, on insert and on a re-raise such as remind). Each instance holds one listener connection, started on the first subscriber, and fans signals out to streams of the same clinic and branch.

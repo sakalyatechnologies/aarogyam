@@ -9066,6 +9066,9 @@ const NOTIFICATION_DEFAULTS: C.NotificationSettings = {
   recall: true,
   low_stock: true,
   lab_due: true,
+  welcome: true,
+  visit_summary: true,
+  follow_up_booking: false,
   quiet_hours: { enabled: true, start: "21:00", end: "09:00" },
 };
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -9078,7 +9081,7 @@ function notificationSettings(clinic: FakeClinic): C.NotificationSettings {
 /** The switches after `changes`, or the problem the API reports (quiet hours must be `HH:MM` and not empty). */
 function applyNotificationChanges(clinic: FakeClinic, changes: C.NotificationSettingsChanges): C.NotificationSettings | Outcome {
   const next = notificationSettings(clinic);
-  for (const key of ["reminder_24h", "reminder_2h", "receipts", "recall", "low_stock", "lab_due"] as const) {
+  for (const key of ["reminder_24h", "reminder_2h", "receipts", "recall", "low_stock", "lab_due", "welcome", "visit_summary", "follow_up_booking"] as const) {
     const value = changes[key];
     if (value != null) {
       next[key] = value;

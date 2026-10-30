@@ -73,6 +73,14 @@ pub struct NotificationPrefs {
     pub low_stock: bool,
     /// Tell staff when lab work is overdue (default on).
     pub lab_due: bool,
+    /// The thank-you with app and website links and the estimated wait, after a walk-in
+    /// registers (default on).
+    pub welcome: bool,
+    /// The visit summary link, then its PIN in a second message, after a visit closes
+    /// (default on).
+    pub visit_summary: bool,
+    /// The booking link two days before a follow-up planned at close is due (default off).
+    pub follow_up_booking: bool,
     /// Quiet hours for reminders and offers.
     pub quiet_hours: QuietHours,
 }
@@ -86,6 +94,9 @@ impl Default for NotificationPrefs {
             recall: true,
             low_stock: true,
             lab_due: true,
+            welcome: true,
+            visit_summary: true,
+            follow_up_booking: false,
             quiet_hours: QuietHours::default(),
         }
     }
@@ -117,6 +128,12 @@ pub struct NotificationChanges {
     pub low_stock: Option<bool>,
     /// Overdue lab work.
     pub lab_due: Option<bool>,
+    /// The welcome message.
+    pub welcome: Option<bool>,
+    /// The visit summary link and PIN.
+    pub visit_summary: Option<bool>,
+    /// The follow-up booking message.
+    pub follow_up_booking: Option<bool>,
     /// Quiet hours.
     pub quiet_hours: Option<QuietHoursChanges>,
 }
@@ -158,6 +175,9 @@ impl NotificationPrefs {
             recall: flag(stored, "recall", defaults.recall),
             low_stock: flag(stored, "low_stock", defaults.low_stock),
             lab_due: flag(stored, "lab_due", defaults.lab_due),
+            welcome: flag(stored, "welcome", defaults.welcome),
+            visit_summary: flag(stored, "visit_summary", defaults.visit_summary),
+            follow_up_booking: flag(stored, "follow_up_booking", defaults.follow_up_booking),
             quiet_hours: QuietHours {
                 enabled: flag(quiet, "enabled", true),
                 start: time_of("start", defaults.quiet_hours.start),
@@ -190,6 +210,9 @@ impl NotificationPrefs {
         next.recall = changes.recall.unwrap_or(next.recall);
         next.low_stock = changes.low_stock.unwrap_or(next.low_stock);
         next.lab_due = changes.lab_due.unwrap_or(next.lab_due);
+        next.welcome = changes.welcome.unwrap_or(next.welcome);
+        next.visit_summary = changes.visit_summary.unwrap_or(next.visit_summary);
+        next.follow_up_booking = changes.follow_up_booking.unwrap_or(next.follow_up_booking);
         *self = next;
         Ok(())
     }
@@ -207,6 +230,9 @@ impl NotificationPrefs {
                 ("recall", self.recall),
                 ("low_stock", self.low_stock),
                 ("lab_due", self.lab_due),
+                ("welcome", self.welcome),
+                ("visit_summary", self.visit_summary),
+                ("follow_up_booking", self.follow_up_booking),
             ] {
                 map.insert(key.to_owned(), Value::Bool(value));
             }

@@ -28891,9 +28891,16 @@
           "recall",
           "low_stock",
           "lab_due",
+          "welcome",
+          "visit_summary",
+          "follow_up_booking",
           "quiet_hours"
         ],
         "properties": {
+          "follow_up_booking": {
+            "type": "boolean",
+            "description": "Booking link for a follow-up, sent two days before it is due (default off)."
+          },
           "lab_due": {
             "type": "boolean",
             "description": "Tell staff when lab work is overdue (default on)."
@@ -28921,6 +28928,14 @@
           "reminder_2h": {
             "type": "boolean",
             "description": "Remind patients two hours before (default off)."
+          },
+          "visit_summary": {
+            "type": "boolean",
+            "description": "Visit summary link, then its PIN in a second message, after a visit closes (default on)."
+          },
+          "welcome": {
+            "type": "boolean",
+            "description": "Welcome message to a walk-in's new patient, with the estimated wait (default on)."
           }
         }
       },
@@ -28928,6 +28943,13 @@
         "type": "object",
         "description": "Changes to the notification switches; what is left out stays.",
         "properties": {
+          "follow_up_booking": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The follow-up booking message, two days before the follow-up is due."
+          },
           "lab_due": {
             "type": [
               "boolean",
@@ -28980,6 +29002,20 @@
               "null"
             ],
             "description": "The two-hour reminder."
+          },
+          "visit_summary": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The visit summary link, then its PIN, after a visit closes."
+          },
+          "welcome": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The welcome message after a walk-in registers (with the estimated wait)."
           }
         }
       },

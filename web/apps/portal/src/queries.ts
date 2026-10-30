@@ -28,6 +28,7 @@ import {
   type NewPatient,
   type NewProcedure,
   type NewReadings,
+  type NotificationSettingsChanges,
   type NewRole,
   type RolePermissionsUpdate,
   type NewVisit,
@@ -120,6 +121,27 @@ export function useClinicSettings(enabled = true) {
     queryFn: ({ signal }) => unwrap(api.getClinicSettings({ signal })),
     enabled,
     ...REFERENCE,
+  });
+}
+
+export function useNotificationSettings(enabled = true) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["notification-settings", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.getNotificationSettings({ signal })),
+    enabled,
+    ...REFERENCE,
+  });
+}
+
+export function useUpdateNotificationSettings() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (changes: NotificationSettingsChanges) => unwrap(api.updateNotificationSettings(changes)),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(["notification-settings", access.org_id], settings);
+    },
   });
 }
 

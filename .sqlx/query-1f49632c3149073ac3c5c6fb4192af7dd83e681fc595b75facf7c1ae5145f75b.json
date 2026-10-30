@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.messages (id, patient_id, channel, kind, purpose, template_key,\n                                          status, skip_reason, processed_at, dedupe_key)\n           values ($1, $2, $3, $4, $5, $4, 'skipped', $6, now(), $7)\n           on conflict (org_id, dedupe_key) do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1f49632c3149073ac3c5c6fb4192af7dd83e681fc595b75facf7c1ae5145f75b"
+}

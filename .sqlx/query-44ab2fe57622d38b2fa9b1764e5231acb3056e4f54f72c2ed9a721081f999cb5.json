@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.may_contact(p.org_id, p.id, $3) as \"may_contact!\",\n                  exists (select 1 from aarogyam.contact_preferences c\n                          where c.patient_id = p.id and c.channel = $2\n                            and c.category in ('all', $3) and c.opted_out) as \"opted_out!\",\n                  (case $2 when 'email' then p.email else p.phone_e164 end is not null)\n                    as \"has_address!\"\n           from aarogyam.patients p where p.id = $1 and p.deleted_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "may_contact!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "opted_out!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "has_address!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "44ab2fe57622d38b2fa9b1764e5231acb3056e4f54f72c2ed9a721081f999cb5"
+}

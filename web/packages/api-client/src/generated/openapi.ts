@@ -9962,6 +9962,8 @@ export interface components {
         };
         /** @description The clinic's notification switches. */
         NotificationSettings: {
+            /** @description Booking link for a follow-up, sent two days before it is due (default off). */
+            follow_up_booking: boolean;
             /** @description Tell staff when lab work is overdue (default on). */
             lab_due: boolean;
             /** @description Show low stock on Today (default on). */
@@ -9976,9 +9978,15 @@ export interface components {
             reminder_24h: boolean;
             /** @description Remind patients two hours before (default off). */
             reminder_2h: boolean;
+            /** @description Visit summary link, then its PIN in a second message, after a visit closes (default on). */
+            visit_summary: boolean;
+            /** @description Welcome message to a walk-in's new patient, with the estimated wait (default on). */
+            welcome: boolean;
         };
         /** @description Changes to the notification switches; what is left out stays. */
         NotificationSettingsChanges: {
+            /** @description The follow-up booking message, two days before the follow-up is due. */
+            follow_up_booking?: boolean | null;
             /** @description Overdue lab alerts. */
             lab_due?: boolean | null;
             /** @description Low stock on Today. */
@@ -9992,6 +10000,10 @@ export interface components {
             reminder_24h?: boolean | null;
             /** @description The two-hour reminder. */
             reminder_2h?: boolean | null;
+            /** @description The visit summary link, then its PIN, after a visit closes. */
+            visit_summary?: boolean | null;
+            /** @description The welcome message after a walk-in registers (with the estimated wait). */
+            welcome?: boolean | null;
         };
         /** @description The appointment a notification is about. */
         NotifiedAppointment: {

@@ -9,8 +9,9 @@ enum RoutesV10Doctor {
     }
 
     /// The waiting list for the top of the Today tab; draws nothing unless the person's home is Doctor.
-    static func waitingTop(graph: AppGraph, clinic: ClinicContext) -> some View {
-        DoctorWaitingHook(graph: graph, clinic: clinic)
+    /// `onStart` opens the visit for a patient who has been sent in.
+    static func waitingTop(graph: AppGraph, clinic: ClinicContext, onStart: @escaping (VisitRoute) -> Void) -> some View {
+        DoctorWaitingHook(graph: graph, clinic: clinic, onStart: onStart)
     }
 }
 

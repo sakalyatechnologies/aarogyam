@@ -8,6 +8,7 @@ struct ChatListPage: View {
     let state: ChatListState
     @Binding var path: [MoreRoute]
     @Environment(\.skTheme) private var theme
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         let r = theme.roles
@@ -36,7 +37,9 @@ struct ChatListPage: View {
         .background(r.background.color)
         .navigationTitle(CL("c.chat.title"))
         .refreshable { holder.refresh() }
-        .task {
+        .task(id: scenePhase) {
+            // Polls only while the app is in front.
+            guard scenePhase == .active else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(60))
                 holder.refresh()
@@ -83,6 +86,7 @@ struct ChatThreadPage: View {
     let holder: ChatThreadStateHolder
     let state: ThreadState
     @Environment(\.skTheme) private var theme
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         let r = theme.roles
@@ -112,7 +116,9 @@ struct ChatThreadPage: View {
         }
         .background(r.background.color)
         .navigationBarTitleDisplayMode(.inline)
-        .task {
+        .task(id: scenePhase) {
+            // Polls only while the app is in front.
+            guard scenePhase == .active else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(4))
                 holder.poll()

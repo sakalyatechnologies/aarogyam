@@ -17,6 +17,7 @@ struct DeskBoardScreen: View {
     var embedded = false
     @State private var net = V9Connectivity()
     @Environment(\.skTheme) private var theme
+    @Environment(\.scenePhase) private var scenePhase
 
     private var roleKey: String { clinic.session.membership.roleKey }
 
@@ -35,8 +36,9 @@ struct DeskBoardScreen: View {
                 .refreshable { holder.refresh() }
             }
         }
-        .task {
-            // Every 20 seconds while the screen is visible; the task ends when it goes.
+        .task(id: scenePhase) {
+            // Every 20 seconds while the screen is visible and the app is in front; the task ends when either stops.
+            guard scenePhase == .active else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(20))
                 if !Task.isCancelled { holder.refresh() }

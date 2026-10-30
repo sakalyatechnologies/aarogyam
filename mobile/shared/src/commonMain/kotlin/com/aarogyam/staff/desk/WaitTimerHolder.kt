@@ -1,5 +1,6 @@
 package com.aarogyam.staff.desk
 
+import com.aarogyam.staff.AppForeground
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.ClinicApi
 import com.aarogyam.staff.api.queue
@@ -14,6 +15,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -123,6 +125,8 @@ internal class WaitTimerStateHolder(
             scope.launch {
                 while (true) {
                     delay(tickMillis)
+                    // The clock only redraws the cards, so it rests while the app is in the background.
+                    AppForeground.inFront.first { it }
                     tick()
                 }
             }

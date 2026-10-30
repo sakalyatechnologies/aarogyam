@@ -25,6 +25,29 @@
         }
       }
     },
+    "dv10.called": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent in"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अंदर भेजा"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आत घेतले"
+          }
+        }
+      }
+    },
     "dv10.chair.autosave": {
       "extractionState": "manual",
       "localizations": {
@@ -849,6 +872,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "इतर"
+          }
+        }
+      }
+    },
+    "dv10.start": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start visit"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विज़िट शुरू करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तपासणी सुरू करा"
+          }
+        }
+      }
+    },
+    "dv10.start.a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start visit for token %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टोकन %@ की विज़िट शुरू करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टोकन %@ ची तपासणी सुरू करा"
           }
         }
       }

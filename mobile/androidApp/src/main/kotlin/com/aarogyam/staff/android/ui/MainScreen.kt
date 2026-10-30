@@ -31,6 +31,7 @@ import com.aarogyam.staff.device.PreferenceKey
 import com.aarogyam.staff.nav.NavModel
 import com.aarogyam.staff.nav.PrimaryAction
 import com.aarogyam.staff.nav.Tab
+import com.aarogyam.staff.pollWhileInFront
 import com.sakalya.mobile.design.FloatingNavSizes
 import com.sakalya.mobile.designcompose.SkFloatingNavBar
 import com.sakalya.mobile.designcompose.SkNavAction
@@ -38,7 +39,6 @@ import com.sakalya.mobile.designcompose.SkNavDestination
 import com.sakalya.mobile.designcompose.SkNavRail
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTransitions
-import kotlinx.coroutines.delay
 
 /** Windows at least this wide get the rail instead of the floating bar. */
 private val RAIL_FROM = 600.dp
@@ -157,12 +157,7 @@ private fun TodayTab(
     var notifications by rememberSaveable { mutableStateOf(false) }
     val badges = rememberHolder { graph.badges(clinic, it) }
     val counts by badges.state.collectAsStateWithLifecycle()
-    LaunchedEffect(badges) {
-        while (true) {
-            badges.refresh()
-            delay(BADGE_POLL_MS)
-        }
-    }
+    LaunchedEffect(badges) { pollWhileInFront(BADGE_POLL_MS) { badges.refresh() } }
     val avatar =
         remember {
             graph.preferences.get(PreferenceKey.AvatarChoice)

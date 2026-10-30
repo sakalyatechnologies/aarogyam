@@ -11,7 +11,6 @@ import com.aarogyam.staff.visit.RxSave
 import com.aarogyam.staff.visit.VisitStateHolder
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,14 +18,19 @@ import kotlinx.coroutines.launch
 
 // v10 doctor journey helpers for SwiftUI: Swift cannot build suspend lambdas or reach the queue call directly.
 
-/** One patient waiting for this doctor. Details are for the screen only, never for logs. */
+/**
+ * One patient waiting for this doctor, or sent in ([called]) and not yet seen. Details are for the screen only,
+ * never for logs.
+ */
 data class WaitingPatient(
     val id: String,
+    val patientId: String,
     val tokenNumber: Int,
     val ageYears: Int?,
     val sex: String,
     val reason: String?,
     val waitMinutes: Long,
+    val called: Boolean = false,
     val busy: Boolean = false,
 )
 
@@ -37,7 +41,10 @@ data class WaitingState(
     val rows: List<WaitingPatient> = emptyList(),
 )
 
-/** The doctor's own queue, refreshed every [POLL_MS]; only `waiting` tokens show (no_show and cancelled never do). */
+/**
+ * The doctor's own queue, refreshed every [POLL_MS]. `waiting` tokens show with Send in, and `called` ones stay with
+ * Start visit until the visit seats them; no_show and cancelled never show.
+ */
 class DoctorWaitingHolder(
     private val clinic: ClinicContext,
     private val practitionerId: String,
@@ -47,26 +54,32 @@ class DoctorWaitingHolder(
     val state: StateFlow<WaitingState> = mutable.asStateFlow()
 
     init {
-        scope.launch {
-            while (true) {
-                load()
-                delay(POLL_MS)
-            }
-        }
+        scope.launch { pollWhileInFront(POLL_MS) { load() } }
     }
 
     fun refresh() {
         scope.launch { load() }
     }
 
-    /** Sends the patient in (`waiting` to `called`), the same call the queue uses. */
+    /** Sends the patient in (`waiting` to `called`), the same call the queue uses; the row stays for Start visit. */
     fun sendIn(id: String) {
         mark(id, true)
         scope.launch {
             when (clinic.api.callToken(id)) {
                 is Outcome.Success -> {
                     mutable.value =
-                        mutable.value.copy(rows = mutable.value.rows.filterNot { it.id == id })
+                        mutable.value.copy(
+                            rows =
+                                mutable.value.rows.map {
+                                    if (it.id ==
+                                        id
+                                    ) {
+                                        it.copy(called = true, busy = false)
+                                    } else {
+                                        it
+                                    }
+                                },
+                        )
                 }
 
                 is Outcome.Failure -> {
@@ -92,15 +105,17 @@ class DoctorWaitingHolder(
                         loaded = true,
                         rows =
                             result.value.items
-                                .filter { it.status == "waiting" }
+                                .filter { it.status == "waiting" || it.status == "called" }
                                 .map {
                                     WaitingPatient(
                                         id = it.id,
+                                        patientId = it.patient.id,
                                         tokenNumber = it.tokenNumber,
                                         ageYears = it.patient.ageYears,
                                         sex = it.patient.sex,
                                         reason = it.reason?.takeIf { text -> text.isNotBlank() },
                                         waitMinutes = it.waitMinutes,
+                                        called = it.status == "called",
                                     )
                                 },
                     )

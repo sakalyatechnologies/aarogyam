@@ -6,6 +6,7 @@ import SwiftUI
 struct RootView: View {
     let app: AppModel
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         let branding = app.clinic?.branding ?? ClinicBranding.companion.Default
@@ -15,6 +16,8 @@ struct RootView: View {
             .background(theme.palette.background.color.ignoresSafeArea())
             .tint(theme.palette.primaryText.color)
             .skTheme(theme)
+            // Polls run only while the app is in front (founder decision, 29 Oct 2026).
+            .onChange(of: scenePhase, initial: true) { _, phase in AppForeground.shared.set(inFront: phase == .active) }
     }
 
     @ViewBuilder private var content: some View {

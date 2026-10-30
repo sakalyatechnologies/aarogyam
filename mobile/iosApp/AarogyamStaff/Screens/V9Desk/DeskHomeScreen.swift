@@ -23,6 +23,7 @@ struct DeskHomeScreen: View {
     @State private var walkIn: DeskHomeWalkIn?
     @FocusState private var focused: Bool
     @Environment(\.skTheme) private var theme
+    @Environment(\.scenePhase) private var scenePhase
 
     init(graph: AppGraph, clinic: ClinicContext, onNewPatient: ((String) -> Void)? = nil, onOpenPatient: @escaping (String) -> Void = { _ in }) {
         self.graph = graph
@@ -50,7 +51,8 @@ struct DeskHomeScreen: View {
         .scrollDismissesKeyboard(.interactively)
         .scrollIndicators(.hidden)
         .refreshable { board?.holder.refresh(); await feed.refresh() }
-        .task { await feed.run() }
+        // Polls only in front; coming back restarts it, which refreshes at once.
+        .task(id: scenePhase) { if scenePhase == .active { await feed.run() } }
         .onAppear {
             if lookup == nil { lookup = ScreenModel(make: { graph.deskLookup(clinic: clinic, screen: $0) }, state: { $0.state }) }
             if board == nil { board = ScreenModel(make: { graph.deskBoard(clinic: clinic, screen: $0) }, state: { $0.state }) }

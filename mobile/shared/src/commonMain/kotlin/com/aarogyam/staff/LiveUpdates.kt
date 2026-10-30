@@ -5,6 +5,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 
@@ -20,26 +23,41 @@ interface LiveUpdates {
 /**
  * A reload every [intervalMillis] (20 seconds), or every [connectedMillis] (120 seconds) while
  * [connected] says the event stream is open and doing the real work. This is the one place the poll
- * slows down; screens never choose.
+ * slows down; screens never choose. It stops while [inFront] is false and reloads at once on return.
  */
 class PollingUpdates(
     private val intervalMillis: Long = POLL_MILLIS,
     private val connected: StateFlow<Boolean> = MutableStateFlow(false),
     private val connectedMillis: Long = CONNECTED_POLL_MILLIS,
+    private val inFront: StateFlow<Boolean> = AppForeground.inFront,
 ) : LiveUpdates {
     /** For Swift, which does not see default arguments: a plain timer. */
     constructor(intervalMillis: Long) : this(intervalMillis, MutableStateFlow(false), CONNECTED_POLL_MILLIS)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun changes(): Flow<Unit> =
-        connected.flatMapLatest { open ->
-            val wait = if (open) connectedMillis else intervalMillis
-            flow {
-                while (true) {
-                    delay(wait)
-                    emit(Unit)
-                }
-            }
+        flow {
+            var away = false
+            emitAll(
+                combine(connected, inFront) { open, front -> open to front }.flatMapLatest { (open, front) ->
+                    if (!front) {
+                        away = true
+                        emptyFlow()
+                    } else {
+                        val wait = if (open) connectedMillis else intervalMillis
+                        flow {
+                            if (away) {
+                                away = false
+                                emit(Unit)
+                            }
+                            while (true) {
+                                delay(wait)
+                                emit(Unit)
+                            }
+                        }
+                    }
+                },
+            )
         }
 
     companion object {

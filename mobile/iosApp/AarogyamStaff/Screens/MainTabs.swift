@@ -18,6 +18,7 @@ struct MainTabs: View {
     @State private var selected: NavTab = .today
     @State private var patientsPath: [PatientRoute] = []
     @State private var todayPath: [PatientRoute] = []
+    @State private var todayVisit: VisitRoute?
     @State private var schedulePath: [PatientRoute] = []
     @State private var walkIn = false
     @State private var addExpense = false
@@ -72,7 +73,8 @@ struct MainTabs: View {
                 VStack(spacing: 0) {
                     if clinic.permissions.contains("clinical.write") {
                         // Sized to its rows: an empty host must not split the screen with Today.
-                        RoutesV10Doctor.waitingTop(graph: graph, clinic: clinic).fixedSize(horizontal: false, vertical: true)
+                        RoutesV10Doctor.waitingTop(graph: graph, clinic: clinic) { todayVisit = $0 }
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     if TodayV10Logic.usesDesk(permissions: clinic.permissions) {
                         RoutesV10Desk.home(
@@ -102,6 +104,7 @@ struct MainTabs: View {
                 }
                 .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense)
                 .patientDestination(graph: graph, clinic: clinic)
+                .navigationDestination(item: $todayVisit) { VisitScreen(graph: graph, clinic: clinic, route: $0) }
             }
         case .patients:
             NavigationStack(path: $patientsPath) {

@@ -138,3 +138,12 @@ Paused by the founder. This is the one place to resume from. The approved plan i
 - **Idle CPU fix (26 Oct):** the doctor app sat at about 224% CPU on Today. The animated avatar (`ArtView`) redrew at the display rate and read the Kotlin art catalogue (paints, loops) on every frame, which also kept the Kotlin GC busy. `ArtPainter` now resolves paints and loops once; the timeline runs at 30 fps and pauses when the scene isn't active. Test: `V7ShellTests.test_art_painter_resolves_paints_and_loops_once`. Measured after: 7–17% CPU idle on Today (iPhone Air, was 224%).
 - **Main `34946ef3` (B6: reports, stock, payment proof, part UPI amount) merged (cf17a0cb);** no mobile changes. Gates green (gradle, iOS 174/174).
 - **Desk home:** the number field has an outline (1 pt, 2 pt primary when focused), since the card matches the page in light mode. Closing the payment sheet reloads the board and feed at once, because a settling payment now moves the token to done on the server.
+
+## 29 Oct: foreground-only polling (founder decision) and the doctor's Start visit
+- **Founder decision (relayed by the backend, 29 Oct):** live events stay off until launch; screens poll only while the app is open and in front.
+  - Shared `AppForeground` + `pollWhileInFront` (commonMain). `PollingUpdates`, `DoctorWaitingHolder` and the `WaitTimerHolder` tick wait while it's false and reload at once on return. Test: `live/ForegroundPollTest`.
+  - iOS: `RootView` sets it from `scenePhase` (`.active` only); the Swift loops (desk feed, board, chat) use `.task(id: scenePhase)`.
+  - Android: `MainActivity.onStart/onStop`; the Today badge poll uses `pollWhileInFront`.
+  - The patient app has no polls.
+  - `AppForeground` has no clinic concept, so it moves to sakalya-mobile with the next kit release (rule 13).
+- **D3 Start visit was missing:** after Send in, the patient left the doctor's card and Today had no way into the visit. The card now keeps `called` rows with **Start visit**, which pushes `VisitRoute.fromQueue` (start-visit seats the token). Strings `dv10.start`, `dv10.start.a11y`, `dv10.called` (en/hi/mr).

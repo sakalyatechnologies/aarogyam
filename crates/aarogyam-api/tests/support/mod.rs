@@ -20,8 +20,8 @@ use sakalya_http::HttpConfig;
 use sakalya_testkit::PgRoundTrips;
 use secrecy::SecretString;
 use serde_json::Value;
+use sqlx::ConnectOptions as _;
 use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
-use sqlx::{ConnectOptions as _, Executor as _};
 use tower::ServiceExt as _;
 use uuid::Uuid;
 
@@ -130,6 +130,7 @@ async fn create_from_template(admin: &PgConnectOptions, database: &str) {
         .execute(&mut conn)
         .await
         .unwrap();
+    drop_stale(&mut conn, &template).await;
     let exists: bool =
         sqlx::query_scalar("select exists (select from pg_database where datname = $1)")
             .bind(&template)
@@ -193,6 +194,87 @@ async fn create_from_template(admin: &PgConnectOptions, database: &str) {
         .execute(&mut conn)
         .await
         .unwrap();
+}
+
+/// How old a leftover test database or old template must be before a new run drops it.
+const STALE_AFTER_MS: u128 = 2 * 60 * 60 * 1000;
+
+/// True when `name` is `prefix` followed by exactly `len` lowercase hex digits, so cleanup
+/// only ever matches databases this harness made.
+fn is_harness_name(name: &str, prefix: &str, len: usize) -> bool {
+    name.strip_prefix(prefix).is_some_and(|rest| {
+        rest.len() == len && rest.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    })
+}
+
+/// Drops leftovers of killed or older runs, once per test process, while holding the template
+/// lock. Test databases (`aarogyam_test_<uuid v7>`, `aarogyam_test_build_<uuid v7>`) carry their
+/// creation time in the uuid, so age needs no catalog lookup; older than two hours means no
+/// live test uses them. Templates of other migration sets go when their files are that old
+/// too, so two worktrees on different migrations do not rebuild each other's template.
+async fn drop_stale(conn: &mut sqlx::PgConnection, current_template: &str) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static DONE: AtomicBool = AtomicBool::new(false);
+    if DONE.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis());
+    let names: Vec<String> = sqlx::query_scalar(
+        r"select datname from pg_database
+          where datname like 'aarogyam\_test\_%' and not datistemplate",
+    )
+    .fetch_all(&mut *conn)
+    .await
+    .unwrap_or_default();
+    for name in names {
+        let uuid = name
+            .strip_prefix("aarogyam_test_build_")
+            .filter(|rest| is_harness_name(&format!("x{rest}"), "x", 32))
+            .or_else(|| {
+                name.strip_prefix("aarogyam_test_")
+                    .filter(|rest| is_harness_name(&format!("x{rest}"), "x", 32))
+            });
+        let Some(uuid) = uuid else { continue };
+        let created_ms = u128::from_str_radix(&uuid[..12], 16).unwrap_or(u128::MAX);
+        if now_ms.saturating_sub(created_ms) < STALE_AFTER_MS {
+            continue;
+        }
+        let _ =
+            std::fs::remove_dir_all(std::env::temp_dir().join(format!("aarogyam-files-{name}")));
+        // The name was just checked to be the harness's own shape.
+        let _ = sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+            "drop database if exists {name} with (force)"
+        )))
+        .execute(&mut *conn)
+        .await;
+    }
+    let templates: Vec<String> = sqlx::query_scalar(
+        r"select datname from pg_database
+          where datname like 'aarogyam\_test\_tpl\_%' and datname <> $1
+            and coalesce((pg_stat_file('base/' || oid || '/PG_VERSION', true)).modification
+                         < now() - interval '2 hours', false)",
+    )
+    .bind(current_template)
+    .fetch_all(&mut *conn)
+    .await
+    .unwrap_or_default();
+    for name in templates {
+        if !is_harness_name(&name, "aarogyam_test_tpl_", 16) {
+            continue;
+        }
+        let _ = sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+            "alter database {name} is_template false"
+        )))
+        .execute(&mut *conn)
+        .await;
+        let _ = sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+            "drop database if exists {name} with (force)"
+        )))
+        .execute(&mut *conn)
+        .await;
+    }
 }
 
 fn admin_options() -> PgConnectOptions {
@@ -438,21 +520,44 @@ impl TestApp {
         send_full(&self.router, method, host, path, token, body, headers).await
     }
 
-    /// Drops the database. Called at the end of each test; a failed test leaves it for inspection.
-    pub async fn finish(self) {
-        let _ = std::fs::remove_dir_all(&self.files_dir);
+    /// Drops the database now. Optional: dropping the app does the same, also when a test fails.
+    pub async fn finish(mut self) {
         self.owner.close().await;
-        let pool = PgPoolOptions::new()
-            .max_connections(1)
-            .connect_with(self.admin)
-            .await
-            .unwrap();
-        pool.execute(sqlx::AssertSqlSafe(format!(
-            "drop database if exists {} with (force)",
-            self.database
+        drop_database(&self.admin, &std::mem::take(&mut self.database)).await;
+        let _ = std::fs::remove_dir_all(&self.files_dir);
+    }
+}
+
+async fn drop_database(admin: &PgConnectOptions, database: &str) {
+    if let Ok(mut conn) = admin.connect().await {
+        let _ = sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+            "drop database if exists {database} with (force)"
         )))
-        .await
-        .unwrap();
+        .execute(&mut conn)
+        .await;
+    }
+}
+
+/// Best-effort drop when a test ends, including by panic. It runs on its own thread and
+/// runtime because the test's runtime may be shutting down; `with (force)` evicts the pools.
+impl Drop for TestApp {
+    fn drop(&mut self) {
+        if self.database.is_empty() {
+            return;
+        }
+        let admin = self.admin.clone();
+        let database = std::mem::take(&mut self.database);
+        let files_dir = self.files_dir.clone();
+        let _ = std::thread::spawn(move || {
+            if let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            {
+                rt.block_on(drop_database(&admin, &database));
+            }
+            let _ = std::fs::remove_dir_all(files_dir);
+        })
+        .join();
     }
 }
 

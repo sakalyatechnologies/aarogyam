@@ -43,4 +43,35 @@ describe("fake client: UPI link for a bill", () => {
     expect(status(await as(BINA, "lotus.localtest.me").getInvoiceUpiLink(bill.id))).toBe(404);
     expect(status(await as(FARAH, "sunrise.localtest.me").getInvoiceUpiLink(invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-000000000000")))).toBe(404);
   });
+
+  it("takes a part amount, and refuses zero or more than the balance", async () => {
+    const as = setup();
+    const owner = as(ASHA, "sunrise.localtest.me");
+    const bill = value(await owner.listInvoices({})).items.find((i) => i.status === "issued" && i.balance_paise > 0);
+    if (bill === undefined) throw new Error("no bill with a balance");
+    const part = value(await owner.getInvoiceUpiLink(bill.id, { amountPaise: 100 }));
+    expect(part.amount_paise).toBe(100);
+    expect(part.uri).toContain("am=1.00");
+    expect(status(await owner.getInvoiceUpiLink(bill.id, { amountPaise: 0 }))).toBe(400);
+    expect(status(await owner.getInvoiceUpiLink(bill.id, { amountPaise: bill.balance_paise + 1 }))).toBe(400);
+  });
+
+  it("a payment carries a payment_proof of the same patient and refuses another kind", async () => {
+    const as = setup();
+    const owner = as(ASHA, "sunrise.localtest.me");
+    const bill = value(await owner.listInvoices({})).items.find((i) => i.status === "issued" && i.balance_paise > 0);
+    if (bill === undefined) throw new Error("no bill with a balance");
+    const upload = (kind: string) => {
+      const form = new FormData();
+      form.set("file", new File(["x"], "proof.png", { type: "image/png" }));
+      form.set("kind", kind);
+      return owner.uploadAttachment(bill.patient.id, form);
+    };
+    const proof = value(await upload("payment_proof"));
+    const other = value(await upload("document"));
+    const pay = (attachment: string, key: string) =>
+      owner.recordPayment({ patient_id: bill.patient.id, method: "upi", amount_paise: 100, allocations: [{ invoice_id: bill.id, amount_paise: 100 }], attachment_id: attachment }, key);
+    expect(status(await pay(other.id, "k-bad"))).toBe(400);
+    expect(value(await pay(proof.id, "k-ok")).attachment_id).toBe(proof.id);
+  });
 });

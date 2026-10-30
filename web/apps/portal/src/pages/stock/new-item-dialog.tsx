@@ -21,6 +21,8 @@ export function NewItemDialog({ open, onClose }: { open: boolean; onClose: () =>
   const [category, setCategory] = useState("");
   const [unit, setUnit] = useState<(typeof UNITS)[number]["value"]>("piece");
   const [reorder, setReorder] = useState("0");
+  const [max, setMax] = useState("");
+  const [maxError, setMaxError] = useState<string>();
   const [error, setError] = useState<string>();
 
   const close = () => {
@@ -29,12 +31,16 @@ export function NewItemDialog({ open, onClose }: { open: boolean; onClose: () =>
     setCategory("");
     setUnit("piece");
     setReorder("0");
+    setMax("");
+    setMaxError(undefined);
     setError(undefined);
   };
 
   const submit = () => {
     setError(undefined);
+    setMaxError(undefined);
     const level = Number(reorder);
+    const top = max.trim() === "" ? 0 : Number(max);
     if (name.trim() === "") {
       setError("Enter the item's name.");
       return;
@@ -43,15 +49,24 @@ export function NewItemDialog({ open, onClose }: { open: boolean; onClose: () =>
       setError("The reorder level must be a whole number, zero or more.");
       return;
     }
+    if (!Number.isInteger(top) || top < 0) {
+      setMaxError("A whole number, or 0 for none.");
+      return;
+    }
     add.mutate(
-      { name: name.trim(), category: category.trim() === "" ? null : category.trim(), unit, reorder_level: level },
+      { name: name.trim(), category: category.trim() === "" ? null : category.trim(), unit, reorder_level: level, ...(top > 0 ? { max_level: top } : {}) },
       {
         onSuccess: (item) => {
           toast.show({ title: `${item.name} added`, tone: "success" });
           close();
         },
         onError: (thrown) => {
-          setError(apiErrorOf(thrown)?.message ?? "Couldn't add this item. Please try again.");
+          const failure = apiErrorOf(thrown);
+          if (failure?.field === "max_level") {
+            setMaxError(failure.message);
+          } else {
+            setError(failure?.message ?? "Couldn't add this item. Please try again.");
+          }
         },
       },
     );
@@ -102,6 +117,15 @@ export function NewItemDialog({ open, onClose }: { open: boolean; onClose: () =>
             value={reorder}
             onChange={(event) => {
               setReorder(event.currentTarget.value);
+            }}
+          />
+        </Field>
+        <Field label="Maximum level" hint="Optional. Reorder tops up to this; it can't be below the reorder level" {...(maxError === undefined ? {} : { error: maxError })}>
+          <TextInput
+            inputMode="numeric"
+            value={max}
+            onChange={(event) => {
+              setMax(event.currentTarget.value);
             }}
           />
         </Field>

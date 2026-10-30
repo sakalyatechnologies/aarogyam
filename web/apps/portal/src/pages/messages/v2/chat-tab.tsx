@@ -154,6 +154,8 @@ function Thread({
     if (!loaded) return;
     const controller = new AbortController();
     const timer = setInterval(() => {
+      // Only while the tab is in front; the next tick after it returns catches up.
+      if (document.visibilityState === "hidden") return;
       const after = newest.current;
       void api.listChatMessages(id, after === undefined ? undefined : { after }, { signal: controller.signal }).then((result) => {
         if (result.ok) merge(result.value.items);

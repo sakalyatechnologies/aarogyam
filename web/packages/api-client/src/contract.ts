@@ -437,7 +437,7 @@ export type NewDentalTerm = Omit<Schemas["NewDentalTerm"], "kind"> & { kind: Den
 
 // Patient files (M4) ------------------------------------------------------------------------------
 
-export type AttachmentKind = "photo" | "xray" | "report" | "document" | "audio" | "consent";
+export type AttachmentKind = "photo" | "xray" | "report" | "document" | "audio" | "consent" | "payment_proof";
 export type Attachment = Schemas["Attachment"];
 export type AttachmentList = Schemas["AttachmentList"];
 export type DownloadLink = Schemas["DownloadLink"];

@@ -4340,7 +4340,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
       uploadAttachment: (id, form, opts) =>
         respond(S.attachment, opts?.signal, async () => {
-          const caller = await inClinic("clinical.write");
+          const proofOnly = form.get("kind") === "payment_proof";
+          const caller = proofOnly ? await inClinicWithAny("clinical.write", "billing.write", "payments.collect") : await inClinic("clinical.write");
           if (!isCaller(caller)) {
             return caller;
           }
@@ -6836,12 +6837,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (found.status !== "issued" || wire.balance_paise <= 0) {
             return refuse(409, "conflict", "the bill is not issued or has nothing left to pay");
           }
+          const payNow = opts?.amountPaise ?? wire.balance_paise;
+          if (!Number.isInteger(payNow) || payNow <= 0 || payNow > wire.balance_paise) {
+            return invalid("amount_paise", "must be more than zero and no more than the balance");
+          }
           const clinic = caller.clinic;
           if (clinic.upi_id == null || clinic.upi_id === "") {
             return refuse(409, "conflict", "the clinic has no UPI ID");
           }
-          const uri = `upi://pay?pa=${encodeURIComponent(clinic.upi_id)}&pn=${encodeURIComponent(clinic.name)}&am=${(wire.balance_paise / 100).toFixed(2)}&cu=INR&tn=${encodeURIComponent(found.number ?? "")}`;
-          return reply({ uri, qr_data: uri, upi_id: clinic.upi_id, payee_name: clinic.name, invoice_number: found.number ?? "", amount_paise: wire.balance_paise } satisfies C.UpiLink);
+          const uri = `upi://pay?pa=${encodeURIComponent(clinic.upi_id)}&pn=${encodeURIComponent(clinic.name)}&am=${(payNow / 100).toFixed(2)}&cu=INR&tn=${encodeURIComponent(found.number ?? "")}`;
+          return reply({ uri, qr_data: uri, upi_id: clinic.upi_id, payee_name: clinic.name, invoice_number: found.number ?? "", amount_paise: payNow } satisfies C.UpiLink);
         }),
 
       createInvoice: (input, opts) =>
@@ -7065,8 +7070,15 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               return invalid("amount", "must not be more than the balance due");
             }
           }
+          if (input.attachment_id != null) {
+            const proof = state.attachments.find((a) => a.id === input.attachment_id && a.clinic_id === caller.clinic.id);
+            if (proof === undefined || proof.patient_id !== patient.id || proof.kind !== "payment_proof") {
+              return invalid("attachment_id", "must be a payment proof file of the same patient");
+            }
+          }
           const now = clock();
           const paymentRecord: FakePayment = {
+            attachment_id: input.attachment_id ?? null,
             id: fakeUuid(random, now),
             clinic_id: caller.clinic.id,
             patient_id: patient.id,
@@ -10201,6 +10213,7 @@ function wirePayment(p: FakePayment, state: Fixtures): C.Payment {
     reference: p.reference ?? null,
     received_at: p.received_at,
     void_reason: p.void_reason ?? null,
+    attachment_id: p.attachment_id ?? null,
   };
 }
 

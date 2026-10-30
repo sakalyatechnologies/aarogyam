@@ -2,6 +2,12 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-10-29: Polling until launch; live events stay off
+
+**Decision.** Production keeps `GET /events` off (`ARO_HTTP__LIVE_EVENTS` unset) until we go live. Screens poll instead, and only while the app is open and in front: the portal's queries pause in a hidden tab (`refetchIntervalInBackground` stays false), the staff chat poll skips hidden ticks, and the phone apps poll only in the foreground.
+
+**Why.** An open stream keeps Cloud Run billing CPU (about $60-90 a month with daily use); short polls from visible screens cost almost nothing. Switching on later is one setting.
+
 ## 2026-10-12: Live updates over Server-Sent Events, with resume
 
 **Decision.** `GET /api/v1/events?branch_id=` streams change signals as Server-Sent Events (permission `appointments.read`; a branch of another clinic is `404`). The source is Postgres `LISTEN/NOTIFY`, written by row triggers (migration 0702, `app.live_signal`) on `queue_tokens` (`queue.changed`: status, doctor, room, `left_reason`, `last_reminded_at`), `appointments` (`appointment.changed`: status incl. `no_show`, time, `requested_overlap`), `encounters` (`visit.changed`) and `staff_notifications` (`notification.created`, every kind, on insert and on a re-raise such as remind). Each instance holds one listener connection, started on the first subscriber, and fans signals out to streams of the same clinic and branch.

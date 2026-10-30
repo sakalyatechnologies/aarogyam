@@ -864,7 +864,7 @@ export interface ApiClient {
   /** Clinic host: opens a bill with its lines. Needs `billing.read`. */
   getInvoice(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<Invoice>>;
   /** Clinic host: the UPI link and QR text for what is left on an issued bill; records nothing. Needs `billing.read`. */
-  getInvoiceUpiLink(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<UpiLink>>;
+  getInvoiceUpiLink(id: InvoiceId, options?: RequestOptions & { amountPaise?: number | undefined }): Promise<ApiResult<UpiLink>>;
   /**
    * Clinic host: what to collect on a bill (number, total, what is left, the UPI link when the clinic has a UPI ID).
    * Needs `payments.collect` or `billing.read`. `404` when the bill is not in the clinic; `409` for a void bill.

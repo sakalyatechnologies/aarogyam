@@ -573,6 +573,7 @@ export interface FakePayment {
   received_at: string;
   void_reason?: string | null;
   idempotency_key: string;
+  attachment_id?: string | null;
 }
 
 /** An entry in the shared medicine catalogue (clinic-agnostic). */

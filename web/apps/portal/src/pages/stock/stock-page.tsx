@@ -1,4 +1,4 @@
-import { Boxes, CalendarClock, CircleCheck, PackagePlus, ShoppingCart } from "lucide-react";
+import { Boxes, CalendarClock, CircleCheck, PackagePlus, ShoppingCart, Upload } from "lucide-react";
 import { useState } from "react";
 
 import type { StockLevel } from "@aarogyam/api-client";
@@ -9,6 +9,8 @@ import { useClinic } from "../../clinic.js";
 import { useNewLook } from "../../lib/new-look.js";
 import { ItemDialog } from "./item-dialog.js";
 import { NewItemDialog } from "./new-item-dialog.js";
+import { ImportDialog } from "./import-dialog.js";
+import { PurchaseOrdersTab } from "./purchase-orders.js";
 import { LevelBar, StatusTag, categoryLabel, levelPercent } from "./level.js";
 import { StockAnalyticsTab } from "./analytics-tab.js";
 import { StockAlertsStrip } from "./stock-alerts.js";
@@ -32,6 +34,7 @@ export function StockPage() {
   const alerts = useStockAnalytics(allowed && newLook);
   const [openItem, setOpenItem] = useState<StockLevel["item"]["id"]>();
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   if (!allowed) {
     return (
@@ -183,25 +186,39 @@ export function StockPage() {
         subtitle={stock.isPending ? "Material and medicine stock levels" : `${String(items.length)} items tracked · ${String(needOrder)} to reorder`}
         end={
           canManage ? (
-            <Button
-              variant="secondary"
-              icon={<PackagePlus aria-hidden="true" className="size-4" />}
-              onClick={() => {
-                setAdding(true);
-              }}
-            >
-              New item
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {newLook ? (
+                <Button
+                  variant="secondary"
+                  icon={<Upload aria-hidden="true" className="size-4" />}
+                  onClick={() => {
+                    setImporting(true);
+                  }}
+                >
+                  Import
+                </Button>
+              ) : null}
+              <Button
+                variant="secondary"
+                icon={<PackagePlus aria-hidden="true" className="size-4" />}
+                onClick={() => {
+                  setAdding(true);
+                }}
+              >
+                New item
+              </Button>
+            </div>
           ) : null
         }
       />
       <div className="flex flex-col gap-4">
         {newLook && !empty && alerts.data !== undefined ? <StockAlertsStrip items={alerts.data.reorder_list} canManage={canManage} onReorder={setOpenItem} /> : null}
         {newLook && !empty ? (
-          <Tabs<"overview" | "analytics">
+          <Tabs<"overview" | "orders" | "analytics">
             label="Stock area"
             items={[
               { value: "overview", label: "Overview", content: <div className="flex flex-col gap-4">{overview}</div> },
+              { value: "orders", label: "Orders", content: <PurchaseOrdersTab canManage={canManage} /> },
               { value: "analytics", label: "Analytics", content: <StockAnalyticsTab canManage={canManage} onReorder={setOpenItem} /> },
             ]}
           />
@@ -215,6 +232,14 @@ export function StockPage() {
           setOpenItem(undefined);
         }}
       />
+      {newLook && canManage ? (
+        <ImportDialog
+          open={importing}
+          onClose={() => {
+            setImporting(false);
+          }}
+        />
+      ) : null}
       <NewItemDialog
         open={adding}
         onClose={() => {

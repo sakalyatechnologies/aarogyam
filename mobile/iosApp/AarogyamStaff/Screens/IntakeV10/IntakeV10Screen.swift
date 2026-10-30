@@ -140,6 +140,12 @@ struct IntakeV10Form: View {
             }
             IntakeSignaturePad(clearToken: clearToken) { holder.setSignature(png: $0?.kotlinBytes) }
                 .frame(height: 160)
+                // The UIKit label doesn't reach the tree through the representable, so name it here. Direct
+                // interaction lets a VoiceOver user sign with a finger.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(iv("iv.sign.a11y"))
+                .accessibilityAddTraits(.allowsDirectInteraction)
+                .accessibilityIdentifier("intake.signature")
             problem(.signature)
         }
     }

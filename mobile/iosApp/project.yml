@@ -89,6 +89,19 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.staff.tests
+  # T12: the two-phone visit, driven by scripts/e2e-visit.sh against the local API. Not in the gate's scheme.
+  AarogyamStaffE2E:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - AarogyamStaffE2E
+    dependencies:
+      - target: AarogyamStaff
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.staff.e2e
+        TEST_TARGET_NAME: AarogyamStaff
 schemes:
   AarogyamStaff:
     build:
@@ -101,3 +114,12 @@ schemes:
       config: Debug
       targets:
         - AarogyamStaffTests
+  AarogyamStaffE2E:
+    build:
+      targets:
+        AarogyamStaff: all
+        AarogyamStaffE2E: [test]
+    test:
+      config: Debug
+      targets:
+        - AarogyamStaffE2E

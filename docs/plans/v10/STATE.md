@@ -147,3 +147,24 @@ Paused by the founder. This is the one place to resume from. The approved plan i
   - The patient app has no polls.
   - `AppForeground` has no clinic concept, so it moves to sakalya-mobile with the next kit release (rule 13).
 - **D3 Start visit was missing:** after Send in, the patient left the doctor's card and Today had no way into the visit. The card now keeps `called` rows with **Start visit**, which pushes `VisitRoute.fromQueue` (start-visit seats the token). Strings `dv10.start`, `dv10.start.a11y`, `dv10.called` (en/hi/mr).
+
+## 29 Oct: T12, first passing two-phone run
+- **How:** `mobile/iosApp/scripts/e2e-visit.sh` (target `AarogyamStaffE2E`, its own scheme, not in the gate). It builds the Local app once, runs desk (iPhone Air), doctor (iPhone 17), desk, then shuts both simulators down. It needs the local API (:8090, from main) and the portal proxy (:5173).
+- **Run 4 passed end to end;** the database shows the token went to done.
+
+  | Phase | Step | Seconds | Taps |
+  |---|---|---|---|
+  | Desk | lookup (type number, New patient) | 10.3 | 2 |
+  | Desk | intake (name, age, sex, allergies, notice, signature, doctor, save) | 40.5 | 9 |
+  | Doctor | waiting → Send in | 6.5 | 1 |
+  | Doctor | Start visit → visit screen | 4.0 | 1 |
+  | Doctor | Wrap up, fee ₹500, Send to desk | 13.2 | 3 |
+  | Desk | Collect (find card, cash, record) | 21.8 | 3 |
+
+  These are machine timings (typing is instant; the collect step includes waiting for the board's poll). The 60 s doctor target still needs the standard visit: one dictated note, one tooth, and an Rx from a set, which aren't in the run yet.
+- **Bugs the run found, fixed:**
+  - The front desk couldn't pay a visit's draft bill (409); fixed in the commit before this one.
+  - **The intake form showed raw keys:** `IntakeV10.xcstrings` was never committed by T8. 36 strings added in en/hi/mr, and `StringCatalogTests` now fails on an empty table or a language that differs.
+  - The signature pad's label never reached the accessibility tree. It's named on the SwiftUI side, with direct interaction for VoiceOver.
+- **Not covered yet:** dictation and audio (simulator microphone), chair photo, tooth chart, Rx from a set, My tasks confetti, the 60 s amber state, and Remind. The backend's G9 thank-you message isn't on main.
+- **Left in the local DB:** token 2 from run 2 is still `ready_to_bill` (synthetic).

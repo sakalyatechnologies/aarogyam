@@ -1695,7 +1695,7 @@ export type NewPlan = C.NewPlan;
 /** Body of `POST /api/v1/treatment-plans/{id}/accept`. */
 export type Acceptance = C.Acceptance;
 
-export const attachmentKind = z.enum(["photo", "xray", "report", "document", "audio", "consent"]) satisfies z.ZodType<C.AttachmentKind>;
+export const attachmentKind = z.enum(["photo", "xray", "report", "document", "audio", "consent", "payment_proof"]) satisfies z.ZodType<C.AttachmentKind>;
 export type AttachmentKind = z.output<typeof attachmentKind>;
 
 export const attachment = z.object({

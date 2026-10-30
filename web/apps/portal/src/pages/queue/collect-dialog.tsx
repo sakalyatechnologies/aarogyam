@@ -12,7 +12,7 @@ import { useRef, useState } from "react";
 
 import { apiErrorOf, invoiceId, randomUuid, unwrap, type PaymentMethod, type QueueToken } from "@aarogyam/api-client";
 import { formatRupees } from "@aarogyam/app-kit";
-import { Button, Dialog } from "@sakalya/ui";
+import { Button, Dialog, Field, TextInput } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { QrCode } from "../../components/qr-code.js";
@@ -89,6 +89,11 @@ function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; o
   const [error, setError] = useState<string | undefined>(undefined);
   const [paid, setPaid] = useState(0);
   const record = useRecordPayment();
+  const [partText, setPartText] = useState("");
+  const [proof, setProof] = useState<File | undefined>(undefined);
+  const [proofError, setProofError] = useState<string | undefined>(undefined);
+  const proofId = useRef<string | undefined>(undefined);
+  const canProof = can("billing.write") || can("payments.collect");
 
   const summary = useQuery({
     queryKey: ["collect-summary", access.org_id, bill.id],
@@ -100,6 +105,17 @@ function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; o
   const justSettled = paid > 0;
   const balance = due?.balance_paise ?? 0;
   const upi = due?.upi ?? undefined;
+  // An optional part amount, in rupees; anything else than 1 paise up to the balance is shown inline.
+  const partPaise = partText.trim() === "" ? undefined : Math.round(Number(partText) * 100);
+  const partInvalid = partPaise !== undefined && (!Number.isFinite(partPaise) || partPaise <= 0 || partPaise > balance);
+  const payPaise = partPaise === undefined || partInvalid ? balance : partPaise;
+  const partLink = useQuery({
+    queryKey: ["upi-link", access.org_id, bill.id, payPaise],
+    queryFn: ({ signal }) => unwrap(api.getInvoiceUpiLink(invoiceId.parse(due?.invoice_id ?? ""), { amountPaise: payPaise, signal })),
+    enabled: due !== undefined && upi !== undefined && method === "upi" && payPaise < balance && can("billing.read"),
+    retry: false,
+  });
+  const qrData = payPaise < balance ? (partLink.data?.qr_data ?? withAmount(upi?.qr_data, payPaise)) : upi?.qr_data;
   const nothing = !justSettled && !bill.pending && (bill.id === undefined || summary.isError);
   const loading = !justSettled && !nothing && (bill.pending || due === undefined);
 
@@ -116,11 +132,33 @@ function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; o
         return;
       }
     }
-    const signature = `${due.invoice_id}|${method}|${String(balance)}`;
+    if (partInvalid) {
+      setError(`Enter an amount between ${formatRupees(1)} and ${formatRupees(balance)}, or leave it empty to collect it all.`);
+      return;
+    }
+    if (proof !== undefined && proofId.current === undefined) {
+      setProofError(undefined);
+      const form = new FormData();
+      form.set("file", proof);
+      form.set("kind", "payment_proof");
+      const uploaded = await api.uploadAttachment(due.patient.id, form);
+      if (!uploaded.ok) {
+        setProofError(uploaded.error.message);
+        return;
+      }
+      proofId.current = uploaded.value.id;
+    }
+    const signature = `${due.invoice_id}|${method}|${String(payPaise)}|${proofId.current ?? ""}`;
     if (attempt.current?.signature !== signature) attempt.current = { signature, key: randomUuid() };
     record.mutate(
       {
-        input: { patient_id: due.patient.id, method, amount_paise: balance, allocations: [{ invoice_id: due.invoice_id, amount_paise: balance }] },
+        input: {
+          patient_id: due.patient.id,
+          method,
+          amount_paise: payPaise,
+          allocations: [{ invoice_id: due.invoice_id, amount_paise: payPaise }],
+          ...(proofId.current === undefined ? {} : { attachment_id: proofId.current }),
+        },
         idempotencyKey: attempt.current.key,
       },
       {
@@ -145,7 +183,7 @@ function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; o
       ) : justSettled ? (
         <>
           <p role="status" className="fd-due">
-            <span>Paid in full</span>
+            <span>{paid < balance ? "Part payment recorded" : "Paid in full"}</span>
             <b>{formatRupees(paid)}</b>
           </p>
           {token !== undefined && onMarkDone !== undefined ? (
@@ -205,15 +243,43 @@ function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; o
               </p>
             ) : (
               <figure className="fd-qr">
-                <QrCode value={upi.qr_data} size={176} label={`UPI QR for ${formatRupees(balance)} to ${upi.payee_name}`} />
+                <QrCode value={qrData ?? upi.qr_data} size={176} label={`UPI QR for ${formatRupees(payPaise)} to ${upi.payee_name}`} />
                 <figcaption className="text-xs text-muted">
                   {upi.payee_name} · {upi.upi_id}. Record the payment once it arrives.
                 </figcaption>
               </figure>
             )
           ) : null}
-          <Button disabled={record.isPending} onClick={() => void pay()}>
-            {record.isPending ? "Recording…" : `Record ${formatRupees(balance)} ${method === "upi" ? "UPI" : method}`}
+          <Field
+            label="Part amount (optional)"
+            hint="Leave empty to collect the whole balance"
+            {...(partInvalid ? { error: `Between ${formatRupees(1)} and ${formatRupees(balance)}` } : {})}
+          >
+            <TextInput
+              inputMode="decimal"
+              placeholder={String(balance / 100)}
+              value={partText}
+              onChange={(event) => {
+                setPartText(event.currentTarget.value);
+              }}
+            />
+          </Field>
+          {canProof ? (
+            <Field label="Attach proof (optional)" hint="A screenshot or photo of the payment" {...(proofError === undefined ? {} : { error: proofError })}>
+              <input
+                type="file"
+                aria-label="Payment proof file"
+                accept="image/jpeg,image/png,application/pdf"
+                className="text-sm"
+                onChange={(event) => {
+                  proofId.current = undefined;
+                  setProof(event.currentTarget.files?.[0]);
+                }}
+              />
+            </Field>
+          ) : null}
+          <Button disabled={record.isPending || partInvalid} onClick={() => void pay()}>
+            {record.isPending ? "Recording…" : `Record ${formatRupees(payPaise)} ${method === "upi" ? "UPI" : method}`}
           </Button>
         </>
       )}
@@ -229,4 +295,9 @@ function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; o
       )}
     </div>
   );
+}
+
+/** The UPI link with its amount changed: the `am` part of the URI is in rupees. */
+function withAmount(uri: string | undefined, paise: number): string | undefined {
+  return uri?.replace(/([?&]am=)[^&]*/, `$1${(paise / 100).toFixed(2)}`);
 }

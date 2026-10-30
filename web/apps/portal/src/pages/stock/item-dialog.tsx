@@ -7,6 +7,7 @@ import { Button, DataTable, DateInput, Dialog, Field, Select, Skeleton, TextInpu
 import { useClinic } from "../../clinic.js";
 import { useNewLook } from "../../lib/new-look.js";
 import { AlertSettings } from "./alert-settings.js";
+import { ItemSettings } from "./item-settings.js";
 import { LevelBar, StatusTag, categoryLabel, levelPercent } from "./level.js";
 import "./stock-v2.css";
 import { useAdjustStock, useExpireBatch, useInventoryItem, useReceiveStock, useSuppliers, useUseStock } from "./queries.js";
@@ -64,6 +65,7 @@ export function ItemDialog({ itemId, onClose }: { itemId: InventoryItemId | unde
             <LevelBar name={detail.data.stock.item.name} percent={levelPercent(detail.data.stock)} />
           </section>
           {can("inventory.manage") ? <StockForm itemId={detail.data.stock.item.id} /> : null}
+          {newLook && can("inventory.manage") ? <ItemSettings key={`${String(detail.data.stock.item.reorder_level)}-${String(detail.data.stock.item.max_level ?? "")}`} item={detail.data.stock.item} /> : null}
           {newLook && can("inventory.manage") ? <AlertSettings itemId={detail.data.stock.item.id} /> : null}
           <Batches itemId={detail.data.stock.item.id} batches={detail.data.batches} />
           <section aria-label="History">

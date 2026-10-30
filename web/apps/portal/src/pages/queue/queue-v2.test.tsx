@@ -217,6 +217,55 @@ describe("Front desk (New look)", () => {
     });
   });
 
+  it("Collect attaches a payment proof and takes a part amount", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi();
+    const client = asha(backend);
+    const waiting = (await tokens(backend)).find((t) => t.status === "waiting");
+    if (waiting === undefined) throw new Error("expected a waiting token");
+    const draft = await client.createInvoice({ patient_id: waiting.patient.id, items: [{ description: "Consultation", quantity: 1, unit_price_paise: 50000 }] });
+    if (!draft.ok) throw new Error("expected a draft bill");
+    const issued = await client.issueInvoice(draft.value.id);
+    if (!issued.ok) throw new Error("expected an issued bill");
+    for (const status of ["in_chair", "ready_to_bill"]) await client.setQueueStatus(waiting.id, { status });
+
+    const paid: { amount_paise: number; attachment_id: string | null | undefined }[] = [];
+    const kinds: unknown[] = [];
+    renderPortal("/queue", {
+      as: PEOPLE.asha,
+      backend,
+      wrap: (c: ApiClient) => ({
+        ...c,
+        uploadAttachment: (id, form, options) => {
+          kinds.push(form.get("kind"));
+          return c.uploadAttachment(id, form, options);
+        },
+        recordPayment: (input, key, options) => {
+          paid.push({ amount_paise: input.amount_paise, attachment_id: input.attachment_id });
+          return c.recordPayment(input, key, options);
+        },
+      }),
+    });
+    await waitFor(() => {
+      expect(columnOf(waiting.patient.full_name)).toMatch(/^Ready to bill/);
+    });
+    await user.click(within(cardOf(waiting.patient.full_name)).getByRole("button", { name: "Collect" }));
+    const dialog = await screen.findByRole("dialog", { name: "Collect payment" });
+    await user.click(await within(dialog).findByRole("button", { name: "UPI" }));
+    // A part amount above the balance is refused inline before anything is sent.
+    await user.type(await within(dialog).findByLabelText(/Part amount/), "999999");
+    expect(within(dialog).getByRole("button", { name: /^Record/ }).hasAttribute("disabled")).toBe(true);
+    await user.clear(within(dialog).getByLabelText(/Part amount/));
+    await user.type(within(dialog).getByLabelText(/Part amount/), "100");
+    await user.upload(within(dialog).getByLabelText("Payment proof file"), new File(["x"], "proof.png", { type: "image/png" }));
+    await user.click(within(dialog).getByRole("button", { name: /^Record/ }));
+    await within(dialog).findByText("Part payment recorded");
+    expect(kinds).toEqual(["payment_proof"]);
+    expect(paid).toHaveLength(1);
+    expect(paid[0]?.amount_paise).toBe(10000);
+    expect(paid[0]?.attachment_id).toBeTruthy();
+  });
+
   it("has no axe violations, with the board and with the Add to queue choice open", async () => {
     const user = userEvent.setup();
     renderPortal("/queue", { as: PEOPLE.asha });

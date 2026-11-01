@@ -39,7 +39,7 @@ import type {
   RevokedSessions,
   UnreadCount,
 } from "./schemas.js";
-import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview } from "./schemas.js";
+import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview, TaskProofUploaded } from "./schemas.js";
 import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
 import type { Allergy, FamilyLink, FamilyList, NewFamilyLink, ConsentLink, ConsentRequestInput, ConsentRequested, ConsentSigned, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PatientsSummary, PhoneMatchPage, QuickPicks, SignConsentInput, StartedVisit, WalkIn, WalkInRequest, ConflictPolicy, ConflictPolicyChange, MoveAppointment } from "./schemas.js";
@@ -839,6 +839,10 @@ export interface ApiClient {
   listMyTasks(date?: string, options?: RequestOptions): Promise<ApiResult<MyTasks>>;
   /** Clinic host: finishes a task given to the caller or their role, with an optional note and the materials used (taken off the shelf in the same step). The same person again gets 200; anyone else 409; short stock 409 and nothing is recorded. Needs `tasks.use`. */
   completeTask(id: TaskOccurrenceId, input: CompleteTask, options?: RequestOptions): Promise<ApiResult<TaskOccurrence>>;
+  /** Clinic host: keeps a proof photo (`file`, PNG or JPEG, up to 2 MB) for a task that is the caller's and open; returns the `proof_file_id` to send with `completeTask`. Replaces an earlier proof. Needs `tasks.use`. */
+  uploadTaskProof(id: TaskOccurrenceId, form: FormData, options?: RequestOptions): Promise<ApiResult<TaskProofUploaded>>;
+  /** Clinic host: the task's proof photo; `404` when there is none. Only the person it is for, whoever finished it, or `tasks.manage` (else `403`). Needs `tasks.use`. */
+  getTaskProof(id: TaskOccurrenceId, options?: RequestOptions): Promise<ApiResult<Blob>>;
   /** Clinic host: opens a done or skipped task again; 409 for a missed one. Needs `tasks.manage`. */
   reopenTask(id: TaskOccurrenceId, options?: RequestOptions): Promise<ApiResult<TaskOccurrence>>;
   /** Clinic host: the clinic's recurring tasks, including the standard ones and any switched off. Needs `tasks.manage`. */

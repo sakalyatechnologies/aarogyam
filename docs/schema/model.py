@@ -742,7 +742,9 @@ TABLES = [
             "status text | open, done, skipped, missed",
             "completed_at timestamptz? | set with completed_by when done or skipped", "completed_by uuid? -> memberships",
             "note text? | at most 300 characters; free text, kept out of the change history; the screens warn against patient names",
-            "reminder_count int", "last_reminded_at timestamptz?", "escalated_at timestamptz?"],
+            "reminder_count int", "last_reminded_at timestamptz?", "escalated_at timestamptz?",
+            "proof_file_id uuid? | a proof photo in clinic file storage (migration 0706), read only through GET /tasks/occurrences/{id}/proof",
+            "proof_mime text? | image/png or image/jpeg, set with proof_file_id"],
       notes="Built (migrations 0661, 0662). Made by app.materialize_task_occurrences (drain job): every slot that fell due in the last 24 hours and not before the template's activated_at, with its task_due notice in the same statement; safe to run twice at once. The change history leaves out the reminder counters and the note. Kept 3 years from due_at (retention class task_occurrences). staff_notifications.task_occurrence_id points here."),
 
     # ------------------------------------------------------------------ billing
@@ -1068,7 +1070,8 @@ TABLES = [
             "recorded_by uuid -> memberships | the staff member who recorded it",
             "status text | given, withdrawn",
             "withdrawn_at timestamptz?", "withdrawn_by uuid? -> memberships",
-            "withdrawn_method text? | paper, verbal, app", "note text? | up to 500 characters; no clinical detail", "withdrawal_note text?"],
+            "withdrawn_method text? | paper, verbal, app", "note text? | up to 500 characters; no clinical detail", "withdrawal_note text?",
+            "signature_attachment_id uuid? -> attachments | the patient's signature, a file of kind consent of the same patient (migration 0705)"],
       notes="At most one active (given) consent per patient and purpose. A withdrawal sets the withdrawn_* columns once and the row is then final; to consent again, record a new row. Every change is audited."),
     T(name="patient_duplicates", domain="trust", rls="clinic", lifecycle="mutable",
       purpose="Possible duplicate patients for the front desk: a self-registered online record whose phone matches an existing patient.",

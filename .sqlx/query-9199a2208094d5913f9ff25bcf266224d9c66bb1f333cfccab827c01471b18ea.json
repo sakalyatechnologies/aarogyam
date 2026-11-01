@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,\n                  o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,\n                  o.completed_by, u.display_name as \"completed_by_name?\", o.note\n           from aarogyam.task_occurrences o\n           left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by\n           left join aarogyam.users u on u.id = m.user_id\n           where o.id = $1",
+  "query": "select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,\n                  o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,\n                  o.completed_by, u.display_name as \"completed_by_name?\", o.note,\n                  (o.proof_file_id is not null) as \"has_proof!\"\n           from aarogyam.task_occurrences o\n           left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by\n           left join aarogyam.users u on u.id = m.user_id\n           where (o.assignee_membership_id = $1 or o.assignee_role_id = $2)\n             and (o.local_date = $3 or (o.status = 'open' and o.local_date < $3))\n           order by o.due_at, o.id",
   "describe": {
     "columns": [
       {
@@ -145,11 +145,19 @@
             "name": "note"
           }
         }
+      },
+      {
+        "ordinal": 13,
+        "name": "has_proof!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Uuid",
+        "Date"
       ]
     },
     "nullable": [
@@ -164,9 +172,10 @@
       false,
       true,
       true,
+      false,
       true,
-      true
+      null
     ]
   },
-  "hash": "4df2e4824267b5fae57aab68751b9be30a983bc027872cd253f2a9182b9d3952"
+  "hash": "9199a2208094d5913f9ff25bcf266224d9c66bb1f333cfccab827c01471b18ea"
 }

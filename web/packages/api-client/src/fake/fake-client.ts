@@ -180,6 +180,7 @@ const wireConsent = (c: FakeConsent): C.Consent => ({
   ...(c.withdrawn_method === undefined ? {} : { withdrawn_method: c.withdrawn_method }),
   ...(c.note === undefined ? {} : { note: c.note }),
   ...(c.withdrawal_note === undefined ? {} : { withdrawal_note: c.withdrawal_note }),
+  ...(c.signature_attachment_id === undefined ? {} : { signature_attachment_id: c.signature_attachment_id }),
 });
 /** `409` when issuing a prescription hits allergy alerts without an override reason. */
 const blocked = (alerts: C.Alert[]): Outcome => ({ ok: false, status: 409, body: { code: "allergy_alerts", alerts } });
@@ -3228,6 +3229,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (note.length > 500) {
             return invalid("note", "must be at most 500 characters of plain text");
           }
+          const signature = input.signature_attachment_id ?? null;
+          if (signature !== null) {
+            const file = state.attachments.find((a) => a.id === signature && a.clinic_id === caller.clinic.id);
+            if (file === undefined) {
+              return notFound;
+            }
+            if (file.kind !== "consent" || file.patient_id !== id) {
+              return invalid("signature_attachment_id", "must be a consent file of the patient");
+            }
+          }
           const consents = (state.consents ??= []);
           if (consents.some((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.purpose === purpose.data && c.status === "given")) {
             return refuse(409, "conflict", "this patient already has an active consent for that purpose; withdraw it first");
@@ -3244,6 +3255,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             recorded_by: caller.user.display_name,
             status: "given",
             ...(note === "" ? {} : { note }),
+            ...(signature === null ? {} : { signature_attachment_id: signature }),
           };
           consents.push(record);
           return reply(wireConsent(record) satisfies C.Consent);
@@ -5932,6 +5944,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!isForMember(found, caller.membership.id, caller.membership.role.key)) {
             return refuse(403, "forbidden", "this task is not yours to complete");
           }
+          if (input.proof_file_id !== undefined && input.proof_file_id !== found.proof_file_id) {
+            return invalid("proof_file_id", "upload the proof photo for this task first");
+          }
           if (found.status !== "open") {
             if (found.status === "done" && found.completed_by === caller.membership.id) {
               return reply(wireOccurrence(found, taskMemberName) satisfies C.TaskOccurrence);
@@ -5969,6 +5984,58 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           found.note = note === "" ? null : note;
           return reply(wireOccurrence(found, taskMemberName) satisfies C.TaskOccurrence);
         }),
+
+      uploadTaskProof: (id, form, opts) =>
+        respond(S.taskProofUploaded, opts?.signal, async () => {
+          const caller = await inClinic("tasks.use");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = tasksOf(caller.clinic).occurrences.find((o) => o.id === id && o.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (!isForMember(found, caller.membership.id, caller.membership.role.key)) {
+            return refuse(403, "forbidden", "this task is not yours");
+          }
+          if (found.status !== "open" && !(found.status === "done" && found.completed_by === caller.membership.id)) {
+            return refuse(409, "conflict", "this task is no longer open");
+          }
+          const file = form.get("file");
+          if (!(file instanceof File) || file.size === 0 || (file.type !== "image/png" && file.type !== "image/jpeg")) {
+            return invalid("file", "send a PNG or JPEG photo of at most 2 MB");
+          }
+          if (file.size > 2 * 1024 * 1024) {
+            return refuse(413, "payload_too_large", "file: must be at most 2 MB");
+          }
+          found.proof = file;
+          found.proof_file_id = fakeUuid(random, clock());
+          return reply({ proof_file_id: found.proof_file_id } satisfies C.ProofUploaded);
+        }),
+
+      getTaskProof: async (id, opts) => {
+        let found: Blob | undefined;
+        const result = await respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("tasks.use");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const occurrence = tasksOf(caller.clinic).occurrences.find((o) => o.id === id && o.clinic_id === caller.clinic.id);
+          if (occurrence === undefined) {
+            return notFound;
+          }
+          const allowed =
+            hasPermission(caller.membership.role.permissions, "tasks.manage") ||
+            occurrence.completed_by === caller.membership.id ||
+            isForMember(occurrence, caller.membership.id, caller.membership.role.key);
+          if (!allowed) {
+            return refuse(403, "forbidden", "this task is not yours");
+          }
+          found = occurrence.proof;
+          return found === undefined ? notFound : reply(undefined);
+        });
+        return result.ok && found !== undefined ? success(found) : failure(result.ok ? { status: 404, code: "not_found", message: "Not found." } : result.error);
+      },
 
       reopenTask: (id, opts) =>
         respond(S.taskOccurrence, opts?.signal, async () => {

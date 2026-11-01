@@ -95,6 +95,34 @@ describe("fake client: staff tasks", () => {
     expect(statusOf(await asha.listTaskHistory({ from: "2026-01-01", to: "2026-10-03" }))).toBe(400);
   });
 
+  it("keeps a proof photo for the person it is for, and shows it to them and to managers only", async () => {
+    const { as, advance } = setup();
+    const asha = as(ASHA);
+    const farah = as(FARAH);
+    value(await asha.createTask({ title: "Lock up", assignee_role_id: "front_desk", schedule: { kind: "daily", due_time: "12:00" } }));
+    advance("2026-10-03T07:00:00Z");
+    const mine = value(await farah.listMyTasks()).items.find((i) => i.title === "Lock up");
+    const id = taskOccurrenceId.parse(mine?.id);
+    expect(mine?.has_proof).toBe(false);
+    const form = (type: string) => {
+      const f = new FormData();
+      f.set("file", new File([new Uint8Array([1, 2, 3])], "p", { type }));
+      return f;
+    };
+    expect(statusOf(await farah.getTaskProof(id))).toBe(404);
+    expect(statusOf(await farah.uploadTaskProof(id, form("text/plain")))).toBe(400);
+    expect(statusOf(await asha.uploadTaskProof(id, form("image/png")))).toBe(403);
+    expect(statusOf(await as(BINA, LOTUS).uploadTaskProof(id, form("image/png")))).toBe(404);
+    expect(statusOf(await as(BINA, LOTUS).getTaskProof(id))).toBe(404);
+    expect(statusOf(await farah.completeTask(id, { proof_file_id: "nope" }))).toBe(400);
+    const uploaded = value(await farah.uploadTaskProof(id, form("image/png")));
+    expect(value(await farah.listMyTasks()).items.find((i) => i.id === id)?.has_proof).toBe(true);
+    const done = value(await farah.completeTask(id, { proof_file_id: uploaded.proof_file_id }));
+    expect(done.has_proof).toBe(true);
+    expect((await value(await farah.getTaskProof(id)).arrayBuffer()).byteLength).toBe(3);
+    expect(statusOf(await asha.getTaskProof(id))).toBe(200);
+  });
+
   it("refuses a bad task", async () => {
     const { as } = setup();
     const asha = as(ASHA);

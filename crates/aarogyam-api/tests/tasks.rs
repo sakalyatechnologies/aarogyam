@@ -87,13 +87,15 @@ async fn occurrence(
     membership: Option<Uuid>,
     action: &str,
 ) -> Uuid {
-    let due = OffsetDateTime::now_utc() - Duration::hours(1);
+    // Today's occurrence even in the clinic's first hour, when the due time is still yesterday.
+    let now = OffsetDateTime::now_utc();
+    let due = now - Duration::hours(1);
     sqlx::query_scalar(
         "insert into aarogyam.task_occurrences
            (org_id, template_id, title, action, assignee_membership_id, assignee_role_id,
             local_date, due_at)
          values ($1, $2, 'Close up', $3, $4, $5,
-                 (select ($6 at time zone o.timezone)::date from aarogyam.organizations o
+                 (select ($7 at time zone o.timezone)::date from aarogyam.organizations o
                   where o.id = $1), $6) returning id",
     )
     .bind(clinic)
@@ -102,6 +104,7 @@ async fn occurrence(
     .bind(membership)
     .bind(role_id)
     .bind(due)
+    .bind(now)
     .fetch_one(&app.owner)
     .await
     .unwrap()
@@ -896,18 +899,21 @@ async fn occurrence_on(
     role_id: Uuid,
     days: i64,
 ) -> Uuid {
-    let due = OffsetDateTime::now_utc() + Duration::days(days) - Duration::hours(2);
+    // The clinic day `days` from today, also in its first two hours.
+    let day = OffsetDateTime::now_utc() + Duration::days(days);
+    let due = day - Duration::hours(2);
     sqlx::query_scalar(
         "insert into aarogyam.task_occurrences
            (org_id, template_id, title, action, assignee_role_id, local_date, due_at)
          values ($1, $2, 'Earlier', 'none', $3,
-                 (select ($4 at time zone o.timezone)::date from aarogyam.organizations o
+                 (select ($5 at time zone o.timezone)::date from aarogyam.organizations o
                   where o.id = $1), $4) returning id",
     )
     .bind(clinic)
     .bind(template)
     .bind(role_id)
     .bind(due)
+    .bind(day)
     .fetch_one(&app.owner)
     .await
     .unwrap()

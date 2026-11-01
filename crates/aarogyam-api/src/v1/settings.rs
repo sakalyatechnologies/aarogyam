@@ -528,6 +528,15 @@ pub struct NotificationSettings {
     pub low_stock: bool,
     /// Tell staff when lab work is overdue (default on).
     pub lab_due: bool,
+    /// Welcome message to a walk-in's new patient, with the estimated wait (default on).
+    #[schema(required = false)]
+    pub welcome: bool,
+    /// Visit summary link, then its PIN in a second message, after a visit closes (default on).
+    #[schema(required = false)]
+    pub visit_summary: bool,
+    /// Booking link for a follow-up, sent two days before it is due (default off).
+    #[schema(required = false)]
+    pub follow_up_booking: bool,
     /// Quiet hours for reminders and offers.
     pub quiet_hours: QuietHoursView,
 }
@@ -541,6 +550,9 @@ impl From<NotificationPrefs> for NotificationSettings {
             recall: prefs.recall,
             low_stock: prefs.low_stock,
             lab_due: prefs.lab_due,
+            welcome: prefs.welcome,
+            visit_summary: prefs.visit_summary,
+            follow_up_booking: prefs.follow_up_booking,
             quiet_hours: QuietHoursView {
                 enabled: prefs.quiet_hours.enabled,
                 start: hhmm(prefs.quiet_hours.start),
@@ -576,6 +588,12 @@ pub struct NotificationSettingsChanges {
     pub low_stock: Option<bool>,
     /// Overdue lab alerts.
     pub lab_due: Option<bool>,
+    /// The welcome message after a walk-in registers (with the estimated wait).
+    pub welcome: Option<bool>,
+    /// The visit summary link, then its PIN, after a visit closes.
+    pub visit_summary: Option<bool>,
+    /// The follow-up booking message, two days before the follow-up is due.
+    pub follow_up_booking: Option<bool>,
     /// Quiet hours.
     pub quiet_hours: Option<QuietHoursChangesBody>,
 }
@@ -630,6 +648,9 @@ pub(crate) async fn update_notifications(
         recall: body.recall,
         low_stock: body.low_stock,
         lab_due: body.lab_due,
+        welcome: body.welcome,
+        visit_summary: body.visit_summary,
+        follow_up_booking: body.follow_up_booking,
         quiet_hours: body.quiet_hours.map(|quiet| QuietHoursChanges {
             enabled: quiet.enabled,
             start: quiet.start,

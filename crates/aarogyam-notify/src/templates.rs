@@ -40,6 +40,12 @@ impl PortalLinks {
         format!("{}/invite#{token}", self.pattern.replace("{host}", host))
     }
 
+    /// The clinic's portal home, where patients find the app and sign in.
+    #[must_use]
+    pub fn home(&self, host: &str) -> String {
+        format!("{}/", self.pattern.replace("{host}", host))
+    }
+
     /// The clinic's public booking page.
     #[must_use]
     pub fn book(&self, host: &str) -> String {
@@ -324,7 +330,11 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
         Some(
             MessageKind::AppointmentReminder
             | MessageKind::ClinicMessage
-            | MessageKind::PaymentReceipt,
+            | MessageKind::PaymentReceipt
+            | MessageKind::Welcome
+            | MessageKind::VisitSummary
+            | MessageKind::VisitSummaryPin
+            | MessageKind::FollowUpBooking,
         )
         | None => Err(Failure::permanent("unknown message kind")),
     }

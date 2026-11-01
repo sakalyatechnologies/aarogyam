@@ -427,18 +427,20 @@ pub async fn close(
     db.scoped(&scope(actor, request_id), async |tx| {
         let visit =
             require_open_visit(tx, visit_id, actor.reach(Permission::ClinicalWrite)).await?;
-        close_in(tx, actor, &visit, QueueStatus::Done, now).await
+        close_in(tx, actor, &visit, QueueStatus::Done, None, now).await
     })
     .await
 }
 
 /// Closes an open, locked visit inside the caller's transaction. A linked queue token moves to
-/// `token_to`: `done`, or `ready_to_bill` when the visit is sent for payment.
+/// `token_to`: `done`, or `ready_to_bill` when the visit is sent for payment. `follow_up_on` is the
+/// follow-up planned at close, for its booking message.
 pub(crate) async fn close_in(
     tx: &mut ScopedTx,
     actor: &ClinicActor,
     visit: &visits::EncounterRow,
     token_to: QueueStatus,
+    follow_up_on: Option<time::Date>,
     now: OffsetDateTime,
 ) -> Result<VisitView, AppError> {
     let row = visits::close_encounter(tx.conn(), visit.id, now).await?;
@@ -469,6 +471,19 @@ pub(crate) async fn close_in(
         }
         None => {}
     }
+    // The thank-you messages go out with the close; closing a closed visit is refused earlier.
+    crate::auto_messages::visit_closed(
+        tx,
+        actor,
+        None,
+        &crate::auto_messages::ClosedVisit {
+            visit_id: row.id,
+            patient_id: row.patient_id,
+            follow_up_on,
+        },
+        now,
+    )
+    .await?;
     let names = Names::load(tx, [row.clinician_id]).await?;
     visit_view(row, &names)
 }

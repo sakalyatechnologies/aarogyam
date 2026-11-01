@@ -177,7 +177,7 @@ pub async fn close_with(
         let reach = actor.reach(Permission::ClinicalWrite);
         let visit = crate::visits::require_open_visit(tx, visit_id, reach).await?;
         let done = wrap_up_in(tx, &visit, &checked, reach.member()).await?;
-        let closed = close_in(tx, actor, &visit, token_to, now).await?;
+        let closed = close_in(tx, actor, &visit, token_to, checked.follow_up_on, now).await?;
         Ok((closed, done))
     })
     .await
@@ -342,7 +342,7 @@ pub async fn finish(
             (Vec::new(), Vec::new())
         };
         let wrap_up = wrap_up_in(tx, &visit, &checked, reach.member()).await?;
-        let closed = close_in(tx, actor, &visit, token_to, now).await?;
+        let closed = close_in(tx, actor, &visit, token_to, checked.follow_up_on, now).await?;
         Ok(FinishOutcome::Finished(Box::new(Finished {
             visit: closed,
             signed_note_ids: signed,

@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select (p.phone_e164 is not null\n                   and exists (select 1 from aarogyam.contact_preferences c\n                               where c.patient_id = p.id and c.channel = 'whatsapp'\n                                 and c.whatsapp_opt_in_at is not null)\n                   and not exists (select 1 from aarogyam.contact_preferences c\n                                   where c.patient_id = p.id and c.channel = 'whatsapp'\n                                     and c.category in ('all', $3) and c.opted_out)\n                   and exists (select 1 from aarogyam.message_templates t\n                               where t.key = $2 and t.channel = 'whatsapp'\n                                 and t.status = 'approved')) as \"ready!\"\n           from aarogyam.patients p where p.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ready!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e84ba76ee9a4772c05ed422721d465b4acdee66867ccd6b79fa670cb09da61d2"
+}

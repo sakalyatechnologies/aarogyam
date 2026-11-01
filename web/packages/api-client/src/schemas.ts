@@ -431,6 +431,9 @@ export const notificationSettings = z.object({
   recall: z.boolean(),
   low_stock: z.boolean(),
   lab_due: z.boolean(),
+  welcome: z.boolean(),
+  visit_summary: z.boolean(),
+  follow_up_booking: z.boolean(),
   quiet_hours: quietHours,
 }) satisfies z.ZodType<C.NotificationSettings>;
 export type NotificationSettings = z.output<typeof notificationSettings>;

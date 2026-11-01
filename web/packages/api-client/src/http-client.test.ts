@@ -646,6 +646,9 @@ describe("createHttpClient settings v2", () => {
     recall: true,
     low_stock: true,
     lab_due: true,
+    welcome: true,
+    visit_summary: true,
+    follow_up_booking: false,
     quiet_hours: { enabled: true, start: "21:00", end: "09:00" },
   };
   const alert = {

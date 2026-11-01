@@ -150,3 +150,23 @@ export function WeeklyCollectionsChart({ rows, animate }: { rows: readonly { lab
     </div>
   );
 }
+
+/** New look: money collected per week, stacked by payment method. `methods` fixes the stack order and colours. */
+export function MethodStackChart({ rows, methods, animate }: { rows: readonly ({ label: string; tip: string } & Record<string, number | string>)[]; methods: readonly { key: string; name: string; color: string }[]; animate: boolean }) {
+  const totals = methods.map((m) => `${m.name} ${rupees(rows.reduce((sum, r) => sum + (typeof r[m.key] === "number" ? Number(r[m.key]) : 0), 0))}`);
+  return (
+    <div className="an-chart" role="img" aria-label={`Collected per week by method, ${totals.join(", ")}`}>
+      <ResponsiveContainer>
+        <BarChart data={[...rows]} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap="20%">
+          <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+          <XAxis dataKey="label" {...AXIS} minTickGap={14} />
+          <YAxis {...AXIS} width={52} tickFormatter={signed} />
+          <Tooltip cursor={{ fill: "var(--hover)" }} content={<ChartTooltip format={signed} total />} />
+          {methods.map((m) => (
+            <Bar key={m.key} dataKey={m.key} name={m.name} stackId="method" fill={m.color} maxBarSize={28} isAnimationActive={animate} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}

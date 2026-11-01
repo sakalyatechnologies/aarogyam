@@ -2,7 +2,7 @@ import { Armchair, ClipboardList, UserPlus, Users } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 
 import type { Analytics } from "@aarogyam/api-client";
-import { ApiErrorNotice } from "@aarogyam/app-kit";
+import { ApiErrorNotice, formatRupees } from "@aarogyam/app-kit";
 import { BentoCard, Heatmap } from "@sakalya/ui";
 
 import { Empty, Skeleton } from "../../../components/mk/index.js";
@@ -40,6 +40,8 @@ function Practice({ report, updating }: { report: Analytics; updating: boolean }
   const procedures = report.procedures_by_category.reduce((s, p) => s + p.count, 0);
   const use = t.chairUse === null ? null : Math.round(t.chairUse * 100);
   const procedureLabels = Object.fromEntries(report.procedures_by_category.map((p) => [p.key, prettyKey(p.key)]));
+  // Rupees per kind only for those allowed to see money: the API sends null otherwise.
+  const amounts = Object.fromEntries(report.procedures_by_category.flatMap((p) => (p.amount_paise == null ? [] : [[p.key, formatRupees(p.amount_paise)] as const])));
   return (
     <div className="an2-stack" aria-busy={updating}>
       <ul className="an2-kpis" aria-label="Practice totals for the range">
@@ -61,14 +63,17 @@ function Practice({ report, updating }: { report: Analytics; updating: boolean }
             labels={procedureLabels}
             unit="done"
             animate={animate}
+            amounts={amounts}
           />
-          {/* TODO(backend report fields): amounts per procedure, so this card can show the rupees each kind earned. */}
         </div>
         <div className="an2-cell an2-w6">
           <ChairChart report={report} rows={rows} animate={animate} />
         </div>
         <div className="an2-cell an2-w6">
           <BusyHoursCard report={report} />
+        </div>
+        <div className="an2-cell an2-w12">
+          <ChairHoursCard report={report} />
         </div>
         <div className="an2-cell an2-w4">
           <DonutCard title="Age" hint="Patients seen, by age" area="an-age" data={report.patients.age_bands} labels={AGE_LABEL} unit="patients" animate={animate} />
@@ -103,7 +108,32 @@ function BusyHoursCard({ report }: { report: Analytics }) {
             legend={{ low: "Quiet", high: "Busy" }}
             showValues={false}
           />
-          {/* TODO(backend report fields): chair x hour occupancy (percent of each hour booked, per chair), as a second Heatmap with a chair per row. */}
+        </div>
+      )}
+    </BentoCard>
+  );
+}
+
+/** Booked minutes per chair and hour (all days of the range added). Nothing when the report has no occupancy. */
+function ChairHoursCard({ report }: { report: Analytics }) {
+  const cells = report.occupancy.by_chair_hour;
+  const hours = [...new Set(cells.map((c) => c.hour))].sort((a, b) => a - b);
+  const chairs = report.chairs.filter((chair) => cells.some((c) => c.room_id === chair.id));
+  return (
+    <BentoCard title="Chair occupancy" subtitle="Booked minutes by chair and hour">
+      {cells.length === 0 || chairs.length === 0 ? (
+        <Empty art="calendar" title="No chair bookings in this range">Chair occupancy shows here once appointments are booked.</Empty>
+      ) : (
+        <div className="an2-heat">
+          <Heatmap
+            columns={hours.map(hourLabel)}
+            rows={chairs.map((chair) => ({ id: chair.id, label: chair.name, values: hours.map((h) => cells.find((c) => c.room_id === chair.id && c.hour === h)?.booked_minutes ?? 0) }))}
+            max={Math.max(1, ...cells.map((c) => c.booked_minutes))}
+            describe={(value, row, column) => `${row.label} ${column}: ${String(value)} minutes booked`}
+            summary="Booked minutes by chair and hour"
+            legend={{ low: "Free", high: "Booked" }}
+            showValues={false}
+          />
         </div>
       )}
     </BentoCard>

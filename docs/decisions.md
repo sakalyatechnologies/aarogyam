@@ -2,6 +2,12 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-11-01: The new look is the portal's default
+
+**Decision.** The redesigned portal screens are on unless a member turns them off in the account menu; that choice is kept in the browser (`aarogyam.portal.new-look`, `"0"` keeps the classic screens). The classic screens stay working until the new look has replaced every one of them. Unit tests keep the classic screens as their default and switch the new look on where they test it.
+
+**Why.** The founder asked for it on 1 Nov; B6, the stock, billing, analytics and queue screens are built for the new look.
+
 ## 2026-10-29: Polling until launch; live events stay off
 
 **Decision.** Production keeps `GET /events` off (`ARO_HTTP__LIVE_EVENTS` unset) until we go live. Screens poll instead, and only while the app is open and in front: the portal's queries pause in a hidden tab (`refetchIntervalInBackground` stays false), the staff chat poll skips hidden ticks, and the phone apps poll only in the foreground.

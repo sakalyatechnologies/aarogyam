@@ -16,7 +16,7 @@ const NEUTRAL = new Set(["unknown"]);
  * A donut with its own legend beside it (name, count and share), so every slice is readable without
  * its colour. Slices keep the API's fixed key order, and with it their colours.
  */
-export function DonutCard({ title, hint, area, data, labels, unit, animate }: { title: string; hint: string; area: string; data: readonly KeyCount[]; labels: Readonly<Record<string, string>>; unit: string; animate: boolean }) {
+export function DonutCard({ title, hint, area, data, labels, unit, animate, amounts }: { title: string; hint: string; area: string; data: readonly KeyCount[]; labels: Readonly<Record<string, string>>; unit: string; animate: boolean; /** Formatted money per key; leave out a key (or the prop) to show none. */ amounts?: Readonly<Record<string, string>> }) {
   const total = data.reduce((s, d) => s + d.count, 0);
   const slices = data.map((d, i) => ({ key: d.key, name: labels[d.key] ?? d.key, value: d.count, color: NEUTRAL.has(d.key) ? series(8) : series(i + 1) }));
   return (
@@ -43,6 +43,7 @@ export function DonutCard({ title, hint, area, data, labels, unit, animate }: { 
                 <span>{s.name}</span>
                 <b>
                   {`${String(s.value)} (${String(Math.round((s.value / total) * 100))}%)`}
+                  {amounts?.[s.key] === undefined ? null : ` · ${amounts[s.key] ?? ""}`}
                 </b>
               </li>
             ))}

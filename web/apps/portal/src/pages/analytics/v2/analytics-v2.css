@@ -55,3 +55,8 @@
 @container (max-width: 520px) {
   .an2-kpis { grid-template-columns: minmax(0, 1fr); }
 }
+
+.an2-delta { margin: 2px 0 0; font-size: 12px; color: var(--sk-text-muted); }
+.an2-delta[data-dir="up"] { color: var(--sk-success, var(--sk-text-muted)); }
+.an2-split { margin-top: 16px; }
+.an2-sub { margin: 0 0 6px; font-size: 13px; font-weight: 600; }

@@ -2,10 +2,12 @@ package com.aarogyam.staff.visit
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.createRecall
+import com.aarogyam.staff.api.dismissRecall
 import com.aarogyam.staff.api.listRecalls
 import com.aarogyam.staff.api.model.NewRecall
 import com.aarogyam.staff.api.model.Recall
 import com.aarogyam.staff.clinic.ClinicContext
+import com.sakalya.mobile.core.ApiErrorKind
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
@@ -82,6 +84,30 @@ class RecallsStateHolder(
             val failure = createRecallFor(clinic, patientId, dueOn, reason)
             if (failure == null) load()
             mutableState.update { it.copy(creating = false, error = failure?.let(ScreenError::of)) }
+        }
+    }
+
+    /** Drops a follow-up no longer needed. The row goes on success; a 409 (already done) reloads; any other failure keeps it. */
+    fun dismiss(
+        id: String,
+        reason: String? = null,
+    ) {
+        if (!mutableState.value.allowed) return
+        scope.launch {
+            when (val answer = clinic.api.dismissRecall(id, reason)) {
+                is Outcome.Success -> {
+                    mutableState.update { s -> s.copy(items = s.items.filter { it.id != id }, error = null) }
+                }
+
+                is Outcome.Failure -> {
+                    log.warn("recalls.dismiss_failed") { code("error", answer.error.code.value) }
+                    if (answer.error.kind == ApiErrorKind.Conflict) {
+                        load()
+                    } else {
+                        mutableState.update { it.copy(error = ScreenError.of(answer.error)) }
+                    }
+                }
+            }
         }
     }
 }

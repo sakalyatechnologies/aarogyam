@@ -64,9 +64,32 @@ final class VisitE2ETests: XCTestCase {
             tap(wait(app.buttons["Start visit for token \(token)"], timeout: 15))
             _ = wait(app.buttons["Wrap up this visit"], timeout: 20)
         }
+        // The standard visit: chair mode (no dictation or photo on the simulator), one treatment, one prescription.
+        step("chair") {
+            tap(wait(app.buttons["Open chair mode, large buttons for dictation and photos"]))
+            tap(wait(app.buttons["Done"]))
+            _ = wait(app.buttons["Wrap up this visit"])
+        }
+        step("tooth") {
+            tap(scrolledTo(app.buttons["Other…"]))
+            tap(wait(app.buttons["16"]))
+            let chips = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Add ' AND NOT label CONTAINS 'to the prescription'"))
+            tap(scrolledTo(wait(chips.firstMatch)))
+            _ = wait(app.staticTexts["Tooth 16"])
+        }
+        step("rx") {
+            tap(scrolledTo(app.buttons["Write prescription"]))
+            let search = wait(app.textFields["Search medicine"])
+            tap(search)
+            search.typeText("Paracetamol")
+            let drug = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Add Paracetamol'")).firstMatch
+            tap(wait(drug, timeout: 15))
+        }
         shot("doctor-visit")
         step("wrap-up") {
-            tap(app.buttons["Wrap up this visit"])
+            tap(scrolledTo(app.buttons["Wrap up this visit"]))
+            let rxToggle = wait(app.switches["Issue Rx"])
+            if (rxToggle.value as? String) != "1" { tap(rxToggle) }
             let fee = wait(app.textFields["Fee (₹)"])
             tap(fee)
             if let text = fee.value as? String, !text.isEmpty, text != "Fee (₹)" {

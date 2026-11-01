@@ -3,8 +3,8 @@ import SakalyaUI
 import SwiftUI
 import UIKit
 
-/// The doctor's "Waiting for you" card, inline at the top of the Today tab. A new arrival shows the banner and a
-/// haptic. Send in keeps the row, which then offers Start visit (`onStart`). Only the Doctor home draws it.
+/// The doctor's "Waiting for you" card, inline at the top of the Today tab. A new arrival opens it (the app-wide banner
+/// announces it). Send in keeps the row, which then offers Start visit (`onStart`). Only the Doctor home draws it.
 struct DoctorWaitingHook: View {
     let graph: AppGraph
     let clinic: ClinicContext
@@ -38,14 +38,13 @@ private struct DoctorWaitingPresenter: View {
     let onStart: (VisitRoute) -> Void
     @State private var collapsed = false
     @State private var known: Set<String>?
-    @State private var banner: String?
 
     var body: some View {
         Group {
             if collapsed {
                 Button(dv10("dv10.waiting.title")) { collapsed = false }
                     .v7Text(15, .bold).frame(maxWidth: .infinity, minHeight: SkSpacing.minTouchTarget)
-            } else if state.loaded && state.rows.isEmpty && banner == nil {
+            } else if state.loaded && state.rows.isEmpty {
                 // Nobody waiting: one quiet line, so Today keeps the screen.
                 HStack {
                     Text(dv10("dv10.waiting.title")).v7Text(15, .bold)
@@ -54,7 +53,7 @@ private struct DoctorWaitingPresenter: View {
                 }
                 .padding(.horizontal, SkSpacing.l).frame(minHeight: SkSpacing.minTouchTarget)
             } else {
-                DoctorWaitingCard(holder: holder, state: state, banner: banner, onStart: onStart) { collapsed = true }
+                DoctorWaitingCard(holder: holder, state: state, onStart: onStart) { collapsed = true }
                     .frame(maxHeight: 300)
             }
         }
@@ -69,9 +68,7 @@ private struct DoctorWaitingPresenter: View {
         let now = Set(ids)
         defer { known = now }
         guard let known else { return }
-        guard let fresh = state.rows.first(where: { !known.contains($0.id) }) else { return }
-        banner = dv10f("dv10.waiting.banner", String(fresh.tokenNumber))
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        guard state.rows.contains(where: { !known.contains($0.id) }) else { return }
         collapsed = false
     }
 }

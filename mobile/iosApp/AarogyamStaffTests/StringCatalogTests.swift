@@ -4,7 +4,7 @@ import XCTest
 /// Every screen's string table ships with text in each language. A missing table doesn't fail the build:
 /// the screen just shows its keys ("iv.title"), which is how the intake form's empty catalog went unnoticed.
 final class StringCatalogTests: XCTestCase {
-    private let tables = ["DeskV9", "DeskV10", "DoctorV10", "IntakeV10", "PatientV7", "PatientV9", "TasksV10"]
+    private let tables = ["DeskV9", "DeskV10", "DoctorV10", "IntakeV10", "LiveV10", "PatientV7", "PatientV9", "TasksV10"]
 
     private func keys(_ table: String, _ language: String) -> Set<String> {
         guard let path = Bundle.main.path(forResource: table, ofType: "strings", inDirectory: nil, forLocalization: language),

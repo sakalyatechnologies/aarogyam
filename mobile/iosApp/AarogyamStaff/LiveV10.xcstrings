@@ -1,0 +1,167 @@
+{
+  "sourceLanguage": "en",
+  "version": "1.0",
+  "strings": {
+    "lv10.collect": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Token %d is ready to pay"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टोकन %d भुगतान के लिए तैयार है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टोकन %d पैसे भरण्यासाठी तयार आहे"
+          }
+        }
+      }
+    },
+    "lv10.collect.nonumber": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A patient is ready to pay"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक मरीज़ भुगतान के लिए तैयार है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक रुग्ण पैसे भरण्यासाठी तयार आहे"
+          }
+        }
+      }
+    },
+    "lv10.dismiss": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to dismiss"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बंद करने के लिए टैप करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बंद करण्यासाठी टॅप करा"
+          }
+        }
+      }
+    },
+    "lv10.sendin": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Token %d: the doctor is ready for them"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टोकन %d: डॉक्टर उनके लिए तैयार हैं"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टोकन %d: डॉक्टर त्यांच्यासाठी तयार आहेत"
+          }
+        }
+      }
+    },
+    "lv10.sendin.nonumber": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The doctor is ready for the next patient"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "डॉक्टर अगले मरीज़ के लिए तैयार हैं"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "डॉक्टर पुढच्या रुग्णासाठी तयार आहेत"
+          }
+        }
+      }
+    },
+    "lv10.waiting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Token %d is waiting for you"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टोकन %d आपकी प्रतीक्षा में है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टोकन %d तुमची वाट पाहत आहे"
+          }
+        }
+      }
+    },
+    "lv10.waiting.nonumber": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A patient is waiting for you"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक मरीज़ आपकी प्रतीक्षा में है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक रुग्ण तुमची वाट पाहत आहे"
+          }
+        }
+      }
+    }
+  }
+}

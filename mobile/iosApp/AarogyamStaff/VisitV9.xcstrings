@@ -2370,6 +2370,29 @@
           }
         }
       }
+    },
+    "v9v.rx.set.a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add set %@, %lld medicines"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सेट %@ जोड़ें, %lld दवाइयाँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सेट %@ जोडा, %lld औषधे"
+          }
+        }
+      }
     }
   }
 }

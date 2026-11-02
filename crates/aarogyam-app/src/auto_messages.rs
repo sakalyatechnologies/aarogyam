@@ -38,6 +38,7 @@ async fn enabled(tx: &mut ScopedTx, message: AutoMessage) -> Result<bool, AppErr
         AutoMessage::Welcome => prefs.welcome,
         AutoMessage::VisitSummary => prefs.visit_summary,
         AutoMessage::FollowUpBooking => prefs.follow_up_booking,
+        AutoMessage::Thanks => prefs.thanks,
     })
 }
 
@@ -172,7 +173,43 @@ pub(crate) async fn welcome(
             patient_id,
             variables: Value::Object(variables),
             secret: None,
-            dedupe_key: format!("auto:welcome:{patient_id}"),
+            dedupe_key: format!("auto:welcome:{token_id}"),
+            scheduled_for: None,
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+/// Queues the thank-you when a payment settles a visit's bill: a thank-you and the clinic's
+/// booking link, nothing else (no name, amount or clinical word). At most one per visit (the
+/// dedupe key is the visit's), so a retried payment or a second bill queues nothing more.
+/// Nothing for a bill with no visit, when the clinic switched it off, or has no portal address;
+/// a patient who can't be sent it gets a skipped record with the reason.
+///
+/// # Errors
+/// [`AppError::Db`] on database failures; [`AppError::NotFound`] for an unknown patient.
+pub(crate) async fn bill_settled(
+    tx: &mut ScopedTx,
+    patient_id: Uuid,
+    invoice_id: Uuid,
+) -> Result<(), AppError> {
+    let Some(visit_id) = dal::encounter_of_invoice(tx.conn(), invoice_id).await? else {
+        return Ok(());
+    };
+    if !enabled(tx, AutoMessage::Thanks).await? || staff::portal_host(tx.conn()).await?.is_none() {
+        return Ok(());
+    }
+    let channel = channel_for(tx, patient_id, &[MessageKind::VisitThanks]).await?;
+    queue(
+        tx,
+        channel,
+        Auto {
+            kind: MessageKind::VisitThanks,
+            patient_id,
+            variables: json!({}),
+            secret: None,
+            dedupe_key: format!("auto:thanks:{visit_id}"),
             scheduled_for: None,
         },
     )

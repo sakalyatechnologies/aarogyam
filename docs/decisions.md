@@ -14,6 +14,14 @@ Newest first. Change a decision by adding an entry that supersedes it.
 
 **Why.** An open stream keeps Cloud Run billing CPU (about $60-90 a month with daily use); short polls from visible screens cost almost nothing. Switching on later is one setting.
 
+## 2026-11-01: Welcome and thank-you status on the queue token; a thank-you when the bill is paid
+
+**Decision.** Two additive changes on top of the automatic messages (migration 0707 adds the `visit.thanks` templates only).
+
+- **Status on the queue token.** `QueueToken` gains optional `welcome_status`, `thanks_status` (`queued`, `sent`, `failed` or `skipped`; `sending` shows as `queued`) and `welcome_skip_reason`, `thanks_skip_reason` (the `SkipReason` text, such as `no_consent`, `opted_out`, `no_address`; set only when skipped). All four are absent when no such message applies (an appointment token, a returning patient, a switch off). They come from a lateral join on `messages` in the queue list and get queries, so the queue adds no round trip per token. The welcome's dedupe key is now `auto:welcome:{token_id}` (was the patient id; a walk-in registers a patient once, so at most once still holds) so a token finds its own welcome; the thank-you's key is `auto:thanks:{visit_id}` and a token finds it through its visit. The walk-in response queues the welcome before reading the token back, so it shows `welcome_status` at once.
+- **Thank-you.** When a payment settles a bill that belongs to a visit (the same place that moves `ready_to_bill` to `done`, in the payment's transaction), `visit.thanks` is queued once per visit: a part payment queues nothing, and a retried payment or a second bill of the same visit hits the dedupe key. A bill with no visit gets none. The text is a thank-you and the clinic's booking link (`booking_link`, filled by the worker) only: no name, amount or clinical word (AGENTS.md rule 6). It is a care message (purpose `care`), so it needs care consent as the welcome does; when it can't be sent it is recorded as `skipped` with the reason. The switch `thanks` (default on) is a key of `org_settings.notifications`, read and written through `GET/PATCH /settings/notifications`, optional in the schema like `welcome`. The portal's Booking and notifications tab has a fourth switch.
+- **No review link.** The clinic has no review-link setting yet, so the message carries the booking link; a review link can replace it in the template later without an API change.
+
 ## 2026-10-29: Automatic patient messages (welcome, visit summary, follow-up booking)
 
 **Ported to main on 2026-10-29** from the v9 WIP (`e2e91223`, written on the pre-no-show main): the same design, rebased onto the current visit close (payment, no-show, overpayment) and onto migration 0684's template defaults (0703 wraps that version). The portal's Booking and notifications tab has the three switches.

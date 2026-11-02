@@ -189,3 +189,20 @@ pub async fn record_skipped(
     .await?;
     Ok(done.rows_affected() == 1)
 }
+
+/// The visit (encounter) a bill belongs to; `None` for a bill with no visit.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn encounter_of_invoice(
+    conn: &mut PgConnection,
+    invoice_id: Uuid,
+) -> Result<Option<Uuid>, DbError> {
+    let id = sqlx::query_scalar!(
+        "select encounter_id from aarogyam.invoices where id = $1",
+        invoice_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(id.flatten())
+}

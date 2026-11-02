@@ -49,10 +49,11 @@ function NotificationsCard() {
       },
     });
   };
-  const automatic: ["welcome" | "visit_summary" | "follow_up_booking", string, string][] = [
+  const automatic: ["welcome" | "visit_summary" | "follow_up_booking" | "thanks", string, string][] = [
     ["welcome", "Welcome message", "Sent when a new patient registers, with the wait time"],
     ["visit_summary", "Visit summary link", "Sent when a visit closes, then the PIN a moment later"],
     ["follow_up_booking", "Follow-up booking link", "Two days before a planned follow-up · needs reminders consent"],
+    ["thanks", "Thank-you after payment", "Sent once, when a visit's bill is paid in full, with your booking link"],
   ];
   return (
     <MkCard title="Notifications" hint="Quiet hours 9 PM – 9 AM IST">

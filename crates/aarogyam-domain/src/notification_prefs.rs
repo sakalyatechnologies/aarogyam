@@ -81,6 +81,9 @@ pub struct NotificationPrefs {
     pub visit_summary: bool,
     /// The booking link two days before a follow-up planned at close is due (default off).
     pub follow_up_booking: bool,
+    /// A thank-you with the clinic's booking or review link when a payment settles the bill
+    /// (default on).
+    pub thanks: bool,
     /// Quiet hours for reminders and offers.
     pub quiet_hours: QuietHours,
 }
@@ -97,6 +100,7 @@ impl Default for NotificationPrefs {
             welcome: true,
             visit_summary: true,
             follow_up_booking: false,
+            thanks: true,
             quiet_hours: QuietHours::default(),
         }
     }
@@ -134,6 +138,8 @@ pub struct NotificationChanges {
     pub visit_summary: Option<bool>,
     /// The follow-up booking message.
     pub follow_up_booking: Option<bool>,
+    /// The thank-you after the bill is paid.
+    pub thanks: Option<bool>,
     /// Quiet hours.
     pub quiet_hours: Option<QuietHoursChanges>,
 }
@@ -178,6 +184,7 @@ impl NotificationPrefs {
             welcome: flag(stored, "welcome", defaults.welcome),
             visit_summary: flag(stored, "visit_summary", defaults.visit_summary),
             follow_up_booking: flag(stored, "follow_up_booking", defaults.follow_up_booking),
+            thanks: flag(stored, "thanks", defaults.thanks),
             quiet_hours: QuietHours {
                 enabled: flag(quiet, "enabled", true),
                 start: time_of("start", defaults.quiet_hours.start),
@@ -213,6 +220,7 @@ impl NotificationPrefs {
         next.welcome = changes.welcome.unwrap_or(next.welcome);
         next.visit_summary = changes.visit_summary.unwrap_or(next.visit_summary);
         next.follow_up_booking = changes.follow_up_booking.unwrap_or(next.follow_up_booking);
+        next.thanks = changes.thanks.unwrap_or(next.thanks);
         *self = next;
         Ok(())
     }
@@ -233,6 +241,7 @@ impl NotificationPrefs {
                 ("welcome", self.welcome),
                 ("visit_summary", self.visit_summary),
                 ("follow_up_booking", self.follow_up_booking),
+                ("thanks", self.thanks),
             ] {
                 map.insert(key.to_owned(), Value::Bool(value));
             }

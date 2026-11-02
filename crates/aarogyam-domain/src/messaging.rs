@@ -435,6 +435,7 @@ pub fn allowed_variables(key: &str) -> &'static [&'static str] {
         "patient.welcome" => &["clinic_name", "app_link", "website_link", "wait_minutes"],
         "visit.summary" => &["clinic_name", "share_link"],
         "visit.summary_pin" => &["clinic_name", "pin"],
+        "visit.thanks" => &["clinic_name", "booking_link"],
         _ => SYSTEM_VARIABLES,
     }
 }
@@ -448,6 +449,8 @@ text_value! {
         VisitSummary => "visit_summary",
         /// The booking link, two days before a follow-up is due.
         FollowUpBooking => "follow_up_booking",
+        /// The thank-you with the booking link, after a payment settles the bill.
+        Thanks => "thanks",
     }
 }
 
@@ -524,6 +527,7 @@ mod tests {
             "visit.summary",
             "visit.summary_pin",
             "visit.follow_up_booking",
+            "visit.thanks",
         ] {
             for name in allowed_variables(key) {
                 assert!(

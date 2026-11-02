@@ -149,11 +149,12 @@ pub async fn register(
             now,
         )
         .await?;
-        let token = token_view(tx, token_id, now, today).await?;
-        // A patient this walk-in just registered gets the welcome, queued with the registration.
+        // A patient this walk-in just registered gets the welcome, queued with the registration
+        // (before the token is read back, so the token shows its welcome status).
         if registered {
             crate::auto_messages::welcome(tx, patient_id, token_id).await?;
         }
+        let token = token_view(tx, token_id, now, today).await?;
         Ok(WalkInView {
             patient,
             registered,

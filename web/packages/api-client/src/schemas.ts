@@ -434,6 +434,7 @@ export const notificationSettings = z.object({
   welcome: z.boolean(),
   visit_summary: z.boolean(),
   follow_up_booking: z.boolean(),
+  thanks: z.boolean(),
   quiet_hours: quietHours,
 }) satisfies z.ZodType<C.NotificationSettings>;
 export type NotificationSettings = z.output<typeof notificationSettings>;
@@ -782,6 +783,9 @@ export type StaffOpsSettingsChanges = C.StaffOpsSettingsChanges;
 export const queueTokenStatus = z.enum(["waiting", "called", "in_chair", "ready_to_bill", "done", "left"]) satisfies z.ZodType<C.QueueTokenStatus>;
 export type QueueTokenStatus = z.output<typeof queueTokenStatus>;
 
+/** What became of an automatic message to the patient, as the queue shows it. */
+const autoMessageStatus = z.enum(["queued", "sent", "failed", "skipped"]);
+
 export const queueToken = z.object({
   id: queueTokenId,
   branch_id: z.string().min(1),
@@ -796,6 +800,10 @@ export const queueToken = z.object({
   done_at: optionalTimestamp,
   room_id: roomId.nullable().exactOptional(),
   reason: optionalText,
+  welcome_status: autoMessageStatus.exactOptional(),
+  welcome_skip_reason: optionalText,
+  thanks_status: autoMessageStatus.exactOptional(),
+  thanks_skip_reason: optionalText,
   wait_minutes: z.number().int().nonnegative(),
 }) satisfies z.ZodType<C.QueueToken>;
 export type QueueToken = z.output<typeof queueToken>;

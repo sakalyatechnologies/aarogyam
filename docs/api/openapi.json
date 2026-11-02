@@ -29041,6 +29041,10 @@
             "type": "boolean",
             "description": "Remind patients two hours before (default off)."
           },
+          "thanks": {
+            "type": "boolean",
+            "description": "Thank-you with the clinic's booking link when a payment settles the bill (default on)."
+          },
           "visit_summary": {
             "type": "boolean",
             "description": "Visit summary link, then its PIN in a second message, after a visit closes (default on)."
@@ -29114,6 +29118,13 @@
               "null"
             ],
             "description": "The two-hour reminder."
+          },
+          "thanks": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The thank-you when a payment settles the bill."
           },
           "visit_summary": {
             "type": [
@@ -33044,6 +33055,20 @@
             "type": "string",
             "description": "`waiting`, `called` (sent in by the doctor), `in_chair`, `ready_to_bill`, `done` or\n`left`."
           },
+          "thanks_skip_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the thank-you was skipped, when it was."
+          },
+          "thanks_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The thank-you queued when a payment settled the bill, with the same values."
+          },
           "token_number": {
             "type": "integer",
             "format": "int32",
@@ -33053,6 +33078,20 @@
             "type": "integer",
             "format": "int64",
             "description": "Minutes waited: until now while waiting, otherwise until called."
+          },
+          "welcome_skip_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the welcome was skipped (`no_consent`, `opted_out`, `no_address`), when it was."
+          },
+          "welcome_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The welcome message to a walk-in's new patient: `queued`, `sent`, `failed` or `skipped`.\nAbsent when no welcome applied (an appointment, a returning patient, or switched off)."
           }
         }
       },

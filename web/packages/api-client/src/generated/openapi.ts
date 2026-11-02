@@ -10014,6 +10014,8 @@ export interface components {
             reminder_24h: boolean;
             /** @description Remind patients two hours before (default off). */
             reminder_2h: boolean;
+            /** @description Thank-you with the clinic's booking link when a payment settles the bill (default on). */
+            thanks?: boolean;
             /** @description Visit summary link, then its PIN in a second message, after a visit closes (default on). */
             visit_summary?: boolean;
             /** @description Welcome message to a walk-in's new patient, with the estimated wait (default on). */
@@ -10036,6 +10038,8 @@ export interface components {
             reminder_24h?: boolean | null;
             /** @description The two-hour reminder. */
             reminder_2h?: boolean | null;
+            /** @description The thank-you when a payment settles the bill. */
+            thanks?: boolean | null;
             /** @description The visit summary link, then its PIN, after a visit closes. */
             visit_summary?: boolean | null;
             /** @description The welcome message after a walk-in registers (with the estimated wait). */
@@ -11647,6 +11651,10 @@ export interface components {
              *     `left`.
              */
             status: string;
+            /** @description Why the thank-you was skipped, when it was. */
+            thanks_skip_reason?: string | null;
+            /** @description The thank-you queued when a payment settled the bill, with the same values. */
+            thanks_status?: string | null;
             /**
              * Format: int32
              * @description Number shown on the screen; restarts at 1 each day per branch.
@@ -11657,6 +11665,13 @@ export interface components {
              * @description Minutes waited: until now while waiting, otherwise until called.
              */
             wait_minutes: number;
+            /** @description Why the welcome was skipped (`no_consent`, `opted_out`, `no_address`), when it was. */
+            welcome_skip_reason?: string | null;
+            /**
+             * @description The welcome message to a walk-in's new patient: `queued`, `sent`, `failed` or `skipped`.
+             *     Absent when no welcome applied (an appointment, a returning patient, or switched off).
+             */
+            welcome_status?: string | null;
         };
         /** @description Several medicines added in one tap, each still editable; the allergy check still runs on issue. */
         QuickMedicineSet: {

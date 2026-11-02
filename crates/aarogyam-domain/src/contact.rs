@@ -34,6 +34,8 @@ pub enum PatientMessage {
     VisitSummary,
     /// The booking link for a follow-up that is due.
     FollowUpBooking,
+    /// The thank-you after a bill is paid in full.
+    VisitThanks,
 }
 
 impl PatientMessage {
@@ -51,6 +53,7 @@ impl PatientMessage {
         Self::Welcome,
         Self::VisitSummary,
         Self::FollowUpBooking,
+        Self::VisitThanks,
     ];
 
     /// The consent purpose the message needs.
@@ -63,7 +66,8 @@ impl PatientMessage {
             | Self::ConsentRequest
             | Self::PaymentReceipt
             | Self::Welcome
-            | Self::VisitSummary => Purpose::Care,
+            | Self::VisitSummary
+            | Self::VisitThanks => Purpose::Care,
             Self::AppointmentReminder | Self::Recall | Self::FollowUpBooking => Purpose::Reminders,
             Self::Campaign | Self::Birthday => Purpose::Promotional,
         }
@@ -97,6 +101,7 @@ impl PatientMessage {
             MessageKind::Welcome => Some(Self::Welcome),
             MessageKind::VisitSummary | MessageKind::VisitSummaryPin => Some(Self::VisitSummary),
             MessageKind::FollowUpBooking => Some(Self::FollowUpBooking),
+            MessageKind::VisitThanks => Some(Self::VisitThanks),
         }
     }
 }
@@ -116,6 +121,7 @@ mod tests {
             M::PaymentReceipt,
             M::Welcome,
             M::VisitSummary,
+            M::VisitThanks,
         ];
         let reminders = [M::AppointmentReminder, M::Recall, M::FollowUpBooking];
         let promotional = [M::Campaign, M::Birthday];

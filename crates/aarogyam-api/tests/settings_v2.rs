@@ -513,6 +513,7 @@ async fn notification_switches_have_defaults_validation_and_keep_other_keys() {
             "reminder_24h": true, "reminder_2h": false, "receipts": false, "recall": true,
             "low_stock": true, "lab_due": true, "welcome": true, "visit_summary": true,
             "follow_up_booking": false,
+            "thanks": true,
             "quiet_hours": { "enabled": true, "start": "21:00", "end": "09:00" }
         })
     );

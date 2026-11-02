@@ -110,6 +110,8 @@ pub enum Event {
     ConsentRecorded,
     /// A patient withdrew a consent.
     ConsentWithdrawn,
+    /// A signature was attached to a recorded consent.
+    ConsentSignatureSet,
     /// A clinical record was marked entered in error.
     RecordRetracted,
     /// A treatment plan was accepted.
@@ -276,6 +278,7 @@ impl Event {
             Self::PatientNoteSaved => "patient_note.saved",
             Self::ConsentRecorded => "consent.recorded",
             Self::ConsentWithdrawn => "consent.withdrawn",
+            Self::ConsentSignatureSet => "consent.signature_set",
             Self::RecordRetracted => "record.retracted",
             Self::TreatmentPlanAccepted => "treatment_plan.accepted",
             Self::ProcedureCompleted => "procedure.completed",

@@ -495,6 +495,14 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/consents`, schema: consentList, signal: opts?.signal }),
     recordConsent: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/consents`, schema: consent, body: input, signal: opts?.signal }),
+    setConsentSignature: (patient, consent_id, input, opts) =>
+      call({
+        method: "PUT",
+        path: `/api/v1/patients/${encodeURIComponent(patient)}/consents/${encodeURIComponent(consent_id)}/signature`,
+        schema: consent,
+        body: input,
+        signal: opts?.signal,
+      }),
     withdrawConsent: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/consents/${encodeURIComponent(id)}/withdraw`, schema: consent, body: input, signal: opts?.signal }),
     getPatientNotes: (id, opts) =>

@@ -46,6 +46,12 @@ pub enum AppError {
         /// The record's version now.
         current: i64,
     },
+    /// The consent already has a different signature (`409 signature_already_set`).
+    #[error("this consent already has a signature")]
+    SignatureAlreadySet,
+    /// The consent was withdrawn, so it can't take a signature (`409 consent_withdrawn`).
+    #[error("this consent was withdrawn")]
+    ConsentWithdrawn,
     /// Only a waiting patient can be reminded about (`409 not_waiting`).
     #[error("the patient is not waiting")]
     NotWaiting,

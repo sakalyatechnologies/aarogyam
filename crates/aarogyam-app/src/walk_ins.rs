@@ -75,6 +75,8 @@ pub struct WalkInView {
     pub conditions_recorded: u64,
     /// The purposes whose consent was recorded (ones already in force are left as they are).
     pub consents_recorded: Vec<Purpose>,
+    /// The ids of those consent rows, in the same order.
+    pub consent_ids: Vec<Uuid>,
 }
 
 /// Registers (or takes) the patient, records allergies or "No known allergies" and the desk
@@ -162,6 +164,7 @@ pub async fn register(
             allergies_recorded: recorded.allergies,
             conditions_recorded: recorded.conditions,
             consents_recorded: recorded.consents,
+            consent_ids: recorded.consent_ids,
         })
     })
     .await

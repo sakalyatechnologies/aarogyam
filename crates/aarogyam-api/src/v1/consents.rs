@@ -116,6 +116,13 @@ pub struct WithdrawConsent {
     pub note: Option<String>,
 }
 
+/// The signature to attach to a consent.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SetConsentSignature {
+    /// The id of a file of kind `consent` uploaded for the same patient.
+    pub signature_attachment_id: String,
+}
+
 /// The patient's consent records, newest first.
 #[utoipa::path(
     get,
@@ -251,6 +258,52 @@ pub(crate) async fn withdraw(
         consent_id = %id,
         purpose = view.purpose.as_str(),
         "consent withdrawn"
+    );
+    Ok(Json(view.into()))
+}
+
+/// Attaches the patient's signature to a consent already recorded (such as one a walk-in
+/// recorded). Set once: the same file again returns 200 unchanged.
+#[utoipa::path(
+    put,
+    path = "/api/v1/patients/{id}/consents/{consent_id}/signature",
+    operation_id = "setPatientConsentSignature",
+    tag = "patients",
+    params(
+        ("id" = String, Path, description = "The patient"),
+        ("consent_id" = String, Path, description = "The consent")
+    ),
+    request_body = SetConsentSignature,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Consent),
+        (status = 400, description = "The signature is not a file of kind consent of the patient (`signature_attachment_id`)"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks patients.write"),
+        (status = 404, description = "No such consent for that patient in this clinic, or the patient is out of the role's reach"),
+        (status = 409, description = "`signature_already_set`: a different signature is already set; `consent_withdrawn`: the consent was withdrawn")
+    )
+)]
+pub(crate) async fn set_signature(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<PatientsWrite>,
+    ApiPath((patient_id, consent_id)): ApiPath<(Uuid, Uuid)>,
+    ApiJson(body): ApiJson<SetConsentSignature>,
+) -> Result<Json<Consent>, ApiFailure> {
+    let attachment_id = parse_id("signature_attachment_id", &body.signature_attachment_id)?;
+    let view = app::set_signature(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PatientId::from_uuid(patient_id),
+        consent_id,
+        attachment_id,
+    )
+    .await?;
+    tracing::info!(
+        event = Event::ConsentSignatureSet.as_str(),
+        consent_id = %consent_id,
+        "consent signature set"
     );
     Ok(Json(view.into()))
 }

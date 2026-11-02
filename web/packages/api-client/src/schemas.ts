@@ -1579,6 +1579,8 @@ export type ConsentPage = z.output<typeof consentList>;
 export type RecordConsent = C.RecordConsent;
 /** Body of `POST /api/v1/consents/{id}/withdraw`. */
 export type WithdrawConsent = C.WithdrawConsent;
+/** Body of `PUT /api/v1/patients/{id}/consents/{consent_id}/signature`. */
+export type SetConsentSignature = C.SetConsentSignature;
 
 /** Body of `PUT /api/v1/patients/{id}/summary-note`. */
 export type SummaryContent = C.SummaryContent;
@@ -3149,6 +3151,8 @@ export const walkIn = z.object({
   /** The family link made, when `family_of` was given. */
   family_link_id: z.string().nullable().exactOptional(),
   consents_recorded: z.array(consentPurpose),
+  /** The consent rows just recorded (same order); absent from older servers. */
+  consents: z.array(z.object({ id: consentId, purpose: consentPurpose })).exactOptional(),
 }) satisfies z.ZodType<C.WalkIn>;
 export type WalkIn = z.output<typeof walkIn>;
 

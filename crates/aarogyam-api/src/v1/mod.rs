@@ -269,6 +269,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/patients/{id}/consents/request",
             post(consent_requests::request),
         )
+        .route(
+            "/patients/{id}/consents/{consent_id}/signature",
+            put(consents::set_signature),
+        )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
         .route("/patients/{id}/family", get(family::list).post(family::add))
         .route("/patients/{id}/family/{link_id}", delete(family::remove))

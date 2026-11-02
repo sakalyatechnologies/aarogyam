@@ -238,6 +238,7 @@ import type {
   Consent,
   RecordConsent,
   WithdrawConsent,
+  SetConsentSignature,
   SummaryContent,
   SummaryNote,
   Timeline,
@@ -656,6 +657,8 @@ export interface ApiClient {
   recordConsent(id: PatientId, input: RecordConsent, options?: RequestOptions): Promise<ApiResult<Consent>>;
   /** Clinic host: records that the patient withdrew a consent. Needs `patients.write`. */
   withdrawConsent(id: ConsentId, input: WithdrawConsent, options?: RequestOptions): Promise<ApiResult<Consent>>;
+  /** Clinic host: attaches the patient's signature (a `consent` file of the same patient) to a recorded consent, once; the same file again is `200`, a different one `409 signature_already_set`, a withdrawn consent `409 consent_withdrawn`. Needs `patients.write`. */
+  setConsentSignature(patient: PatientId, consent: ConsentId, input: SetConsentSignature, options?: RequestOptions): Promise<ApiResult<Consent>>;
   /** Clinic host: a patient's summary note and visit notes, for Patient 360. Needs `clinical.read`. */
   getPatientNotes(id: PatientId, options?: RequestOptions): Promise<ApiResult<PatientNotes>>;
   /**

@@ -376,6 +376,7 @@ export type Consent = Schemas["Consent"];
 export type ConsentList = Schemas["ConsentList"];
 export type RecordConsent = Schemas["RecordConsent"];
 export type WithdrawConsent = Schemas["WithdrawConsent"];
+export type SetConsentSignature = Schemas["SetConsentSignature"];
 export type ConsentPurpose = "care" | "reminders" | "promotional" | "sharing" | "research";
 export type ConsentMethod = "paper" | "verbal" | "app";
 export type ConsentStatus = "given" | "withdrawn";

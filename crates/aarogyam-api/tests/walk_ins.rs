@@ -65,6 +65,14 @@ async fn the_front_desk_registers_a_walk_in_in_one_step() {
     // The same substance twice (any case) is one allergy.
     assert_eq!(walk_in["allergies_recorded"], 2);
     assert_eq!(walk_in["consents_recorded"], json!(["care", "reminders"]));
+    let consents = walk_in["consents"].as_array().unwrap();
+    assert_eq!(consents.len(), 2);
+    assert_eq!(consents[0]["purpose"], "care");
+    assert_eq!(consents[1]["purpose"], "reminders");
+    let recorded_ids: Vec<String> = consents
+        .iter()
+        .map(|consent| consent["id"].as_str().unwrap().to_owned())
+        .collect();
     let patient = walk_in["patient"]["id"].as_str().unwrap().to_owned();
 
     // The front desk can't read clinical details: allergies, visits.
@@ -117,6 +125,7 @@ async fn the_front_desk_registers_a_walk_in_in_one_step() {
     let consents = consents["items"].as_array().unwrap();
     assert_eq!(consents.len(), 2);
     for consent in consents {
+        assert!(recorded_ids.contains(&consent["id"].as_str().unwrap().to_owned()));
         assert_eq!(consent["notice_version"], "v1 2026-10");
         assert_eq!(consent["method"], "verbal");
         assert_eq!(consent["recorded_by"], "Farah Desk");
@@ -175,6 +184,7 @@ async fn the_front_desk_registers_a_walk_in_in_one_step() {
     assert_eq!(again["token"]["token_number"], 2);
     assert_eq!(again["allergies_recorded"], 1);
     assert_eq!(again["consents_recorded"], json!([]));
+    assert_eq!(again["consents"], json!([]));
 
     // "No known allergies" contradicts the record: refused, and nothing is issued.
     let (status, refused) = post(

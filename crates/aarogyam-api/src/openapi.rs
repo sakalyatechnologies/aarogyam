@@ -112,6 +112,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::consents::list,
         crate::v1::consents::record,
         crate::v1::consents::withdraw,
+        crate::v1::consents::set_signature,
         crate::v1::consent_requests::request,
         crate::v1::consent_requests::preview,
         crate::v1::consent_requests::sign,

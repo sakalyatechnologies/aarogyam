@@ -730,3 +730,12 @@ so tests exercise the stream.
 - **Access.** All three need `tasks.use`. Unlike avatars there are no signed links: the photo can show the clinic's premises, so it is read only through the signed-in route, by the person the task is for (or holding its role), whoever finished it, or a role with `tasks.manage`; anyone else gets 403 and another clinic 404. Uploading needs the task to be the caller's and open (or done by them). A replaced photo is removed from storage. No patient data is logged.
 
 **Why.** The phone needs a signed consent on file and evidence that a cleaning or sterilisation task was done, without making tasks depend on patients.
+
+## 2026-11-01: A doctor's own Send in is muted history; the walk-in intake signature link (G10)
+**Decision.** Migrations 0709 and 0710. Additive API, agreed with the mobile app.
+- **Own send_in (0709).** `app.queue_token_notify` writes the `send_in` row already handled (`handled_at`, `handled_by` = the caller) when the caller is the token's own doctor. The row stays as muted history; handled rows don't count as unread. When the desk or another member calls the token, it is unread for the doctor as before. Audience rules are unchanged.
+- **Walk-in consent ids.** `WalkIn.consents` (`[{id, purpose}]`, optional in the schema) lists the consent rows just recorded, from the same insert (`returning id, purpose`; no extra query). `consents_recorded` stays.
+- **Signature after the fact.** `PUT /patients/{id}/consents/{consent_id}/signature` with `{signature_attachment_id}` returns `Consent`; `patients.write` with reach. The file must be a `consent` file of the same patient (`400`, naming `signature_attachment_id`). Set once: the same id again is `200`; a different id is `409 signature_already_set`; a withdrawn consent is `409 consent_withdrawn`; an unknown consent, another patient's or another clinic's is `404`.
+- **Database guard (0710).** The freeze trigger on `patient_consents` skips only the update that sets `signature_attachment_id` from null on a `given` consent and changes nothing else; every other change stays frozen. The signature guard now also runs on update: kind must be `consent`, and a set value can't change or clear. `app_user` already holds table-level update, so no new grant.
+
+**Why.** The desk records consents at the walk-in, and the patient signs on the tablet afterwards; the doctor who sends in their own patient needs no alert.

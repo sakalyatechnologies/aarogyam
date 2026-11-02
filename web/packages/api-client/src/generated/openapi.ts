@@ -2850,6 +2850,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/consents/{consent_id}/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Attaches the patient's signature to a consent already recorded (such as one a walk-in
+         *     recorded). Set once: the same file again returns 200 unchanged.
+         */
+        put: operations["setPatientConsentSignature"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/contact-preferences": {
         parameters: {
             query?: never;
@@ -12286,6 +12306,11 @@ export interface components {
             /** @description The user. */
             id: string;
         };
+        /** @description The signature to attach to a consent. */
+        SetConsentSignature: {
+            /** @description The id of a file of kind `consent` uploaded for the same patient. */
+            signature_attachment_id: string;
+        };
         /** @description A contact preference to record, on the patient's word. */
         SetContactPreference: {
             /** @description `all`, `care`, `reminders` or `promotional`. */
@@ -14009,6 +14034,12 @@ export interface components {
              * @description How many conditions were recorded.
              */
             conditions_recorded: number;
+            /**
+             * @description The consent rows just recorded, in the same order as `consents_recorded`. A signature
+             *     can be attached to each with `PUT /patients/{id}/consents/{consent_id}/signature`.
+             *     Optional in the schema, so apps built before it read on.
+             */
+            consents?: components["schemas"]["WalkInConsent"][];
             /** @description The purposes whose consent was recorded. */
             consents_recorded: string[];
             /** @description The family link made, from the existing patient's side; absent without `family_of`. */
@@ -14033,6 +14064,13 @@ export interface components {
              *     empty means none.
              */
             reason?: string | null;
+        };
+        /** @description A consent a walk-in just recorded. */
+        WalkInConsent: {
+            /** @description Identifier of the consent record. */
+            id: string;
+            /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
+            purpose: string;
         };
         /**
          * @description A walk-in: a new patient (`patient`) or a registered one (`patient_id`), exactly one of the
@@ -23250,6 +23288,69 @@ export interface operations {
                 content?: never;
             };
             /** @description The patient has no email address, or the clinic has no portal address yet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setPatientConsentSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description The consent */
+                consent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetConsentSignature"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Consent"];
+                };
+            };
+            /** @description The signature is not a file of kind consent of the patient (`signature_attachment_id`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such consent for that patient in this clinic, or the patient is out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `signature_already_set`: a different signature is already set; `consent_withdrawn`: the consent was withdrawn */
             409: {
                 headers: {
                     [name: string]: unknown;

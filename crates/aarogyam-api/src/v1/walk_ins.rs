@@ -103,6 +103,21 @@ pub struct WalkIn {
     pub conditions_recorded: u64,
     /// The purposes whose consent was recorded.
     pub consents_recorded: Vec<String>,
+    /// The consent rows just recorded, in the same order as `consents_recorded`. A signature
+    /// can be attached to each with `PUT /patients/{id}/consents/{consent_id}/signature`.
+    /// Optional in the schema, so apps built before it read on.
+    #[schema(required = false)]
+    pub consents: Vec<WalkInConsent>,
+}
+
+/// A consent a walk-in just recorded.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct WalkInConsent {
+    /// Identifier of the consent record.
+    #[schema(value_type = String)]
+    pub id: uuid::Uuid,
+    /// `care`, `reminders`, `promotional`, `sharing` or `research`.
+    pub purpose: String,
 }
 
 impl From<WalkInView> for WalkIn {
@@ -118,6 +133,15 @@ impl From<WalkInView> for WalkIn {
                 .consents_recorded
                 .iter()
                 .map(|p| p.as_str().to_owned())
+                .collect(),
+            consents: view
+                .consent_ids
+                .iter()
+                .zip(&view.consents_recorded)
+                .map(|(id, purpose)| WalkInConsent {
+                    id: *id,
+                    purpose: purpose.as_str().to_owned(),
+                })
                 .collect(),
         }
     }

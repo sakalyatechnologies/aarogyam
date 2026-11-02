@@ -70,6 +70,213 @@
         }
       }
     },
+    "dx.earlier.collapse": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide list"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सूची छिपाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यादी लपवा"
+          }
+        }
+      }
+    },
+    "dx.earlier.collect": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collect"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वसूलें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वसूल करा"
+          }
+        }
+      }
+    },
+    "dx.earlier.collect.a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collect payment for %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ का भुगतान लें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ चे पेमेंट घ्या"
+          }
+        }
+      }
+    },
+    "dx.earlier.expand": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show list"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सूची दिखाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यादी दाखवा"
+          }
+        }
+      }
+    },
+    "dx.earlier.missed.header": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missed today (%d)"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आज छूटे (%d)"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आज चुकलेले (%d)"
+          }
+        }
+      }
+    },
+    "dx.earlier.missed.row.a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, missed appointment at %2$@, open patient"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ की अपॉइंटमेंट छूटी, मरीज़ खोलें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ ची अपॉइंटमेंट चुकली, रुग्ण उघडा"
+          }
+        }
+      }
+    },
+    "dx.earlier.token": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Token %d"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टोकन %d"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टोकन %d"
+          }
+        }
+      }
+    },
+    "dx.earlier.unpaid.header": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unpaid from earlier days (%1$d) · %2$@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पिछले दिनों का बकाया (%1$d) · %2$@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आधीच्या दिवसांची थकबाकी (%1$d) · %2$@"
+          }
+        }
+      }
+    },
+    "dx.earlier.unpaid.row.a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, token %2$d, %3$@, balance %4$@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, टोकन %2$d, %3$@, बकाया %4$@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, टोकन %2$d, %3$@, बाकी %4$@"
+          }
+        }
+      }
+    },
     "dx.home.checkin": {
       "extractionState": "manual",
       "localizations": {

@@ -7,6 +7,8 @@ import com.aarogyam.staff.notifications.notificationEntries
 import com.aarogyam.staff.pollWhileInFront
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,13 +29,15 @@ data class LiveBannerState(
 /**
  * Watches the unread notifications while the app is in front and raises a [banner] for a new
  * `patient_waiting`, `send_in` or `collect_payment`. The first load only records what is there, so opening the
- * app never replays old rows. The server already filters by audience.
+ * app never replays old rows. The server already filters by audience. A banner goes away by itself after
+ * [showMillis]; the timer lives here, not in the view, so a screen covering the banner cannot stop it.
  */
 class LiveBannerHolder(
     private val clinic: ClinicContext,
     private val scope: CoroutineScope,
     private val inFront: StateFlow<Boolean> = AppForeground.inFront,
     private val periodMillis: Long = PollingUpdates.POLL_MILLIS,
+    private val showMillis: Long = SHOW_MILLIS,
 ) {
     private val mutable = MutableStateFlow<LiveBanner?>(null)
     val banner: StateFlow<LiveBanner?> = mutable.asStateFlow()
@@ -42,6 +46,7 @@ class LiveBannerHolder(
 
     private val seen = LinkedHashSet<String>()
     private var primed = false
+    private var hide: Job? = null
 
     init {
         scope.launch { pollWhileInFront(periodMillis, inFront) { load() } }
@@ -52,8 +57,16 @@ class LiveBannerHolder(
     }
 
     private fun show(banner: LiveBanner?) {
+        hide?.cancel()
         mutable.value = banner
         boxed.value = LiveBannerState(banner)
+        if (banner != null) {
+            hide =
+                scope.launch {
+                    delay(showMillis)
+                    if (mutable.value == banner) show(null)
+                }
+        }
     }
 
     private suspend fun load() {
@@ -78,6 +91,7 @@ class LiveBannerHolder(
 
     private companion object {
         const val MAX_SEEN = 200
+        const val SHOW_MILLIS = 6_000L
         val KINDS = setOf("patient_waiting", "send_in", "collect_payment")
     }
 }

@@ -9,6 +9,7 @@ import com.aarogyam.staff.testGraph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -31,21 +32,33 @@ class LiveBannerHolderTest {
 
     private fun items(vararg rows: String) = """{"items":${rows.joinToString(",", "[", "]")}}"""
 
+    /** [shown]: every banner value in order, since the test clock can run past a banner's few seconds. */
     private class Rig(
         val backend: FakeBackend,
         val holder: LiveBannerHolder,
+        val shown: MutableList<LiveBanner?>,
     )
 
     private suspend fun TestScope.rig(
         first: String,
         front: Boolean = true,
+        showMillis: Long = 60_000,
     ): Rig {
         val backend = FakeBackend()
         backend.on(url, { json(first) })
         val graph = testGraph(backend, backgroundScope)
         val clinic = openClinic(backend, graph, this, emptyList())
-        val holder = LiveBannerHolder(clinic, backgroundScope, MutableStateFlow(front), periodMillis = 50)
-        return Rig(backend, holder)
+        val holder =
+            LiveBannerHolder(
+                clinic,
+                backgroundScope,
+                MutableStateFlow(front),
+                periodMillis = 50,
+                showMillis = showMillis,
+            )
+        val shown = mutableListOf<LiveBanner?>()
+        backgroundScope.launch { holder.banner.collect { shown += it } }
+        return Rig(backend, holder, shown)
     }
 
     @Test
@@ -62,12 +75,24 @@ class LiveBannerHolderTest {
             val r = rig(items(row("n1", "task_assigned")))
             until { r.backend.count(url) >= 1 }
             r.backend.on(url, { json(items(row("n2", "send_in", token = 12), row("n1", "task_assigned"))) })
-            until { r.holder.banner.value != null }
-            assertEquals(LiveBanner("n2", "send_in", 12), r.holder.banner.value)
+            until { r.shown.any { it != null } }
+            assertEquals(LiveBanner("n2", "send_in", 12), r.shown.filterNotNull().first())
             r.holder.dismiss()
             val polls = r.backend.count(url)
             until { r.backend.count(url) >= polls + 2 }
             assertNull(r.holder.banner.value)
+            assertEquals(1, r.shown.count { it != null })
+        }
+
+    @Test
+    fun a_banner_goes_away_by_itself() =
+        runTest {
+            val r = rig(items(), showMillis = 100)
+            until { r.backend.count(url) >= 1 }
+            r.backend.on(url, { json(items(row("n5", "patient_waiting"))) })
+            until { r.shown.any { it != null } }
+            until { r.holder.banner.value == null }
+            assertNull(r.holder.state.value.banner)
         }
 
     @Test

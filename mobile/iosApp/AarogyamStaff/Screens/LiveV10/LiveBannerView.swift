@@ -34,14 +34,8 @@ struct LiveBannerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .allowsHitTesting(shown != nil)
         .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.35), value: shown?.notificationId)
-        .onChange(of: banner?.notificationId) { _, _ in if let banner { show(banner) } }
-        // The 6 s run as a view task: a full-screen cover (chair mode) pauses it, and coming back starts it again,
-        // so a banner never stays up.
-        .task(id: shown?.notificationId) {
-            guard shown != nil else { return }
-            try? await Task.sleep(for: .seconds(6))
-            if !Task.isCancelled { close() }
-        }
+        // The holder hides a banner after 6 s (its timer keeps running under a full-screen cover such as chair mode).
+        .onChange(of: banner?.notificationId) { _, _ in if let banner { show(banner) } else { shown = nil } }
     }
 
     private func show(_ banner: LiveBanner) {

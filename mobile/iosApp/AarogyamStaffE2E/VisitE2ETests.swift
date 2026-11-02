@@ -77,13 +77,11 @@ final class VisitE2ETests: XCTestCase {
             tap(scrolledTo(wait(chips.firstMatch)))
             _ = wait(app.staticTexts["Tooth 16"])
         }
+        // One tap on a medicine set (the dental "Dental pain": Ibuprofen and Pantoprazole).
         step("rx") {
             tap(scrolledTo(app.buttons["Write prescription"]))
-            let search = wait(app.textFields["Search medicine"])
-            tap(search)
-            search.typeText("Paracetamol")
-            let drug = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Add Paracetamol'")).firstMatch
-            tap(wait(drug, timeout: 15))
+            tap(wait(app.buttons["Add set Dental pain, 2 medicines"], timeout: 15))
+            _ = wait(app.buttons["Remove Pantoprazole"])
         }
         shot("doctor-visit")
         step("wrap-up") {

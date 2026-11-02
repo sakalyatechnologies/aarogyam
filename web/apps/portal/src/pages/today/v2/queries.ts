@@ -40,11 +40,11 @@ export function useOpenLabs(enabled: boolean) {
   });
 }
 
-export function useWeeklyCollections(weeks: number, enabled: boolean) {
+export function useWeeklyCollections(weeks: number, enabled: boolean, compare?: "prev") {
   const { api, access } = useClinic();
   return useQuery({
-    queryKey: ["collections-weeks", access.org_id, weeks],
-    queryFn: ({ signal }) => unwrap(api.getCollections({ weeks }, { signal })),
+    queryKey: ["collections-weeks", access.org_id, weeks, compare ?? null],
+    queryFn: ({ signal }) => unwrap(api.getCollections(compare === undefined ? { weeks } : { weeks, compare }, { signal })),
     enabled,
     ...SCHEDULE,
   });

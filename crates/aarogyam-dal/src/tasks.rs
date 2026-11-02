@@ -341,6 +341,58 @@ pub struct OccurrenceRow {
     pub completed_by_name: Option<String>,
     /// What they wrote.
     pub note: Option<String>,
+    /// Whether a proof photo is attached.
+    pub has_proof: bool,
+}
+
+/// The proof photo of an occurrence: its file id and media type.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn proof(conn: &mut PgConnection, id: Uuid) -> Result<Option<(Uuid, String)>, DbError> {
+    let row = sqlx::query!(
+        "select proof_file_id, proof_mime from aarogyam.task_occurrences where id = $1",
+        id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.and_then(|row| row.proof_file_id.zip(row.proof_mime)))
+}
+
+/// Locks the occurrence and returns its current proof file, if any (so a replaced file can be
+/// removed from storage afterwards).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn lock_proof(conn: &mut PgConnection, id: Uuid) -> Result<Option<Uuid>, DbError> {
+    let row = sqlx::query_scalar!(
+        "select proof_file_id from aarogyam.task_occurrences where id = $1 for update",
+        id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row.flatten())
+}
+
+/// Sets the occurrence's proof photo.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn set_proof(
+    conn: &mut PgConnection,
+    id: Uuid,
+    file_id: Uuid,
+    mime: &str,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        "update aarogyam.task_occurrences set proof_file_id = $2, proof_mime = $3 where id = $1",
+        id,
+        file_id,
+        mime
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
 }
 
 /// One occurrence.
@@ -355,7 +407,8 @@ pub async fn occurrence(
         OccurrenceRow,
         r#"select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,
                   o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,
-                  o.completed_by, u.display_name as "completed_by_name?", o.note
+                  o.completed_by, u.display_name as "completed_by_name?", o.note,
+                  (o.proof_file_id is not null) as "has_proof!"
            from aarogyam.task_occurrences o
            left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by
            left join aarogyam.users u on u.id = m.user_id
@@ -401,7 +454,8 @@ pub async fn mine(
         OccurrenceRow,
         r#"select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,
                   o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,
-                  o.completed_by, u.display_name as "completed_by_name?", o.note
+                  o.completed_by, u.display_name as "completed_by_name?", o.note,
+                  (o.proof_file_id is not null) as "has_proof!"
            from aarogyam.task_occurrences o
            left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by
            left join aarogyam.users u on u.id = m.user_id
@@ -435,7 +489,8 @@ pub async fn history(
         OccurrenceRow,
         r#"select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,
                   o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,
-                  o.completed_by, u.display_name as "completed_by_name?", o.note
+                  o.completed_by, u.display_name as "completed_by_name?", o.note,
+                  (o.proof_file_id is not null) as "has_proof!"
            from aarogyam.task_occurrences o
            left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by
            left join aarogyam.users u on u.id = m.user_id

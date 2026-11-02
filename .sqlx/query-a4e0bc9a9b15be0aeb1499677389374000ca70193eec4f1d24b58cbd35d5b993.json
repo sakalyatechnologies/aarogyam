@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,\n                  o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,\n                  o.completed_by, u.display_name as \"completed_by_name?\", o.note\n           from aarogyam.task_occurrences o\n           left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by\n           left join aarogyam.users u on u.id = m.user_id\n           where o.local_date between $1 and $2\n             and ($3::uuid is null\n                  or o.assignee_membership_id = $3 or o.completed_by = $3\n                  or o.assignee_role_id = (select x.role_id from aarogyam.memberships x\n                                           where x.id = $3))\n             and ($4::text is null or o.status = $4)\n             and ($5::uuid is null or o.template_id = $5)\n           order by o.due_at desc, o.id\n           limit $6",
+  "query": "select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,\n                  o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,\n                  o.completed_by, u.display_name as \"completed_by_name?\", o.note,\n                  (o.proof_file_id is not null) as \"has_proof!\"\n           from aarogyam.task_occurrences o\n           left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by\n           left join aarogyam.users u on u.id = m.user_id\n           where o.local_date between $1 and $2\n             and ($3::uuid is null\n                  or o.assignee_membership_id = $3 or o.completed_by = $3\n                  or o.assignee_role_id = (select x.role_id from aarogyam.memberships x\n                                           where x.id = $3))\n             and ($4::text is null or o.status = $4)\n             and ($5::uuid is null or o.template_id = $5)\n           order by o.due_at desc, o.id\n           limit $6",
   "describe": {
     "columns": [
       {
@@ -145,6 +145,12 @@
             "name": "note"
           }
         }
+      },
+      {
+        "ordinal": 13,
+        "name": "has_proof!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -170,8 +176,9 @@
       true,
       true,
       false,
-      true
+      true,
+      null
     ]
   },
-  "hash": "947373b9e82ee59d99e3b53671fb95db09f11ce0ddf39f8f7db6fb02b183f6c3"
+  "hash": "a4e0bc9a9b15be0aeb1499677389374000ca70193eec4f1d24b58cbd35d5b993"
 }

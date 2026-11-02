@@ -4862,6 +4862,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/occurrences/{id}/proof": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The proof photo of an occurrence, with its media type. Only the person it is for, whoever
+         *     finished it, or a role with `tasks.manage` may read it.
+         */
+        get: operations["getTaskProof"];
+        put?: never;
+        /**
+         * Keeps a proof photo for an occurrence as `multipart/form-data` with one `file` (PNG or JPEG,
+         *     up to 2 MB, checked by content). The caller must be the person it is for or hold the role
+         *     it is for, and it must be open (or done by them). Replaces an earlier proof. Then send the
+         *     returned `proof_file_id` with the completion.
+         */
+        post: operations["uploadTaskProof"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tasks/occurrences/{id}/reopen": {
         parameters: {
             query?: never;
@@ -6783,6 +6809,11 @@ export interface components {
             /** @description A note, at most 300 characters. The screen warns: no patient names. */
             note?: string | null;
             /**
+             * @description The proof photo uploaded for this occurrence (`POST /tasks/occurrences/{id}/proof`); it
+             *     must be the occurrence's current proof, else `400`.
+             */
+            proof_file_id?: string | null;
+            /**
              * @description The materials used, taken off the shelf first-expiry-first-out, in the same step as
              *     finishing the task. Leave out or send an empty list for nothing used.
              */
@@ -6902,6 +6933,11 @@ export interface components {
             purpose: string;
             /** @description The staff member who recorded it. */
             recorded_by: string;
+            /**
+             * @description The patient's signature: a patient file of kind `consent` (`POST /patients/{id}/attachments`).
+             *     Optional in the schema, so apps built before it read on.
+             */
+            signature_attachment_id?: string | null;
             /** @description `given` or `withdrawn`. */
             status: string;
             /** @description A short remark about the withdrawal. */
@@ -9962,6 +9998,8 @@ export interface components {
         };
         /** @description The clinic's notification switches. */
         NotificationSettings: {
+            /** @description Booking link for a follow-up, sent two days before it is due (default off). */
+            follow_up_booking?: boolean;
             /** @description Tell staff when lab work is overdue (default on). */
             lab_due: boolean;
             /** @description Show low stock on Today (default on). */
@@ -9976,9 +10014,15 @@ export interface components {
             reminder_24h: boolean;
             /** @description Remind patients two hours before (default off). */
             reminder_2h: boolean;
+            /** @description Visit summary link, then its PIN in a second message, after a visit closes (default on). */
+            visit_summary?: boolean;
+            /** @description Welcome message to a walk-in's new patient, with the estimated wait (default on). */
+            welcome?: boolean;
         };
         /** @description Changes to the notification switches; what is left out stays. */
         NotificationSettingsChanges: {
+            /** @description The follow-up booking message, two days before the follow-up is due. */
+            follow_up_booking?: boolean | null;
             /** @description Overdue lab alerts. */
             lab_due?: boolean | null;
             /** @description Low stock on Today. */
@@ -9992,6 +10036,10 @@ export interface components {
             reminder_24h?: boolean | null;
             /** @description The two-hour reminder. */
             reminder_2h?: boolean | null;
+            /** @description The visit summary link, then its PIN, after a visit closes. */
+            visit_summary?: boolean | null;
+            /** @description The welcome message after a walk-in registers (with the estimated wait). */
+            welcome?: boolean | null;
         };
         /** @description The appointment a notification is about. */
         NotifiedAppointment: {
@@ -11375,6 +11423,19 @@ export interface components {
             /** @description Their phone; +91 is assumed without a country code, and an empty string clears it. */
             phone?: string | null;
         };
+        /** @description The proof upload form. */
+        ProofForm: {
+            /**
+             * Format: binary
+             * @description A PNG or JPEG photo of at most 2 MB.
+             */
+            file: string;
+        };
+        /** @description A stored proof photo. */
+        ProofUploaded: {
+            /** @description Send this as `proof_file_id` when finishing the task. */
+            proof_file_id: string;
+        };
         /** @description A new version to publish. */
         PublishNotice: {
             /** @description The full notice text, up to 20,000 characters. */
@@ -11780,6 +11841,8 @@ export interface components {
             notice_version?: string | null;
             /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
             purpose: string;
+            /** @description The patient's signature: the id of a file of kind `consent` uploaded for the same patient. */
+            signature_attachment_id?: string | null;
         };
         /** @description A new link to records. The token and PIN are shown once. */
         RecordShare: {
@@ -13370,6 +13433,11 @@ export interface components {
             completed_by_name?: string | null;
             /** @description When it falls due, RFC 3339. */
             due_at: string;
+            /**
+             * @description Whether a proof photo is attached; fetch it with `GET /tasks/occurrences/{id}/proof`.
+             *     Optional in the schema, so apps built before it read on.
+             */
+            has_proof?: boolean;
             /** @description Identifier. */
             id: string;
             /** @description The clinic's calendar day, `YYYY-MM-DD`. */
@@ -23092,7 +23160,7 @@ export interface operations {
                     "application/json": components["schemas"]["Consent"];
                 };
             };
-            /** @description An unknown purpose or method, a bad version or note, or a time in the future */
+            /** @description An unknown purpose or method, a bad version or note, a time in the future, or a signature that is not a consent file of the patient */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -30124,6 +30192,116 @@ export interface operations {
             };
             /** @description Already done by someone else, no longer open, or not enough stock */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getTaskProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The occurrence */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.use, or the task is for someone else */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic, or it has no proof */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    uploadTaskProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The occurrence */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ProofForm"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofUploaded"];
+                };
+            };
+            /** @description Not a PNG or JPEG, or empty */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.use, or the task is for someone else */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such task in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The task is closed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 2 MB */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };

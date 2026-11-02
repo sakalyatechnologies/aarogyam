@@ -54,6 +54,10 @@ export interface FakeTaskOccurrence {
   completed_at: string | null;
   completed_by: string | null;
   note: string | null;
+  /** The proof photo, once uploaded. */
+  proof?: Blob | undefined;
+  /** The id handed out for the proof; completing with another id is refused. */
+  proof_file_id?: string | undefined;
 }
 
 export interface FakeTasks {
@@ -185,6 +189,7 @@ export function wireOccurrence(o: FakeTaskOccurrence, nameOf: (membershipId: str
     completed_by: o.completed_by,
     completed_by_name: o.completed_by === null ? null : nameOf(o.completed_by),
     note: o.note,
+    has_proof: o.proof !== undefined,
     ...(withoutPhotos === undefined ? {} : { patients_without_photos_today: withoutPhotos }),
   };
 }

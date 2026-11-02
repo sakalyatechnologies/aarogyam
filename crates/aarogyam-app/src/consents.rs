@@ -3,6 +3,7 @@
 
 use aarogyam_dal::consents::{self as dal, ConsentRow, NewConsent};
 use aarogyam_domain::access::ClinicActor;
+use aarogyam_domain::clinical::AttachmentKind;
 use aarogyam_domain::consent::{self, Method, Purpose, Status};
 use aarogyam_domain::ids::PatientId;
 use aarogyam_domain::permission::Permission;
@@ -47,6 +48,8 @@ pub struct ConsentView {
     pub note: Option<String>,
     /// A short remark about the withdrawal.
     pub withdrawal_note: Option<String>,
+    /// The signature file, when one was recorded.
+    pub signature_attachment_id: Option<Uuid>,
 }
 
 fn view(row: ConsentRow) -> Result<ConsentView, AppError> {
@@ -70,6 +73,7 @@ fn view(row: ConsentRow) -> Result<ConsentView, AppError> {
             .map_err(unknown("withdrawn_method"))?,
         note: row.note,
         withdrawal_note: row.withdrawal_note,
+        signature_attachment_id: row.signature_attachment_id,
     })
 }
 
@@ -113,6 +117,8 @@ pub struct Give {
     pub method: Method,
     /// A short remark.
     pub note: Option<String>,
+    /// The patient's signature: a patient file of kind `consent` of the same patient.
+    pub signature_attachment_id: Option<Uuid>,
 }
 
 /// Records that the patient was shown the notice and agreed. Needs `patients.write`.
@@ -139,6 +145,17 @@ pub async fn give(
     }
     db.scoped(&scope(actor, request_id), async |tx| {
         require_patient(tx, patient_id, actor.reach(Permission::PatientsWrite)).await?;
+        if let Some(file) = input.signature_attachment_id {
+            let (kind, owner) = aarogyam_dal::billing::attachment_kind(tx.conn(), file)
+                .await?
+                .ok_or(AppError::NotFound("attachment"))?;
+            if kind != AttachmentKind::Consent.as_str() || owner != patient_id.uuid() {
+                return Err(AppError::invalid(
+                    "signature_attachment_id",
+                    "must be a consent file of the patient",
+                ));
+            }
+        }
         let (version, notice_id) =
             notices::resolve(tx, input.notice_id, input.notice_version.as_deref()).await?;
         let id = dal::insert(
@@ -152,6 +169,7 @@ pub async fn give(
                 method: input.method.as_str(),
                 recorded_by: actor.membership_id.uuid(),
                 note,
+                signature_attachment_id: input.signature_attachment_id,
             },
         )
         .await?

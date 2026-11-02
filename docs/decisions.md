@@ -2,11 +2,28 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-11-01: The new look is the portal's default
+
+**Decision.** The redesigned portal screens are on unless a member turns them off in the account menu; that choice is kept in the browser (`aarogyam.portal.new-look`, `"0"` keeps the classic screens). The classic screens stay working until the new look has replaced every one of them. Unit tests keep the classic screens as their default and switch the new look on where they test it.
+
+**Why.** The founder asked for it on 1 Nov; B6, the stock, billing, analytics and queue screens are built for the new look.
+
 ## 2026-10-29: Polling until launch; live events stay off
 
 **Decision.** Production keeps `GET /events` off (`ARO_HTTP__LIVE_EVENTS` unset) until we go live. Screens poll instead, and only while the app is open and in front: the portal's queries pause in a hidden tab (`refetchIntervalInBackground` stays false), the staff chat poll skips hidden ticks, and the phone apps poll only in the foreground.
 
 **Why.** An open stream keeps Cloud Run billing CPU (about $60-90 a month with daily use); short polls from visible screens cost almost nothing. Switching on later is one setting.
+
+## 2026-10-29: Automatic patient messages (welcome, visit summary, follow-up booking)
+
+**Ported to main on 2026-10-29** from the v9 WIP (`e2e91223`, written on the pre-no-show main): the same design, rebased onto the current visit close (payment, no-show, overpayment) and onto migration 0684's template defaults (0703 wraps that version). The portal's Booking and notifications tab has the three switches.
+
+**Decision.** Three messages are queued by the event itself, in its transaction (migration 0703 adds the templates only): `patient.welcome` when a walk-in registers a new patient, `visit.summary` and then `visit.summary_pin` when a visit closes (a new visit link is made; none when the visit already has a live one), and `visit.follow_up_booking` when the close plans a follow-up (sent at 09:00 clinic time, 2 days before the date, or now when closer).
+
+- **Switches.** In `NotificationSettings` the three are always sent but optional in the schema, so apps built before them read on. `welcome` (on), `visit_summary` (on) and `follow_up_booking` (off) are keys of `org_settings.notifications`, read and written through `GET/PATCH /settings/notifications` like the other switches; there is no second settings column.
+- **Content.** Links, the PIN, minutes and a date only: never a patient name or clinical word. The welcome says the estimated wait in minutes: people ahead of the token (waiting, called or in the chair, lower number) times the clinic's average closed-visit length over 14 days (10 when unknown, clamped 5 to 30), rounded up to 5, between 5 and 120.
+- **PIN apart from the link.** The PIN is a second message scheduled 30 s later, on the same channel as the link (WhatsApp when the patient opted in and the clinic has approved templates, else email). A different channel is not used: the patient has one address per channel, and a second channel would need a second consent and template.
+- **Consent.** Welcome and summary are care messages; the follow-up needs `reminders` consent. A message the patient cannot receive is recorded as `skipped` with its reason, and no link is made for them.
 
 ## 2026-10-12: Live updates over Server-Sent Events, with resume
 
@@ -705,3 +722,11 @@ billing an open stream keeps CPU billed for its whole life, so a portal or phone
 day costs far more than 20-second polling. The phone and the portal stop trying for the session
 on a 404 and keep polling. The founder decides when to switch it on; the library default is on
 so tests exercise the stream.
+
+## 2026-10-29: A consent signature and a task proof photo
+**Decision.** Migrations 0705 and 0706. Additive API, asked for by the mobile app.
+- **Consent signature (G10).** `POST /patients/{id}/consents` takes an optional `signature_attachment_id`; `Consent` returns it (optional in the schema, so older apps read on). It must be a patient file of kind `consent` of the same patient: a composite key `(org_id, signature_attachment_id, patient_id)` onto `attachments_id_patient` plus a before-insert trigger on the kind, as for the payment proof (0690). The API answers 400 naming the field for the wrong kind or another patient's file, and 404 for a file that does not exist in the clinic.
+- **Task proof photo (G4).** Tasks are not patient-bound and `attachments.patient_id` is not null, so the photo is not a patient attachment. It follows the staff avatar: `task_occurrences.proof_file_id` and `proof_mime` (PNG or JPEG, at most 2 MB, checked by content) point to a file in the clinic's file storage. `POST /tasks/occurrences/{id}/proof` (multipart `file`) returns `{proof_file_id}`; `complete` takes an optional `proof_file_id` that must be the current proof (400 otherwise); `TaskOccurrence.has_proof` says whether one exists; `GET /tasks/occurrences/{id}/proof` streams it.
+- **Access.** All three need `tasks.use`. Unlike avatars there are no signed links: the photo can show the clinic's premises, so it is read only through the signed-in route, by the person the task is for (or holding its role), whoever finished it, or a role with `tasks.manage`; anyone else gets 403 and another clinic 404. Uploading needs the task to be the caller's and open (or done by them). A replaced photo is removed from storage. No patient data is logged.
+
+**Why.** The phone needs a signed consent on file and evidence that a cleaning or sterilisation task was done, without making tasks depend on patients.

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select proof_file_id from aarogyam.task_occurrences where id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "proof_file_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.task_occurrences",
+            "name": "proof_file_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "6d8d281546ac4fb2c97958c74cd576b1ff43d0770fa8e7f39328bed8e3144d65"
+}

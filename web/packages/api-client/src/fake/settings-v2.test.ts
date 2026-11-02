@@ -109,6 +109,9 @@ describe("notification switches", () => {
       recall: true,
       low_stock: true,
       lab_due: true,
+      welcome: true,
+      visit_summary: true,
+      follow_up_booking: false,
       quiet_hours: { enabled: true, start: "21:00", end: "09:00" },
     });
     const changed = value(await asha.updateNotificationSettings({ receipts: true, quiet_hours: { start: "22:30" } }));

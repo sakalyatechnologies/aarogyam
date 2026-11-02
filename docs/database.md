@@ -65,7 +65,7 @@ flowchart LR
   scheduling -->|4| tenancy
   tenancy -->|3| iam
   trust -->|1| billing
-  trust -->|2| clinical
+  trust -->|3| clinical
   trust -->|8| people
   trust -->|5| tenancy
   web -->|1| people
@@ -1666,7 +1666,7 @@ Patient files: photos, X-rays, reports, documents, audio, signed consent.
 
 A trigger refuses a recording on a signed note unless it carries an addendum. Served only through short-lived signed links (HMAC, 5 minutes) issued after a permission check; each download writes access_log. Local disk in development, object storage later, behind one Storage trait.
 
-Referenced by: `consent_forms.pdf_attachment_id`, `consent_forms.signature_attachment_id`, `document_extractions.attachment_id`, `payments.attachment_id`, `voice_notes.attachment_id`
+Referenced by: `consent_forms.pdf_attachment_id`, `consent_forms.signature_attachment_id`, `document_extractions.attachment_id`, `patient_consents.signature_attachment_id`, `payments.attachment_id`, `voice_notes.attachment_id`
 
 ### `voice_notes`
 
@@ -2333,6 +2333,8 @@ One day's run of a task template: what fell due, who it was for, and whether it 
 | `reminder_count` | `int` |  |
 | `last_reminded_at` | `timestamptz?` |  |
 | `escalated_at` | `timestamptz?` |  |
+| `proof_file_id` | `uuid?` | a proof photo in clinic file storage (migration 0706), read only through GET /tasks/occurrences/{id}/proof |
+| `proof_mime` | `text?` | image/png or image/jpeg, set with proof_file_id |
 
 Built (migrations 0661, 0662). Made by app.materialize_task_occurrences (drain job): every slot that fell due in the last 24 hours and not before the template's activated_at, with its task_due notice in the same statement; safe to run twice at once. The change history leaves out the reminder counters and the note. Kept 3 years from due_at (retention class task_occurrences). staff_notifications.task_occurrence_id points here.
 
@@ -3216,6 +3218,7 @@ DPDP notice and consent record: the patient was shown the clinic's notice and ag
 | `withdrawn_method` | `text?` | paper, verbal, app |
 | `note` | `text?` | up to 500 characters; no clinical detail |
 | `withdrawal_note` | `text?` |  |
+| `signature_attachment_id` | `uuid?` | → `attachments`. the patient's signature, a file of kind consent of the same patient (migration 0705) |
 
 At most one active (given) consent per patient and purpose. A withdrawal sets the withdrawn_* columns once and the row is then final; to consent again, record a new row. Every change is audited.
 

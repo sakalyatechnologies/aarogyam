@@ -1,4 +1,4 @@
-import { apiErrorOf, type ConflictPolicyValue, type OnlineBookingChanges, type PractitionerId } from "@aarogyam/api-client";
+import { apiErrorOf, type ConflictPolicyValue, type NotificationSettingsChanges, type OnlineBookingChanges, type PractitionerId } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
 import { useState } from "react";
 
@@ -6,7 +6,7 @@ import { Field, Select, TextInput, useToast } from "@sakalya/ui";
 
 import { MkCard, Toggle } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
-import { useClinicSettings, useConflictPolicy, usePractitioners, useSetConflictPolicy, useUpdateClinicSettings } from "../../queries.js";
+import { useClinicSettings, useConflictPolicy, useNotificationSettings, useUpdateNotificationSettings, usePractitioners, useSetConflictPolicy, useUpdateClinicSettings } from "../../queries.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 /** Settings, "Booking & notifications": online booking (owner only) beside the patient-message switches. */
@@ -31,10 +31,47 @@ export function BookingPanel() {
   );
 }
 
-/** Not wired yet: the switches connect when Messages and Stock ship. */
+/** The automatic patient messages are live; the rest connect when Messages and Stock ship. */
 function NotificationsCard() {
+  const { can } = useClinic();
+  const manage = can("settings.manage");
+  const settings = useNotificationSettings(manage);
+  const update = useUpdateNotificationSettings();
+  const toast = useToast();
+  const prefs = settings.data;
+  const save = (changes: NotificationSettingsChanges) => {
+    update.mutate(changes, {
+      onSuccess: () => {
+        toast.show({ title: "Notifications updated", tone: "success" });
+      },
+      onError: (thrown) => {
+        toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't save that. Please try again.", tone: "danger" });
+      },
+    });
+  };
+  const automatic: ["welcome" | "visit_summary" | "follow_up_booking", string, string][] = [
+    ["welcome", "Welcome message", "Sent when a new patient registers, with the wait time"],
+    ["visit_summary", "Visit summary link", "Sent when a visit closes, then the PIN a moment later"],
+    ["follow_up_booking", "Follow-up booking link", "Two days before a planned follow-up · needs reminders consent"],
+  ];
   return (
     <MkCard title="Notifications" hint="Quiet hours 9 PM – 9 AM IST">
+      {automatic.map(([key, title, text]) => (
+        <div key={key} className="mk-setrow">
+          <div>
+            <b>{title}</b>
+            <p>{text}</p>
+          </div>
+          <Toggle
+            checked={prefs?.[key] ?? false}
+            disabled={!manage || prefs === undefined || update.isPending}
+            label={title}
+            onChange={(next) => {
+              save({ [key]: next });
+            }}
+          />
+        </div>
+      ))}
       {[
         ["Appointment reminders", "24h + 2h before · WhatsApp"],
         ["Payment receipts", "Auto-send on collection"],
@@ -50,7 +87,7 @@ function NotificationsCard() {
         </div>
       ))}
       <p className="mk-hint" style={{ margin: "8px 0 0" }}>
-        These switches connect when Messages and Stock ship.
+        The other switches connect when Messages and Stock ship.
       </p>
     </MkCard>
   );

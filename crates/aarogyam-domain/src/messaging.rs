@@ -418,7 +418,9 @@ pub fn allowed_variables(key: &str) -> &'static [&'static str] {
     match key {
         "care.note" => &["clinic_name", "booking_link", "subject"],
         "promo.offer" => &["clinic_name", "booking_link", "subject", "offer_text"],
-        "reminder.follow_up" => &["clinic_name", "booking_link", "due_on"],
+        "reminder.follow_up" | "visit.follow_up_booking" => {
+            &["clinic_name", "booking_link", "due_on"]
+        }
         "appointment.reminder" => &[
             "clinic_name",
             "booking_link",
@@ -430,8 +432,50 @@ pub fn allowed_variables(key: &str) -> &'static [&'static str] {
         }
         "prescription.shared" => &["clinic_name", "booking_link", "doctor_name", "expires_on"],
         "patient_app.invited" => &["clinic_name", "booking_link", "expires_on"],
+        "patient.welcome" => &["clinic_name", "app_link", "website_link", "wait_minutes"],
+        "visit.summary" => &["clinic_name", "share_link"],
+        "visit.summary_pin" => &["clinic_name", "pin"],
         _ => SYSTEM_VARIABLES,
     }
+}
+
+text_value! {
+    /// An automatic message a clinic can switch on or off (`org_settings.notifications`, see `NotificationPrefs`).
+    AutoMessage ("auto_message") {
+        /// The thank-you with the app and website links, after a walk-in registers.
+        Welcome => "welcome",
+        /// The visit summary link and its PIN, after a visit closes.
+        VisitSummary => "visit_summary",
+        /// The booking link, two days before a follow-up is due.
+        FollowUpBooking => "follow_up_booking",
+    }
+}
+
+impl AutoMessage {
+    /// Whether a clinic that never chose has it on: the welcome and the summary are, the
+    /// follow-up message is not.
+    #[must_use]
+    pub const fn on_by_default(self) -> bool {
+        !matches!(self, Self::FollowUpBooking)
+    }
+}
+
+/// How many days before a follow-up is due its booking message goes.
+pub const FOLLOW_UP_LEAD_DAYS: i64 = 2;
+
+/// The minutes a patient who just joined the queue can expect to wait, for the welcome message:
+/// `ahead` people are waiting or in the chair before them, each taking `average_minutes` (the
+/// clinic's recent average visit; 10 when unknown, kept between 5 and 30). Rounded up to 5 and
+/// kept between 5 and 120, so it is never a promise of "no wait" and never absurd.
+#[must_use]
+pub fn estimated_wait_minutes(ahead: i64, average_minutes: Option<f64>) -> i64 {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "the average is clamped to 5..=30 first"
+    )]
+    let each = average_minutes.map_or(10, |m| m.clamp(5.0, 30.0).round() as i64);
+    let total = ahead.clamp(0, 100) * each;
+    ((total + 4) / 5 * 5).clamp(5, 120)
 }
 
 /// The `{{variables}}` of a template body, in order of appearance (repeats kept: `WhatsApp`
@@ -462,6 +506,45 @@ pub fn placeholders(key: &str, body: &str) -> Result<Vec<String>, TemplateError>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_estimated_wait_is_rounded_up_and_bounded() {
+        assert_eq!(estimated_wait_minutes(0, None), 5);
+        assert_eq!(estimated_wait_minutes(3, None), 30);
+        assert_eq!(estimated_wait_minutes(2, Some(7.0)), 15);
+        assert_eq!(estimated_wait_minutes(2, Some(500.0)), 60);
+        assert_eq!(estimated_wait_minutes(1000, None), 120);
+        assert_eq!(estimated_wait_minutes(-4, Some(1.0)), 5);
+    }
+
+    #[test]
+    fn automatic_templates_take_links_and_dates_never_patient_details() {
+        for key in [
+            "patient.welcome",
+            "visit.summary",
+            "visit.summary_pin",
+            "visit.follow_up_booking",
+        ] {
+            for name in allowed_variables(key) {
+                assert!(
+                    [
+                        "clinic_name",
+                        "app_link",
+                        "website_link",
+                        "share_link",
+                        "pin",
+                        "booking_link",
+                        "due_on",
+                        "wait_minutes"
+                    ]
+                    .contains(name),
+                    "{key} may carry {name}"
+                );
+            }
+        }
+        assert!(placeholders("visit.summary", "Hi {{patient_name}}").is_err());
+        assert!(placeholders("patient.welcome", "{{diagnosis}}").is_err());
+    }
 
     fn due(now: OffsetDateTime) -> DueCheck {
         DueCheck {

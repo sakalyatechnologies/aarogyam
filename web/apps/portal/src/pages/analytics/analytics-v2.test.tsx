@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/consistent-type-assertions -- stub reports use branded ids and paise */
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { cloneElement, isValidElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { failure, type AnalyticsQuery, type ApiClient } from "@aarogyam/api-client";
+import { failure, type Analytics, type ApiClient, type AnalyticsQuery, type Collections } from "@aarogyam/api-client";
 import { ROLES } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../../lib/new-look.js";
@@ -50,6 +51,121 @@ describe("Analytics (New look)", () => {
     expect(within(heat).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
     expect(screen.getByRole("tab", { name: "Practice" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.queryByRole("heading", { name: "Income vs expenses" })).toBeNull();
+  });
+
+  /** Stubs the report: the fake's own, changed by `patch`. */
+  const withReport = (patch: (report: Analytics) => void) => (client: ApiClient): ApiClient => {
+    const real = client.getAnalytics.bind(client);
+    client.getAnalytics = async (...args) => {
+      const result = await real(...args);
+      if (result.ok) patch(result.value);
+      return result;
+    };
+    return client;
+  };
+  const withCollections = (patch: (c: Collections) => void) => (client: ApiClient): ApiClient => {
+    const real = client.getCollections.bind(client);
+    client.getCollections = async (...args) => {
+      const result = await real(...args);
+      if (result.ok) patch(result.value);
+      return result;
+    };
+    return client;
+  };
+
+  it("draws chair occupancy as a heatmap, one row per chair and one column per hour", async () => {
+    const wrap = withReport((r) => {
+      const [a, b] = r.chairs;
+      r.occupancy = {
+        by_weekday_hour: [],
+        by_chair_hour: [
+          { room_id: a?.id ?? "", hour: 9, booked_minutes: 120, appointments: 3 },
+          { room_id: a?.id ?? "", hour: 10, booked_minutes: 30, appointments: 1 },
+          { room_id: b?.id ?? "", hour: 10, booked_minutes: 60, appointments: 2 },
+        ],
+      } as never;
+    });
+    renderPortal("/analytics", { as: PEOPLE.asha, wrap });
+    const heat = await screen.findByRole("table", { name: "Booked minutes by chair and hour" });
+    expect(within(heat).getAllByRole("rowheader")).toHaveLength(2);
+    expect(within(heat).getAllByRole("columnheader")).toHaveLength(2);
+  });
+
+  it("shows an empty state, not a heatmap, when the report has no occupancy", async () => {
+    renderPortal("/analytics", { as: PEOPLE.asha, wrap: withReport((r) => { r.occupancy = { by_chair_hour: [], by_weekday_hour: [] }; }) });
+    await screen.findByRole("heading", { name: "Chair occupancy" });
+    expect(screen.getByText("No chair bookings in this range")).toBeTruthy();
+    expect(screen.queryByRole("table", { name: "Booked minutes by chair and hour" })).toBeNull();
+  });
+
+  it("shows rupees per procedure kind only where the API sent them", async () => {
+    const wrap = withReport((r) => {
+      r.procedures_by_category = [
+        { key: "endodontics", count: 3, amount_paise: 450000 },
+        { key: "scaling", count: 2, amount_paise: null },
+      ] as never;
+    });
+    renderPortal("/analytics", { as: PEOPLE.asha, wrap });
+    const legend = await screen.findByRole("list", { name: "Procedures" });
+    expect(within(legend).getByText(/3 \(60%\) · ₹4,500/)).toBeTruthy();
+    expect(within(legend).getByText(/^2 \(40%\)$/)).toBeTruthy();
+  });
+
+  it("compares collected with the previous period and shows the discount given", async () => {
+    const user = userEvent.setup();
+    const calls: unknown[] = [];
+    const patch = withCollections((c) => {
+      c.previous = { from: c.from, to: c.to, collected_paise: 100000, payments: 2, by_method: [], invoiced_paise: 0, invoices: 0, discount_paise: 0 } as never;
+      c.discount_paise = 25000 as never;
+      c.collected_paise = 150000 as never;
+    });
+    const wrap = (client: ApiClient): ApiClient => {
+      const inner = patch(client);
+      const get = inner.getCollections.bind(inner);
+      inner.getCollections = (...args) => {
+        calls.push(args[0]);
+        return get(...args);
+      };
+      return inner;
+    };
+    renderPortal("/analytics?tab=money", { as: PEOPLE.asha, wrap });
+    await user.click(await screen.findByRole("button", { name: "Show income" }));
+    expect(await screen.findByText("+50% vs previous period")).toBeTruthy();
+    expect(screen.getByText("Discount given")).toBeTruthy();
+    expect(calls.some((c) => typeof c === "object" && c !== null && "compare" in c && c.compare === "prev")).toBe(true);
+  });
+
+  it("leaves out the delta and discount when the report has neither", async () => {
+    const user = userEvent.setup();
+    const wrap = withCollections((c) => {
+      delete c.previous;
+      c.discount_paise = 0 as never;
+    });
+    renderPortal("/analytics?tab=money", { as: PEOPLE.asha, wrap });
+    await user.click(await screen.findByRole("button", { name: "Show income" }));
+    await screen.findByText(/Collection rate/);
+    expect(screen.queryByText(/vs previous period/)).toBeNull();
+    expect(screen.queryByText("Discount given")).toBeNull();
+  });
+
+  it("splits weekly collections by payment method, and skips the split without the field", async () => {
+    const user = userEvent.setup();
+    const wrap = withCollections((c) => {
+      c.by_week = [{ date: c.from, amount_paise: 300000, payments: 3, by_method: [{ method: "cash", amount_paise: 100000, payments: 1 }, { method: "upi", amount_paise: 200000, payments: 2 }] }] as never;
+    });
+    renderPortal("/analytics?tab=money", { as: PEOPLE.asha, wrap });
+    await user.click(await screen.findByRole("button", { name: "Show income" }));
+    const chart = await screen.findByRole("img", { name: /Collected per week by method/ });
+    expect(chart.getAttribute("aria-label")).toMatch(/Cash ₹1k, UPI ₹2k/);
+    expect(within(screen.getByRole("list", { name: "Payment methods" })).getAllByRole("listitem")).toHaveLength(2);
+    cleanup();
+
+    const bare = withCollections((c) => {
+      c.by_week = [{ date: c.from, amount_paise: 300000, payments: 3, by_method: [] }] as never;
+    });
+    renderPortal("/analytics?tab=money", { as: PEOPLE.asha, wrap: bare });
+    await screen.findByText(/Collection rate/);
+    expect(screen.queryByRole("img", { name: /by method/ })).toBeNull();
   });
 
   it("keeps the range in the URL: it is read on load and written when changed", async () => {

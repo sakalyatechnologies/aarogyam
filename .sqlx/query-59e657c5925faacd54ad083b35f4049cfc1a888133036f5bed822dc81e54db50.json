@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select c.id, c.purpose, c.notice_version, c.notice_id, c.given_at, c.method, c.recorded_by,\n                  (select u.display_name from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.recorded_by) as recorded_by_name,\n                  c.status, c.withdrawn_at,\n                  (select u.display_name from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.withdrawn_by) as withdrawn_by_name,\n                  c.withdrawn_method, c.note, c.withdrawal_note\n           from aarogyam.patient_consents c\n           where c.patient_id = $1\n           order by c.given_at desc, c.id desc",
+  "query": "select c.id, c.purpose, c.notice_version, c.notice_id, c.given_at, c.method, c.recorded_by,\n                  (select u.display_name from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.recorded_by) as recorded_by_name,\n                  c.status, c.withdrawn_at,\n                  (select u.display_name from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.withdrawn_by) as withdrawn_by_name,\n                  c.withdrawn_method, c.note, c.withdrawal_note, c.signature_attachment_id\n           from aarogyam.patient_consents c\n           where c.patient_id = $1\n           order by c.given_at desc, c.id desc",
   "describe": {
     "columns": [
       {
@@ -146,6 +146,17 @@
             "name": "withdrawal_note"
           }
         }
+      },
+      {
+        "ordinal": 14,
+        "name": "signature_attachment_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_consents",
+            "name": "signature_attachment_id"
+          }
+        }
       }
     ],
     "parameters": {
@@ -167,8 +178,9 @@
       null,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "d43a09aed5ab6ab7c4740d7f4a616b136c8e3090e4ca5f7d365e0053d5aa1dee"
+  "hash": "59e657c5925faacd54ad083b35f4049cfc1a888133036f5bed822dc81e54db50"
 }

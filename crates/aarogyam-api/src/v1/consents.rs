@@ -50,6 +50,10 @@ pub struct Consent {
     pub note: Option<String>,
     /// A short remark about the withdrawal.
     pub withdrawal_note: Option<String>,
+    /// The patient's signature: a patient file of kind `consent` (`POST /patients/{id}/attachments`).
+    /// Optional in the schema, so apps built before it read on.
+    #[schema(value_type = Option<String>, required = false)]
+    pub signature_attachment_id: Option<Uuid>,
 }
 
 impl From<ConsentView> for Consent {
@@ -70,6 +74,7 @@ impl From<ConsentView> for Consent {
                 .map(|method| method.as_str().to_owned()),
             note: view.note,
             withdrawal_note: view.withdrawal_note,
+            signature_attachment_id: view.signature_attachment_id,
         }
     }
 }
@@ -98,6 +103,8 @@ pub struct RecordConsent {
     pub given_at: Option<String>,
     /// A short remark, up to 500 characters. No clinical detail.
     pub note: Option<String>,
+    /// The patient's signature: the id of a file of kind `consent` uploaded for the same patient.
+    pub signature_attachment_id: Option<String>,
 }
 
 /// A withdrawal to record.
@@ -153,7 +160,7 @@ pub(crate) async fn list(
     security(("bearer" = [])),
     responses(
         (status = 201, body = Consent),
-        (status = 400, description = "An unknown purpose or method, a bad version or note, or a time in the future"),
+        (status = 400, description = "An unknown purpose or method, a bad version or note, a time in the future, or a signature that is not a consent file of the patient"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks patients.write"),
         (status = 404, description = "No such patient in this clinic, or out of the role's reach"),
@@ -181,6 +188,11 @@ pub(crate) async fn record(
             .transpose()?,
         method: Method::parse(&body.method).map_err(|_| bad("method", "unknown value"))?,
         note: body.note,
+        signature_attachment_id: body
+            .signature_attachment_id
+            .as_deref()
+            .map(|text| parse_id("signature_attachment_id", text))
+            .transpose()?,
     };
     let view = app::give(
         state.db(),

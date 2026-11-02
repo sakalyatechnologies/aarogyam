@@ -9058,7 +9058,7 @@
             }
           },
           "400": {
-            "description": "An unknown purpose or method, a bad version or note, or a time in the future"
+            "description": "An unknown purpose or method, a bad version or note, a time in the future, or a signature that is not a consent file of the patient"
           },
           "401": {
             "description": "Not signed in"
@@ -16012,6 +16012,107 @@
         ]
       }
     },
+    "/api/v1/tasks/occurrences/{id}/proof": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "The proof photo of an occurrence, with its media type. Only the person it is for, whoever\nfinished it, or a role with `tasks.manage` may read it.",
+        "operationId": "getTaskProof",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The occurrence",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The photo, with its media type"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.use, or the task is for someone else"
+          },
+          "404": {
+            "description": "No such task in this clinic, or it has no proof"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Keeps a proof photo for an occurrence as `multipart/form-data` with one `file` (PNG or JPEG,\nup to 2 MB, checked by content). The caller must be the person it is for or hold the role\nit is for, and it must be open (or done by them). Replaces an earlier proof. Then send the\nreturned `proof_file_id` with the completion.",
+        "operationId": "uploadTaskProof",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The occurrence",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ProofForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofUploaded"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a PNG or JPEG, or empty"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.use, or the task is for someone else"
+          },
+          "404": {
+            "description": "No such task in this clinic"
+          },
+          "409": {
+            "description": "The task is closed"
+          },
+          "413": {
+            "description": "Larger than 2 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/tasks/occurrences/{id}/reopen": {
       "post": {
         "tags": [
@@ -20943,6 +21044,13 @@
             ],
             "description": "A note, at most 300 characters. The screen warns: no patient names."
           },
+          "proof_file_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The proof photo uploaded for this occurrence (`POST /tasks/occurrences/{id}/proof`); it\nmust be the occurrence's current proof, else `400`."
+          },
           "usage": {
             "type": [
               "array",
@@ -21270,6 +21378,13 @@
           "recorded_by": {
             "type": "string",
             "description": "The staff member who recorded it."
+          },
+          "signature_attachment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient's signature: a patient file of kind `consent` (`POST /patients/{id}/attachments`).\nOptional in the schema, so apps built before it read on."
           },
           "status": {
             "type": "string",
@@ -28894,6 +29009,10 @@
           "quiet_hours"
         ],
         "properties": {
+          "follow_up_booking": {
+            "type": "boolean",
+            "description": "Booking link for a follow-up, sent two days before it is due (default off)."
+          },
           "lab_due": {
             "type": "boolean",
             "description": "Tell staff when lab work is overdue (default on)."
@@ -28921,6 +29040,14 @@
           "reminder_2h": {
             "type": "boolean",
             "description": "Remind patients two hours before (default off)."
+          },
+          "visit_summary": {
+            "type": "boolean",
+            "description": "Visit summary link, then its PIN in a second message, after a visit closes (default on)."
+          },
+          "welcome": {
+            "type": "boolean",
+            "description": "Welcome message to a walk-in's new patient, with the estimated wait (default on)."
           }
         }
       },
@@ -28928,6 +29055,13 @@
         "type": "object",
         "description": "Changes to the notification switches; what is left out stays.",
         "properties": {
+          "follow_up_booking": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The follow-up booking message, two days before the follow-up is due."
+          },
           "lab_due": {
             "type": [
               "boolean",
@@ -28980,6 +29114,20 @@
               "null"
             ],
             "description": "The two-hour reminder."
+          },
+          "visit_summary": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The visit summary link, then its PIN, after a visit closes."
+          },
+          "welcome": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The welcome message after a walk-in registers (with the estimated wait)."
           }
         }
       },
@@ -32297,6 +32445,33 @@
           }
         }
       },
+      "ProofForm": {
+        "type": "object",
+        "description": "The proof upload form.",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "A PNG or JPEG photo of at most 2 MB."
+          }
+        }
+      },
+      "ProofUploaded": {
+        "type": "object",
+        "description": "A stored proof photo.",
+        "required": [
+          "proof_file_id"
+        ],
+        "properties": {
+          "proof_file_id": {
+            "type": "string",
+            "description": "Send this as `proof_file_id` when finishing the task."
+          }
+        }
+      },
       "PublishNotice": {
         "type": "object",
         "description": "A new version to publish.",
@@ -33364,6 +33539,13 @@
           "purpose": {
             "type": "string",
             "description": "`care`, `reminders`, `promotional`, `sharing` or `research`."
+          },
+          "signature_attachment_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient's signature: the id of a file of kind `consent` uploaded for the same patient."
           }
         }
       },
@@ -37230,6 +37412,10 @@
           "due_at": {
             "type": "string",
             "description": "When it falls due, RFC 3339."
+          },
+          "has_proof": {
+            "type": "boolean",
+            "description": "Whether a proof photo is attached; fetch it with `GET /tasks/occurrences/{id}/proof`.\nOptional in the schema, so apps built before it read on."
           },
           "id": {
             "type": "string",

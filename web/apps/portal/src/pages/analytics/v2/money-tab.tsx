@@ -14,8 +14,8 @@ import { MoneyEye, useShowMoney } from "../../today/v2/money.js";
 import { Body, Empty } from "../../today/v2/widget-parts.js";
 import { useWeeklyCollections } from "../../today/v2/queries.js";
 import { bucketLabel, isEmpty, periodRows, rangeStart, totals } from "../analytics-data.js";
-import { series } from "../chart-tooltip.js";
-import { IncomeVsExpensesChart, WeeklyCollectionsChart } from "../money-charts.js";
+import { series, swatch } from "../chart-tooltip.js";
+import { IncomeVsExpensesChart, MethodStackChart, WeeklyCollectionsChart } from "../money-charts.js";
 import { useAnalytics } from "../queries.js";
 import { bucketOf, expenseWindow, monthsOf, weeksOf, type RangeKey } from "./range.js";
 import { Tile } from "./tiles.js";
@@ -105,7 +105,7 @@ function IncomeBody({ report }: { report: Analytics }) {
 }
 
 function BilledBody({ range, pending }: { range: RangeKey; pending: ReturnType<typeof usePendingReport> }) {
-  const collections = useWeeklyCollections(weeksOf(range), true);
+  const collections = useWeeklyCollections(weeksOf(range), true, "prev");
   return (
     <Body query={collections} label="billed and collected" rows={4} isEmpty={(c) => c.invoiced_paise === 0 && c.collected_paise === 0} empty={<Empty title="Nothing billed yet" description="Invoices and payments show here." />}>
       {(c) => <BilledFlow c={c} pending={pending} />}
@@ -123,6 +123,8 @@ function BilledFlow({ c, pending }: { c: Collections; pending: ReturnType<typeof
   ];
   // Summed from the bills: the report's own buckets are not amounts in every build.
   const ages = pending.data === undefined ? undefined : Object.fromEntries(["0_30", "31_60", "61_90", "90_plus"].map((k) => [k, pending.data.items.filter((i) => i.bucket === k).reduce((sum, i) => sum + i.balance_paise, 0)]));
+  const before = c.previous?.collected_paise;
+  const change = before === undefined || before <= 0 ? null : Math.round(((c.collected_paise - before) / before) * 100);
   return (
     <div className="an2-flow">
       {lines.map((l) => (
@@ -131,11 +133,20 @@ function BilledFlow({ c, pending }: { c: Collections; pending: ReturnType<typeof
             <span>{l.label}</span>
             <b>{formatRupees(l.paise)}</b>
           </div>
+          {l.key === "collected" && change !== null ? (
+            <p className="an2-delta" data-dir={change < 0 ? "down" : "up"}>{`${change < 0 ? "−" : "+"}${String(Math.abs(change))}% vs previous period`}</p>
+          ) : null}
           <div className="an2-track" aria-hidden="true">
             <span style={{ width: `${String(Math.max(2, (l.paise / top) * 100))}%`, background: l.color }} />
           </div>
         </div>
       ))}
+      {c.discount_paise <= 0 ? null : (
+        <div className="an2-row">
+          <span>Discount given</span>
+          <b>{formatRupees(c.discount_paise)}</b>
+        </div>
+      )}
       <div className="an2-rate">
         <span>Collection rate</span>
         <b>{rate === null ? "—" : `${String(rate)}%`}</b>
@@ -167,12 +178,41 @@ function WeeklyBody({ range }: { range: RangeKey }) {
   return (
     <Body query={collections} label="collections by week" isEmpty={(c) => c.by_week.length === 0 || c.by_week.every((w) => w.amount_paise === 0)} empty={<Empty title="Nothing collected yet" description="Payments you record show here week by week." />}>
       {(c) => (
-        <WeeklyCollectionsChart
-          animate={animate}
-          rows={c.by_week.map((w) => ({ label: bucketLabel(w.date, "week"), tip: `Week of ${dayLabel(w.date)} (${String(w.payments)} payments)`, value: w.amount_paise / 100 }))}
-        />
+        <>
+          <WeeklyCollectionsChart
+            animate={animate}
+            rows={c.by_week.map((w) => ({ label: bucketLabel(w.date, "week"), tip: `Week of ${dayLabel(w.date)} (${String(w.payments)} payments)`, value: w.amount_paise / 100 }))}
+          />
+          <MethodSplit c={c} animate={animate} />
+        </>
       )}
     </Body>
+  );
+}
+
+/** The same weeks split by how patients paid. Absent when the report carries no per-method split. */
+function MethodSplit({ c, animate }: { c: Collections; animate: boolean }) {
+  const keys = [...new Set(c.by_week.flatMap((w) => w.by_method.filter((m) => m.amount_paise > 0).map((m) => m.method)))];
+  if (keys.length === 0) return null;
+  const methods = keys.map((key, i) => ({ key, name: methodName(key), color: series(i + 1) }));
+  const rows = c.by_week.map((w) => ({
+    label: bucketLabel(w.date, "week"),
+    tip: `Week of ${dayLabel(w.date)}`,
+    ...Object.fromEntries(keys.map((k) => [k, (w.by_method.find((m) => m.method === k)?.amount_paise ?? 0) / 100])),
+  }));
+  return (
+    <div className="an2-split">
+      <h3 className="an2-sub">By payment method</h3>
+      <MethodStackChart rows={rows} methods={methods} animate={animate} />
+      <ul className="an-legend" aria-label="Payment methods">
+        {methods.map((m) => (
+          <li key={m.key}>
+            <span className="an-sw" style={swatch(m.color)} aria-hidden="true" />
+            <span>{m.name}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

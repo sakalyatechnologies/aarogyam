@@ -723,6 +723,7 @@ export type QuickMedicineSet = Schemas["QuickMedicineSet"];
 // Staff tasks ---------------------------------------------------------------------------------
 
 export type TaskOccurrence = Schemas["TaskOccurrence"];
+export type ProofUploaded = Schemas["ProofUploaded"];
 export type MyTasks = Schemas["MyTasks"];
 export type Task = Schemas["Task"];
 export type TaskList = Schemas["TaskList"];

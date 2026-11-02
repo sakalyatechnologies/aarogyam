@@ -12,7 +12,7 @@ use aarogyam_domain::dental::Tooth;
 use aarogyam_domain::ids::{ClinicId, EncounterId, ShareLinkId};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::share::{LinkState, MAX_PIN_ATTEMPTS, Pin};
-use sakalya_db::Db;
+use sakalya_db::{Db, ScopedTx};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
@@ -47,10 +47,6 @@ pub async fn create(
     now: OffsetDateTime,
 ) -> Result<NewVisitLink, AppError> {
     actor.require(Permission::ClinicalWrite)?;
-    let (token, token_hash) = new_token()?;
-    let pin = new_pin()?;
-    let id = ShareLinkId::new_v7();
-    let expires_at = now + options.lifetime;
     db.scoped(&staff_scope(actor, request_id), async |tx| {
         let visit = visits::get_encounter(
             tx.conn(),
@@ -60,37 +56,66 @@ pub async fn create(
         )
         .await?
         .ok_or(AppError::NotFound("visit"))?;
-        dal::insert(
-            tx.conn(),
-            &dal::NewVisitLink {
-                id: id.uuid(),
-                token_hash: &token_hash,
-                pin_hash: &pin_hash(&token, &pin),
-                patient_id: visit.patient_id,
-                encounter_id: visit.id,
-                channel: options.channel.as_str(),
-                expires_at,
-            },
+        create_in(
+            tx,
+            actor,
+            request_id,
+            visit.id,
+            visit.patient_id,
+            options,
+            now,
         )
-        .await?;
-        let request_text = request_id.map(|id| id.to_string());
-        access::record(
-            tx.conn(),
-            &access::DocumentAccess {
-                actor_user_id: Some(actor.user_id.uuid()),
-                actor_kind: crate::scope::actor_kind(actor).as_str(),
-                patient_id: visit.patient_id,
-                share_link_id: Some(id.uuid()),
-                resource: "visit",
-                resource_id: visit.id,
-                action: "share",
-                purpose: actor.access_purpose(),
-                request_id: request_text.as_deref(),
-            },
-        )
-        .await?;
-        Ok::<_, AppError>(())
+        .await
     })
+    .await
+}
+
+/// Makes the link inside the caller's transaction, for a visit the caller already checked (the
+/// automatic summary message when a visit closes, `crate::auto_messages`).
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub(crate) async fn create_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    visit_id: Uuid,
+    patient_id: Uuid,
+    options: ShareOptions,
+    now: OffsetDateTime,
+) -> Result<NewVisitLink, AppError> {
+    let (token, token_hash) = new_token()?;
+    let pin = new_pin()?;
+    let id = ShareLinkId::new_v7();
+    let expires_at = now + options.lifetime;
+    dal::insert(
+        tx.conn(),
+        &dal::NewVisitLink {
+            id: id.uuid(),
+            token_hash: &token_hash,
+            pin_hash: &pin_hash(&token, &pin),
+            patient_id,
+            encounter_id: visit_id,
+            channel: options.channel.as_str(),
+            expires_at,
+        },
+    )
+    .await?;
+    let request_text = request_id.map(|id| id.to_string());
+    access::record(
+        tx.conn(),
+        &access::DocumentAccess {
+            actor_user_id: Some(actor.user_id.uuid()),
+            actor_kind: crate::scope::actor_kind(actor).as_str(),
+            patient_id,
+            share_link_id: Some(id.uuid()),
+            resource: "visit",
+            resource_id: visit_id,
+            action: "share",
+            purpose: actor.access_purpose(),
+            request_id: request_text.as_deref(),
+        },
+    )
     .await?;
     Ok(NewVisitLink {
         link: NewLink {

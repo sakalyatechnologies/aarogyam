@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.task_occurrences set proof_file_id = $2, proof_mime = $3 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4b38334a4a72689bab9162f59dfdef22e9effa3c7e0b83f1201db9a86b93d471"
+}

@@ -646,6 +646,9 @@ describe("createHttpClient settings v2", () => {
     recall: true,
     low_stock: true,
     lab_due: true,
+    welcome: true,
+    visit_summary: true,
+    follow_up_booking: false,
     quiet_hours: { enabled: true, start: "21:00", end: "09:00" },
   };
   const alert = {
@@ -674,6 +677,19 @@ describe("createHttpClient settings v2", () => {
     expect((await unwrap(client.putMyAvatar(form))).preset).toBe("tooth_3");
     await unwrap(client.deleteMyAvatar());
     expect(calls.map((c) => `${c.init?.method ?? ""} ${new URL(c.url).pathname}`)).toEqual(["PUT /api/v1/me/avatar", "DELETE /api/v1/me/avatar"]);
+    expect(calls[0]?.init?.body).toBe(form);
+  });
+
+  it("uploads and reads a task's proof photo on its own route", async () => {
+    const bodies = [json(200, { proof_file_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405199" }), new Response(new Blob([new Uint8Array([1, 2])], { type: "image/png" }), { status: 200 })];
+    const { calls, fetch } = stubFetch(() => Promise.resolve(bodies.shift() ?? json(500, {})));
+    const client = createHttpClient("http://sunrise.localtest.me", () => "token", { fetch });
+    const occurrence = taskOccurrenceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405171");
+    const form = new FormData();
+    form.set("file", new Blob([new Uint8Array([1, 2])], { type: "image/png" }), "p.png");
+    expect((await unwrap(client.uploadTaskProof(occurrence, form))).proof_file_id).toBe("0192f1c4-7a10-7c3e-9b2a-1d2e3f405199");
+    expect((await unwrap(client.getTaskProof(occurrence))).size).toBe(2);
+    expect(calls.map((c) => `${c.init?.method ?? ""} ${new URL(c.url).pathname}`)).toEqual([`POST /api/v1/tasks/occurrences/${occurrence}/proof`, `GET /api/v1/tasks/occurrences/${occurrence}/proof`]);
     expect(calls[0]?.init?.body).toBe(form);
   });
 

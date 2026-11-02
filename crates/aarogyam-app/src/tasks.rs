@@ -5,7 +5,8 @@
 
 use aarogyam_dal::tasks::{self as dal, OccurrenceRow, TemplateRow, TemplateValues};
 use aarogyam_domain::access::ClinicActor;
-use aarogyam_domain::ids::InventoryItemId;
+use aarogyam_domain::avatar::check_photo;
+use aarogyam_domain::ids::{AttachmentId, InventoryItemId};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::tasks::{
     Assignee, OccurrenceStatus, Schedule, ScheduleKind, TaskAction, TaskError, TemplateInput,
@@ -17,7 +18,9 @@ use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
+use crate::files::{Files, StorageKey};
 use crate::inventory::use_stock_in;
+use crate::letterhead::Image;
 use crate::scope::staff_scope as scope;
 
 /// Why stock used when finishing a task is recorded.
@@ -84,6 +87,8 @@ pub struct OccurrenceView {
     pub note: Option<String>,
     /// For a `confirm_photos` task: the patients seen that day with a visit that has no photo.
     pub patients_without_photos_today: Option<i64>,
+    /// Whether a proof photo is attached.
+    pub has_proof: bool,
 }
 
 impl OccurrenceView {
@@ -105,6 +110,7 @@ impl OccurrenceView {
             completed_by_name: row.completed_by_name,
             note: row.note,
             patients_without_photos_today: None,
+            has_proof: row.has_proof,
         })
     }
 }
@@ -316,6 +322,9 @@ pub struct CompleteInput {
     pub note: Option<String>,
     /// The materials used; none (or an empty list) is allowed.
     pub usage: Vec<UsageLine>,
+    /// The proof photo the caller uploaded for this occurrence ([`upload_proof`]); when given
+    /// it must be the occurrence's current proof.
+    pub proof_file_id: Option<Uuid>,
 }
 
 /// The history's filters.
@@ -429,11 +438,17 @@ pub async fn complete(
         let row = dal::occurrence(tx.conn(), id)
             .await?
             .ok_or(AppError::NotFound("task"))?;
-        let role = dal::role_of(tx.conn(), me).await?;
-        let mine = row.assignee_membership_id == Some(me)
-            || (row.assignee_role_id.is_some() && row.assignee_role_id == role);
-        if !mine {
+        if !is_mine(tx, &row, me).await? {
             return Err(AppError::Forbidden("this task is not yours to complete"));
+        }
+        if let Some(file) = input.proof_file_id {
+            let current = dal::proof(tx.conn(), id).await?;
+            if current.is_none_or(|(current, _)| current != file) {
+                return Err(AppError::invalid(
+                    "proof_file_id",
+                    "upload the proof photo for this task first",
+                ));
+            }
         }
         if row.status != OccurrenceStatus::Open.as_str() {
             return settled(row, me);
@@ -456,6 +471,130 @@ pub async fn complete(
         })
     })
     .await
+}
+
+/// Whether the occurrence is for `me`, by name or by role.
+async fn is_mine(tx: &mut ScopedTx, row: &OccurrenceRow, me: Uuid) -> Result<bool, AppError> {
+    if row.assignee_membership_id == Some(me) {
+        return Ok(true);
+    }
+    if row.assignee_role_id.is_none() {
+        return Ok(false);
+    }
+    let role = dal::role_of(tx.conn(), me).await?;
+    Ok(row.assignee_role_id == role)
+}
+
+/// Keeps a proof photo (PNG or JPEG, up to 2 MB, checked by content) for an occurrence that is
+/// the caller's and still open, or done by them, replacing an earlier one. Returns the file id
+/// to send as `proof_file_id` when finishing the task.
+///
+/// # Errors
+/// [`AppError::Denied`] without `tasks.use`; [`AppError::NotFound`] for an unknown occurrence;
+/// [`AppError::Forbidden`] when it is not the caller's; [`AppError::Conflict`] when it is
+/// closed; [`AppError::Invalid`] for an empty, too large or unrecognised photo.
+pub async fn upload_proof(
+    db: &Db,
+    files: &Files,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: Uuid,
+    bytes: Vec<u8>,
+) -> Result<Uuid, AppError> {
+    actor.require(Permission::TasksUse)?;
+    let file_type = check_photo(&bytes).map_err(|e| AppError::invalid(e.field(), e))?;
+    let file_id = AttachmentId::new_v7();
+    let key = StorageKey::new(actor.clinic_id, file_id);
+    let me = actor.membership_id.uuid();
+    let saved = db
+        .scoped(&scope(actor, request_id), async |tx| {
+            let row = dal::occurrence(tx.conn(), id)
+                .await?
+                .ok_or(AppError::NotFound("task"))?;
+            if !is_mine(tx, &row, me).await? {
+                return Err(AppError::Forbidden("this task is not yours"));
+            }
+            let open = row.status == OccurrenceStatus::Open.as_str();
+            let done_by_me =
+                row.status == OccurrenceStatus::Done.as_str() && row.completed_by == Some(me);
+            if !open && !done_by_me {
+                return Err(AppError::Conflict("this task is no longer open"));
+            }
+            let previous = dal::lock_proof(tx.conn(), id).await?;
+            files
+                .storage()
+                .put(key, &bytes)
+                .await
+                .map_err(|_| AppError::Internal("could not store the photo"))?;
+            dal::set_proof(tx.conn(), id, file_id.uuid(), file_type.mime_type()).await?;
+            Ok::<_, AppError>(previous)
+        })
+        .await;
+    match saved {
+        Ok(previous) => {
+            if let Some(old) = previous {
+                let _ = files
+                    .storage()
+                    .delete(StorageKey::new(
+                        actor.clinic_id,
+                        AttachmentId::from_uuid(old),
+                    ))
+                    .await;
+            }
+            Ok(file_id.uuid())
+        }
+        Err(error) => {
+            let _ = files.storage().delete(key).await;
+            Err(error)
+        }
+    }
+}
+
+/// The proof photo of an occurrence. Only the person it is for, whoever finished it, or someone
+/// with `tasks.manage` may see it.
+///
+/// # Errors
+/// [`AppError::Denied`] without `tasks.use`; [`AppError::NotFound`] for an unknown occurrence
+/// or one without a proof; [`AppError::Forbidden`] for anyone else.
+pub async fn proof(
+    db: &Db,
+    files: &Files,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: Uuid,
+) -> Result<Image, AppError> {
+    actor.require(Permission::TasksUse)?;
+    let me = actor.membership_id.uuid();
+    let (file_id, mime) = db
+        .scoped(&scope(actor, request_id), async |tx| {
+            let row = dal::occurrence(tx.conn(), id)
+                .await?
+                .ok_or(AppError::NotFound("task"))?;
+            if actor.require(Permission::TasksManage).is_err()
+                && row.completed_by != Some(me)
+                && !is_mine(tx, &row, me).await?
+            {
+                return Err(AppError::Forbidden("this task is not yours"));
+            }
+            dal::proof(tx.conn(), id)
+                .await?
+                .ok_or(AppError::NotFound("proof"))
+        })
+        .await?;
+    let mime_type = if mime == "image/png" {
+        "image/png"
+    } else {
+        "image/jpeg"
+    };
+    let bytes = files
+        .storage()
+        .get(StorageKey::new(
+            actor.clinic_id,
+            AttachmentId::from_uuid(file_id),
+        ))
+        .await
+        .map_err(|_| AppError::Internal("could not read the photo"))?;
+    Ok(Image { mime_type, bytes })
 }
 
 /// The answer for an occurrence that is not open: done by the caller already is fine, anything

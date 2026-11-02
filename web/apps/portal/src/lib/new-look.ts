@@ -1,16 +1,23 @@
 import { useCallback, useSyncExternalStore } from "react";
 
-/** The per-user "New look" switch for the redesigned portal screens, remembered in this browser. */
+/** The per-user "New look" switch for the redesigned portal screens, remembered in this browser; on by default. */
 export const NEW_LOOK_KEY = "aarogyam.portal.new-look";
 
 const CHANGED = "aarogyam:new-look";
 
+/**
+ * On unless the member turned it off (founder, 1 Nov 2026). Unit tests keep the classic screens as
+ * their default and turn the new look on where they test it.
+ */
+const DEFAULT_ON = import.meta.env.MODE !== "test";
+
 /** The choice for this visit when storage is blocked. */
-let memory = false;
+let memory = DEFAULT_ON;
 
 function read(): boolean {
   try {
-    return globalThis.localStorage.getItem(NEW_LOOK_KEY) === "1";
+    const stored = globalThis.localStorage.getItem(NEW_LOOK_KEY);
+    return stored === null ? DEFAULT_ON : stored === "1";
   } catch {
     return memory;
   }
@@ -31,7 +38,7 @@ function subscribe(onChange: () => void): () => void {
  * Interim: the shell work will replace this with a real preference.
  */
 export function useNewLook(): [boolean, (next: boolean) => void] {
-  const on = useSyncExternalStore(subscribe, read, () => false);
+  const on = useSyncExternalStore(subscribe, read, () => DEFAULT_ON);
   const set = useCallback((next: boolean) => {
     memory = next;
     try {

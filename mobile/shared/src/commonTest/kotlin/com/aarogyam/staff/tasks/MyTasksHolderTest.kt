@@ -78,7 +78,7 @@ class MyTasksHolderTest {
             assertEquals(listOf("old1", "old2", "soon", "late"), state.rows.map { it.id })
             assertEquals(listOf(true, true, false, false), state.rows.map { it.overdue })
             assertEquals(1, state.doneCount)
-            assertFalse(holder.proofSupported)
+            assertTrue(holder.proofSupported)
         }
 
     @Test
@@ -234,5 +234,91 @@ class MyTasksHolderTest {
             assertEquals("3", first[0].jsonObject["quantity"]?.jsonPrimitive?.content)
             assertEquals(JsonArray(emptyList()), usage("u2"))
             assertNull(bodyOf(backend.requests.toList().first { it.url.encodedPath.endsWith("/u1/complete") })["note"])
+        }
+
+    private fun proofRoute(id: String) = "$SUNRISE/api/v1/tasks/occurrences/$id/proof"
+
+    private fun completes(backend: FakeBackend) =
+        backend.requests.toList().filter {
+            it.url.encodedPath.endsWith("/complete")
+        }
+
+    @Test
+    fun a_proof_is_uploaded_then_the_task_completes_with_its_file_id() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(MINE, { json(mine(occurrence("a", "2026-10-12T07:00:00Z"))) }, { json(mine()) })
+            backend.on(BADGES, { json(badges(1)) })
+            backend.on(proofRoute("a"), { json("""{"proof_file_id":"file-1"}""") })
+            backend.on(completeRoute("a"), { json(occurrence("a", "2026-10-12T07:00:00Z", status = "done")) })
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("tasks.use"))
+            val holder = createMyTasks(clinic, backgroundScope) { now }
+            holder.state.first { it.rows.size == 1 }
+            holder.completeWithProof("a", null, null, byteArrayOf(1, 2, 3))
+            holder.state.first { it.rows.isEmpty() }
+            assertEquals(1, backend.count("$SUNRISE/api/v1/tasks/occurrences/a/proof"))
+            assertEquals("file-1", bodyOf(completes(backend).single())["proof_file_id"]?.jsonPrimitive?.content)
+        }
+
+    @Test
+    fun a_failed_upload_shows_the_error_and_does_not_complete() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(MINE, { json(mine(occurrence("a", "2026-10-12T07:00:00Z"))) })
+            backend.on(BADGES, { json(badges(1)) })
+            backend.on(proofRoute("a"), { apiError(HttpStatusCode.PayloadTooLarge, "too_large") })
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("tasks.use"))
+            val holder = createMyTasks(clinic, backgroundScope) { now }
+            holder.state.first { it.rows.size == 1 }
+            holder.completeWithProof("a", null, null, byteArrayOf(1))
+            val failed = holder.state.first { it.rows.singleOrNull()?.error != null }
+            assertFalse(failed.rows.single().pending)
+            assertEquals(0, completes(backend).size)
+        }
+
+    @Test
+    fun a_retry_after_a_failed_complete_reuses_the_uploaded_proof() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(MINE, { json(mine(occurrence("a", "2026-10-12T07:00:00Z"))) }, { json(mine()) })
+            backend.on(BADGES, { json(badges(1)) })
+            backend.on(proofRoute("a"), { json("""{"proof_file_id":"file-9"}""") })
+            backend.on(
+                completeRoute("a"),
+                { apiError(HttpStatusCode.InternalServerError, "internal") },
+                { json(occurrence("a", "2026-10-12T07:00:00Z", status = "done")) },
+            )
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("tasks.use"))
+            val holder = createMyTasks(clinic, backgroundScope) { now }
+            holder.state.first { it.rows.size == 1 }
+            holder.completeWithProof("a", null, null, byteArrayOf(1))
+            holder.state.first { it.rows.singleOrNull()?.error != null }
+            holder.completeWithProof("a", null, null, byteArrayOf(1))
+            holder.state.first { it.rows.isEmpty() }
+            assertEquals(1, backend.count("$SUNRISE/api/v1/tasks/occurrences/a/proof"))
+            assertEquals(
+                listOf("file-9", "file-9"),
+                completes(backend).map { bodyOf(it)["proof_file_id"]?.jsonPrimitive?.content },
+            )
+        }
+
+    @Test
+    fun without_a_proof_nothing_is_uploaded() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(MINE, { json(mine(occurrence("a", "2026-10-12T07:00:00Z"))) }, { json(mine()) })
+            backend.on(BADGES, { json(badges(1)) })
+            backend.on(completeRoute("a"), { json(occurrence("a", "2026-10-12T07:00:00Z", status = "done")) })
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("tasks.use"))
+            val holder = createMyTasks(clinic, backgroundScope) { now }
+            holder.state.first { it.rows.size == 1 }
+            holder.complete("a", null, null)
+            holder.state.first { it.rows.isEmpty() }
+            assertEquals(0, backend.count("$SUNRISE/api/v1/tasks/occurrences/a/proof"))
+            assertNull(bodyOf(completes(backend).single())["proof_file_id"])
         }
 }

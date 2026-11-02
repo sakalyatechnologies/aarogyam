@@ -21,6 +21,8 @@ struct DeskHomeScreen: View {
     @State private var checkingIn = false
     @State private var paying: DeskPayTarget?
     @State private var walkIn: DeskHomeWalkIn?
+    /// Bumped to reload the two earlier-day sections (after a payment sheet closes, and on pull to refresh).
+    @State private var earlierTick = 0
     @FocusState private var focused: Bool
     @Environment(\.skTheme) private var theme
     @Environment(\.scenePhase) private var scenePhase
@@ -45,12 +47,18 @@ struct DeskHomeScreen: View {
                     DeskBoardScreen(holder: board.holder, state: board.value, clinic: clinic, onOpenPatient: onOpenPatient,
                                     onCollect: { paying = $0 }, feed: feed, embedded: true)
                 }
+                ScreenHost(make: { graph.toCollect(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
+                    DeskUnpaidSection(holder: holder, state: state, canCollect: canCollect, refreshTick: earlierTick) { paying = $0 }
+                }
+                ScreenHost(make: { graph.missed(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
+                    DeskMissedSection(holder: holder, state: state, zoneId: clinic.session.clinic.timezone, refreshTick: earlierTick, onOpenPatient: onOpenPatient)
+                }
             }
             .padding(.horizontal, SkSpacing.l).padding(.top, SkSpacing.s).padding(.bottom, SkSpacing.xxl)
         }
         .scrollDismissesKeyboard(.interactively)
         .scrollIndicators(.hidden)
-        .refreshable { board?.holder.refresh(); await feed.refresh() }
+        .refreshable { board?.holder.refresh(); earlierTick += 1; await feed.refresh() }
         // Polls only in front; coming back restarts it, which refreshes at once.
         .task(id: scenePhase) { if scenePhase == .active { await feed.run() } }
         .onAppear {
@@ -60,7 +68,7 @@ struct DeskHomeScreen: View {
         }
         // A payment that settles the bill moves the visit to done on the server, so reload at once
         // rather than leaving the card up until the next 20-second poll.
-        .sheet(item: $paying, onDismiss: { board?.holder.refresh(); Task { await feed.refresh() } }) {
+        .sheet(item: $paying, onDismiss: { board?.holder.refresh(); earlierTick += 1; Task { await feed.refresh() } }) {
             DeskPaymentSheet(graph: graph, clinic: clinic, target: $0, refreshTick: feed.version)
         }
         .sheet(item: $walkIn) { mode in

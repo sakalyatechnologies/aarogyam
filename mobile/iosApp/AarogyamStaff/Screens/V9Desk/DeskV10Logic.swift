@@ -142,3 +142,40 @@ enum DeskV10Strip {
         return chips
     }
 }
+
+/// The two "earlier" sections under the board: unpaid bills from earlier days, and today's no-shows.
+enum DeskV10Earlier {
+    /// More than three rows start collapsed, so the board stays the first thing on the screen.
+    static func startsCollapsed(count: Int) -> Bool { count > 3 }
+
+    static func unpaidHeader(count: Int, totalPaise: Int64) -> String {
+        dxf("dx.earlier.unpaid.header", count, ClinicFormat.rupees(paise: totalPaise))
+    }
+
+    static func missedHeader(count: Int) -> String { dxf("dx.earlier.missed.header", count) }
+
+    /// "12 Oct" from a clinic day `YYYY-MM-DD`; the raw text when unreadable.
+    static func dayText(_ day: String, locale: Locale = .current) -> String {
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX"); parser.timeZone = .gmt; parser.dateFormat = "yyyy-MM-dd"
+        guard let date = parser.date(from: day) else { return day }
+        let out = DateFormatter()
+        out.locale = locale; out.timeZone = .gmt; out.setLocalizedDateFormatFromTemplate("d MMM")
+        return out.string(from: date)
+    }
+
+    /// A clinic-local minute of the day as a short time ("9:15 AM").
+    static func timeText(minute: Int, locale: Locale = .current) -> String {
+        let out = DateFormatter()
+        out.locale = locale; out.timeZone = .gmt; out.timeStyle = .short; out.dateStyle = .none
+        return out.string(from: Date(timeIntervalSince1970: TimeInterval(minute * 60)))
+    }
+
+    static func unpaidRowLabel(number: String, token: Int, day: String, balancePaise: Int64) -> String {
+        dxf("dx.earlier.unpaid.row.a11y", number, token, dayText(day), ClinicFormat.rupees(paise: balancePaise))
+    }
+
+    static func missedRowLabel(number: String, minute: Int) -> String {
+        dxf("dx.earlier.missed.row.a11y", number, timeText(minute: minute))
+    }
+}

@@ -109,4 +109,17 @@ final class DeskV10Tests: XCTestCase {
         XCTAssertEqual(DeskV10Feed.minuteOfDay(rfc3339: "2026-10-12T09:15:30.250+05:30", zoneId: "Asia/Kolkata"), 9 * 60 + 15)
         XCTAssertEqual(DeskV10Feed.minuteOfDay(rfc3339: "nonsense", zoneId: "Asia/Kolkata"), 0)
     }
+
+    func testEarlierSectionsRules() {
+        XCTAssertFalse(DeskV10Earlier.startsCollapsed(count: 3))
+        XCTAssertTrue(DeskV10Earlier.startsCollapsed(count: 4))
+        XCTAssertEqual(DeskV10Earlier.dayText("2026-10-12", locale: Locale(identifier: "en_IN")), "12 Oct")
+        XCTAssertEqual(DeskV10Earlier.dayText("nonsense"), "nonsense")
+        XCTAssertTrue(DeskV10Earlier.timeText(minute: 9 * 60 + 15, locale: Locale(identifier: "en_US")).hasPrefix("9:15"))
+        let header = DeskV10Earlier.unpaidHeader(count: 2, totalPaise: 120_000)
+        XCTAssertTrue(header.contains("2") && header.contains("1,200"), header)
+        let label = DeskV10Earlier.unpaidRowLabel(number: "SC-1042", token: 7, day: "2026-10-12", balancePaise: 50_000)
+        XCTAssertTrue(label.contains("SC-1042") && label.contains("7") && label.contains("500"), label)
+        XCTAssertTrue(DeskV10Earlier.missedRowLabel(number: "SC-1042", minute: 600).contains("SC-1042"))
+    }
 }

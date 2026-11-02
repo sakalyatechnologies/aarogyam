@@ -468,6 +468,7 @@ export type ClinicDetail = Schemas["ClinicDetail"];
 export type NewClinicInvitation = Schemas["NewClinicInvitation"];
 export type ClinicInvited = Schemas["ClinicInvited"];
 export type ResentOwnerInvitation = Schemas["ResentOwnerInvitation"];
+export type OwnerInvitationDelivery = Schemas["OwnerInvitationDelivery"];
 
 // Billing (M5) --------------------------------------------------------------------------------
 

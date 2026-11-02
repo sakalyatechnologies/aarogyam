@@ -539,6 +539,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/console/clinics/{id}/owner-invitation/resend",
             post(onboarding::resend_owner_invitation),
         )
+        .route(
+            "/console/clinics/{id}/owner-invitation/delivery",
+            get(onboarding::owner_invitation_delivery),
+        )
         .route("/console/slugs", get(console::check_slug))
         .route("/console/support-grants", get(console_support::mine))
         .route("/console/applications", get(onboarding::applications))

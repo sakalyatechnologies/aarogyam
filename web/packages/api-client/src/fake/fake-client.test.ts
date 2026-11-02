@@ -215,6 +215,16 @@ describe("fake client: console", () => {
     expect(errorOf(await admin.resendOwnerInvitation(created.id))?.status).toBe(409);
   });
 
+  it("shows the owner's invitation email as not sent when it only reached the log", async () => {
+    const { as } = setup();
+    const admin = as(PEOPLE.admin);
+    expect(errorOf(await admin.getOwnerInvitationDelivery(clinicId.parse("not-a-clinic")))?.status).toBe(404);
+    const created = value(await admin.createClinic({ name: "Asha Dental Care", owner_email: "asha@example.com" }));
+    const delivery = value(await admin.getOwnerInvitationDelivery(created.id));
+    expect(delivery).toMatchObject({ status: "not_sent", provider: "log", attempts: 1 });
+    expect(JSON.stringify(delivery)).not.toContain("asha@example.com");
+  });
+
   it("serves metrics per range", async () => {
     const { as } = setup();
     const metrics = value(await as(PEOPLE.admin).getMetrics("24h"));

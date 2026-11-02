@@ -730,3 +730,12 @@ so tests exercise the stream.
 - **Access.** All three need `tasks.use`. Unlike avatars there are no signed links: the photo can show the clinic's premises, so it is read only through the signed-in route, by the person the task is for (or holding its role), whoever finished it, or a role with `tasks.manage`; anyone else gets 403 and another clinic 404. Uploading needs the task to be the caller's and open (or done by them). A replaced photo is removed from storage. No patient data is logged.
 
 **Why.** The phone needs a signed consent on file and evidence that a cleaning or sterilisation task was done, without making tasks depend on patients.
+
+## 2026-11-01: The console shows whether the owner's invitation email went out
+**Decision.** Migration 0600 adds `app.console_owner_invite_delivery(org_id)`, and `GET /api/v1/console/clinics/{id}/owner-invitation/delivery` returns `OwnerInvitationDelivery` (`status`, `provider`, `attempts`, `last_error`, `queued_at`, `sent_at`). The clinic page shows it beside Resend invitation while the owner has not joined.
+- **Read-only and narrow.** The function is security definer, reads the latest `staff.invited` email of the clinic's first owner invitation, and returns no recipient, payload, secret or body. `last_error` is cut to 200 characters.
+- **Statuses.** `not_queued` (no row), `pending`, `sent`, `failed` (with the reason) and `not_sent`: the send "succeeded" only through the `log` provider, so nothing reached the owner. A resend queues a newer email, which is the one shown.
+- **Access.** The same as Resend invitation: Sakalya staff whose console role can onboard clinics; others get 403, clinic hosts 404. An unknown clinic is 404; a clinic with no owner invitation is 200 `not_queued`.
+- **Additive.** A new route and a new type only; no existing field changed.
+
+**Why.** An owner who never got the email looked the same as one who had not opened it. Staff can now see a failed or log-only send and resend or share the link.

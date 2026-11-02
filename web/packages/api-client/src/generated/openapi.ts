@@ -599,6 +599,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/clinics/{id}/owner-invitation/delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reads whether the clinic owner's invitation email was sent, for the clinic page. */
+        get: operations["ownerInvitationDelivery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/clinics/{id}/owner-invitation/resend": {
         parameters: {
             query?: never;
@@ -10350,6 +10367,27 @@ export interface components {
             /** @description By list, then label; retired ones included. */
             items: components["schemas"]["OwnDentalTerm"][];
         };
+        /** @description Whether a clinic's owner invitation email went out. Never carries the address, link or body. */
+        OwnerInvitationDelivery: {
+            /**
+             * Format: int32
+             * @description Send attempts so far.
+             */
+            attempts: number;
+            /** @description Why the last attempt failed (at most 200 characters). */
+            last_error?: string | null;
+            /** @description The email provider tried (`log` or `resend`). */
+            provider?: string | null;
+            /** @description When the email was queued (RFC 3339). */
+            queued_at?: string | null;
+            /** @description When it was sent (RFC 3339). */
+            sent_at?: string | null;
+            /**
+             * @description `not_queued`, `pending`, `sent`, `failed`, or `not_sent` when it only reached the log
+             *     because no email provider is configured.
+             */
+            status: string;
+        };
         /** @description Changes to an audience; absent fields stay. */
         PatchAudience: {
             filter?: components["schemas"]["AudienceFilterBody"] | null;
@@ -16205,6 +16243,42 @@ export interface operations {
             };
             /** @description Supabase could not create the sign-in account */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ownerInvitationDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerInvitationDelivery"];
+                };
+            };
+            /** @description Not allowed to onboard clinics */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such clinic, or not the console host */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

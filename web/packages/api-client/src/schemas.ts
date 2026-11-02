@@ -1993,6 +1993,17 @@ export const resentOwnerInvitation = z.object({
 }) satisfies z.ZodType<C.ResentOwnerInvitation>;
 export type ResentOwnerInvitation = z.output<typeof resentOwnerInvitation>;
 
+/** How the owner's invitation email went: never the address, link or body. */
+export const ownerInvitationDelivery = z.object({
+  status: z.enum(["not_queued", "pending", "sent", "failed", "not_sent"]),
+  provider: optionalText,
+  attempts: count,
+  last_error: optionalText,
+  queued_at: optionalTimestamp,
+  sent_at: optionalTimestamp,
+}) satisfies z.ZodType<C.OwnerInvitationDelivery>;
+export type OwnerInvitationDelivery = z.output<typeof ownerInvitationDelivery>;
+
 // Billing (M5) --------------------------------------------------------------------------------
 
 export const drugId = z.string().min(1).brand<"DrugId">();

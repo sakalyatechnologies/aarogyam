@@ -1943,6 +1943,48 @@
         ]
       }
     },
+    "/api/v1/console/clinics/{id}/owner-invitation/delivery": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Reads whether the clinic owner's invitation email was sent, for the clinic page.",
+        "operationId": "ownerInvitationDelivery",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The clinic",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerInvitationDelivery"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to onboard clinics"
+          },
+          "404": {
+            "description": "No such clinic, or not the console host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/console/clinics/{id}/owner-invitation/resend": {
       "post": {
         "tags": [
@@ -29790,6 +29832,53 @@
               "$ref": "#/components/schemas/OwnDentalTerm"
             },
             "description": "By list, then label; retired ones included."
+          }
+        }
+      },
+      "OwnerInvitationDelivery": {
+        "type": "object",
+        "description": "Whether a clinic's owner invitation email went out. Never carries the address, link or body.",
+        "required": [
+          "status",
+          "attempts"
+        ],
+        "properties": {
+          "attempts": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Send attempts so far."
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the last attempt failed (at most 200 characters)."
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The email provider tried (`log` or `resend`)."
+          },
+          "queued_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the email was queued (RFC 3339)."
+          },
+          "sent_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was sent (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`not_queued`, `pending`, `sent`, `failed`, or `not_sent` when it only reached the log\nbecause no email provider is configured."
           }
         }
       },

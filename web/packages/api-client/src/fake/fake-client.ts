@@ -5577,6 +5577,25 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }),
         ),
 
+      getOwnerInvitationDelivery: (id, opts) =>
+        respond(S.ownerInvitationDelivery, opts?.signal, () =>
+          inConsole(() => {
+            const clinic = state.clinics.find((c) => c.id === id);
+            if (clinic === undefined) {
+              return notFound;
+            }
+            const owner = [...invitations.values()]
+              .filter((inv) => inv.clinicId === clinic.id && inv.roleKey === "owner")
+              .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+            // The fake has no email provider, so a queued email only reached the log.
+            return reply(
+              owner === undefined
+                ? ({ status: "not_queued", attempts: 0 } satisfies C.OwnerInvitationDelivery)
+                : ({ status: "not_sent", provider: "log", attempts: 1, queued_at: owner.createdAt, sent_at: owner.createdAt } satisfies C.OwnerInvitationDelivery),
+            );
+          }),
+        ),
+
       searchDrugs: (input, opts) =>
         respond(S.drugList, opts?.signal, async () => {
           const caller = await inClinic("prescriptions.issue");

@@ -75,6 +75,7 @@ import type {
   ClinicDetail,
   ClinicId,
   ClinicInvited,
+  OwnerInvitationDelivery,
   ResentOwnerInvitation,
   ClinicSettings,
   ClinicSettingsChanges,
@@ -768,6 +769,8 @@ export interface ApiClient {
   inviteToClinic(id: ClinicId, input: NewClinicInvitation, options?: RequestOptions): Promise<ApiResult<ClinicInvited>>;
   /** Sends the owner's invitation again (new link, old one stops working) while the owner hasn't joined. */
   resendOwnerInvitation(id: ClinicId, options?: RequestOptions): Promise<ApiResult<ResentOwnerInvitation>>;
+  /** Console host: whether the owner's invitation email went out (status, provider, attempts, failure reason, times). Never the address or link. */
+  getOwnerInvitationDelivery(id: ClinicId, options?: RequestOptions): Promise<ApiResult<OwnerInvitationDelivery>>;
 
   /** Clinic host: finds medicines in the shared catalogue. Needs `prescriptions.issue`. */
   searchDrugs(input: DrugSearch, options?: RequestOptions): Promise<ApiResult<DrugList>>;

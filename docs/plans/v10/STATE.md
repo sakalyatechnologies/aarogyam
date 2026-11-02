@@ -168,3 +168,26 @@ Paused by the founder. This is the one place to resume from. The approved plan i
   - The signature pad's label never reached the accessibility tree. It's named on the SwiftUI side, with direct interaction for VoiceOver.
 - **Not covered yet:** dictation and audio (simulator microphone), chair photo, tooth chart, Rx from a set, My tasks confetti, the 60 s amber state, and Remind. The backend's G9 thank-you message isn't on main.
 - **Left in the local DB:** token 2 from run 2 is still `ready_to_bill` (synthetic).
+
+## 1 Nov: T11 live banners, Desk home earlier-day lists, longer T12, on main `9f35034f`
+- **Shared (adopt):** `missedAppointments(date?)`, `toCollect()`, `dismissRecall(id, reason?)`; `desk/ToCollectHolder`, `desk/MissedHolder`, `RecallsStateHolder.dismiss`. Remind's `retry_after_seconds` is **not** adopted: the kit `ApiError` has no field for it (kit change).
+- **T11 live banners:** `live/LiveBannerHolder` polls unread staff notifications in front (the first load only primes) and raises `patient_waiting`, `send_in` and `collect_payment`. iOS `LiveBannerView` over every tab: 6 s, haptic, a sound for send in, VoiceOver, Reduce Motion fade, taps pass through when empty. The doctor card's inline banner moved here (`dv10.waiting.banner` is now unused). Sound and haptic are untested on a device.
+- **Desk home:** "Unpaid from earlier days" (Collect opens the payment sheet on that bill) and "Missed today" (tap opens the patient), collapsible, closed past three rows.
+- **T12 now covers** chair mode, one tooth (16, via Other…) and one Rx (Paracetamol by search). Run on the merged branch, machine quiet:
+
+  | Phase | Step | Seconds | Taps |
+  |---|---|---|---|
+  | Desk | lookup | 9.6 | 2 |
+  | Desk | intake | 36.6 | 9 |
+  | Doctor | waiting → Send in | 5.8 | 1 |
+  | Doctor | Start visit | 3.7 | 1 |
+  | Doctor | chair open/close | 5.5 | 2 |
+  | Doctor | tooth | 11.7 | 3 |
+  | Doctor | Rx | 11.9 | 3 |
+  | Doctor | wrap-up, ₹500, Send to desk | 24.7 | 3 |
+  | Desk | collect | 15.8 | 3 |
+
+  **Doctor total 63 s / 13 taps against the 60 s target.** Wrap-up is the slow step (Issue Rx sheet, fee field).
+- **Gaps found:** the visit's treatment form has no surface or material (only the Chart tab does); the visit Rx card has no medicine sets (`/api/v1/medicine-sets` exists); photo and dictation can't run on the simulator.
+- **Flaky:** `SseLiveUpdatesTest.no_heartbeat_means_dead…` runs on real time (150 ms heartbeats) and failed once under load.
+- **Next:** medicine sets in the visit Rx card; surface and material in the visit tooth form; G4 task proof photo; G10 consent `signature_attachment_id`; a recall-dismiss UI (where the follow-up list lives is a design call); Android T13 after iOS sign-off.

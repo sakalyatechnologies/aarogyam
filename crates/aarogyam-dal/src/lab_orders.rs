@@ -601,3 +601,155 @@ pub async fn remind(
     .await?;
     Ok(queued)
 }
+
+/// One item of work, as a reminder lists it: never who it is for.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReminderItemJson {
+    /// What to make.
+    pub work_type: String,
+    /// FDI tooth numbers.
+    pub teeth: Vec<i16>,
+    /// Shade.
+    pub shade: Option<String>,
+}
+
+/// An order as a reminder needs it. It has no patient column: reminders are built from this.
+#[derive(Debug, Clone)]
+pub struct ReminderOrderRow {
+    /// The order.
+    pub id: Uuid,
+    /// `LAB-<n>`.
+    pub number: String,
+    /// The lab.
+    pub vendor_id: Uuid,
+    /// Its name.
+    pub vendor_name: String,
+    /// The lab's own phone, E.164.
+    pub vendor_phone: Option<String>,
+    /// Who at the lab the order names.
+    pub contact_id: Option<Uuid>,
+    /// The status.
+    pub status: String,
+    /// When it is due back.
+    pub due_on: Option<Date>,
+    /// The work.
+    pub items: Json<Vec<ReminderItemJson>>,
+}
+
+/// The orders among `ids` within reach, with the lab and the work (no patient), grouped by lab
+/// name then due date.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn reminder_orders(
+    conn: &mut PgConnection,
+    ids: &[Uuid],
+    member: Option<Uuid>,
+) -> Result<Vec<ReminderOrderRow>, DbError> {
+    let rows = sqlx::query_as!(
+        ReminderOrderRow,
+        r#"select o.id, o.number, o.vendor_id, v.name as vendor_name, v.phone_e164 as vendor_phone,
+                  o.contact_id, o.status, o.due_on,
+                  coalesce((select jsonb_agg(jsonb_build_object(
+                                     'work_type', i.work_type, 'teeth', to_jsonb(i.teeth),
+                                     'shade', i.shade) order by i.line_no)
+                            from aarogyam.lab_order_items i where i.lab_order_id = o.id),
+                           '[]'::jsonb) as "items!: Json<Vec<ReminderItemJson>>"
+           from aarogyam.lab_orders o
+           join aarogyam.lab_vendors v on v.org_id = o.org_id and v.id = o.vendor_id
+           where o.id = any($1)
+             and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $2)
+           order by lower(v.name), v.id, o.due_on nulls last, o.number"#,
+        ids,
+        member
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// A way to reach someone at a lab.
+#[derive(Debug, Clone)]
+pub struct ReminderContactRow {
+    /// The contact.
+    pub id: Uuid,
+    /// The lab.
+    pub vendor_id: Uuid,
+    /// Their name.
+    pub name: String,
+    /// Phone, E.164.
+    pub phone_e164: Option<String>,
+    /// Email.
+    pub email: Option<String>,
+    /// Whether they use `WhatsApp` on that phone.
+    pub whatsapp: bool,
+}
+
+/// The labs' contacts who are still there, oldest first.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn reminder_contacts(
+    conn: &mut PgConnection,
+    vendor_ids: &[Uuid],
+) -> Result<Vec<ReminderContactRow>, DbError> {
+    let rows = sqlx::query_as!(
+        ReminderContactRow,
+        r#"select c.id, c.vendor_id, c.name, c.phone_e164, c.email, c.whatsapp
+           from aarogyam.lab_contacts c
+           where c.vendor_id = any($1) and c.deleted_at is null
+           order by c.created_at, c.id"#,
+        vendor_ids
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// The clinic's name, for what a reminder says.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn clinic_name(conn: &mut PgConnection) -> Result<String, DbError> {
+    let name = sqlx::query_scalar!(
+        r#"select name as "name!" from aarogyam.organizations where id = app.tenant_id()"#
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(name)
+}
+
+/// Queues one reminder email about `order_ids` (all of one lab, all at the lab) to `email`,
+/// records a `reminded` event on each and marks the lab contacted now by `actor`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn queue_batch_reminder(
+    conn: &mut PgConnection,
+    message_id: Uuid,
+    email: &str,
+    payload: &Value,
+    order_ids: &[Uuid],
+    actor: Uuid,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"with m as (
+             insert into aarogyam.outbox_events (id, event_key, channel, recipient, payload)
+             values ($1, 'lab_order.reminder', 'email', $2, $3)
+             returning id
+           ), e as (
+             insert into aarogyam.lab_order_events (lab_order_id, kind, reminder, actor_id)
+             select x, 'reminded', 'manual', $5 from unnest($4::uuid[]) x
+           )
+           update aarogyam.lab_orders set last_contacted_at = now(), last_contacted_by = $5
+           where id = any($4)"#,
+        message_id,
+        email,
+        payload,
+        order_ids,
+        actor
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}

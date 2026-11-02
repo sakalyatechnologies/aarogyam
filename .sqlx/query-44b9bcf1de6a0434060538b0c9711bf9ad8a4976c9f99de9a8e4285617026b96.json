@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with m as (\n             update aarogyam.chat_messages set deleted_at = now(), body = null, patient_id = null\n             where conversation_id = $1 and id = $2 and author_membership_id = $3\n               and deleted_at is null\n             returning id\n           ), a as (\n             update aarogyam.chat_attachments set deleted_at = now()\n             where conversation_id = $1 and message_id in (select id from m) and deleted_at is null\n             returning id\n           )\n           select (select count(*) from m) as \"deleted!\", (select id from a limit 1) as \"attachment_id?\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "deleted!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "attachment_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "44b9bcf1de6a0434060538b0c9711bf9ad8a4976c9f99de9a8e4285617026b96"
+}

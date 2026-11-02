@@ -1381,6 +1381,91 @@
         ]
       }
     },
+    "/api/v1/chat-attachments/{id}/content": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Streams a chat file through a signed link from `GET /chat-attachments/{id}/download`. The\nlink is the proof of access (an `<img>` can use it); it works on the clinic's own host for\nfive minutes, and only while the member it was issued to is still in the conversation.",
+        "operationId": "getChatAttachmentContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "The signed token from the download link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, with its media type"
+          },
+          "403": {
+            "description": "The link has expired; ask for a new one"
+          },
+          "404": {
+            "description": "Not a valid link for this file on this host"
+          }
+        }
+      }
+    },
+    "/api/v1/chat-attachments/{id}/download": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Issues a five-minute download link for a chat file of a conversation the caller is in.",
+        "operationId": "getChatAttachmentDownloadLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use"
+          },
+          "404": {
+            "description": "No such file in a conversation the caller is in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/client-errors": {
       "post": {
         "tags": [
@@ -2313,6 +2398,81 @@
         ]
       }
     },
+    "/api/v1/conversations/{id}/attachments": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Posts a message that carries a file (`multipart/form-data`: `client_id`, `file` up to 5 MB,\noptional `body`). The type is read from the content: only JPEG, PNG and PDF are accepted.\nIdempotent by `client_id` and the file's content: a retry returns the first message with `200`.",
+        "operationId": "postChatAttachment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The conversation",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatUploadForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Posted earlier with this client_id and file",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessage"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Posted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not an accepted file, or a bad field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks chat.use"
+          },
+          "404": {
+            "description": "No such conversation the caller is in"
+          },
+          "409": {
+            "description": "Archived, or the client_id was used for another message"
+          },
+          "413": {
+            "description": "Larger than 5 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/conversations/{id}/leave": {
       "post": {
         "tags": [
@@ -2598,7 +2758,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks chat.use, or patients.read for a patient"
+            "description": "The role lacks chat.use, patients.read for a patient, or chat.notice for a notice"
           },
           "404": {
             "description": "No such conversation the caller is in, or the patient is out of reach"
@@ -4864,6 +5024,64 @@
           },
           "404": {
             "description": "No such patient in this clinic or within reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-orders/reminders": {
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Reminds several labs at once. The orders are grouped by lab and each lab gets one message\nlisting its order numbers and the work (type, teeth, shade, due date), never the patient.\n`email` queues one outbox message per lab, to the order's contact with an address (else the\nlab's first), and records the reminder on each order. `whatsapp` returns one `wa.me` link per\nlab for staff to open (the contact who uses `WhatsApp`, else one with a phone, else the lab's\nown phone); nothing is sent by us, so log the call afterwards if it matters. Orders not at the\nlab, and labs that can't be reached on the channel, are listed in `skipped`.",
+        "operationId": "remindLabs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabRemindersRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "WhatsApp links, one per lab",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabReminders"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Emails queued, one per lab",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabReminders"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No orders, more than 50, or an unknown channel"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks labs.write"
+          },
+          "404": {
+            "description": "An order isn't in this clinic or within reach; nothing was done"
           }
         },
         "security": [
@@ -7246,6 +7464,37 @@
           },
           "404": {
             "description": "A patient isn't in this clinic or out of the role's reach; nothing was queued"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/messages/stats": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "This month's message numbers: sent, delivered and the delivered share, failed, skipped and\nopt-outs, in total and per channel. The month is the clinic's own calendar month so far.\nCounts only: no patient and no message text.",
+        "operationId": "getMessageStats",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageStats"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks messages.send"
           }
         },
         "security": [
@@ -19818,6 +20067,57 @@
           }
         }
       },
+      "ChannelMessageStats": {
+        "type": "object",
+        "description": "One channel's numbers for the month so far.",
+        "required": [
+          "channel",
+          "sent",
+          "delivered",
+          "failed",
+          "skipped",
+          "opt_outs"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "`email`, `whatsapp` or `sms`."
+          },
+          "delivered": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Of those, reported delivered or read by the provider."
+          },
+          "delivered_pct": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Delivered as a percentage of sent, one decimal; absent when nothing was sent."
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Failed for good, or bounced."
+          },
+          "opt_outs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Patients who opted out of this channel this month."
+          },
+          "sent": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Messages handed to the provider."
+          },
+          "skipped": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Skipped: no consent, opted out, no address, a paused template."
+          }
+        }
+      },
       "ChartEntry": {
         "type": "object",
         "description": "A finding on a tooth or one of its surfaces.",
@@ -19932,6 +20232,37 @@
           }
         }
       },
+      "ChatAttachment": {
+        "type": "object",
+        "description": "The file a chat message carries.",
+        "required": [
+          "id",
+          "mime_type",
+          "size_bytes"
+        ],
+        "properties": {
+          "file_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name it was sent with."
+          },
+          "id": {
+            "type": "string",
+            "description": "The file."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "`image/jpeg`, `image/png` or `application/pdf`."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Its size in bytes."
+          }
+        }
+      },
       "ChatMessage": {
         "type": "object",
         "description": "A chat message.",
@@ -19944,6 +20275,17 @@
           "created_at"
         ],
         "properties": {
+          "attachment": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChatAttachment",
+                "description": "The file it carries; fetch it with `GET /chat-attachments/{id}/download`. Optional in the\nschema, so apps built before it read on."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "author_membership_id": {
             "type": "string",
             "description": "Who wrote it."
@@ -19981,6 +20323,10 @@
           "id": {
             "type": "string",
             "description": "The message; a cursor for `after` and `before`."
+          },
+          "is_notice": {
+            "type": "boolean",
+            "description": "Whether it is a notice, pinned in its conversation while it is the newest. Optional in\nthe schema, so apps built before it read on."
           },
           "patient_id": {
             "type": [
@@ -20022,6 +20368,32 @@
           "name": {
             "type": "string",
             "description": "Their display name."
+          }
+        }
+      },
+      "ChatUploadForm": {
+        "type": "object",
+        "description": "The form a chat file upload sends (`multipart/form-data`).",
+        "required": [
+          "client_id",
+          "file"
+        ],
+        "properties": {
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An optional caption, 1 to 4000 characters."
+          },
+          "client_id": {
+            "type": "string",
+            "description": "Chosen by the client (any UUID); posting again with it and the same file returns the first message."
+          },
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The file: JPEG, PNG or PDF, up to 5 MB. Its type is read from its content."
           }
         }
       },
@@ -21735,7 +22107,7 @@
           },
           "kind": {
             "type": "string",
-            "description": "`direct` or `group`."
+            "description": "`direct`, `group` or `channel` (the clinic-wide \"Everyone\" conversation, whose members\nare all active staff and can't be changed through the API)."
           },
           "members": {
             "type": "array",
@@ -21744,12 +22116,23 @@
             },
             "description": "Who is in it, earliest joined first."
           },
+          "pinned_notice": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChatMessage",
+                "description": "The newest notice that isn't deleted, to pin above the messages. Optional in the schema,\nso apps built before it read on."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "title": {
             "type": [
               "string",
               "null"
             ],
-            "description": "A group's title."
+            "description": "A group's or channel's title."
           }
         }
       },
@@ -24968,6 +25351,17 @@
             "$ref": "#/components/schemas/LabOrderState",
             "description": "Where it is."
           },
+          "tracker_stage": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LabTrackerStage",
+                "description": "Where it is on the five-step tracker (impression, production, trial, final,\ndelivered), derived from `status` and `stage`; absent when cancelled."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "vendor_id": {
             "type": "string",
             "description": "The lab."
@@ -25410,6 +25804,14 @@
           "cancelled"
         ]
       },
+      "LabReminderChannel": {
+        "type": "string",
+        "description": "How a batch reminder reaches the labs.",
+        "enum": [
+          "email",
+          "whatsapp"
+        ]
+      },
       "LabReminderQueued": {
         "type": "object",
         "description": "A reminder queued to the lab.",
@@ -25420,8 +25822,161 @@
           "message_id": {
             "type": "string",
             "description": "The outbox message."
+          },
+          "wa_link": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A `https://wa.me/` link to remind the lab's contact on `WhatsApp` with the same message\ntyped in, for staff to open and send; nothing is sent on `WhatsApp` by us. Absent when\nthe lab has no phone number."
           }
         }
+      },
+      "LabReminderSkipped": {
+        "type": "object",
+        "description": "An order a batch reminder left out.",
+        "required": [
+          "order_id",
+          "number",
+          "reason"
+        ],
+        "properties": {
+          "number": {
+            "type": "string",
+            "description": "`LAB-<n>`."
+          },
+          "order_id": {
+            "type": "string",
+            "description": "The order."
+          },
+          "reason": {
+            "type": "string",
+            "description": "`not_at_lab` (the work isn't at the lab), `no_email` (the lab has no contact with an\nemail address) or `no_phone` (the lab has no phone number)."
+          }
+        }
+      },
+      "LabReminderVendor": {
+        "type": "object",
+        "description": "What a batch reminder did for one lab.",
+        "required": [
+          "vendor_id",
+          "vendor_name",
+          "order_ids",
+          "order_numbers"
+        ],
+        "properties": {
+          "contact_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The contact the reminder is for; absent when only the lab's own phone is known."
+          },
+          "contact_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name."
+          },
+          "message_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The queued email (`email` channel)."
+          },
+          "order_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The orders it lists."
+          },
+          "order_numbers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Their numbers, in the same order."
+          },
+          "vendor_id": {
+            "type": "string",
+            "description": "The lab."
+          },
+          "vendor_name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "wa_link": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The `https://wa.me/` link with the message typed in (`whatsapp` channel)."
+          }
+        }
+      },
+      "LabReminders": {
+        "type": "object",
+        "description": "The result of a batch reminder.",
+        "required": [
+          "channel",
+          "vendors",
+          "skipped"
+        ],
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/LabReminderChannel",
+            "description": "The channel asked for."
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabReminderSkipped"
+            },
+            "description": "Orders left out, and why."
+          },
+          "vendors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabReminderVendor"
+            },
+            "description": "One entry per lab reminded, by name."
+          }
+        }
+      },
+      "LabRemindersRequest": {
+        "type": "object",
+        "description": "Orders to remind labs about.",
+        "required": [
+          "order_ids",
+          "channel"
+        ],
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/LabReminderChannel",
+            "description": "`email` queues one message per lab; `whatsapp` returns one `wa.me` link per lab."
+          },
+          "order_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "1 to 50 lab orders, in any mix of labs; repeats count once."
+          }
+        }
+      },
+      "LabTrackerStage": {
+        "type": "string",
+        "description": "The five steps of the order tracker, derived from the status and the free-text stage:\n`draft` is impression; `sent` and `in_progress` are production, or trial or final when the\nstage says so (try, trial, bisque, framework, wax: trial; final, finish, glaze, polish,\ncement: final); `received` is final, or trial when the stage says so; `fitted` is delivered;\n`returned_for_rework` is production. A cancelled order has none.",
+        "enum": [
+          "impression",
+          "production",
+          "trial",
+          "final",
+          "delivered"
+        ]
       },
       "LabTurnaround": {
         "type": "object",
@@ -25462,6 +26017,13 @@
               "null"
             ],
             "description": "Address."
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The city it is in. Optional in the schema, so apps built before it read on."
           },
           "contacts": {
             "type": "array",
@@ -25506,6 +26068,21 @@
               "null"
             ],
             "description": "Phone in E.164."
+          },
+          "turnaround_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many days it usually takes."
+          },
+          "work_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The kinds of work it does (`Crown`, `Bridge`, `Aligner`...)."
           }
         }
       },
@@ -25546,6 +26123,13 @@
             ],
             "description": "Address, up to 500 characters."
           },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The city, up to 80 characters."
+          },
           "email": {
             "type": [
               "string",
@@ -25584,6 +26168,24 @@
               "null"
             ],
             "description": "Phone; +91 is assumed without a country code."
+          },
+          "turnaround_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Its usual turnaround in days, 1 to 90; 0 clears it on a change."
+          },
+          "work_types": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "The kinds of work it does: up to 20 different ones of up to 40 characters. Replaces the\nlist on a change; an empty list clears it."
           }
         }
       },
@@ -26673,6 +27275,65 @@
           }
         }
       },
+      "MessageStats": {
+        "type": "object",
+        "description": "The clinic's message numbers for the month so far.",
+        "required": [
+          "since",
+          "sent",
+          "delivered",
+          "failed",
+          "skipped",
+          "opt_outs",
+          "by_channel"
+        ],
+        "properties": {
+          "by_channel": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelMessageStats"
+            },
+            "description": "One entry per channel (`email`, `sms`, `whatsapp`), used or not."
+          },
+          "delivered": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Of those, reported delivered or read."
+          },
+          "delivered_pct": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Delivered as a percentage of sent, one decimal; absent when nothing was sent."
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Failed for good, or bounced."
+          },
+          "opt_outs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Opt-outs recorded this month (a patient who opted out of two channels counts twice)."
+          },
+          "sent": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Messages handed to the provider, all channels."
+          },
+          "since": {
+            "type": "string",
+            "description": "The start of the month, in the clinic's time zone (RFC 3339)."
+          },
+          "skipped": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Skipped."
+          }
+        }
+      },
       "MessageSummary": {
         "type": "object",
         "description": "A message as a patient's list shows it: never its text, address or link secret.",
@@ -27504,6 +28165,10 @@
           "client_id": {
             "type": "string",
             "description": "Chosen by the client (any UUID); posting again with it returns the first message."
+          },
+          "is_notice": {
+            "type": "boolean",
+            "description": "Pin it as the conversation's notice (needs `chat.notice`; names no patient). The newest\nnotice that isn't deleted is shown as `pinned_notice`."
           },
           "patient_id": {
             "type": [

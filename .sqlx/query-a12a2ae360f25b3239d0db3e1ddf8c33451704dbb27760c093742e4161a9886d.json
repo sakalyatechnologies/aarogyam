@@ -1,0 +1,120 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select o.id, o.number, o.vendor_id, v.name as vendor_name, v.phone_e164 as vendor_phone,\n                  o.contact_id, o.status, o.due_on,\n                  coalesce((select jsonb_agg(jsonb_build_object(\n                                     'work_type', i.work_type, 'teeth', to_jsonb(i.teeth),\n                                     'shade', i.shade) order by i.line_no)\n                            from aarogyam.lab_order_items i where i.lab_order_id = o.id),\n                           '[]'::jsonb) as \"items!: Json<Vec<ReminderItemJson>>\"\n           from aarogyam.lab_orders o\n           join aarogyam.lab_vendors v on v.org_id = o.org_id and v.id = o.vendor_id\n           where o.id = any($1)\n             and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $2)\n           order by lower(v.name), v.id, o.due_on nulls last, o.number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_orders",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_orders",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "vendor_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_orders",
+            "name": "vendor_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "vendor_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_vendors",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "vendor_phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_vendors",
+            "name": "phone_e164"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "contact_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_orders",
+            "name": "contact_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_orders",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "due_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_orders",
+            "name": "due_on"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "items!: Json<Vec<ReminderItemJson>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "a12a2ae360f25b3239d0db3e1ddf8c33451704dbb27760c093742e4161a9886d"
+}

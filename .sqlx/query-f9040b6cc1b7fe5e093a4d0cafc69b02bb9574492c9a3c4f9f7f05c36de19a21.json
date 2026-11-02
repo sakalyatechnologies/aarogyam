@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select name as \"name!\" from aarogyam.organizations where id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.organizations",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f9040b6cc1b7fe5e093a4d0cafc69b02bb9574492c9a3c4f9f7f05c36de19a21"
+}

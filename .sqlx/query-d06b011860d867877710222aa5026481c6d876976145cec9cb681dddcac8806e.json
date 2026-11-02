@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, conversation_id, body, patient_id, created_at from aarogyam.chat_messages\n           where author_membership_id = $1 and client_id = $2",
+  "query": "select a.id, a.conversation_id, a.mime_type, m.patient_id as \"patient_id?\"\n           from aarogyam.chat_attachments a\n           join aarogyam.chat_messages m on m.org_id = a.org_id and m.id = a.message_id\n           where a.id = $1 and a.deleted_at is null and m.deleted_at is null",
   "describe": {
     "columns": [
       {
@@ -9,7 +9,7 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "aarogyam.chat_messages",
+            "table": "aarogyam.chat_attachments",
             "name": "id"
           }
         }
@@ -20,25 +20,25 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "aarogyam.chat_messages",
+            "table": "aarogyam.chat_attachments",
             "name": "conversation_id"
           }
         }
       },
       {
         "ordinal": 2,
-        "name": "body",
+        "name": "mime_type",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "aarogyam.chat_messages",
-            "name": "body"
+            "table": "aarogyam.chat_attachments",
+            "name": "mime_type"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "patient_id",
+        "name": "patient_id?",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -46,32 +46,19 @@
             "name": "patient_id"
           }
         }
-      },
-      {
-        "ordinal": 4,
-        "name": "created_at",
-        "type_info": "Timestamptz",
-        "origin": {
-          "Table": {
-            "table": "aarogyam.chat_messages",
-            "name": "created_at"
-          }
-        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Uuid"
       ]
     },
     "nullable": [
       false,
       false,
-      true,
-      true,
-      false
+      false,
+      true
     ]
   },
-  "hash": "3fc33fffe17f00e2c94f00c45698e7a751ba3f755a39700fdfb7ae8f1defff9e"
+  "hash": "d06b011860d867877710222aa5026481c6d876976145cec9cb681dddcac8806e"
 }

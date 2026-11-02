@@ -411,6 +411,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/chat-attachments/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Streams a chat file through a signed link from `GET /chat-attachments/{id}/download`. The
+         *     link is the proof of access (an `<img>` can use it); it works on the clinic's own host for
+         *     five minutes, and only while the member it was issued to is still in the conversation.
+         */
+        get: operations["getChatAttachmentContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chat-attachments/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issues a five-minute download link for a chat file of a conversation the caller is in. */
+        get: operations["getChatAttachmentDownloadLink"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/client-errors": {
         parameters: {
             query?: never;
@@ -725,6 +763,27 @@ export interface paths {
         get: operations["getConversation"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Posts a message that carries a file (`multipart/form-data`: `client_id`, `file` up to 5 MB,
+         *     optional `body`). The type is read from the content: only JPEG, PNG and PDF are accepted.
+         *     Idempotent by `client_id` and the file's content: a retry returns the first message with `200`.
+         */
+        post: operations["postChatAttachment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1468,6 +1527,31 @@ export interface paths {
         put?: never;
         /** Records a lab order with its items, as a draft or sent to the lab now. */
         post: operations["createLabOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lab-orders/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reminds several labs at once. The orders are grouped by lab and each lab gets one message
+         *     listing its order numbers and the work (type, teeth, shade, due date), never the patient.
+         *     `email` queues one outbox message per lab, to the order's contact with an address (else the
+         *     lab's first), and records the reminder on each order. `whatsapp` returns one `wa.me` link per
+         *     lab for staff to open (the contact who uses `WhatsApp`, else one with a phone, else the lab's
+         *     own phone); nothing is sent by us, so log the call afterwards if it matters. Orders not at the
+         *     lab, and labs that can't be reached on the channel, are listed in `skipped`.
+         */
+        post: operations["remindLabs"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2256,6 +2340,27 @@ export interface paths {
          *     promotional messages, and the provider's daily budget.
          */
         post: operations["sendMessages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/messages/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * This month's message numbers: sent, delivered and the delivered share, failed, skipped and
+         *     opt-outs, in total and per channel. The month is the clinic's own calendar month so far.
+         *     Counts only: no patient and no message text.
+         */
+        get: operations["getMessageStats"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6336,6 +6441,41 @@ export interface components {
              */
             utilization_bps: number;
         };
+        /** @description One channel's numbers for the month so far. */
+        ChannelMessageStats: {
+            /** @description `email`, `whatsapp` or `sms`. */
+            channel: string;
+            /**
+             * Format: int64
+             * @description Of those, reported delivered or read by the provider.
+             */
+            delivered: number;
+            /**
+             * Format: double
+             * @description Delivered as a percentage of sent, one decimal; absent when nothing was sent.
+             */
+            delivered_pct?: number | null;
+            /**
+             * Format: int64
+             * @description Failed for good, or bounced.
+             */
+            failed: number;
+            /**
+             * Format: int64
+             * @description Patients who opted out of this channel this month.
+             */
+            opt_outs: number;
+            /**
+             * Format: int64
+             * @description Messages handed to the provider.
+             */
+            sent: number;
+            /**
+             * Format: int64
+             * @description Skipped: no consent, opted out, no address, a paused template.
+             */
+            skipped: number;
+        };
         /** @description A finding on a tooth or one of its surfaces. */
         ChartEntry: {
             /** @description For a root canal: its canals with their working lengths. Empty for any other entry. */
@@ -6373,8 +6513,23 @@ export interface components {
             /** @description The visit that recorded it. */
             visit_id?: string | null;
         };
+        /** @description The file a chat message carries. */
+        ChatAttachment: {
+            /** @description The name it was sent with. */
+            file_name?: string | null;
+            /** @description The file. */
+            id: string;
+            /** @description `image/jpeg`, `image/png` or `application/pdf`. */
+            mime_type: string;
+            /**
+             * Format: int64
+             * @description Its size in bytes.
+             */
+            size_bytes: number;
+        };
         /** @description A chat message. */
         ChatMessage: {
+            attachment?: components["schemas"]["ChatAttachment"] | null;
             /** @description Who wrote it. */
             author_membership_id: string;
             /** @description Their display name. */
@@ -6391,6 +6546,11 @@ export interface components {
             deleted: boolean;
             /** @description The message; a cursor for `after` and `before`. */
             id: string;
+            /**
+             * @description Whether it is a notice, pinned in its conversation while it is the newest. Optional in
+             *     the schema, so apps built before it read on.
+             */
+            is_notice?: boolean;
             /** @description The patient it is about; open `/patients/{id}` (the caller's own reach applies). */
             patient_id?: string | null;
         };
@@ -6405,6 +6565,18 @@ export interface components {
             membership_id: string;
             /** @description Their display name. */
             name: string;
+        };
+        /** @description The form a chat file upload sends (`multipart/form-data`). */
+        ChatUploadForm: {
+            /** @description An optional caption, 1 to 4000 characters. */
+            body?: string | null;
+            /** @description Chosen by the client (any UUID); posting again with it and the same file returns the first message. */
+            client_id: string;
+            /**
+             * Format: binary
+             * @description The file: JPEG, PNG or PDF, up to 5 MB. Its type is read from its content.
+             */
+            file: string;
         };
         /**
          * @description What the desk records at check-in. Every field is optional; details left out stay as they
@@ -7070,11 +7242,15 @@ export interface components {
             created_at: string;
             /** @description The conversation. */
             id: string;
-            /** @description `direct` or `group`. */
+            /**
+             * @description `direct`, `group` or `channel` (the clinic-wide "Everyone" conversation, whose members
+             *     are all active staff and can't be changed through the API).
+             */
             kind: string;
             /** @description Who is in it, earliest joined first. */
             members: components["schemas"]["ConversationMember"][];
-            /** @description A group's title. */
+            pinned_notice?: components["schemas"]["ChatMessage"] | null;
+            /** @description A group's or channel's title. */
             title?: string | null;
         };
         /** @description A conversation in the caller's list. */
@@ -8450,6 +8626,7 @@ export interface components {
             stage?: string | null;
             /** @description Where it is. */
             status: components["schemas"]["LabOrderState"];
+            tracker_stage?: components["schemas"]["LabTrackerStage"] | null;
             /** @description The lab. */
             vendor_id: string;
             /** @description Its name. */
@@ -8615,11 +8792,78 @@ export interface components {
          * @enum {string}
          */
         LabPipelineStage: "to_send" | "sent" | "in_progress" | "ready_to_fit" | "fitted" | "rework" | "cancelled";
+        /**
+         * @description How a batch reminder reaches the labs.
+         * @enum {string}
+         */
+        LabReminderChannel: "email" | "whatsapp";
         /** @description A reminder queued to the lab. */
         LabReminderQueued: {
             /** @description The outbox message. */
             message_id: string;
+            /**
+             * @description A `https://wa.me/` link to remind the lab's contact on `WhatsApp` with the same message
+             *     typed in, for staff to open and send; nothing is sent on `WhatsApp` by us. Absent when
+             *     the lab has no phone number.
+             */
+            wa_link?: string | null;
         };
+        /** @description An order a batch reminder left out. */
+        LabReminderSkipped: {
+            /** @description `LAB-<n>`. */
+            number: string;
+            /** @description The order. */
+            order_id: string;
+            /**
+             * @description `not_at_lab` (the work isn't at the lab), `no_email` (the lab has no contact with an
+             *     email address) or `no_phone` (the lab has no phone number).
+             */
+            reason: string;
+        };
+        /** @description What a batch reminder did for one lab. */
+        LabReminderVendor: {
+            /** @description The contact the reminder is for; absent when only the lab's own phone is known. */
+            contact_id?: string | null;
+            /** @description Their name. */
+            contact_name?: string | null;
+            /** @description The queued email (`email` channel). */
+            message_id?: string | null;
+            /** @description The orders it lists. */
+            order_ids: string[];
+            /** @description Their numbers, in the same order. */
+            order_numbers: string[];
+            /** @description The lab. */
+            vendor_id: string;
+            /** @description Its name. */
+            vendor_name: string;
+            /** @description The `https://wa.me/` link with the message typed in (`whatsapp` channel). */
+            wa_link?: string | null;
+        };
+        /** @description The result of a batch reminder. */
+        LabReminders: {
+            /** @description The channel asked for. */
+            channel: components["schemas"]["LabReminderChannel"];
+            /** @description Orders left out, and why. */
+            skipped: components["schemas"]["LabReminderSkipped"][];
+            /** @description One entry per lab reminded, by name. */
+            vendors: components["schemas"]["LabReminderVendor"][];
+        };
+        /** @description Orders to remind labs about. */
+        LabRemindersRequest: {
+            /** @description `email` queues one message per lab; `whatsapp` returns one `wa.me` link per lab. */
+            channel: components["schemas"]["LabReminderChannel"];
+            /** @description 1 to 50 lab orders, in any mix of labs; repeats count once. */
+            order_ids: string[];
+        };
+        /**
+         * @description The five steps of the order tracker, derived from the status and the free-text stage:
+         *     `draft` is impression; `sent` and `in_progress` are production, or trial or final when the
+         *     stage says so (try, trial, bisque, framework, wax: trial; final, finish, glaze, polish,
+         *     cement: final); `received` is final, or trial when the stage says so; `fitted` is delivered;
+         *     `returned_for_rework` is production. A cancelled order has none.
+         * @enum {string}
+         */
+        LabTrackerStage: "impression" | "production" | "trial" | "final" | "delivered";
         /**
          * @description How long labs take: orders received back in the range, and their average days from sent to
          *     received.
@@ -8640,6 +8884,8 @@ export interface components {
         LabVendor: {
             /** @description Address. */
             address?: string | null;
+            /** @description The city it is in. Optional in the schema, so apps built before it read on. */
+            city?: string | null;
             /** @description The people there, by name. */
             contacts: components["schemas"]["LabContact"][];
             /** @description When it was added (RFC 3339). */
@@ -8656,6 +8902,13 @@ export interface components {
             note?: string | null;
             /** @description Phone in E.164. */
             phone?: string | null;
+            /**
+             * Format: int32
+             * @description How many days it usually takes.
+             */
+            turnaround_days?: number | null;
+            /** @description The kinds of work it does (`Crown`, `Bridge`, `Aligner`...). */
+            work_types?: string[];
         };
         /**
          * @description What kind of lab.
@@ -8674,6 +8927,8 @@ export interface components {
         LabVendorValues: {
             /** @description Address, up to 500 characters. */
             address?: string | null;
+            /** @description The city, up to 80 characters. */
+            city?: string | null;
             /** @description Email. */
             email?: string | null;
             kind?: components["schemas"]["LabVendorKind"] | null;
@@ -8683,6 +8938,16 @@ export interface components {
             note?: string | null;
             /** @description Phone; +91 is assumed without a country code. */
             phone?: string | null;
+            /**
+             * Format: int32
+             * @description Its usual turnaround in days, 1 to 90; 0 clears it on a change.
+             */
+            turnaround_days?: number | null;
+            /**
+             * @description The kinds of work it does: up to 20 different ones of up to 40 characters. Replaces the
+             *     list on a change; an empty list clears it.
+             */
+            work_types?: string[] | null;
         };
         /** @description Everything the portal needs to draw and edit layouts. */
         LayoutCatalogue: {
@@ -9095,6 +9360,43 @@ export interface components {
             /** @description Up to 100 messages. */
             items: components["schemas"]["MessageSummary"][];
         };
+        /** @description The clinic's message numbers for the month so far. */
+        MessageStats: {
+            /** @description One entry per channel (`email`, `sms`, `whatsapp`), used or not. */
+            by_channel: components["schemas"]["ChannelMessageStats"][];
+            /**
+             * Format: int64
+             * @description Of those, reported delivered or read.
+             */
+            delivered: number;
+            /**
+             * Format: double
+             * @description Delivered as a percentage of sent, one decimal; absent when nothing was sent.
+             */
+            delivered_pct?: number | null;
+            /**
+             * Format: int64
+             * @description Failed for good, or bounced.
+             */
+            failed: number;
+            /**
+             * Format: int64
+             * @description Opt-outs recorded this month (a patient who opted out of two channels counts twice).
+             */
+            opt_outs: number;
+            /**
+             * Format: int64
+             * @description Messages handed to the provider, all channels.
+             */
+            sent: number;
+            /** @description The start of the month, in the clinic's time zone (RFC 3339). */
+            since: string;
+            /**
+             * Format: int64
+             * @description Skipped.
+             */
+            skipped: number;
+        };
         /** @description A message as a patient's list shows it: never its text, address or link secret. */
         MessageSummary: {
             /**
@@ -9436,6 +9738,11 @@ export interface components {
             body: string;
             /** @description Chosen by the client (any UUID); posting again with it returns the first message. */
             client_id: string;
+            /**
+             * @description Pin it as the conversation's notice (needs `chat.notice`; names no patient). The newest
+             *     notice that isn't deleted is shown as `pinned_notice`.
+             */
+            is_notice?: boolean;
             /** @description A patient it is about; needs `patients.read` reaching them. */
             patient_id?: string | null;
         };
@@ -15651,6 +15958,87 @@ export interface operations {
             };
         };
     };
+    getChatAttachmentContent: {
+        parameters: {
+            query: {
+                /** @description The signed token from the download link */
+                token: string;
+            };
+            header?: never;
+            path: {
+                /** @description The file */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link has expired; ask for a new one */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a valid link for this file on this host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getChatAttachmentDownloadLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The file */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadLink"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such file in a conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     reportClientError: {
         parameters: {
             query?: never;
@@ -16547,6 +16935,84 @@ export interface operations {
             };
         };
     };
+    postChatAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The conversation */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ChatUploadForm"];
+            };
+        };
+        responses: {
+            /** @description Posted earlier with this client_id and file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            /** @description Posted */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            /** @description Not an accepted file, or a bad field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks chat.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such conversation the caller is in */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Archived, or the client_id was used for another message */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 5 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     leaveConversation: {
         parameters: {
             query?: never;
@@ -16813,7 +17279,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks chat.use, or patients.read for a patient */
+            /** @description The role lacks chat.use, patients.read for a patient, or chat.notice for a notice */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -19005,6 +19471,67 @@ export interface operations {
                 content?: never;
             };
             /** @description No such patient in this clinic or within reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    remindLabs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabRemindersRequest"];
+            };
+        };
+        responses: {
+            /** @description WhatsApp links, one per lab */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabReminders"];
+                };
+            };
+            /** @description Emails queued, one per lab */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabReminders"];
+                };
+            };
+            /** @description No orders, more than 50, or an unknown channel */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks labs.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An order isn't in this clinic or within reach; nothing was done */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -21456,6 +21983,39 @@ export interface operations {
             };
             /** @description A patient isn't in this clinic or out of the role's reach; nothing was queued */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMessageStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageStats"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks messages.send */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

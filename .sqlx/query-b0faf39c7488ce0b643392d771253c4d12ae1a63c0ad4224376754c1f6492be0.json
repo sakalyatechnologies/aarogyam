@@ -1,0 +1,184 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select m.conversation_id as \"conversation_id!\", m.id as \"id?\",\n                  m.author_membership_id as \"author_membership_id?\",\n                  u.display_name as \"author_name?\", m.body as \"body?\", m.patient_id as \"patient_id?\",\n                  m.client_id as \"client_id?\", m.deleted_at as \"deleted_at?\",\n                  m.created_at as \"created_at?\", m.is_notice as \"is_notice?\",\n                  a.id as \"attachment_id?\", a.mime_type as \"attachment_mime_type?\",\n                  a.size_bytes as \"attachment_size_bytes?\", a.file_name as \"attachment_file_name?\"\n           from aarogyam.chat_messages m\n           join aarogyam.memberships am on am.org_id = m.org_id and am.id = m.author_membership_id\n           join aarogyam.users u on u.id = am.user_id\n           left join aarogyam.chat_attachments a\n             on a.org_id = m.org_id and a.message_id = m.id and a.deleted_at is null\n           where m.conversation_id = $1 and m.is_notice and m.deleted_at is null\n           order by m.id desc limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "conversation_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "conversation_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "author_membership_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "author_membership_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "author_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.users",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "body?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "patient_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "client_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "client_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "deleted_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "deleted_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "is_notice?",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "is_notice"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "attachment_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_attachments",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "attachment_mime_type?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_attachments",
+            "name": "mime_type"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "attachment_size_bytes?",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_attachments",
+            "name": "size_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "attachment_file_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_attachments",
+            "name": "file_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "b0faf39c7488ce0b643392d771253c4d12ae1a63c0ad4224376754c1f6492be0"
+}

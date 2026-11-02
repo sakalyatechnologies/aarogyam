@@ -281,6 +281,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         // Messages to patients: staff send, the patient's list and contact preferences.
         .route("/messages", post(messages::send))
+        .route("/messages/stats", get(messages::stats))
         .route("/patients/{id}/messages", get(messages::list))
         .route(
             "/patients/{id}/contact-preferences",
@@ -660,6 +661,18 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             delete(chat::delete_message),
         )
         .route("/conversations/{id}/read", post(chat::mark_read))
+        .route(
+            "/conversations/{id}/attachments",
+            post(chat::post_attachment).layer(DefaultBodyLimit::max(chat::MAX_ATTACHMENT_BODY)),
+        )
+        .route(
+            "/chat-attachments/{id}/download",
+            get(chat::attachment_link),
+        )
+        .route(
+            "/chat-attachments/{id}/content",
+            get(chat::attachment_content),
+        )
         .route("/me/badges", get(chat::badges))
         .route("/expenses", get(expenses::list).post(expenses::record))
         .route("/expenses/{id}/void", post(expenses::void))
@@ -689,6 +702,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/lab-orders/{id}/status", post(lab_orders::set_status))
         .route("/lab-orders/{id}/remind", post(lab_orders::remind))
+        .route("/lab-orders/reminders", post(lab_orders::remind_many))
         .route("/lab-orders/{id}/items", post(lab_order_changes::add_item))
         .route(
             "/lab-orders/{id}/contacts-log",

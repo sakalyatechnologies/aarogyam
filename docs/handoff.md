@@ -2,6 +2,12 @@
 
 Where the work stands and exactly what to do next. Update this file at the end of every working session. Read it, `delivery-plan.md` and `decisions.md` before starting.
 
+## B7 labs, message stats and staff chat (1 Nov 2026)
+- **Built (backend, migrations 0635 to 0638):** batch lab reminders (`POST /lab-orders/reminders`, email or `wa.me` links), `wa_link` on `POST /lab-orders/{id}/remind`, `tracker_stage` on lab orders, `city`/`work_types`/`turnaround_days` on labs, `GET /messages/stats`, the "Everyone" chat channel (`kind: channel`), pinned notices (`chat.notice`, `is_notice`, `pinned_notice`), chat files (`POST /conversations/{id}/attachments`, `GET /chat-attachments/{id}/download|content`). Decisions: `decisions.md`, 2026-11-01.
+- **api-client:** `remindLabs`, `getMessageStats`, `getConversation`, `postChatAttachment`, `getChatAttachmentDownloadLink`, with fakes and tests.
+- **For mobile:** all additions are optional fields or new routes. A conversation list now holds a `channel` entry ("Everyone"); an old app shows it as a group it cannot edit. Messages may have no `body` when they carry a file; `body` is already optional.
+- **Not done:** portal UI for these; a purge job for `chat_attachments` (the retention report lists them, like chat messages).
+
 ## For the mobile session: queue and payment notifications (BE4), 12 Oct 2026
 - **There is one backend.** Notifications and all backend code belong to the backend and website session. Mobile only displays them. Coordinate in `~/project/coordination/mobile-to-backend.md` (see its single-backend rule).
 - **Main now owns BE4.** The staff notifications `patient_waiting`, `send_in` and `collect_payment` are written by database triggers on main (0617, plus 0676 coming), not from app code.

@@ -127,6 +127,8 @@ entities! {
     Conversation, ConversationId;
     /// A message in a staff chat conversation.
     ChatMessage, ChatMessageId;
+    /// A file attached to a staff chat message.
+    ChatAttachment, ChatAttachmentId;
     /// An outside lab.
     LabVendor, LabVendorId;
     /// A person at a lab.

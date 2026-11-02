@@ -152,6 +152,11 @@ impl Storage for LocalDisk {
     }
 }
 
+/// What a member-bound token is for: a patient's file.
+const PATIENT_FILE: &str = "attachment-download:v1";
+/// What a member-bound token is for: a file in a staff chat message.
+const CHAT_FILE: &str = "chat-attachment:v1";
+
 /// Signs and checks download links.
 #[derive(Clone)]
 pub struct LinkSigner {
@@ -208,9 +213,15 @@ impl LinkSigner {
         Self::new(&secret)
     }
 
-    fn message(clinic: ClinicId, attachment: AttachmentId, user: UserId, expires: i64) -> String {
+    fn message(
+        kind: &str,
+        clinic: ClinicId,
+        attachment: AttachmentId,
+        user: UserId,
+        expires: i64,
+    ) -> String {
         format!(
-            "attachment-download:v1|{}|{}|{}|{expires}",
+            "{kind}|{}|{}|{}|{expires}",
             clinic.uuid(),
             attachment.uuid(),
             user.uuid()
@@ -226,10 +237,34 @@ impl LinkSigner {
         user: UserId,
         expires: OffsetDateTime,
     ) -> String {
+        self.sign_kind(PATIENT_FILE, clinic, attachment, user, expires)
+    }
+
+    /// A token for `user` to download a file of a staff chat message until `expires`. It can't
+    /// open a patient file, nor a patient file's token a chat file.
+    #[must_use]
+    pub fn sign_chat_file(
+        &self,
+        clinic: ClinicId,
+        file: AttachmentId,
+        user: UserId,
+        expires: OffsetDateTime,
+    ) -> String {
+        self.sign_kind(CHAT_FILE, clinic, file, user, expires)
+    }
+
+    fn sign_kind(
+        &self,
+        kind: &str,
+        clinic: ClinicId,
+        attachment: AttachmentId,
+        user: UserId,
+        expires: OffsetDateTime,
+    ) -> String {
         let expires = expires.unix_timestamp();
         let tag = hmac::sign(
             &self.key,
-            Self::message(clinic, attachment, user, expires).as_bytes(),
+            Self::message(kind, clinic, attachment, user, expires).as_bytes(),
         );
         format!(
             "{expires}.{}.{}",
@@ -250,6 +285,31 @@ impl LinkSigner {
         token: &str,
         now: OffsetDateTime,
     ) -> Result<LinkGrant, LinkRefusal> {
+        self.verify_kind(PATIENT_FILE, clinic, attachment, token, now)
+    }
+
+    /// Checks a chat file token at `now`.
+    ///
+    /// # Errors
+    /// As [`Self::verify`].
+    pub fn verify_chat_file(
+        &self,
+        clinic: ClinicId,
+        file: AttachmentId,
+        token: &str,
+        now: OffsetDateTime,
+    ) -> Result<LinkGrant, LinkRefusal> {
+        self.verify_kind(CHAT_FILE, clinic, file, token, now)
+    }
+
+    fn verify_kind(
+        &self,
+        kind: &str,
+        clinic: ClinicId,
+        attachment: AttachmentId,
+        token: &str,
+        now: OffsetDateTime,
+    ) -> Result<LinkGrant, LinkRefusal> {
         let mut parts = token.trim().splitn(3, '.');
         let (Some(expires), Some(user), Some(tag)) = (parts.next(), parts.next(), parts.next())
         else {
@@ -262,7 +322,7 @@ impl LinkSigner {
             .map_err(|_| LinkRefusal::Invalid)?;
         hmac::verify(
             &self.key,
-            Self::message(clinic, attachment, user, expires).as_bytes(),
+            Self::message(kind, clinic, attachment, user, expires).as_bytes(),
             &tag,
         )
         .map_err(|_| LinkRefusal::Invalid)?;
@@ -1125,5 +1185,26 @@ mod tests {
             Err(LinkRefusal::Invalid)
         );
         assert!(LinkSigner::new(b"short").is_err());
+    }
+
+    #[test]
+    fn chat_links_and_patient_links_do_not_open_each_others_files() {
+        let signer = LinkSigner::new(&[7_u8; 32]).unwrap();
+        let (clinic, file, user) = (ClinicId::new_v7(), AttachmentId::new_v7(), UserId::new_v7());
+        let now = OffsetDateTime::now_utc();
+        let chat = signer.sign_chat_file(clinic, file, user, now + LINK_LIFETIME);
+        let patient = signer.sign(clinic, file, user, now + LINK_LIFETIME);
+        assert_eq!(
+            signer.verify_chat_file(clinic, file, &chat, now),
+            Ok(LinkGrant { user_id: user })
+        );
+        assert_eq!(
+            signer.verify(clinic, file, &chat, now),
+            Err(LinkRefusal::Invalid)
+        );
+        assert_eq!(
+            signer.verify_chat_file(clinic, file, &patient, now),
+            Err(LinkRefusal::Invalid)
+        );
     }
 }

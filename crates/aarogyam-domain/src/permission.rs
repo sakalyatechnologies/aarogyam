@@ -73,11 +73,13 @@ pub enum Permission {
     /// Take payment against a bill that still has a balance, and see its amount to collect.
     /// Grants no reading of bills and no way to create, void or list them.
     PaymentsCollect,
+    /// Post pinned notices in chat conversations.
+    ChatNotice,
 }
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 32] = [
+    pub const ALL: [Self; 33] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -110,6 +112,7 @@ impl Permission {
         Self::TimeOffRequest,
         Self::TimeOffManage,
         Self::PaymentsCollect,
+        Self::ChatNotice,
     ];
 
     /// The catalogue key, such as `patients.read`.
@@ -148,6 +151,7 @@ impl Permission {
             Self::TimeOffRequest => "time_off.request",
             Self::TimeOffManage => "time_off.manage",
             Self::PaymentsCollect => "payments.collect",
+            Self::ChatNotice => "chat.notice",
         }
     }
 
@@ -378,6 +382,7 @@ required!(
     TimeOffRequest,
     TimeOffManage,
     PaymentsCollect,
+    ChatNotice,
 );
 
 #[cfg(test)]
@@ -425,7 +430,7 @@ mod tests {
     fn bits_above_the_old_u32_limit_still_work() {
         // The set was a u32 until the 32nd permission arrived; every bit must stay distinct.
         let last = Permission::ALL[Permission::ALL.len() - 1];
-        assert_eq!(last, Permission::PaymentsCollect);
+        assert_eq!(last, Permission::ChatNotice);
         let set = PermissionSet::EMPTY
             .with(last, Scope::All)
             .with(Permission::PatientsRead, Scope::Own);

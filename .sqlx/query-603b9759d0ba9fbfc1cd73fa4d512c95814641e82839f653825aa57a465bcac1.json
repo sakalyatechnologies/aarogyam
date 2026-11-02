@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with m as (\n             insert into aarogyam.outbox_events (id, event_key, channel, recipient, payload)\n             values ($1, 'lab_order.reminder', 'email', $2, $3)\n             returning id\n           ), e as (\n             insert into aarogyam.lab_order_events (lab_order_id, kind, reminder, actor_id)\n             select x, 'reminded', 'manual', $5 from unnest($4::uuid[]) x\n           )\n           update aarogyam.lab_orders set last_contacted_at = now(), last_contacted_by = $5\n           where id = any($4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "603b9759d0ba9fbfc1cd73fa4d512c95814641e82839f653825aa57a465bcac1"
+}

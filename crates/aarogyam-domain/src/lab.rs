@@ -1,6 +1,8 @@
 //! Lab work: outside labs, the work sent to them, where an order is, and what a reminder to a
 //! lab may say. Reminders name the clinic, the order number and the work, never the patient.
 
+use std::fmt::Write as _;
+
 use crate::dental::Tooth;
 
 text_value!(
@@ -130,6 +132,67 @@ text_value!(
         Cancelled => "cancelled",
     }
 );
+text_value!(
+    /// The five steps the portal's tracker shows for a dental order. Derived from the order's
+    /// status and its free-text stage by [`tracker_stage`]; never stored.
+    TrackerStage("tracker_stage") {
+        /// The impression is being taken or the order is still a draft.
+        Impression => "impression",
+        /// The lab is making the work (also work sent back for a remake).
+        Production => "production",
+        /// A trial: wax try-in, framework trial or bisque, at the lab or in the chair.
+        Trial => "trial",
+        /// The finished work is ready to be fitted.
+        Final => "final",
+        /// Fitted in the patient's mouth.
+        Delivered => "delivered",
+    }
+);
+
+/// Words in a free-text stage that mean a trial.
+const TRIAL_WORDS: &[&str] = &["try", "trial", "bisque", "framework", "wax"];
+/// Words in a free-text stage that mean the finished work.
+const FINAL_WORDS: &[&str] = &["final", "finish", "glaz", "polish", "cement"];
+
+fn mentions(stage: Option<&str>, words: &[&str]) -> bool {
+    stage.is_some_and(|text| {
+        let text = text.to_lowercase();
+        words.iter().any(|word| text.contains(word))
+    })
+}
+
+/// Where an order is on the five-step tracker, from its status and free-text stage; `None` for
+/// a cancelled order, which is on no step.
+///
+/// - `draft`: impression.
+/// - `sent`, `in_progress`: production, unless the stage names a trial (try, trial, bisque,
+///   framework, wax: trial) or the finished work (final, finish, glaze or glazing, polish, cement: final).
+/// - `received`: trial when the stage names one, else final (back from the lab, to be fitted).
+/// - `fitted`: delivered.
+/// - `returned_for_rework`: production (the remake is a new order, which starts at its own step).
+#[must_use]
+pub fn tracker_stage(status: LabOrderStatus, stage: Option<&str>) -> Option<TrackerStage> {
+    match status {
+        LabOrderStatus::Cancelled => None,
+        LabOrderStatus::Draft => Some(TrackerStage::Impression),
+        LabOrderStatus::Sent | LabOrderStatus::InProgress => {
+            Some(if mentions(stage, TRIAL_WORDS) {
+                TrackerStage::Trial
+            } else if mentions(stage, FINAL_WORDS) {
+                TrackerStage::Final
+            } else {
+                TrackerStage::Production
+            })
+        }
+        LabOrderStatus::Received => Some(if mentions(stage, TRIAL_WORDS) {
+            TrackerStage::Trial
+        } else {
+            TrackerStage::Final
+        }),
+        LabOrderStatus::Fitted => Some(TrackerStage::Delivered),
+        LabOrderStatus::ReturnedForRework => Some(TrackerStage::Production),
+    }
+}
 
 text_value!(
     /// Why a reminder went to a lab.
@@ -209,6 +272,170 @@ text_value!(
     }
 );
 
+text_value!(
+    /// How a batch reminder reaches the labs.
+    ReminderChannel("channel") {
+        /// An email through the outbox, one per lab.
+        Email => "email",
+        /// A `wa.me` link per lab for staff to open in `WhatsApp`; nothing is sent by us.
+        Whatsapp => "whatsapp",
+    }
+);
+
+/// Most orders one batch reminder names.
+pub const MAX_REMINDER_ORDERS: usize = 50;
+
+/// One item of work in a reminder: what the lab makes, never who for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReminderItem {
+    /// What to make.
+    pub work_type: String,
+    /// FDI tooth numbers.
+    pub teeth: Vec<i16>,
+    /// Shade.
+    pub shade: Option<String>,
+}
+
+/// One order in a reminder. There is deliberately no patient field here: a reminder to a lab
+/// is built only from this, so it cannot name the patient.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReminderOrder {
+    /// `LAB-<n>`.
+    pub number: String,
+    /// When it is due back.
+    pub due_on: Option<time::Date>,
+    /// The work.
+    pub items: Vec<ReminderItem>,
+}
+
+impl ReminderItem {
+    /// `Crown, tooth 36, shade A2`.
+    #[must_use]
+    pub fn line(&self) -> String {
+        let mut line = self.work_type.clone();
+        if !self.teeth.is_empty() {
+            let teeth: Vec<String> = self.teeth.iter().map(ToString::to_string).collect();
+            line.push_str(if teeth.len() == 1 {
+                ", tooth "
+            } else {
+                ", teeth "
+            });
+            line.push_str(&teeth.join(" "));
+        }
+        if let Some(shade) = &self.shade {
+            line.push_str(", shade ");
+            line.push_str(shade);
+        }
+        line
+    }
+}
+
+/// The outbox payload of an email reminder about `orders` of one lab: the clinic and, for each
+/// order, its number, due date and work. The renderer (`aarogyam-notify`) reads `orders`.
+#[must_use]
+pub fn reminder_payload(clinic_name: &str, orders: &[ReminderOrder]) -> serde_json::Value {
+    serde_json::json!({
+        "clinic_name": clinic_name,
+        "reminder": "manual",
+        "orders": orders.iter().map(|order| serde_json::json!({
+            "order_number": order.number,
+            "due_on": order.due_on.map(|d| d.to_string()),
+            "items": order.items.iter().map(|item| serde_json::json!({
+                "work_type": item.work_type,
+                "teeth": item.teeth,
+                "shade": item.shade,
+            })).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+    })
+}
+
+/// The `WhatsApp` message for a batch reminder to one lab: the clinic, then each order's number,
+/// due date and work. Plain text with line breaks.
+#[must_use]
+pub fn reminder_text(clinic_name: &str, orders: &[ReminderOrder]) -> String {
+    let mut text = format!("Hello, this is {clinic_name}. A reminder about our lab work:");
+    for order in orders {
+        text.push_str("\n\n");
+        text.push_str(&order.number);
+        if let Some(due) = order.due_on {
+            let _ = write!(text, " (due {due})");
+        }
+        for item in &order.items {
+            text.push_str("\n- ");
+            text.push_str(&item.line());
+        }
+    }
+    text.push_str("\n\nPlease reply if the date will change.");
+    text
+}
+
+/// Most work types one lab lists.
+pub const MAX_WORK_TYPES: usize = 20;
+/// Longest work type, in characters.
+pub const MAX_WORK_TYPE_CHARS: usize = 40;
+/// Longest turnaround a lab may state, in days.
+pub const MAX_TURNAROUND_DAYS: i32 = 90;
+
+/// Checks the work types a lab does: trimmed, 1 to 40 characters each on one line, no repeats
+/// (ignoring case), at most 20. Kept in the order given.
+///
+/// # Errors
+/// [`LabError::WorkTypes`] for an empty, long or repeated one, or too many.
+pub fn check_work_types(types: &[String]) -> Result<Vec<String>, LabError> {
+    let mut checked: Vec<String> = Vec::with_capacity(types.len());
+    for text in types {
+        let text = text.trim();
+        let chars = text.chars().count();
+        if chars == 0 || chars > MAX_WORK_TYPE_CHARS || text.chars().any(char::is_control) {
+            return Err(LabError::WorkTypes);
+        }
+        if checked
+            .iter()
+            .any(|t| t.to_lowercase() == text.to_lowercase())
+        {
+            return Err(LabError::WorkTypes);
+        }
+        checked.push(text.to_owned());
+    }
+    if checked.len() > MAX_WORK_TYPES {
+        return Err(LabError::WorkTypes);
+    }
+    Ok(checked)
+}
+
+/// Checks a lab's usual turnaround, in days.
+///
+/// # Errors
+/// [`LabError::Turnaround`] outside 1 to [`MAX_TURNAROUND_DAYS`].
+pub const fn check_turnaround_days(days: i32) -> Result<i16, LabError> {
+    if days >= 1 && days <= MAX_TURNAROUND_DAYS {
+        #[expect(clippy::cast_possible_truncation, reason = "checked to 1..=90")]
+        Ok(days as i16)
+    } else {
+        Err(LabError::Turnaround)
+    }
+}
+
+/// A `https://wa.me/<digits>?text=<encoded>` link that opens a `WhatsApp` chat with the number,
+/// the message typed in. `phone_e164` is `+` and digits; the text is percent-encoded. `None`
+/// for anything that isn't a phone number.
+#[must_use]
+pub fn whatsapp_link(phone_e164: &str, text: &str) -> Option<String> {
+    let digits = phone_e164.strip_prefix('+')?;
+    if digits.len() < 7 || digits.len() > 15 || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let mut link = format!("https://wa.me/{digits}?text=");
+    for byte in text.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            link.push(char::from(byte));
+        } else {
+            let _ = write!(link, "%{byte:02X}");
+        }
+    }
+    Some(link)
+}
+
 /// Most items on one order.
 pub const MAX_ITEMS: usize = 50;
 /// Most teeth on one item.
@@ -233,6 +460,12 @@ pub enum LabError {
     /// No items, or too many.
     #[error("must have 1 to 50 items")]
     Items,
+    /// A work type that is empty, long, repeated, or too many of them.
+    #[error("must be up to 20 different work types of 1 to 40 characters")]
+    WorkTypes,
+    /// Turnaround out of range.
+    #[error("must be 1 to 90 days")]
+    Turnaround,
 }
 
 /// Checks the teeth of an item: FDI numbers, each once, sorted.
@@ -345,5 +578,97 @@ mod tests {
             check_unit_cost(MAX_UNIT_COST_PAISE + 1),
             Err(LabError::UnitCost)
         );
+    }
+
+    #[test]
+    fn the_tracker_follows_status_and_stage() {
+        use LabOrderStatus::*;
+        use TrackerStage::*;
+        assert_eq!(tracker_stage(Draft, None), Some(Impression));
+        assert_eq!(tracker_stage(Sent, None), Some(Production));
+        assert_eq!(tracker_stage(InProgress, Some("Wax try-in")), Some(Trial));
+        assert_eq!(
+            tracker_stage(InProgress, Some("framework trial")),
+            Some(Trial)
+        );
+        assert_eq!(tracker_stage(Sent, Some("Glazing")), Some(Final));
+        assert_eq!(tracker_stage(Received, None), Some(Final));
+        assert_eq!(tracker_stage(Received, Some("Bisque")), Some(Trial));
+        assert_eq!(tracker_stage(Fitted, Some("wax")), Some(Delivered));
+        assert_eq!(tracker_stage(ReturnedForRework, None), Some(Production));
+        assert_eq!(tracker_stage(Cancelled, None), None);
+        for stage in TrackerStage::ALL {
+            assert_eq!(TrackerStage::parse(stage.as_str()), Ok(*stage));
+        }
+    }
+
+    #[test]
+    fn work_types_and_turnaround_are_bounded() {
+        let ok =
+            |v: &[&str]| check_work_types(&v.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>());
+        assert_eq!(
+            ok(&[" Crown ", "Bridge"]),
+            Ok(vec!["Crown".into(), "Bridge".into()])
+        );
+        assert_eq!(ok(&[]), Ok(vec![]));
+        assert_eq!(ok(&["Crown", "crown"]), Err(LabError::WorkTypes));
+        assert_eq!(ok(&[" "]), Err(LabError::WorkTypes));
+        assert_eq!(ok(&[&"x".repeat(41)]), Err(LabError::WorkTypes));
+        let many: Vec<String> = (0..21).map(|n| format!("type {n}")).collect();
+        assert_eq!(check_work_types(&many), Err(LabError::WorkTypes));
+        assert_eq!(check_turnaround_days(1), Ok(1));
+        assert_eq!(check_turnaround_days(0), Err(LabError::Turnaround));
+        assert_eq!(check_turnaround_days(91), Err(LabError::Turnaround));
+    }
+
+    #[test]
+    fn whatsapp_links_carry_an_encoded_message() {
+        assert_eq!(
+            whatsapp_link("+919812345678", "LAB-7: Crown, tooth 36\nThanks").as_deref(),
+            Some("https://wa.me/919812345678?text=LAB-7%3A%20Crown%2C%20tooth%2036%0AThanks")
+        );
+        assert_eq!(whatsapp_link("9812345678", "x"), None);
+        assert_eq!(whatsapp_link("+98a", "x"), None);
+    }
+
+    #[test]
+    fn reminders_list_the_work_and_carry_no_patient() {
+        let orders = [
+            ReminderOrder {
+                number: "LAB-7".into(),
+                due_on: time::Date::from_calendar_date(2026, time::Month::October, 12).ok(),
+                items: vec![
+                    ReminderItem {
+                        work_type: "Crown".into(),
+                        teeth: vec![36],
+                        shade: Some("A2".into()),
+                    },
+                    ReminderItem {
+                        work_type: "Bridge".into(),
+                        teeth: vec![44, 45, 46],
+                        shade: None,
+                    },
+                ],
+            },
+            ReminderOrder {
+                number: "LAB-9".into(),
+                due_on: None,
+                items: vec![],
+            },
+        ];
+        let text = reminder_text("Sunrise Dental", &orders);
+        assert!(text.contains(
+            "LAB-7 (due 2026-10-12)\n- Crown, tooth 36, shade A2\n- Bridge, teeth 44 45 46"
+        ));
+        assert!(text.contains("LAB-9\n\nPlease reply"));
+        let payload = reminder_payload("Sunrise Dental", &orders);
+        assert_eq!(payload["orders"][0]["order_number"], "LAB-7");
+        assert_eq!(payload["orders"][1]["due_on"], serde_json::Value::Null);
+        assert!(!payload.to_string().contains("patient"));
+        assert_eq!(
+            ReminderChannel::parse("whatsapp"),
+            Ok(ReminderChannel::Whatsapp)
+        );
+        assert!(ReminderChannel::parse("sms").is_err());
     }
 }

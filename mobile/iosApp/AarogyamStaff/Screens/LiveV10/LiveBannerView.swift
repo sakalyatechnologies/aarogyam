@@ -10,7 +10,6 @@ struct LiveBannerView: View {
     let holder: LiveBannerHolder
     let banner: LiveBanner?
     @State private var shown: LiveBanner?
-    @State private var dismissTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.skTheme) private var theme
 
@@ -36,7 +35,13 @@ struct LiveBannerView: View {
         .allowsHitTesting(shown != nil)
         .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.35), value: shown?.notificationId)
         .onChange(of: banner?.notificationId) { _, _ in if let banner { show(banner) } }
-        .onDisappear { dismissTask?.cancel() }
+        // The 6 s run as a view task: a full-screen cover (chair mode) pauses it, and coming back starts it again,
+        // so a banner never stays up.
+        .task(id: shown?.notificationId) {
+            guard shown != nil else { return }
+            try? await Task.sleep(for: .seconds(6))
+            if !Task.isCancelled { close() }
+        }
     }
 
     private func show(_ banner: LiveBanner) {
@@ -45,15 +50,9 @@ struct LiveBannerView: View {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         if banner.kind == "send_in" { AudioServicesPlaySystemSound(1007) }
         UIAccessibility.post(notification: .announcement, argument: text)
-        dismissTask?.cancel()
-        dismissTask = Task {
-            try? await Task.sleep(for: .seconds(6))
-            if !Task.isCancelled { close() }
-        }
     }
 
     private func close() {
-        dismissTask?.cancel()
         shown = nil
         holder.dismiss()
     }

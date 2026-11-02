@@ -71,6 +71,8 @@ private struct TasksV10Content: View {
     @State private var noteFor: TaskRow?
     @State private var usageFor: TaskRow?
     @State private var burstId = 0
+    /// The photo picked for a row, kept until the row leaves so a retry sends it too.
+    @State private var proofs: [String: Data] = [:]
 
     var body: some View {
         let r = theme.roles
@@ -98,7 +100,7 @@ private struct TasksV10Content: View {
                         }
                     } else {
                         ForEach(s.rows, id: \.id) { row in
-                            TaskRowView(row: row, onDone: { start(row) }, onRetry: { start(row) })
+                            TaskRowView(row: row, canProve: model.holder.proofSupported, onDone: { start(row) }, onRetry: { start(row) }, onProof: { proofs[row.id] = $0; start(row, proof: true) })
                         }
                     }
                 }
@@ -111,16 +113,26 @@ private struct TasksV10Content: View {
             burstId += 1
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
-        .sheet(item: $noteFor) { row in NoteSheet(row: row) { model.holder.complete(id: row.id, note: $0, usage: nil) } }
-        .sheet(item: $usageFor) { row in UsageSheet(row: row, model: model) { model.holder.complete(id: row.id, note: $0, usage: $1) } }
+        .onChange(of: model.state.rows.map(\.id)) { _, ids in proofs = proofs.filter { ids.contains($0.key) } }
+        .sheet(item: $noteFor) { row in NoteSheet(row: row) { finish(row, note: $0, usage: nil) } }
+        .sheet(item: $usageFor) { row in UsageSheet(row: row, model: model) { finish(row, note: $0, usage: $1) } }
     }
 
-    private func start(_ row: TaskRow) {
-        if row.error != nil, row.action == .none { model.holder.complete(id: row.id, note: nil, usage: nil); return }
+    /// Done: a plain task asks for an optional note first, unless a photo was just taken (one extra tap, no more).
+    private func start(_ row: TaskRow, proof: Bool = false) {
+        if row.action == .none, row.error != nil || proof { finish(row, note: nil, usage: nil); return }
         switch row.action {
         case .recordUsage: model.loadStock(); usageFor = row
-        case .confirmPhotos: model.holder.complete(id: row.id, note: nil, usage: nil)
+        case .confirmPhotos: finish(row, note: nil, usage: nil)
         default: noteFor = row
+        }
+    }
+
+    private func finish(_ row: TaskRow, note: String?, usage: [UsageLine]?) {
+        if let photo = proofs[row.id] {
+            model.holder.completeWithProof(id: row.id, note: note, usage: usage, proof: photo.kotlinBytes)
+        } else {
+            model.holder.complete(id: row.id, note: note, usage: usage)
         }
     }
 }
@@ -129,8 +141,10 @@ extension TaskRow: @retroactive Identifiable {}
 
 private struct TaskRowView: View {
     let row: TaskRow
+    let canProve: Bool
     let onDone: () -> Void
     let onRetry: () -> Void
+    let onProof: (Data) -> Void
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -151,8 +165,11 @@ private struct TaskRowView: View {
                 if row.error != nil {
                     Text("tasks10.error", tableName: "TasksV10").v7Text(12.5, .semibold).foregroundStyle(r.error.color)
                 }
-                SkPillButton(row.error != nil ? TasksV10.t("tasks10.retry") : TasksV10.t("tasks10.done"), variant: .fill, wide: true) {
-                    row.error != nil ? onRetry() : onDone()
+                HStack(spacing: 8) {
+                    SkPillButton(row.error != nil ? TasksV10.t("tasks10.retry") : TasksV10.t("tasks10.done"), variant: .fill, wide: true) {
+                        row.error != nil ? onRetry() : onDone()
+                    }
+                    if canProve { TaskProofButton(onPhoto: onProof) }
                 }
             }
         }

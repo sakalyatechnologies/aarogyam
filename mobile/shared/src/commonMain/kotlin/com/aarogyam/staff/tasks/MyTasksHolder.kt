@@ -23,30 +23,6 @@ import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-/** What finishing a task asks of the person. */
-enum class TaskAction {
-    None,
-    RecordUsage,
-    ConfirmPhotos,
-    ;
-
-    companion object {
-        /** An action this build does not know acts like [None]: the plain Done button. */
-        fun of(wire: String): TaskAction =
-            when (wire) {
-                "record_usage" -> RecordUsage
-                "confirm_photos" -> ConfirmPhotos
-                else -> None
-            }
-    }
-}
-
-/** One material line for a `record_usage` task. */
-data class UsageLine(
-    val itemId: String,
-    val quantity: Long,
-)
-
 /** One open task as the list draws it. */
 data class TaskRow(
     val id: String,
@@ -88,7 +64,7 @@ interface MyTasksHolder {
     /** One event per task finished by this holder: the screen throws confetti. Not replayed. */
     val celebrate: SharedFlow<Unit>
 
-    /** A proof photo needs a server flag that main does not have yet (G4); false, and nothing uploads. */
+    /** A task can be finished with a proof photo ([completeWithProof]). */
     val proofSupported: Boolean
 
     fun refresh()
@@ -105,6 +81,17 @@ interface MyTasksHolder {
         note: String?,
         usage: List<UsageLine>?,
     )
+
+    /**
+     * [complete] with a proof photo ([proof] is a JPEG, already resized): uploads it, then finishes the
+     * task with its file id. A retry after a failed finish reuses the uploaded photo.
+     */
+    fun completeWithProof(
+        id: String,
+        note: String?,
+        usage: List<UsageLine>?,
+        proof: ByteArray,
+    )
 }
 
 internal const val TASK_NOTE_MAX = 300
@@ -120,7 +107,7 @@ private class MyTasksStateHolder(
 
     override val state: StateFlow<MyTasksState> = mutable.asStateFlow()
     override val celebrate: SharedFlow<Unit> = events.asSharedFlow()
-    override val proofSupported: Boolean = false
+    override val proofSupported: Boolean = true
 
     private var items: List<TaskOccurrence> = emptyList()
     private var badge: Int? = null
@@ -129,6 +116,7 @@ private class MyTasksStateHolder(
     private val pending = mutableSetOf<String>()
     private val errors = mutableMapOf<String, ScreenError>()
     private val clientIds = mutableMapOf<String, String>()
+    private val proofIds = mutableMapOf<String, String>()
 
     /** Finished here; an answer that was already on the way must not bring the row back. */
     private val finished = mutableSetOf<String>()
@@ -157,23 +145,51 @@ private class MyTasksStateHolder(
         id: String,
         note: String?,
         usage: List<UsageLine>?,
+    ) = finish(id, note, usage, null)
+
+    override fun completeWithProof(
+        id: String,
+        note: String?,
+        usage: List<UsageLine>?,
+        proof: ByteArray,
+    ) = finish(id, note, usage, proof)
+
+    private fun finish(
+        id: String,
+        note: String?,
+        usage: List<UsageLine>?,
+        proof: ByteArray?,
     ) {
         if (!allowed || id in pending || items.none { it.id == id && it.status == OPEN }) return
         pending += id
         errors.remove(id)
         publish()
         val clientId = clientIds.getOrPut(id) { IdempotencyKey.generate().toString() }
-        val body =
-            CompleteBody(
-                clientId = clientId,
-                note = note?.trim()?.take(TASK_NOTE_MAX)?.ifEmpty { null },
-                usage = usage?.map { UsageBody(itemId = it.itemId, quantity = it.quantity) },
-            )
         scope.launch {
+            if (proof != null && id !in proofIds) {
+                when (val up = clinic.api.uploadTaskProof(id, proof)) {
+                    is Outcome.Success -> {
+                        proofIds[id] = up.value.proofFileId
+                    }
+
+                    is Outcome.Failure -> {
+                        fail(id, up.error)
+                        return@launch
+                    }
+                }
+            }
+            val body =
+                CompleteBody(
+                    clientId = clientId,
+                    note = note?.trim()?.take(TASK_NOTE_MAX)?.ifEmpty { null },
+                    usage = usage?.map { UsageBody(itemId = it.itemId, quantity = it.quantity) },
+                    proofFileId = proofIds[id],
+                )
             when (val answer = clinic.api.completeTask(id, body)) {
                 is Outcome.Success -> {
                     pending -= id
                     clientIds.remove(id)
+                    proofIds.remove(id)
                     finished += id
                     items = items.filterNot { it.id == id }
                     badge = badge?.let { (it - 1).coerceAtLeast(0) }
@@ -183,14 +199,21 @@ private class MyTasksStateHolder(
                 }
 
                 is Outcome.Failure -> {
-                    pending -= id
-                    errors[id] = ScreenError.of(answer.error)
-                    publish()
-                    // 409: someone else finished it, or stock is short. Show the server's state.
-                    if (answer.error.isConflict()) refresh()
+                    fail(id, answer.error)
                 }
             }
         }
+    }
+
+    private fun fail(
+        id: String,
+        error: ApiError,
+    ) {
+        pending -= id
+        errors[id] = ScreenError.of(error)
+        publish()
+        // 409: someone else finished it, or stock is short. Show the server's state.
+        if (error.isConflict()) refresh()
     }
 
     private suspend fun load() {
@@ -205,6 +228,7 @@ private class MyTasksStateHolder(
                 loaded = true
                 errors.keys.retainAll(items.map { it.id }.toSet())
                 clientIds.keys.retainAll(items.map { it.id }.toSet())
+                proofIds.keys.retainAll(items.map { it.id }.toSet())
                 publish()
             }
 

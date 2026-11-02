@@ -254,6 +254,7 @@ val apiModels =
         "MyTasks",
         "TaskOccurrence",
         "CompleteBody",
+        "ProofUploaded",
         "UsageBody",
     )
 val generatedApi = layout.buildDirectory.dir("generated/openapi")

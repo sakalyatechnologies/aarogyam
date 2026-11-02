@@ -100,6 +100,8 @@ data class RxSheetState(
     val share: ShareState? = null,
     /** The server draft (`saveDraft`); none until the doctor saves. */
     val draft: DraftSave = DraftSave.None,
+    /** Medicine sets the doctor can add in one tap; empty until loaded or when unavailable. */
+    val sets: List<RxSetChip> = emptyList(),
 ) {
     /** Issuing needs an override reason while any allergy alert stands. */
     val needsOverride: Boolean get() = warnings.isNotEmpty() || serverAlert

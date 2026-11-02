@@ -2,6 +2,7 @@ package com.aarogyam.staff.prescriptions
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.model.Drug
+import com.aarogyam.staff.api.model.QuickMedicineSet
 import com.aarogyam.staff.api.model.RxValues
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.AllergyView
@@ -41,6 +42,45 @@ class RxSheetStateHolder(
     private var nextKey = 0
     private val sync = RxDraftSync(clinic, patientId, visitId)
     private var frozen = false
+    private var sets: List<QuickMedicineSet> = emptyList()
+
+    init {
+        if (mutableState.value.allowed) loadSets()
+    }
+
+    private fun loadSets() {
+        scope.launch {
+            when (val result = clinic.reference.quickPicks()) {
+                is Outcome.Success -> {
+                    sets = result.value.medicineSets
+                    mutableState.update { it.copy(sets = sets.map(QuickMedicineSet::toChip)) }
+                }
+
+                is Outcome.Failure -> {
+                    log.info("rxsheet.sets_unavailable") { code("error", result.error.code.value) }
+                }
+            }
+        }
+    }
+
+    /** Adds a medicine set's lines after the existing ones, skipping medicines already on the prescription. */
+    fun addSet(id: String) {
+        if (!editable()) return
+        val set = sets.firstOrNull { it.id == id } ?: return
+        mutableState.update {
+            val added = set.newLines(it.lines, nextKey)
+            nextKey += added.size
+            recompute(
+                it.copy(
+                    draft = dirty(it),
+                    lines = it.lines + added,
+                    query = "",
+                    results = emptyList(),
+                    searching = false,
+                ),
+            )
+        }
+    }
 
     /** Searches the catalogue as the doctor types. */
     fun search(query: String) {

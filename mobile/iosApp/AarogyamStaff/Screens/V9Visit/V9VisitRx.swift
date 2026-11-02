@@ -107,6 +107,9 @@ struct V9RxCard: View {
         } else if !typed.trimmingCharacters(in: .whitespaces).isEmpty {
             Text("v9v.rx.no_match", tableName: "VisitV9").v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color)
         }
+        if !state.sets.isEmpty && typed.isEmpty && !state.searching {
+            V9RxSetChips(rx: rx, sets: state.sets, locked: locked)
+        }
         if state.lines.isEmpty && state.results.isEmpty && typed.isEmpty {
             SkPillButton(String(localized: "rx.quick"), variant: .tonal, wide: true) { rx.quickRx() }
             Text("v9v.rx.how", tableName: "VisitV9").v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color)

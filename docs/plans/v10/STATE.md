@@ -191,3 +191,11 @@ Paused by the founder. This is the one place to resume from. The approved plan i
 - **Gaps found:** the visit's treatment form has no surface or material (only the Chart tab does); the visit Rx card has no medicine sets (`/api/v1/medicine-sets` exists); photo and dictation can't run on the simulator.
 - **Flaky:** `SseLiveUpdatesTest.no_heartbeat_means_dead…` runs on real time (150 ms heartbeats) and failed once under load.
 - **Next:** medicine sets in the visit Rx card; surface and material in the visit tooth form; G4 task proof photo; G10 consent `signature_attachment_id`; a recall-dismiss UI (where the follow-up list lives is a design call); Android T13 after iOS sign-off.
+
+## 1 Nov evening: medicine sets, task proof photo, banner fix, on main `e9dac100`
+- **Medicine sets** in the visit Rx card: chips from `QuickPicks.medicine_sets` (specialty and clinic sets); a tap adds every medicine as a free-text line (`drugId` null), skipping names already on the Rx. A set's `instructions` are dropped (no `RxLine` field). `RxSheetStateHolder.kt` is about 400 lines and needs a split.
+- **G4 task proof photo:** a camera button on open My tasks rows (photo library on a device without a camera); upload once, then complete with `proof_file_id`; a retry reuses the upload. The camera path is untested on the simulator.
+- **Live banner stuck:** a send-in banner stayed on the doctor's visit screen. The 6 s hide now lives in `LiveBannerHolder` (`showMillis`, tested); the view only mirrors it. Verified in T12: no banner at the visit screenshot.
+- **send_in audience (backend, decisions 2026-10-11):** the doctor is the audience. The bug was being told of their own Send in; backend 0709 writes that row already handled, and the phone already skips handled rows.
+- **T12 now adds the Rx with one set tap:** rx 4–5 s / 2 taps (was 11.9 s / 3). Doctor total about 62 s / 12 taps, but all three runs were under load 150–225 from backend builds; wrap-up (30 s) needs a quiet re-time.
+- **Waiting on backend:** G10 intake link (`WalkIn.consents[]` + `PUT /patients/{id}/consents/{consent_id}/signature`) and 0709, in one SHA.

@@ -28,6 +28,7 @@ struct Patient360Screen: View {
     @State private var history: ScreenModel<VisitHistoryStateHolder, VisitHistoryState>?
     @State private var consents: ScreenModel<ConsentsStateHolder, ConsentsState>?
     @State private var chart: ScreenModel<ChartStateHolder, ChartState>?
+    @State private var followUps: ScreenModel<RecallsStateHolder, RecallsState>?
     @Environment(\.skTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -43,10 +44,14 @@ struct Patient360Screen: View {
             }
         }
         #if DEBUG && AARO_ENV_Local
-        // Screenshot runs: `_DEV_SCROLL=1` scrolls the tab body to the top once the overview has loaded.
+        // Screenshot runs: `_DEV_SCROLL=1` scrolls the tab body to the top once the overview has loaded,
+        // `_DEV_SCROLL=followups` to the Follow-ups card.
         .onChange(of: overviewLoaded != nil) { _, ready in
-            if ready, ProcessInfo.processInfo.environment["AAROGYAM_DEV_SCROLL"] == "1" {
+            let target = ProcessInfo.processInfo.environment["AAROGYAM_DEV_SCROLL"]
+            if ready, target == "1" {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { proxy.scrollTo("p9.body", anchor: .top) }
+            } else if ready, target == "followups" {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { proxy.scrollTo("p9.followups", anchor: .center) }
             }
         }
         #endif
@@ -101,6 +106,9 @@ struct Patient360Screen: View {
         if can.contains("clinical.read") {
             overview = ScreenModel(make: { graph.patientOverview(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
             chart = ScreenModel(make: { graph.chart(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
+            let recalls = ScreenModel(make: { graph.recalls(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
+            recalls.holder.load()
+            followUps = recalls
         }
         history = ScreenModel(make: { graph.visitHistory(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
         consents = ScreenModel(make: { graph.consents(clinic: clinic, patientId: patientId, screen: $0) }, state: { $0.state })
@@ -165,7 +173,7 @@ struct Patient360Screen: View {
         case .overview:
             if let overview {
                 V9OverviewTab(
-                    holder: overview.holder, state: overview.value, chart: chart, graph: graph, clinic: clinic,
+                    holder: overview.holder, state: overview.value, chart: chart, followUps: followUps, graph: graph, clinic: clinic,
                     onOpenVisit: { detail = VisitDetailRoute(visitId: $0) }
                 )
             }

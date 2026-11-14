@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select encounter_id from aarogyam.invoices where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "encounter_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.invoices",
+            "name": "encounter_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "6bfa1a6c993b423a64ac630d70b606d9c056b9d8ed3cf59091f0f7679802d6fe"
+}

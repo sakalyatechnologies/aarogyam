@@ -29,6 +29,7 @@ pub const KEYS: &[&str] = &[
     "visit.summary",
     "visit.summary_pin",
     "visit.follow_up_booking",
+    "visit.thanks",
 ];
 
 /// A template to add.

@@ -192,6 +192,45 @@ pub async fn resend_owner_invitation(
     })
 }
 
+/// How the clinic owner's invitation email went, without the address, payload or body.
+#[derive(Debug, Clone)]
+pub struct OwnerInviteDelivery {
+    /// The owner invitation the email carried.
+    pub invitation_id: Uuid,
+    /// `pending`, `sent` or `failed`.
+    pub status: String,
+    /// `log` or `resend`, once a send was tried.
+    pub provider: Option<String>,
+    /// Send attempts so far.
+    pub attempts: i32,
+    /// Why the last attempt failed (at most 200 characters).
+    pub last_error: Option<String>,
+    /// When the email was queued.
+    pub queued_at: OffsetDateTime,
+    /// When it was sent.
+    pub sent_at: Option<OffsetDateTime>,
+}
+
+/// The latest owner-invitation email's outcome, or `None` when nothing was queued.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn owner_invite_delivery(
+    pool: &PgPool,
+    org_id: Uuid,
+) -> Result<Option<OwnerInviteDelivery>, DbError> {
+    let row = sqlx::query_as!(
+        OwnerInviteDelivery,
+        r#"select invitation_id as "invitation_id!", status as "status!", provider,
+                  attempts as "attempts!", last_error, queued_at as "queued_at!", sent_at
+           from app.console_owner_invite_delivery($1)"#,
+        org_id
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row)
+}
+
 /// Database health for the service dashboard, as JSON: connections, cache hit ratio, size,
 /// the biggest tables and the slowest statements.
 ///

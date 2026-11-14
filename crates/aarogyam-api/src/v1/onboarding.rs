@@ -491,6 +491,67 @@ pub struct ResentOwnerInvitation {
     pub expires_at: String,
 }
 
+/// Whether a clinic's owner invitation email went out. Never carries the address, link or body.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct OwnerInvitationDelivery {
+    /// `not_queued`, `pending`, `sent`, `failed`, or `not_sent` when it only reached the log
+    /// because no email provider is configured.
+    pub status: String,
+    /// The email provider tried (`log` or `resend`).
+    pub provider: Option<String>,
+    /// Send attempts so far.
+    pub attempts: i32,
+    /// Why the last attempt failed (at most 200 characters).
+    pub last_error: Option<String>,
+    /// When the email was queued (RFC 3339).
+    pub queued_at: Option<String>,
+    /// When it was sent (RFC 3339).
+    pub sent_at: Option<String>,
+}
+
+/// Reads whether the clinic owner's invitation email was sent, for the clinic page.
+#[utoipa::path(
+    get,
+    path = "/api/v1/console/clinics/{id}/owner-invitation/delivery",
+    operation_id = "ownerInvitationDelivery",
+    tag = "console",
+    params(("id" = String, Path, description = "The clinic")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = OwnerInvitationDelivery),
+        (status = 403, description = "Not allowed to onboard clinics"),
+        (status = 404, description = "No such clinic, or not the console host")
+    )
+)]
+pub(crate) async fn owner_invitation_delivery(
+    State(state): State<AppState>,
+    request: PlatformRequest,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<OwnerInvitationDelivery>, ApiFailure> {
+    require_onboarding(&request)?;
+    let status =
+        aarogyam_app::console::owner_invite_status(state.db(), ClinicId::from_uuid(id)).await?;
+    let state_name = status.state.as_str().to_owned();
+    Ok(Json(match status.delivery {
+        None => OwnerInvitationDelivery {
+            status: state_name,
+            provider: None,
+            attempts: 0,
+            last_error: None,
+            queued_at: None,
+            sent_at: None,
+        },
+        Some(d) => OwnerInvitationDelivery {
+            status: state_name,
+            provider: d.provider,
+            attempts: d.attempts,
+            last_error: d.last_error,
+            queued_at: Some(rfc3339(d.queued_at)),
+            sent_at: d.sent_at.map(rfc3339),
+        },
+    }))
+}
+
 /// Sends a clinic's owner invitation again, for an owner who hasn't joined: a new link replaces
 /// the old one and is emailed.
 #[utoipa::path(

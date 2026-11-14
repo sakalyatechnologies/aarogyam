@@ -537,6 +537,9 @@ pub struct NotificationSettings {
     /// Booking link for a follow-up, sent two days before it is due (default off).
     #[schema(required = false)]
     pub follow_up_booking: bool,
+    /// Thank-you with the clinic's booking link when a payment settles the bill (default on).
+    #[schema(required = false)]
+    pub thanks: bool,
     /// Quiet hours for reminders and offers.
     pub quiet_hours: QuietHoursView,
 }
@@ -553,6 +556,7 @@ impl From<NotificationPrefs> for NotificationSettings {
             welcome: prefs.welcome,
             visit_summary: prefs.visit_summary,
             follow_up_booking: prefs.follow_up_booking,
+            thanks: prefs.thanks,
             quiet_hours: QuietHoursView {
                 enabled: prefs.quiet_hours.enabled,
                 start: hhmm(prefs.quiet_hours.start),
@@ -594,6 +598,8 @@ pub struct NotificationSettingsChanges {
     pub visit_summary: Option<bool>,
     /// The follow-up booking message, two days before the follow-up is due.
     pub follow_up_booking: Option<bool>,
+    /// The thank-you when a payment settles the bill.
+    pub thanks: Option<bool>,
     /// Quiet hours.
     pub quiet_hours: Option<QuietHoursChangesBody>,
 }
@@ -651,6 +657,7 @@ pub(crate) async fn update_notifications(
         welcome: body.welcome,
         visit_summary: body.visit_summary,
         follow_up_booking: body.follow_up_booking,
+        thanks: body.thanks,
         quiet_hours: body.quiet_hours.map(|quiet| QuietHoursChanges {
             enabled: quiet.enabled,
             start: quiet.start,

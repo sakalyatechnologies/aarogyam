@@ -404,6 +404,8 @@ pub async fn record(
             // A bill paid in full finishes its visit's token (`ready_to_bill` -> `done`).
             let settled = dal::lock_invoices(tx.conn(), &ids).await?;
             for bill in settled.iter().filter(|b| b.total_paise - b.paid_paise <= 0) {
+                // The clinic's `thanks` switch: a thank-you, once per visit, queued with the payment.
+                crate::auto_messages::bill_settled(tx, bill.patient_id, bill.id).await?;
                 if let Some(token) =
                     queue_dal::ready_to_bill_for_invoice(tx.conn(), bill.id).await?
                 {

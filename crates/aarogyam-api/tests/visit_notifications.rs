@@ -710,6 +710,43 @@ async fn the_doctors_who_are_told_follow_the_assignment_and_the_rota() {
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+async fn a_doctor_is_not_told_of_their_own_send_in() {
+    let app = TestApp::start().await;
+    let clinic = app.clinic_id("alpha").await;
+    let owner = app.token(ALPHA_OWNER);
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let (doc, member) = new_member(&app, clinic, "doctor").await;
+    let branch = branch(&app, clinic).await;
+    let doctor = on_rota(&app, clinic, member, branch, "Dr A").await;
+    let patient = register(&app, &owner, "Meera Shah").await;
+
+    // The token's own doctor calls it: the row exists as history, handled, and does not count.
+    let own = walk_in(&app, &desk, &patient, Some(doctor)).await;
+    post_ok(&app, &doc, &format!("/api/v1/queue/{own}/call"), None).await;
+    assert_eq!(token_rows(&app, &own, "send_in").await, 1);
+    let items = feed(&app, &doc).await;
+    let row = &about_token(&items, "send_in", &own)[0];
+    assert!(row["handled"].is_object(), "{row}");
+    assert_eq!(count(&app, &doc).await, 0);
+    assert_eq!(badge(&app, &doc).await, 0);
+    assert_counts_match_lists(&app, &[&doc]).await;
+
+    // Someone else calls another of the doctor's tokens: unread for the doctor, as before.
+    let other = walk_in(&app, &desk, &patient, Some(doctor)).await;
+    post_ok(&app, &owner, &format!("/api/v1/queue/{other}/call"), None).await;
+    let items = feed(&app, &doc).await;
+    assert!(about_token(&items, "send_in", &other)[0]["handled"].is_null());
+    assert_eq!(
+        count(&app, &doc).await,
+        1,
+        "only the other caller's send_in counts"
+    );
+    assert_counts_match_lists(&app, &[&doc]).await;
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
 #[expect(
     clippy::too_many_lines,
     reason = "one scenario walks the handled states in turn"
@@ -733,8 +770,9 @@ async fn handled_rows_stop_counting_and_the_badge_matches_the_list() {
     let unread_only = get_ok(&app, &doc, "/api/v1/notifications?unread_only=true").await;
     assert_eq!(unread_only["items"].as_array().unwrap().len(), 1);
 
-    // Calling the patient handles the waiting row; the send_in row is the one left unread.
-    post_ok(&app, &doc, &format!("/api/v1/queue/{token}/call"), None).await;
+    // Someone else (the owner) calls the patient: the waiting row is handled; the send_in row is the one left
+    // unread for the doctor.
+    post_ok(&app, &owner, &format!("/api/v1/queue/{token}/call"), None).await;
     let items = feed(&app, &doc).await;
     let waiting = &about_token(&items, "patient_waiting", &token)[0];
     assert!(waiting["handled"].is_object());

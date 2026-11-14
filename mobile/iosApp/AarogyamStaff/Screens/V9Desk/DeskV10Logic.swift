@@ -1,3 +1,4 @@
+import AarogyamShared
 import Foundation
 
 func dx(_ key: String.LocalizationValue) -> String { String(localized: key, table: "DeskV10") }
@@ -140,5 +141,55 @@ enum DeskV10Strip {
             chips.append(DeskV10StripChip(text: dxf("dx.strip.chairs_busy", chairsBusy), tone: .warning))
         }
         return chips
+    }
+}
+
+/// The two "earlier" sections under the board: unpaid bills from earlier days, and today's no-shows.
+enum DeskV10Earlier {
+    /// More than three rows start collapsed, so the board stays the first thing on the screen.
+    static func startsCollapsed(count: Int) -> Bool { count > 3 }
+
+    static func unpaidHeader(count: Int, totalPaise: Int64) -> String {
+        dxf("dx.earlier.unpaid.header", count, ClinicFormat.rupees(paise: totalPaise))
+    }
+
+    static func missedHeader(count: Int) -> String { dxf("dx.earlier.missed.header", count) }
+
+    /// "12 Oct" from a clinic day `YYYY-MM-DD`; the raw text when unreadable.
+    static func dayText(_ day: String, locale: Locale = .current) -> String {
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX"); parser.timeZone = .gmt; parser.dateFormat = "yyyy-MM-dd"
+        guard let date = parser.date(from: day) else { return day }
+        let out = DateFormatter()
+        out.locale = locale; out.timeZone = .gmt; out.setLocalizedDateFormatFromTemplate("d MMM")
+        return out.string(from: date)
+    }
+
+    /// A clinic-local minute of the day as a short time ("9:15 AM").
+    static func timeText(minute: Int, locale: Locale = .current) -> String {
+        let out = DateFormatter()
+        out.locale = locale; out.timeZone = .gmt; out.timeStyle = .short; out.dateStyle = .none
+        return out.string(from: Date(timeIntervalSince1970: TimeInterval(minute * 60)))
+    }
+
+    static func unpaidRowLabel(number: String, token: Int, day: String, balancePaise: Int64) -> String {
+        dxf("dx.earlier.unpaid.row.a11y", number, token, dayText(day), ClinicFormat.rupees(paise: balancePaise))
+    }
+
+    static func missedRowLabel(number: String, minute: Int) -> String {
+        dxf("dx.earlier.missed.row.a11y", number, timeText(minute: minute))
+    }
+}
+
+/// G8: the line under a token whose welcome message didn't go out, so the desk can tell the patient.
+enum DeskV10Welcome {
+    static func text(_ note: WelcomeNote) -> String {
+        switch note {
+        case .failed: dx("dx.welcome.failed")
+        case .noConsent: dx("dx.welcome.no_consent")
+        case .optedOut: dx("dx.welcome.opted_out")
+        case .noAddress: dx("dx.welcome.no_address")
+        case .skipped: dx("dx.welcome.skipped")
+        }
     }
 }

@@ -64,9 +64,31 @@ final class VisitE2ETests: XCTestCase {
             tap(wait(app.buttons["Start visit for token \(token)"], timeout: 15))
             _ = wait(app.buttons["Wrap up this visit"], timeout: 20)
         }
+        // The standard visit: chair mode (no dictation or photo on the simulator), one treatment, one prescription.
+        step("chair") {
+            tap(wait(app.buttons["Open chair mode, large buttons for dictation and photos"]))
+            tap(wait(app.buttons["Done"]))
+            _ = wait(app.buttons["Wrap up this visit"])
+        }
+        step("tooth") {
+            tap(scrolledTo(app.buttons["Other…"]))
+            tap(wait(app.buttons["16"]))
+            let chips = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Add ' AND NOT label CONTAINS 'to the prescription'"))
+            tap(scrolledTo(wait(chips.firstMatch)))
+            _ = wait(app.staticTexts["Tooth 16"])
+        }
+        shot("doctor-tooth")
+        // One tap on a medicine set (the dental "Dental pain": Ibuprofen and Pantoprazole).
+        step("rx") {
+            tap(scrolledTo(app.buttons["Write prescription"]))
+            tap(wait(app.buttons["Add set Dental pain, 2 medicines"], timeout: 15))
+            _ = wait(app.buttons["Remove Pantoprazole"])
+        }
         shot("doctor-visit")
         step("wrap-up") {
-            tap(app.buttons["Wrap up this visit"])
+            tap(scrolledTo(app.buttons["Wrap up this visit"]))
+            let rxToggle = wait(app.switches["Issue Rx"])
+            if (rxToggle.value as? String) != "1" { tap(rxToggle) }
             let fee = wait(app.textFields["Fee (₹)"])
             tap(fee)
             if let text = fee.value as? String, !text.isEmpty, text != "Fee (₹)" {
@@ -100,6 +122,26 @@ final class VisitE2ETests: XCTestCase {
         // The settling payment moves the token to done, and closing the sheet reloads the board.
         XCTAssertTrue(waitGone(card, timeout: 10), "token \(token) is still Ready to bill")
         shot("desk-board-after")
+    }
+
+    /// Desk: the same number again. The intake form offers "Family of" the patient already on it; nothing is saved.
+    func test4_deskSeesFamilyOnIntake() throws {
+        let phone = try XCTUnwrap(env["E2E_PHONE"], "set TEST_RUNNER_E2E_PHONE")
+        launch(as: .desk)
+        step("family") {
+            let number = wait(app.textFields["Patient mobile number"])
+            tap(number)
+            number.typeText(phone)
+            tap(wait(app.buttons["New patient"], timeout: 15))
+            // The desk home behind the sheet has a profile chip with the same name; take the one on the "Not family" row.
+            let none = wait(app.buttons["Not family"], timeout: 15)
+            let person = app.buttons.matching(NSPredicate(format: "label == 'E2E Test Patient'")).allElementsBoundByIndex
+                .first { abs($0.frame.midY - none.frame.midY) < 1 }
+            guard let person else { return XCTFail("no family chip beside Not family") }
+            tap(person)
+            _ = wait(app.buttons["Child"])
+        }
+        shot("desk-family")
     }
 
     // MARK: helpers

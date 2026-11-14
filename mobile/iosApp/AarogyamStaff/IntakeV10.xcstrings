@@ -392,6 +392,29 @@
         }
       }
     },
+    "iv.family.none": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not family"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "परिवार नहीं"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कुटुंब नाही"
+          }
+        }
+      }
+    },
     "iv.name": {
       "extractionState": "manual",
       "localizations": {

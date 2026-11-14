@@ -65,7 +65,7 @@ struct RootView: View {
                     }
                 )
                 .id("main-\(clinic.slug)")
-                .background { RoutesV10Live.hook(graph: graph) }
+                .overlay(alignment: .top) { RoutesV10Live.hook(graph: graph, clinic: clinic) }
             } else {
                 let autoOpen = !app.choseToLeave
                 NavigationStack {

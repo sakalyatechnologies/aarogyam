@@ -1,5 +1,6 @@
 package com.aarogyam.staff.api
 
+import com.aarogyam.staff.api.model.DismissRecall
 import com.aarogyam.staff.api.model.NewRecall
 import com.aarogyam.staff.api.model.Prescription
 import com.aarogyam.staff.api.model.Recall
@@ -32,6 +33,18 @@ suspend fun ClinicApi.createRecall(
         url("api/v1/patients/${patientId.encodeURLPathPart()}/recalls")
         contentType(ContentType.Application.Json)
         setBody(recall)
+    }
+
+/** `POST /api/v1/recalls/{id}/dismiss` (`dismissRecall`): drops a follow-up no longer needed; 409 when it is already done or dismissed. */
+suspend fun ClinicApi.dismissRecall(
+    id: String,
+    reason: String? = null,
+): Outcome<Recall, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/recalls/${id.encodeURLPathPart()}/dismiss")
+        contentType(ContentType.Application.Json)
+        setBody(DismissRecall(reason = reason?.take(200)))
     }
 
 /** `PATCH /api/v1/prescriptions/{id}` (`updatePrescription`): edits a draft; `items` replaces every medicine. */

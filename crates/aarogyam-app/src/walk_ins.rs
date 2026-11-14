@@ -75,6 +75,8 @@ pub struct WalkInView {
     pub conditions_recorded: u64,
     /// The purposes whose consent was recorded (ones already in force are left as they are).
     pub consents_recorded: Vec<Purpose>,
+    /// The ids of those consent rows, in the same order.
+    pub consent_ids: Vec<Uuid>,
 }
 
 /// Registers (or takes) the patient, records allergies or "No known allergies" and the desk
@@ -149,11 +151,12 @@ pub async fn register(
             now,
         )
         .await?;
-        let token = token_view(tx, token_id, now, today).await?;
-        // A patient this walk-in just registered gets the welcome, queued with the registration.
+        // A patient this walk-in just registered gets the welcome, queued with the registration
+        // (before the token is read back, so the token shows its welcome status).
         if registered {
             crate::auto_messages::welcome(tx, patient_id, token_id).await?;
         }
+        let token = token_view(tx, token_id, now, today).await?;
         Ok(WalkInView {
             patient,
             registered,
@@ -162,6 +165,7 @@ pub async fn register(
             allergies_recorded: recorded.allergies,
             conditions_recorded: recorded.conditions,
             consents_recorded: recorded.consents,
+            consent_ids: recorded.consent_ids,
         })
     })
     .await

@@ -204,7 +204,7 @@ internal class IntakeFormStateHolder(
                         id("patient_id", done.patient.id)
                         id("queue_token_id", done.token.id)
                     }
-                    val queued = queueFiles(runner, files, done.patient.id)
+                    val queued = queueFiles(runner, files, done.patient.id, done.consents.orEmpty().map { it.id })
                     clearBytes()
                     edit {
                         copy(
@@ -264,11 +264,15 @@ internal class IntakeFormStateHolder(
         )
     }
 
-    /** Photo "Profile" (`photo`), then signature "Signature" (`consent`): how many were saved, and why one was not. */
+    /**
+     * Photo "Profile" (`photo`), then signature "Signature" (`consent`, then linked to [consentIds]): how many
+     * were saved, and why one was not.
+     */
     private fun queueFiles(
         runner: OutboxRunner,
         files: OutboxFiles,
         patientId: String,
+        consentIds: List<String>,
     ): Pair<Int, Refusal?> {
         var saved = 0
         var refused: Refusal? = null
@@ -284,7 +288,8 @@ internal class IntakeFormStateHolder(
             }
             files.write(name, bytes)
             try {
-                val job = PatientFileJob(clinic.slug, patientId, what.first, what.second)
+                val links = if (what.first == "consent") consentIds else emptyList()
+                val job = PatientFileJob(clinic.slug, patientId, what.first, what.second, links)
                 runner.enqueue(OutboxKind.PatientFile, queueJson.encodeToString(job), id, fileName = name)
                 saved++
             } catch (_: OutboxFullException) {

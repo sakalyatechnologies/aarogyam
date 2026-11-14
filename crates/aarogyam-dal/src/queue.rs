@@ -57,6 +57,19 @@ pub struct TokenRow {
     /// The visit reason the desk noted at a walk-in (clinical free text; never logged).
     #[serde(default)]
     pub reason: Option<String>,
+    /// The welcome message's state: `queued`, `sent`, `failed` or `skipped`; none when no
+    /// welcome applied to this token.
+    #[serde(default)]
+    pub welcome_status: Option<String>,
+    /// Why the welcome was skipped.
+    #[serde(default)]
+    pub welcome_skip_reason: Option<String>,
+    /// The thank-you's state, as for the welcome.
+    #[serde(default)]
+    pub thanks_status: Option<String>,
+    /// Why the thank-you was skipped.
+    #[serde(default)]
+    pub thanks_skip_reason: Option<String>,
 }
 
 /// Issues the next token number of a branch's day (`app.next_number`, kind `queue_token`).
@@ -145,10 +158,26 @@ pub async fn list(
                   ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
                     as "patient_registration_incomplete!",
                   q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?",
-                  q.room_id, q.reason
+                  q.room_id, q.reason,
+                  w.status as "welcome_status?", w.skip_reason as "welcome_skip_reason?",
+                  t.status as "thanks_status?", t.skip_reason as "thanks_skip_reason?"
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
+           left join lateral (select case m.status when 'sent' then 'sent' when 'failed' then 'failed'
+                                                    when 'skipped' then 'skipped' else 'queued' end as status,
+                                     m.skip_reason
+                              from aarogyam.messages m
+                              where m.org_id = q.org_id
+                                and m.dedupe_key = 'auto:welcome:' || q.id::text) w on true
+           left join lateral (select case m.status when 'sent' then 'sent' when 'failed' then 'failed'
+                                                    when 'skipped' then 'skipped' else 'queued' end as status,
+                                     m.skip_reason
+                              from aarogyam.encounters e
+                              join aarogyam.messages m on m.org_id = e.org_id
+                                and m.dedupe_key = 'auto:thanks:' || e.id::text
+                              where e.org_id = q.org_id and e.queue_token_id = q.id
+                              limit 1) t on true
            where q.day = $1 and ($2::uuid is null or q.branch_id = $2)
              and ($4::uuid is null or q.practitioner_id = $4)
              and app.practitioner_in_reach(q.practitioner_id, $3)
@@ -338,10 +367,26 @@ pub async fn get(
                   ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
                     as "patient_registration_incomplete!",
                   q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?",
-                  q.room_id, q.reason
+                  q.room_id, q.reason,
+                  w.status as "welcome_status?", w.skip_reason as "welcome_skip_reason?",
+                  t.status as "thanks_status?", t.skip_reason as "thanks_skip_reason?"
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
+           left join lateral (select case m.status when 'sent' then 'sent' when 'failed' then 'failed'
+                                                    when 'skipped' then 'skipped' else 'queued' end as status,
+                                     m.skip_reason
+                              from aarogyam.messages m
+                              where m.org_id = q.org_id
+                                and m.dedupe_key = 'auto:welcome:' || q.id::text) w on true
+           left join lateral (select case m.status when 'sent' then 'sent' when 'failed' then 'failed'
+                                                    when 'skipped' then 'skipped' else 'queued' end as status,
+                                     m.skip_reason
+                              from aarogyam.encounters e
+                              join aarogyam.messages m on m.org_id = e.org_id
+                                and m.dedupe_key = 'auto:thanks:' || e.id::text
+                              where e.org_id = q.org_id and e.queue_token_id = q.id
+                              limit 1) t on true
            where q.id = $1 and app.practitioner_in_reach(q.practitioner_id, $2)"#,
         id,
         member

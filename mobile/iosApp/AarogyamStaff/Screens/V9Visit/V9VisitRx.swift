@@ -107,6 +107,9 @@ struct V9RxCard: View {
         } else if !typed.trimmingCharacters(in: .whitespaces).isEmpty {
             Text("v9v.rx.no_match", tableName: "VisitV9").v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color)
         }
+        if !state.sets.isEmpty && typed.isEmpty && !state.searching {
+            V9RxSetChips(rx: rx, sets: state.sets, locked: locked)
+        }
         if state.lines.isEmpty && state.results.isEmpty && typed.isEmpty {
             SkPillButton(String(localized: "rx.quick"), variant: .tonal, wide: true) { rx.quickRx() }
             Text("v9v.rx.how", tableName: "VisitV9").v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color)
@@ -198,6 +201,7 @@ private struct V9MedCard: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(line.name).v7Text(14.5, .heavy).foregroundStyle(r.onSurface.color)
                     if !line.detail.isEmpty { Text(line.detail).v7Text(12).foregroundStyle(r.onSurfaceVariant.color) }
+                    if let instructions = line.instructions { Text(instructions).v7Text(12).italic().foregroundStyle(r.onSurfaceVariant.color) }
                 }
                 Spacer(minLength: 8)
                 if editable {

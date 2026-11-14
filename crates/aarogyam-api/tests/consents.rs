@@ -317,3 +317,159 @@ async fn the_database_keeps_clinics_apart_and_withdrawn_records_final() {
     }
     app.finish().await;
 }
+
+async fn attach(app: &TestApp, host: &str, token: &str, patient: &str, kind: &str) -> String {
+    let mut file = vec![0xFF, 0xD8, 0xFF, 0xE0];
+    file.extend_from_slice(&[3_u8; 256]);
+    let (status, body) = app
+        .upload(host, token, patient, &file, &[("kind", kind)])
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    body["id"].as_str().unwrap().to_owned()
+}
+
+async fn sign(
+    app: &TestApp,
+    host: &str,
+    token: &str,
+    patient: &str,
+    consent: &str,
+    file: &str,
+) -> (StatusCode, Value) {
+    app.send(
+        Method::PUT,
+        host,
+        &format!("/api/v1/patients/{patient}/consents/{consent}/signature"),
+        Some(token),
+        Some(json!({ "signature_attachment_id": file })),
+    )
+    .await
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+#[expect(clippy::too_many_lines, reason = "one scenario read top to bottom")]
+async fn a_signature_is_attached_to_a_recorded_consent_once() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let nothing = app.token(ALPHA_NOTHING);
+    let beta = app.token(BETA_OWNER);
+    let meera = patient(&app, &owner).await;
+    let other = patient(&app, &owner).await;
+    let (_, made) = record(&app, ALPHA, &owner, &meera, paper("care")).await;
+    let consent = made["id"].as_str().unwrap().to_owned();
+    assert!(made["signature_attachment_id"].is_null());
+    let first = attach(&app, ALPHA, &owner, &meera, "consent").await;
+    let second = attach(&app, ALPHA, &owner, &meera, "consent").await;
+    let photo = attach(&app, ALPHA, &owner, &meera, "photo").await;
+    let elsewhere = attach(&app, ALPHA, &owner, &other, "consent").await;
+
+    // Wrong kind and another patient's file: 400 naming the field; unknown file: 404.
+    for file in [&photo, &elsewhere] {
+        let (status, body) = sign(&app, ALPHA, &owner, &meera, &consent, file).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert!(
+            body.to_string().contains("signature_attachment_id"),
+            "{body}"
+        );
+    }
+    let missing = uuid::Uuid::new_v4().to_string();
+    let (status, _) = sign(&app, ALPHA, &owner, &meera, &consent, &missing).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    // A role without patients.write is refused.
+    let (status, _) = sign(&app, ALPHA, &nothing, &meera, &consent, &first).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    // Set once; the same file again is 200; a different one is 409 signature_already_set.
+    let (status, body) = sign(&app, ALPHA, &owner, &meera, &consent, &first).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["id"], consent.as_str());
+    assert_eq!(body["signature_attachment_id"], first.as_str());
+    let (status, body) = sign(&app, ALPHA, &owner, &meera, &consent, &first).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, body) = sign(&app, ALPHA, &owner, &meera, &consent, &second).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"]["code"], "signature_already_set");
+    let (_, listed) = list(&app, ALPHA, &owner, &meera).await;
+    assert_eq!(
+        listed["items"][0]["signature_attachment_id"],
+        first.as_str()
+    );
+
+    // An unknown consent, another patient's consent: 404. Another clinic: 404.
+    let (status, _) = sign(&app, ALPHA, &owner, &meera, &missing, &first).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = sign(&app, ALPHA, &owner, &other, &consent, &first).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = sign(&app, BETA, &beta, &meera, &consent, &first).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // A withdrawn consent takes no signature: 409 consent_withdrawn.
+    let (_, later) = record(&app, ALPHA, &owner, &meera, paper("reminders")).await;
+    let later = later["id"].as_str().unwrap().to_owned();
+    let (status, _) = withdraw(&app, ALPHA, &owner, &later, json!({ "method": "paper" })).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = sign(&app, ALPHA, &owner, &meera, &later, &second).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"]["code"], "consent_withdrawn");
+
+    // The database itself: a second, different signature, clearing it, or a wrong-kind file
+    // are refused even when the API is bypassed; the signed row stays otherwise final.
+    let alpha = app.clinic_id("alpha").await;
+    let db = app.api_db();
+    let (consent_uuid, second_uuid) = (
+        consent.parse::<uuid::Uuid>().unwrap(),
+        second.parse::<uuid::Uuid>().unwrap(),
+    );
+    for (sql, file) in [
+        (
+            "update aarogyam.patient_consents set signature_attachment_id = $2 where id = $1",
+            Some(second_uuid),
+        ),
+        (
+            "update aarogyam.patient_consents set signature_attachment_id = $2 where id = $1",
+            None,
+        ),
+        (
+            "update aarogyam.patient_consents set notice_version = 'v2' where id = $1 and $2::uuid is null",
+            None,
+        ),
+    ] {
+        let error = db
+            .scoped(&Scope::tenant(alpha), async |tx| {
+                sqlx::query(sql)
+                    .bind(consent_uuid)
+                    .bind(file)
+                    .execute(tx.conn())
+                    .await
+                    .map_err(DbError::from)
+            })
+            .await;
+        assert!(error.is_err(), "{sql} {file:?}");
+    }
+    let (_, third) = record(&app, ALPHA, &owner, &meera, paper("research")).await;
+    let third = third["id"].as_str().unwrap().parse::<uuid::Uuid>().unwrap();
+    let photo = photo.parse::<uuid::Uuid>().unwrap();
+    let error = db
+        .scoped(&Scope::tenant(alpha), async |tx| {
+            sqlx::query(
+                "update aarogyam.patient_consents set signature_attachment_id = $2 where id = $1",
+            )
+            .bind(third)
+            .bind(photo)
+            .execute(tx.conn())
+            .await
+            .map_err(DbError::from)
+        })
+        .await;
+    assert!(error.is_err(), "kind check runs on update");
+    let (_, listed) = list(&app, ALPHA, &owner, &meera).await;
+    let signed: Vec<_> = listed["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|item| !item["signature_attachment_id"].is_null())
+        .collect();
+    assert_eq!(signed.len(), 1);
+    app.finish().await;
+}

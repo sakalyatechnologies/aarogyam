@@ -233,7 +233,7 @@ async fn read_form(mut form: Multipart) -> Result<Upload, ApiFailure> {
         (status = 400, description = "Not an accepted file, a bad field, a visit of another patient, or a signed note without an addendum"),
         (status = 409, description = "The note is not the uploader's draft, or is entered in error, or `id_conflict`: the id belongs to a different file"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks clinical.write (billing.write or payments.collect may add a file of kind `payment_proof`)"),
+        (status = 403, description = "The role lacks clinical.write (billing.write or payments.collect may add a file of kind `payment_proof`, patients.write one of kind `consent`)"),
         (status = 404, description = "No such patient in this clinic"),
         (status = 413, description = "Larger than 10 MB")
     )

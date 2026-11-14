@@ -4,6 +4,7 @@ import com.aarogyam.staff.api.model.Consent
 import com.aarogyam.staff.api.model.ConsentList
 import com.aarogyam.staff.api.model.ConsentNoticeList
 import com.aarogyam.staff.api.model.RecordConsent
+import com.aarogyam.staff.api.model.SetConsentSignature
 import com.aarogyam.staff.api.model.WithdrawConsent
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.IdempotencyKey
@@ -37,6 +38,22 @@ suspend fun ClinicApi.recordConsent(
         idempotencyKey(key)
         contentType(ContentType.Application.Json)
         setBody(body)
+    }
+
+/**
+ * `PUT /api/v1/patients/{id}/consents/{consent_id}/signature` (`setPatientConsentSignature`): links an
+ * uploaded `consent` file. Set once; the same file again is a 200, another is 409 `signature_already_set`.
+ */
+suspend fun ClinicApi.setConsentSignature(
+    patientId: String,
+    consentId: String,
+    attachmentId: String,
+): Outcome<Consent, ApiError> =
+    client.call {
+        method = HttpMethod.Put
+        url("api/v1/patients/${patientId.encodeURLPathPart()}/consents/${consentId.encodeURLPathPart()}/signature")
+        contentType(ContentType.Application.Json)
+        setBody(SetConsentSignature(signatureAttachmentId = attachmentId))
     }
 
 /** `POST /api/v1/consents/{id}/withdraw` (`withdrawPatientConsent`). */

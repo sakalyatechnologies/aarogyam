@@ -202,6 +202,14 @@ impl From<AppError> for ApiFailure {
                 "The doctor already has an appointment at this time. Choose another time, or confirm a double booking.",
             )),
             AppError::Stale { current } => Self::Stale { current },
+            AppError::SignatureAlreadySet => Self::Error(ApiError::conflict(
+                "signature_already_set",
+                "This consent already has a different signature.",
+            )),
+            AppError::ConsentWithdrawn => Self::Error(ApiError::conflict(
+                "consent_withdrawn",
+                "This consent was withdrawn, so it can't take a signature.",
+            )),
             AppError::NotWaiting => Self::Error(ApiError::conflict(
                 "not_waiting",
                 "Only a waiting patient can be reminded about.",

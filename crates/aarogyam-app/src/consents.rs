@@ -121,6 +121,24 @@ pub struct Give {
     pub signature_attachment_id: Option<Uuid>,
 }
 
+/// The signature must be a consent-kind file of this patient.
+async fn check_signature_file(
+    tx: &mut sakalya_db::ScopedTx,
+    patient_id: PatientId,
+    file: Uuid,
+) -> Result<(), AppError> {
+    let (kind, owner) = aarogyam_dal::billing::attachment_kind(tx.conn(), file)
+        .await?
+        .ok_or(AppError::NotFound("attachment"))?;
+    if kind != AttachmentKind::Consent.as_str() || owner != patient_id.uuid() {
+        return Err(AppError::invalid(
+            "signature_attachment_id",
+            "must be a consent file of the patient",
+        ));
+    }
+    Ok(())
+}
+
 /// Records that the patient was shown the notice and agreed. Needs `patients.write`.
 ///
 /// # Errors
@@ -146,15 +164,7 @@ pub async fn give(
     db.scoped(&scope(actor, request_id), async |tx| {
         require_patient(tx, patient_id, actor.reach(Permission::PatientsWrite)).await?;
         if let Some(file) = input.signature_attachment_id {
-            let (kind, owner) = aarogyam_dal::billing::attachment_kind(tx.conn(), file)
-                .await?
-                .ok_or(AppError::NotFound("attachment"))?;
-            if kind != AttachmentKind::Consent.as_str() || owner != patient_id.uuid() {
-                return Err(AppError::invalid(
-                    "signature_attachment_id",
-                    "must be a consent file of the patient",
-                ));
-            }
+            check_signature_file(tx, patient_id, file).await?;
         }
         let (version, notice_id) =
             notices::resolve(tx, input.notice_id, input.notice_version.as_deref()).await?;
@@ -227,6 +237,52 @@ pub async fn withdraw(
         // Stops the patient's queued messages of that purpose.
         crate::contact::cancel_queued(tx, PatientId::from_uuid(found.patient_id), purpose).await?;
         let rows = dal::list(tx.conn(), found.patient_id, None)
+            .await?
+            .ok_or(AppError::NotFound("patient"))?;
+        rows.into_iter()
+            .find(|row| row.id == consent_id)
+            .ok_or(AppError::Internal("consent missing after update"))
+            .and_then(view)
+    })
+    .await
+}
+
+/// Attaches the patient's signature to a consent already recorded. Needs `patients.write`.
+/// Set once: the same file again is a no-op; a different one is refused.
+///
+/// # Errors
+/// [`AppError::NotFound`] when the consent isn't this patient's in this clinic or the patient is
+/// out of reach; [`AppError::ConsentWithdrawn`] for a withdrawn consent;
+/// [`AppError::Invalid`] when the file is not a consent file of the patient;
+/// [`AppError::SignatureAlreadySet`] when a different signature is already set.
+pub async fn set_signature(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    patient_id: PatientId,
+    consent_id: Uuid,
+    attachment_id: Uuid,
+) -> Result<ConsentView, AppError> {
+    actor.require(Permission::PatientsWrite)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let found = dal::lock(
+            tx.conn(),
+            consent_id,
+            actor.reach(Permission::PatientsWrite).member(),
+        )
+        .await?
+        .filter(|found| found.patient_id == patient_id.uuid())
+        .ok_or(AppError::NotFound("consent"))?;
+        if found.status == Status::Withdrawn.as_str() {
+            return Err(AppError::ConsentWithdrawn);
+        }
+        check_signature_file(tx, patient_id, attachment_id).await?;
+        match found.signature_attachment_id {
+            Some(existing) if existing == attachment_id => {}
+            Some(_) => return Err(AppError::SignatureAlreadySet),
+            None => dal::set_signature(tx.conn(), consent_id, attachment_id).await?,
+        }
+        let rows = dal::list(tx.conn(), patient_id.uuid(), None)
             .await?
             .ok_or(AppError::NotFound("patient"))?;
         rows.into_iter()

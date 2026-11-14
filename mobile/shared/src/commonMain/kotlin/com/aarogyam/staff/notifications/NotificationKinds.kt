@@ -101,6 +101,13 @@ data class HandledStamp(
     val name: String? = null,
 )
 
+/** The queue token a notification is about; the number only, never the patient. */
+@Serializable
+data class NotifiedToken(
+    val id: String,
+    val number: Int,
+)
+
 /**
  * A notification as the bell needs it, hand-written so a field main has not shipped yet (`handled`,
  * `title`, `item_name`) is simply absent. Unknown keys are ignored by the client's decoder.
@@ -117,6 +124,7 @@ data class NotificationEntry(
     @SerialName("item_name") val itemName: String? = null,
     @SerialName("days_cover") val daysCover: Double? = null,
     val handled: HandledStamp? = null,
+    @SerialName("queue_token") val queueToken: NotifiedToken? = null,
 ) {
     val info: NotificationKindInfo get() = NotificationKinds.of(kind)
 

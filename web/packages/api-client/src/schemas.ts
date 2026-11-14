@@ -434,6 +434,7 @@ export const notificationSettings = z.object({
   welcome: z.boolean(),
   visit_summary: z.boolean(),
   follow_up_booking: z.boolean(),
+  thanks: z.boolean(),
   quiet_hours: quietHours,
 }) satisfies z.ZodType<C.NotificationSettings>;
 export type NotificationSettings = z.output<typeof notificationSettings>;
@@ -782,6 +783,9 @@ export type StaffOpsSettingsChanges = C.StaffOpsSettingsChanges;
 export const queueTokenStatus = z.enum(["waiting", "called", "in_chair", "ready_to_bill", "done", "left"]) satisfies z.ZodType<C.QueueTokenStatus>;
 export type QueueTokenStatus = z.output<typeof queueTokenStatus>;
 
+/** What became of an automatic message to the patient, as the queue shows it. */
+const autoMessageStatus = z.enum(["queued", "sent", "failed", "skipped"]);
+
 export const queueToken = z.object({
   id: queueTokenId,
   branch_id: z.string().min(1),
@@ -796,6 +800,10 @@ export const queueToken = z.object({
   done_at: optionalTimestamp,
   room_id: roomId.nullable().exactOptional(),
   reason: optionalText,
+  welcome_status: autoMessageStatus.exactOptional(),
+  welcome_skip_reason: optionalText,
+  thanks_status: autoMessageStatus.exactOptional(),
+  thanks_skip_reason: optionalText,
   wait_minutes: z.number().int().nonnegative(),
 }) satisfies z.ZodType<C.QueueToken>;
 export type QueueToken = z.output<typeof queueToken>;
@@ -1579,6 +1587,8 @@ export type ConsentPage = z.output<typeof consentList>;
 export type RecordConsent = C.RecordConsent;
 /** Body of `POST /api/v1/consents/{id}/withdraw`. */
 export type WithdrawConsent = C.WithdrawConsent;
+/** Body of `PUT /api/v1/patients/{id}/consents/{consent_id}/signature`. */
+export type SetConsentSignature = C.SetConsentSignature;
 
 /** Body of `PUT /api/v1/patients/{id}/summary-note`. */
 export type SummaryContent = C.SummaryContent;
@@ -1992,6 +2002,17 @@ export const resentOwnerInvitation = z.object({
   expires_at: timestamp,
 }) satisfies z.ZodType<C.ResentOwnerInvitation>;
 export type ResentOwnerInvitation = z.output<typeof resentOwnerInvitation>;
+
+/** How the owner's invitation email went: never the address, link or body. */
+export const ownerInvitationDelivery = z.object({
+  status: z.enum(["not_queued", "pending", "sent", "failed", "not_sent"]),
+  provider: optionalText,
+  attempts: count,
+  last_error: optionalText,
+  queued_at: optionalTimestamp,
+  sent_at: optionalTimestamp,
+}) satisfies z.ZodType<C.OwnerInvitationDelivery>;
+export type OwnerInvitationDelivery = z.output<typeof ownerInvitationDelivery>;
 
 // Billing (M5) --------------------------------------------------------------------------------
 
@@ -3149,6 +3170,8 @@ export const walkIn = z.object({
   /** The family link made, when `family_of` was given. */
   family_link_id: z.string().nullable().exactOptional(),
   consents_recorded: z.array(consentPurpose),
+  /** The consent rows just recorded (same order); absent from older servers. */
+  consents: z.array(z.object({ id: consentId, purpose: consentPurpose })).exactOptional(),
 }) satisfies z.ZodType<C.WalkIn>;
 export type WalkIn = z.output<typeof walkIn>;
 

@@ -2028,6 +2028,48 @@
         ]
       }
     },
+    "/api/v1/console/clinics/{id}/owner-invitation/delivery": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Reads whether the clinic owner's invitation email was sent, for the clinic page.",
+        "operationId": "ownerInvitationDelivery",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The clinic",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerInvitationDelivery"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed to onboard clinics"
+          },
+          "404": {
+            "description": "No such clinic, or not the console host"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/console/clinics/{id}/owner-invitation/resend": {
       "post": {
         "tags": [
@@ -8993,7 +9035,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks clinical.write (billing.write or payments.collect may add a file of kind `payment_proof`)"
+            "description": "The role lacks clinical.write (billing.write or payments.collect may add a file of kind `payment_proof`, patients.write one of kind `consent`)"
           },
           "404": {
             "description": "No such patient in this clinic"
@@ -9381,6 +9423,76 @@
           },
           "409": {
             "description": "The patient has no email address, or the clinic has no portal address yet"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/consents/{consent_id}/signature": {
+      "put": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Attaches the patient's signature to a consent already recorded (such as one a walk-in\nrecorded). Set once: the same file again returns 200 unchanged.",
+        "operationId": "setPatientConsentSignature",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "consent_id",
+            "in": "path",
+            "description": "The consent",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetConsentSignature"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Consent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The signature is not a file of kind consent of the patient (`signature_attachment_id`)"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such consent for that patient in this clinic, or the patient is out of the role's reach"
+          },
+          "409": {
+            "description": "`signature_already_set`: a different signature is already set; `consent_withdrawn`: the consent was withdrawn"
           }
         },
         "security": [
@@ -29706,6 +29818,10 @@
             "type": "boolean",
             "description": "Remind patients two hours before (default off)."
           },
+          "thanks": {
+            "type": "boolean",
+            "description": "Thank-you with the clinic's booking link when a payment settles the bill (default on)."
+          },
           "visit_summary": {
             "type": "boolean",
             "description": "Visit summary link, then its PIN in a second message, after a visit closes (default on)."
@@ -29779,6 +29895,13 @@
               "null"
             ],
             "description": "The two-hour reminder."
+          },
+          "thanks": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The thank-you when a payment settles the bill."
           },
           "visit_summary": {
             "type": [
@@ -30455,6 +30578,53 @@
               "$ref": "#/components/schemas/OwnDentalTerm"
             },
             "description": "By list, then label; retired ones included."
+          }
+        }
+      },
+      "OwnerInvitationDelivery": {
+        "type": "object",
+        "description": "Whether a clinic's owner invitation email went out. Never carries the address, link or body.",
+        "required": [
+          "status",
+          "attempts"
+        ],
+        "properties": {
+          "attempts": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Send attempts so far."
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the last attempt failed (at most 200 characters)."
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The email provider tried (`log` or `resend`)."
+          },
+          "queued_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the email was queued (RFC 3339)."
+          },
+          "sent_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was sent (RFC 3339)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`not_queued`, `pending`, `sent`, `failed`, or `not_sent` when it only reached the log\nbecause no email provider is configured."
           }
         }
       },
@@ -33709,6 +33879,20 @@
             "type": "string",
             "description": "`waiting`, `called` (sent in by the doctor), `in_chair`, `ready_to_bill`, `done` or\n`left`."
           },
+          "thanks_skip_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the thank-you was skipped, when it was."
+          },
+          "thanks_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The thank-you queued when a payment settled the bill, with the same values."
+          },
           "token_number": {
             "type": "integer",
             "format": "int32",
@@ -33718,6 +33902,20 @@
             "type": "integer",
             "format": "int64",
             "description": "Minutes waited: until now while waiting, otherwise until called."
+          },
+          "welcome_skip_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the welcome was skipped (`no_consent`, `opted_out`, `no_address`), when it was."
+          },
+          "welcome_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The welcome message to a walk-in's new patient: `queued`, `sent`, `failed` or `skipped`.\nAbsent when no welcome applied (an appointment, a returning patient, or switched off)."
           }
         }
       },
@@ -35337,6 +35535,19 @@
           "id": {
             "type": "string",
             "description": "The user."
+          }
+        }
+      },
+      "SetConsentSignature": {
+        "type": "object",
+        "description": "The signature to attach to a consent.",
+        "required": [
+          "signature_attachment_id"
+        ],
+        "properties": {
+          "signature_attachment_id": {
+            "type": "string",
+            "description": "The id of a file of kind `consent` uploaded for the same patient."
           }
         }
       },
@@ -39482,6 +39693,13 @@
             "description": "How many conditions were recorded.",
             "minimum": 0
           },
+          "consents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WalkInConsent"
+            },
+            "description": "The consent rows just recorded, in the same order as `consents_recorded`. A signature\ncan be attached to each with `PUT /patients/{id}/consents/{consent_id}/signature`.\nOptional in the schema, so apps built before it read on."
+          },
           "consents_recorded": {
             "type": "array",
             "items": {
@@ -39541,6 +39759,24 @@
               "null"
             ],
             "description": "Why the patient came: plain text, trimmed, at most 200 characters (more is a `400`);\nempty means none."
+          }
+        }
+      },
+      "WalkInConsent": {
+        "type": "object",
+        "description": "A consent a walk-in just recorded.",
+        "required": [
+          "id",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier of the consent record."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "`care`, `reminders`, `promotional`, `sharing` or `research`."
           }
         }
       },

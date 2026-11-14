@@ -4,6 +4,8 @@ import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.desk.DeskBoardStateHolder
 import com.aarogyam.staff.desk.DeskLookupStateHolder
 import com.aarogyam.staff.desk.DeskPaymentStateHolder
+import com.aarogyam.staff.desk.MissedHolder
+import com.aarogyam.staff.desk.ToCollectHolder
 import com.sakalya.mobile.core.Logger
 
 // The v9 front desk's holders, living as long as the SwiftUI screen that owns [screen].
@@ -19,6 +21,18 @@ fun AppGraph.deskBoard(
     clinic: ClinicContext,
     screen: ScreenScope,
 ): DeskBoardStateHolder = DeskBoardStateHolder(clinic, screen.scope, Logger("aarogyam.deskboard"))
+
+/** Bills from earlier days still to collect. */
+fun AppGraph.toCollect(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): ToCollectHolder = ToCollectHolder(clinic, screen.scope, Logger("aarogyam.tocollect"))
+
+/** Today's no-shows with their follow-ups. */
+fun AppGraph.missed(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): MissedHolder = MissedHolder(clinic, screen.scope, Logger("aarogyam.missed"))
 
 /** Collect payment for one patient; unsent payments go through the desk outbox. */
 fun AppGraph.deskPayment(

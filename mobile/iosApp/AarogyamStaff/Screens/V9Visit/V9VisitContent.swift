@@ -150,8 +150,11 @@ struct V9VisitContent: View {
     /// Logs each staged procedure through the tooth sheet's existing visit call, one at a time.
     private func commitProcedures() async -> Bool {
         for item in staged {
+            sheet.reset()
             sheet.setStatus(status: .completed)
             sheet.chooseTreatment(term: item.term)
+            for surface in item.surfaces { sheet.toggleSurface(surface: surface) }
+            sheet.chooseMaterial(term: item.material)
             sheet.save(tooth: Int32(item.tooth))
             var done = false
             for await next in sheet.form {

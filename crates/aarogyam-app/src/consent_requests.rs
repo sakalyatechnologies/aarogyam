@@ -296,7 +296,7 @@ pub async fn sign(
         )
         .await?
         .iter()
-        .map(|key| Purpose::parse(key).map_err(|_| AppError::Internal("unknown purpose")))
+        .map(|(_, key)| Purpose::parse(key).map_err(|_| AppError::Internal("unknown purpose")))
         .collect::<Result<Vec<_>, _>>()?;
         dal::mark_signed(tx.conn(), row.id).await?;
         Ok(SignOutcome::Signed(recorded))

@@ -265,6 +265,68 @@ pub async fn resend_owner_invitation(
     }
 }
 
+/// How the owner's invitation email went, as the console shows it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InviteDeliveryState {
+    /// Nothing was queued yet.
+    NotQueued,
+    /// Waiting for the sender, or being retried.
+    Pending,
+    /// Handed to the email provider.
+    Sent,
+    /// Given up; see the reason.
+    Failed,
+    /// Only written to the log (no email provider configured): nothing reached the owner.
+    NotSent,
+}
+
+impl InviteDeliveryState {
+    /// The wire name.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotQueued => "not_queued",
+            Self::Pending => "pending",
+            Self::Sent => "sent",
+            Self::Failed => "failed",
+            Self::NotSent => "not_sent",
+        }
+    }
+}
+
+/// The owner invitation email's delivery.
+#[derive(Debug, Clone)]
+pub struct OwnerInviteStatus {
+    /// The summary state.
+    pub state: InviteDeliveryState,
+    /// The delivery row, when one was queued.
+    pub delivery: Option<dal::OwnerInviteDelivery>,
+}
+
+/// Reads whether the clinic's owner invitation email went out.
+///
+/// # Errors
+/// [`AppError::NotFound`] for an unknown clinic; [`AppError::Db`] on database failures.
+pub async fn owner_invite_status(
+    db: &Db,
+    clinic_id: ClinicId,
+) -> Result<OwnerInviteStatus, AppError> {
+    dal::clinic(db.pool(), clinic_id.uuid())
+        .await?
+        .ok_or(AppError::NotFound("clinic"))?;
+    let delivery = dal::owner_invite_delivery(db.pool(), clinic_id.uuid()).await?;
+    let state = match &delivery {
+        None => InviteDeliveryState::NotQueued,
+        Some(d) => match (d.status.as_str(), d.provider.as_deref()) {
+            ("sent", Some("log")) => InviteDeliveryState::NotSent,
+            ("sent", _) => InviteDeliveryState::Sent,
+            ("failed", _) => InviteDeliveryState::Failed,
+            _ => InviteDeliveryState::Pending,
+        },
+    };
+    Ok(OwnerInviteStatus { state, delivery })
+}
+
 /// The longest suggested slug: what the console's address field accepts.
 const SUGGESTION_MAX: usize = 30;
 /// Characters for a suggestion's suffix: no `0`/`o` or `1`/`l` look-alikes.

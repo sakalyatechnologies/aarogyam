@@ -82,6 +82,16 @@ export function useInviteToClinic(id: ClinicId | undefined) {
   });
 }
 
+/** How the owner's invitation email went. */
+export function useOwnerInvitationDelivery(id: ClinicId | undefined, enabled: boolean) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["clinic", id, "owner-invitation-delivery"],
+    enabled: enabled && id !== undefined,
+    queryFn: ({ signal }) => (id === undefined ? Promise.reject(new Error("no clinic")) : unwrap(api.getOwnerInvitationDelivery(id, { signal }))),
+  });
+}
+
 /** Sends a clinic's owner invitation again and refreshes its detail. */
 export function useResendOwnerInvitation(id: ClinicId | undefined) {
   const api = useApi();

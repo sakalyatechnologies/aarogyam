@@ -637,6 +637,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/clinics/{id}/owner-invitation/delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reads whether the clinic owner's invitation email was sent, for the clinic page. */
+        get: operations["ownerInvitationDelivery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/clinics/{id}/owner-invitation/resend": {
         parameters: {
             query?: never;
@@ -2949,6 +2966,26 @@ export interface paths {
          *     for seven days. Needs `patients.write`. Phone-only patients can't be sent one yet.
          */
         post: operations["requestPatientConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/consents/{consent_id}/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Attaches the patient's signature to a consent already recorded (such as one a walk-in
+         *     recorded). Set once: the same file again returns 200 unchanged.
+         */
+        put: operations["setPatientConsentSignature"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10321,6 +10358,8 @@ export interface components {
             reminder_24h: boolean;
             /** @description Remind patients two hours before (default off). */
             reminder_2h: boolean;
+            /** @description Thank-you with the clinic's booking link when a payment settles the bill (default on). */
+            thanks?: boolean;
             /** @description Visit summary link, then its PIN in a second message, after a visit closes (default on). */
             visit_summary?: boolean;
             /** @description Welcome message to a walk-in's new patient, with the estimated wait (default on). */
@@ -10343,6 +10382,8 @@ export interface components {
             reminder_24h?: boolean | null;
             /** @description The two-hour reminder. */
             reminder_2h?: boolean | null;
+            /** @description The thank-you when a payment settles the bill. */
+            thanks?: boolean | null;
             /** @description The visit summary link, then its PIN, after a visit closes. */
             visit_summary?: boolean | null;
             /** @description The welcome message after a walk-in registers (with the estimated wait). */
@@ -10656,6 +10697,27 @@ export interface components {
         OwnDentalTermList: {
             /** @description By list, then label; retired ones included. */
             items: components["schemas"]["OwnDentalTerm"][];
+        };
+        /** @description Whether a clinic's owner invitation email went out. Never carries the address, link or body. */
+        OwnerInvitationDelivery: {
+            /**
+             * Format: int32
+             * @description Send attempts so far.
+             */
+            attempts: number;
+            /** @description Why the last attempt failed (at most 200 characters). */
+            last_error?: string | null;
+            /** @description The email provider tried (`log` or `resend`). */
+            provider?: string | null;
+            /** @description When the email was queued (RFC 3339). */
+            queued_at?: string | null;
+            /** @description When it was sent (RFC 3339). */
+            sent_at?: string | null;
+            /**
+             * @description `not_queued`, `pending`, `sent`, `failed`, or `not_sent` when it only reached the log
+             *     because no email provider is configured.
+             */
+            status: string;
         };
         /** @description Changes to an audience; absent fields stay. */
         PatchAudience: {
@@ -11954,6 +12016,10 @@ export interface components {
              *     `left`.
              */
             status: string;
+            /** @description Why the thank-you was skipped, when it was. */
+            thanks_skip_reason?: string | null;
+            /** @description The thank-you queued when a payment settled the bill, with the same values. */
+            thanks_status?: string | null;
             /**
              * Format: int32
              * @description Number shown on the screen; restarts at 1 each day per branch.
@@ -11964,6 +12030,13 @@ export interface components {
              * @description Minutes waited: until now while waiting, otherwise until called.
              */
             wait_minutes: number;
+            /** @description Why the welcome was skipped (`no_consent`, `opted_out`, `no_address`), when it was. */
+            welcome_skip_reason?: string | null;
+            /**
+             * @description The welcome message to a walk-in's new patient: `queued`, `sent`, `failed` or `skipped`.
+             *     Absent when no welcome applied (an appointment, a returning patient, or switched off).
+             */
+            welcome_status?: string | null;
         };
         /** @description Several medicines added in one tap, each still editable; the allergy check still runs on issue. */
         QuickMedicineSet: {
@@ -12592,6 +12665,11 @@ export interface components {
             display_name: string;
             /** @description The user. */
             id: string;
+        };
+        /** @description The signature to attach to a consent. */
+        SetConsentSignature: {
+            /** @description The id of a file of kind `consent` uploaded for the same patient. */
+            signature_attachment_id: string;
         };
         /** @description A contact preference to record, on the patient's word. */
         SetContactPreference: {
@@ -14316,6 +14394,12 @@ export interface components {
              * @description How many conditions were recorded.
              */
             conditions_recorded: number;
+            /**
+             * @description The consent rows just recorded, in the same order as `consents_recorded`. A signature
+             *     can be attached to each with `PUT /patients/{id}/consents/{consent_id}/signature`.
+             *     Optional in the schema, so apps built before it read on.
+             */
+            consents?: components["schemas"]["WalkInConsent"][];
             /** @description The purposes whose consent was recorded. */
             consents_recorded: string[];
             /** @description The family link made, from the existing patient's side; absent without `family_of`. */
@@ -14340,6 +14424,13 @@ export interface components {
              *     empty means none.
              */
             reason?: string | null;
+        };
+        /** @description A consent a walk-in just recorded. */
+        WalkInConsent: {
+            /** @description Identifier of the consent record. */
+            id: string;
+            /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
+            purpose: string;
         };
         /**
          * @description A walk-in: a new patient (`patient`) or a registered one (`patient_id`), exactly one of the
@@ -16593,6 +16684,42 @@ export interface operations {
             };
             /** @description Supabase could not create the sign-in account */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ownerInvitationDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clinic */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerInvitationDelivery"];
+                };
+            };
+            /** @description Not allowed to onboard clinics */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such clinic, or not the console host */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -23427,7 +23554,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks clinical.write (billing.write or payments.collect may add a file of kind `payment_proof`) */
+            /** @description The role lacks clinical.write (billing.write or payments.collect may add a file of kind `payment_proof`, patients.write one of kind `consent`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -23810,6 +23937,69 @@ export interface operations {
                 content?: never;
             };
             /** @description The patient has no email address, or the clinic has no portal address yet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setPatientConsentSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description The consent */
+                consent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetConsentSignature"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Consent"];
+                };
+            };
+            /** @description The signature is not a file of kind consent of the patient (`signature_attachment_id`) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such consent for that patient in this clinic, or the patient is out of the role's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `signature_already_set`: a different signature is already set; `consent_withdrawn`: the consent was withdrawn */
             409: {
                 headers: {
                     [name: string]: unknown;

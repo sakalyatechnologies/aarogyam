@@ -168,3 +168,47 @@ Paused by the founder. This is the one place to resume from. The approved plan i
   - The signature pad's label never reached the accessibility tree. It's named on the SwiftUI side, with direct interaction for VoiceOver.
 - **Not covered yet:** dictation and audio (simulator microphone), chair photo, tooth chart, Rx from a set, My tasks confetti, the 60 s amber state, and Remind. The backend's G9 thank-you message isn't on main.
 - **Left in the local DB:** token 2 from run 2 is still `ready_to_bill` (synthetic).
+
+## 1 Nov: T11 live banners, Desk home earlier-day lists, longer T12, on main `9f35034f`
+- **Shared (adopt):** `missedAppointments(date?)`, `toCollect()`, `dismissRecall(id, reason?)`; `desk/ToCollectHolder`, `desk/MissedHolder`, `RecallsStateHolder.dismiss`. Remind's `retry_after_seconds` is **not** adopted: the kit `ApiError` has no field for it (kit change).
+- **T11 live banners:** `live/LiveBannerHolder` polls unread staff notifications in front (the first load only primes) and raises `patient_waiting`, `send_in` and `collect_payment`. iOS `LiveBannerView` over every tab: 6 s, haptic, a sound for send in, VoiceOver, Reduce Motion fade, taps pass through when empty. The doctor card's inline banner moved here (`dv10.waiting.banner` is now unused). Sound and haptic are untested on a device.
+- **Desk home:** "Unpaid from earlier days" (Collect opens the payment sheet on that bill) and "Missed today" (tap opens the patient), collapsible, closed past three rows.
+- **T12 now covers** chair mode, one tooth (16, via Other…) and one Rx (Paracetamol by search). Run on the merged branch, machine quiet:
+
+  | Phase | Step | Seconds | Taps |
+  |---|---|---|---|
+  | Desk | lookup | 9.6 | 2 |
+  | Desk | intake | 36.6 | 9 |
+  | Doctor | waiting → Send in | 5.8 | 1 |
+  | Doctor | Start visit | 3.7 | 1 |
+  | Doctor | chair open/close | 5.5 | 2 |
+  | Doctor | tooth | 11.7 | 3 |
+  | Doctor | Rx | 11.9 | 3 |
+  | Doctor | wrap-up, ₹500, Send to desk | 24.7 | 3 |
+  | Desk | collect | 15.8 | 3 |
+
+  **Doctor total 63 s / 13 taps against the 60 s target.** Wrap-up is the slow step (Issue Rx sheet, fee field).
+- **Gaps found:** the visit's treatment form has no surface or material (only the Chart tab does); the visit Rx card has no medicine sets (`/api/v1/medicine-sets` exists); photo and dictation can't run on the simulator.
+- **Flaky:** `SseLiveUpdatesTest.no_heartbeat_means_dead…` runs on real time (150 ms heartbeats) and failed once under load.
+- **Next:** medicine sets in the visit Rx card; surface and material in the visit tooth form; G4 task proof photo; G10 consent `signature_attachment_id`; a recall-dismiss UI (where the follow-up list lives is a design call); Android T13 after iOS sign-off.
+
+## 1 Nov evening: medicine sets, task proof photo, banner fix, on main `e9dac100`
+- **Medicine sets** in the visit Rx card: chips from `QuickPicks.medicine_sets` (specialty and clinic sets); a tap adds every medicine as a free-text line (`drugId` null), skipping names already on the Rx. A set's `instructions` are dropped (no `RxLine` field). `RxSheetStateHolder.kt` is about 400 lines and needs a split.
+- **G4 task proof photo:** a camera button on open My tasks rows (photo library on a device without a camera); upload once, then complete with `proof_file_id`; a retry reuses the upload. The camera path is untested on the simulator.
+- **Live banner stuck:** a send-in banner stayed on the doctor's visit screen. The 6 s hide now lives in `LiveBannerHolder` (`showMillis`, tested); the view only mirrors it. Verified in T12: no banner at the visit screenshot.
+- **send_in audience (backend, decisions 2026-10-11):** the doctor is the audience. The bug was being told of their own Send in; backend 0709 writes that row already handled, and the phone already skips handled rows.
+- **T12 now adds the Rx with one set tap:** rx 4–5 s / 2 taps (was 11.9 s / 3). Doctor total about 62 s / 12 taps, but all three runs were under load 150–225 from backend builds; wrap-up (30 s) needs a quiet re-time.
+- **Waiting on backend:** G10 intake link (`WalkIn.consents[]` + `PUT /patients/{id}/consents/{consent_id}/signature`) and 0709, in one SHA.
+
+## 14 Nov: G10, G8, tooth surfaces, family intake, on main after `5a52a868`
+- **Local stack:** the API on :8090 is rebuilt from main `5a52a868` (DB `aarogyam_mobile_v10`, migrations 0600–0710 applied). Prod is `aarogyam-api-00029-6hz` at the same SHA.
+- **G10 intake signature, verified end to end:** the outbox sends the signature upload, then `PUT /patients/{id}/consents/{consent_id}/signature` for each `WalkIn.consents` id. A network loss retries the item with the same upload id; a 409 is final and logged by code. T12 found the desk got 403 on the upload (it lacks `clinical.write`); the backend's b436f7e6 now allows kind `consent` for `patients.write`. After a T12 intake, both consents (care, reminders) have `signature_attachment_id`.
+- **G8 welcome status:** a desk board card shows one line when `welcome_status` is failed or skipped (no consent, opted out, no phone or email, other). Queued and sent show nothing. `thanks_status` isn't shown: a paid token leaves the board, and the backend agrees it belongs on web history if anywhere.
+- **Visit treatment lines:** optional M/O/D/B/L toggles, lettered and named for the tooth (incisal, palatal), and a Material menu. Tooth then treatment is still two taps. Surfaces go to `NewProcedure.surfaces`; surfaces and material go to the chart finding.
+- **Rx:** `RxSheetStateHolder` split. Draft, issue and share are in `RxIssuer` (295 + 151 lines). A medicine set's `instructions` now reach `RxItem.instructions` and show under the medicine.
+- **Family on the v10 intake:** when the number already has patients, "Family of" lists them with "Not family" picked at first; picking one shows the relation chips and sends `family_of`. The desk home profile row opens Relatives. T12 phase 4 (same number, nothing saved) screenshots it.
+- **Kit bug (not fixed in the kit):** `SkFlowLayout` reports its widest row as its width; placed at exactly that width, pixel rounding wraps the row's last chip onto a row it never counted, over the next view. The family chips use the app's `FlowLayout` instead, which now wraps only past half a point of slack. The kit fix needs a kit release.
+- **B7 allowlist:** `ChatAttachment` and `LabTrackerStage` are in `apiModels` ahead of the backend's labs and chat merge (the generator ignores names the spec doesn't have yet).
+- **Logs:** `tasks.proof_failed`, `tasks.complete_failed` (occurrence id and code). `dv10.waiting.banner` removed.
+- **T12, quiet machine (load under 20):** doctor 53 s / 12 taps (Send in 4.8, start 3.2, chair 5.0, tooth 10.1, Rx 3.6, wrap-up 26.2).
+- **Still open:** recall-dismiss UI (where the follow-up list lives is a product call); Remind `retry_after_seconds` (kit `ApiError` change); camera, dictation, sound and haptics untested on a device; Android T13 after iOS sign-off.

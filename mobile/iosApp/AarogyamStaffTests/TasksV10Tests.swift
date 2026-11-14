@@ -51,4 +51,9 @@ final class TodayV10LogicTests: XCTestCase {
         XCTAssertFalse(TodayV10Logic.usesDesk(permissions: ["clinical.write", "appointments.write"]))
         XCTAssertFalse(TodayV10Logic.usesDesk(permissions: []))
     }
+
+    func testProofLabelsAreTranslated() {
+        XCTAssertEqual(TasksV10.t("tasks10.proof"), "Finish with a photo")
+        XCTAssertNotEqual(TasksV10.t("tasks10.proof.library"), "tasks10.proof.library")
+    }
 }

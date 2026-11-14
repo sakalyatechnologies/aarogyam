@@ -146,6 +146,8 @@ pub struct Found {
     pub purpose: String,
     /// `given` or `withdrawn`.
     pub status: String,
+    /// The signature file already set, if any.
+    pub signature_attachment_id: Option<Uuid>,
 }
 
 /// The consent, locked until the transaction ends; `None` when it isn't in this clinic or its
@@ -160,7 +162,7 @@ pub async fn lock(
 ) -> Result<Option<Found>, DbError> {
     let row = sqlx::query_as!(
         Found,
-        r#"select patient_id, purpose, status from aarogyam.patient_consents
+        r#"select patient_id, purpose, status, signature_attachment_id from aarogyam.patient_consents
            where id = $1 and app.patient_in_reach(patient_id, $2) for update"#,
         id,
         member
@@ -168,6 +170,25 @@ pub async fn lock(
     .fetch_optional(conn)
     .await?;
     Ok(row)
+}
+
+/// Sets the consent's signature file (once: the database refuses a second, different one).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn set_signature(
+    conn: &mut PgConnection,
+    id: Uuid,
+    attachment_id: Uuid,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        "update aarogyam.patient_consents set signature_attachment_id = $2 where id = $1",
+        id,
+        attachment_id
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
 }
 
 /// Marks the consent withdrawn.
@@ -208,7 +229,7 @@ pub enum NoticeChoice<'a> {
 
 /// Records several consents of one patient given now, one per purpose, in one statement (the
 /// current notice is looked up in it). Purposes that already have an active consent are left
-/// as they are. Returns the purposes recorded.
+/// as they are. Returns the id and purpose of each consent recorded.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -219,12 +240,12 @@ pub async fn insert_many(
     methods: &[String],
     notice: NoticeChoice<'_>,
     recorded_by: Uuid,
-) -> Result<Vec<String>, DbError> {
+) -> Result<Vec<(Uuid, String)>, DbError> {
     let (label, id, current) = match notice {
         NoticeChoice::Named(label, id) => (label, id, false),
         NoticeChoice::Current(fallback) => (fallback, None, true),
     };
-    let rows = sqlx::query_scalar!(
+    let rows = sqlx::query!(
         r#"with chosen as (
              select n.id, n.label from aarogyam.consent_notices n
              where $7 order by n.version desc limit 1
@@ -235,7 +256,7 @@ pub async fn insert_many(
                   coalesce((select id from chosen), $6)
            from unnest($2::text[], $3::text[]) as c(purpose, method)
            on conflict (org_id, patient_id, purpose) where status = 'given' do nothing
-           returning purpose"#,
+           returning id, purpose"#,
         patient_id,
         purposes,
         methods,
@@ -246,5 +267,5 @@ pub async fn insert_many(
     )
     .fetch_all(conn)
     .await?;
-    Ok(rows)
+    Ok(rows.into_iter().map(|row| (row.id, row.purpose)).collect())
 }

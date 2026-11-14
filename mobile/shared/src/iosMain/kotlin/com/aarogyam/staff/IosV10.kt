@@ -3,6 +3,7 @@ package com.aarogyam.staff
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.desk.AvailabilityHolder
 import com.aarogyam.staff.desk.WaitTimerHolder
+import com.aarogyam.staff.live.LiveBannerHolder
 import com.aarogyam.staff.nav.HomeChoiceHolder
 import com.aarogyam.staff.tasks.MyTasksHolder
 import com.aarogyam.staff.visit.FinishVisitHolder
@@ -46,3 +47,9 @@ fun AppGraph.myTasks(
     clinic: ClinicContext,
     screen: ScreenScope,
 ): MyTasksHolder = myTasks(clinic, screen.scope)
+
+/** The app-wide banner for a patient waiting, send in and collect payment. */
+fun AppGraph.liveBanners(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): LiveBannerHolder = LiveBannerHolder(clinic, screen.scope)

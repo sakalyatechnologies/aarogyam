@@ -269,6 +269,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/patients/{id}/consents/request",
             post(consent_requests::request),
         )
+        .route(
+            "/patients/{id}/consents/{consent_id}/signature",
+            put(consents::set_signature),
+        )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
         .route("/patients/{id}/family", get(family::list).post(family::add))
         .route("/patients/{id}/family/{link_id}", delete(family::remove))
@@ -539,6 +543,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/console/clinics/{id}/owner-invitation/resend",
             post(onboarding::resend_owner_invitation),
+        )
+        .route(
+            "/console/clinics/{id}/owner-invitation/delivery",
+            get(onboarding::owner_invitation_delivery),
         )
         .route("/console/slugs", get(console::check_slug))
         .route("/console/support-grants", get(console_support::mine))

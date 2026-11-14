@@ -68,6 +68,8 @@ pub(crate) struct Recorded {
     pub(crate) conditions: u64,
     /// The purposes consented (ones already in force are left as they are).
     pub(crate) consents: Vec<Purpose>,
+    /// The ids of those consent rows, in the same order as `consents`.
+    pub(crate) consent_ids: Vec<Uuid>,
 }
 
 /// Checks the allergy list, the consents and the notice version.
@@ -157,6 +159,7 @@ pub(crate) async fn record(
             allergies,
             conditions,
             consents: Vec::new(),
+            consent_ids: Vec::new(),
         });
     }
     let purposes: Vec<String> = intake
@@ -186,13 +189,16 @@ pub(crate) async fn record(
         notice,
         recorded_by,
     )
-    .await?
-    .iter()
-    .map(|key| Purpose::parse(key).map_err(|_| AppError::Internal("unknown purpose")))
-    .collect::<Result<Vec<_>, _>>()?;
+    .await?;
+    let consent_ids = recorded.iter().map(|(id, _)| *id).collect();
+    let recorded = recorded
+        .iter()
+        .map(|(_, key)| Purpose::parse(key).map_err(|_| AppError::Internal("unknown purpose")))
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(Recorded {
         allergies,
         conditions,
         consents: recorded,
+        consent_ids,
     })
 }

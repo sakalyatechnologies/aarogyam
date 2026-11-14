@@ -60,6 +60,7 @@ impl AutoValues<'_> {
                 .map(str::to_owned)
                 .or_else(|| host.map(|host| self.links.home(host))),
             "booking_link" => host.map(|host| self.links.book(host)),
+            "learn_link" => host.map(|host| self.links.learn(host)),
             "share_link" => match (host, self.secret) {
                 (Some(host), Some(token)) => Some(self.links.shared(host, token)),
                 _ => None,
@@ -395,6 +396,17 @@ mod tests {
         };
         let text = render(&follow_up, &links).unwrap().text;
         assert!(text.contains("Due 12 November 2026: https://alpha.localtest.me/book"));
+        // The welcome's care-tips link is the clinic's public learn page.
+        let learn = PatientMail {
+            template_body: Some("Tips: {{learn_link}}"),
+            ..mail(MessageKind::Welcome, "patient.welcome", &none)
+        };
+        assert!(
+            render(&learn, &links)
+                .unwrap()
+                .text
+                .contains("Tips: https://alpha.localtest.me/learn")
+        );
         // The welcome's website falls back to the portal home.
         let welcome = PatientMail {
             template_body: Some("{{app_link}} {{website_link}}"),

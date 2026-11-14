@@ -52,6 +52,12 @@ impl PortalLinks {
         format!("{}/book", self.pattern.replace("{host}", host))
     }
 
+    /// The clinic's public patient-education pages.
+    #[must_use]
+    pub fn learn(&self, host: &str) -> String {
+        format!("{}/learn", self.pattern.replace("{host}", host))
+    }
+
     /// The page where a patient opens a shared prescription with its PIN.
     #[must_use]
     pub fn shared(&self, host: &str, token: &str) -> String {

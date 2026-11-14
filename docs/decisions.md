@@ -762,3 +762,9 @@ so tests exercise the stream.
 **Decision.** `POST /patients/{id}/attachments` accepts a file of kind `consent` from a member with `patients.write` (front desk, assistant), alongside the existing `payment_proof` exception for `billing.write` or `payments.collect`. Every other kind still needs `clinical.write`. Such an upload can't carry `note_id` or `addendum_id` (400). Listing and downloading are unchanged: without clinical access the desk sees payment proofs only, so it never reads a consent form back. No migration: the attachments policies are clinic-scoped, and the check is in the app layer, as for payment proofs.
 
 **Why.** The two-phone run found that the desk registering a walk-in got 403 on the intake signature upload, so G10 never linked `signature_attachment_id`.
+
+## 2026-11-14: Welcome messages link to public care-tips pages (`{{learn_link}}`, 0711)
+
+**Decision.** The portal serves `/learn` and `/learn/:topic` with no sign-in, like `/book`; the text is placeholder copy in `pages/public/learn-topics.ts` for the founder to replace. A new variable `{{learn_link}}` (`PortalLinks::learn`, `{base}/learn`) is allowed in `patient.welcome` and in WhatsApp variable lists. Migration 0711 adds a defaults version whose six welcome bodies end with "Care tips: {{learn_link}}" (English, Hindi, Marathi). New clinics are seeded from it. An existing clinic's welcome row moves to the new text only while body, ref and status still equal the old default, so a clinic's edits are never overwritten; WhatsApp rows take the new name `aro_welcome_v2` and stay `draft`.
+
+**Why.** Patients get care guidance from the clinic's own link; Meta approves a template name with its exact text, so a changed body needs a new name.

@@ -37,8 +37,8 @@ fn parameters(message: &Dispatch, links: &PortalLinks) -> Result<Vec<String>, Fa
         .iter()
         .map(|name| {
             let value = match name.as_str() {
-                "clinic_name" | "booking_link" | "app_link" | "website_link" | "share_link"
-                | "pin" => values.get(name),
+                "clinic_name" | "booking_link" | "app_link" | "website_link" | "learn_link"
+                | "share_link" | "pin" => values.get(name),
                 "appointment_time" => message
                     .appointment_starts_at
                     .map(|at| when_text(at.to_offset(clinic_offset(&message.timezone)))),

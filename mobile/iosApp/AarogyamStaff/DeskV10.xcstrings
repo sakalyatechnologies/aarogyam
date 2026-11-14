@@ -989,6 +989,121 @@
           }
         }
       }
+    },
+    "dx.welcome.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome message didn't go through"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वागत संदेश नहीं पहुँचा"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वागत संदेश पोहोचला नाही"
+          }
+        }
+      }
+    },
+    "dx.welcome.no_address": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No welcome message: no phone or email"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वागत संदेश नहीं: फ़ोन या ईमेल नहीं"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वागत संदेश नाही: फोन किंवा ईमेल नाही"
+          }
+        }
+      }
+    },
+    "dx.welcome.no_consent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No welcome message: no consent"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वागत संदेश नहीं: सहमति नहीं"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वागत संदेश नाही: संमती नाही"
+          }
+        }
+      }
+    },
+    "dx.welcome.opted_out": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No welcome message: patient opted out"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वागत संदेश नहीं: मरीज़ ने मना किया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वागत संदेश नाही: रुग्णाने नकार दिला"
+          }
+        }
+      }
+    },
+    "dx.welcome.skipped": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome message not sent"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वागत संदेश नहीं भेजा गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वागत संदेश पाठवला नाही"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

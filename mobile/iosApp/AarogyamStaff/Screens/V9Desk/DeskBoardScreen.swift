@@ -163,6 +163,7 @@ struct DeskBoardScreen: View {
     private func card(_ row: BoardTicket, _ loaded: DeskBoardStateLoaded, badge: String, note: String?) -> some View {
         let r = theme.roles
         let highlighted = row.state == .called
+        let welcome = row.welcome.map(DeskV10Welcome.text)
         return VStack(alignment: .leading, spacing: 4) {
             SkTicket(
                 number: "#\(row.tokenNumber)", title: row.name,
@@ -186,12 +187,15 @@ struct DeskBoardScreen: View {
             if let note {
                 Text(note).v7Text(12, .semibold).foregroundStyle(r.onSurfaceVariant.color).padding(.horizontal, 8)
             }
+            if let welcome {
+                Text(welcome).v7Text(12, .semibold).foregroundStyle(r.onSurfaceVariant.color).padding(.horizontal, 8)
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture { onOpenPatient(row.patientId) }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(row.state.title), #\(row.tokenNumber), \(row.name)")
-        .accessibilityValue([row.state == .waiting ? badge : nil, note].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityValue([row.state == .waiting ? badge : nil, note, welcome].compactMap { $0 }.joined(separator: ", "))
         .accessibilityAddTraits(highlighted ? .isSelected : [])
     }
 }

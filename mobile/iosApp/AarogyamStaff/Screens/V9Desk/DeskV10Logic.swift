@@ -1,3 +1,4 @@
+import AarogyamShared
 import Foundation
 
 func dx(_ key: String.LocalizationValue) -> String { String(localized: key, table: "DeskV10") }
@@ -177,5 +178,18 @@ enum DeskV10Earlier {
 
     static func missedRowLabel(number: String, minute: Int) -> String {
         dxf("dx.earlier.missed.row.a11y", number, timeText(minute: minute))
+    }
+}
+
+/// G8: the line under a token whose welcome message didn't go out, so the desk can tell the patient.
+enum DeskV10Welcome {
+    static func text(_ note: WelcomeNote) -> String {
+        switch note {
+        case .failed: dx("dx.welcome.failed")
+        case .noConsent: dx("dx.welcome.no_consent")
+        case .optedOut: dx("dx.welcome.opted_out")
+        case .noAddress: dx("dx.welcome.no_address")
+        case .skipped: dx("dx.welcome.skipped")
+        }
     }
 }

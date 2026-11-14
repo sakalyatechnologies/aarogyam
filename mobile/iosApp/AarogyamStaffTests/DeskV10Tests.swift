@@ -1,3 +1,4 @@
+import AarogyamShared
 import XCTest
 @testable import AarogyamStaff
 
@@ -121,5 +122,12 @@ final class DeskV10Tests: XCTestCase {
         let label = DeskV10Earlier.unpaidRowLabel(number: "SC-1042", token: 7, day: "2026-10-12", balancePaise: 50_000)
         XCTAssertTrue(label.contains("SC-1042") && label.contains("7") && label.contains("500"), label)
         XCTAssertTrue(DeskV10Earlier.missedRowLabel(number: "SC-1042", minute: 600).contains("SC-1042"))
+    }
+
+    func testWelcomeNotesHaveText() {
+        for note in WelcomeNote.allCases {
+            XCTAssertFalse(DeskV10Welcome.text(note).hasPrefix("dx."), "\(note)")
+        }
+        XCTAssertEqual(DeskV10Welcome.text(WelcomeNote.noAddress), "No welcome message: no phone or email")
     }
 }

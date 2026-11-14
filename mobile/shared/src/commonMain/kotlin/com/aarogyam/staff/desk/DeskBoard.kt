@@ -15,7 +15,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** One ticket on the waiting-room board. Details are for the screen only, never for logs. */
+/**
+ * One ticket on the waiting-room board. Details are for the screen only, never for logs.
+ * [welcome] says the walk-in's welcome message didn't go out (G8).
+ */
 data class BoardTicket(
     val id: String,
     val tokenNumber: Int,
@@ -27,6 +30,7 @@ data class BoardTicket(
     val state: PatientState,
     val doctor: String?,
     val waitMinutes: Long,
+    val welcome: WelcomeNote? = null,
 )
 
 /** What the board draws. */
@@ -172,6 +176,7 @@ class DeskBoardStateHolder(
                                 state = state,
                                 doctor = token.practitioner?.displayName,
                                 waitMinutes = token.waitMinutes,
+                                welcome = welcomeNote(token.welcomeStatus, token.welcomeSkipReason),
                             )
                         }
                     mutableState.value =

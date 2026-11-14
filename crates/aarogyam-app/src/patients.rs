@@ -602,6 +602,87 @@ pub async fn search(
     .await
 }
 
+/// Server-side order of the patient list.
+#[derive(Debug, Clone, Copy)]
+pub struct ListSort {
+    /// `recent`, `name`, `number` or `last_visit`.
+    pub key: &'static str,
+    /// Ascending when true.
+    pub ascending: bool,
+}
+
+/// One page of the patient list.
+#[derive(Debug, Clone)]
+pub struct PatientPage {
+    /// The page.
+    pub items: Vec<PatientView>,
+    /// Patients passing the filter, over all pages; `None` for an empty page.
+    pub total: Option<i64>,
+}
+
+/// The patient list, sorted and paged on the server: `filter`, then `sort` with the id as the
+/// last tie-break, then `offset` and `limit` (1 to [`MAX_RESULTS`]).
+///
+/// # Errors
+/// [`AppError::Denied`] without `patients.read` (or `billing.read` for the balance filter);
+/// [`AppError::Db`] on database failures.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one list request, each part its own value"
+)]
+pub async fn list(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    filter: PatientFilter,
+    sort: ListSort,
+    limit: i64,
+    offset: i64,
+    now: OffsetDateTime,
+) -> Result<PatientPage, AppError> {
+    actor.require(Permission::PatientsRead)?;
+    if filter.with_balance {
+        actor.require(Permission::BillingRead)?;
+    }
+    let limit = limit.clamp(1, MAX_RESULTS);
+    let today = clinic_today(&actor.timezone, now);
+    let at = patients::SummaryAt { now, today };
+    let created_since = filter
+        .new_this_month
+        .then(|| day_bounds(&actor.timezone, today.replace_day(1).unwrap_or(today)).0);
+    let list_filter = patients::ListFilter {
+        with_balance: filter.with_balance,
+        recalls_due: filter.recalls_due,
+        created_since,
+    };
+    let order = patients::ListOrder {
+        key: sort.key,
+        ascending: sort.ascending,
+    };
+    let reach = actor.reach(Permission::PatientsRead).member();
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let page = patients::list_sorted(
+            tx.conn(),
+            &list_filter,
+            order,
+            limit,
+            offset.max(0),
+            at,
+            reach,
+        )
+        .await?;
+        Ok(PatientPage {
+            items: page
+                .rows
+                .into_iter()
+                .map(|row| listed(row, actor, today))
+                .collect(),
+            total: page.total,
+        })
+    })
+    .await
+}
+
 /// The directory's headline numbers.
 #[derive(Debug, Clone, Copy)]
 pub struct DirectorySummary {

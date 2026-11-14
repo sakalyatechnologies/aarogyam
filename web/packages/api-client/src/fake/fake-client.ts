@@ -1198,8 +1198,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!Array.isArray(filtered)) {
             return filtered;
           }
-          const items = searchPatients(filtered, "").slice(0, 50);
-          return reply({ items: items.map((p) => wirePatient(p, caller)) } satisfies C.PatientList);
+          // The server answers 20 by default; the fake keeps its older 50 so callers that never page see the same fixtures.
+          const limit = Math.min(50, Math.max(1, opts?.limit ?? 50));
+          const offset = Math.min(10_000, Math.max(0, opts?.offset ?? 0));
+          const sorted = sortPatients(searchPatients(filtered, ""), opts?.sort ?? "recent", opts?.dir);
+          const items = sorted.slice(offset, offset + limit);
+          return reply({
+            items: items.map((p) => wirePatient(p, caller)),
+            ...(items.length === 0 ? {} : { total: sorted.length }),
+            has_more: offset + items.length < sorted.length,
+          } satisfies C.PatientList);
         }),
 
       searchPatients: (search, opts) =>
@@ -8874,6 +8882,25 @@ function deriveSlug(name: string): string {
 }
 
 /** Name (word prefixes, any order, then any part), clinic number, or the phone's last four or more digits, like the API. */
+/** The server's order for `GET /patients`: the key, then the id; patients never seen come last for `last_visit`. */
+function sortPatients(patients: readonly FakePatient[], sort: string, dir: "asc" | "desc" | undefined): FakePatient[] {
+  if (sort === "recent" && dir === undefined) return [...patients];
+  const asc = dir === undefined ? sort === "name" || sort === "number" : dir === "asc";
+  const sign = asc ? 1 : -1;
+  const text = (a: string, b: string) => (a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0);
+  const byNumber = (a: FakePatient, b: FakePatient) => a.number.length - b.number.length || text(a.number, b.number);
+  return [...patients].sort((a, b) => {
+    let order: number;
+    if (sort === "name") order = sign * text(a.full_name, b.full_name);
+    else if (sort === "number") order = sign * byNumber(a, b);
+    else if (sort === "last_visit") {
+      if (a.last_visit_at == null || b.last_visit_at == null) order = Number(a.last_visit_at == null) - Number(b.last_visit_at == null);
+      else order = sign * a.last_visit_at.localeCompare(b.last_visit_at);
+    } else order = sign * a.created_at.localeCompare(b.created_at);
+    return order || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  });
+}
+
 function searchPatients(patients: readonly FakePatient[], q: string): FakePatient[] {
   const query = q.trim().toLowerCase();
   const recent = (a: FakePatient, b: FakePatient) =>

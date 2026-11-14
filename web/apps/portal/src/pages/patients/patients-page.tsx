@@ -12,8 +12,8 @@ import { useClinic } from "../../clinic.js";
 import { displayName, formatPhone, patientPath } from "../../lib/patients.js";
 import { recentPatientIds } from "../../lib/recent-patients.js";
 import { SortHeader } from "../../components/sort-header.js";
-import { useSortable, type SortColumn } from "../../components/use-sortable.js";
-import { usePatientList } from "./queries.js";
+import { sortByColumn, useSortable, type SortColumn } from "../../components/use-sortable.js";
+import { usePatientDirectory, usePatientList, type DirectoryOrder } from "./queries.js";
 
 const SORT_COLUMNS: readonly SortColumn<Patient>[] = [
   { id: "name", kind: "text", value: (p) => p.full_name },
@@ -22,6 +22,13 @@ const SORT_COLUMNS: readonly SortColumn<Patient>[] = [
   { id: "next", kind: "date", value: (p) => p.next_appointment?.starts_at },
   { id: "balance", kind: "money", value: (p) => p.balance_paise },
 ];
+
+/** The columns the server sorts on (the empty-box list); `next` and `balance` sort the loaded rows here. */
+const SERVER_SORTS = ["name", "number", "last_visit"] as const;
+
+function serverSortOf(columnId: string | undefined): (typeof SERVER_SORTS)[number] | undefined {
+  return SERVER_SORTS.find((id) => id === columnId);
+}
 
 type QuickFilter = "all" | "active_care" | "with_balance" | "recalls_due" | "new_this_month";
 
@@ -54,17 +61,39 @@ export function PatientsPage() {
     };
   }, [typed]);
   const [filter, setFilter] = useState<QuickFilter>("all");
-  const search = usePatientList(q, {
+  const quick = {
     withBalance: filter === "with_balance",
     recallsDue: filter === "recalls_due",
     newThisMonth: filter === "new_this_month",
-  });
-  const loaded = search.data?.items;
+  };
+  // Empty box: the server sorts and pages the directory. Typed text: a search, sorted here.
+  const serverMode = q === "";
+  // Only the sort state lives here (ascending, descending, off); the rows are ordered below.
+  const sortable = useSortable<Patient>([], SORT_COLUMNS);
+  const sort = sortable.sort;
+  const serverKey = serverSortOf(sort?.columnId);
+  const serverColumn = serverKey !== undefined;
+  const order: DirectoryOrder =
+    serverMode && sort !== null && serverKey !== undefined ? { sort: serverKey, dir: sort.direction === "ascending" ? "asc" : "desc" } : null;
+  const directory = usePatientDirectory(quick, order, PAGE, serverMode);
+  const search = usePatientList(q, quick);
+  const active = serverMode ? directory : search;
+  // While a first search loads, the directory rows already on screen stay up instead of a skeleton.
+  const loaded = useMemo(() => {
+    const directoryRows = directory.data?.pages.flatMap((page) => page.items);
+    return serverMode ? directoryRows : (search.data?.items ?? directoryRows);
+  }, [serverMode, directory.data, search.data]);
   // Active care (an upcoming visit booked) narrows the loaded page here; the rest is the server's.
   const filtered = useMemo(() => (loaded ?? []).filter((row) => filter !== "active_care" || row.next_appointment != null), [loaded, filter]);
-  // TODO: the patients API has no sort parameter yet. When it does, send the sort with the request so it covers every page, not only the loaded one.
-  const sortable = useSortable(filtered, SORT_COLUMNS);
-  const rows = sortable.rows;
+  // The server already ordered its rows on name, number and last visit; sorting them again here
+  // could disagree with it on ties and case. Next and balance sort the loaded rows; so does everything in a search.
+  const rows = useMemo(() => {
+    const column = sort === null || (serverMode && serverColumn) ? undefined : SORT_COLUMNS.find((c) => c.id === sort.columnId);
+    return sort === null || column === undefined ? filtered : sortByColumn(filtered, column, sort.direction);
+  }, [filtered, sort, serverMode, serverColumn]);
+  const total = serverMode ? (directory.data?.pages[0]?.total ?? undefined) : undefined;
+  const more = serverMode ? directory.hasNextPage : rows.length > shown;
+  const left = serverMode ? (total === undefined ? undefined : Math.max(0, total - (loaded?.length ?? 0))) : rows.length - shown;
   const canWrite = can("patients.write");
   const register = canWrite ? (
     <button
@@ -150,14 +179,14 @@ export function PatientsPage() {
       </div>
       <MkCard
         title={q === "" && filter === "all" ? "Recent patients" : "Results"}
-        action={<span className="mk-hint" style={{ margin: 0 }}>{search.isPending ? "…" : `${rows.length.toLocaleString("en-IN")} records`}</span>}
+        action={<span className="mk-hint" style={{ margin: 0 }}>{active.isPending ? "…" : `${(total ?? rows.length).toLocaleString("en-IN")} records`}</span>}
       >
         <p role="status" className="mk-sr">
-          {search.isFetching ? "Searching" : `${String(rows.length)} patients shown`}
+          {active.isFetching ? "Searching" : `${String(rows.length)} patients shown`}
         </p>
-        {search.isError ? (
-          <ApiErrorNotice title="Couldn't search patients" error={search.error} onRetry={() => void search.refetch()} />
-        ) : search.isPending ? (
+        {active.isError ? (
+          <ApiErrorNotice title="Couldn't search patients" error={active.error} onRetry={() => void active.refetch()} />
+        ) : active.isPending && loaded === undefined ? (
           <SkeletonList count={6} label="Loading patients" />
         ) : rows.length === 0 ? (
           <EmptyState compact art={q === "" ? "patients" : "search"} title={empty.title} description={empty.text} action={register} />
@@ -178,7 +207,7 @@ export function PatientsPage() {
                   </tr>
                 </thead>
                 <StaggerList as="tbody">
-                  {rows.slice(0, shown).map((row) => (
+                  {(serverMode ? rows : rows.slice(0, shown)).map((row) => (
                     <StaggerItem as="tr" key={row.id} {...rowLink(() => void navigate(patientPath(row)))}>
                       <th scope="row">
                         <span className="mk-pname">
@@ -212,16 +241,21 @@ export function PatientsPage() {
                 </StaggerList>
               </table>
             </div>
-            {rows.length > shown ? (
+            {more ? (
               <p style={{ textAlign: "center", margin: "14px 0 0" }}>
                 <button
                   type="button"
                   className="mk-btn mk-btn-ghost"
+                  disabled={serverMode && directory.isFetchingNextPage}
                   onClick={() => {
-                    setShown(shown + PAGE);
+                    if (serverMode) {
+                      void directory.fetchNextPage();
+                    } else {
+                      setShown(shown + PAGE);
+                    }
                   }}
                 >
-                  Show more ({rows.length - shown} left)
+                  Show more{left === undefined ? "" : ` (${String(left)} left)`}
                 </button>
               </p>
             ) : null}

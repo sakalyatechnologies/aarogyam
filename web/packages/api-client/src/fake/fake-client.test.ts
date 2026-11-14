@@ -574,3 +574,27 @@ describe("fake client: patient self-booking", () => {
     expect(after.length).toBe(existing === undefined ? before + 1 : before);
   });
 });
+
+describe("fake client: patient list sort and paging", () => {
+  it("sorts on the server, pages by offset without gaps and reports the total", async () => {
+    const { as } = setup();
+    const api = as(PEOPLE.asha, SUNRISE);
+    const all = value(await api.listPatients({ sort: "name", dir: "asc", limit: 50 }));
+    expect(all.total).toBe(all.items.length);
+    expect(all.has_more).toBe(false);
+    const names = all.items.map((p) => p.full_name.toLowerCase());
+    expect(names).toEqual([...names].sort());
+    const desc = value(await api.listPatients({ sort: "name", dir: "desc", limit: 50 })).items.map((p) => p.id);
+    expect(desc).toEqual(all.items.map((p) => p.id).reverse());
+
+    const first = value(await api.listPatients({ sort: "number", limit: 2 }));
+    const second = value(await api.listPatients({ sort: "number", limit: 2, offset: 2 }));
+    const whole = value(await api.listPatients({ sort: "number", limit: 4 })).items.map((p) => p.id);
+    expect(first.has_more).toBe(all.items.length > 2);
+    expect([...first.items, ...second.items].map((p) => p.id)).toEqual(whole);
+
+    const visits = value(await api.listPatients({ sort: "last_visit", dir: "asc", limit: 50 })).items;
+    const seen = visits.map((p) => p.last_visit_at != null);
+    expect(seen).toEqual([...seen].sort((a, b) => Number(b) - Number(a)));
+  });
+});

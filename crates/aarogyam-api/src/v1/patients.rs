@@ -16,6 +16,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::rfc3339;
+use super::smart_import::bad_request;
 use super::{WithEtag, with_etag};
 use crate::AppState;
 use crate::extract::{IfMatch, Require};
@@ -124,6 +125,15 @@ impl From<PatientView> for Patient {
 pub struct PatientList {
     /// Matching patients, best first.
     pub items: Vec<Patient>,
+    /// Patients passing the filter over all pages. Only on `GET /patients`, and absent for an
+    /// empty page. Optional in the schema, so apps built before it read on.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<i64>,
+    /// Whether more patients follow this page. Only on `GET /patients`.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_more: Option<bool>,
 }
 
 /// What to search for. Sent in the body, never the URL: search terms are names and phone numbers.
@@ -146,9 +156,17 @@ pub struct SearchRequest {
     pub new_this_month: bool,
 }
 
-/// Filters for the list. Flags only: no names or numbers in the URL.
+/// Filters, order and paging for the list. No names or numbers in the URL.
 #[derive(Debug, Deserialize)]
 pub struct ListQuery {
+    /// `recent` (default), `name`, `number` or `last_visit` (never-seen patients last).
+    pub sort: Option<String>,
+    /// `asc` or `desc`. Defaults to `desc` for `recent` and `last_visit`, else `asc`.
+    pub dir: Option<String>,
+    /// Patients to skip, 0 to 10000.
+    pub offset: Option<String>,
+    /// Most patients, 1 to 50 (default 20).
+    pub limit: Option<String>,
     /// Only patients with a balance on issued bills (needs `billing.read`).
     #[serde(default)]
     pub with_balance: bool,
@@ -197,16 +215,39 @@ pub(crate) async fn search(
     .await?;
     Ok(Json(PatientList {
         items: rows.into_iter().map(Patient::from).collect(),
+        total: None,
+        has_more: None,
     }))
 }
 
-/// The most recently registered patients.
+/// A query-string whole number in `min..=max`, or `default` when absent. The `400` names the field.
+fn whole_number(
+    value: Option<&str>,
+    field: &str,
+    min: i64,
+    max: i64,
+    default: i64,
+) -> Result<i64, ApiFailure> {
+    let Some(text) = value else {
+        return Ok(default);
+    };
+    match text.parse::<i64>() {
+        Ok(number) if (min..=max).contains(&number) => Ok(number),
+        _ => Err(bad_request(format!("{field}: must be {min} to {max}"))),
+    }
+}
+
+/// The patients, most recently registered first unless `sort` says otherwise.
 #[utoipa::path(
     get,
     path = "/api/v1/patients",
     operation_id = "listPatients",
     tag = "patients",
     params(
+        ("sort" = Option<String>, Query, description = "recent (default), name, number or last_visit"),
+        ("dir" = Option<String>, Query, description = "asc or desc"),
+        ("offset" = Option<i64>, Query, description = "Patients to skip, 0 to 10000"),
+        ("limit" = Option<i64>, Query, description = "Most patients, 1 to 50 (default 20)"),
         ("with_balance" = Option<bool>, Query, description = "Only patients with a balance (needs billing.read)"),
         ("recalls_due" = Option<bool>, Query, description = "Only patients with an open recall due"),
         ("new_this_month" = Option<bool>, Query, description = "Only patients registered this month")
@@ -214,6 +255,7 @@ pub(crate) async fn search(
     security(("bearer" = [])),
     responses(
         (status = 200, body = PatientList),
+        (status = 400, description = "sort, dir, offset or limit is out of range"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks patients.read"),
         (status = 404, description = "Not a clinic, or not a member of it")
@@ -224,22 +266,45 @@ pub(crate) async fn recent(
     Require { request, .. }: Require<PatientsRead>,
     ApiQuery(query): ApiQuery<ListQuery>,
 ) -> Result<Json<PatientList>, ApiFailure> {
-    let rows = app::search(
+    let key = match query.sort.as_deref() {
+        None | Some("recent") => "recent",
+        Some("name") => "name",
+        Some("number") => "number",
+        Some("last_visit") => "last_visit",
+        Some(_) => {
+            return Err(bad_request(
+                "sort: must be recent, name, number or last_visit",
+            ));
+        }
+    };
+    let ascending = match query.dir.as_deref() {
+        None => !matches!(key, "recent" | "last_visit"),
+        Some("asc") => true,
+        Some("desc") => false,
+        Some(_) => return Err(bad_request("dir: must be asc or desc")),
+    };
+    let offset = whole_number(query.offset.as_deref(), "offset", 0, 10_000, 0)?;
+    let limit = whole_number(query.limit.as_deref(), "limit", 1, 50, 20)?;
+    let page = app::list(
         state.db(),
         &request.actor,
         request.request_id,
-        "",
         PatientFilter {
             with_balance: query.with_balance,
             recalls_due: query.recalls_due,
             new_this_month: query.new_this_month,
         },
-        20,
+        app::ListSort { key, ascending },
+        limit,
+        offset,
         OffsetDateTime::now_utc(),
     )
     .await?;
+    let shown = i64::try_from(page.items.len()).unwrap_or(i64::MAX);
     Ok(Json(PatientList {
-        items: rows.into_iter().map(Patient::from).collect(),
+        has_more: Some(page.total.is_some_and(|total| offset + shown < total)),
+        total: page.total,
+        items: page.items.into_iter().map(Patient::from).collect(),
     }))
 }
 

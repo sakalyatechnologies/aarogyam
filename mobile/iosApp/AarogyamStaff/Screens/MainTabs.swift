@@ -62,6 +62,11 @@ struct MainTabs: View {
         .onAppear {
             if let tab = DevLaunch.tab { selected = tab }
             if DevLaunch.sheet == "walkin" { walkIn = true }
+            // `SIMCTL_CHILD_AAROGYAM_DEV_PATIENT=<patient id>` opens that patient's page on Patients.
+            if let id = ProcessInfo.processInfo.environment["AAROGYAM_DEV_PATIENT"] {
+                selected = .patients
+                patientsPath = [PatientRoute(id: id)]
+            }
         }
         #endif
     }

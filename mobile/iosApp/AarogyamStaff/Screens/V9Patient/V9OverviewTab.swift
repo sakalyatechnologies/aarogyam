@@ -26,6 +26,8 @@ struct V9OverviewTab: View {
     let holder: PatientOverviewStateHolder
     let state: OverviewState
     let chart: ScreenModel<ChartStateHolder, ChartState>?
+    /// Open follow-ups (`GET /recalls`, filtered to this patient); nil hides the card.
+    var followUps: ScreenModel<RecallsStateHolder, RecallsState>?
     let graph: AppGraph
     let clinic: ClinicContext
     let onOpenVisit: (String) -> Void
@@ -48,6 +50,10 @@ struct V9OverviewTab: View {
             alertsCard(loaded.alerts)
             treatmentsCard(loaded.treatments)
             if let last = loaded.lastVisit { lastVisitCard(last) }
+            if let followUps {
+                V9FollowUpsCard(holder: followUps.holder, state: followUps.value, canDismiss: clinic.permissions.contains("patients.write"))
+                    .id("p9.followups")
+            }
             mediaCard(loaded.media)
         }
         .sheet(isPresented: Binding(get: { sheetOpen && selected != nil }, set: { open in

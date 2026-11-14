@@ -781,3 +781,9 @@ so tests exercise the stream.
 **Decision.** The portal serves `/learn` and `/learn/:topic` with no sign-in, like `/book`; the text is placeholder copy in `pages/public/learn-topics.ts` for the founder to replace. A new variable `{{learn_link}}` (`PortalLinks::learn`, `{base}/learn`) is allowed in `patient.welcome` and in WhatsApp variable lists. Migration 0711 adds a defaults version whose six welcome bodies end with "Care tips: {{learn_link}}" (English, Hindi, Marathi). New clinics are seeded from it. An existing clinic's welcome row moves to the new text only while body, ref and status still equal the old default, so a clinic's edits are never overwritten; WhatsApp rows take the new name `aro_welcome_v2` and stay `draft`.
 
 **Why.** Patients get care guidance from the clinic's own link; Meta approves a template name with its exact text, so a changed body needs a new name.
+
+## 2026-11-14: A reminded notification rises to the top of the staff feed
+
+**Decision.** Remind (`POST /queue/{id}/remind`) now also sets `staff_notifications.reminded_at = now()` on the token's `patient_waiting` row. The feed orders by `greatest(created_at, coalesce(reminded_at, created_at)) desc, id desc`; the `before` id cursor is a keyset on that same key (the cursor row's key is read inside the statement, so no extra query). Count and badges are unchanged. The escalation job only steps `booking_requested` and `booking_conflict` rows, so a desk remind on `patient_waiting` cannot suppress or hasten it.
+
+**Why.** The re-raised row kept its old id position, often far down the feed, so the doctor never saw it.

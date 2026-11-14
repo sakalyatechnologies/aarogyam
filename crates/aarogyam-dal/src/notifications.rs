@@ -222,8 +222,8 @@ pub struct Viewer {
     pub collect: bool,
 }
 
-/// The member's notifications within reach, newest first, before the notification `before`
-/// (ids sort by time); only unread ones (within `unread_days`) when `unread_only`.
+/// The member's notifications within reach, newest activity first (creation or last remind),
+/// before the notification `before` (keyset on the same key, id as tiebreak); only unread ones (within `unread_days`) when `unread_only`.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -276,10 +276,13 @@ pub async fn feed(
                   or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16)
                   or app.visit_notification_visible(n, $1, $17, $18))
              and app.staff_ops_notification_newest(n, $1, $13, $14)
-             and ($4::uuid is null or n.id < $4)
+             and ($4::uuid is null
+                  or (greatest(n.created_at, coalesce(n.reminded_at, n.created_at)), n.id)
+                     < (select greatest(b.created_at, coalesce(b.reminded_at, b.created_at)), b.id
+                        from aarogyam.staff_notifications b where b.id = $4))
              and (not $3 or (r.read_at is null and app.notification_counts_unread(n)
                              and n.created_at > now() - make_interval(days => $6::int)))
-           order by n.id desc
+           order by greatest(n.created_at, coalesce(n.reminded_at, n.created_at)) desc, n.id desc
            limit $5"#,
         viewer.member,
         viewer.bookings.reach,

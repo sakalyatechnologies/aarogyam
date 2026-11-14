@@ -132,10 +132,15 @@ enum V9Close {
 
 /// A treatment picked on the screen and held until the visit closes: done procedures never
 /// change on the server, so a line can only be taken off while it is still local.
+/// Surfaces and material are optional and go with the procedure and the chart finding.
 struct StagedProcedure: Identifiable, Equatable {
     let id = UUID()
     let tooth: Int
     let term: TermView
+    var surfaces: [Surface] = []
+    var material: TermView?
 
-    static func == (lhs: StagedProcedure, rhs: StagedProcedure) -> Bool { lhs.id == rhs.id }
+    static func == (lhs: StagedProcedure, rhs: StagedProcedure) -> Bool {
+        lhs.id == rhs.id && lhs.surfaces == rhs.surfaces && lhs.material?.id == rhs.material?.id
+    }
 }

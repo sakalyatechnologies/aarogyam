@@ -13,6 +13,7 @@ import { NewOrderDialog } from "./new-order-dialog.js";
 import { OrderCard } from "./order-card.js";
 import { OrderDrawer } from "./order-drawer.js";
 import { useLabOrders, useLabVendors, useMoveLabOrder } from "./queries.js";
+import { RemindLabsBar } from "./remind-labs.js";
 import { planMove } from "./stages.js";
 import "./labs.css";
 
@@ -45,6 +46,8 @@ export function LabsPage() {
   const [selected, setSelected] = useState<string>();
   const [sending, setSending] = useState(params.get("new") === "1");
   const [addingLab, setAddingLab] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<readonly string[]>([]);
 
   const filter: LabOrderFilter = {
     ...(show === "open" ? { open: true } : show === "overdue" ? { overdue: true } : {}),
@@ -128,6 +131,21 @@ export function LabsPage() {
 
       {tab === "orders" ? (
         <MkCard title="Cases" hint="Tap the next step when a case moves; open one to remind the lab or log a call">
+          {canWrite && items.length > 0 ? (
+            <RemindLabsBar
+              picking={picking}
+              picked={picked}
+              onPicking={(next) => {
+                setPicking(next);
+                if (!next) setPicked([]);
+              }}
+              onDone={() => {
+                setPicked([]);
+              }}
+              orderIds={items.filter((o) => o.status === "sent" || o.status === "in_progress").map((o) => o.id)}
+              onPickAll={setPicked}
+            />
+          ) : null}
           {orders.isPending ? (
             <SkeletonList label="Loading lab orders" />
           ) : orders.isError ? (
@@ -162,6 +180,16 @@ export function LabsPage() {
                   key={order.id}
                   order={order}
                   busy={move.isPending}
+                  selection={
+                    canWrite && picking
+                      ? {
+                          checked: picked.includes(order.id),
+                          onChange: (checked) => {
+                            setPicked((now) => (checked ? [...now, order.id] : now.filter((id) => id !== order.id)));
+                          },
+                        }
+                      : undefined
+                  }
                   onOpen={() => {
                     setSelected(order.id);
                   }}

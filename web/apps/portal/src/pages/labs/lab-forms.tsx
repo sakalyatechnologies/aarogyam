@@ -4,6 +4,7 @@ import { apiErrorOf, type LabContact, type LabContactChannel, type LabVendor, ty
 import { Button, Checkbox, Dialog, Field, Select, TextInput, useToast } from "@sakalya/ui";
 
 import { useSaveLabContact, useSaveLabVendor } from "./queries.js";
+import { WORK_TYPES } from "./stages.js";
 
 export const KIND_LABEL: Readonly<Record<LabVendorKind, string>> = {
   dental_lab: "Dental lab",
@@ -28,16 +29,35 @@ export function LabDialog({ lab, open, onClose }: { lab: LabVendor | undefined; 
   const [email, setEmail] = useState(lab?.email ?? "");
   const [address, setAddress] = useState(lab?.address ?? "");
   const [note, setNote] = useState(lab?.note ?? "");
+  const [city, setCity] = useState(lab?.city ?? "");
+  const [workTypes, setWorkTypes] = useState<string[]>(lab?.work_types ?? []);
+  const [draftType, setDraftType] = useState("");
+  const [turnaround, setTurnaround] = useState(lab?.turnaround_days == null ? "" : String(lab.turnaround_days));
   const [error, setError] = useState<string>();
 
+  const addType = () => {
+    const next = draftType.trim();
+    if (next !== "" && !workTypes.some((t) => t.toLowerCase() === next.toLowerCase())) setWorkTypes([...workTypes, next]);
+    setDraftType("");
+  };
   const submit = () => {
     setError(undefined);
     if (name.trim() === "") {
       setError("Enter the lab's name.");
       return;
     }
+    const days = turnaround.trim() === "" ? null : Number(turnaround);
+    if (days !== null && (!Number.isInteger(days) || days < 1 || days > 90)) {
+      setError("Turnaround is 1 to 90 days.");
+      return;
+    }
+    const pending = draftType.trim();
+    const types = pending !== "" && !workTypes.some((t) => t.toLowerCase() === pending.toLowerCase()) ? [...workTypes, pending] : workTypes;
     save.mutate(
-      { id: lab?.id, values: { name: name.trim(), kind, phone: phone.trim(), email: email.trim(), address: address.trim(), note: note.trim() } },
+      {
+        id: lab?.id,
+        values: { name: name.trim(), kind, phone: phone.trim(), email: email.trim(), address: address.trim(), note: note.trim(), city: city.trim() === "" ? null : city.trim(), work_types: types, turnaround_days: days },
+      },
       {
         onSuccess: (saved) => {
           toast.show({ title: lab === undefined ? `${saved.name} added` : `${saved.name} saved`, tone: "success" });
@@ -92,6 +112,55 @@ export function LabDialog({ lab, open, onClose }: { lab: LabVendor | undefined; 
         <Field label="Area or address">
           <TextInput maxLength={300} {...text(address, setAddress)} />
         </Field>
+        <div className="lb-two">
+          <Field label="City">
+            <TextInput maxLength={80} {...text(city, setCity)} />
+          </Field>
+          <Field label="Turnaround (days)" hint="1 to 90">
+            <TextInput inputMode="numeric" maxLength={2} {...text(turnaround, setTurnaround)} />
+          </Field>
+        </div>
+        <Field label="Work types" hint="What this lab makes. Press Enter or Add after each">
+          <div className="lb-two">
+            <TextInput
+              list="lb-work-type-options"
+              maxLength={60}
+              {...text(draftType, setDraftType)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addType();
+                }
+              }}
+            />
+            <Button variant="secondary" onClick={addType}>
+              Add type
+            </Button>
+          </div>
+        </Field>
+        <datalist id="lb-work-type-options">
+          {WORK_TYPES.map((t) => (
+            <option key={t} value={t} />
+          ))}
+        </datalist>
+        {workTypes.length === 0 ? null : (
+          <ul className="lb-items" aria-label="Work types chosen">
+            {workTypes.map((t) => (
+              <li key={t}>
+                <button
+                  type="button"
+                  className="lb-btn"
+                  aria-label={`Remove ${t}`}
+                  onClick={() => {
+                    setWorkTypes(workTypes.filter((x) => x !== t));
+                  }}
+                >
+                  {t} ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <Field label="Note">
           <TextInput maxLength={500} {...text(note, setNote)} />
         </Field>

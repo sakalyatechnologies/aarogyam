@@ -116,3 +116,14 @@ export function useDebounced<T>(value: T, ms: number): T {
 export function why(thrown: unknown): string {
   return apiErrorOf(thrown)?.message ?? "Something went wrong. Please try again.";
 }
+
+/** This month's message numbers. Needs `messages.send`. */
+export function useMessageStats(enabled: boolean) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["messages", access.org_id, "stats"],
+    queryFn: ({ signal }) => unwrap(api.getMessageStats({ signal })),
+    enabled,
+    ...SCHEDULE,
+  });
+}

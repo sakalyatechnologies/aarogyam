@@ -2,11 +2,11 @@ import { ClipboardList, Copy, ExternalLink, Globe, MailPlus, UserPlus, UsersRoun
 import { useState } from "react";
 import { useParams } from "react-router";
 
-import { clinicId as clinicIdSchema, apiErrorOf, type ClinicId, type ClinicInvited, type ResentOwnerInvitation } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatDate, formatNumber, useDocumentTitle } from "@aarogyam/app-kit";
+import { clinicId as clinicIdSchema, apiErrorOf, type ClinicId, type ClinicInvited, type OwnerInvitationDelivery, type ResentOwnerInvitation } from "@aarogyam/api-client";
+import { ApiErrorNotice, formatDate, formatDateTime, formatNumber, useDocumentTitle } from "@aarogyam/app-kit";
 import { Avatar, Button, Card, DataTable, Dialog, EmptyState, Field, PageHeader, Select, Skeleton, TextInput, useToast, type DataTableColumn, type Tone } from "@sakalya/ui";
 
-import { useClinicDetail, useInviteToClinic, useResendOwnerInvitation } from "../../api.js";
+import { useClinicDetail, useInviteToClinic, useOwnerInvitationDelivery, useResendOwnerInvitation } from "../../api.js";
 import { StatusChip } from "../../ui/status-chip.js";
 import { Tile } from "../../ui/tile.js";
 import { ADDRESS_STATUS, AddressStatusPill } from "./address-status.js";
@@ -91,6 +91,8 @@ export function ClinicDetailPage() {
     },
   ];
 
+  const ownerPending = !clinic.members.some((m) => m.role_key === "owner" && m.status === "active");
+
   return (
     <>
       <PageHeader
@@ -98,7 +100,7 @@ export function ClinicDetailPage() {
         subtitle={clinic.hosts[0] ?? clinic.slug}
         end={
           <div className="flex flex-wrap gap-2">
-            {clinic.members.some((m) => m.role_key === "owner" && m.status === "active") ? null : (
+            {!ownerPending ? null : (
               <Button
                 variant="secondary"
                 icon={<MailPlus aria-hidden="true" className="size-4" />}
@@ -120,6 +122,7 @@ export function ClinicDetailPage() {
           </div>
         }
       />
+      {ownerPending ? <OwnerInvitationEmail clinicId={id} /> : null}
       <div className="mb-4 grid grid-cols-2 gap-4 xl:grid-cols-4">
         <Tile label="Status" value={<ClinicStatusPill status={clinic.status} />} tone="info" note={clinic.specialty === "dental" ? "Dental" : clinic.specialty} />
         <Tile label="Active staff" value={formatNumber(clinic.active_members)} />
@@ -303,6 +306,70 @@ function InviteDialog({ open, onOpenChange, clinicId: id }: { open: boolean; onO
         </Field>
       )}
     </Dialog>
+  );
+}
+
+const DELIVERY: Record<OwnerInvitationDelivery["status"], { label: string; tone: Tone; note: string }> = {
+  not_queued: { label: "Not queued yet", tone: "neutral", note: "No invitation email has been queued for the owner. Use Resend invitation to send one." },
+  pending: { label: "Waiting to send", tone: "warning", note: "The email is queued and goes out within a minute or two." },
+  sent: { label: "Sent", tone: "success", note: "The email was handed to the email provider." },
+  failed: { label: "Failed", tone: "danger", note: "The email could not be sent. Fix the reason below, then use Resend invitation." },
+  not_sent: { label: "Not sent", tone: "warning", note: "No email provider is set up, so the email was only written to the log. Use Resend invitation and copy the link to the owner yourself." },
+};
+
+/** Whether the owner's invitation email went out, next to the Resend invitation button. */
+function OwnerInvitationEmail({ clinicId: id }: { clinicId: ClinicId }) {
+  const delivery = useOwnerInvitationDelivery(id, true);
+  return (
+    <section aria-label="Owner invitation email" className="mb-4">
+      <Card title="Owner invitation email">
+        {delivery.isPending ? (
+          <Skeleton className="h-16 w-full" />
+        ) : delivery.isError ? (
+          <ApiErrorNotice title="Couldn't load the email status" error={delivery.error} onRetry={() => void delivery.refetch()} />
+        ) : (
+          <DeliveryDetails delivery={delivery.data} />
+        )}
+      </Card>
+    </section>
+  );
+}
+
+function DeliveryDetails({ delivery }: { delivery: OwnerInvitationDelivery }) {
+  const shown = DELIVERY[delivery.status];
+  return (
+    <div className="space-y-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusChip tone={shown.tone}>{shown.label}</StatusChip>
+        <span className="text-muted">{shown.note}</span>
+      </div>
+      {delivery.status === "not_queued" ? null : (
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+          <dt className="text-muted">Provider</dt>
+          <dd>{delivery.provider ?? "Not tried yet"}</dd>
+          <dt className="text-muted">Attempts</dt>
+          <dd>{formatNumber(delivery.attempts)}</dd>
+          {delivery.queued_at == null ? null : (
+            <>
+              <dt className="text-muted">Queued</dt>
+              <dd>{formatDateTime(delivery.queued_at)}</dd>
+            </>
+          )}
+          {delivery.sent_at == null ? null : (
+            <>
+              <dt className="text-muted">{delivery.status === "not_sent" ? "Logged" : "Sent"}</dt>
+              <dd>{formatDateTime(delivery.sent_at)}</dd>
+            </>
+          )}
+          {delivery.last_error == null ? null : (
+            <>
+              <dt className="text-muted">Reason</dt>
+              <dd>{delivery.last_error}</dd>
+            </>
+          )}
+        </dl>
+      )}
+    </div>
   );
 }
 

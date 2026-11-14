@@ -248,6 +248,10 @@ export interface FakeQueueToken {
   done_at?: string | null;
   room_id?: string | null;
   reason?: string | null;
+  welcome_status?: "queued" | "sent" | "failed" | "skipped" | null;
+  welcome_skip_reason?: string | null;
+  thanks_status?: "queued" | "sent" | "failed" | "skipped" | null;
+  thanks_skip_reason?: string | null;
 }
 
 /** A consent record, server-shaped except for `clinic_id` and `patient_id`. */

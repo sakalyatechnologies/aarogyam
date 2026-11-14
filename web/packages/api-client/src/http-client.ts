@@ -24,6 +24,7 @@ import {
   cancelled,
   clinicDetail,
   clinicInvited,
+  ownerInvitationDelivery,
   resentOwnerInvitation,
   clinicSettings,
   letterhead,
@@ -495,6 +496,14 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/consents`, schema: consentList, signal: opts?.signal }),
     recordConsent: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/consents`, schema: consent, body: input, signal: opts?.signal }),
+    setConsentSignature: (patient, consent_id, input, opts) =>
+      call({
+        method: "PUT",
+        path: `/api/v1/patients/${encodeURIComponent(patient)}/consents/${encodeURIComponent(consent_id)}/signature`,
+        schema: consent,
+        body: input,
+        signal: opts?.signal,
+      }),
     withdrawConsent: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/consents/${encodeURIComponent(id)}/withdraw`, schema: consent, body: input, signal: opts?.signal }),
     getPatientNotes: (id, opts) =>
@@ -766,6 +775,13 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         method: "POST",
         path: `/api/v1/console/clinics/${encodeURIComponent(id)}/owner-invitation/resend`,
         schema: resentOwnerInvitation,
+        signal: opts?.signal,
+      }),
+    getOwnerInvitationDelivery: (id, opts) =>
+      call({
+        method: "GET",
+        path: `/api/v1/console/clinics/${encodeURIComponent(id)}/owner-invitation/delivery`,
+        schema: ownerInvitationDelivery,
         signal: opts?.signal,
       }),
 

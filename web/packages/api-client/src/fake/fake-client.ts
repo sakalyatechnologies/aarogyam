@@ -3261,6 +3261,34 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wireConsent(record) satisfies C.Consent);
         }),
 
+      setConsentSignature: (patient, consentId, input, opts) =>
+        respond(S.consent, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = (state.consents ?? []).find((c) => c.id === consentId && c.patient_id === patient && c.clinic_id === caller.clinic.id);
+          if (found === undefined || !clinicPatients(caller).some((p) => p.id === patient)) {
+            return notFound;
+          }
+          if (found.status === "withdrawn") {
+            return refuse(409, "consent_withdrawn", "this consent was withdrawn, so it can't take a signature");
+          }
+          const file = state.attachments.find((a) => a.id === input.signature_attachment_id && a.clinic_id === caller.clinic.id);
+          if (file === undefined) {
+            return notFound;
+          }
+          if (file.kind !== "consent" || file.patient_id !== patient) {
+            return invalid("signature_attachment_id", "must be a consent file of the patient");
+          }
+          if (found.signature_attachment_id === undefined || found.signature_attachment_id === null) {
+            found.signature_attachment_id = input.signature_attachment_id;
+          } else if (found.signature_attachment_id !== input.signature_attachment_id) {
+            return refuse(409, "signature_already_set", "this consent already has a different signature");
+          }
+          return reply(wireConsent(found) satisfies C.Consent);
+        }),
+
       withdrawConsent: (id, input, opts) =>
         respond(S.consent, opts?.signal, async () => {
           const caller = await inClinic("patients.write");
@@ -5574,6 +5602,25 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               invite_link: `https://${clinic.host}/invite#${token}`,
               expires_at: expiresAt,
             } satisfies C.ResentOwnerInvitation);
+          }),
+        ),
+
+      getOwnerInvitationDelivery: (id, opts) =>
+        respond(S.ownerInvitationDelivery, opts?.signal, () =>
+          inConsole(() => {
+            const clinic = state.clinics.find((c) => c.id === id);
+            if (clinic === undefined) {
+              return notFound;
+            }
+            const owner = [...invitations.values()]
+              .filter((inv) => inv.clinicId === clinic.id && inv.roleKey === "owner")
+              .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+            // The fake has no email provider, so a queued email only reached the log.
+            return reply(
+              owner === undefined
+                ? ({ status: "not_queued", attempts: 0 } satisfies C.OwnerInvitationDelivery)
+                : ({ status: "not_sent", provider: "log", attempts: 1, queued_at: owner.createdAt, sent_at: owner.createdAt } satisfies C.OwnerInvitationDelivery),
+            );
           }),
         ),
 
@@ -8289,12 +8336,15 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (input.no_known_allergies === true) target.allergies_reviewed = "none_known";
           if (active(target.id).length > 0) target.allergies_reviewed = "has_allergies";
           const recorded: C.ConsentPurpose[] = [];
+          const recordedRows: { id: S.ConsentId; purpose: C.ConsentPurpose }[] = [];
           const stored = (state.consents ??= []);
           for (const c of consents) {
             const purpose = S.consentPurpose.parse(c.purpose);
             if (stored.some((x) => x.clinic_id === caller.clinic.id && x.patient_id === target.id && x.purpose === purpose && x.status === "given")) continue;
+            const consentRowId = S.consentId.parse(fakeUuid(random, clock()));
+            recordedRows.push({ id: consentRowId, purpose });
             stored.push({
-              id: S.consentId.parse(fakeUuid(random, clock())),
+              id: consentRowId,
               clinic_id: caller.clinic.id,
               patient_id: target.id,
               purpose,
@@ -8328,6 +8378,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             called_at: null,
             done_at: null,
             reason: reason === "" ? null : reason,
+            // A new patient is sent the welcome when the clinic has it on (the worker sends it later).
+            ...(registered && notificationSettings(caller.clinic).welcome ? { welcome_status: "queued" as const, welcome_skip_reason: null } : {}),
           };
           state.queueTokens.push(token);
           notices.patientWaiting(noticeContext(caller), token);
@@ -8343,6 +8395,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             conditions_recorded: conditionsRecorded,
             ...(familyLinkId === null ? {} : { family_link_id: familyLinkId }),
             consents_recorded: recorded,
+            consents: recordedRows,
           } satisfies C.WalkIn);
         }),
 
@@ -9148,6 +9201,7 @@ const NOTIFICATION_DEFAULTS: C.NotificationSettings = {
   welcome: true,
   visit_summary: true,
   follow_up_booking: false,
+  thanks: true,
   quiet_hours: { enabled: true, start: "21:00", end: "09:00" },
 };
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -9160,7 +9214,7 @@ function notificationSettings(clinic: FakeClinic): C.NotificationSettings {
 /** The switches after `changes`, or the problem the API reports (quiet hours must be `HH:MM` and not empty). */
 function applyNotificationChanges(clinic: FakeClinic, changes: C.NotificationSettingsChanges): C.NotificationSettings | Outcome {
   const next = notificationSettings(clinic);
-  for (const key of ["reminder_24h", "reminder_2h", "receipts", "recall", "low_stock", "lab_due", "welcome", "visit_summary", "follow_up_booking"] as const) {
+  for (const key of ["reminder_24h", "reminder_2h", "receipts", "recall", "low_stock", "lab_due", "welcome", "visit_summary", "follow_up_booking", "thanks"] as const) {
     const value = changes[key];
     if (value != null) {
       next[key] = value;
@@ -9430,6 +9484,8 @@ function wireQueueToken(token: FakeQueueToken, state: Fixtures, now: Date): C.Qu
     done_at: token.done_at ?? null,
     room_id: token.room_id ?? null,
     reason: token.reason ?? null,
+    ...(token.welcome_status == null ? {} : { welcome_status: token.welcome_status, welcome_skip_reason: token.welcome_skip_reason ?? null }),
+    ...(token.thanks_status == null ? {} : { thanks_status: token.thanks_status, thanks_skip_reason: token.thanks_skip_reason ?? null }),
     wait_minutes: waitMinutes,
   };
 }

@@ -376,6 +376,7 @@ export type Consent = Schemas["Consent"];
 export type ConsentList = Schemas["ConsentList"];
 export type RecordConsent = Schemas["RecordConsent"];
 export type WithdrawConsent = Schemas["WithdrawConsent"];
+export type SetConsentSignature = Schemas["SetConsentSignature"];
 export type ConsentPurpose = "care" | "reminders" | "promotional" | "sharing" | "research";
 export type ConsentMethod = "paper" | "verbal" | "app";
 export type ConsentStatus = "given" | "withdrawn";
@@ -468,6 +469,7 @@ export type ClinicDetail = Schemas["ClinicDetail"];
 export type NewClinicInvitation = Schemas["NewClinicInvitation"];
 export type ClinicInvited = Schemas["ClinicInvited"];
 export type ResentOwnerInvitation = Schemas["ResentOwnerInvitation"];
+export type OwnerInvitationDelivery = Schemas["OwnerInvitationDelivery"];
 
 // Billing (M5) --------------------------------------------------------------------------------
 

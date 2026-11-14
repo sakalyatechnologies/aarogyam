@@ -334,7 +334,8 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
             | MessageKind::Welcome
             | MessageKind::VisitSummary
             | MessageKind::VisitSummaryPin
-            | MessageKind::FollowUpBooking,
+            | MessageKind::FollowUpBooking
+            | MessageKind::VisitThanks,
         )
         | None => Err(Failure::permanent("unknown message kind")),
     }

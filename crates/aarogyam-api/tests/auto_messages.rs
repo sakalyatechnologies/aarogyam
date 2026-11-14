@@ -713,3 +713,308 @@ async fn the_welcome_tells_the_wait_from_the_queue_ahead() {
     assert_eq!(waits, ["5", "10", "20"]);
     app.finish().await;
 }
+
+/// A patient waiting in the queue with a visit started and a ₹500 bill issued for it. Returns
+/// the patient, the token, the visit and the bill.
+async fn billed_visit(app: &TestApp, owner: &str, patient: &str) -> (String, String, String) {
+    let (status, token) = post(
+        app,
+        ALPHA,
+        owner,
+        "/api/v1/queue",
+        json!({ "patient_id": patient }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{token}");
+    let token = token["id"].as_str().unwrap().to_owned();
+    let (status, started) = post(
+        app,
+        ALPHA,
+        owner,
+        &format!("/api/v1/queue/{token}/start-visit"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{started}");
+    let visit = started["visit"]["id"].as_str().unwrap().to_owned();
+    let (status, bill) = post(
+        app,
+        ALPHA,
+        owner,
+        "/api/v1/invoices",
+        json!({ "patient_id": patient, "encounter_id": visit,
+                "items": [{ "description": "Consultation", "unit_price_paise": 50_000 }] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{bill}");
+    let bill = bill["id"].as_str().unwrap().to_owned();
+    let (status, issued) = post(
+        app,
+        ALPHA,
+        owner,
+        &format!("/api/v1/invoices/{bill}/issue"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{issued}");
+    // Sent for payment: the token waits at ready_to_bill until the bill is paid.
+    let (status, moved) = post(
+        app,
+        ALPHA,
+        owner,
+        &format!("/api/v1/visits/{visit}/finish"),
+        json!({ "queue_status": "ready_to_bill" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{moved}");
+    (token, visit, bill)
+}
+
+async fn pay(app: &TestApp, owner: &str, patient: &str, bill: &str, key: &str, paise: i64) {
+    let (status, paid) = app
+        .send_with(
+            Method::POST,
+            ALPHA,
+            "/api/v1/payments",
+            Some(owner),
+            Some(
+                json!({ "patient_id": patient, "method": "cash", "amount_paise": paise,
+                         "allocations": [{ "invoice_id": bill, "amount_paise": paise }] }),
+            ),
+            &[("idempotency-key", key)],
+        )
+        .await;
+    assert!(status.is_success(), "{status} {paid}");
+}
+
+async fn thanks_rows(app: &TestApp, patient: &str) -> Vec<(String, String, Option<String>)> {
+    sqlx::query_as(
+        "select kind, status, skip_reason from aarogyam.messages
+         where patient_id = $1::uuid and kind = 'visit.thanks' order by created_at, id",
+    )
+    .bind(patient)
+    .fetch_all(&app.owner)
+    .await
+    .unwrap()
+}
+
+async fn queue_token(app: &TestApp, token: &str, id: &str) -> Value {
+    let (status, day) = app
+        .send(Method::GET, ALPHA, "/api/v1/queue", Some(token), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{day}");
+    day["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["id"] == id)
+        .unwrap()
+        .clone()
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_thank_you_is_queued_once_when_the_bill_is_paid_in_full() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let id = patient(&app, &owner, "Kavita Rao", "kavita@example.in").await;
+    let (token, _visit, bill) = billed_visit(&app, &owner, &id).await;
+    // A part payment thanks no one yet.
+    pay(&app, &owner, &id, &bill, "thanks-key-0001", 20_000).await;
+    assert_eq!(thanks_rows(&app, &id).await, []);
+    assert!(queue_token(&app, &owner, &token).await["thanks_status"].is_null());
+    // The payment that settles it queues one thank-you, with links and nothing about the patient.
+    pay(&app, &owner, &id, &bill, "thanks-key-0002", 30_000).await;
+    assert_eq!(
+        thanks_rows(&app, &id).await,
+        [("visit.thanks".to_owned(), "queued".to_owned(), None)]
+    );
+    let (variables, secret): (Value, Option<String>) = sqlx::query_as(
+        "select variables, secret from aarogyam.messages
+         where patient_id = $1::uuid and kind = 'visit.thanks'",
+    )
+    .bind(&id)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(variables, json!({}));
+    assert!(secret.is_none());
+    // A retry of the same payment adds nothing.
+    pay(&app, &owner, &id, &bill, "thanks-key-0002", 30_000).await;
+    assert_eq!(thanks_rows(&app, &id).await.len(), 1);
+    // The queue shows it, then the worker sends it.
+    let shown = queue_token(&app, &owner, &token).await;
+    assert_eq!(shown["status"], "done");
+    assert_eq!(shown["thanks_status"], "queued");
+    assert!(shown["thanks_skip_reason"].is_null());
+    drain(&app).await;
+    assert_eq!(thanks_rows(&app, &id).await[0].1, "sent");
+    assert_eq!(
+        queue_token(&app, &owner, &token).await["thanks_status"],
+        "sent"
+    );
+    // The rendered text carries no name or amount.
+    let templates: Vec<String> = sqlx::query_scalar(
+        "select body from aarogyam.message_templates
+         where key = 'visit.thanks' and org_id = (select org_id from aarogyam.patients where id = $1::uuid)",
+    )
+    .bind(&id)
+    .fetch_all(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(templates.len(), 6);
+    for body in templates {
+        assert!(
+            !body.contains("patient_name") && !body.contains("amount"),
+            "{body}"
+        );
+        for name in placeholders("visit.thanks", &body).unwrap() {
+            assert!(
+                ["clinic_name", "booking_link"].contains(&name.as_str()),
+                "{name}"
+            );
+        }
+    }
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_thanks_switch_and_care_consent_decide_and_a_skip_shows_its_reason() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    // Switched off: nothing is recorded.
+    set_switches(&app, &owner, json!({ "thanks": false })).await;
+    let (_, settings) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            "/api/v1/settings/notifications",
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(settings["thanks"], false);
+    let off = patient(&app, &owner, "Off Patient", "off@example.in").await;
+    let (token, _, bill) = billed_visit(&app, &owner, &off).await;
+    pay(&app, &owner, &off, &bill, "thanks-key-0003", 50_000).await;
+    assert_eq!(thanks_rows(&app, &off).await, []);
+    assert!(queue_token(&app, &owner, &token).await["thanks_status"].is_null());
+    // On again (and it was on by default for a clinic that never chose): a patient who
+    // withdrew care consent gets a skip with the reason, shown on the queue.
+    set_switches(&app, &owner, json!({ "thanks": true })).await;
+    let no_consent = patient(&app, &owner, "No Consent", "nc@example.in").await;
+    let (status, given) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/patients/{no_consent}/consents"),
+        json!({ "purpose": "care", "method": "verbal" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{given}");
+    let (status, withdrawn) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!(
+            "/api/v1/consents/{}/withdraw",
+            given["id"].as_str().unwrap()
+        ),
+        json!({ "method": "verbal" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{withdrawn}");
+    let (token, _, bill) = billed_visit(&app, &owner, &no_consent).await;
+    pay(&app, &owner, &no_consent, &bill, "thanks-key-0004", 50_000).await;
+    assert_eq!(
+        thanks_rows(&app, &no_consent).await,
+        [(
+            "visit.thanks".to_owned(),
+            "skipped".to_owned(),
+            Some("no_consent".to_owned())
+        )]
+    );
+    let shown = queue_token(&app, &owner, &token).await;
+    assert_eq!(shown["thanks_status"], "skipped");
+    assert_eq!(shown["thanks_skip_reason"], "no_consent");
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_welcome_status_shows_on_the_queue_token_and_stays_in_the_clinic() {
+    let app = TestApp::start().await;
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let (status, first) = post(
+        &app,
+        ALPHA,
+        &desk,
+        "/api/v1/walk-ins",
+        walk_in("Sunita Patil", "sunita@example.in"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{first}");
+    let id = first["patient"]["id"].as_str().unwrap().to_owned();
+    let token = first["token"]["id"].as_str().unwrap().to_owned();
+    // Queued, as the walk-in's own response and the queue list both say.
+    assert_eq!(first["token"]["welcome_status"], "queued");
+    let shown = queue_token(&app, &desk, &token).await;
+    assert_eq!(shown["welcome_status"], "queued");
+    assert!(shown["welcome_skip_reason"].is_null());
+    // Sent once the worker has it.
+    drain(&app).await;
+    assert_eq!(
+        queue_token(&app, &desk, &token).await["welcome_status"],
+        "sent"
+    );
+    // A walk-in with no address is skipped, with the reason.
+    let (status, bare) = post(
+        &app,
+        ALPHA,
+        &desk,
+        "/api/v1/walk-ins",
+        json!({ "patient": { "full_name": "No Address", "phone": "98765 22222" },
+                "no_known_allergies": true }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{bare}");
+    let bare_token = bare["token"]["id"].as_str().unwrap().to_owned();
+    let shown = queue_token(&app, &desk, &bare_token).await;
+    assert_eq!(shown["welcome_status"], "skipped");
+    assert_eq!(shown["welcome_skip_reason"], "no_address");
+    // A returning patient's new token has no welcome, and an appointment-less token of an
+    // existing patient shows none.
+    let (_, again) = post(
+        &app,
+        ALPHA,
+        &desk,
+        "/api/v1/walk-ins",
+        json!({ "patient_id": id }),
+    )
+    .await;
+    assert!(again["token"]["welcome_status"].is_null());
+    // The other clinic's queue shows none of this, and its own token has no status.
+    let beta = app.token(BETA_OWNER);
+    let (status, theirs) = app
+        .send(Method::GET, BETA, "/api/v1/queue", Some(&beta), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{theirs}");
+    assert_eq!(theirs["items"], json!([]));
+    let (status, made) = post(
+        &app,
+        BETA,
+        &beta,
+        "/api/v1/walk-ins",
+        walk_in("Beta Patient", "b@example.in"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{made}");
+    assert_eq!(made["token"]["welcome_status"], "queued");
+    // Alpha's token ids are unknown to Beta's thank-you or welcome lookups.
+    let (_, theirs) = app
+        .send(Method::GET, BETA, "/api/v1/queue", Some(&beta), None)
+        .await;
+    assert_eq!(theirs["items"].as_array().unwrap().len(), 1);
+    app.finish().await;
+}

@@ -649,6 +649,7 @@ describe("createHttpClient settings v2", () => {
     welcome: true,
     visit_summary: true,
     follow_up_booking: false,
+    thanks: true,
     quiet_hours: { enabled: true, start: "21:00", end: "09:00" },
   };
   const alert = {

@@ -180,7 +180,8 @@ pub(crate) fn render(mail: &PatientMail<'_>, portal: &PortalLinks) -> Result<Ema
         MessageKind::Welcome
         | MessageKind::VisitSummary
         | MessageKind::VisitSummaryPin
-        | MessageKind::FollowUpBooking => automatic_message(mail, portal)?,
+        | MessageKind::FollowUpBooking
+        | MessageKind::VisitThanks => automatic_message(mail, portal)?,
         _ => {
             // The wording from the outbox days: rendered from the stored payload.
             let claimed = Claimed {
@@ -233,6 +234,7 @@ fn automatic_message(
         MessageKind::Welcome => format!("Welcome to {}", mail.clinic_name),
         MessageKind::VisitSummary => format!("Your visit summary from {}", mail.clinic_name),
         MessageKind::VisitSummaryPin => "Your PIN for the visit summary".to_owned(),
+        MessageKind::VisitThanks => format!("Thank you from {}", mail.clinic_name),
         _ => format!("Time to book your follow-up at {}", mail.clinic_name),
     };
     Ok((subject, vec![text]))

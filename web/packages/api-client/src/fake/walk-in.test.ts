@@ -22,6 +22,23 @@ function value<T>(result: ApiResult<T>): T {
 }
 
 describe("walk-in fast path (fake)", () => {
+  it("shows the welcome's status on the queue token for a new patient only, and not when switched off", async () => {
+    const { as } = setup();
+    const desk = as(FARAH);
+    const first = value(await desk.registerWalkIn({ patient: { full_name: "Sunita Patil", age_years: 34, sex: "female", phone: "+919876511111" } }));
+    expect(first.token.welcome_status).toBe("queued");
+    const listed = value(await desk.listQueue(undefined)).items.find((t) => t.id === first.token.id);
+    expect(listed?.welcome_status).toBe("queued");
+    expect(listed?.thanks_status).toBeUndefined();
+    // The same patient again is not new: no welcome.
+    const again = value(await desk.registerWalkIn({ patient_id: first.patient.id }));
+    expect(again.token.welcome_status).toBeUndefined();
+    // Switched off: a new patient gets none.
+    value(await as(ASHA).updateNotificationSettings({ welcome: false }));
+    const off = value(await desk.registerWalkIn({ patient: { full_name: "Ravi Kulkarni", age_years: 40, sex: "male", phone: "+919876522222" } }));
+    expect(off.token.welcome_status).toBeUndefined();
+  });
+
   it("registers a walk-in with reported allergies and desk consents, then finds them by phone", async () => {
     const { as } = setup();
     const desk = as(FARAH);

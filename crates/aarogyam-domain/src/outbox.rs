@@ -65,6 +65,8 @@ pub enum MessageKind {
     VisitSummaryPin,
     /// The booking link for a follow-up that is due.
     FollowUpBooking,
+    /// The thank-you with the booking link, after a payment settles the bill.
+    VisitThanks,
 }
 
 impl MessageKind {
@@ -88,6 +90,7 @@ impl MessageKind {
             Self::VisitSummary => "visit.summary",
             Self::VisitSummaryPin => "visit.summary_pin",
             Self::FollowUpBooking => "visit.follow_up_booking",
+            Self::VisitThanks => "visit.thanks",
         }
     }
 
@@ -111,6 +114,7 @@ impl MessageKind {
             "visit.summary" => Some(Self::VisitSummary),
             "visit.summary_pin" => Some(Self::VisitSummaryPin),
             "visit.follow_up_booking" => Some(Self::FollowUpBooking),
+            "visit.thanks" => Some(Self::VisitThanks),
             _ => None,
         }
     }

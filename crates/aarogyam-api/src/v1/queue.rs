@@ -60,6 +60,19 @@ pub struct QueueToken {
     /// Why the patient came (plain text, at most 200 characters), when the desk noted it at a
     /// walk-in.
     pub reason: Option<String>,
+    /// The welcome message to a walk-in's new patient: `queued`, `sent`, `failed` or `skipped`.
+    /// Absent when no welcome applied (an appointment, a returning patient, or switched off).
+    #[schema(required = false)]
+    pub welcome_status: Option<String>,
+    /// Why the welcome was skipped (`no_consent`, `opted_out`, `no_address`), when it was.
+    #[schema(required = false)]
+    pub welcome_skip_reason: Option<String>,
+    /// The thank-you queued when a payment settled the bill, with the same values.
+    #[schema(required = false)]
+    pub thanks_status: Option<String>,
+    /// Why the thank-you was skipped, when it was.
+    #[schema(required = false)]
+    pub thanks_skip_reason: Option<String>,
 }
 
 impl From<TokenView> for QueueToken {
@@ -78,6 +91,10 @@ impl From<TokenView> for QueueToken {
             appointment_id: row.appointment_id,
             room_id: row.room_id,
             reason: row.reason,
+            welcome_status: row.welcome_status,
+            welcome_skip_reason: row.welcome_skip_reason,
+            thanks_status: row.thanks_status,
+            thanks_skip_reason: row.thanks_skip_reason,
             patient: PatientBrief {
                 id: row.patient_id,
                 number: row.patient_number,

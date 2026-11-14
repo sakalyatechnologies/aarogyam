@@ -75,6 +75,7 @@ import type {
   ClinicDetail,
   ClinicId,
   ClinicInvited,
+  OwnerInvitationDelivery,
   ResentOwnerInvitation,
   ClinicSettings,
   ClinicSettingsChanges,
@@ -238,6 +239,7 @@ import type {
   Consent,
   RecordConsent,
   WithdrawConsent,
+  SetConsentSignature,
   SummaryContent,
   SummaryNote,
   Timeline,
@@ -656,6 +658,8 @@ export interface ApiClient {
   recordConsent(id: PatientId, input: RecordConsent, options?: RequestOptions): Promise<ApiResult<Consent>>;
   /** Clinic host: records that the patient withdrew a consent. Needs `patients.write`. */
   withdrawConsent(id: ConsentId, input: WithdrawConsent, options?: RequestOptions): Promise<ApiResult<Consent>>;
+  /** Clinic host: attaches the patient's signature (a `consent` file of the same patient) to a recorded consent, once; the same file again is `200`, a different one `409 signature_already_set`, a withdrawn consent `409 consent_withdrawn`. Needs `patients.write`. */
+  setConsentSignature(patient: PatientId, consent: ConsentId, input: SetConsentSignature, options?: RequestOptions): Promise<ApiResult<Consent>>;
   /** Clinic host: a patient's summary note and visit notes, for Patient 360. Needs `clinical.read`. */
   getPatientNotes(id: PatientId, options?: RequestOptions): Promise<ApiResult<PatientNotes>>;
   /**
@@ -768,6 +772,8 @@ export interface ApiClient {
   inviteToClinic(id: ClinicId, input: NewClinicInvitation, options?: RequestOptions): Promise<ApiResult<ClinicInvited>>;
   /** Sends the owner's invitation again (new link, old one stops working) while the owner hasn't joined. */
   resendOwnerInvitation(id: ClinicId, options?: RequestOptions): Promise<ApiResult<ResentOwnerInvitation>>;
+  /** Console host: whether the owner's invitation email went out (status, provider, attempts, failure reason, times). Never the address or link. */
+  getOwnerInvitationDelivery(id: ClinicId, options?: RequestOptions): Promise<ApiResult<OwnerInvitationDelivery>>;
 
   /** Clinic host: finds medicines in the shared catalogue. Needs `prescriptions.issue`. */
   searchDrugs(input: DrugSearch, options?: RequestOptions): Promise<ApiResult<DrugList>>;

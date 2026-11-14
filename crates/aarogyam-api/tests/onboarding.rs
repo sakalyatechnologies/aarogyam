@@ -718,3 +718,112 @@ async fn resending_the_owner_invitation_replaces_the_link_until_the_owner_joins(
     assert_eq!(status, StatusCode::CONFLICT);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_console_sees_how_the_owners_invitation_email_went() {
+    let accounts = Arc::new(FakeAccounts::default());
+    let app = start(&accounts).await;
+    let staff = app.token(STAFF);
+    let created = create_gamma(&app, &staff).await;
+    let org = created["id"].as_str().unwrap().to_owned();
+    let path = format!("/api/v1/console/clinics/{org}/owner-invitation/delivery");
+    let get = |path: String, host: &'static str, token: String| {
+        let app = &app;
+        async move { app.send(Method::GET, host, &path, Some(&token), None).await }
+    };
+
+    // Permissions and scoping: not staff, not the console host, no such clinic.
+    let (status, _) = get(path.clone(), CONSOLE, app.token(ALPHA_OWNER)).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = get(path.clone(), ALPHA, staff.clone()).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let unknown = format!(
+        "/api/v1/console/clinics/{}/owner-invitation/delivery",
+        Uuid::now_v7()
+    );
+    let (status, _) = get(unknown, CONSOLE, staff.clone()).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // Queued and waiting. Nothing about the recipient, link or body leaks.
+    let (status, body) = get(path.clone(), CONSOLE, staff.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["status"], "pending");
+    assert_eq!(body["attempts"], 0);
+    assert!(body["queued_at"].as_str().is_some());
+    assert!(body["sent_at"].is_null());
+    let text = body.to_string();
+    assert!(
+        !text.contains("gamma.test") && !text.contains(created["invite_token"].as_str().unwrap())
+    );
+
+    // Sent through the real provider.
+    sqlx::query(
+        "update aarogyam.outbox_events set status = 'sent', provider = 'resend', attempts = 1,
+           secret = null, processed_at = now() where org_id = $1::uuid",
+    )
+    .bind(&org)
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let (_, body) = get(path.clone(), CONSOLE, staff.clone()).await;
+    assert_eq!(body["status"], "sent");
+    assert_eq!(body["provider"], "resend");
+    assert_eq!(body["attempts"], 1);
+    assert!(body["sent_at"].as_str().is_some());
+
+    // Only written to the log: nothing reached the owner.
+    sqlx::query("update aarogyam.outbox_events set provider = 'log' where org_id = $1::uuid")
+        .bind(&org)
+        .execute(&app.owner)
+        .await
+        .unwrap();
+    let (_, body) = get(path.clone(), CONSOLE, staff.clone()).await;
+    assert_eq!(body["status"], "not_sent");
+    assert_eq!(body["provider"], "log");
+
+    // Failed, with the reason.
+    sqlx::query(
+        "update aarogyam.outbox_events set status = 'failed', provider = 'resend', attempts = 5,
+           last_error = 'resend answered 422: invalid to address' where org_id = $1::uuid",
+    )
+    .bind(&org)
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let (_, body) = get(path.clone(), CONSOLE, staff.clone()).await;
+    assert_eq!(body["status"], "failed");
+    assert_eq!(body["attempts"], 5);
+    assert_eq!(
+        body["last_error"],
+        "resend answered 422: invalid to address"
+    );
+
+    // A resend queues a newer email, which is the one shown.
+    let (status, _) = app
+        .send(
+            Method::POST,
+            CONSOLE,
+            &format!("/api/v1/console/clinics/{org}/owner-invitation/resend"),
+            Some(&staff),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, body) = get(path, CONSOLE, staff.clone()).await;
+    assert_eq!(body["status"], "pending");
+    assert!(body["last_error"].is_null());
+
+    // A clinic with no owner invitation shows nothing queued, and never another clinic's email.
+    let alpha = app.clinic_id("alpha").await;
+    let (status, body) = get(
+        format!("/api/v1/console/clinics/{alpha}/owner-invitation/delivery"),
+        CONSOLE,
+        staff,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["status"], "not_queued");
+    assert!(body["queued_at"].is_null());
+    app.finish().await;
+}

@@ -9,7 +9,7 @@ import { failure, type Analytics, type ApiClient, type AnalyticsQuery, type Coll
 import { ROLES } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../../lib/new-look.js";
-import { PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
+import { NOW, PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
 import { SHOW_MONEY_KEY } from "../today/v2/money.js";
 
 // jsdom has no layout, so ResponsiveContainer would measure 0×0 and draw nothing: give charts a size.
@@ -32,10 +32,15 @@ const doctorWithAnalytics = () =>
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  vi.useRealTimers();
 });
 
 describe("Analytics (New look)", () => {
   beforeEach(() => {
+    // The page's today must match the fake backend's clock, or the six-week expense window drifts
+    // past the seeded data as the real date moves on.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
     localStorage.clear();
     localStorage.setItem(NEW_LOOK_KEY, "1");
   });

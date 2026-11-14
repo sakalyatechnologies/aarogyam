@@ -9,6 +9,7 @@ import com.aarogyam.staff.api.model.UsageBody
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.IdempotencyKey
+import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.BufferOverflow
@@ -100,6 +101,7 @@ private class MyTasksStateHolder(
     private val clinic: ClinicContext,
     private val scope: CoroutineScope,
     private val now: () -> Instant,
+    private val log: Logger = Logger("aarogyam.tasks"),
 ) : MyTasksHolder {
     private val allowed = "tasks.use" in clinic.permissions
     private val mutable = MutableStateFlow(MyTasksState(loading = allowed, notAllowed = !allowed))
@@ -173,6 +175,10 @@ private class MyTasksStateHolder(
                     }
 
                     is Outcome.Failure -> {
+                        log.warn("tasks.proof_failed") {
+                            id("occurrence", id)
+                            code("error", up.error.code.value)
+                        }
                         fail(id, up.error)
                         return@launch
                     }
@@ -199,6 +205,10 @@ private class MyTasksStateHolder(
                 }
 
                 is Outcome.Failure -> {
+                    log.warn("tasks.complete_failed") {
+                        id("occurrence", id)
+                        code("error", answer.error.code.value)
+                    }
                     fail(id, answer.error)
                 }
             }
@@ -290,7 +300,7 @@ internal val taskOrder: Comparator<TaskRow> =
 internal fun createMyTasks(
     clinic: ClinicContext,
     scope: CoroutineScope,
-): MyTasksHolder = MyTasksStateHolder(clinic, scope) { Clock.System.now() }
+): MyTasksHolder = MyTasksStateHolder(clinic, scope, now = { Clock.System.now() })
 
 internal fun createMyTasks(
     clinic: ClinicContext,

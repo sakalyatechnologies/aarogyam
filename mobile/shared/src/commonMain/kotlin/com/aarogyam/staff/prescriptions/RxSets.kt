@@ -14,7 +14,7 @@ internal const val SET_DEFAULT_DAYS = 5
 
 internal fun QuickMedicineSet.toChip() = RxSetChip(id, label, items.size)
 
-/** A set medicine as a free-text line (no catalogue id). The set's `instructions` have no line field and are dropped. */
+/** A set medicine as a free-text line (no catalogue id), with the set's instructions. */
 internal fun QuickSetMedicine.toLine(key: Int) =
     RxLine(
         key = key,
@@ -25,6 +25,7 @@ internal fun QuickSetMedicine.toLine(key: Int) =
         frequency = frequency,
         durationDays = durationDays ?: SET_DEFAULT_DAYS,
         timing = timing,
+        instructions = instructions?.takeIf { it.isNotBlank() },
     )
 
 /** The set's medicines whose names are not already in [existing] (case-insensitive), numbered from [firstKey]. */

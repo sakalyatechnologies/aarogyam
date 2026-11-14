@@ -34,6 +34,8 @@ data class RxLine(
     val frequency: String,
     val durationDays: Int,
     val timing: String?,
+    /** Free text for the patient, such as "Rinse with warm salt water", from a medicine set or the last Rx. */
+    val instructions: String? = null,
 )
 
 /**

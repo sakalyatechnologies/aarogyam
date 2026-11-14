@@ -26,6 +26,7 @@ internal fun RxLine.toItem() =
         frequency = frequency,
         durationDays = durationDays,
         timing = timing,
+        instructions = instructions,
     )
 
 internal fun RxItem.toLine(key: Int): RxLine? {
@@ -39,6 +40,7 @@ internal fun RxItem.toLine(key: Int): RxLine? {
         frequency = frequency.orEmpty(),
         durationDays = durationDays ?: 5,
         timing = timing,
+        instructions = instructions?.takeIf { it.isNotBlank() },
     )
 }
 

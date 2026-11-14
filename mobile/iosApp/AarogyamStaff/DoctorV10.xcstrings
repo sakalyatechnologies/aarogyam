@@ -968,29 +968,6 @@
         }
       }
     },
-    "dv10.waiting.banner": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Token %@ is waiting"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "टोकन %@ प्रतीक्षा में है"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "टोकन %@ वाट पाहत आहे"
-          }
-        }
-      }
-    },
     "dv10.waiting.empty": {
       "extractionState": "manual",
       "localizations": {

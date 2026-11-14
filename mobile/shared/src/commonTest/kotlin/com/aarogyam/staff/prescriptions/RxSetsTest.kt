@@ -62,6 +62,8 @@ class RxSetsTest {
                 listOf(first.dose, first.frequency, first.durationDays, first.timing),
             )
             assertEquals(5, lines.last().durationDays)
+            assertEquals(listOf("Finish the course", null), lines.map { it.instructions })
+            assertEquals("Finish the course", first.toItem().instructions)
             sheet.addSet("unknown")
             assertEquals(2, sheet.state.value.lines.size)
         }

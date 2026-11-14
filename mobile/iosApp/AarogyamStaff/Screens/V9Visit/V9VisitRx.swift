@@ -201,6 +201,7 @@ private struct V9MedCard: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(line.name).v7Text(14.5, .heavy).foregroundStyle(r.onSurface.color)
                     if !line.detail.isEmpty { Text(line.detail).v7Text(12).foregroundStyle(r.onSurfaceVariant.color) }
+                    if let instructions = line.instructions { Text(instructions).v7Text(12).italic().foregroundStyle(r.onSurfaceVariant.color) }
                 }
                 Spacer(minLength: 8)
                 if editable {

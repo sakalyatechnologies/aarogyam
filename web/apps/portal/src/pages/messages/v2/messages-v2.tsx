@@ -7,6 +7,7 @@ import { Empty } from "../../../components/mk/index.js";
 import { useClinic } from "../../../clinic.js";
 import { ChatTab } from "./chat-tab.js";
 import { PatientsTab } from "./patients-tab.js";
+import { StatsTiles } from "./stats-tiles.js";
 import "./messages-v2.css";
 
 type Area = "patients" | "chat";
@@ -29,7 +30,14 @@ export function MessagesV2() {
       ) : (
         <>
           {areas.length > 1 ? <Pills label="Messages area" options={areas} value={area} onValueChange={setChosen} /> : null}
-          {area === "patients" ? <PatientsTab /> : <ChatTab />}
+          {area === "patients" ? (
+            <>
+              {can("messages.send") ? <StatsTiles /> : null}
+              <PatientsTab />
+            </>
+          ) : (
+            <ChatTab />
+          )}
         </>
       )}
     </div>

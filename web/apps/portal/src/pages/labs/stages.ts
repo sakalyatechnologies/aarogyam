@@ -5,10 +5,13 @@ import type { LabOrder } from "@aarogyam/api-client";
 export const STAGES = ["Impression", "Production", "Trial", "Final", "Delivered"] as const;
 export type StageName = (typeof STAGES)[number];
 
-type Shape = Pick<LabOrder, "status" | "pipeline_stage" | "stage">;
+type Shape = Pick<LabOrder, "status" | "pipeline_stage" | "stage"> & Partial<Pick<LabOrder, "tracker_stage">>;
 
-/** Where a case is on the tracker (0 to 4), or -1 when it was cancelled. Work at the lab is Production unless its stage text says Trial or Final. */
+const SERVER_STAGES = ["impression", "production", "trial", "final", "delivered"] as const;
+
+/** Where a case is on the tracker (0 to 4), or -1 when it was cancelled. The server's `tracker_stage` wins when present; otherwise it is worked out here. Work at the lab is Production unless its stage text says Trial or Final. */
 export function stageIndex(order: Shape): number {
+  if (order.pipeline_stage !== "cancelled" && order.tracker_stage != null) return SERVER_STAGES.indexOf(order.tracker_stage);
   switch (order.pipeline_stage) {
     case "cancelled":
       return -1;

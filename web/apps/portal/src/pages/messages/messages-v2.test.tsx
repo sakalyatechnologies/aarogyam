@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { failure, type ApiClient, type Permission, type SendMessages } from "@aarogyam/api-client";
+import { failure, type ApiClient, type MessageStats, type Permission, type SendMessages } from "@aarogyam/api-client";
 import { fakeTokenFor } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../../lib/new-look.js";
@@ -217,6 +217,217 @@ describe("Staff chat", () => {
     await user.click(screen.getByRole("button", { name: /Leave/ }));
     await user.click(await screen.findByRole("button", { name: "Leave chat" }));
     await waitFor(() => { expect(screen.queryByRole("button", { name: /Lab runs/ })).toBeNull(); });
+  });
+});
+
+const CHANNEL_ID = "00000000-0000-7000-8000-00000000a002";
+/** A clinic with a group and the Everyone channel (the group is listed first by the server, the channel second), and Farah limited to `farahCan` when given. */
+function withChannel(farahCan?: Permission[]) {
+  return fakeApi((fixtures) => {
+    const clinic = fixtures.clinics[0];
+    if (clinic === undefined) throw new Error("no clinic");
+    const members = fixtures.memberships.filter((m) => m.clinic_id === clinic.id).map((m, i) => ({ membership_id: m.id, role: i === 0 ? ("admin" as const) : ("member" as const), muted: false, last_read_message_id: null }));
+    const base = { clinic_id: clinic.id, created_at: "2026-10-01T05:30:00.000Z", members };
+    fixtures.conversations = [
+      { ...base, id: "00000000-0000-7000-8000-00000000a001", kind: "group", title: "Alpha team" },
+      { ...base, id: CHANNEL_ID, kind: "channel", title: "Everyone" },
+    ];
+    if (farahCan !== undefined) {
+      const membership = fixtures.memberships.find((m) => m.user_id === PEOPLE.farah);
+      if (membership !== undefined) membership.role = { key: "reader", name: "Reader", permissions: farahCan };
+    }
+  });
+}
+const asAsha = (backend: ReturnType<typeof fakeApi>) => backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.asha }), now: () => NOW });
+async function openEveryone(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("button", { name: /Everyone/ }));
+  return screen.findByRole("log", { name: "Messages in Everyone" });
+}
+
+describe("Staff chat: the Everyone channel, notices and files", () => {
+  it("lists the Everyone channel before the other chats", async () => {
+    renderPortal("/messages", { as: PEOPLE.farah, backend: withChannel(["chat.use"]) });
+    const list = await screen.findByRole("list", { name: "Conversations" });
+    await waitFor(() => {
+      expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual([expect.stringContaining("Everyone"), expect.stringContaining("Alpha team")]);
+    });
+  });
+
+  it("pins a notice at the top for everyone, posted by someone with chat.notice", async () => {
+    const user = userEvent.setup();
+    const backend = withChannel(["chat.use"]);
+    const posted = await asAsha(backend).postChatMessage(CHANNEL_ID, { body: "Clinic closed on Monday", client_id: "n-1", is_notice: true });
+    expect(posted.ok).toBe(true);
+    renderPortal("/messages", { as: PEOPLE.farah, backend });
+    const log = await openEveryone(user);
+    const pinned = await screen.findByText(/Pinned notice/);
+    expect(pinned.parentElement?.textContent).toContain("Clinic closed on Monday");
+    expect((await within(log).findAllByText(/Clinic closed on Monday/)).length).toBeGreaterThan(0);
+    // Farah has no chat.notice: no way to post one.
+    expect(screen.queryByRole("checkbox", { name: /Post as notice/ })).toBeNull();
+  });
+
+  it("offers Post as notice to chat.notice holders and pins what they post", async () => {
+    const user = userEvent.setup();
+    const sent: { is_notice?: boolean | undefined; body?: string | null | undefined }[] = [];
+    renderPortal("/messages", {
+      as: PEOPLE.asha,
+      backend: withChannel(),
+      wrap: (client) => ({
+        ...client,
+        postChatMessage: (id, input, options) => {
+          sent.push({ is_notice: input.is_notice, body: input.body });
+          return client.postChatMessage(id, input, options);
+        },
+      }),
+    });
+    await user.click(await screen.findByRole("button", { name: "Staff chat" }));
+    await openEveryone(user);
+    await user.type(screen.getByLabelText("Message Everyone"), "Fire drill at 4");
+    await user.click(screen.getByRole("checkbox", { name: /Post as notice/ }));
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+    const pinned = await screen.findByText(/Pinned notice/);
+    expect(pinned.parentElement?.textContent).toContain("Fire drill at 4");
+    expect(sent).toEqual([{ is_notice: true, body: "Fire drill at 4" }]);
+    // An ordinary message does not set the flag.
+    await user.type(screen.getByLabelText("Message Everyone"), "Thanks all{enter}");
+    await screen.findAllByText("Thanks all");
+    expect(sent.at(-1)?.is_notice).toBeUndefined();
+  });
+
+  it("attaches a file to a message and shows it in the thread with a download", async () => {
+    const user = userEvent.setup();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const links: string[] = [];
+    renderPortal("/messages", {
+      as: PEOPLE.farah,
+      backend: withChannel(["chat.use"]),
+      wrap: (client) => ({
+        ...client,
+        getChatAttachmentDownloadLink: (id, options) => {
+          links.push(id);
+          return client.getChatAttachmentDownloadLink(id, options);
+        },
+      }),
+    });
+    const log = await openEveryone(user);
+    await user.upload(screen.getByLabelText("Choose a file to attach"), new File(["%PDF-1.4 synthetic"], "rota.pdf", { type: "application/pdf" }));
+    expect((await within(log).findAllByText(/Sent a file: rota\.pdf/)).length).toBeGreaterThan(0);
+    const files = await screen.findByRole("list", { name: "Files in this chat" });
+    expect(files.textContent).toContain("rota.pdf");
+    await user.click(within(files).getByRole("button", { name: "Download rota.pdf" }));
+    await waitFor(() => {
+      expect(open).toHaveBeenCalledOnce();
+    });
+    expect(links).toHaveLength(1);
+    expect(String(open.mock.calls[0]?.[0])).toMatch(/\/chat-attachments\/.+\/content/);
+    open.mockRestore();
+  });
+
+  it("refuses a file that isn't an image or PDF before sending it", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const post = vi.fn();
+    renderPortal("/messages", {
+      as: PEOPLE.farah,
+      backend: withChannel(["chat.use"]),
+      wrap: (client) => ({
+        ...client,
+        postChatAttachment: (id, form, options) => {
+          post();
+          return client.postChatAttachment(id, form, options);
+        },
+      }),
+    });
+    await openEveryone(user);
+    await user.upload(screen.getByLabelText("Choose a file to attach"), new File(["x"], "notes.txt", { type: "text/plain" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Attach a JPEG, PNG or PDF file.");
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("still skips polling while the tab is hidden", async () => {
+    const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const seen: number[] = [];
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    renderPortal("/messages", {
+      as: PEOPLE.farah,
+      backend: withChannel(["chat.use"]),
+      wrap: (client) => ({
+        ...client,
+        listChatMessages: (id, query, options) => {
+          seen.push(Date.now());
+          return client.listChatMessages(id, query, options);
+        },
+      }),
+    });
+    await openEveryone(user);
+    const first = seen.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(seen).toHaveLength(first);
+    visibility.mockRestore();
+  });
+
+  it("has no axe violations on the channel with a notice and a file", async () => {
+    const user = userEvent.setup();
+    const backend = withChannel();
+    await asAsha(backend).postChatMessage(CHANNEL_ID, { body: "Welcome", client_id: "a-1", is_notice: true });
+    renderPortal("/messages", { as: PEOPLE.asha, backend });
+    await user.click(await screen.findByRole("button", { name: "Staff chat" }));
+    await openEveryone(user);
+    await screen.findByText(/Pinned notice/);
+    await user.upload(screen.getByLabelText("Choose a file to attach"), new File(["%PDF-1.4"], "plan.pdf", { type: "application/pdf" }));
+    await screen.findByRole("list", { name: "Files in this chat" });
+    expect(problems(await axe.run(document.body, AXE))).toEqual([]);
+  });
+});
+
+describe("Messages to patients: this month's numbers", () => {
+  const STATS: MessageStats = {
+    since: "2026-10-01T00:00:00.000Z",
+    sent: 40,
+    delivered: 30,
+    failed: 2,
+    skipped: 3,
+    opt_outs: 1,
+    delivered_pct: 75,
+    by_channel: [],
+  };
+  const ok = (value: MessageStats) => ({ ok: true as const, value });
+  const withStats = (reply: () => ReturnType<ApiClient["getMessageStats"]>) => (client: ApiClient): ApiClient => ({ ...client, getMessageStats: reply });
+
+  it("shows sent, delivered with its share, failed or skipped, and opt-outs", async () => {
+    renderPortal("/messages", { as: PEOPLE.asha, wrap: withStats(() => Promise.resolve(ok(STATS))) });
+    const tiles = await screen.findByLabelText("Messages this month");
+    expect(tiles.textContent).toMatch(/Sent\s*40/);
+    expect(tiles.textContent).toContain("30 (75%)");
+    expect(tiles.textContent).toMatch(/Failed or skipped\s*5/);
+    expect(tiles.textContent).toMatch(/Opt-outs\s*1/);
+    expect(problems(await axe.run(document.body, AXE))).toEqual([]);
+  });
+
+  it("says so while loading, when nothing was sent, and when the numbers can't be loaded", async () => {
+    let release: () => void = () => undefined;
+    renderPortal("/messages", {
+      as: PEOPLE.asha,
+      wrap: withStats(() => new Promise((resolve) => { release = () => { resolve(ok({ ...STATS, sent: 0, delivered: 0, failed: 0, skipped: 0, opt_outs: 0, delivered_pct: null })); }; })),
+    });
+    expect((await screen.findByText("Loading message numbers…")).getAttribute("role")).toBe("status");
+    release();
+    expect(await screen.findByText("No messages sent to patients yet this month.")).toBeTruthy();
+    cleanup();
+
+    renderPortal("/messages", { as: PEOPLE.asha, wrap: withStats(() => Promise.resolve(failure({ status: 500, code: "internal", message: "Numbers are down." }))) });
+    expect((await screen.findByText(/Numbers are down\./)).getAttribute("role")).toBe("alert");
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+    expect(problems(await axe.run(document.body, AXE))).toEqual([]);
+  });
+
+  it("hides the numbers from a role that can't send messages", async () => {
+    renderPortal("/messages", { as: PEOPLE.farah, backend: farahWith(["chat.use", "campaigns.manage"]) });
+    await screen.findByRole("button", { name: "Staff chat" });
+    expect(screen.queryByLabelText("Messages this month")).toBeNull();
   });
 });
 

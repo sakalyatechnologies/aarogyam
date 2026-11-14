@@ -7,6 +7,7 @@ import {
   type LabContactValues,
   type LabOrder,
   type LabOrderFilter,
+  type LabRemindersRequest,
   type LabVendorValues,
   type NewLabOrder,
   type NewLabPayment,
@@ -96,6 +97,18 @@ export function useRemindLab() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => unwrap(api.remindLab(id)),
+    onSettled: () => {
+      refresh(queryClient, access.org_id);
+    },
+  });
+}
+
+/** Reminds the labs of several orders at once; the answer says per lab what was queued or the WhatsApp link. */
+export function useRemindLabs() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: LabRemindersRequest) => unwrap(api.remindLabs(input)),
     onSettled: () => {
       refresh(queryClient, access.org_id);
     },

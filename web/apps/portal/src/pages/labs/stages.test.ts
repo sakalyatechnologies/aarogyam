@@ -72,3 +72,18 @@ describe("teeth, links and reminder text", () => {
     expect(text).toBe("Hi Rahul, reminder from Sunrise Dental: order LAB-12 - PFM crown (tooth 46, shade B2), due 2026-10-08. Please confirm dispatch.");
   });
 });
+
+describe("the server's tracker_stage", () => {
+  it("wins over the client mapping when present", () => {
+    expect(stageIndex({ ...at("in_progress", "in_progress", "Production"), tracker_stage: "final" })).toBe(3);
+    expect(stageIndex({ ...at("draft", "to_send"), tracker_stage: "impression" })).toBe(0);
+    expect(stageIndex({ ...at("fitted", "fitted"), tracker_stage: "delivered" })).toBe(4);
+    expect(stageIndex({ ...at("in_progress", "in_progress", "Final glaze"), tracker_stage: "trial" })).toBe(2);
+  });
+
+  it("falls back to the client mapping when absent or null, and a cancelled order stays off the tracker", () => {
+    expect(stageIndex({ ...at("in_progress", "in_progress", "Trial fit"), tracker_stage: null })).toBe(2);
+    expect(stageIndex(at("received", "ready_to_fit"))).toBe(3);
+    expect(stageIndex({ ...at("cancelled", "cancelled"), tracker_stage: "production" })).toBe(-1);
+  });
+});

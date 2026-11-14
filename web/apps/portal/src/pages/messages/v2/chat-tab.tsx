@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BellOff, Bell, LogOut, Plus } from "lucide-react";
+import { BellOff, Bell, FileText, LogOut, Plus } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { randomUuid, unwrap, type ChatMessage, type ConversationItem } from "@aarogyam/api-client";
@@ -13,8 +13,12 @@ import { POLL_MS, useColleagues, useConversations, why } from "./queries.js";
 const badge = (n: number): string => (n > 99 ? "99+" : String(n));
 
 function titleOf(c: ConversationItem): string {
-  return c.kind === "direct" ? (c.with?.name ?? "Direct chat") : (c.title ?? "Group chat");
+  return c.kind === "direct" ? (c.with?.name ?? "Direct chat") : c.kind === "channel" ? (c.title ?? "Everyone") : (c.title ?? "Group chat");
 }
+
+const ATTACHABLE = ["image/jpeg", "image/png", "application/pdf"];
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const kb = (bytes: number): string => (bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${String(Math.max(1, Math.round(bytes / 1024)))} KB`);
 
 export function ChatTab() {
   const { api, access } = useClinic();
@@ -22,7 +26,11 @@ export function ChatTab() {
   const conversations = useConversations(true);
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const items = conversations.data?.items ?? [];
+  // The clinic-wide channel comes first; the order from the server holds for the rest.
+  const items = useMemo(() => {
+    const all = conversations.data?.items ?? [];
+    return [...all.filter((c) => c.kind === "channel"), ...all.filter((c) => c.kind !== "channel")];
+  }, [conversations.data]);
   const open = items.find((c) => c.id === openId) ?? null;
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: ["messages", access.org_id, "conversations"] }), [queryClient, access.org_id]);
 
@@ -116,7 +124,10 @@ function Thread({
   onRead: () => Promise<unknown>;
   error: unknown;
 }) {
-  const { api, session } = useClinic();
+  const { api, session, access, can } = useClinic();
+  const queryClient = useQueryClient();
+  const canNotice = can("chat.notice");
+  const fileInput = useRef<HTMLInputElement>(null);
   const me: string = session.membership.id;
   // The first page comes from the query; what arrives later (polls, our own sends) is kept beside it and merged.
   const [later, setLater] = useState<ChatMessage[]>([]);
@@ -130,18 +141,27 @@ function Thread({
     staleTime: 0,
     gcTime: 0,
   });
+  // The pinned notice comes with the conversation; it is asked again when a notice arrives or is posted.
+  const detail = useQuery({
+    queryKey: ["messages", access.org_id, "conversation", id],
+    queryFn: ({ signal }) => unwrap(api.getConversation(id, { signal })),
+    staleTime: 0,
+    gcTime: 0,
+  });
+  const refreshNotice = useCallback(() => queryClient.invalidateQueries({ queryKey: ["messages", access.org_id, "conversation", id] }), [queryClient, access.org_id, id]);
   const messages = useMemo<ChatMessage[]>(() => {
     const byId = new Map<string, ChatMessage>();
     for (const m of [...(first.data?.items ?? []), ...later]) byId.set(m.id, m);
     return [...byId.values()].sort((a, b) => (a.id < b.id ? -1 : 1));
   }, [first.data, later]);
   const merge = useCallback((incoming: readonly ChatMessage[]) => {
+    if (incoming.some((m) => m.is_notice === true)) void refreshNotice();
     setLater((now) => {
       const known = new Set(now.map((m) => m.id));
       const fresh = incoming.filter((m) => !known.has(m.id));
       return fresh.length === 0 ? now : [...now, ...fresh];
     });
-  }, []);
+  }, [refreshNotice]);
 
   // News arrives by polling, from the newest message this chat has, only while the chat is open.
   const newest = useRef<string | undefined>(undefined);
@@ -176,7 +196,8 @@ function Thread({
   }, [api, id, latest, onRead]);
 
   const post = useMutation({
-    mutationFn: (body: string) => unwrap(api.postChatMessage(id, { body, client_id: randomUuid() })),
+    mutationFn: ({ body, notice }: { body: string; notice: boolean }) =>
+      unwrap(api.postChatMessage(id, { body, client_id: randomUuid(), ...(notice && canNotice ? { is_notice: true } : {}) })),
     onSuccess: (sent) => {
       setSendError(null);
       merge([sent]);
@@ -186,13 +207,51 @@ function Thread({
     },
   });
 
+  const attach = useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.set("client_id", randomUuid());
+      form.set("file", file);
+      return unwrap(api.postChatAttachment(id, form));
+    },
+    onSuccess: (sent) => {
+      setSendError(null);
+      merge([sent]);
+    },
+    onError: (thrown) => {
+      setSendError(why(thrown));
+    },
+  });
+  const chooseFile = (file: File | undefined) => {
+    if (file === undefined) return;
+    if (!ATTACHABLE.includes(file.type)) {
+      setSendError("Attach a JPEG, PNG or PDF file.");
+    } else if (file.size > MAX_FILE_BYTES) {
+      setSendError("That file is over 5 MB.");
+    } else {
+      setSendError(null);
+      attach.mutate(file);
+    }
+  };
+  const download = useMutation({
+    mutationFn: async (fileId: string) => (await unwrap(api.getChatAttachmentDownloadLink(fileId))).url,
+    onSuccess: (url) => {
+      window.open(url, "_blank", "noopener,noreferrer");
+    },
+    onError: (thrown) => {
+      setSendError(why(thrown));
+    },
+  });
+  const files = messages.filter((m) => !m.deleted && m.attachment != null);
+
   const { timezone } = session.clinic;
   const shown = useMemo<ThreadMessage[]>(
     () =>
       messages.map((m) => ({
         id: m.id,
         author: m.author_name ?? "Colleague",
-        text: m.deleted || m.body == null ? "This message was deleted." : m.body,
+        text: m.deleted ? "This message was deleted." : (m.body ?? (m.attachment == null ? "This message was deleted." : `Sent a file: ${m.attachment.file_name ?? "attachment"}`)),
+        ...(m.is_notice === true ? { flagged: true } : {}),
         time: timeLabel(m.created_at, timezone),
         mine: m.author_membership_id === me,
       })),
@@ -200,11 +259,12 @@ function Thread({
   );
   const title = titleOf(conversation);
   const group = conversation.kind === "group";
+  const notice = detail.data?.pinned_notice;
 
   return (
     <MkCard
       title={title}
-      hint={group ? "Group chat" : "Direct chat"}
+      hint={group ? "Group chat" : conversation.kind === "channel" ? "Channel for the whole clinic" : "Direct chat"}
       action={
         <span className="ms-actions">
           <button type="button" className="ms-link" aria-pressed={conversation.muted} onClick={onMute}>
@@ -239,15 +299,49 @@ function Thread({
           </button>
         </p>
       ) : null}
-      {loaded ? <ChatThread label={`Messages in ${title}`} messages={shown} emptyText="No messages yet. Say hello." height={360} labels={{ flagged: "Notice", you: "You" }} /> : null}
+      {loaded ? (
+        <ChatThread
+          label={`Messages in ${title}`}
+          messages={shown}
+          pinned={notice == null ? undefined : { author: notice.author_name ?? "Colleague", text: notice.body ?? "", label: "Pinned notice" }}
+          emptyText="No messages yet. Say hello."
+          height={360}
+          labels={{ flagged: "Notice", you: "You" }}
+        />
+      ) : null}
+      {files.length === 0 ? null : (
+        <ul className="ms-files" aria-label="Files in this chat">
+          {files.map((m) => (
+            <li key={m.id}>
+              <FileText aria-hidden="true" size={14} /> {m.attachment?.file_name ?? "Attachment"} ({kb(m.attachment?.size_bytes ?? 0)}) from {m.author_name ?? "a colleague"}{" "}
+              <button type="button" className="ms-link" disabled={download.isPending} aria-label={`Download ${m.attachment?.file_name ?? "attachment"}`} onClick={() => { if (m.attachment != null) download.mutate(m.attachment.id); }}>
+                Download
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {sendError !== null ? <p role="alert" className="ms-error">{sendError}</p> : null}
       <Composer
-        onSend={(text) => { post.mutate(text); }}
+        onSend={(text, options) => { post.mutate({ body: text, notice: options.flagged }); }}
+        {...(canNotice ? { flagOption: { label: "Post as notice", hint: "Pinned at the top for everyone in this chat" } } : {})}
+        onAttach={() => { fileInput.current?.click(); }}
         disabled={!loaded}
         maxLength={4000}
         placeholder={`Message ${title}`}
         labels={{ message: `Message ${title}`, send: "Send message" }}
         className="ms-composer"
+      />
+      <input
+        ref={fileInput}
+        type="file"
+        hidden
+        accept="image/jpeg,image/png,application/pdf"
+        aria-label="Choose a file to attach"
+        onChange={(event) => {
+          chooseFile(event.currentTarget.files?.[0]);
+          event.currentTarget.value = "";
+        }}
       />
     </MkCard>
   );

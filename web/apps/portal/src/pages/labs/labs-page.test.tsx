@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ApiClient, NewLabOrder, Permission } from "@aarogyam/api-client";
+import type { ApiClient, LabRemindersRequest, LabVendorValues, NewLabOrder, Permission } from "@aarogyam/api-client";
 import { failure, parseApiError } from "@aarogyam/api-client";
 import { ROLES, createFixtures } from "@aarogyam/api-client/fake";
 
@@ -449,6 +449,142 @@ describe("Lab work: who sees what", () => {
     renderPortal("/today", { as: PEOPLE.asha });
     await screen.findByRole("button", { name: "Collapse sidebar" });
     expect(screen.queryByRole("link", { name: /Lab work/ })).toBeNull();
+  });
+});
+
+const WITHOUT_PATIENTS = () => createFixtures({ now: NOW }).patients.filter((p) => p.full_name !== "").map((p) => p.full_name);
+
+describe("Lab work: tracker_stage, batch reminders and lab details", () => {
+  it("draws the tracker from the server's tracker_stage when it sends one", async () => {
+    const wrap = (client: ApiClient): ApiClient => ({
+      ...client,
+      listLabOrders: async (filter, opts) => {
+        const result = await client.listLabOrders(filter, opts);
+        if (!result.ok) return result;
+        return { ...result, value: { ...result.value, items: result.value.items.map((o) => (o.number === "LAB-12" ? { ...o, tracker_stage: "final" as const } : o)) } };
+      },
+    });
+    renderPortal("/labs", { as: PEOPLE.asha, wrap });
+    // The client mapping alone says Production for LAB-12; the server's word wins.
+    expect(currentStep(await card("LAB-12"))).toContain("Final");
+    expect(currentStep(await card("LAB-11"))).toContain("Trial");
+  });
+
+  it("reminds the labs of several orders at once and shows the result per lab, never naming a patient", async () => {
+    const user = userEvent.setup();
+    const calls: LabRemindersRequest[] = [];
+    renderPortal("/labs", {
+      as: PEOPLE.asha,
+      wrap: (client) => ({
+        ...client,
+        remindLabs: (input, opts) => {
+          calls.push(input);
+          return client.remindLabs(input, opts);
+        },
+      }),
+    });
+    await card("LAB-12");
+    await user.click(screen.getByRole("button", { name: "Select orders" }));
+    expect(screen.getByRole("button", { name: "Remind labs" })).toHaveProperty("disabled", true);
+    await user.click(within(await card("LAB-12")).getByRole("checkbox", { name: "Select LAB-12" }));
+    await user.click(within(await card("LAB-11")).getByRole("checkbox", { name: "Select LAB-11" }));
+    expect(screen.getByText("2 selected")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Remind labs" }));
+    const results = await screen.findByRole("region", { name: "Reminder results" });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.channel).toBe("email");
+    expect(calls[0]?.order_ids).toHaveLength(2);
+    // LAB-12 goes by email; LAB-11's lab has no email, so it is skipped with its reason.
+    expect(results.textContent).toMatch(/LAB-12/);
+    expect(results.textContent).toMatch(/Reminder emailed/);
+    expect(results.textContent).toMatch(/LAB-11 skipped: the lab has no email/);
+    const body = JSON.stringify(calls[0]) + results.textContent;
+    expect(WITHOUT_PATIENTS().filter((name) => body.includes(name))).toEqual([]);
+  });
+
+  it("offers an Open WhatsApp link per lab for the WhatsApp channel", async () => {
+    const user = userEvent.setup();
+    renderPortal("/labs", { as: PEOPLE.asha });
+    await card("LAB-11");
+    await user.click(screen.getByRole("button", { name: "Select orders" }));
+    await user.click(within(await card("LAB-11")).getByRole("checkbox", { name: "Select LAB-11" }));
+    await user.click(within(screen.getByRole("group", { name: "Reminder channel" })).getByRole("button", { name: "WhatsApp" }));
+    await user.click(screen.getByRole("button", { name: "Remind labs" }));
+    const results = await screen.findByRole("region", { name: "Reminder results" });
+    const link = within(results).getByRole("link", { name: /Open WhatsApp/ });
+    expect(link.getAttribute("href") ?? "").toMatch(/^https:\/\/wa\.me\/919876500103\?text=/);
+    expect(WITHOUT_PATIENTS().filter((name) => decodeURIComponent(link.getAttribute("href") ?? "").includes(name))).toEqual([]);
+  });
+
+  it("gives a read-only role no way to select or remind", async () => {
+    const readOnly = farahAs({ key: "lab_reader", name: "Lab reader", permissions: ["patients.read", "labs.read"] });
+    renderPortal("/labs", { as: PEOPLE.farah, backend: readOnly });
+    await card("LAB-12");
+    expect(screen.queryByRole("button", { name: "Select orders" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remind labs" })).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("edits a lab's city, work types and turnaround, and shows them in the directory", async () => {
+    const user = userEvent.setup();
+    const saved: LabVendorValues[] = [];
+    renderPortal("/labs", {
+      as: PEOPLE.asha,
+      wrap: (client) => ({
+        ...client,
+        updateLabVendor: (id, values, opts) => {
+          saved.push(values);
+          return client.updateLabVendor(id, values, opts);
+        },
+      }),
+    });
+    await card("LAB-12");
+    await user.click(screen.getByRole("button", { name: "Labs" }));
+    await user.click(await screen.findByRole("button", { name: "Edit Precision Dental Lab" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit lab" });
+    await user.type(within(dialog).getByLabelText("City"), "Pune");
+    await user.type(within(dialog).getByLabelText("Turnaround (days)"), "5");
+    await user.type(within(dialog).getByLabelText("Work types"), "Zirconia crown");
+    await user.click(within(dialog).getByRole("button", { name: "Add type" }));
+    await user.type(within(dialog).getByLabelText("Work types"), "Retainer{enter}");
+    expect(within(dialog).getByRole("button", { name: "Remove Retainer" })).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "Save lab" }));
+    await waitFor(() => {
+      expect(saved).toHaveLength(1);
+    });
+    expect(saved[0]).toMatchObject({ city: "Pune", turnaround_days: 5, work_types: ["Zirconia crown", "Retainer"] });
+    const types = await screen.findByRole("list", { name: "Work types at Precision Dental Lab" });
+    expect(within(types).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Zirconia crown", "Retainer"]);
+    expect(screen.getByText(/Pune · 5 day turnaround/)).toBeTruthy();
+  });
+
+  it("rejects a turnaround outside 1 to 90 days before saving", async () => {
+    const user = userEvent.setup();
+    renderPortal("/labs", { as: PEOPLE.asha });
+    await card("LAB-12");
+    await user.click(screen.getByRole("button", { name: "Labs" }));
+    await user.click(await screen.findByRole("button", { name: "Edit Precision Dental Lab" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit lab" });
+    await user.type(within(dialog).getByLabelText("Turnaround (days)"), "99");
+    await user.click(within(dialog).getByRole("button", { name: "Save lab" }));
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("Turnaround is 1 to 90 days.");
+  });
+
+  it("has no axe violations while selecting orders, with results, and on the lab form", async () => {
+    const user = userEvent.setup();
+    renderPortal("/labs", { as: PEOPLE.asha });
+    await card("LAB-12");
+    const run = async () => (await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } })).violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+    await user.click(screen.getByRole("button", { name: "Select orders" }));
+    await user.click(within(await card("LAB-12")).getByRole("checkbox", { name: "Select LAB-12" }));
+    expect(await run()).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Remind labs" }));
+    await screen.findByRole("region", { name: "Reminder results" });
+    expect(await run()).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Labs" }));
+    await user.click(await screen.findByRole("button", { name: "Edit Precision Dental Lab" }));
+    await screen.findByRole("dialog", { name: "Edit lab" });
+    expect(await run()).toEqual([]);
   });
 });
 

@@ -7,7 +7,7 @@ import { MkAvatar, Tag } from "../../components/mk/index.js";
 import { PIPELINE_LABEL, STAGES, nextStage, stageIndex, telLink } from "./stages.js";
 
 /** The five steps as a row of bars; the step the case is on is named for screen readers too. */
-export function Tracker({ order }: { order: Pick<LabOrder, "status" | "pipeline_stage" | "stage"> }) {
+export function Tracker({ order }: { order: Pick<LabOrder, "status" | "pipeline_stage" | "stage"> & Partial<Pick<LabOrder, "tracker_stage">> }) {
   const at = stageIndex(order);
   return (
     <ol className={`lb-track ${at < 0 ? "off" : ""}`} aria-label={at < 0 ? "Progress: cancelled" : `Progress: ${STAGES[at] ?? ""}`}>
@@ -42,12 +42,15 @@ export function OrderCard({
   onOpen,
   onNext,
   busy,
+  selection,
 }: {
   order: LabOrder;
   onOpen: () => void;
   /** Present for roles that may move cases. */
   onNext?: ((target: 1 | 2 | 3 | 4) => void) | undefined;
   busy: boolean;
+  /** Present while choosing orders to remind. */
+  selection?: { checked: boolean; onChange: (checked: boolean) => void } | undefined;
 }) {
   const next = onNext === undefined ? null : nextStage(order);
   const phone = order.contact_phone ?? order.vendor_phone ?? null;
@@ -55,6 +58,16 @@ export function OrderCard({
   return (
     <li className="lb-card">
       <div className="lb-card-h">
+        {selection === undefined ? null : (
+          <input
+            type="checkbox"
+            checked={selection.checked}
+            aria-label={`Select ${order.number}`}
+            onChange={(event) => {
+              selection.onChange(event.currentTarget.checked);
+            }}
+          />
+        )}
         <MkAvatar name={order.patient_name} />
         <div className="lb-card-t">
           <button type="button" className="lb-open" onClick={onOpen}>

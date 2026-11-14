@@ -68,10 +68,21 @@ export function LabsDirectory({ openOrders, adding, onAdd, onAddClose }: { openO
                     <span className="lb-sub">
                       {KIND_LABEL[lab.kind]}
                       {lab.address == null ? "" : ` · ${lab.address}`}
+                      {lab.city == null ? "" : ` · ${lab.city}`}
+                      {lab.turnaround_days == null ? "" : ` · ${String(lab.turnaround_days)} day turnaround`}
                     </span>
                   </div>
                   <Tag tone={active > 0 ? "next" : "neutral"}>{active} active</Tag>
                 </div>
+                {lab.work_types === undefined || lab.work_types.length === 0 ? null : (
+                  <ul className="lb-items" aria-label={`Work types at ${lab.name}`}>
+                    {lab.work_types.map((t) => (
+                      <li key={t}>
+                        <Tag>{t}</Tag>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {lab.note == null ? null : <p className="lb-note">{lab.note}</p>}
                 {lab.contacts.length === 0 ? (
                   <p className="lb-sub">No contacts yet.</p>
@@ -215,7 +226,7 @@ function LabDetail({ lab }: { lab: LabVendor }) {
           Details
         </h3>
         <p className="lb-sub">
-          {[lab.phone, lab.email, lab.address].filter((part) => part != null && part !== "").join(" · ") || "No contact details yet."}
+          {[lab.phone, lab.email, lab.address, lab.city, lab.turnaround_days == null ? null : `${String(lab.turnaround_days)} day turnaround`].filter((part) => part != null && part !== "").join(" · ") || "No contact details yet."}
         </p>
         {lab.note == null ? null : <p className="lb-note">{lab.note}</p>}
       </section>

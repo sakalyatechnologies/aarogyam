@@ -27,6 +27,7 @@ export function walkInRequest(mobile: string, who: Who, fresh: NewWalkIn, intake
   if (problem !== undefined) return problem;
   return {
     ...common,
+    ...(who.kind === "family" ? { family_of: { patient_id: who.id, relation: who.relation } } : {}),
     patient: {
       full_name: fresh.fullName.trim(),
       ...(mobile === "" ? {} : { phone: `+91${mobile}` }),
@@ -47,7 +48,7 @@ export function WalkInDialog({ open, onOpenChange, practitioners }: { open: bool
   const register = useRegisterWalkIn();
   const toast = useToast();
   // No number at all (some walk-ins have no phone): go straight to registering someone new.
-  const showNew = who.kind === "new" || (mobile === "" && who.kind === "none");
+  const showNew = who.kind === "new" || who.kind === "family" || (mobile === "" && who.kind === "none");
 
   const close = () => {
     onOpenChange(false);

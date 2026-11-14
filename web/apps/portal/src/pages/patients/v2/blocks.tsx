@@ -31,6 +31,7 @@ import { PatientAppCard } from "../patient-app-card.js";
 import { CarePlan, Contact, Kv } from "../patient-page.js";
 import { BillsPanel } from "../records-panels.js";
 import { FOLLOW_UPS } from "./finish-visit.js";
+import { FamilyBlock } from "./family-block.js";
 import { GalleryBlock } from "./images.js";
 import { Bento, CardTabs, Chip, Fold, type PillOption } from "./kit.js";
 import { ToothChartBlock } from "./tooth-chart/tooth-block.js";
@@ -624,6 +625,9 @@ export function DetailsBlock({ patient }: { patient: Patient }) {
       </div>
       <div style={{ marginTop: 12 }}>
         <PatientAppCard patientId={patient.id} />
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <FamilyBlock patientId={patient.id} />
       </div>
     </Bento>
   );

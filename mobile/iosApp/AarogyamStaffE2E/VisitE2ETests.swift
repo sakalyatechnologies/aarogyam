@@ -135,9 +135,14 @@ final class VisitE2ETests: XCTestCase {
             tap(wait(app.buttons["New patient"], timeout: 15))
             // The desk home behind the sheet has a profile chip with the same name; take the one on the "Not family" row.
             let none = wait(app.buttons["Not family"], timeout: 15)
-            let person = app.buttons.matching(NSPredicate(format: "label == 'E2E Test Patient'")).allElementsBoundByIndex
-                .first { abs($0.frame.midY - none.frame.midY) < 1 }
-            guard let person else { return XCTFail("no family chip beside Not family") }
+            var person: XCUIElement?
+            // The sheet may still be sliding in: look again for up to 10 s.
+            for _ in 0..<20 where person == nil {
+                person = app.buttons.matching(NSPredicate(format: "label == 'E2E Test Patient'")).allElementsBoundByIndex
+                    .first { abs($0.frame.midY - none.frame.midY) < 2 }
+                if person == nil { Thread.sleep(forTimeInterval: 0.5) }
+            }
+            guard let person else { shot("missing"); return XCTFail("no family chip beside Not family") }
             tap(person)
             _ = wait(app.buttons["Child"])
         }

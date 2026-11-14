@@ -42,7 +42,7 @@ describe("Queue", () => {
     renderPortal("/queue", { as: PEOPLE.farah, backend });
     await user.click(await screen.findByRole("button", { name: "Walk-in" }));
     await user.type(await screen.findByLabelText(/Mobile number/), target.phone.slice(3));
-    await user.click(await screen.findByRole("button", { name: new RegExp(target.full_name) }));
+    await user.click(await screen.findByRole("button", { name: new RegExp(`${target.full_name}.*This is them`) }));
     await user.click(screen.getByRole("button", { name: "No known allergies" }));
     await user.click(screen.getByRole("button", { name: "Add to queue" }));
     expect(await screen.findByText(new RegExp(`${target.full_name}: token #`))).toBeTruthy();

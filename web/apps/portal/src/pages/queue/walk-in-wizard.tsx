@@ -34,7 +34,7 @@ export function WalkInWizard({
   const [error, setError] = useState<string | undefined>(undefined);
   const register = useRegisterWalkIn();
   const toast = useToast();
-  const showNew = who.kind === "new" || (mobile === "" && who.kind === "none");
+  const showNew = who.kind === "new" || who.kind === "family" || (mobile === "" && who.kind === "none");
 
   const close = () => {
     onOpenChange(false);

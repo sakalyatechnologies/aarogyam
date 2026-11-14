@@ -432,7 +432,13 @@ pub fn allowed_variables(key: &str) -> &'static [&'static str] {
         }
         "prescription.shared" => &["clinic_name", "booking_link", "doctor_name", "expires_on"],
         "patient_app.invited" => &["clinic_name", "booking_link", "expires_on"],
-        "patient.welcome" => &["clinic_name", "app_link", "website_link", "wait_minutes"],
+        "patient.welcome" => &[
+            "clinic_name",
+            "app_link",
+            "website_link",
+            "learn_link",
+            "wait_minutes",
+        ],
         "visit.summary" => &["clinic_name", "share_link"],
         "visit.summary_pin" => &["clinic_name", "pin"],
         "visit.thanks" => &["clinic_name", "booking_link"],
@@ -538,6 +544,7 @@ mod tests {
                         "share_link",
                         "pin",
                         "booking_link",
+                        "learn_link",
                         "due_on",
                         "wait_minutes"
                     ]

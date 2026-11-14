@@ -33,6 +33,8 @@ export const routes: RouteObject[] = [
       { path: "register", lazy: lazyPage(() => import("./pages/register-page.js"), (m) => m.RegisterPage) },
       { path: "invite", lazy: lazyPage(() => import("./pages/invite-page.js"), (m) => m.InvitePage) },
       { path: "book", lazy: lazyPage(() => import("./pages/public/book-page.js"), (m) => m.BookPage) },
+      { path: "learn", lazy: lazyPage(() => import("./pages/public/learn-page.js"), (m) => m.LearnIndexPage) },
+      { path: "learn/:topic", lazy: lazyPage(() => import("./pages/public/learn-page.js"), (m) => m.LearnTopicPage) },
       { path: "shared/:token", lazy: lazyPage(() => import("./pages/public/shared-page.js"), (m) => m.SharedPage) },
       { path: "verify/prescriptions/:token", lazy: lazyPage(() => import("./pages/public/verify-page.js"), (m) => m.VerifyPrescriptionPage) },
       {

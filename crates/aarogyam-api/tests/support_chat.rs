@@ -173,7 +173,8 @@ async fn support_never_reads_chat_patient_messages_or_contact_preferences() {
     assert_eq!(list["items"].as_array().unwrap().len(), 1, "{list}");
 
     // And in the database: staff of the clinic see rows, support sees none.
-    assert_eq!(visible(&app, ASHA_USER, "staff").await, [1, 1, 1, 0, 1]);
+    // The clinic's "Everyone" channel is a second conversation, with no messages.
+    assert_eq!(visible(&app, ASHA_USER, "staff").await, [2, 1, 1, 0, 1]);
     assert_eq!(visible(&app, STAFF_USER, "support").await, [0; 5]);
     app.finish().await;
 }

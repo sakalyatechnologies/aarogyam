@@ -7,9 +7,10 @@ use aarogyam_app::lab_orders::{
 };
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{
-    EncounterId, LabContactId, LabOrderId, LabVendorId, MembershipId, PatientId, ProcedureId,
+    EncounterId, LabContactId, LabOrderId, LabVendorId, MembershipId, MessageId, PatientId,
+    ProcedureId,
 };
-use aarogyam_domain::lab::{LabOrderStatus, LabPipeline};
+use aarogyam_domain::lab::{LabOrderStatus, LabPipeline, ReminderChannel, TrackerStage};
 use aarogyam_domain::permission::require::{LabsRead, LabsWrite};
 use axum::Json;
 use axum::extract::State;
@@ -104,6 +105,38 @@ impl From<LabPipeline> for LabPipelineStage {
             LabPipeline::Fitted => Self::Fitted,
             LabPipeline::Rework => Self::Rework,
             LabPipeline::Cancelled => Self::Cancelled,
+        }
+    }
+}
+
+/// The five steps of the order tracker, derived from the status and the free-text stage:
+/// `draft` is impression; `sent` and `in_progress` are production, or trial or final when the
+/// stage says so (try, trial, bisque, framework, wax: trial; final, finish, glaze, polish,
+/// cement: final); `received` is final, or trial when the stage says so; `fitted` is delivered;
+/// `returned_for_rework` is production. A cancelled order has none.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LabTrackerStage {
+    /// The impression is being taken, or the order is a draft.
+    Impression,
+    /// The lab is making the work.
+    Production,
+    /// A trial: wax try-in, framework trial or bisque.
+    Trial,
+    /// Finished and ready to fit.
+    Final,
+    /// Fitted.
+    Delivered,
+}
+
+impl From<TrackerStage> for LabTrackerStage {
+    fn from(stage: TrackerStage) -> Self {
+        match stage {
+            TrackerStage::Impression => Self::Impression,
+            TrackerStage::Production => Self::Production,
+            TrackerStage::Trial => Self::Trial,
+            TrackerStage::Final => Self::Final,
+            TrackerStage::Delivered => Self::Delivered,
         }
     }
 }
@@ -247,6 +280,10 @@ pub struct LabOrder {
     pub days_late: Option<i64>,
     /// Where the work is between trials: wax try-in, framework trial, bisque.
     pub stage: Option<String>,
+    /// Where it is on the five-step tracker (impression, production, trial, final,
+    /// delivered), derived from `status` and `stage`; absent when cancelled.
+    #[schema(required = false)]
+    pub tracker_stage: Option<LabTrackerStage>,
     /// Instructions for the lab.
     pub instructions: Option<String>,
     /// When it went to the lab (RFC 3339).
@@ -306,6 +343,7 @@ impl From<LabOrderView> for LabOrder {
             late: view.late,
             days_late: view.days_late,
             stage: view.stage,
+            tracker_stage: view.tracker_stage.map(Into::into),
             instructions: view.instructions,
             sent_at: view.sent_at.map(rfc3339),
             due_on: view.due_on.map(|d| d.to_string()),
@@ -426,6 +464,11 @@ pub struct LabReminderQueued {
     /// The outbox message.
     #[schema(value_type = String)]
     pub message_id: Uuid,
+    /// A `https://wa.me/` link to remind the lab's contact on `WhatsApp` with the same message
+    /// typed in, for staff to open and send; nothing is sent on `WhatsApp` by us. Absent when
+    /// the lab has no phone number.
+    #[schema(required = false)]
+    pub wa_link: Option<String>,
 }
 
 /// Filters for the lab order list.
@@ -729,7 +772,7 @@ pub(crate) async fn remind(
     Require { request, .. }: Require<LabsWrite>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<(StatusCode, Json<LabReminderQueued>), ApiFailure> {
-    let message = app::remind(
+    let reminded = app::remind(
         state.db(),
         &request.actor,
         request.request_id,
@@ -739,13 +782,192 @@ pub(crate) async fn remind(
     tracing::info!(
         event = Event::LabOrderReminded.as_str(),
         lab_order_id = %id,
-        message_id = %message.uuid(),
+        message_id = %reminded.message_id.uuid(),
         "lab reminded"
     );
     Ok((
         StatusCode::ACCEPTED,
         Json(LabReminderQueued {
-            message_id: message.uuid(),
+            message_id: reminded.message_id.uuid(),
+            wa_link: reminded.wa_link,
+        }),
+    ))
+}
+
+/// How a batch reminder reaches the labs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LabReminderChannel {
+    /// One email per lab through the outbox.
+    Email,
+    /// One `wa.me` link per lab to open in `WhatsApp`; nothing is sent by us.
+    Whatsapp,
+}
+
+impl From<LabReminderChannel> for ReminderChannel {
+    fn from(channel: LabReminderChannel) -> Self {
+        match channel {
+            LabReminderChannel::Email => Self::Email,
+            LabReminderChannel::Whatsapp => Self::Whatsapp,
+        }
+    }
+}
+
+impl From<ReminderChannel> for LabReminderChannel {
+    fn from(channel: ReminderChannel) -> Self {
+        match channel {
+            ReminderChannel::Email => Self::Email,
+            ReminderChannel::Whatsapp => Self::Whatsapp,
+        }
+    }
+}
+
+/// Orders to remind labs about.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct LabRemindersRequest {
+    /// 1 to 50 lab orders, in any mix of labs; repeats count once.
+    #[schema(value_type = Vec<String>)]
+    pub order_ids: Vec<Uuid>,
+    /// `email` queues one message per lab; `whatsapp` returns one `wa.me` link per lab.
+    pub channel: LabReminderChannel,
+}
+
+/// What a batch reminder did for one lab.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LabReminderVendor {
+    /// The lab.
+    #[schema(value_type = String)]
+    pub vendor_id: Uuid,
+    /// Its name.
+    pub vendor_name: String,
+    /// The contact the reminder is for; absent when only the lab's own phone is known.
+    #[schema(value_type = Option<String>)]
+    pub contact_id: Option<Uuid>,
+    /// Their name.
+    pub contact_name: Option<String>,
+    /// The orders it lists.
+    #[schema(value_type = Vec<String>)]
+    pub order_ids: Vec<Uuid>,
+    /// Their numbers, in the same order.
+    pub order_numbers: Vec<String>,
+    /// The queued email (`email` channel).
+    #[schema(value_type = Option<String>)]
+    pub message_id: Option<Uuid>,
+    /// The `https://wa.me/` link with the message typed in (`whatsapp` channel).
+    pub wa_link: Option<String>,
+}
+
+/// An order a batch reminder left out.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LabReminderSkipped {
+    /// The order.
+    #[schema(value_type = String)]
+    pub order_id: Uuid,
+    /// `LAB-<n>`.
+    pub number: String,
+    /// `not_at_lab` (the work isn't at the lab), `no_email` (the lab has no contact with an
+    /// email address) or `no_phone` (the lab has no phone number).
+    pub reason: String,
+}
+
+/// The result of a batch reminder.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LabReminders {
+    /// The channel asked for.
+    pub channel: LabReminderChannel,
+    /// One entry per lab reminded, by name.
+    pub vendors: Vec<LabReminderVendor>,
+    /// Orders left out, and why.
+    pub skipped: Vec<LabReminderSkipped>,
+}
+
+/// Reminds several labs at once. The orders are grouped by lab and each lab gets one message
+/// listing its order numbers and the work (type, teeth, shade, due date), never the patient.
+/// `email` queues one outbox message per lab, to the order's contact with an address (else the
+/// lab's first), and records the reminder on each order. `whatsapp` returns one `wa.me` link per
+/// lab for staff to open (the contact who uses `WhatsApp`, else one with a phone, else the lab's
+/// own phone); nothing is sent by us, so log the call afterwards if it matters. Orders not at the
+/// lab, and labs that can't be reached on the channel, are listed in `skipped`.
+#[utoipa::path(
+    post,
+    path = "/api/v1/lab-orders/reminders",
+    operation_id = "remindLabs",
+    tag = "labs",
+    request_body = LabRemindersRequest,
+    security(("bearer" = [])),
+    responses(
+        (status = 202, body = LabReminders, description = "Emails queued, one per lab"),
+        (status = 200, body = LabReminders, description = "WhatsApp links, one per lab"),
+        (status = 400, description = "No orders, more than 50, or an unknown channel"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks labs.write"),
+        (status = 404, description = "An order isn't in this clinic or within reach; nothing was done")
+    )
+)]
+pub(crate) async fn remind_many(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<LabsWrite>,
+    ApiJson(body): ApiJson<LabRemindersRequest>,
+) -> Result<(StatusCode, Json<LabReminders>), ApiFailure> {
+    let ids: Vec<LabOrderId> = body
+        .order_ids
+        .iter()
+        .copied()
+        .map(LabOrderId::from_uuid)
+        .collect();
+    let channel = ReminderChannel::from(body.channel);
+    let done = app::remind_many(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        &ids,
+        channel,
+    )
+    .await?;
+    let queued = done
+        .vendors
+        .iter()
+        .filter(|v| v.message_id.is_some())
+        .count();
+    tracing::info!(
+        event = Event::LabOrderReminded.as_str(),
+        channel = channel.as_str(),
+        labs = done.vendors.len(),
+        queued,
+        skipped = done.skipped.len(),
+        "labs reminded"
+    );
+    let status = match channel {
+        ReminderChannel::Email => StatusCode::ACCEPTED,
+        ReminderChannel::Whatsapp => StatusCode::OK,
+    };
+    Ok((
+        status,
+        Json(LabReminders {
+            channel: done.channel.into(),
+            vendors: done
+                .vendors
+                .into_iter()
+                .map(|v| LabReminderVendor {
+                    vendor_id: v.vendor_id.uuid(),
+                    vendor_name: v.vendor_name,
+                    contact_id: v.contact.as_ref().map(|(id, _)| id.uuid()),
+                    contact_name: v.contact.map(|(_, name)| name),
+                    order_ids: v.order_ids.into_iter().map(LabOrderId::uuid).collect(),
+                    order_numbers: v.order_numbers,
+                    message_id: v.message_id.map(MessageId::uuid),
+                    wa_link: v.wa_link,
+                })
+                .collect(),
+            skipped: done
+                .skipped
+                .into_iter()
+                .map(|o| LabReminderSkipped {
+                    order_id: o.order_id.uuid(),
+                    number: o.number,
+                    reason: o.reason.as_str().to_owned(),
+                })
+                .collect(),
         }),
     ))
 }

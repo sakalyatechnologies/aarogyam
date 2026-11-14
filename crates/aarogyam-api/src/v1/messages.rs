@@ -2,7 +2,7 @@
 //! (metadata only) and their contact preferences. Sending queues; the outbox job sends, checking
 //! consent, opt-outs and quiet hours when each message is due.
 
-use aarogyam_app::messaging::{self as app, Preference, Send};
+use aarogyam_app::messaging::{self as app, ChannelStats, Preference, Send, delivered_percent};
 use aarogyam_dal::messages::{MessageRow, PreferenceRow};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::PatientId;
@@ -14,6 +14,7 @@ use axum::http::StatusCode;
 use sakalya_http::{ApiJson, ApiPath};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -313,5 +314,101 @@ pub(crate) async fn set_preference(
     }
     Ok(Json(ContactPreferences {
         items: rows.into_iter().map(ContactPreference::from).collect(),
+    }))
+}
+
+/// One channel's numbers for the month so far.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelMessageStats {
+    /// `email`, `whatsapp` or `sms`.
+    pub channel: String,
+    /// Messages handed to the provider.
+    pub sent: i64,
+    /// Of those, reported delivered or read by the provider.
+    pub delivered: i64,
+    /// Delivered as a percentage of sent, one decimal; absent when nothing was sent.
+    pub delivered_pct: Option<f64>,
+    /// Failed for good, or bounced.
+    pub failed: i64,
+    /// Skipped: no consent, opted out, no address, a paused template.
+    pub skipped: i64,
+    /// Patients who opted out of this channel this month.
+    pub opt_outs: i64,
+}
+
+impl From<ChannelStats> for ChannelMessageStats {
+    fn from(c: ChannelStats) -> Self {
+        Self {
+            channel: c.channel.as_str().to_owned(),
+            sent: c.sent,
+            delivered: c.delivered,
+            delivered_pct: delivered_percent(c.delivered, c.sent),
+            failed: c.failed,
+            skipped: c.skipped,
+            opt_outs: c.opt_outs,
+        }
+    }
+}
+
+/// The clinic's message numbers for the month so far.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MessageStats {
+    /// The start of the month, in the clinic's time zone (RFC 3339).
+    pub since: String,
+    /// Messages handed to the provider, all channels.
+    pub sent: i64,
+    /// Of those, reported delivered or read.
+    pub delivered: i64,
+    /// Delivered as a percentage of sent, one decimal; absent when nothing was sent.
+    pub delivered_pct: Option<f64>,
+    /// Failed for good, or bounced.
+    pub failed: i64,
+    /// Skipped.
+    pub skipped: i64,
+    /// Opt-outs recorded this month (a patient who opted out of two channels counts twice).
+    pub opt_outs: i64,
+    /// One entry per channel (`email`, `sms`, `whatsapp`), used or not.
+    pub by_channel: Vec<ChannelMessageStats>,
+}
+
+/// This month's message numbers: sent, delivered and the delivered share, failed, skipped and
+/// opt-outs, in total and per channel. The month is the clinic's own calendar month so far.
+/// Counts only: no patient and no message text.
+#[utoipa::path(
+    get,
+    path = "/api/v1/messages/stats",
+    operation_id = "getMessageStats",
+    tag = "messages",
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = MessageStats),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks messages.send")
+    )
+)]
+pub(crate) async fn stats(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<MessagesSend>,
+) -> Result<Json<MessageStats>, ApiFailure> {
+    let done = app::stats(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(MessageStats {
+        since: rfc3339(done.since),
+        sent: done.total.sent,
+        delivered: done.total.delivered,
+        delivered_pct: delivered_percent(done.total.delivered, done.total.sent),
+        failed: done.total.failed,
+        skipped: done.total.skipped,
+        opt_outs: done.total.opt_outs,
+        by_channel: done
+            .by_channel
+            .into_iter()
+            .map(ChannelMessageStats::from)
+            .collect(),
     }))
 }

@@ -1,0 +1,152 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with conv as (\n             select c.org_id, c.id from aarogyam.conversations c where c.id = $1\n           ), page as (\n             (select m.id, m.author_membership_id, m.body, m.patient_id, m.client_id,\n                     m.deleted_at, m.created_at, m.is_notice\n              from aarogyam.chat_messages m join conv on m.org_id = conv.org_id and m.conversation_id = conv.id\n              where $2::uuid is not null and m.id > $2\n              order by m.id limit $4)\n             union all\n             (select m.id, m.author_membership_id, m.body, m.patient_id, m.client_id,\n                     m.deleted_at, m.created_at, m.is_notice\n              from aarogyam.chat_messages m join conv on m.org_id = conv.org_id and m.conversation_id = conv.id\n              where $2::uuid is null and ($3::uuid is null or m.id < $3)\n              order by m.id desc limit $4)\n           ), logged as (\n             insert into audit.access_log\n               (actor_user_id, actor_kind, patient_id, resource, resource_id, action, purpose, request_id)\n             select distinct $5::uuid, $6, p.patient_id, 'chat', $1::uuid, 'view', $7, $8\n             from page p\n             where p.patient_id is not null\n               and not exists (\n                 select 1 from audit.access_log l\n                 where l.org_id = (select app.tenant_id()) and l.patient_id = p.patient_id\n                   and l.at >= date_trunc('day', now(), $9) and l.resource = 'chat'\n                   and l.resource_id = $1 and l.actor_user_id = $5)\n           )\n           select conv.id as \"conversation_id!\", p.id as \"id?\",\n                  p.author_membership_id as \"author_membership_id?\",\n                  u.display_name as \"author_name?\", p.body as \"body?\", p.patient_id as \"patient_id?\",\n                  p.client_id as \"client_id?\", p.deleted_at as \"deleted_at?\",\n                  p.created_at as \"created_at?\", p.is_notice as \"is_notice?\",\n                  a.id as \"attachment_id?\", a.mime_type as \"attachment_mime_type?\",\n                  a.size_bytes as \"attachment_size_bytes?\", a.file_name as \"attachment_file_name?\"\n           from conv\n           left join page p on true\n           left join aarogyam.memberships am on am.org_id = conv.org_id and am.id = p.author_membership_id\n           left join aarogyam.users u on u.id = am.user_id\n           left join aarogyam.chat_attachments a\n             on a.org_id = conv.org_id and a.message_id = p.id and a.deleted_at is null\n           order by p.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "conversation_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.conversations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "author_membership_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "author_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.users",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "body?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "patient_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "client_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "deleted_at?",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at?",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "is_notice?",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "attachment_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_attachments",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "attachment_mime_type?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_attachments",
+            "name": "mime_type"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "attachment_size_bytes?",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_attachments",
+            "name": "size_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "attachment_file_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_attachments",
+            "name": "file_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int8",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      true,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "c28d1f31de167868b4559f73df48e807c0a676d6e4e2ba72ce31b6b094268920"
+}

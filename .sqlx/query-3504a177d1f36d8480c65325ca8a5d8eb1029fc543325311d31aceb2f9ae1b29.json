@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with b as (select date_trunc('month', $1::timestamptz, $2::text) as since),\n           ch(channel) as (values ('email'), ('sms'), ('whatsapp')),\n           m as (\n             select m.channel,\n                    count(*) filter (where m.status = 'sent') as sent,\n                    count(*) filter (where m.delivery in ('delivered', 'read')) as delivered,\n                    count(*) filter (where m.status = 'failed'\n                                        or m.delivery in ('bounced', 'failed')) as failed,\n                    count(*) filter (where m.status = 'skipped') as skipped\n             from aarogyam.messages m, b\n             where m.created_at >= b.since\n             group by m.channel\n           ), o as (\n             select p.channel, count(distinct p.patient_id) as opt_outs\n             from aarogyam.contact_preferences p, b\n             where p.opted_out and p.opted_out_at >= b.since\n             group by p.channel\n           )\n           select ch.channel as \"channel!\", b.since as \"since!\",\n                  coalesce(m.sent, 0) as \"sent!\", coalesce(m.delivered, 0) as \"delivered!\",\n                  coalesce(m.failed, 0) as \"failed!\", coalesce(m.skipped, 0) as \"skipped!\",\n                  coalesce(o.opt_outs, 0) as \"opt_outs!\"\n           from ch cross join b\n           left join m on m.channel = ch.channel\n           left join o on o.channel = ch.channel\n           order by ch.channel",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "since!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "sent!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "delivered!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "failed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "skipped!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "opt_outs!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "3504a177d1f36d8480c65325ca8a5d8eb1029fc543325311d31aceb2f9ae1b29"
+}

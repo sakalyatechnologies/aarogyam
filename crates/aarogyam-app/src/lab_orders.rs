@@ -11,7 +11,9 @@ use aarogyam_domain::ids::{
 };
 use aarogyam_domain::lab::{
     ContactLogChannel, ContactOutcome, LabError, LabEventKind, LabOrderStatus, LabPipeline,
-    LabReminder, MAX_ITEMS, check_qty, check_teeth, check_unit_cost,
+    LabReminder, MAX_ITEMS, MAX_REMINDER_ORDERS, ReminderChannel, ReminderItem, ReminderOrder,
+    TrackerStage, check_qty, check_teeth, check_unit_cost, reminder_payload, reminder_text,
+    tracker_stage, whatsapp_link,
 };
 use aarogyam_domain::permission::Permission;
 use sakalya_db::{Db, ScopedTx};
@@ -126,6 +128,9 @@ pub struct LabOrderView {
     pub status: LabOrderStatus,
     /// Where the work is between trials.
     pub stage: Option<String>,
+    /// Where it is on the five-step tracker, derived from the status and stage; `None` when
+    /// cancelled.
+    pub tracker_stage: Option<TrackerStage>,
     /// Instructions for the lab.
     pub instructions: Option<String>,
     /// When it went to the lab.
@@ -224,6 +229,7 @@ fn view(row: OrderJson, costs_visible: bool, today: Date) -> LabOrderView {
         procedure_id: row.procedure_id.map(ProcedureId::from_uuid),
         encounter_id: row.encounter_id.map(EncounterId::from_uuid),
         status,
+        tracker_stage: tracker_stage(status, row.stage.as_deref()),
         stage: row.stage,
         instructions: row.instructions,
         sent_at: row.sent_at,
@@ -702,8 +708,19 @@ pub async fn update(
     .await
 }
 
+/// A reminder queued for one order, and a `WhatsApp` link to send the same by hand.
+#[derive(Debug, Clone)]
+pub struct Reminded {
+    /// The outbox message (email).
+    pub message_id: MessageId,
+    /// A `wa.me` link to the lab's contact with the same reminder typed in; `None` when the lab
+    /// has no phone number.
+    pub wa_link: Option<String>,
+}
+
 /// Emails the lab a reminder about an order at the lab now, through the outbox: the clinic,
-/// the order number, the work, teeth, shade and due date, never the patient.
+/// the order number, the work, teeth, shade and due date, never the patient. Also returns a
+/// `wa.me` link to remind the lab's contact on `WhatsApp` by hand (nothing is sent on it).
 ///
 /// # Errors
 /// [`AppError::Denied`] without `labs.write`; [`AppError::NotFound`]; [`AppError::Conflict`]
@@ -713,7 +730,7 @@ pub async fn remind(
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     id: LabOrderId,
-) -> Result<MessageId, AppError> {
+) -> Result<Reminded, AppError> {
     actor.require(Permission::LabsWrite)?;
     let member = actor.reach(Permission::LabsWrite).member();
     db.scoped(&scope(actor, request_id), async |tx| {
@@ -727,7 +744,15 @@ pub async fn remind(
         )
         .await?;
         if queued.is_some() {
-            return Ok(message);
+            let wa_link = whatsapp_links(tx, &[id.uuid()], member)
+                .await?
+                .into_iter()
+                .next()
+                .and_then(|group| group.wa_link);
+            return Ok(Reminded {
+                message_id: message,
+                wa_link,
+            });
         }
         let (_, status) = locked(tx, id, member).await?;
         if status.at_lab() {
@@ -739,4 +764,367 @@ pub async fn remind(
         }
     })
     .await
+}
+
+/// Why an order of a batch reminder was left out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkipReason {
+    /// The work isn't at the lab (not sent, already back, fitted, reworked or cancelled).
+    NotAtLab,
+    /// The lab has no contact with an email address.
+    NoEmail,
+    /// The lab has no phone number to open `WhatsApp` with.
+    NoPhone,
+}
+
+impl SkipReason {
+    /// The value the API shows.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NotAtLab => "not_at_lab",
+            Self::NoEmail => "no_email",
+            Self::NoPhone => "no_phone",
+        }
+    }
+}
+
+/// An order of a batch reminder that was left out.
+#[derive(Debug, Clone)]
+pub struct SkippedOrder {
+    /// The order.
+    pub order_id: LabOrderId,
+    /// `LAB-<n>`.
+    pub number: String,
+    /// Why.
+    pub reason: SkipReason,
+}
+
+/// What a batch reminder did for one lab.
+#[derive(Debug, Clone)]
+pub struct VendorReminder {
+    /// The lab.
+    pub vendor_id: LabVendorId,
+    /// Its name.
+    pub vendor_name: String,
+    /// The contact the reminder is for, and their name; `None` when only the lab's own phone
+    /// is known.
+    pub contact: Option<(LabContactId, String)>,
+    /// The orders it lists.
+    pub order_ids: Vec<LabOrderId>,
+    /// Their numbers, in the same order.
+    pub order_numbers: Vec<String>,
+    /// The queued email (email channel).
+    pub message_id: Option<MessageId>,
+    /// The `wa.me` link (`WhatsApp` channel).
+    pub wa_link: Option<String>,
+}
+
+/// The result of a batch reminder.
+#[derive(Debug, Clone)]
+pub struct BatchReminded {
+    /// The channel asked for.
+    pub channel: ReminderChannel,
+    /// One entry per lab that got a reminder, by name.
+    pub vendors: Vec<VendorReminder>,
+    /// Orders left out.
+    pub skipped: Vec<SkippedOrder>,
+}
+
+/// A group of one lab's orders with the contact chosen for a `WhatsApp` link.
+struct WhatsappGroup {
+    wa_link: Option<String>,
+}
+
+/// Contacts in the order to try them: those the orders name first, then oldest first.
+fn preferred<'a>(
+    contacts: &'a [dal::ReminderContactRow],
+    named: &[Option<Uuid>],
+) -> Vec<&'a dal::ReminderContactRow> {
+    let mut sorted: Vec<&dal::ReminderContactRow> = contacts.iter().collect();
+    sorted.sort_by_key(|c| !named.contains(&Some(c.id)));
+    sorted
+}
+
+/// Who gets an email: the first contact with an address.
+fn pick_email<'a>(
+    contacts: &'a [dal::ReminderContactRow],
+    named: &[Option<Uuid>],
+) -> Option<&'a dal::ReminderContactRow> {
+    preferred(contacts, named)
+        .into_iter()
+        .find(|c| c.email.is_some())
+}
+
+/// Who gets a `WhatsApp` message: a contact who uses it on their phone, else any with a phone.
+fn pick_whatsapp<'a>(
+    contacts: &'a [dal::ReminderContactRow],
+    named: &[Option<Uuid>],
+) -> Option<&'a dal::ReminderContactRow> {
+    let sorted = preferred(contacts, named);
+    sorted
+        .iter()
+        .find(|c| c.whatsapp && c.phone_e164.is_some())
+        .or_else(|| sorted.iter().find(|c| c.phone_e164.is_some()))
+        .copied()
+}
+
+fn reminder_orders_of(rows: &[&dal::ReminderOrderRow]) -> Vec<ReminderOrder> {
+    rows.iter()
+        .map(|row| ReminderOrder {
+            number: row.number.clone(),
+            due_on: row.due_on,
+            items: row
+                .items
+                .0
+                .iter()
+                .map(|item| ReminderItem {
+                    work_type: item.work_type.clone(),
+                    teeth: item.teeth.clone(),
+                    shade: item.shade.clone(),
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+/// A `wa.me` link for each lab among the orders `ids` (one group per lab).
+async fn whatsapp_links(
+    tx: &mut ScopedTx,
+    ids: &[Uuid],
+    member: Option<Uuid>,
+) -> Result<Vec<WhatsappGroup>, AppError> {
+    let rows = dal::reminder_orders(tx.conn(), ids, member).await?;
+    let vendors: Vec<Uuid> = rows.iter().map(|r| r.vendor_id).collect();
+    let contacts = dal::reminder_contacts(tx.conn(), &vendors).await?;
+    let clinic = dal::clinic_name(tx.conn()).await?;
+    let mut groups = Vec::new();
+    for (_, orders) in by_vendor(&rows) {
+        let target = vendor_whatsapp(&contacts, &orders);
+        let text = reminder_text(&clinic, &reminder_orders_of(&orders));
+        groups.push(WhatsappGroup {
+            wa_link: target.and_then(|(_, phone)| whatsapp_link(&phone, &text)),
+        });
+    }
+    Ok(groups)
+}
+
+/// The orders as skipped, for `reason`.
+fn skipped_of(
+    orders: &[&dal::ReminderOrderRow],
+    reason: SkipReason,
+) -> impl Iterator<Item = SkippedOrder> {
+    orders.iter().map(move |o| SkippedOrder {
+        order_id: LabOrderId::from_uuid(o.id),
+        number: o.number.clone(),
+        reason,
+    })
+}
+
+/// The orders grouped by lab, keeping their order.
+fn by_vendor(rows: &[dal::ReminderOrderRow]) -> Vec<(Uuid, Vec<&dal::ReminderOrderRow>)> {
+    let mut groups: Vec<(Uuid, Vec<&dal::ReminderOrderRow>)> = Vec::new();
+    for row in rows {
+        match groups
+            .iter_mut()
+            .find(|(vendor, _)| *vendor == row.vendor_id)
+        {
+            Some((_, orders)) => orders.push(row),
+            None => groups.push((row.vendor_id, vec![row])),
+        }
+    }
+    groups
+}
+
+/// The contact (if any) and phone a lab's `WhatsApp` reminder goes to.
+fn vendor_whatsapp(
+    contacts: &[dal::ReminderContactRow],
+    orders: &[&dal::ReminderOrderRow],
+) -> Option<(Option<(Uuid, String)>, String)> {
+    let vendor = orders.first()?.vendor_id;
+    let own: Vec<dal::ReminderContactRow> = contacts
+        .iter()
+        .filter(|c| c.vendor_id == vendor)
+        .cloned()
+        .collect();
+    let named: Vec<Option<Uuid>> = orders.iter().map(|o| o.contact_id).collect();
+    if let Some(contact) = pick_whatsapp(&own, &named) {
+        let phone = contact.phone_e164.clone()?;
+        return Some((Some((contact.id, contact.name.clone())), phone));
+    }
+    orders
+        .first()?
+        .vendor_phone
+        .clone()
+        .map(|phone| (None, phone))
+}
+
+/// Reminds the labs of several orders at once, one message per lab listing its order numbers and
+/// work (type, teeth, shade, due date), never a patient. `email` queues one outbox message per
+/// lab (to the order's contact with an address, else the lab's first), records a `reminded`
+/// event on each order and marks the lab contacted. `whatsapp` queues nothing: it returns a
+/// `wa.me` link per lab, to the contact who uses `WhatsApp` (else any with a phone, else the
+/// lab's own phone), for staff to open and send; log the call with the contact log if it
+/// matters. Orders not at the lab, and labs with no way to reach, are listed in `skipped`.
+///
+/// # Errors
+/// [`AppError::Denied`] without `labs.write`; [`AppError::Invalid`] for no orders or more than
+/// 50; [`AppError::NotFound`] when an order isn't in this clinic or within reach (nothing is
+/// done).
+pub async fn remind_many(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    order_ids: &[LabOrderId],
+    channel: ReminderChannel,
+) -> Result<BatchReminded, AppError> {
+    actor.require(Permission::LabsWrite)?;
+    let mut ids: Vec<Uuid> = order_ids.iter().map(|id| id.uuid()).collect();
+    ids.sort_unstable();
+    ids.dedup();
+    if ids.is_empty() || ids.len() > MAX_REMINDER_ORDERS {
+        return Err(AppError::invalid(
+            "order_ids",
+            format!("must name 1 to {MAX_REMINDER_ORDERS} orders"),
+        ));
+    }
+    let member = actor.reach(Permission::LabsWrite).member();
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let rows = dal::reminder_orders(tx.conn(), &ids, member).await?;
+        if rows.len() != ids.len() {
+            return Err(AppError::NotFound("lab order"));
+        }
+        let vendors: Vec<Uuid> = rows.iter().map(|r| r.vendor_id).collect();
+        let contacts = dal::reminder_contacts(tx.conn(), &vendors).await?;
+        let clinic = dal::clinic_name(tx.conn()).await?;
+        let mut result = BatchReminded {
+            channel,
+            vendors: Vec::new(),
+            skipped: Vec::new(),
+        };
+        for (vendor_id, group) in by_vendor(&rows) {
+            let (at_lab, away): (Vec<_>, Vec<_>) = group
+                .into_iter()
+                .partition(|o| LabOrderStatus::parse(&o.status).is_ok_and(LabOrderStatus::at_lab));
+            result
+                .skipped
+                .extend(skipped_of(&away, SkipReason::NotAtLab));
+            let Some(first) = at_lab.first() else {
+                continue;
+            };
+            let lines = reminder_orders_of(&at_lab);
+            let named: Vec<Option<Uuid>> = at_lab.iter().map(|o| o.contact_id).collect();
+            let own: Vec<dal::ReminderContactRow> = contacts
+                .iter()
+                .filter(|c| c.vendor_id == vendor_id)
+                .cloned()
+                .collect();
+            let mut entry = VendorReminder {
+                vendor_id: LabVendorId::from_uuid(vendor_id),
+                vendor_name: first.vendor_name.clone(),
+                contact: None,
+                order_ids: at_lab.iter().map(|o| LabOrderId::from_uuid(o.id)).collect(),
+                order_numbers: at_lab.iter().map(|o| o.number.clone()).collect(),
+                message_id: None,
+                wa_link: None,
+            };
+            let reached = match channel {
+                ReminderChannel::Email => match pick_email(&own, &named) {
+                    Some(contact) => {
+                        let message = MessageId::new_v7();
+                        let ids: Vec<Uuid> = at_lab.iter().map(|o| o.id).collect();
+                        let email = contact.email.clone().unwrap_or_default();
+                        dal::queue_batch_reminder(
+                            tx.conn(),
+                            message.uuid(),
+                            &email,
+                            &reminder_payload(&clinic, &lines),
+                            &ids,
+                            actor.membership_id.uuid(),
+                        )
+                        .await?;
+                        entry.contact =
+                            Some((LabContactId::from_uuid(contact.id), contact.name.clone()));
+                        entry.message_id = Some(message);
+                        true
+                    }
+                    None => false,
+                },
+                ReminderChannel::Whatsapp => match vendor_whatsapp(&contacts, &at_lab) {
+                    Some((contact, phone)) => {
+                        entry.contact =
+                            contact.map(|(id, name)| (LabContactId::from_uuid(id), name));
+                        entry.wa_link = whatsapp_link(&phone, &reminder_text(&clinic, &lines));
+                        entry.wa_link.is_some()
+                    }
+                    None => false,
+                },
+            };
+            if reached {
+                result.vendors.push(entry);
+            } else {
+                let reason = match channel {
+                    ReminderChannel::Email => SkipReason::NoEmail,
+                    ReminderChannel::Whatsapp => SkipReason::NoPhone,
+                };
+                result.skipped.extend(skipped_of(&at_lab, reason));
+            }
+        }
+        Ok(result)
+    })
+    .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn contact(
+        n: u128,
+        email: Option<&str>,
+        phone: Option<&str>,
+        whatsapp: bool,
+    ) -> dal::ReminderContactRow {
+        dal::ReminderContactRow {
+            id: Uuid::from_u128(n),
+            vendor_id: Uuid::nil(),
+            name: format!("C{n}"),
+            phone_e164: phone.map(str::to_owned),
+            email: email.map(str::to_owned),
+            whatsapp,
+        }
+    }
+
+    #[test]
+    fn the_contact_the_order_names_is_tried_first() {
+        let contacts = [
+            contact(1, Some("a@lab.in"), Some("+919800000001"), false),
+            contact(2, Some("b@lab.in"), Some("+919800000002"), true),
+        ];
+        let named = [Some(Uuid::from_u128(2))];
+        assert_eq!(
+            pick_email(&contacts, &named).map(|c| c.id),
+            Some(Uuid::from_u128(2))
+        );
+        assert_eq!(
+            pick_email(&contacts, &[None]).map(|c| c.id),
+            Some(Uuid::from_u128(1))
+        );
+        // A contact who uses WhatsApp wins over one who merely has a phone.
+        assert_eq!(
+            pick_whatsapp(&contacts, &[None]).map(|c| c.id),
+            Some(Uuid::from_u128(2))
+        );
+    }
+
+    #[test]
+    fn a_contact_without_the_channel_is_passed_over() {
+        let contacts = [contact(1, None, Some("+919800000001"), false)];
+        assert!(pick_email(&contacts, &[None]).is_none());
+        assert_eq!(
+            pick_whatsapp(&contacts, &[None]).map(|c| c.id),
+            Some(Uuid::from_u128(1))
+        );
+        assert!(pick_whatsapp(&[contact(3, Some("x@y.in"), None, false)], &[None]).is_none());
+    }
 }

@@ -72,11 +72,13 @@ async fn get(app: &TestApp, token: &str, uri: &str) -> (StatusCode, Value) {
     app.send(Method::GET, ALPHA, uri, Some(token), None).await
 }
 
+/// The ids on a page, leaving out the clinic's "Everyone" channel, which every member has.
 fn ids(page: &Value) -> Vec<String> {
     page["items"]
         .as_array()
         .unwrap()
         .iter()
+        .filter(|item| item["kind"] != "channel")
         .map(|item| item["id"].as_str().unwrap().to_owned())
         .collect()
 }
@@ -186,8 +188,9 @@ async fn a_direct_conversation_is_one_per_pair_and_private() {
         )
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
-    assert_eq!(visible(&app, FARAH_USER).await, [0, 0, 0]);
-    assert_eq!(visible(&app, ARUN_USER).await, [1, 2, 1]);
+    // Everyone sees the "Everyone" channel (4 staff in it) besides their own conversations.
+    assert_eq!(visible(&app, FARAH_USER).await, [1, 4, 0]);
+    assert_eq!(visible(&app, ARUN_USER).await, [2, 6, 1]);
 
     // Without chat.use: refused before anything is read.
     let nothing = app.token(ALPHA_NOTHING);
@@ -327,7 +330,7 @@ async fn leavers_removed_and_deactivated_members_lose_access() {
     assert_eq!(status, StatusCode::NO_CONTENT);
     let messages = format!("/api/v1/conversations/{id}/messages");
     assert_eq!(get(&app, &farah, &messages).await.0, StatusCode::NOT_FOUND);
-    assert_eq!(visible(&app, FARAH_USER).await, [0, 0, 0]);
+    assert_eq!(visible(&app, FARAH_USER).await, [1, 4, 0]);
     let hello = json!({ "client_id": Uuid::now_v7(), "body": "Still here?" });
     assert_eq!(
         post(&app, &farah, &id, hello).await.0,
@@ -354,7 +357,8 @@ async fn leavers_removed_and_deactivated_members_lose_access() {
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (_, detail) = get(&app, &arun, &format!("/api/v1/conversations/{id}")).await;
     assert_eq!(detail["members"][0]["role"], "admin", "{detail}");
-    assert_eq!(visible(&app, ASHA_USER).await[0], 0);
+    // Only the "Everyone" channel is left to her.
+    assert_eq!(visible(&app, ASHA_USER).await[0], 1);
 
     // A direct conversation can't be left; a deactivated member loses it all the same.
     let (_, direct) = start(
@@ -369,7 +373,7 @@ async fn leavers_removed_and_deactivated_members_lose_access() {
         .await;
     assert_eq!(status, StatusCode::CONFLICT);
     say(&app, &arun, &direct, "See you tomorrow").await;
-    assert_eq!(visible(&app, FARAH_USER).await, [1, 2, 1]);
+    assert_eq!(visible(&app, FARAH_USER).await, [2, 6, 1]);
     sqlx::query("update aarogyam.memberships set status = 'suspended' where id = $1::uuid")
         .bind(&farah_id)
         .execute(&app.owner)

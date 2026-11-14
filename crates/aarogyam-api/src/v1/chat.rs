@@ -3,25 +3,35 @@
 //! conversation's active members see it (404 for anyone else). Message text is never logged.
 
 use aarogyam_app::chat::{
-    self as app, ConversationDetail, ConversationSummary, MessageView, NewChatMessage,
-    NewConversation,
+    self as app, ChatFile, ChatUpload, ConversationDetail, ConversationSummary, MessageView,
+    NewChatMessage, NewConversation,
 };
-use aarogyam_domain::chat::Cursor;
+use aarogyam_app::files::DownloadRefusal;
+use aarogyam_domain::chat::{Cursor, MAX_ATTACHMENT_BYTES};
 use aarogyam_domain::event::Event;
-use aarogyam_domain::ids::{ChatMessageId, ConversationId, MembershipId, PatientId};
+use aarogyam_domain::ids::{
+    ChatAttachmentId, ChatMessageId, ConversationId, MembershipId, PatientId,
+};
 use aarogyam_domain::permission::require::ChatUse;
 use axum::Json;
 use axum::extract::State;
-use axum::http::StatusCode;
-use sakalya_http::{ApiJson, ApiPath, ApiQuery};
+use axum::extract::multipart::{Multipart, MultipartError, MultipartRejection};
+use axum::http::{HeaderValue, StatusCode, header};
+use axum::response::{IntoResponse, Response};
+use sakalya_http::{ApiError, ApiJson, ApiPath, ApiQuery, ErrorKind};
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::files::{ContentQuery, DownloadLink, bad_form};
 use super::{bad, parse_id, rfc3339};
 use crate::AppState;
-use crate::extract::Require;
-use crate::failure::ApiFailure;
+use crate::extract::{ClinicHost, Require};
+use crate::failure::{ApiFailure, not_found};
+
+/// Room for the multipart envelope around a 5 MB file.
+pub(crate) const MAX_ATTACHMENT_BODY: usize = MAX_ATTACHMENT_BYTES + 64 * 1024;
 
 /// The other member of a direct conversation.
 #[derive(Debug, Serialize, ToSchema)]
@@ -233,9 +243,10 @@ pub struct Conversation {
     /// The conversation.
     #[schema(value_type = String)]
     pub id: Uuid,
-    /// `direct` or `group`.
+    /// `direct`, `group` or `channel` (the clinic-wide "Everyone" conversation, whose members
+    /// are all active staff and can't be changed through the API).
     pub kind: String,
-    /// A group's title.
+    /// A group's or channel's title.
     pub title: Option<String>,
     /// When it was archived (RFC 3339).
     pub archived_at: Option<String>,
@@ -243,6 +254,10 @@ pub struct Conversation {
     pub created_at: String,
     /// Who is in it, earliest joined first.
     pub members: Vec<ConversationMember>,
+    /// The newest notice that isn't deleted, to pin above the messages. Optional in the schema,
+    /// so apps built before it read on.
+    #[schema(required = false)]
+    pub pinned_notice: Option<ChatMessage>,
 }
 
 impl From<ConversationDetail> for Conversation {
@@ -263,6 +278,7 @@ impl From<ConversationDetail> for Conversation {
                     name: member.name,
                 })
                 .collect(),
+            pinned_notice: view.pinned_notice.map(ChatMessage::from),
         }
     }
 }
@@ -471,6 +487,39 @@ pub struct ChatMessage {
     pub deleted: bool,
     /// When it was posted (RFC 3339).
     pub created_at: String,
+    /// Whether it is a notice, pinned in its conversation while it is the newest. Optional in
+    /// the schema, so apps built before it read on.
+    #[schema(required = false)]
+    pub is_notice: bool,
+    /// The file it carries; fetch it with `GET /chat-attachments/{id}/download`. Optional in the
+    /// schema, so apps built before it read on.
+    #[schema(required = false)]
+    pub attachment: Option<ChatAttachment>,
+}
+
+/// The file a chat message carries.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChatAttachment {
+    /// The file.
+    #[schema(value_type = String)]
+    pub id: Uuid,
+    /// `image/jpeg`, `image/png` or `application/pdf`.
+    pub mime_type: String,
+    /// Its size in bytes.
+    pub size_bytes: i64,
+    /// The name it was sent with.
+    pub file_name: Option<String>,
+}
+
+impl From<ChatFile> for ChatAttachment {
+    fn from(file: ChatFile) -> Self {
+        Self {
+            id: file.id.uuid(),
+            mime_type: file.mime_type,
+            size_bytes: file.size_bytes,
+            file_name: file.file_name,
+        }
+    }
 }
 
 impl From<MessageView> for ChatMessage {
@@ -485,6 +534,8 @@ impl From<MessageView> for ChatMessage {
             client_id: view.client_id,
             deleted: view.deleted_at.is_some(),
             created_at: rfc3339(view.created_at),
+            is_notice: view.is_notice,
+            attachment: view.attachment.map(ChatAttachment::from),
         }
     }
 }
@@ -568,6 +619,11 @@ pub struct NewChatMessageBody {
     /// A patient it is about; needs `patients.read` reaching them.
     #[schema(value_type = Option<String>)]
     pub patient_id: Option<Uuid>,
+    /// Pin it as the conversation's notice (needs `chat.notice`; names no patient). The newest
+    /// notice that isn't deleted is shown as `pinned_notice`.
+    #[serde(default)]
+    #[schema(required = false)]
+    pub is_notice: bool,
 }
 
 /// Posts a message. Idempotent by `client_id`: a retry returns the first message with `200`.
@@ -584,7 +640,7 @@ pub struct NewChatMessageBody {
         (status = 200, body = ChatMessage, description = "Posted earlier with this client_id"),
         (status = 400, description = "Empty, too long or not plain text"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks chat.use, or patients.read for a patient"),
+        (status = 403, description = "The role lacks chat.use, patients.read for a patient, or chat.notice for a notice"),
         (status = 404, description = "No such conversation the caller is in, or the patient is out of reach"),
         (status = 409, description = "Archived, or the client_id was used for another message")
     )
@@ -599,6 +655,7 @@ pub(crate) async fn post_message(
         client_id: body.client_id,
         body: body.body,
         patient_id: body.patient_id.map(PatientId::from_uuid),
+        is_notice: body.is_notice,
     };
     let id = ConversationId::from_uuid(id);
     let (view, created) =
@@ -610,6 +667,13 @@ pub(crate) async fn post_message(
             message_id = %view.id.uuid(),
             "chat message posted"
         );
+        if view.is_notice {
+            tracing::info!(
+                event = Event::ChatNoticePosted.as_str(),
+                conversation_id = %id.uuid(),
+                "chat notice posted"
+            );
+        }
     }
     let status = if created {
         StatusCode::CREATED
@@ -617,6 +681,239 @@ pub(crate) async fn post_message(
         StatusCode::OK
     };
     Ok((status, Json(view.into())))
+}
+
+/// The form a chat file upload sends (`multipart/form-data`).
+#[derive(Debug, ToSchema)]
+#[expect(
+    dead_code,
+    reason = "documents the multipart form; fields are read from the stream"
+)]
+pub struct ChatUploadForm {
+    /// Chosen by the client (any UUID); posting again with it and the same file returns the first message.
+    client_id: String,
+    /// The file: JPEG, PNG or PDF, up to 5 MB. Its type is read from its content.
+    #[schema(value_type = String, format = Binary)]
+    file: Vec<u8>,
+    /// An optional caption, 1 to 4000 characters.
+    body: Option<String>,
+}
+
+fn too_large() -> ApiFailure {
+    ApiFailure::Error(ApiError::new(
+        ErrorKind::PayloadTooLarge,
+        "too_large",
+        "file: must be at most 5 MB",
+    ))
+}
+
+fn form_error(error: &MultipartError) -> ApiFailure {
+    if error.status() == StatusCode::PAYLOAD_TOO_LARGE {
+        too_large()
+    } else {
+        bad_form("the form could not be read")
+    }
+}
+
+async fn read_form(mut form: Multipart) -> Result<ChatUpload, ApiFailure> {
+    let mut client_id = None;
+    let mut body = None;
+    let mut file = None;
+    let mut file_name = None;
+    while let Some(field) = form.next_field().await.map_err(|e| form_error(&e))? {
+        let name = field.name().unwrap_or_default().to_owned();
+        match name.as_str() {
+            "file" => {
+                file_name = field.file_name().map(str::to_owned);
+                let bytes = field.bytes().await.map_err(|e| form_error(&e))?;
+                if bytes.len() > MAX_ATTACHMENT_BYTES {
+                    return Err(too_large());
+                }
+                file = Some(bytes.to_vec());
+            }
+            "client_id" => {
+                let text = field.text().await.map_err(|e| form_error(&e))?;
+                client_id = Some(
+                    Uuid::try_parse(text.trim())
+                        .map_err(|_| bad_form("client_id: must be a UUID"))?,
+                );
+            }
+            "body" => body = Some(field.text().await.map_err(|e| form_error(&e))?),
+            _ => return Err(bad_form("unknown form field")),
+        }
+    }
+    Ok(ChatUpload {
+        client_id: client_id.ok_or_else(|| bad_form("client_id: is required"))?,
+        body,
+        bytes: file.ok_or_else(|| bad_form("file: is required"))?,
+        file_name,
+    })
+}
+
+/// Posts a message that carries a file (`multipart/form-data`: `client_id`, `file` up to 5 MB,
+/// optional `body`). The type is read from the content: only JPEG, PNG and PDF are accepted.
+/// Idempotent by `client_id` and the file's content: a retry returns the first message with `200`.
+#[utoipa::path(
+    post,
+    path = "/api/v1/conversations/{id}/attachments",
+    operation_id = "postChatAttachment",
+    tag = "chat",
+    params(("id" = String, Path, description = "The conversation")),
+    request_body(content = ChatUploadForm, content_type = "multipart/form-data"),
+    security(("bearer" = [])),
+    responses(
+        (status = 201, body = ChatMessage, description = "Posted"),
+        (status = 200, body = ChatMessage, description = "Posted earlier with this client_id and file"),
+        (status = 400, description = "Not an accepted file, or a bad field"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks chat.use"),
+        (status = 404, description = "No such conversation the caller is in"),
+        (status = 409, description = "Archived, or the client_id was used for another message"),
+        (status = 413, description = "Larger than 5 MB")
+    )
+)]
+pub(crate) async fn post_attachment(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ChatUse>,
+    ApiPath(id): ApiPath<Uuid>,
+    form: Result<Multipart, MultipartRejection>,
+) -> Result<(StatusCode, Json<ChatMessage>), ApiFailure> {
+    let form = form.map_err(|_| bad_form("send the file as multipart/form-data"))?;
+    let upload = read_form(form).await?;
+    let id = ConversationId::from_uuid(id);
+    let (view, created) = app::post_file(
+        state.db(),
+        state.files()?,
+        &request.actor,
+        request.request_id,
+        id,
+        upload,
+    )
+    .await?;
+    if created {
+        tracing::info!(
+            event = Event::ChatAttachmentPosted.as_str(),
+            conversation_id = %id.uuid(),
+            message_id = %view.id.uuid(),
+            "chat file posted"
+        );
+    }
+    let status = if created {
+        StatusCode::CREATED
+    } else {
+        StatusCode::OK
+    };
+    Ok((status, Json(view.into())))
+}
+
+/// Issues a five-minute download link for a chat file of a conversation the caller is in.
+#[utoipa::path(
+    get,
+    path = "/api/v1/chat-attachments/{id}/download",
+    operation_id = "getChatAttachmentDownloadLink",
+    tag = "chat",
+    params(("id" = String, Path, description = "The file")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = DownloadLink),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks chat.use"),
+        (status = 404, description = "No such file in a conversation the caller is in")
+    )
+)]
+pub(crate) async fn attachment_link(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ChatUse>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<DownloadLink>, ApiFailure> {
+    let link = app::attachment_link(
+        state.db(),
+        state.files()?,
+        &request.actor,
+        request.request_id,
+        ChatAttachmentId::from_uuid(id),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(DownloadLink {
+        url: format!(
+            "/api/v1/chat-attachments/{}/content?token={}",
+            link.id.uuid(),
+            link.token
+        ),
+        expires_at: rfc3339(link.expires_at),
+    }))
+}
+
+/// Streams a chat file through a signed link from `GET /chat-attachments/{id}/download`. The
+/// link is the proof of access (an `<img>` can use it); it works on the clinic's own host for
+/// five minutes, and only while the member it was issued to is still in the conversation.
+#[utoipa::path(
+    get,
+    path = "/api/v1/chat-attachments/{id}/content",
+    operation_id = "getChatAttachmentContent",
+    tag = "chat",
+    params(
+        ("id" = String, Path, description = "The file"),
+        ("token" = String, Query, description = "The signed token from the download link")
+    ),
+    responses(
+        (status = 200, description = "The file, with its media type"),
+        (status = 403, description = "The link has expired; ask for a new one"),
+        (status = 404, description = "Not a valid link for this file on this host")
+    )
+)]
+pub(crate) async fn attachment_content(
+    State(state): State<AppState>,
+    host: ClinicHost,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiQuery(query): ApiQuery<ContentQuery>,
+) -> Result<Response, ApiFailure> {
+    let download = app::attachment_content(
+        state.db(),
+        state.files()?,
+        host.clinic_id,
+        host.request_id,
+        ChatAttachmentId::from_uuid(id),
+        &query.token,
+        OffsetDateTime::now_utc(),
+    )
+    .await
+    .map_err(|refusal| match refusal {
+        DownloadRefusal::Expired => ApiFailure::Error(ApiError::forbidden(
+            "link_expired",
+            "This link has expired; ask for a new one.",
+        )),
+        DownloadRefusal::NotFound => ApiFailure::Error(not_found()),
+        DownloadRefusal::Failed(error) => error.into(),
+    })?;
+    let disposition = format!(
+        "inline; filename=\"file-{}.{}\"",
+        id.simple(),
+        download.file_type.extension()
+    );
+    let mut response = download.bytes.into_response();
+    let headers = response.headers_mut();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static(download.file_type.mime_type()),
+    );
+    if let Ok(value) = HeaderValue::from_str(&disposition) {
+        headers.insert(header::CONTENT_DISPOSITION, value);
+    }
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    headers.insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static("sandbox; default-src 'none'"),
+    );
+    Ok(response)
 }
 
 /// How far the caller has read.
@@ -680,7 +977,15 @@ pub(crate) async fn delete_message(
 ) -> Result<StatusCode, ApiFailure> {
     let id = ConversationId::from_uuid(id);
     let message = ChatMessageId::from_uuid(message);
-    app::delete(state.db(), &request.actor, request.request_id, id, message).await?;
+    app::delete(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        id,
+        message,
+        state.files().ok(),
+    )
+    .await?;
     tracing::info!(
         event = Event::ChatMessageDeleted.as_str(),
         conversation_id = %id.uuid(),

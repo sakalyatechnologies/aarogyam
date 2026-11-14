@@ -31,6 +31,8 @@ text_value! {
         ClinicApplications => "clinic_applications",
         /// Staff chat messages, which may name a patient.
         ChatMessages => "chat_messages",
+        /// Files attached to staff chat messages (the bytes go with the row).
+        ChatAttachments => "chat_attachments",
         /// Lab orders with their items, history and payments: work on a patient and money
         /// paid, kept like bills.
         LabWork => "lab_work",
@@ -93,6 +95,7 @@ impl Class {
             Self::Messages
             | Self::ClinicApplications
             | Self::ChatMessages
+            | Self::ChatAttachments
             | Self::LabContacts
             | Self::MessageTemplates
             | Self::Campaigns
@@ -115,6 +118,7 @@ impl Class {
             Self::AccessLog | Self::AuditEvents => "when the entry was written",
             Self::ClinicApplications => "when the request was decided (or made, if undecided)",
             Self::ChatMessages => "when the message was posted",
+            Self::ChatAttachments => "when the file was attached",
             Self::LabWork => "when the order was recorded",
             Self::LabContacts => "when the contact was removed",
             Self::MessageTemplates => "when the template last changed",

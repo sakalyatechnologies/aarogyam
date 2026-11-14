@@ -106,3 +106,58 @@ describe("fake client: staff chat", () => {
     expect(value(await owner.listConversations()).items.some((c) => c.id === group.id)).toBe(false);
   });
 });
+
+describe("fake client: chat notices, files and message stats", () => {
+  it("pins the newest notice for chat.notice only and refuses a notice naming a patient", async () => {
+    const as = setup();
+    const owner = as(ASHA);
+    const doctor = as(FARAH);
+    const general = value(await doctor.listConversations()).items.find((c) => c.title === "General");
+    if (general === undefined) throw new Error("no general chat");
+    expect(status(await doctor.postChatMessage(general.id, { body: "Meeting", client_id: "n-0", is_notice: true }))).toBe(403);
+    const patient = value(await owner.listPatients()).items[0];
+    expect(status(await owner.postChatMessage(general.id, { body: "About", client_id: "n-1", is_notice: true, patient_id: patient?.id ?? null }))).toBe(400);
+    const older = value(await owner.postChatMessage(general.id, { body: "Closed Friday", client_id: "n-2", is_notice: true }));
+    const newer = value(await owner.postChatMessage(general.id, { body: "Meeting at 9", client_id: "n-3", is_notice: true }));
+    expect(older.is_notice).toBe(true);
+    expect(value(await doctor.getConversation(general.id)).pinned_notice?.id).toBe(newer.id);
+    expect(value(await doctor.getConversation(general.id)).members.length).toBeGreaterThan(1);
+  });
+
+  it("posts a small JPEG, PNG or PDF, once per client_id, and links it to members only", async () => {
+    const as = setup();
+    const owner = as(ASHA);
+    const general = value(await owner.listConversations()).items.find((c) => c.title === "General");
+    if (general === undefined) throw new Error("no general chat");
+    const form = (type: string, size: number, key = "f-1") => {
+      const data = new FormData();
+      data.set("client_id", key);
+      data.set("file", new File([new Uint8Array(size).fill(1)], "opg.png", { type }));
+      return data;
+    };
+    const posted = value(await owner.postChatAttachment(general.id, form("image/png", 10)));
+    expect(posted.attachment).toMatchObject({ mime_type: "image/png", size_bytes: 10, file_name: "opg.png" });
+    expect(value(await owner.postChatAttachment(general.id, form("image/png", 10))).id).toBe(posted.id);
+    expect(status(await owner.postChatAttachment(general.id, form("text/html", 10, "f-2")))).toBe(400);
+    expect(status(await owner.postChatAttachment(general.id, form("application/pdf", 5 * 1024 * 1024 + 1, "f-3")))).toBe(413);
+    const link = value(await owner.getChatAttachmentDownloadLink(posted.attachment?.id ?? ""));
+    expect(link.url).toContain("/api/v1/chat-attachments/");
+    // Another clinic finds nothing.
+    const stranger = as("b1b1b1b1-0000-4000-8000-000000000001", "lotus.localtest.me");
+    expect(status(await stranger.getChatAttachmentDownloadLink(posted.attachment?.id ?? ""))).toBe(404);
+    expect(status(await stranger.postChatAttachment(general.id, form("image/png", 10, "f-4")))).toBe(404);
+  });
+
+  it("counts this month's messages for messages.send", async () => {
+    const as = setup();
+    const owner = as(ASHA);
+    const before = value(await owner.getMessageStats());
+    expect(before.by_channel.map((c) => c.channel)).toEqual(["email", "sms", "whatsapp"]);
+    const patient = value(await owner.listPatients()).items[0];
+    if (patient === undefined) throw new Error("no patient");
+    value(await owner.sendMessages({ patient_ids: [patient.id], channel: "email", template_key: "care.note", body: "Hello", variables: { subject: "Note" } }));
+    const after = value(await owner.getMessageStats());
+    expect(after.sent + after.skipped).toBe(before.sent + before.skipped + 1);
+    expect(status(await as(DEV, "lotus.localtest.me").getMessageStats())).toBe(403);
+  });
+});

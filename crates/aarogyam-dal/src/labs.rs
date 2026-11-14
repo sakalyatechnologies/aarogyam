@@ -46,6 +46,12 @@ pub struct VendorRow {
     pub address: Option<String>,
     /// A note.
     pub note: Option<String>,
+    /// The city it is in.
+    pub city: Option<String>,
+    /// The kinds of work it does.
+    pub work_types: Vec<String>,
+    /// How many days it usually takes.
+    pub turnaround_days: Option<i16>,
     /// The people there, by name.
     pub contacts: Json<Vec<ContactRow>>,
     /// When it was added.
@@ -67,6 +73,12 @@ pub struct VendorValues<'a> {
     pub address: Option<&'a str>,
     /// A note.
     pub note: Option<&'a str>,
+    /// The city.
+    pub city: Option<&'a str>,
+    /// The kinds of work it does.
+    pub work_types: &'a [String],
+    /// Its usual turnaround, in days.
+    pub turnaround_days: Option<i16>,
 }
 
 /// The clinic's labs (`None`) or one (`Some(id)`), with their contacts, by name; removed ones
@@ -77,7 +89,8 @@ pub struct VendorValues<'a> {
 pub async fn vendors(conn: &mut PgConnection, id: Option<Uuid>) -> Result<Vec<VendorRow>, DbError> {
     let rows = sqlx::query_as!(
         VendorRow,
-        r#"select v.id, v.name, v.kind, v.phone_e164, v.email, v.address, v.note, v.created_at,
+        r#"select v.id, v.name, v.kind, v.phone_e164, v.email, v.address, v.note, v.city, v.work_types,
+                  v.turnaround_days, v.created_at,
                   (select coalesce(json_agg(c order by c.name, c.id), '[]'::json)
                    from (select c.id, c.vendor_id, c.name, c.role, c.phone_e164, c.email,
                                 c.whatsapp, c.preferred_channel
@@ -104,15 +117,19 @@ pub async fn insert_vendor(
     values: &VendorValues<'_>,
 ) -> Result<(), DbError> {
     sqlx::query!(
-        r#"insert into aarogyam.lab_vendors (id, name, kind, phone_e164, email, address, note)
-           values ($1, $2, $3, $4, $5, $6, $7)"#,
+        r#"insert into aarogyam.lab_vendors
+             (id, name, kind, phone_e164, email, address, note, city, work_types, turnaround_days)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"#,
         id,
         values.name,
         values.kind,
         values.phone_e164,
         values.email,
         values.address,
-        values.note
+        values.note,
+        values.city,
+        values.work_types,
+        values.turnaround_days
     )
     .execute(conn)
     .await?;
@@ -130,7 +147,8 @@ pub async fn update_vendor(
 ) -> Result<bool, DbError> {
     let done = sqlx::query!(
         r#"update aarogyam.lab_vendors
-           set name = $2, kind = $3, phone_e164 = $4, email = $5, address = $6, note = $7
+           set name = $2, kind = $3, phone_e164 = $4, email = $5, address = $6, note = $7,
+               city = $8, work_types = $9, turnaround_days = $10
            where id = $1 and deleted_at is null"#,
         id,
         values.name,
@@ -138,7 +156,10 @@ pub async fn update_vendor(
         values.phone_e164,
         values.email,
         values.address,
-        values.note
+        values.note,
+        values.city,
+        values.work_types,
+        values.turnaround_days
     )
     .execute(conn)
     .await?;

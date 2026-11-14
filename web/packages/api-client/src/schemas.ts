@@ -3478,6 +3478,14 @@ export type ConversationList = z.output<typeof conversationList>;
 export const conversationStarted = z.object({ id: z.string(), created: z.boolean() }) satisfies z.ZodType<C.ConversationStarted>;
 export type ConversationStarted = z.output<typeof conversationStarted>;
 
+export const chatAttachment = z.object({
+  id: z.string(),
+  mime_type: z.enum(["image/jpeg", "image/png", "application/pdf"]),
+  size_bytes: z.number().int().nonnegative(),
+  file_name: optionalText,
+}) satisfies z.ZodType<C.ChatAttachment>;
+export type ChatAttachment = z.output<typeof chatAttachment>;
+
 export const chatMessage = z.object({
   id: z.string(),
   conversation_id: z.string(),
@@ -3488,8 +3496,21 @@ export const chatMessage = z.object({
   author_name: optionalText,
   body: optionalText,
   patient_id: optionalText,
+  is_notice: z.boolean().exactOptional(),
+  attachment: chatAttachment.nullable().exactOptional(),
 }) satisfies z.ZodType<C.ChatMessage>;
 export type ChatMessage = z.output<typeof chatMessage>;
+
+export const conversation = z.object({
+  id: z.string(),
+  kind: z.string(),
+  created_at: timestamp,
+  title: optionalText,
+  archived_at: optionalTimestamp,
+  members: z.array(z.object({ membership_id: z.string(), role: z.string(), joined_at: timestamp, name: z.string() })),
+  pinned_notice: chatMessage.nullable().exactOptional(),
+}) satisfies z.ZodType<C.Conversation>;
+export type Conversation = z.output<typeof conversation>;
 export const chatMessageList = z.object({ items: z.array(chatMessage) }) satisfies z.ZodType<C.ChatMessageList>;
 export type ChatMessageList = z.output<typeof chatMessageList>;
 
@@ -3518,6 +3539,9 @@ export const labVendor = z.object({
   email: optionalText,
   address: optionalText,
   note: optionalText,
+  city: optionalText,
+  work_types: z.array(z.string()).exactOptional(),
+  turnaround_days: z.number().int().nullable().exactOptional(),
   contacts: z.array(labContact),
   created_at: timestamp,
 }) satisfies z.ZodType<C.LabVendor>;
@@ -3589,6 +3613,7 @@ export const labOrder = z.object({
   encounter_id: optionalText,
   status: labOrderState,
   pipeline_stage: labPipelineStage,
+  tracker_stage: z.enum(["impression", "production", "trial", "final", "delivered"]).nullable().exactOptional(),
   late: z.boolean(),
   days_late: z.number().int().nonnegative().nullable().exactOptional(),
   stage: optionalText,
@@ -3607,8 +3632,47 @@ export type LabOrder = z.output<typeof labOrder>;
 export const labOrderList = z.object({ items: z.array(labOrder) }) satisfies z.ZodType<C.LabOrderList>;
 export type LabOrderList = z.output<typeof labOrderList>;
 
-export const labReminderQueued = z.object({ message_id: z.string().min(1) }) satisfies z.ZodType<C.LabReminderQueued>;
+export const labReminderQueued = z.object({ message_id: z.string().min(1), wa_link: optionalText }) satisfies z.ZodType<C.LabReminderQueued>;
 export type LabReminderQueued = z.output<typeof labReminderQueued>;
+
+export const labReminders = z.object({
+  channel: z.enum(["email", "whatsapp"]),
+  vendors: z.array(
+    z.object({
+      vendor_id: z.string().min(1),
+      vendor_name: z.string(),
+      order_ids: z.array(z.string()),
+      order_numbers: z.array(z.string()),
+      contact_id: optionalText,
+      contact_name: optionalText,
+      message_id: optionalText,
+      wa_link: optionalText,
+    }),
+  ),
+  skipped: z.array(z.object({ order_id: z.string(), number: z.string(), reason: z.string() })),
+}) satisfies z.ZodType<C.LabReminders>;
+export type LabReminders = z.output<typeof labReminders>;
+
+export const channelMessageStats = z.object({
+  channel: z.string(),
+  sent: z.number().int(),
+  delivered: z.number().int(),
+  failed: z.number().int(),
+  skipped: z.number().int(),
+  opt_outs: z.number().int(),
+  delivered_pct: z.number().nullable().exactOptional(),
+}) satisfies z.ZodType<C.ChannelMessageStats>;
+export const messageStats = z.object({
+  since: timestamp,
+  sent: z.number().int(),
+  delivered: z.number().int(),
+  failed: z.number().int(),
+  skipped: z.number().int(),
+  opt_outs: z.number().int(),
+  delivered_pct: z.number().nullable().exactOptional(),
+  by_channel: z.array(channelMessageStats),
+}) satisfies z.ZodType<C.MessageStats>;
+export type MessageStats = z.output<typeof messageStats>;
 
 export const labPayment = z.object({
   id: z.string().min(1),
@@ -3637,6 +3701,7 @@ export type LabOrderStatusChange = C.LabOrderStatusChange;
 export type LabOrderChanges = C.LabOrderChanges;
 export type LabContactLogEntry = C.LabContactLogEntry;
 export type LabVendorValues = C.LabVendorValues;
+export type LabRemindersRequest = C.LabRemindersRequest;
 export type LabContactValues = C.LabContactValues;
 export type NewLabPayment = C.NewLabPayment;
 export type LabVendorKind = C.LabVendorKind;

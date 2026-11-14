@@ -547,6 +547,7 @@ What `own` means, per record:
 | `audit_events` | Who changed a record | 7 years | Entry | As the patient record it describes |
 | `clinic_applications` | Requests for access that were never approved | 365 days | Decision | Not needed after the decision |
 | `chat_messages` | Staff chat messages, which may name a patient | 365 days | When posted | Working messages, not the record; the record is the chart |
+| `chat_attachments` | Files (JPEG, PNG, PDF) attached to staff chat messages | 365 days | When attached | As the message they are in; the bytes are removed with the row |
 | `lab_work` | Lab orders with their items, history and payments | 8 years | Order recorded | The payments are clinic accounts (as bills); the orders describe work on a patient |
 | `lab_contacts` | People at labs, after the clinic removes them | 365 days | Removal | Business contacts, named with phone and email; not needed once removed |
 | `message_templates` | Message templates Meta rejected or paused | 365 days | Last change | No patient data; a dead template is clutter once nobody revisits it |
@@ -739,6 +740,18 @@ so tests exercise the stream.
 
 **Why.** The phone needs a signed consent on file and evidence that a cleaning or sterilisation task was done, without making tasks depend on patients.
 
+## 2026-11-01: Lab reminders in batches, message stats, chat channels, notices and files
+**Decision.** Migrations 0635 to 0638 (B7 of Portal v2). All additive: new optional fields, new routes.
+- **Labs (0635).** `lab_vendors` gains `city`, `work_types` (crown, bridge, denture, aligner, implant, other, as free-listed kinds up to 20) and `turnaround_days` (1 to 90). An order shows `tracker_stage` (impression, production, trial, final, delivered; none when cancelled), derived from `status` and the free-text `stage` and never stored. `POST /lab-orders/reminders` (`labs.write`) takes 1 to 50 orders and a channel: `email` queues one outbox message per lab (to the order's contact with an address, else the lab's first; `202`), `whatsapp` queues nothing and returns one `wa.me` link per lab for staff to open and send (`200`). The text lists order numbers, work (type, teeth, shade) and due dates and never a patient (AGENTS.md rule 6; the lab is not the patient, so consent does not apply, and nothing goes to a patient). Orders not at the lab, or labs with no way to reach, are listed in `skipped`; an order outside the clinic or the caller's reach is `404` and nothing is done. `POST /lab-orders/{id}/remind` also returns `wa_link`.
+- **Message stats.** `GET /messages/stats` (`messages.send`): this calendar month in the clinic's time zone, sent, delivered and its share, failed, skipped and opt-outs, in total and per channel. Counts only.
+- **Chat channels (0636).** A conversation may be a `channel`. Every clinic has one, "Everyone" (`channel_key = everyone`), whose members are its active staff, kept by triggers on `memberships`: staff join when they become active and leave when suspended or removed. Members can't be added, removed or leave through the API (`409`); they can mute. A joiner starts with the history read.
+- **Notices (0637).** New permission `chat.notice` (owner by default): `is_notice` on a message pins it as the conversation's newest notice (`pinned_notice` on `GET /conversations/{id}`); a notice names no patient. A restrictive policy checks the permission again in the database.
+- **Files in chat (0638).** `POST /conversations/{id}/attachments` (multipart: `client_id`, `file`, optional `body`) posts a message with one JPEG, PNG or PDF of at most 5 MB, the type read from the content. Bytes live in file storage under `<clinic>/<id>`; the row holds type, size, SHA-256 and a tidied name (masked in the change history). A retry with the same `client_id` and file returns the first message. `GET /chat-attachments/{id}/download` gives a five-minute link bound to the member (a chat link cannot open a patient file and the reverse); `GET /chat-attachments/{id}/content?token=` serves it only while that member is still in the conversation. Deleting the message removes the row and the bytes. Chat files name no patient, so there is no erasure work for them; a defensive step 99 removes any that would.
+- **Retention.** New class `chat_attachments`, 365 days from attachment (table above).
+- **Response fields** added to existing types are optional in the schema (`required = false`), so older apps decode them.
+
+**Why.** The portal's lab desk needs one tap to chase a lab about several orders and a visible tracker; clinics want a clinic-wide chat, an announcement that stays on top, and to share a photo or a PDF between staff without leaving the app.
+
 ## 2026-11-01: The console shows whether the owner's invitation email went out
 **Decision.** Migration 0600 adds `app.console_owner_invite_delivery(org_id)`, and `GET /api/v1/console/clinics/{id}/owner-invitation/delivery` returns `OwnerInvitationDelivery` (`status`, `provider`, `attempts`, `last_error`, `queued_at`, `sent_at`). The clinic page shows it beside Resend invitation while the owner has not joined.
 - **Read-only and narrow.** The function is security definer, reads the latest `staff.invited` email of the clinic's first owner invitation, and returns no recipient, payload, secret or body. `last_error` is cut to 200 characters.
@@ -762,3 +775,9 @@ so tests exercise the stream.
 **Decision.** `POST /patients/{id}/attachments` accepts a file of kind `consent` from a member with `patients.write` (front desk, assistant), alongside the existing `payment_proof` exception for `billing.write` or `payments.collect`. Every other kind still needs `clinical.write`. Such an upload can't carry `note_id` or `addendum_id` (400). Listing and downloading are unchanged: without clinical access the desk sees payment proofs only, so it never reads a consent form back. No migration: the attachments policies are clinic-scoped, and the check is in the app layer, as for payment proofs.
 
 **Why.** The two-phone run found that the desk registering a walk-in got 403 on the intake signature upload, so G10 never linked `signature_attachment_id`.
+
+## 2026-11-14: Welcome messages link to public care-tips pages (`{{learn_link}}`, 0711)
+
+**Decision.** The portal serves `/learn` and `/learn/:topic` with no sign-in, like `/book`; the text is placeholder copy in `pages/public/learn-topics.ts` for the founder to replace. A new variable `{{learn_link}}` (`PortalLinks::learn`, `{base}/learn`) is allowed in `patient.welcome` and in WhatsApp variable lists. Migration 0711 adds a defaults version whose six welcome bodies end with "Care tips: {{learn_link}}" (English, Hindi, Marathi). New clinics are seeded from it. An existing clinic's welcome row moves to the new text only while body, ref and status still equal the old default, so a clinic's edits are never overwritten; WhatsApp rows take the new name `aro_welcome_v2` and stay `draft`.
+
+**Why.** Patients get care guidance from the clinic's own link; Meta approves a template name with its exact text, so a changed body needs a new name.

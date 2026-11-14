@@ -3,7 +3,7 @@
 use aarogyam_dal::labs::{self as dal, ContactRow, ContactValues, VendorRow, VendorValues};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::ids::{LabContactId, LabVendorId};
-use aarogyam_domain::lab::{ContactChannel, LabKind};
+use aarogyam_domain::lab::{ContactChannel, LabKind, check_turnaround_days, check_work_types};
 use aarogyam_domain::patient::Email;
 use aarogyam_domain::permission::Permission;
 use sakalya_db::Db;
@@ -68,6 +68,12 @@ pub struct VendorView {
     pub address: Option<String>,
     /// A note.
     pub note: Option<String>,
+    /// The city it is in.
+    pub city: Option<String>,
+    /// The kinds of work it does.
+    pub work_types: Vec<String>,
+    /// How many days it usually takes.
+    pub turnaround_days: Option<i16>,
     /// The people there, by name.
     pub contacts: Vec<ContactView>,
     /// When it was added.
@@ -84,6 +90,9 @@ impl From<VendorRow> for VendorView {
             email: row.email,
             address: row.address,
             note: row.note,
+            city: row.city,
+            work_types: row.work_types,
+            turnaround_days: row.turnaround_days,
             contacts: row.contacts.0.into_iter().map(ContactView::from).collect(),
             created_at: row.created_at,
         }
@@ -149,6 +158,13 @@ pub struct VendorInput {
     pub address: Option<String>,
     /// A note, up to 500 characters.
     pub note: Option<String>,
+    /// The city, up to 80 characters.
+    pub city: Option<String>,
+    /// The kinds of work it does, replacing the list: up to 20 different ones of up to 40
+    /// characters; an empty list clears.
+    pub work_types: Option<Vec<String>>,
+    /// Its usual turnaround in days, 1 to 90; `Some(0)` clears.
+    pub turnaround_days: Option<i32>,
 }
 
 struct VendorFields {
@@ -158,6 +174,9 @@ struct VendorFields {
     email: Option<String>,
     address: Option<String>,
     note: Option<String>,
+    city: Option<String>,
+    work_types: Vec<String>,
+    turnaround_days: Option<i16>,
 }
 
 impl VendorFields {
@@ -199,6 +218,26 @@ impl VendorFields {
                 "note",
                 500,
             )?,
+            city: merged(
+                input.city.as_deref(),
+                current.and_then(|c| c.city.as_deref()),
+                "city",
+                80,
+            )?,
+            work_types: match &input.work_types {
+                Some(types) => {
+                    check_work_types(types).map_err(|e| AppError::invalid("work_types", e))?
+                }
+                None => current.map(|c| c.work_types.clone()).unwrap_or_default(),
+            },
+            turnaround_days: match input.turnaround_days {
+                Some(0) => None,
+                Some(days) => Some(
+                    check_turnaround_days(days)
+                        .map_err(|e| AppError::invalid("turnaround_days", e))?,
+                ),
+                None => current.and_then(|c| c.turnaround_days),
+            },
         })
     }
 
@@ -210,6 +249,9 @@ impl VendorFields {
             email: self.email.as_deref(),
             address: self.address.as_deref(),
             note: self.note.as_deref(),
+            city: self.city.as_deref(),
+            work_types: &self.work_types,
+            turnaround_days: self.turnaround_days,
         }
     }
 }

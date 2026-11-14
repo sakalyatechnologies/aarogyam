@@ -1018,3 +1018,63 @@ async fn the_welcome_status_shows_on_the_queue_token_and_stays_in_the_clinic() {
     assert_eq!(theirs["items"].as_array().unwrap().len(), 1);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_welcome_links_to_care_tips_and_upgrades_only_untouched_rows() {
+    let app = TestApp::start().await;
+    let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(
+        "select channel, body, provider_template_ref, status
+         from aarogyam.message_templates
+         where key = 'patient.welcome' and org_id = (select min(id::text)::uuid from aarogyam.organizations)",
+    )
+    .fetch_all(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(rows.len(), 6);
+    for (channel, body, reference, status) in &rows {
+        assert!(body.contains("{{learn_link}}"), "{body}");
+        assert!(!body.trim_end().ends_with("}}"), "{body}");
+        if channel == "whatsapp" {
+            assert_eq!(reference.as_deref(), Some("aro_welcome_v2"));
+            assert_eq!(status, "draft");
+        }
+    }
+    // The migration's update step: an untouched old default moves on, a clinic's own text stays.
+    sqlx::query(
+        "update aarogyam.message_templates t set body = o.body, provider_template_ref = o.provider_template_ref
+         from app.message_template_defaults_v707() o
+         where o.key = 'patient.welcome' and t.key = o.key and t.channel = o.channel
+           and t.language = o.language and t.language <> 'mr-IN'",
+    )
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    sqlx::query("update aarogyam.message_templates set body = 'Our own welcome {{clinic_name}} 😊' where key = 'patient.welcome' and language = 'hi-IN' and channel = 'email'")
+        .execute(&app.owner)
+        .await
+        .unwrap();
+    let migration = include_str!("../../../db/migrations/0711_welcome_learn_link.sql");
+    let start = migration.find("update aarogyam.message_templates").unwrap();
+    let end = start + migration[start..].find(";\n").unwrap();
+    sqlx::query(&migration[start..end])
+        .execute(&app.owner)
+        .await
+        .unwrap();
+    let own: i64 = count(
+        &app,
+        "select count(*) from aarogyam.message_templates
+         where key = 'patient.welcome' and body = 'Our own welcome {{clinic_name}} 😊'",
+    )
+    .await;
+    let old: i64 = count(
+        &app,
+        "select count(*) from aarogyam.message_templates
+         where key = 'patient.welcome' and body not like '%{{learn_link}}%'",
+    )
+    .await;
+    let own_total: i64 = count(&app, "select count(*) from aarogyam.organizations").await;
+    assert_eq!(own, own_total);
+    assert_eq!(old, own_total);
+    app.finish().await;
+}

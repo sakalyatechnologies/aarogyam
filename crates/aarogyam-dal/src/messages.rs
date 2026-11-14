@@ -332,3 +332,68 @@ pub async fn set_preference(
     // The patient always has the row just saved, so no rows means no patient.
     Ok((!rows.is_empty()).then_some(rows))
 }
+
+/// One channel's numbers since the start of a month.
+#[derive(Debug, Clone)]
+pub struct ChannelStatsRow {
+    /// `email`, `whatsapp` or `sms`.
+    pub channel: String,
+    /// The start of the month, in the clinic's time zone.
+    pub since: OffsetDateTime,
+    /// Messages handed to the provider.
+    pub sent: i64,
+    /// Of those, reported delivered (or read) by the provider.
+    pub delivered: i64,
+    /// Messages that failed for good, or bounced.
+    pub failed: i64,
+    /// Messages skipped (no consent, opted out, no address...).
+    pub skipped: i64,
+    /// Patients who opted out of the channel in the month.
+    pub opt_outs: i64,
+}
+
+/// The numbers for messages queued, and opt-outs recorded, since the start of the month `now`
+/// falls in, by the clinic's calendar: one row per channel, always all three, in one statement.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn stats(
+    conn: &mut PgConnection,
+    now: OffsetDateTime,
+    timezone: &str,
+) -> Result<Vec<ChannelStatsRow>, DbError> {
+    let rows = sqlx::query_as!(
+        ChannelStatsRow,
+        r#"with b as (select date_trunc('month', $1::timestamptz, $2::text) as since),
+           ch(channel) as (values ('email'), ('sms'), ('whatsapp')),
+           m as (
+             select m.channel,
+                    count(*) filter (where m.status = 'sent') as sent,
+                    count(*) filter (where m.delivery in ('delivered', 'read')) as delivered,
+                    count(*) filter (where m.status = 'failed'
+                                        or m.delivery in ('bounced', 'failed')) as failed,
+                    count(*) filter (where m.status = 'skipped') as skipped
+             from aarogyam.messages m, b
+             where m.created_at >= b.since
+             group by m.channel
+           ), o as (
+             select p.channel, count(distinct p.patient_id) as opt_outs
+             from aarogyam.contact_preferences p, b
+             where p.opted_out and p.opted_out_at >= b.since
+             group by p.channel
+           )
+           select ch.channel as "channel!", b.since as "since!",
+                  coalesce(m.sent, 0) as "sent!", coalesce(m.delivered, 0) as "delivered!",
+                  coalesce(m.failed, 0) as "failed!", coalesce(m.skipped, 0) as "skipped!",
+                  coalesce(o.opt_outs, 0) as "opt_outs!"
+           from ch cross join b
+           left join m on m.channel = ch.channel
+           left join o on o.channel = ch.channel
+           order by ch.channel"#,
+        now,
+        timezone
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}

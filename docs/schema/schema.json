@@ -5762,7 +5762,7 @@
    "partitioned": false,
    "lifecycle": "soft_delete",
    "schema": "aarogyam",
-   "notes": "Built (migration 0361). labs.read / labs.write. Removing a lab removes its contacts; its orders and payments stay. Phone, email, address and note are masked in the change history.",
+   "notes": "Built (migration 0361; directory fields 0635). labs.read / labs.write. Removing a lab removes its contacts; its orders and payments stay. Phone, email, address and note are masked in the change history.",
    "cols": [
     {
      "name": "name",
@@ -5812,6 +5812,27 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "city",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "for the lab directory (0635)"
+    },
+    {
+     "name": "work_types",
+     "type": "text[]",
+     "nullable": false,
+     "ref": null,
+     "note": "crown, bridge, denture, aligner, implant, other (0635)"
+    },
+    {
+     "name": "turnaround_days",
+     "type": "int",
+     "nullable": true,
+     "ref": null,
+     "note": "usual days to make a piece, 1 to 90; the order's due date is suggested from it (0635)"
     }
    ],
    "referenced_by": [
@@ -8903,14 +8924,21 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "direct, group"
+     "note": "direct, group, channel"
     },
     {
      "name": "title",
      "type": "text",
      "nullable": true,
      "ref": null,
-     "note": "groups only, 1 to 80 characters"
+     "note": "groups and channels, 1 to 80 characters"
+    },
+    {
+     "name": "channel_key",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "channels only: everyone = every active staff member, kept by the system (0636)"
     },
     {
      "name": "direct_key",
@@ -8928,6 +8956,7 @@
     }
    ],
    "referenced_by": [
+    "chat_attachments.conversation_id",
     "chat_messages.conversation_id",
     "conversation_members.conversation_id"
    ],
@@ -9051,11 +9080,91 @@
      "nullable": true,
      "ref": null,
      "note": "by the author only"
+    },
+    {
+     "name": "is_notice",
+     "type": "boolean",
+     "nullable": false,
+     "ref": null,
+     "note": "needs chat.notice; the newest undeleted one is pinned (0637)"
+    },
+    {
+     "name": "has_attachment",
+     "type": "boolean",
+     "nullable": false,
+     "ref": null,
+     "note": "body may then be null (0638)"
     }
    ],
    "referenced_by": [
+    "chat_attachments.message_id",
     "conversation_members.last_read_message_id"
    ],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "chat_attachments",
+   "domain": "notify",
+   "purpose": "The one file (JPEG, PNG or PDF, up to 5 MB) a staff chat message may carry.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0638). Only members of the conversation see it; only the message's author adds or removes it. Bytes are stored under <clinic>/<id> and reached through a five-minute link bound to the member. An erasure step removes the files of messages naming the patient. Kept 365 days (retention class chat_attachments).",
+   "cols": [
+    {
+     "name": "conversation_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "conversations",
+     "note": ""
+    },
+    {
+     "name": "message_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "chat_messages",
+     "note": "unique: one file per message"
+    },
+    {
+     "name": "mime_type",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "image/jpeg, image/png, application/pdf"
+    },
+    {
+     "name": "size_bytes",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "1 to 5 MB"
+    },
+    {
+     "name": "sha256",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "of the content; makes a retried upload idempotent"
+    },
+    {
+     "name": "file_name",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "tidied, shown only; masked in the change history"
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "set when the message is deleted; the bytes go from storage"
+    }
+   ],
+   "referenced_by": [],
    "sensitivity": "health",
    "offline": "server_only"
   },

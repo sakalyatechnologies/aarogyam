@@ -184,6 +184,10 @@ pub enum Event {
     ChatMessagePosted,
     /// A staff chat message was deleted by its author.
     ChatMessageDeleted,
+    /// A file was attached to a staff chat message.
+    ChatAttachmentPosted,
+    /// A pinned notice was posted in a staff chat conversation.
+    ChatNoticePosted,
     /// A lab or a lab contact was added, changed or removed.
     LabChanged,
     /// A lab order was recorded.
@@ -315,6 +319,8 @@ impl Event {
             Self::ConversationStarted => "conversation.started",
             Self::ChatMessagePosted => "chat_message.posted",
             Self::ChatMessageDeleted => "chat_message.deleted",
+            Self::ChatAttachmentPosted => "chat_attachment.posted",
+            Self::ChatNoticePosted => "chat_notice.posted",
             Self::LabChanged => "lab.changed",
             Self::LabOrderCreated => "lab_order.created",
             Self::LabOrderUpdated => "lab_order.updated",

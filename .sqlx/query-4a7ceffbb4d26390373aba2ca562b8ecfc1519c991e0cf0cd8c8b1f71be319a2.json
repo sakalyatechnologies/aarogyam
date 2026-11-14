@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select v.id, v.name, v.kind, v.phone_e164, v.email, v.address, v.note, v.created_at,\n                  (select coalesce(json_agg(c order by c.name, c.id), '[]'::json)\n                   from (select c.id, c.vendor_id, c.name, c.role, c.phone_e164, c.email,\n                                c.whatsapp, c.preferred_channel\n                         from aarogyam.lab_contacts c\n                         where c.vendor_id = v.id and c.deleted_at is null) c\n                  ) as \"contacts!: Json<Vec<ContactRow>>\"\n           from aarogyam.lab_vendors v\n           where v.deleted_at is null and ($1::uuid is null or v.id = $1)\n           order by lower(v.name), v.id",
+  "query": "select v.id, v.name, v.kind, v.phone_e164, v.email, v.address, v.note, v.city, v.work_types,\n                  v.turnaround_days, v.created_at,\n                  (select coalesce(json_agg(c order by c.name, c.id), '[]'::json)\n                   from (select c.id, c.vendor_id, c.name, c.role, c.phone_e164, c.email,\n                                c.whatsapp, c.preferred_channel\n                         from aarogyam.lab_contacts c\n                         where c.vendor_id = v.id and c.deleted_at is null) c\n                  ) as \"contacts!: Json<Vec<ContactRow>>\"\n           from aarogyam.lab_vendors v\n           where v.deleted_at is null and ($1::uuid is null or v.id = $1)\n           order by lower(v.name), v.id",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,39 @@
       },
       {
         "ordinal": 7,
+        "name": "city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_vendors",
+            "name": "city"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "work_types",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_vendors",
+            "name": "work_types"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "turnaround_days",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_vendors",
+            "name": "turnaround_days"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -92,7 +125,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 11,
         "name": "contacts!: Json<Vec<ContactRow>>",
         "type_info": "Json",
         "origin": "Expression"
@@ -111,9 +144,12 @@
       true,
       true,
       true,
+      true,
+      false,
+      true,
       false,
       null
     ]
   },
-  "hash": "10ed27fdc15f9808297924be145353ea7dc0a598d07f3bf4b5cf77c895a68afc"
+  "hash": "4a7ceffbb4d26390373aba2ca562b8ecfc1519c991e0cf0cd8c8b1f71be319a2"
 }

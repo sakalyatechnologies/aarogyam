@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.chat_messages\n             (id, conversation_id, author_membership_id, body, patient_id, client_id, is_notice,\n              has_attachment)\n           select $1, c.id, $3, $4, $5, $6, $8, $9 from aarogyam.conversations c\n           where c.id = $2 and c.archived_at is null\n             and ($5::uuid is null\n                  or exists (select 1 from aarogyam.patients p\n                             where p.id = $5 and p.deleted_at is null\n                               and app.patient_in_reach(p.id, $7)))\n           on conflict (org_id, author_membership_id, client_id) do nothing\n           returning created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.chat_messages",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "92223952951fbea8441b0be007a13110485222d0f245ae16086fe6cf5743f032"
+}

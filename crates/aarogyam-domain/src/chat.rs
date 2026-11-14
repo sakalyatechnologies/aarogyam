@@ -1,17 +1,76 @@
-//! Staff chat: one-to-one and group conversations between members of a clinic, in plain text.
-//! Pure rules: the message and title limits, the key that makes a direct conversation unique,
-//! and paging. A message may name one patient by id; its text is never logged.
+//! Staff chat: one-to-one, group and clinic-wide conversations between members of a clinic, in
+//! plain text. Pure rules: the message and title limits, the key that makes a direct
+//! conversation unique, paging, and what a message's file may be. A message may name one patient
+//! by id; its text is never logged.
 
+use crate::files::FileType;
 use crate::ids::{ChatMessageId, MembershipId};
 
 text_value! {
-    /// One to one, or a named group.
+    /// One to one, a named group, or a channel the system keeps for the whole clinic.
     ConversationKind ("kind") {
         /// Two members; one conversation per pair.
         Direct => "direct",
         /// A named group that admins add members to.
         Group => "group",
+        /// A clinic-wide conversation, such as "Everyone": its members are the clinic's active
+        /// staff, kept by the system.
+        Channel => "channel",
     }
+}
+
+/// The key of the channel every clinic has: all of its active staff.
+pub const EVERYONE_CHANNEL: &str = "everyone";
+
+/// Largest file in a chat message: 5 MB.
+pub const MAX_ATTACHMENT_BYTES: usize = 5 * 1024 * 1024;
+/// Longest file name kept, in characters.
+pub const MAX_FILE_NAME_CHARS: usize = 120;
+
+/// Why a chat file was refused. Messages never echo the file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum AttachmentError {
+    /// Nothing was sent.
+    #[error("must not be empty")]
+    Empty,
+    /// Over 5 MB.
+    #[error("must be at most 5 MB")]
+    TooLarge,
+    /// Not a JPEG, PNG or PDF, judged by its content.
+    #[error("must be a JPEG, PNG or PDF")]
+    Type,
+}
+
+/// Checks a chat file: not empty, at most 5 MB, and a JPEG, PNG or PDF by its content (never by
+/// its name or the type the sender claims).
+///
+/// # Errors
+/// What is wrong with it.
+pub fn check_attachment(bytes: &[u8]) -> Result<FileType, AttachmentError> {
+    if bytes.is_empty() {
+        return Err(AttachmentError::Empty);
+    }
+    if bytes.len() > MAX_ATTACHMENT_BYTES {
+        return Err(AttachmentError::TooLarge);
+    }
+    match FileType::sniff(bytes) {
+        Some(kind @ (FileType::Jpeg | FileType::Png | FileType::Pdf)) => Ok(kind),
+        _ => Err(AttachmentError::Type),
+    }
+}
+
+/// The name a sender's device gave a file, made safe to show: the last path component, control
+/// characters dropped, trimmed, at most 120 characters. `None` when nothing is left. Never used
+/// as a path: the bytes are stored under an id.
+#[must_use]
+pub fn tidy_file_name(name: &str) -> Option<String> {
+    let last = name.rsplit(['/', '\\']).next().unwrap_or_default();
+    let cleaned: String = last.chars().filter(|c| !c.is_control()).collect();
+    let cleaned = cleaned.trim();
+    if cleaned.is_empty() {
+        return None;
+    }
+    Some(cleaned.chars().take(MAX_FILE_NAME_CHARS).collect())
 }
 
 text_value! {
@@ -116,6 +175,40 @@ mod tests {
     }
 
     #[test]
+    fn chat_files_are_small_images_or_pdfs_by_content() {
+        let png = b"\x89PNG\r\n\x1a\nrest".to_vec();
+        assert_eq!(check_attachment(&png), Ok(FileType::Png));
+        assert_eq!(check_attachment(b"%PDF-1.7"), Ok(FileType::Pdf));
+        assert_eq!(
+            check_attachment(&[0xFF, 0xD8, 0xFF, 0xE0]),
+            Ok(FileType::Jpeg)
+        );
+        assert_eq!(check_attachment(b""), Err(AttachmentError::Empty));
+        assert_eq!(check_attachment(b"MZ\x90\x00"), Err(AttachmentError::Type));
+        assert_eq!(check_attachment(b"OggS...."), Err(AttachmentError::Type));
+        let mut big = b"%PDF-".to_vec();
+        big.resize(MAX_ATTACHMENT_BYTES + 1, 0);
+        assert_eq!(check_attachment(&big), Err(AttachmentError::TooLarge));
+        big.truncate(MAX_ATTACHMENT_BYTES);
+        assert_eq!(check_attachment(&big), Ok(FileType::Pdf));
+    }
+
+    #[test]
+    fn file_names_lose_paths_and_control_characters() {
+        assert_eq!(
+            tidy_file_name("C:\\scans\\opg.png").as_deref(),
+            Some("opg.png")
+        );
+        assert_eq!(
+            tidy_file_name("../../etc/passwd").as_deref(),
+            Some("passwd")
+        );
+        assert_eq!(tidy_file_name(" a\nb.pdf ").as_deref(), Some("ab.pdf"));
+        assert_eq!(tidy_file_name("dir/"), None);
+        assert_eq!(tidy_file_name(&"x".repeat(300)).map(|n| n.len()), Some(120));
+    }
+
+    #[test]
     fn titles_are_trimmed_single_lines() {
         assert_eq!(group_title("  Front desk  ").unwrap(), "Front desk");
         assert!(group_title(" ").is_err());
@@ -141,5 +234,9 @@ mod tests {
             Ok(ConversationKind::Group)
         );
         assert_eq!(MemberRole::Admin.as_str(), "admin");
+        assert_eq!(
+            ConversationKind::parse("channel"),
+            Ok(ConversationKind::Channel)
+        );
     }
 }

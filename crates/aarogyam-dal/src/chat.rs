@@ -387,6 +387,16 @@ pub struct MessageRow {
     pub deleted_at: Option<OffsetDateTime>,
     /// When it was posted.
     pub created_at: Option<OffsetDateTime>,
+    /// Whether it is a notice, which the conversation pins while it is the newest.
+    pub is_notice: Option<bool>,
+    /// The file it carries.
+    pub attachment_id: Option<Uuid>,
+    /// The file's media type.
+    pub attachment_mime_type: Option<String>,
+    /// The file's size in bytes.
+    pub attachment_size_bytes: Option<i64>,
+    /// The file's name.
+    pub attachment_file_name: Option<String>,
 }
 
 /// Who is reading, for the access record a message naming a patient leaves.
@@ -425,13 +435,13 @@ pub async fn page(
              select c.org_id, c.id from aarogyam.conversations c where c.id = $1
            ), page as (
              (select m.id, m.author_membership_id, m.body, m.patient_id, m.client_id,
-                     m.deleted_at, m.created_at
+                     m.deleted_at, m.created_at, m.is_notice
               from aarogyam.chat_messages m join conv on m.org_id = conv.org_id and m.conversation_id = conv.id
               where $2::uuid is not null and m.id > $2
               order by m.id limit $4)
              union all
              (select m.id, m.author_membership_id, m.body, m.patient_id, m.client_id,
-                     m.deleted_at, m.created_at
+                     m.deleted_at, m.created_at, m.is_notice
               from aarogyam.chat_messages m join conv on m.org_id = conv.org_id and m.conversation_id = conv.id
               where $2::uuid is null and ($3::uuid is null or m.id < $3)
               order by m.id desc limit $4)
@@ -451,11 +461,15 @@ pub async fn page(
                   p.author_membership_id as "author_membership_id?",
                   u.display_name as "author_name?", p.body as "body?", p.patient_id as "patient_id?",
                   p.client_id as "client_id?", p.deleted_at as "deleted_at?",
-                  p.created_at as "created_at?"
+                  p.created_at as "created_at?", p.is_notice as "is_notice?",
+                  a.id as "attachment_id?", a.mime_type as "attachment_mime_type?",
+                  a.size_bytes as "attachment_size_bytes?", a.file_name as "attachment_file_name?"
            from conv
            left join page p on true
            left join aarogyam.memberships am on am.org_id = conv.org_id and am.id = p.author_membership_id
            left join aarogyam.users u on u.id = am.user_id
+           left join aarogyam.chat_attachments a
+             on a.org_id = conv.org_id and a.message_id = p.id and a.deleted_at is null
            order by p.id"#,
         conversation_id,
         after,
@@ -481,8 +495,12 @@ pub struct NewMessage<'a> {
     pub conversation_id: Uuid,
     /// The caller's membership.
     pub author: Uuid,
-    /// The checked text.
-    pub body: &'a str,
+    /// The checked text; `None` for a message that is only a file.
+    pub body: Option<&'a str>,
+    /// Whether it is a notice (the caller has `chat.notice`; the database checks it again).
+    pub is_notice: bool,
+    /// Whether a file is added right after (see [`insert_attachment`]).
+    pub has_attachment: bool,
     /// A patient it is about, which must be within `reach`.
     pub patient_id: Option<Uuid>,
     /// The author's idempotency key.
@@ -503,8 +521,9 @@ pub async fn post(
 ) -> Result<Option<OffsetDateTime>, DbError> {
     let at = sqlx::query_scalar!(
         r#"insert into aarogyam.chat_messages
-             (id, conversation_id, author_membership_id, body, patient_id, client_id)
-           select $1, c.id, $3, $4, $5, $6 from aarogyam.conversations c
+             (id, conversation_id, author_membership_id, body, patient_id, client_id, is_notice,
+              has_attachment)
+           select $1, c.id, $3, $4, $5, $6, $8, $9 from aarogyam.conversations c
            where c.id = $2 and c.archived_at is null
              and ($5::uuid is null
                   or exists (select 1 from aarogyam.patients p
@@ -518,7 +537,9 @@ pub async fn post(
         message.body,
         message.patient_id,
         message.client_id,
-        message.reach
+        message.reach,
+        message.is_notice,
+        message.has_attachment
     )
     .fetch_optional(conn)
     .await?;
@@ -536,6 +557,18 @@ pub struct Posted {
     pub body: Option<String>,
     /// The patient it names.
     pub patient_id: Option<Uuid>,
+    /// Whether it is a notice.
+    pub is_notice: bool,
+    /// The SHA-256 (hex) of the file it carries, if any.
+    pub attachment_sha256: Option<String>,
+    /// The file it carries.
+    pub attachment_id: Option<Uuid>,
+    /// The file's media type.
+    pub attachment_mime_type: Option<String>,
+    /// The file's size in bytes.
+    pub attachment_size_bytes: Option<i64>,
+    /// The file's name.
+    pub attachment_file_name: Option<String>,
     /// When.
     pub created_at: OffsetDateTime,
 }
@@ -551,8 +584,14 @@ pub async fn by_client_id(
 ) -> Result<Option<Posted>, DbError> {
     let row = sqlx::query_as!(
         Posted,
-        r#"select id, conversation_id, body, patient_id, created_at from aarogyam.chat_messages
-           where author_membership_id = $1 and client_id = $2"#,
+        r#"select m.id, m.conversation_id, m.body, m.patient_id, m.is_notice,
+                  a.sha256 as "attachment_sha256?", a.id as "attachment_id?",
+                  a.mime_type as "attachment_mime_type?", a.size_bytes as "attachment_size_bytes?",
+                  a.file_name as "attachment_file_name?", m.created_at
+           from aarogyam.chat_messages m
+           left join aarogyam.chat_attachments a
+             on a.org_id = m.org_id and a.message_id = m.id and a.deleted_at is null
+           where m.author_membership_id = $1 and m.client_id = $2"#,
         author,
         client_id
     )
@@ -591,8 +630,17 @@ pub async fn mark_read(
     Ok(found)
 }
 
-/// Deletes the caller's own message: the text and patient go, the row stays as "deleted".
-/// `false` when nothing changed (not theirs, not there, or deleted already).
+/// What a delete removed.
+#[derive(Debug, Clone, Copy)]
+pub struct Deleted {
+    /// Whether a message was deleted (`false`: not theirs, not there, or deleted already).
+    pub done: bool,
+    /// The file it carried, whose bytes the caller removes from storage.
+    pub attachment_id: Option<Uuid>,
+}
+
+/// Deletes the caller's own message: the text and patient go, and so does its file (the row is
+/// marked deleted); the message stays as "deleted".
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -601,18 +649,29 @@ pub async fn delete(
     conversation_id: Uuid,
     id: Uuid,
     me: Uuid,
-) -> Result<bool, DbError> {
-    let done = sqlx::query!(
-        r#"update aarogyam.chat_messages set deleted_at = now(), body = null, patient_id = null
-           where conversation_id = $1 and id = $2 and author_membership_id = $3
-             and deleted_at is null"#,
+) -> Result<Deleted, DbError> {
+    let row = sqlx::query!(
+        r#"with m as (
+             update aarogyam.chat_messages set deleted_at = now(), body = null, patient_id = null
+             where conversation_id = $1 and id = $2 and author_membership_id = $3
+               and deleted_at is null
+             returning id
+           ), a as (
+             update aarogyam.chat_attachments set deleted_at = now()
+             where conversation_id = $1 and message_id in (select id from m) and deleted_at is null
+             returning id
+           )
+           select (select count(*) from m) as "deleted!", (select id from a limit 1) as "attachment_id?""#,
         conversation_id,
         id,
         me
     )
-    .execute(conn)
+    .fetch_one(conn)
     .await?;
-    Ok(done.rows_affected() == 1)
+    Ok(Deleted {
+        done: row.deleted == 1,
+        attachment_id: row.attachment_id,
+    })
 }
 
 /// A message's author and whether it is deleted, if the caller can see it.
@@ -727,6 +786,115 @@ pub async fn badges(
         collect,
     )
     .fetch_one(conn)
+    .await?;
+    Ok(row)
+}
+
+/// A conversation's pinned notice: its newest notice that isn't deleted.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn pinned_notice(
+    conn: &mut PgConnection,
+    conversation_id: Uuid,
+) -> Result<Option<MessageRow>, DbError> {
+    let row = sqlx::query_as!(
+        MessageRow,
+        r#"select m.conversation_id as "conversation_id!", m.id as "id?",
+                  m.author_membership_id as "author_membership_id?",
+                  u.display_name as "author_name?", m.body as "body?", m.patient_id as "patient_id?",
+                  m.client_id as "client_id?", m.deleted_at as "deleted_at?",
+                  m.created_at as "created_at?", m.is_notice as "is_notice?",
+                  a.id as "attachment_id?", a.mime_type as "attachment_mime_type?",
+                  a.size_bytes as "attachment_size_bytes?", a.file_name as "attachment_file_name?"
+           from aarogyam.chat_messages m
+           join aarogyam.memberships am on am.org_id = m.org_id and am.id = m.author_membership_id
+           join aarogyam.users u on u.id = am.user_id
+           left join aarogyam.chat_attachments a
+             on a.org_id = m.org_id and a.message_id = m.id and a.deleted_at is null
+           where m.conversation_id = $1 and m.is_notice and m.deleted_at is null
+           order by m.id desc limit 1"#,
+        conversation_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// A file to attach to a message just posted by its author.
+#[derive(Debug, Clone, Copy)]
+pub struct NewAttachment<'a> {
+    /// Its id, also the name of its bytes in storage.
+    pub id: Uuid,
+    /// The conversation.
+    pub conversation_id: Uuid,
+    /// The message.
+    pub message_id: Uuid,
+    /// `image/jpeg`, `image/png` or `application/pdf`.
+    pub mime_type: &'a str,
+    /// Its size in bytes.
+    pub size_bytes: i64,
+    /// SHA-256 of the content, hex.
+    pub sha256: &'a str,
+    /// The tidied name it was sent with.
+    pub file_name: Option<&'a str>,
+}
+
+/// Records a message's file.
+///
+/// # Errors
+/// [`DbError`] on a database failure, including a message that isn't the caller's.
+pub async fn insert_attachment(
+    conn: &mut PgConnection,
+    file: NewAttachment<'_>,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"insert into aarogyam.chat_attachments
+             (id, conversation_id, message_id, mime_type, size_bytes, sha256, file_name)
+           values ($1, $2, $3, $4, $5, $6, $7)"#,
+        file.id,
+        file.conversation_id,
+        file.message_id,
+        file.mime_type,
+        file.size_bytes,
+        file.sha256,
+        file.file_name
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// A chat file the caller can see.
+#[derive(Debug, Clone)]
+pub struct AttachmentRow {
+    /// The file.
+    pub id: Uuid,
+    /// Its conversation.
+    pub conversation_id: Uuid,
+    /// Its media type.
+    pub mime_type: String,
+    /// The patient its message is about, for the access record.
+    pub patient_id: Option<Uuid>,
+}
+
+/// A file of a conversation the caller is in, not deleted; `None` otherwise.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn attachment(
+    conn: &mut PgConnection,
+    id: Uuid,
+) -> Result<Option<AttachmentRow>, DbError> {
+    let row = sqlx::query_as!(
+        AttachmentRow,
+        r#"select a.id, a.conversation_id, a.mime_type, m.patient_id as "patient_id?"
+           from aarogyam.chat_attachments a
+           join aarogyam.chat_messages m on m.org_id = a.org_id and m.id = a.message_id
+           where a.id = $1 and a.deleted_at is null and m.deleted_at is null"#,
+        id
+    )
+    .fetch_optional(conn)
     .await?;
     Ok(row)
 }

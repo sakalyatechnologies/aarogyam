@@ -15,6 +15,7 @@ use aarogyam_domain::outbox::MessageKind;
 use aarogyam_domain::permission::Permission;
 use sakalya_db::{Db, ScopedTx};
 use serde_json::{Map, Value};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::AppError;
@@ -315,7 +316,7 @@ pub async fn whatsapp_status(
     db: &Db,
     wamid: &str,
     status: &str,
-    occurred_at: time::OffsetDateTime,
+    occurred_at: OffsetDateTime,
 ) -> Result<String, AppError> {
     if wamid.is_empty() || wamid.len() > 180 {
         return Ok("unknown".to_owned());
@@ -361,4 +362,103 @@ pub async fn whatsapp_template_reviewed(
         message_worker::whatsapp_template_reviewed(db.pool(), name, language, status.as_str())
             .await?,
     )
+}
+
+/// One channel's message numbers for the month so far.
+#[derive(Debug, Clone)]
+pub struct ChannelStats {
+    /// The channel.
+    pub channel: Channel,
+    /// Messages handed to the provider.
+    pub sent: i64,
+    /// Of those, reported delivered or read.
+    pub delivered: i64,
+    /// Failed for good, or bounced.
+    pub failed: i64,
+    /// Skipped: no consent, opted out, no address, a capped or paused template.
+    pub skipped: i64,
+    /// Patients who opted out of the channel this month.
+    pub opt_outs: i64,
+}
+
+/// The month's message numbers: totals and by channel.
+#[derive(Debug, Clone)]
+pub struct MessageStats {
+    /// The start of the month, in the clinic's time zone.
+    pub since: OffsetDateTime,
+    /// All channels together.
+    pub total: ChannelTotals,
+    /// One per channel (email, `WhatsApp`, SMS), whether or not it was used.
+    pub by_channel: Vec<ChannelStats>,
+}
+
+/// Totals over every channel.
+#[derive(Debug, Clone, Copy)]
+pub struct ChannelTotals {
+    /// Messages handed to the provider.
+    pub sent: i64,
+    /// Of those, reported delivered or read.
+    pub delivered: i64,
+    /// Failed for good, or bounced.
+    pub failed: i64,
+    /// Skipped.
+    pub skipped: i64,
+    /// Opt-outs recorded this month (a patient opting out of two channels counts twice).
+    pub opt_outs: i64,
+}
+
+/// Delivered as a percentage of sent, to one decimal place; `None` when nothing was sent.
+#[must_use]
+pub fn delivered_percent(delivered: i64, sent: i64) -> Option<f64> {
+    if sent <= 0 {
+        return None;
+    }
+    let tenths = (delivered.max(0).saturating_mul(1000) / sent).min(1000);
+    Some(f64::from(i32::try_from(tenths).unwrap_or(1000)) / 10.0)
+}
+
+/// This month's message numbers for the clinic: sent, delivered, failed, skipped and opt-outs,
+/// by channel and in total. The month is the clinic's own calendar month so far. Metadata only;
+/// needs `messages.send`.
+///
+/// # Errors
+/// [`AppError::Denied`] without `messages.send`.
+pub async fn stats(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    now: OffsetDateTime,
+) -> Result<MessageStats, AppError> {
+    actor.require(Permission::MessagesSend)?;
+    let rows = db
+        .scoped(&scope(actor, request_id), async |tx| {
+            Ok::<_, AppError>(dal::stats(tx.conn(), now, &actor.timezone).await?)
+        })
+        .await?;
+    let since = rows.first().map_or(now, |row| row.since);
+    let by_channel: Vec<ChannelStats> = rows
+        .into_iter()
+        .filter_map(|row| {
+            Some(ChannelStats {
+                channel: Channel::parse(&row.channel).ok()?,
+                sent: row.sent,
+                delivered: row.delivered,
+                failed: row.failed,
+                skipped: row.skipped,
+                opt_outs: row.opt_outs,
+            })
+        })
+        .collect();
+    let total = ChannelTotals {
+        sent: by_channel.iter().map(|c| c.sent).sum(),
+        delivered: by_channel.iter().map(|c| c.delivered).sum(),
+        failed: by_channel.iter().map(|c| c.failed).sum(),
+        skipped: by_channel.iter().map(|c| c.skipped).sum(),
+        opt_outs: by_channel.iter().map(|c| c.opt_outs).sum(),
+    };
+    Ok(MessageStats {
+        since,
+        total,
+        by_channel,
+    })
 }

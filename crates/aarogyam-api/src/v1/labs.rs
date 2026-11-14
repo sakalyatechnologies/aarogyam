@@ -145,6 +145,15 @@ pub struct LabVendor {
     pub address: Option<String>,
     /// A note.
     pub note: Option<String>,
+    /// The city it is in. Optional in the schema, so apps built before it read on.
+    #[schema(required = false)]
+    pub city: Option<String>,
+    /// The kinds of work it does (`Crown`, `Bridge`, `Aligner`...).
+    #[schema(required = false)]
+    pub work_types: Vec<String>,
+    /// How many days it usually takes.
+    #[schema(required = false)]
+    pub turnaround_days: Option<i16>,
     /// The people there, by name.
     pub contacts: Vec<LabContact>,
     /// When it was added (RFC 3339).
@@ -161,6 +170,9 @@ impl From<VendorView> for LabVendor {
             email: view.email,
             address: view.address,
             note: view.note,
+            city: view.city,
+            work_types: view.work_types,
+            turnaround_days: view.turnaround_days,
             contacts: view.contacts.into_iter().map(LabContact::from).collect(),
             created_at: rfc3339(view.created_at),
         }
@@ -190,6 +202,13 @@ pub struct LabVendorValues {
     pub address: Option<String>,
     /// A note, up to 500 characters.
     pub note: Option<String>,
+    /// The city, up to 80 characters.
+    pub city: Option<String>,
+    /// The kinds of work it does: up to 20 different ones of up to 40 characters. Replaces the
+    /// list on a change; an empty list clears it.
+    pub work_types: Option<Vec<String>>,
+    /// Its usual turnaround in days, 1 to 90; 0 clears it on a change.
+    pub turnaround_days: Option<i32>,
 }
 
 impl From<LabVendorValues> for VendorInput {
@@ -201,6 +220,9 @@ impl From<LabVendorValues> for VendorInput {
             email: body.email,
             address: body.address,
             note: body.note,
+            city: body.city,
+            work_types: body.work_types,
+            turnaround_days: body.turnaround_days,
         }
     }
 }

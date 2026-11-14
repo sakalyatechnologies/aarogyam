@@ -35,7 +35,7 @@ struct V9Procedures: View {
                 case .loaded(let loaded):
                     picker(loaded)
                 }
-                if !staged.isEmpty { lines }
+                if !staged.isEmpty { lines(state as? ChartStateLoaded) }
             }
             .animation(.smooth(duration: 0.25), value: staged.map(\.id))
         }
@@ -86,23 +86,14 @@ struct V9Procedures: View {
         .padding(.horizontal, -16)
     }
 
-    private var lines: some View {
+    private func lines(_ chart: ChartStateLoaded?) -> some View {
         let r = theme.roles
+        let teeth = chart.map { $0.upper + $0.lower } ?? []
+        let materials = chart.map { ChartModelKt.matchTerms(terms: $0.terms, kind: .material, text: "") } ?? []
         return VStack(spacing: 6) {
-            ForEach(staged) { item in
-                HStack {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(item.term.label).v7Text(14.5, .bold).foregroundStyle(r.onSurface.color)
-                        Text(V9f("v9v.proc.tooth", item.tooth)).v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
-                    }
-                    Spacer(minLength: 8)
-                    if !locked {
-                        Button { staged.removeAll { $0.id == item.id } } label: {
-                            V7Icon(name: "plus", size: 18, tint: r.onSurface.color).rotationEffect(.degrees(45))
-                                .frame(width: 44, height: 44).background(r.surface3.color, in: Circle())
-                        }
-                        .accessibilityLabel(V9f("v9v.proc.remove.a11y", item.term.label))
-                    }
+            ForEach($staged) { $item in
+                V9ProcedureLine(item: $item, tooth: teeth.first { Int($0.number) == item.tooth }, materials: materials, locked: locked) {
+                    staged.removeAll { $0.id == item.id }
                 }
                 .padding(.vertical, 6).padding(.horizontal, 12)
                 .background(r.surface2.color, in: RoundedRectangle(cornerRadius: 14, style: .continuous))

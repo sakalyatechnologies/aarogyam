@@ -8,11 +8,12 @@ struct IntakeV10Screen: View {
     let graph: AppGraph
     let clinic: ClinicContext
     let phone: String?
+    var family: [DeskFamilyAnchor] = []
     let onDone: () -> Void
 
     var body: some View {
         ScreenHost(make: { graph.intakeForm(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, form in
-            IntakeV10Form(holder: holder, form: form, phone: phone, onDone: onDone)
+            IntakeV10Form(holder: holder, form: form, phone: phone, family: family, onDone: onDone)
         }
     }
 }
@@ -21,6 +22,7 @@ struct IntakeV10Form: View {
     let holder: IntakeFormHolder
     let form: IntakeForm
     let phone: String?
+    var family: [DeskFamilyAnchor] = []
     let onDone: () -> Void
     @Environment(\.skTheme) private var theme
     @State private var useAge = false
@@ -38,6 +40,7 @@ struct IntakeV10Form: View {
                     Text(iv("iv.title")).font(.title2.weight(.heavy)).accessibilityAddTraits(.isHeader)
                     banner
                     details
+                    if form.showFamily, !family.isEmpty { IntakeV10Family(holder: holder, people: family) }
                     allergies
                     consent
                     signature

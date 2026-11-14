@@ -11,7 +11,7 @@ enum RoutesV10Desk {
     }
 
     /// The Desk home as a view, for a Desk tab. `onNewPatient` is the intake (T8) callback; nil opens the walk-in sheet.
-    static func home(graph: AppGraph, clinic: ClinicContext, onNewPatient: ((String) -> Void)? = nil,
+    static func home(graph: AppGraph, clinic: ClinicContext, onNewPatient: ((String, [DeskFamilyAnchor]) -> Void)? = nil,
                      onOpenPatient: @escaping (String) -> Void = { _ in }) -> some View {
         DeskHomeScreen(graph: graph, clinic: clinic, onNewPatient: onNewPatient, onOpenPatient: onOpenPatient)
     }

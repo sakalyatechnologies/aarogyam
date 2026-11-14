@@ -14,4 +14,6 @@ enum TodayV10Logic {
 struct IntakeRequest: Identifiable {
     let id = UUID()
     let phone: String
+    /// People already on the number, whom the new patient can be linked to (`family_of`).
+    var family: [DeskFamilyAnchor] = []
 }

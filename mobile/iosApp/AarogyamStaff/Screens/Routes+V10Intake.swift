@@ -8,9 +8,11 @@ enum RoutesV10Intake {
         RoutesV10IntakePlaceholder()
     }
 
-    /// The new-patient form; `phone` is prefilled when the desk already typed it. `onDone` runs after "Next patient".
-    static func screen(graph: AppGraph, clinic: ClinicContext, phone: String?, onDone: @escaping () -> Void) -> some View {
-        IntakeV10Screen(graph: graph, clinic: clinic, phone: phone, onDone: onDone)
+    /// The new-patient form; `phone` is prefilled when the desk already typed it, and `family` lists the people on that
+    /// number the patient can be linked to. `onDone` runs after "Next patient".
+    static func screen(graph: AppGraph, clinic: ClinicContext, phone: String?, family: [DeskFamilyAnchor] = [],
+                       onDone: @escaping () -> Void) -> some View {
+        IntakeV10Screen(graph: graph, clinic: clinic, phone: phone, family: family, onDone: onDone)
     }
 }
 

@@ -48,7 +48,7 @@ struct MainTabs: View {
             RoutesV10Tasks.hook(graph: graph, clinic: clinic)
         }
         .sheet(item: $intake) { request in
-            RoutesV10Intake.screen(graph: graph, clinic: clinic, phone: request.phone.isEmpty ? nil : request.phone) {
+            RoutesV10Intake.screen(graph: graph, clinic: clinic, phone: request.phone.isEmpty ? nil : request.phone, family: request.family) {
                 intake = nil
                 deskRevision += 1
             }
@@ -78,7 +78,7 @@ struct MainTabs: View {
                     }
                     if TodayV10Logic.usesDesk(permissions: clinic.permissions) {
                         RoutesV10Desk.home(
-                            graph: graph, clinic: clinic, onNewPatient: { intake = IntakeRequest(phone: $0) },
+                            graph: graph, clinic: clinic, onNewPatient: { intake = IntakeRequest(phone: $0, family: $1) },
                             onOpenPatient: { todayPath.append(PatientRoute(id: $0)) }
                         )
                         .id(deskRevision)

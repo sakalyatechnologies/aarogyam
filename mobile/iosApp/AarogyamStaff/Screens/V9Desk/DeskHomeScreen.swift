@@ -8,7 +8,8 @@ struct DeskHomeScreen: View {
     let graph: AppGraph
     let clinic: ClinicContext
     /// "New patient": called with the typed number. Intake (T8) fills this in; the default opens the walk-in sheet.
-    var onNewPatient: ((String) -> Void)?
+    /// The number typed, and the people already on it a new patient can be linked to as family.
+    var onNewPatient: ((String, [DeskFamilyAnchor]) -> Void)?
     var onOpenPatient: (String) -> Void = { _ in }
     @State private var feed: DeskV10Feed
     @State private var lookup: ScreenModel<DeskLookupStateHolder, DeskLookupState>?
@@ -20,6 +21,7 @@ struct DeskHomeScreen: View {
     @State private var failed = false
     @State private var checkingIn = false
     @State private var paying: DeskPayTarget?
+    @State private var relatives: DeskPayTarget?
     @State private var walkIn: DeskHomeWalkIn?
     /// Bumped to reload the two earlier-day sections (after a payment sheet closes, and on pull to refresh).
     @State private var earlierTick = 0
@@ -27,7 +29,7 @@ struct DeskHomeScreen: View {
     @Environment(\.skTheme) private var theme
     @Environment(\.scenePhase) private var scenePhase
 
-    init(graph: AppGraph, clinic: ClinicContext, onNewPatient: ((String) -> Void)? = nil, onOpenPatient: @escaping (String) -> Void = { _ in }) {
+    init(graph: AppGraph, clinic: ClinicContext, onNewPatient: ((String, [DeskFamilyAnchor]) -> Void)? = nil, onOpenPatient: @escaping (String) -> Void = { _ in }) {
         self.graph = graph
         self.clinic = clinic
         self.onNewPatient = onNewPatient
@@ -71,6 +73,7 @@ struct DeskHomeScreen: View {
         .sheet(item: $paying, onDismiss: { board?.holder.refresh(); earlierTick += 1; Task { await feed.refresh() } }) {
             DeskPaymentSheet(graph: graph, clinic: clinic, target: $0, refreshTick: feed.version)
         }
+        .sheet(item: $relatives) { DeskFamilySheet(graph: graph, clinic: clinic, target: $0) }
         .sheet(item: $walkIn) { mode in
             DeskSheet(graph: graph, clinic: clinic, start: mode.mode)
         }
@@ -114,7 +117,7 @@ struct DeskHomeScreen: View {
         case .noMatch(let none):
             VStack(alignment: .leading, spacing: 10) {
                 Text(dv("d9.lookup.none.title")).v7Text(15, .bold).foregroundStyle(theme.roles.onSurface.color)
-                SkPillButton(dx("dx.home.new"), variant: .warm, wide: true) { newPatient(none.phone) }
+                SkPillButton(dx("dx.home.new"), variant: .warm, wide: true) { newPatient(none.phone, family: []) }
                     .accessibilityLabel(dx("dx.home.new"))
             }
         case .matches(let found):
@@ -146,13 +149,15 @@ struct DeskHomeScreen: View {
             if !current.checkedInToday, feed.doctors.count > 1 { doctorChips(doctor) }
             DeskProfileRow(
                 profile: current, ofName: profiles.first { $0.id == current.familyOf }?.name,
-                canCollect: canCollect, canFamily: false,
+                canCollect: canCollect, canFamily: clinic.permissions.contains("patients.read") && ServerCaps.shared.family,
                 onCheckIn: { checkIn(current, doctor) }, onCollect: { paying = DeskPayTarget(patientId: current.id, name: current.name) },
-                onFamily: {}, checkInTitle: DeskV10Doctors.checkInTitle(doctor)
+                onFamily: { relatives = DeskPayTarget(patientId: current.id, name: current.name) }, checkInTitle: DeskV10Doctors.checkInTitle(doctor)
             )
             .disabled(checkingIn)
         }
-        SkPillButton(dx("dx.home.new"), variant: .warm, wide: true) { newPatient(found.phone) }
+        SkPillButton(dx("dx.home.new"), variant: .warm, wide: true) {
+            newPatient(found.phone, family: profiles.filter { $0.familyOf == nil }.map { DeskFamilyAnchor(id: $0.id, name: $0.name) })
+        }
             .accessibilityLabel(dx("dx.home.new"))
     }
 
@@ -204,8 +209,8 @@ struct DeskHomeScreen: View {
         }
     }
 
-    private func newPatient(_ phone: String) {
-        if let onNewPatient { onNewPatient(phone) } else { walkIn = DeskHomeWalkIn(phone: phone) }
+    private func newPatient(_ phone: String, family: [DeskFamilyAnchor]) {
+        if let onNewPatient { onNewPatient(phone, family) } else { walkIn = DeskHomeWalkIn(phone: phone) }
     }
 }
 

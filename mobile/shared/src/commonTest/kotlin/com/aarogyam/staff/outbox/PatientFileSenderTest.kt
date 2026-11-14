@@ -21,17 +21,25 @@ private const val STORED =
     """{"id":"e1","kind":"consent","mime_type":"image/png","size_bytes":3,"sha256":"0000000000000000000000000000000000000000000000000000000000000000",
     "label":"Signature","tooth":null,"created_at":"2026-10-12T04:00:00Z"}"""
 
+private const val CONSENT =
+    """{"id":"c1","purpose":"care","notice_version":"1","given_at":"2026-10-12T04:00:00Z","method":"verbal",
+    "recorded_by":"u1","status":"active","signature_attachment_id":"e1"}"""
+
+private fun link(consent: String) = "$SUNRISE/api/v1/patients/p9/consents/$consent/signature"
+
 class PatientFileSenderTest {
     private val files = MemoryOutboxFiles()
 
-    private fun entry(clinic: String) =
-        OutboxEntry(
-            id = "e1",
-            kind = OutboxKind.PatientFile,
-            payload = queueJson.encodeToString(PatientFileJob(clinic, "p9", "consent", "Signature")),
-            createdAt = 1,
-            fileName = "e1.png",
-        ).also { files.write("e1.png", byteArrayOf(1, 2, 3)) }
+    private fun entry(
+        clinic: String,
+        consents: List<String> = emptyList(),
+    ) = OutboxEntry(
+        id = "e1",
+        kind = OutboxKind.PatientFile,
+        payload = queueJson.encodeToString(PatientFileJob(clinic, "p9", "consent", "Signature", consents)),
+        createdAt = 1,
+        fileName = "e1.png",
+    ).also { files.write("e1.png", byteArrayOf(1, 2, 3)) }
 
     private suspend fun FakeBackend.uploads() =
         requests
@@ -52,6 +60,45 @@ class PatientFileSenderTest {
             assertTrue("""name="kind"""" in body && "consent" in body)
             assertTrue("""name="label"""" in body && "Signature" in body)
             assertTrue(files.names.isEmpty(), "deleted after upload")
+        }
+
+    private suspend fun FakeBackend.links() =
+        requests
+            .filter { it.method == HttpMethod.Put && it.url.encodedPath.endsWith("/signature") }
+            .map { it.url.encodedPath to it.body.toByteArray().decodeToString() }
+
+    @Test
+    fun a_signature_is_linked_to_each_consent_the_walk_in_recorded() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(UPLOAD, { json(STORED, HttpStatusCode.Created) })
+            backend.on(link("c1"), { json(CONSENT) })
+            backend.on(link("c2"), { json(CONSENT) })
+            val clinic = openClinic(backend, testGraph(backend, backgroundScope), this, listOf("patients.write"))
+            val result = PatientFileSender({ clinic }, files).send(entry(clinic.slug, listOf("c1", "c2")))
+            assertEquals(SendResult.Delivered, result)
+            val links = backend.links()
+            assertEquals(listOf("c1", "c2"), links.map { it.first.substringAfter("consents/").substringBefore("/") })
+            assertTrue(links.all { """"signature_attachment_id":"e1"""" in it.second })
+            assertTrue(files.names.isEmpty())
+        }
+
+    @Test
+    fun a_link_lost_to_the_network_retries_and_a_refused_link_is_final() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(UPLOAD, { json(STORED, HttpStatusCode.Created) })
+            // Offline for the whole first send: the client resends a PUT itself before giving up.
+            backend.on(link("c1"), { throw IOException("offline") })
+            val clinic = openClinic(backend, testGraph(backend, backgroundScope), this, listOf("patients.write"))
+            val sender = PatientFileSender({ clinic }, files)
+            val entry = entry(clinic.slug, listOf("c1"))
+            assertTrue(sender.send(entry) is SendResult.Retry)
+            assertEquals(setOf("e1.png"), files.names, "kept: the upload comes back as the same file")
+            backend.on(link("c1"), { json("""{"error":{"code":"signature_already_set"}}""", HttpStatusCode.Conflict) })
+            assertEquals(SendResult.Delivered, sender.send(entry.copy(attempts = 1)))
+            assertEquals(2, backend.uploads().size)
+            assertTrue(files.names.isEmpty())
         }
 
     @Test

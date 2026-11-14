@@ -108,6 +108,8 @@ val apiModels =
         "RecordConsent",
         "WithdrawConsent",
         "WalkIn",
+        "WalkInConsent",
+        "SetConsentSignature",
         "QueueDay",
         "StartedVisit",
         "TokenStatusChange",

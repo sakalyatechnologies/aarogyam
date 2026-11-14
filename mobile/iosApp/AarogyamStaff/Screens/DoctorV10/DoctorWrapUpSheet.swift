@@ -12,6 +12,8 @@ struct DoctorV10VisitEntry: View {
     let holder: VisitStateHolder
     let view: VisitView_
     let rx: RxSheetStateHolder
+    /// Saves the treatments staged on the visit screen; false when one failed. Runs before Finish.
+    let saveStaged: () async -> Bool
     @State private var chair = false
     @State private var wrap = false
 
@@ -28,7 +30,8 @@ struct DoctorV10VisitEntry: View {
             ChairModeView(graph: graph, clinic: clinic, patientId: patientId, holder: holder, view: view) { chair = false }
         }
         .sheet(isPresented: $wrap) {
-            DoctorWrapUpSheet(graph: graph, clinic: clinic, patientId: patientId, patientName: patientName, visitId: view.visitId, holder: holder, rx: rx) { wrap = false }
+            DoctorWrapUpSheet(graph: graph, clinic: clinic, patientId: patientId, patientName: patientName, visitId: view.visitId, holder: holder, rx: rx,
+                              saveStaged: saveStaged) { wrap = false }
         }
     }
 }
@@ -41,13 +44,14 @@ struct DoctorWrapUpSheet: View {
     let visitId: String
     let holder: VisitStateHolder
     let rx: RxSheetStateHolder
+    let saveStaged: () async -> Bool
     let onClose: () -> Void
 
     var body: some View {
         ScreenHost(make: { graph.finishVisit(clinic: clinic, visitId: visitId, screen: $0) }, state: { $0.state }) { finish, state in
             WrapUpBody(
                 graph: graph, clinic: clinic, patientId: patientId, patientName: patientName, visitId: visitId,
-                visit: holder, rx: rx, finish: finish, state: state, onClose: onClose
+                visit: holder, rx: rx, finish: finish, state: state, saveStaged: saveStaged, onClose: onClose
             )
         }
         .presentationDetents([.large])
@@ -64,9 +68,12 @@ private struct WrapUpBody: View {
     let rx: RxSheetStateHolder
     let finish: FinishVisitHolder
     let state: FinishState
+    let saveStaged: () async -> Bool
     let onClose: () -> Void
 
     @State private var screen = ScreenScope()
+    @State private var savingStaged = false
+    @State private var stagedFailed = false
     @State private var box: DoctorFinishSources?
     @State private var feeText = ""
     @State private var feeTouched = false
@@ -139,8 +146,8 @@ private struct WrapUpBody: View {
             }
             .disabled(!state.hasRxDraft).frame(minHeight: SkSpacing.minTouchTarget)
             phaseNotes
-            SkPillButton(dv10("dv10.wrap.collect"), variant: .fill, wide: true) { go(collect: true) }.disabled(!canFinish)
-            SkPillButton(dv10("dv10.wrap.desk"), variant: .tonal, wide: true) { go(collect: false) }.disabled(!canFinish)
+            SkPillButton(dv10("dv10.wrap.collect"), variant: .fill, wide: true) { go(collect: true) }.disabled(!canFinish || savingStaged)
+            SkPillButton(dv10("dv10.wrap.desk"), variant: .tonal, wide: true) { go(collect: false) }.disabled(!canFinish || savingStaged)
         }
     }
 
@@ -160,7 +167,7 @@ private struct WrapUpBody: View {
             }
         case .needsConnection: banner(dv10("dv10.wrap.offline"), error: true)
         case .failed(let failed): banner(failed.message, error: true)
-        default: EmptyView()
+        default: if stagedFailed { banner(V9("v9v.close.procedures_failed"), error: true) }
         }
     }
 
@@ -169,12 +176,21 @@ private struct WrapUpBody: View {
         return true
     }
 
+    /// Saves the staged treatments first (they are only on the phone until then), then finishes.
     private func go(collect: Bool) {
-        switch onEnum(of: state.phase) {
-        case .needsConnection, .failed: finish.backToEditing()
-        default: break
+        guard !savingStaged else { return }
+        savingStaged = true
+        stagedFailed = false
+        Task {
+            let saved = await saveStaged()
+            savingStaged = false
+            guard saved else { stagedFailed = true; return }
+            switch onEnum(of: state.phase) {
+            case .needsConnection, .failed: finish.backToEditing()
+            default: break
+            }
+            finish.finish(collectNow: collect)
         }
-        finish.finish(collectNow: collect)
     }
 
     private func banner(_ text: String, error: Bool) -> some View {

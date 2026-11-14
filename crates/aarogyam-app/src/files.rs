@@ -677,9 +677,10 @@ fn proof_permission(actor: &ClinicActor, access: ProofAccess) -> Option<Permissi
         .find(|permission| actor.require(*permission).is_ok())
 }
 
-/// The permission an upload runs under: `clinical.write`, or for a payment proof alone
-/// `billing.write` or `payments.collect`. `kind` is `None` before the file has been read, when
-/// any of them lets the request in.
+/// The permission an upload runs under: `clinical.write`; for a payment proof alone
+/// `billing.write` or `payments.collect`; for a consent form alone `patients.write` (the desk
+/// that registers the walk-in uploads the intake signature). `kind` is `None` before the file
+/// has been read, when any of them lets the request in.
 fn upload_permission(
     actor: &ClinicActor,
     kind: Option<AttachmentKind>,
@@ -687,15 +688,39 @@ fn upload_permission(
     if actor.require(Permission::ClinicalWrite).is_ok() {
         return Ok(Permission::ClinicalWrite);
     }
-    match proof_permission(actor, ProofAccess::Write) {
-        Some(permission) if kind.is_none_or(|kind| kind == AttachmentKind::PaymentProof) => {
-            Ok(permission)
-        }
-        _ => actor
-            .require(Permission::ClinicalWrite)
-            .map(|()| Permission::ClinicalWrite)
-            .map_err(AppError::from),
+    let proof = proof_permission(actor, ProofAccess::Write);
+    let consent = actor
+        .require(Permission::PatientsWrite)
+        .is_ok()
+        .then_some(Permission::PatientsWrite);
+    let allowed = match kind {
+        None => proof.or(consent),
+        Some(AttachmentKind::PaymentProof) => proof,
+        Some(AttachmentKind::Consent) => consent,
+        Some(_) => None,
+    };
+    allowed.map_or_else(
+        || {
+            actor
+                .require(Permission::ClinicalWrite)
+                .map(|()| Permission::ClinicalWrite)
+                .map_err(AppError::from)
+        },
+        Ok,
+    )
+}
+
+/// A consent form uploaded by the desk (`patients.write`) is not linked to a clinical note.
+fn check_desk_links(permission: Permission, input: &Upload) -> Result<(), AppError> {
+    if permission == Permission::PatientsWrite
+        && (input.note_id.is_some() || input.addendum_id.is_some())
+    {
+        return Err(AppError::invalid(
+            "note_id",
+            "a consent form is not linked to a note",
+        ));
     }
+    Ok(())
 }
 
 fn check_fields(input: &Upload) -> Result<Checked, AppError> {
@@ -750,6 +775,7 @@ pub async fn upload(
         tooth,
     } = check_fields(&input)?;
     let permission = upload_permission(actor, Some(kind))?;
+    check_desk_links(permission, &input)?;
     let size = i64::try_from(input.bytes.len()).map_err(|_| AppError::Internal("file size"))?;
     let sha256 = sha256_hex(&input.bytes);
     let described = Described {

@@ -148,7 +148,15 @@ async fn world(app: &TestApp, owner: &str) -> World {
     )
     .await;
     let ist = UtcOffset::from_hms(5, 30, 0).unwrap();
-    let starts = (OffsetDateTime::now_utc() + Duration::minutes(2)).to_offset(ist);
+    let now = OffsetDateTime::now_utc().to_offset(ist);
+    // Booked today in the clinic's time: just ahead of now, or earlier today when that would
+    // cross midnight (Today lists the clinic's day).
+    let ahead = now + Duration::minutes(2);
+    let starts = if ahead.date() == now.date() {
+        ahead
+    } else {
+        now - Duration::minutes(40)
+    };
     let slot = |at: OffsetDateTime| at.format(&Rfc3339).unwrap();
     let book = |patient: &str, practitioner: &str| {
         json!({

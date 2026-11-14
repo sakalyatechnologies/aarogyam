@@ -301,6 +301,13 @@ fn hosts() -> Hosts {
     }
 }
 
+/// Pool settings for a test app on `url`: the defaults, but a 30 s acquire timeout instead of
+/// 5 s, so a loaded machine (parallel builds, several test binaries at once) waits for a
+/// connection instead of answering 503.
+fn test_db_config(url: &str) -> DbConfig {
+    serde_json::from_value(serde_json::json!({ "url": url, "acquire_timeout_secs": 30 })).unwrap()
+}
+
 /// State whose database is never contacted, for tests that stop before the database.
 pub fn offline_state(http: HttpConfig) -> AppState {
     let url = SecretString::from("postgres://aarogyam_api@localhost:5432/never_contacted");
@@ -352,7 +359,7 @@ impl TestApp {
             admin.get_host(),
             admin.get_port()
         );
-        let db = Db::connect_lazy(&DbConfig::new(SecretString::from(api_url.clone()))).unwrap();
+        let db = Db::connect_lazy(&test_db_config(&api_url)).unwrap();
         let files_dir = std::env::temp_dir().join(format!("aarogyam-files-{database}"));
         let files = Files::new(
             Arc::new(LocalDisk::new(&files_dir)),
@@ -380,12 +387,12 @@ impl TestApp {
             self.admin.get_port(),
             self.database
         );
-        Db::connect_lazy(&DbConfig::new(SecretString::from(url))).unwrap()
+        Db::connect_lazy(&test_db_config(&url)).unwrap()
     }
 
     /// A database handle on the API's login role, for row-level security checks.
     pub fn api_db(&self) -> Db {
-        Db::connect_lazy(&DbConfig::new(SecretString::from(self.api_url.clone()))).unwrap()
+        Db::connect_lazy(&test_db_config(&self.api_url)).unwrap()
     }
 
     /// A database handle on the API's login role whose traffic passes through a proxy that
@@ -401,7 +408,7 @@ impl TestApp {
             "postgres://aarogyam_api@127.0.0.1:{port}/{}?sslmode=disable",
             self.database
         );
-        let db = Db::connect_lazy(&DbConfig::new(SecretString::from(url))).unwrap();
+        let db = Db::connect_lazy(&test_db_config(&url)).unwrap();
         (db, trips)
     }
 

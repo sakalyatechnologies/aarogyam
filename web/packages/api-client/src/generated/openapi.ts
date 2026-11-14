@@ -22994,7 +22994,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks clinical.write (billing.write or payments.collect may add a file of kind `payment_proof`) */
+            /** @description The role lacks clinical.write (billing.write or payments.collect may add a file of kind `payment_proof`, patients.write one of kind `consent`) */
             403: {
                 headers: {
                     [name: string]: unknown;

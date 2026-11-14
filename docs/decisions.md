@@ -756,3 +756,9 @@ so tests exercise the stream.
 - **Database guard (0710).** The freeze trigger on `patient_consents` skips only the update that sets `signature_attachment_id` from null on a `given` consent and changes nothing else; every other change stays frozen. The signature guard now also runs on update: kind must be `consent`, and a set value can't change or clear. `app_user` already holds table-level update, so no new grant.
 
 **Why.** The desk records consents at the walk-in, and the patient signs on the tablet afterwards; the doctor who sends in their own patient needs no alert.
+
+## 2026-11-14: The desk uploads the intake signature (kind `consent`)
+
+**Decision.** `POST /patients/{id}/attachments` accepts a file of kind `consent` from a member with `patients.write` (front desk, assistant), alongside the existing `payment_proof` exception for `billing.write` or `payments.collect`. Every other kind still needs `clinical.write`. Such an upload can't carry `note_id` or `addendum_id` (400). Listing and downloading are unchanged: without clinical access the desk sees payment proofs only, so it never reads a consent form back. No migration: the attachments policies are clinic-scoped, and the check is in the app layer, as for payment proofs.
+
+**Why.** The two-phone run found that the desk registering a walk-in got 403 on the intake signature upload, so G10 never linked `signature_attachment_id`.

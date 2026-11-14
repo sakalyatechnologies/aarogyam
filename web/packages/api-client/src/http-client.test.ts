@@ -819,6 +819,41 @@ describe("createHttpClient settings v2", () => {
   });
 });
 
+describe("createHttpClient labs, chat files and stats (B7)", () => {
+  it("calls the batch reminder, conversation, attachment, link and stats routes", async () => {
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, {})));
+    const client = createHttpClient("", () => "abc", { fetch });
+    await client.remindLabs({ order_ids: ["o1", "o2"], channel: "whatsapp" });
+    await client.getConversation("c1");
+    const form = new FormData();
+    form.set("client_id", "k1");
+    await client.postChatAttachment("c1", form);
+    await client.getChatAttachmentDownloadLink("f1");
+    await client.getMessageStats();
+    expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
+      "POST /api/v1/lab-orders/reminders",
+      "GET /api/v1/conversations/c1",
+      "POST /api/v1/conversations/c1/attachments",
+      "GET /api/v1/chat-attachments/f1/download",
+      "GET /api/v1/messages/stats",
+    ]);
+    const sent = calls[0]?.init?.body;
+    expect(JSON.parse(typeof sent === "string" ? sent : "{}")).toEqual({ order_ids: ["o1", "o2"], channel: "whatsapp" });
+    expect(calls[2]?.init?.body).toBeInstanceOf(FormData);
+  });
+
+  it("reads the new optional fields and still reads responses without them", async () => {
+    const message = { id: "m1", conversation_id: "c1", author_membership_id: "a1", client_id: "k1", created_at: "2026-11-01T05:30:00Z", deleted: false };
+    const old = createHttpClient("", () => "abc", { fetch: stubFetch(json(200, { items: [message] })).fetch });
+    const oldPage = await old.listChatMessages("c1");
+    expect(oldPage.ok && oldPage.value.items[0]?.attachment).toBeUndefined();
+    const withFile = { ...message, is_notice: true, attachment: { id: "f1", mime_type: "application/pdf", size_bytes: 12, file_name: "plan.pdf" } };
+    const next = createHttpClient("", () => "abc", { fetch: stubFetch(json(200, { items: [withFile] })).fetch });
+    const nextPage = await next.listChatMessages("c1");
+    expect(nextPage.ok && nextPage.value.items[0]?.attachment?.mime_type).toBe("application/pdf");
+  });
+});
+
 describe("createHttpClient lab requests", () => {
   it("sends the order filters, the status and stage changes, the reminder, the log and the payment calls", async () => {
     const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, {})));

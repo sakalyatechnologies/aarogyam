@@ -190,3 +190,34 @@ describe("fake client: lab work", () => {
     expect(status(await blind.listLabOrders())).toBe(403);
   });
 });
+
+describe("fake client: batch reminders and the tracker", () => {
+  it("reminds each lab once for its orders at the lab, never naming a patient, and stops on an unknown order", async () => {
+    const { me, client } = setup();
+    const atLab = value(await me.listLabOrders({ open: true })).items.filter((o) => o.status === "sent" || o.status === "in_progress");
+    expect(atLab.length).toBeGreaterThan(0);
+    const emailed = value(await me.remindLabs({ order_ids: atLab.map((o) => o.id), channel: "email" }));
+    expect(emailed.vendors.every((v) => v.message_id !== null && v.wa_link === null)).toBe(true);
+    expect(emailed.vendors.flatMap((v) => v.order_ids).length + emailed.skipped.length).toBe(atLab.length);
+    const walink = value(await me.remindLabs({ order_ids: atLab.map((o) => o.id), channel: "whatsapp" }));
+    for (const lab of walink.vendors) {
+      expect(lab.wa_link).toMatch(/^https:\/\/wa\.me\//);
+      for (const order of atLab) expect(lab.wa_link ?? "").not.toContain(encodeURIComponent(order.patient_name));
+    }
+    expect(status(await me.remindLabs({ order_ids: [], channel: "email" }))).toBe(400);
+    expect(status(await me.remindLabs({ order_ids: [atLab[0]?.id ?? "", "00000000-0000-4000-8000-000000000000"], channel: "email" }))).toBe(404);
+    // Another clinic's owner can't reach them.
+    expect(status(await client(BINA, "lotus.localtest.me").remindLabs({ order_ids: [atLab[0]?.id ?? ""], channel: "email" }))).toBe(404);
+  });
+
+  it("shows the tracker stage and a lab's directory fields", async () => {
+    const { me } = setup();
+    const order = value(await me.listLabOrders()).items.find((o) => o.status === "sent");
+    expect(order?.tracker_stage).toBe("production");
+    const trial = value(await me.updateLabOrder(order?.id ?? "", { stage: "Wax try-in" }));
+    expect(trial.tracker_stage).toBe("trial");
+    const lab = value(await me.createLabVendor({ name: "Pune Ceramics", city: "Pune", work_types: ["Crown"], turnaround_days: 5 }));
+    expect(lab).toMatchObject({ city: "Pune", work_types: ["Crown"], turnaround_days: 5 });
+    expect(status(await me.createLabVendor({ name: "Bad", turnaround_days: 0 }))).toBe(400);
+  });
+});

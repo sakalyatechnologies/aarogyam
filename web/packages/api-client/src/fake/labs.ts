@@ -18,6 +18,9 @@ export interface FakeLabVendor {
   email: string | null;
   address: string | null;
   note: string | null;
+  city?: string | null;
+  work_types?: string[];
+  turnaround_days?: number | null;
   contacts: C.LabContact[];
   created_at: string;
 }
@@ -94,6 +97,27 @@ const OPEN: readonly C.LabOrderState[] = ["draft", "sent", "in_progress", "recei
 export const isOpen = (status: C.LabOrderState): boolean => OPEN.includes(status);
 
 /** What the front desk sees of an order: names filled in, late worked out, costs only when allowed. */
+/** Where an order is on the five-step tracker, as the API derives it from status and the free-text stage. */
+export function trackerStage(status: C.LabOrderState, stage: string | null): NonNullable<C.LabOrder["tracker_stage"]> | null {
+  const says = (words: string[]) => stage !== null && words.some((w) => stage.toLowerCase().includes(w));
+  const trial = ["try", "trial", "bisque", "framework", "wax"];
+  switch (status) {
+    case "cancelled":
+      return null;
+    case "draft":
+      return "impression";
+    case "sent":
+    case "in_progress":
+      return says(trial) ? "trial" : says(["final", "finish", "glaz", "polish", "cement"]) ? "final" : "production";
+    case "received":
+      return says(trial) ? "trial" : "final";
+    case "fitted":
+      return "delivered";
+    case "returned_for_rework":
+      return "production";
+  }
+}
+
 export function wireLabOrder(
   order: FakeLabOrder,
   context: { today: string; costs: boolean; vendors: readonly FakeLabVendor[]; patients: readonly FakePatient[]; doctors: readonly FakePractitioner[] },
@@ -126,6 +150,7 @@ export function wireLabOrder(
     encounter_id: null,
     status: order.status,
     pipeline_stage: PIPELINE[order.status],
+    tracker_stage: trackerStage(order.status, order.stage),
     late,
     days_late: late && order.due_on !== null ? daysFrom(order.due_on, context.today) : null,
     stage: order.stage,
@@ -354,6 +379,9 @@ export const wireVendor = (v: FakeLabVendor): C.LabVendor => ({
   email: v.email,
   address: v.address,
   note: v.note,
+  city: v.city ?? null,
+  work_types: v.work_types ?? [],
+  turnaround_days: v.turnaround_days ?? null,
   contacts: v.contacts,
   created_at: v.created_at,
 });
@@ -370,6 +398,9 @@ export function checkVendor(input: C.LabVendorValues, all: boolean): Problem {
   if ((input.phone?.trim().length ?? 0) > 20) return { field: "phone", problem: "at most 20 characters" };
   if ((input.address?.length ?? 0) > 300) return { field: "address", problem: "at most 300 characters" };
   if ((input.note?.length ?? 0) > 500) return { field: "note", problem: "at most 500 characters" };
+  if ((input.city?.length ?? 0) > 80) return { field: "city", problem: "at most 80 characters" };
+  if (input.turnaround_days != null && (input.turnaround_days < 1 || input.turnaround_days > 90)) return { field: "turnaround_days", problem: "1 to 90 days" };
+  if ((input.work_types?.length ?? 0) > 20) return { field: "work_types", problem: "at most 20 kinds" };
   return null;
 }
 

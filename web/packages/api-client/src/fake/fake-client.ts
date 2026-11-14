@@ -1518,7 +1518,59 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return refuse(409, "conflict", "The work isn't at the lab, or the lab has no email.");
           }
           found.events.push({ kind: "reminded", reminder: "email", at: clock().toISOString(), actor_id: caller.membership.id });
-          return reply({ message_id: fakeUuid(random, clock()) } satisfies C.LabReminderQueued);
+          return reply({ message_id: fakeUuid(random, clock()), wa_link: null } satisfies C.LabReminderQueued);
+        }),
+
+      remindLabs: (input, opts) =>
+        respond(S.labReminders, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const ids = [...new Set(input.order_ids)];
+          if (ids.length === 0 || ids.length > 50) {
+            return invalid("order_ids", "choose 1 to 50 orders");
+          }
+          const orders = ids.map((id) => labsOf().orders.find((o) => o.id === id && o.clinic_id === caller.clinic.id));
+          if (orders.some((o) => o === undefined)) {
+            return notFound;
+          }
+          const vendors: C.LabReminders["vendors"] = [];
+          const skipped: C.LabReminders["skipped"] = [];
+          for (const order of orders) {
+            if (order === undefined) continue;
+            const vendor = labsOf().vendors.find((v) => v.id === order.vendor_id);
+            const contact = vendor?.contacts.find((c) => c.id === order.contact_id) ?? vendor?.contacts[0];
+            const reach = input.channel === "email" ? (contact?.email ?? vendor?.email ?? null) : (contact?.phone ?? vendor?.phone ?? null);
+            if (vendor === undefined || !atLab(order.status)) {
+              skipped.push({ order_id: order.id, number: order.number, reason: "not_at_the_lab" });
+              continue;
+            }
+            if (reach === null) {
+              skipped.push({ order_id: order.id, number: order.number, reason: input.channel === "email" ? "no_email" : "no_phone" });
+              continue;
+            }
+            let row = vendors.find((v) => v.vendor_id === vendor.id);
+            if (row === undefined) {
+              row = {
+                vendor_id: vendor.id,
+                vendor_name: vendor.name,
+                order_ids: [],
+                order_numbers: [],
+                contact_id: contact?.id ?? null,
+                contact_name: contact?.name ?? null,
+                message_id: input.channel === "email" ? fakeUuid(random, clock()) : null,
+                wa_link: input.channel === "whatsapp" ? `https://wa.me/${reach.replace(/\D/g, "")}?text=${encodeURIComponent(`Reminder from the clinic about ${vendor.name} orders`)}` : null,
+              };
+              vendors.push(row);
+            }
+            row.order_ids.push(order.id);
+            row.order_numbers.push(order.number);
+            if (input.channel === "email") {
+              order.events.push({ kind: "reminded", reminder: "email", at: clock().toISOString(), actor_id: caller.membership.id });
+            }
+          }
+          return reply({ channel: input.channel, vendors, skipped } satisfies C.LabReminders);
         }),
 
       logLabContact: (id, entry, opts) =>
@@ -1593,6 +1645,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             email: trimmedOrNull(input.email),
             address: trimmedOrNull(input.address),
             note: trimmedOrNull(input.note),
+            city: trimmedOrNull(input.city),
+            work_types: input.work_types ?? [],
+            turnaround_days: input.turnaround_days ?? null,
             contacts: [],
             created_at: clock().toISOString(),
           };
@@ -1620,6 +1675,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (changes.email !== undefined) found.email = trimmedOrNull(changes.email);
           if (changes.address !== undefined) found.address = trimmedOrNull(changes.address);
           if (changes.note !== undefined) found.note = trimmedOrNull(changes.note);
+          if (changes.city !== undefined) found.city = trimmedOrNull(changes.city);
+          if (changes.work_types != null) found.work_types = changes.work_types;
+          if (changes.turnaround_days !== undefined) found.turnaround_days = changes.turnaround_days ?? null;
           return reply(wireVendor(found));
         }),
 
@@ -4585,6 +4643,14 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         respond(S.campaign, opts?.signal, async () => withWho("campaigns.manage", (who) => M.cancelCampaign(state, who, id, clock()))),
       listConversations: (limit, opts) =>
         respond(S.conversationList, opts?.signal, async () => withWho("chat.use", (who) => M.listConversations(state, who, clock(), limit))),
+      getConversation: (id, opts) =>
+        respond(S.conversation, opts?.signal, async () => withWho("chat.use", (who) => M.getConversation(state, who, id))),
+      postChatAttachment: (id, form, opts) =>
+        respond(S.chatMessage, opts?.signal, async () => withWho("chat.use", (who) => M.postChatAttachment(state, who, id, form, clock()))),
+      getChatAttachmentDownloadLink: (id, opts) =>
+        respond(S.downloadLink, opts?.signal, async () => withWho("chat.use", (who) => M.chatAttachmentLink(state, who, id, clock()))),
+      getMessageStats: (opts) =>
+        respond(S.messageStats, opts?.signal, async () => withWho("messages.send", (who) => M.messageStats(state, who, clock()))),
       startConversation: (input, opts) =>
         respond(S.conversationStarted, opts?.signal, async () =>
           withWho("chat.use", (who) => {
@@ -4595,7 +4661,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       listChatMessages: (id, query, opts) =>
         respond(S.chatMessageList, opts?.signal, async () => withWho("chat.use", (who) => M.chatMessages(state, who, id, query ?? {}))),
       postChatMessage: (id, input, opts) =>
-        respond(S.chatMessage, opts?.signal, async () => withWho("chat.use", (who) => M.postChatMessage(state, who, id, input, clock()))),
+        respond(S.chatMessage, opts?.signal, async () => withWho(input.is_notice === true ? "chat.notice" : "chat.use", (who) => M.postChatMessage(state, who, id, input, clock()))),
       markConversationRead: (id, messageId, opts) =>
         respond(S.voidResponse, opts?.signal, async () => withWho("chat.use", (who) => M.markRead(state, who, id, messageId))),
       muteConversation: (id, muted, opts) =>

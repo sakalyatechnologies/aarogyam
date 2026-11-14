@@ -158,6 +158,7 @@ import {
 } from "./schemas.js";
 import { myTasks, task, taskHistory, taskList, taskOccurrence, taskPreview, taskProofUploaded } from "./schemas.js";
 import { consentLink, consentRequested, consentSigned, familyLink, familyList, patientsSummary, phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
+import { conversation, labReminders, messageStats } from "./schemas.js";
 import {
   audience,
   audiencePreview,
@@ -335,6 +336,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/lab-orders/${encodeURIComponent(id)}/status`, schema: labOrder, body: change, signal: opts?.signal }),
     remindLab: (id, opts) =>
       call({ method: "POST", path: `/api/v1/lab-orders/${encodeURIComponent(id)}/remind`, schema: labReminderQueued, signal: opts?.signal }),
+    remindLabs: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/lab-orders/reminders", schema: labReminders, body: input, signal: opts?.signal }),
     logLabContact: (id, entry, opts) =>
       call({ method: "POST", path: `/api/v1/lab-orders/${encodeURIComponent(id)}/contacts-log`, schema: labOrder, body: entry, signal: opts?.signal }),
     listLabVendors: (opts) => call({ method: "GET", path: "/api/v1/lab-vendors", schema: labVendorList, signal: opts?.signal }),
@@ -629,6 +632,12 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/campaigns/${encodeURIComponent(id)}/cancel`, schema: campaign, signal: opts?.signal }),
     listConversations: (limit, opts) =>
       call({ method: "GET", path: "/api/v1/conversations", schema: conversationList, query: { limit }, signal: opts?.signal }),
+    getConversation: (id, opts) => call({ method: "GET", path: `/api/v1/conversations/${encodeURIComponent(id)}`, schema: conversation, signal: opts?.signal }),
+    postChatAttachment: (id, form, opts) =>
+      call({ method: "POST", path: `/api/v1/conversations/${encodeURIComponent(id)}/attachments`, schema: chatMessage, body: form, signal: opts?.signal }),
+    getChatAttachmentDownloadLink: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/chat-attachments/${encodeURIComponent(id)}/download`, schema: downloadLink, signal: opts?.signal }),
+    getMessageStats: (opts) => call({ method: "GET", path: "/api/v1/messages/stats", schema: messageStats, signal: opts?.signal }),
     startConversation: (input, opts) =>
       call({ method: "POST", path: "/api/v1/conversations", schema: conversationStarted, body: input, signal: opts?.signal }),
     listChatMessages: (id, query, opts) =>

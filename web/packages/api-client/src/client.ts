@@ -42,6 +42,7 @@ import type {
 import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview, TaskProofUploaded } from "./schemas.js";
 import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
+import type { Conversation, LabReminders, LabRemindersRequest, MessageStats } from "./schemas.js";
 import type { Allergy, FamilyLink, FamilyList, NewFamilyLink, ConsentLink, ConsentRequestInput, ConsentRequested, ConsentSigned, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PatientsSummary, PhoneMatchPage, QuickPicks, SignConsentInput, StartedVisit, WalkIn, WalkInRequest, ConflictPolicy, ConflictPolicyChange, MoveAppointment } from "./schemas.js";
 import type {
   AcceptInvitation,
@@ -390,6 +391,8 @@ export interface ApiClient {
   setLabOrderStatus(id: string, change: LabOrderStatusChange, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
   /** Clinic host: emails the lab a reminder, never naming the patient; 409 when the work isn't at the lab or the lab has no email. Needs `labs.write`. */
   remindLab(id: string, options?: RequestOptions): Promise<ApiResult<LabReminderQueued>>;
+  /** Clinic host: reminds the labs of 1 to 50 orders at once, one message per lab and never naming a patient: `email` queues it (202), `whatsapp` returns a `wa.me` link per lab (200). 404 when an order isn't in the clinic (nothing is done). Needs `labs.write`. */
+  remindLabs(input: LabRemindersRequest, options?: RequestOptions): Promise<ApiResult<LabReminders>>;
   /** Clinic host: logs a call, message or visit to the lab; a promised date becomes the due date. Needs `labs.write`. */
   logLabContact(id: string, entry: LabContactLogEntry, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
   /** Clinic host: the labs with their contacts. Needs `labs.read`. */
@@ -540,8 +543,16 @@ export interface ApiClient {
   scheduleCampaign(id: string, input: ScheduleCampaign, options?: RequestOptions): Promise<ApiResult<Campaign>>;
   /** Clinic host: cancels a campaign that has not finished sending. Needs `campaigns.manage`. */
   cancelCampaign(id: string, options?: RequestOptions): Promise<ApiResult<Campaign>>;
+  /** Clinic host: this month's message numbers (sent, delivered and its share, failed, skipped, opt-outs), per channel too. Needs `messages.send`. */
+  getMessageStats(options?: RequestOptions): Promise<ApiResult<MessageStats>>;
   /** Clinic host: the caller's conversations with unread counts. Needs `chat.use`. */
   listConversations(limit?: number, options?: RequestOptions): Promise<ApiResult<ConversationList>>;
+  /** Clinic host: one conversation with its members and its pinned notice (a channel such as Everyone has `kind: "channel"`). Needs `chat.use`. */
+  getConversation(id: string, options?: RequestOptions): Promise<ApiResult<Conversation>>;
+  /** Clinic host: posts a message with a file (a `FormData` with `client_id`, `file` of at most 5 MB as JPEG, PNG or PDF, and an optional `body`); repeating the `client_id` with the same file returns the same message. Needs `chat.use`. */
+  postChatAttachment(id: string, form: FormData, options?: RequestOptions): Promise<ApiResult<ChatMessage>>;
+  /** Clinic host: a five-minute link to a chat file of a conversation the caller is in. Needs `chat.use`. */
+  getChatAttachmentDownloadLink(id: string, options?: RequestOptions): Promise<ApiResult<DownloadLink>>;
   /** Clinic host: starts a direct or group chat; a direct one that exists is returned (`created` false). Needs `chat.use`. */
   startConversation(input: NewConversation, options?: RequestOptions): Promise<ApiResult<ConversationStarted>>;
   /** Clinic host: a conversation's messages, oldest first. `after` returns only newer ones, for polling. Needs `chat.use`. */

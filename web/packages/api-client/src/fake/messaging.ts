@@ -26,7 +26,7 @@ const missing = new Refusal(404, "not_found", "Not found.");
 export interface FakeConversation {
   id: string;
   clinic_id: string;
-  kind: "direct" | "group";
+  kind: "direct" | "group" | "channel";
   title: string | null;
   created_at: string;
   members: { membership_id: string; role: "member" | "admin"; muted: boolean; last_read_message_id: string | null }[];
@@ -606,9 +606,77 @@ export function postChatMessage(state: MessagingStore, who: Who, id: string, inp
   const body = input.body.trim();
   if (body === "" || body.length > 4000) return bad("body", "1 to 4000 characters");
   if (input.client_id.trim() === "") return bad("client_id", "needed");
+  if (input.is_notice === true && input.patient_id != null) return bad("patient_id", "a notice names no patient");
   const again = (state.chatMessages ?? []).find((m) => m.conversation_id === id && m.author_membership_id === who.membership_id && m.client_id === input.client_id);
   if (again !== undefined) return wireMessage(again);
-  return wireMessage(post(state, conversation, who.membership_id, body, now, input.client_id));
+  const posted = post(state, conversation, who.membership_id, body, now, input.client_id);
+  if (input.is_notice === true) posted.is_notice = true;
+  return wireMessage(posted);
+}
+
+const FILE_TYPES: readonly C.ChatAttachment["mime_type"][] = ["image/jpeg", "image/png", "application/pdf"];
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+/** A message that carries one file; the fake judges the type by the one the browser reports, the API by content. */
+export function postChatAttachment(state: MessagingStore, who: Who, id: string, form: FormData, now: Date): C.ChatMessage | Refusal {
+  const conversation = mineOf(state, who, id);
+  if (conversation === undefined) return missing;
+  const clientId = form.get("client_id");
+  const file = form.get("file");
+  if (typeof clientId !== "string" || clientId.trim() === "") return bad("client_id", "needed");
+  if (!(file instanceof Blob)) return bad("file", "is required");
+  if (file.size > MAX_FILE_BYTES) return new Refusal(413, "too_large", "file: must be at most 5 MB");
+  const mime = FILE_TYPES.find((type) => type === file.type);
+  if (file.size === 0 || mime === undefined) return bad("file", "must be a JPEG, PNG or PDF");
+  const caption = form.get("body");
+  const again = (state.chatMessages ?? []).find((m) => m.conversation_id === id && m.author_membership_id === who.membership_id && m.client_id === clientId);
+  if (again !== undefined) return wireMessage(again);
+  const posted = post(state, conversation, who.membership_id, typeof caption === "string" && caption.trim() !== "" ? caption.trim() : "", now, clientId);
+  posted.body = typeof caption === "string" && caption.trim() !== "" ? caption.trim() : null;
+  posted.attachment = { id: sortableId(state, "00000007"), mime_type: mime, size_bytes: file.size, file_name: file instanceof File ? file.name : null };
+  return wireMessage(posted);
+}
+
+/** A five-minute link to a chat file of a conversation the caller is in. */
+export function chatAttachmentLink(state: MessagingStore, who: Who, fileId: string, now: Date): C.DownloadLink | Refusal {
+  const message = (state.chatMessages ?? []).find((m) => m.clinic_id === who.clinic_id && m.attachment?.id === fileId && !m.deleted);
+  if (message === undefined || mineOf(state, who, message.conversation_id) === undefined) return missing;
+  return { url: `/api/v1/chat-attachments/${fileId}/content?token=fake`, expires_at: new Date(now.getTime() + 5 * 60_000).toISOString() };
+}
+
+/** A conversation with its members and its pinned notice (the newest notice that isn't deleted). */
+export function getConversation(state: MessagingStore, who: Who, id: string): C.Conversation | Refusal {
+  const conversation = mineOf(state, who, id);
+  if (conversation === undefined) return missing;
+  const notice = (state.chatMessages ?? [])
+    .filter((m) => m.conversation_id === id && m.is_notice === true && !m.deleted)
+    .sort((a, b) => (a.id < b.id ? 1 : -1))[0];
+  return {
+    id: conversation.id,
+    kind: conversation.kind,
+    title: conversation.title,
+    archived_at: null,
+    created_at: conversation.created_at,
+    members: conversation.members.map((m) => ({ membership_id: m.membership_id, role: m.role, joined_at: conversation.created_at, name: nameOf(state, m.membership_id) })),
+    pinned_notice: notice === undefined ? null : wireMessage(notice),
+  };
+}
+
+/** This month's counts, from the messages the fake has queued. */
+export function messageStats(state: MessagingStore, who: Who, now: Date): C.MessageStats {
+  const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const mine = (state.sentMessages ?? []).filter((m) => m.clinic_id === who.clinic_id && Date.parse(m.created_at) >= since.getTime());
+  const count = (rows: FakeSentMessage[]) => {
+    const skipped = rows.filter((m) => m.skip_reason !== null).length;
+    const sent = rows.length - skipped;
+    const delivered = rows.filter((m) => m.skip_reason === null && now.getTime() - Date.parse(m.created_at) >= SEND_AFTER_MS).length;
+    return { sent, delivered, failed: 0, skipped, opt_outs: 0, delivered_pct: sent === 0 ? null : Math.round((delivered / sent) * 1000) / 10 };
+  };
+  return {
+    since: since.toISOString(),
+    ...count(mine),
+    by_channel: ["email", "sms", "whatsapp"].map((channel) => ({ channel, ...count(mine.filter((m) => m.channel === channel)) })),
+  };
 }
 
 /** The pointer never moves back. */

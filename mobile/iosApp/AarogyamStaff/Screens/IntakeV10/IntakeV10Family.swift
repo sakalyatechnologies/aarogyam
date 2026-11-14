@@ -15,15 +15,21 @@ struct IntakeV10Family: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             V7Label(text: dv("d9.family.of_whom"))
-            SkChoiceChips(
-                [nil] + people.map { Optional($0) },
-                selected: [anchor],
-                label: { $0?.name ?? iv("iv.family.none") },
-                onToggle: { anchor = $0 }
-            )
+            // The app's FlowLayout, not SkChoiceChips: SkFlowLayout can wrap the last chip of its widest row over the
+            // next section (pixel rounding; a kit fix is pending).
+            FlowLayout(spacing: 8) {
+                SkChoiceChip(iv("iv.family.none"), selected: anchor == nil) { anchor = nil }
+                ForEach(people, id: \.self) { person in
+                    SkChoiceChip(person.name, selected: anchor == person) { anchor = person }
+                }
+            }
             if anchor != nil {
                 V7Label(text: dv("d9.family.relation"))
-                SkChoiceChips(DeskRelation.allCases, selected: [relation], label: { $0.title }) { relation = $0 }
+                FlowLayout(spacing: 8) {
+                    ForEach(DeskRelation.allCases, id: \.self) { r in
+                        SkChoiceChip(r.title, selected: relation == r) { relation = r }
+                    }
+                }
             }
         }
         .onChange(of: anchor) { _, _ in send() }

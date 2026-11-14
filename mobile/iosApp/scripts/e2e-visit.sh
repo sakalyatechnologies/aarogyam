@@ -1,7 +1,7 @@
 #!/bin/sh
 # T12: one clinic visit across two simulators against the local API (synthetic seed only). Builds the Local
 # app once, then runs the three phases of AarogyamStaffE2E/VisitE2ETests in order: the desk on one simulator,
-# the doctor on the other, then the desk again. Prints each step's time and taps, and shuts both simulators down
+# the doctor on the other, then the desk again (collect, then the family offer on the same number). Prints each step's time and taps, and shuts both simulators down
 # at the end. Needs the local API and the portal proxy (app.localtest.me:5173) running.
 #   AAROGYAM_E2E_DESK / AAROGYAM_E2E_DOCTOR: simulator names (default iPhone Air / iPhone 17).
 set -eu
@@ -36,6 +36,7 @@ if [ "$status" -eq 0 ] && [ -n "$token" ]; then
   echo "e2e: token $token"
   phase "$doctor" test2_doctorSeesAndFinishes doctor TEST_RUNNER_E2E_TOKEN="$token" || status=1
   [ "$status" -eq 0 ] && { phase "$desk" test3_deskCollects desk-collect TEST_RUNNER_E2E_TOKEN="$token" || status=1; }
+  [ "$status" -eq 0 ] && { phase "$desk" test4_deskSeesFamilyOnIntake desk-family TEST_RUNNER_E2E_PHONE="$phone" || status=1; }
 fi
 xcrun simctl shutdown "$desk" 2>/dev/null || true
 xcrun simctl shutdown "$doctor" 2>/dev/null || true

@@ -124,6 +124,26 @@ final class VisitE2ETests: XCTestCase {
         shot("desk-board-after")
     }
 
+    /// Desk: the same number again. The intake form offers "Family of" the patient already on it; nothing is saved.
+    func test4_deskSeesFamilyOnIntake() throws {
+        let phone = try XCTUnwrap(env["E2E_PHONE"], "set TEST_RUNNER_E2E_PHONE")
+        launch(as: .desk)
+        step("family") {
+            let number = wait(app.textFields["Patient mobile number"])
+            tap(number)
+            number.typeText(phone)
+            tap(wait(app.buttons["New patient"], timeout: 15))
+            // The desk home behind the sheet has a profile chip with the same name; take the one on the "Not family" row.
+            let none = wait(app.buttons["Not family"], timeout: 15)
+            let person = app.buttons.matching(NSPredicate(format: "label == 'E2E Test Patient'")).allElementsBoundByIndex
+                .first { abs($0.frame.midY - none.frame.midY) < 1 }
+            guard let person else { return XCTFail("no family chip beside Not family") }
+            tap(person)
+            _ = wait(app.buttons["Child"])
+        }
+        shot("desk-family")
+    }
+
     // MARK: helpers
 
     private func launch(as person: Person) {

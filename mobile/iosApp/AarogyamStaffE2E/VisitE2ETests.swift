@@ -77,6 +77,7 @@ final class VisitE2ETests: XCTestCase {
             tap(scrolledTo(wait(chips.firstMatch)))
             _ = wait(app.staticTexts["Tooth 16"])
         }
+        shot("doctor-tooth")
         // One tap on a medicine set (the dental "Dental pain": Ibuprofen and Pantoprazole).
         step("rx") {
             tap(scrolledTo(app.buttons["Write prescription"]))

@@ -166,7 +166,7 @@ That ends the membership (`left`) and sets the Supabase password to a random val
 
 Rules:
 
-- Only the synthetic demo clinics in `REVIEW_CLINICS` (`sunrise`, `lotus`; `crates/aarogyam-app/src/review_account.rs`) are accepted; any other slug, a real clinic, is refused. `suhasyadental` is not on the list because nothing marks it synthetic.
+- Only the synthetic demo clinics in `REVIEW_CLINICS` (`sunrise`, `lotus`, `suhasyadental`; `crates/aarogyam-app/src/review_account.rs`) are accepted; any other slug, a real clinic, is refused.
 - The password is read only from `ARO_REVIEW_PASSWORD`, at least 16 characters, from a password manager. It is never printed or logged.
 - Platform staff are refused (they can't hold a clinic membership).
 - Turn it off after review.

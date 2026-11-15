@@ -16,8 +16,8 @@ use secrecy::{ExposeSecret, SecretString};
 use crate::accounts::{AccountsError, SignInAccounts};
 
 /// The only clinics a reviewer account can be made at: the synthetic demo clinics. A real
-/// clinic is refused. (`suhasyadental` is left out: nothing in the repo says it is synthetic.)
-pub const REVIEW_CLINICS: &[&str] = &["sunrise", "lotus"];
+/// clinic is refused. (`suhasyadental` is synthetic too: the founder confirmed it on 15 Nov 2026.)
+pub const REVIEW_CLINICS: &[&str] = &["sunrise", "lotus", "suhasyadental"];
 
 /// The environment variable the password is read from, and nowhere else.
 pub const PASSWORD_ENV: &str = "ARO_REVIEW_PASSWORD";
@@ -176,7 +176,8 @@ mod tests {
     fn only_the_synthetic_demo_clinics_are_accepted() {
         assert_eq!(check_clinic("sunrise").unwrap(), "sunrise");
         assert_eq!(check_clinic(" lotus ").unwrap(), "lotus");
-        for other in ["suhasyadental", "alpha", "Sunrise", "sunrise2", "sun", ""] {
+        assert_eq!(check_clinic("suhasyadental").unwrap(), "suhasyadental");
+        for other in ["alpha", "Sunrise", "sunrise2", "sun", ""] {
             assert!(
                 matches!(check_clinic(other), Err(ReviewError::NotADemoClinic)),
                 "{other}"

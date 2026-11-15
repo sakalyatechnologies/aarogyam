@@ -11,8 +11,10 @@ import com.aarogyam.staff.api.model.LabContactLogOutcome
 import com.aarogyam.staff.api.model.LabOrder
 import com.aarogyam.staff.api.model.LabOrderState
 import com.aarogyam.staff.api.model.LabOrderStatusChange
+import com.aarogyam.staff.api.model.LabRemindersRequest
 import com.aarogyam.staff.api.moveLabOrder
 import com.aarogyam.staff.api.remindLab
+import com.aarogyam.staff.api.remindLabs
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Logger
@@ -64,6 +66,8 @@ data class LabCase(
     val dueOn: String?,
     val stage: String?,
     val lastContactedAt: String?,
+    /** Where the case is on the five-step tracker; null when cancelled. */
+    val tracker: LabStage? = null,
 )
 
 /** One lab of the directory. */
@@ -72,6 +76,9 @@ data class LabRow(
     val name: String,
     val phone: String?,
     val contacts: List<LabPerson>,
+    val city: String? = null,
+    val workTypes: List<String> = emptyList(),
+    val turnaroundDays: Int? = null,
 )
 
 /** Someone at a lab. */
@@ -91,6 +98,12 @@ data class LabsState(
     val overdueOnly: Boolean = false,
     /** A case action in flight. */
     val busy: String? = null,
+    /** A `wa.me` link from a single reminder, for the app to open once, then [LabsStateHolder.waLinkOpened]. */
+    val waLink: String? = null,
+    /** A batch reminder in flight. */
+    val remindingAll: Boolean = false,
+    /** What the last batch reminder did, until [LabsStateHolder.reminderResultSeen]. */
+    val reminderResult: LabRemindResult? = null,
     val error: ScreenError? = null,
 )
 
@@ -163,6 +176,9 @@ class LabsStateHolder(
                                     v.name,
                                     v.phone,
                                     v.contacts.map { LabPerson(it.id, it.name, it.phone, it.whatsapp) },
+                                    city = v.city?.trim()?.ifEmpty { null },
+                                    workTypes = v.workTypes.orEmpty().filter { it.isNotBlank() },
+                                    turnaroundDays = v.turnaroundDays,
                                 )
                             } ?: st.labs,
                         error = ((c as? Outcome.Failure) ?: (l as? Outcome.Failure))?.let { ScreenError.of(it.error) },
@@ -207,10 +223,51 @@ class LabsStateHolder(
     fun remind(caseId: String) =
         act(caseId, "labs.remind_failed") {
             when (val queued = clinic.api.remindLab(caseId)) {
-                is Outcome.Success -> clinic.api.labOrder(caseId)
-                is Outcome.Failure -> queued
+                is Outcome.Success -> {
+                    mutableState.update { it.copy(waLink = queued.value.waLink?.ifBlank { null }) }
+                    clinic.api.labOrder(caseId)
+                }
+
+                is Outcome.Failure -> {
+                    queued
+                }
             }
         }
+
+    fun waLinkOpened() = mutableState.update { it.copy(waLink = null) }
+
+    fun reminderResultSeen() = mutableState.update { it.copy(reminderResult = null) }
+
+    /** Reminds every lab with an overdue case on screen, by [channel]; needs the overdue filter on. */
+    fun remindOverdue(channel: ReminderChannel) {
+        val s = mutableState.value
+        val ids =
+            s.cases
+                .filter { it.status.open }
+                .map { it.id }
+                .take(MAX_REMIND)
+        if (!s.canWrite || !s.overdueOnly || s.remindingAll || ids.isEmpty()) return
+        mutableState.update { it.copy(remindingAll = true, error = null, reminderResult = null) }
+        scope.launch {
+            when (val answer = clinic.api.remindLabs(LabRemindersRequest(orderIds = ids, channel = channel.wire))) {
+                is Outcome.Success -> {
+                    log.info("labs.remind_all") { code("channel", channel.name) }
+                    mutableState.update {
+                        it.copy(
+                            remindingAll = false,
+                            reminderResult = answer.value.toResult(channel),
+                        )
+                    }
+                    refresh()
+                }
+
+                is Outcome.Failure -> {
+                    log.warn("labs.remind_all_failed") { code("error", answer.error.code.value) }
+                    mutableState.update { it.copy(remindingAll = false, error = ScreenError.of(answer.error)) }
+                }
+            }
+        }
+    }
 
     private fun act(
         caseId: String,
@@ -255,23 +312,6 @@ class LabsStateHolder(
     private companion object {
         const val LABS_READ = "labs.read"
         const val LABS_WRITE = "labs.write"
+        const val MAX_REMIND = 50
     }
 }
-
-internal fun LabOrder.toCase() =
-    LabCase(
-        id = id,
-        number = number,
-        status = LabStatus.of(status),
-        labName = vendorName,
-        contactName = contactName,
-        phone = contactPhone ?: vendorPhone,
-        whatsapp = contactWhatsapp,
-        patientName = patientName,
-        patientNumber = patientNumber,
-        work = items.sortedBy { it.lineNo }.map { it.workType },
-        teeth = items.flatMap { it.teeth }.distinct().sorted(),
-        dueOn = dueOn,
-        stage = stage,
-        lastContactedAt = lastContactedAt,
-    )

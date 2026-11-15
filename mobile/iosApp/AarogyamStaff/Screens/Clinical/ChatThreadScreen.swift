@@ -31,7 +31,8 @@ struct ChatThreadPage: View {
                                 thumbURL: message.attachment.flatMap { state.thumbs[$0.id] },
                                 onRetry: { holder.retry(clientId: message.clientId) },
                                 onOpen: { holder.openAttachment(attachmentId: $0) },
-                                onThumb: { holder.requestThumb(attachmentId: $0) }
+                                onThumb: { holder.requestThumb(attachmentId: $0) },
+                                onThumbFailed: { holder.thumbFailed(attachmentId: $0) }
                             ).id(message.clientId)
                         }
                     }

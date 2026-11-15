@@ -9,6 +9,7 @@ struct Bubble: View {
     let onRetry: () -> Void
     let onOpen: (String) -> Void
     let onThumb: (String) -> Void
+    let onThumbFailed: (String) -> Void
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -78,7 +79,7 @@ struct Bubble: View {
         let r = theme.roles
         if file.image {
             Button { onOpen(file.id) } label: {
-                ChatThumb(attachment: file, url: thumbURL, onRequest: { onThumb(file.id) })
+                ChatThumb(attachment: file, url: thumbURL, onRequest: { onThumb(file.id) }, onFailed: { onThumbFailed(file.id) })
             }
             .buttonStyle(.skPressable).disabled(file.id.isEmpty)
             .accessibilityLabel(c11("c11.photo.a11y"))
@@ -104,6 +105,7 @@ private struct ChatThumb: View {
     let attachment: AttachmentView
     let url: String?
     let onRequest: () -> Void
+    let onFailed: () -> Void
     @State private var image: UIImage?
     @Environment(\.skTheme) private var theme
 
@@ -125,8 +127,9 @@ private struct ChatThumb: View {
             if attachment.id.isEmpty { return }
             if let hit = Self.cache.object(forKey: attachment.id as NSString) { image = hit; return }
             guard let url else { onRequest(); return }
-            guard let target = ChatFile.openable(url), let (data, _) = try? await URLSession.shared.data(from: target),
-                  let made = UIImage(data: data) else { return }
+            // A link lasts five minutes; one that no longer loads is renewed through the holder.
+            guard let target = ChatFile.openable(url), let (data, response) = try? await URLSession.shared.data(from: target),
+                  (response as? HTTPURLResponse)?.statusCode == 200, let made = UIImage(data: data) else { onFailed(); return }
             let thumb = made.preparingThumbnail(of: CGSize(width: 600, height: 450)) ?? made
             Self.cache.setObject(thumb, forKey: attachment.id as NSString)
             image = thumb

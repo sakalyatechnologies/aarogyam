@@ -86,6 +86,7 @@ class ChatThreadStateHolder(
     /** The JPEG of each photo bubble that has not been sent yet, by client id, for a retry. */
     private val photos = mutableMapOf<String, ByteArray>()
     private val thumbsAsked = mutableSetOf<String>()
+    private val thumbRenewals = mutableMapOf<String, Int>()
 
     init {
         scope.launch { load(after = null) }
@@ -218,6 +219,19 @@ class ChatThreadStateHolder(
         }
     }
 
+    /**
+     * The screen could not load [attachmentId]'s thumbnail from its link: links last five minutes, so
+     * drop it and fetch a new one, at most [MAX_THUMB_RENEWALS] times per file.
+     */
+    fun thumbFailed(attachmentId: String) {
+        val renewals = thumbRenewals[attachmentId] ?: 0
+        if (attachmentId !in mutableState.value.thumbs || renewals >= MAX_THUMB_RENEWALS) return
+        thumbRenewals[attachmentId] = renewals + 1
+        thumbsAsked.remove(attachmentId)
+        mutableState.update { it.copy(thumbs = it.thumbs - attachmentId) }
+        requestThumb(attachmentId)
+    }
+
     private fun absolute(path: String) = if (path.startsWith("/")) clinic.api.origin + path else path
 
     fun closeLink() = mutableState.update { it.copy(link = null, linkFailed = false) }
@@ -316,5 +330,6 @@ class ChatThreadStateHolder(
 
     private companion object {
         const val MAX_BODY = 4000
+        const val MAX_THUMB_RENEWALS = 2
     }
 }

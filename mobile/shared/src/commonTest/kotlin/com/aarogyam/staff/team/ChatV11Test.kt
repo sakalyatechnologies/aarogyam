@@ -253,6 +253,29 @@ class ChatV11Test {
         }
 
     @Test
+    fun an_expired_thumbnail_link_is_renewed_at_most_twice() =
+        runTest {
+            val backend = FakeBackend().apply { thread() }
+            backend.on(
+                "$SUNRISE/api/v1/chat-attachments/f1/download",
+                { json("""{"url":"/files/f1?t=a","expires_at":"x"}""") },
+                { json("""{"url":"/files/f1?t=b","expires_at":"x"}""") },
+            )
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("chat.use"))
+            val thread = graph.chatThread(clinic, "c1", this)
+            thread.state.first { !it.loading }
+            thread.requestThumb("f1")
+            thread.state.first { it.thumbs["f1"]?.endsWith("t=a") == true }
+            thread.thumbFailed("f1")
+            thread.state.first { it.thumbs["f1"]?.endsWith("t=b") == true }
+            thread.thumbFailed("f1")
+            thread.state.first { it.thumbs.containsKey("f1") }
+            thread.thumbFailed("f1")
+            assertEquals(3, backend.requests.count { it.url.encodedPath.endsWith("/f1/download") })
+        }
+
+    @Test
     fun a_photo_without_text_sends_no_body_field() =
         runTest {
             val backend = FakeBackend().apply { thread(items = "") }

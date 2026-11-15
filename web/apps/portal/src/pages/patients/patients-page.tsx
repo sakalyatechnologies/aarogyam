@@ -13,7 +13,7 @@ import { displayName, formatPhone, patientPath } from "../../lib/patients.js";
 import { recentPatientIds } from "../../lib/recent-patients.js";
 import { SortHeader } from "../../components/sort-header.js";
 import { sortByColumn, useSortable, type SortColumn } from "../../components/use-sortable.js";
-import { usePatientDirectory, usePatientList, type DirectoryOrder } from "./queries.js";
+import { SEARCH_LIMIT, usePatientDirectory, usePatientList, type DirectoryOrder } from "./queries.js";
 
 const SORT_COLUMNS: readonly SortColumn<Patient>[] = [
   { id: "name", kind: "text", value: (p) => p.full_name },
@@ -241,6 +241,11 @@ export function PatientsPage() {
                 </StaggerList>
               </table>
             </div>
+            {!serverMode && (search.data?.items.length ?? 0) >= SEARCH_LIMIT ? (
+              <p className="mk-hint" style={{ textAlign: "center", margin: "14px 0 0" }}>
+                Showing the best {String(SEARCH_LIMIT)} matches. Type more of the name, or search by clinic number or phone, to narrow it.
+              </p>
+            ) : null}
             {more ? (
               <p style={{ textAlign: "center", margin: "14px 0 0" }}>
                 <button

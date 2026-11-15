@@ -26,6 +26,9 @@ export function useEditAllergy(patientId: PatientId) {
   });
 }
 
+/** Most matches a search returns, best first; the page sorts only these. */
+export const SEARCH_LIMIT = 50;
+
 /** The order the server sorts the empty-box list in; `null` is newest registered first. */
 export type DirectoryOrder = { sort: NonNullable<PatientListOptions["sort"]>; dir: "asc" | "desc" } | null;
 
@@ -37,7 +40,7 @@ export function usePatientList(q: string, filter: PatientFilter) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["patients", access.org_id, q, filter.withBalance === true, filter.recallsDue === true, filter.newThisMonth === true],
-    queryFn: ({ signal }) => unwrap(api.searchPatients({ q, limit: 50, ...filter }, { signal })),
+    queryFn: ({ signal }) => unwrap(api.searchPatients({ q, limit: SEARCH_LIMIT, ...filter }, { signal })),
     placeholderData: keepPreviousData,
     enabled: q !== "",
   });

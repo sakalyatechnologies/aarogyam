@@ -1168,7 +1168,9 @@
      "note": ""
     }
    ],
-   "referenced_by": [],
+   "referenced_by": [
+    "devices.session_id"
+   ],
    "sensitivity": "personal",
    "offline": "server_only"
   },
@@ -1239,7 +1241,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Staff push (migration 0714): PUT and DELETE /me/devices/{installation_id} (app.register_device, app.unregister_device, run by the API login before any clinic is known). A token is held by one device: registering it again, for anyone, moves it. Sign-out clears the token. The push job reads devices through app.push_devices, which leaves out devices whose registering session was revoked; a token the provider calls dead is cleared (app.clear_device_token). The change history masks push_token.",
    "cols": [
     {
      "name": "user_id",
@@ -1282,6 +1284,34 @@
      "nullable": true,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "installation_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "the app's own id for this install; unique per user (user_id, installation_id)"
+    },
+    {
+     "name": "app",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "staff or patient (reserved); null on rows from before migration 0714, which are never pushed to"
+    },
+    {
+     "name": "locale",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the device's language, such as en-IN"
+    },
+    {
+     "name": "session_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "sessions",
+     "note": "the sign-in session that registered it; a revoked session stops pushes to it"
     }
    ],
    "referenced_by": [
@@ -8818,6 +8848,13 @@
      "nullable": true,
      "ref": null,
      "note": "the reminder job told the owners"
+    },
+    {
+     "name": "pushed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "the push job claimed it (app.claim_staff_push): sent to the staff devices of the members who see it, or, when older than 30 minutes, only marked; excluded from the change history"
     }
    ],
    "referenced_by": [

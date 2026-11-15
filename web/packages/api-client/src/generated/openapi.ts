@@ -1936,6 +1936,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/devices/{installation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Registers this install of the staff app for push notifications, or refreshes it (the token
+         *     changes now and then). It is an upsert by the person and `installation_id`, a UUID the app
+         *     makes once per install. A token already registered for another person or install moves to
+         *     this one, since the phone changed hands. A notification is pushed to the devices of the
+         *     members who see it in their feed, as IDs and kind codes only. Signing the session out
+         *     stops pushes to the devices it registered.
+         */
+        put: operations["registerMyDevice"];
+        post?: never;
+        /**
+         * Stops pushes to this install; the app calls it on sign-out. Removing an install that is
+         *     already removed, unknown, or someone else's is `204` and changes nothing: an install id is
+         *     only ever looked up among the caller's own.
+         */
+        delete: operations["removeMyDevice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/onboarding": {
         parameters: {
             query?: never;
@@ -2279,6 +2308,27 @@ export interface paths {
         get: operations["listMySessions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sessions/revoke-current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Signs out the session making the request, in one call: the app's sign-out. Its next request
+         *     gets `401` on every host, and the push tokens of the devices it registered are cleared, so
+         *     no notification reaches the phone afterwards.
+         */
+        post: operations["revokeCurrentSession"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7629,6 +7679,19 @@ export interface components {
              * @description Seconds until it expires.
              */
             expires_in: number;
+        };
+        /** @description An install of the app and where to push to it. */
+        DeviceRegistration: {
+            /** @description `staff`; `patient` is reserved (`422 unsupported_app`); anything else is `400`. */
+            app: string;
+            /** @description The app's version, up to 40 characters. */
+            app_version?: string | null;
+            /** @description The phone's language, such as `en-IN`. */
+            locale: string;
+            /** @description `ios` or `android`; anything else is `400`. */
+            platform: string;
+            /** @description The push provider's token for this install (APNs or FCM), 1 to 4096 characters. */
+            token: string;
         };
         /** @description Why a follow-up is dismissed. */
         DismissRecall: {
@@ -21135,6 +21198,80 @@ export interface operations {
             };
         };
     };
+    registerMyDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The app's id for this install, a UUID */
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceRegistration"];
+            };
+        };
+        responses: {
+            /** @description Registered */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The patient app can't register devices yet (`unsupported_app`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removeMyDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The app's id for this install, a UUID */
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed, or there was nothing to remove */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getMySetup: {
         parameters: {
             query?: never;
@@ -21929,6 +22066,31 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MySessions"];
                 };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokeCurrentSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not signed in */
             401: {

@@ -385,3 +385,35 @@ pub(crate) async fn revoke_other_sessions(
         revoked: revoked.len(),
     }))
 }
+
+/// Signs out the session making the request, in one call: the app's sign-out. Its next request
+/// gets `401` on every host, and the push tokens of the devices it registered are cleared, so
+/// no notification reaches the phone afterwards.
+#[utoipa::path(
+    post,
+    path = "/api/v1/me/sessions/revoke-current",
+    operation_id = "revokeCurrentSession",
+    tag = "session",
+    security(("bearer" = [])),
+    responses((status = 204, description = "Signed out"), (status = 401, description = "Not signed in"))
+)]
+pub(crate) async fn revoke_current_session(
+    State(state): State<AppState>,
+    signed_in: SignedIn,
+) -> Result<StatusCode, ApiFailure> {
+    let claims = &signed_in.claims;
+    let session = claims.session_id().ok_or_else(ApiError::unauthenticated)?;
+    sessions_app::revoke_current(
+        state.db(),
+        claims.subject().uuid(),
+        session,
+        time::OffsetDateTime::from_unix_timestamp(claims.expires_at()).ok(),
+    )
+    .await?;
+    state.forget_session(session);
+    tracing::info!(
+        event = Event::SessionRevoked.as_str(),
+        "current session signed out"
+    );
+    Ok(StatusCode::NO_CONTENT)
+}

@@ -42,6 +42,9 @@ pub struct Config {
     /// `WhatsApp` through Meta's Cloud API (`ARO_WHATSAPP__*`); off by default.
     #[serde(default)]
     pub whatsapp: WhatsappSettings,
+    /// Staff push notifications through APNs and FCM (`ARO_PUSH__*`); off by default.
+    #[serde(default)]
+    pub push: PushSettings,
     /// Campaigns (`ARO_CAMPAIGNS__*`).
     #[serde(default)]
     pub campaigns: CampaignsSettings,
@@ -432,6 +435,31 @@ impl Default for EmailSettings {
             resend_webhook_secret: None,
         }
     }
+}
+
+/// Staff push notifications (docs/decisions.md, "Staff push notifications"). Secrets live in
+/// Secret Manager. A provider whose settings are incomplete is skipped.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PushSettings {
+    /// Send push notifications (`ARO_PUSH__ENABLED`). Default false: notifications are still
+    /// marked pushed, nothing is sent.
+    pub enabled: bool,
+    /// The APNs auth key, the text of the `.p8` file (`ARO_PUSH__APNS_KEY_P8`).
+    pub apns_key_p8: Option<SecretString>,
+    /// The APNs key's id (`ARO_PUSH__APNS_KEY_ID`).
+    pub apns_key_id: Option<String>,
+    /// The Apple developer team id (`ARO_PUSH__APNS_TEAM_ID`).
+    pub apns_team_id: Option<String>,
+    /// The staff app's bundle id (`ARO_PUSH__APNS_TOPIC`); config, not code, because it may
+    /// become neutral.
+    pub apns_topic: Option<String>,
+    /// Use Apple's sandbox host, for development builds (`ARO_PUSH__APNS_SANDBOX`).
+    pub apns_sandbox: bool,
+    /// The Firebase project (`ARO_PUSH__FCM_PROJECT_ID`).
+    pub fcm_project_id: Option<String>,
+    /// The Firebase service account's JSON key (`ARO_PUSH__FCM_SERVICE_ACCOUNT_JSON`).
+    pub fcm_service_account_json: Option<SecretString>,
 }
 
 /// Campaigns (docs/decisions.md, "Campaigns").

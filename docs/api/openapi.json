@@ -6461,6 +6461,86 @@
         ]
       }
     },
+    "/api/v1/me/devices/{installation_id}": {
+      "put": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Registers this install of the staff app for push notifications, or refreshes it (the token\nchanges now and then). It is an upsert by the person and `installation_id`, a UUID the app\nmakes once per install. A token already registered for another person or install moves to\nthis one, since the phone changed hands. A notification is pushed to the devices of the\nmembers who see it in their feed, as IDs and kind codes only. Signing the session out\nstops pushes to the devices it registered.",
+        "operationId": "registerMyDevice",
+        "parameters": [
+          {
+            "name": "installation_id",
+            "in": "path",
+            "description": "The app's id for this install, a UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRegistration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Registered"
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "422": {
+            "description": "The patient app can't register devices yet (`unsupported_app`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Stops pushes to this install; the app calls it on sign-out. Removing an install that is\nalready removed, unknown, or someone else's is `204` and changes nothing: an install id is\nonly ever looked up among the caller's own.",
+        "operationId": "removeMyDevice",
+        "parameters": [
+          {
+            "name": "installation_id",
+            "in": "path",
+            "description": "The app's id for this install, a UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed, or there was nothing to remove"
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/onboarding": {
       "get": {
         "tags": [
@@ -7218,6 +7298,28 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/sessions/revoke-current": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Signs out the session making the request, in one call: the app's sign-out. Its next request\ngets `401` on every host, and the push tokens of the devices it registered are cleared, so\nno notification reaches the phone afterwards.",
+        "operationId": "revokeCurrentSession",
+        "responses": {
+          "204": {
+            "description": "Signed out"
           },
           "401": {
             "description": "Not signed in"
@@ -23020,6 +23122,42 @@
             "description": "Seconds until it expires."
           }
         }
+      },
+      "DeviceRegistration": {
+        "type": "object",
+        "description": "An install of the app and where to push to it.",
+        "required": [
+          "platform",
+          "token",
+          "app",
+          "locale"
+        ],
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "`staff`; `patient` is reserved (`422 unsupported_app`); anything else is `400`."
+          },
+          "app_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The app's version, up to 40 characters."
+          },
+          "locale": {
+            "type": "string",
+            "description": "The phone's language, such as `en-IN`."
+          },
+          "platform": {
+            "type": "string",
+            "description": "`ios` or `android`; anything else is `400`."
+          },
+          "token": {
+            "type": "string",
+            "description": "The push provider's token for this install (APNs or FCM), 1 to 4096 characters."
+          }
+        },
+        "additionalProperties": false
       },
       "DismissRecall": {
         "type": "object",

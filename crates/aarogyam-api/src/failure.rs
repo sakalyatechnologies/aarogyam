@@ -192,6 +192,11 @@ impl From<AppError> for ApiFailure {
                 "visit_closed",
                 "This visit is already closed. Open it to see how it ended.",
             )),
+            AppError::UnsupportedApp => Self::Error(ApiError::new(
+                ErrorKind::Unprocessable,
+                "unsupported_app",
+                "This app can't register devices for notifications yet.",
+            )),
             AppError::PractitionerOnLeave => Self::Error(ApiError::new(
                 ErrorKind::Unprocessable,
                 "practitioner_on_leave",

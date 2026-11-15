@@ -449,6 +449,54 @@ pub async fn mark_all_read(conn: &mut PgConnection, viewer: Viewer) -> Result<u6
     Ok(done.rows_affected())
 }
 
+/// Which of `ids` the member sees in their feed: the feed's own rules (the same predicates as
+/// [`feed`]), asked of just these rows. The push job decides who is told with it, so a push
+/// never reaches someone the feed would hide the notification from. Run in the member's own
+/// clinic scope, since some rules look at who is on duty and who is assigned.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn visible_among(
+    conn: &mut PgConnection,
+    viewer: Viewer,
+    ids: &[Uuid],
+) -> Result<Vec<Uuid>, DbError> {
+    let seen = sqlx::query_scalar!(
+        r#"select n.id as "id!" from aarogyam.staff_notifications n
+           left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
+           left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
+           left join aarogyam.invoices i on i.org_id = n.org_id and i.id = n.invoice_id
+           left join aarogyam.recalls rc on rc.org_id = n.org_id and rc.id = n.recall_id
+           where n.id = any($15)
+             and (($3 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2) and app.booking_conflict_visible(n, a.practitioner_id, $1))
+                  or ($4 and o.id is not null
+                      and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $5))
+                  or ($6 and i.id is not null and n.kind <> 'collect_payment')
+                  or ($7 and rc.id is not null and app.patient_in_reach(rc.patient_id, $8))
+                  or app.staff_ops_notification_visible(n, $1, $9, $10, $11, $12)
+                  or app.visit_notification_visible(n, $1, $13, $14))
+             and app.staff_ops_notification_newest(n, $1, $9, $10)"#,
+        viewer.member,
+        viewer.bookings.reach,
+        viewer.bookings.shown,
+        viewer.labs.shown,
+        viewer.labs.reach,
+        viewer.billing.shown,
+        viewer.patients.shown,
+        viewer.patients.reach,
+        viewer.owner,
+        viewer.tasks,
+        viewer.inventory,
+        viewer.time_off,
+        viewer.clinical_write,
+        viewer.collect,
+        ids,
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(seen)
+}
+
 /// One message in the clinic inbox.
 #[derive(Debug, Clone)]
 pub struct InboxRow {

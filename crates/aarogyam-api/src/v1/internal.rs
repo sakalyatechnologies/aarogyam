@@ -97,12 +97,26 @@ pub(crate) async fn drain_outbox(
     let hosts = addresses
         .provision(state.db(), OffsetDateTime::now_utc())
         .await?;
-    let reminders =
-        aarogyam_notify::remind(state.db(), OffsetDateTime::now_utc(), OpenHours::DEFAULT).await?;
+    let notifier = state.notifier();
+    let reminders = aarogyam_notify::remind_with(
+        state.db(),
+        OffsetDateTime::now_utc(),
+        OpenHours::DEFAULT,
+        notifier.push(),
+    )
+    .await?;
     // Before delivery, so a reminder queued now goes out in this run.
     let labs = aarogyam_notify::remind_labs(state.db(), OffsetDateTime::now_utc()).await?;
     let flagged = aarogyam_notify::flag_alerts(state.db(), OffsetDateTime::now_utc()).await?;
-    let notifier = state.notifier();
+    // Every new staff notification, including the ones the steps above just wrote.
+    // Push never stops the email drain below.
+    if let Err(error) = notifier
+        .push()
+        .run(state.db(), OffsetDateTime::now_utc())
+        .await
+    {
+        tracing::warn!(error = %error, "could not push staff notifications");
+    }
     let report = notifier
         .drain(state.db(), OffsetDateTime::now_utc())
         .await?;

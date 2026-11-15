@@ -2,6 +2,7 @@
 
 use aarogyam_dal::sessions::{self as dal, MySession};
 use sakalya_db::Db;
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::AppError;
@@ -40,4 +41,22 @@ pub async fn revoke_others(
     current_session: Uuid,
 ) -> Result<Vec<Uuid>, AppError> {
     Ok(dal::revoke_others(db.pool(), auth_uid, current_session).await?)
+}
+
+/// Signs out the session of the token asking (the app's sign-out in one call): it is refused from
+/// now on, and the push tokens of the devices it registered are cleared.
+///
+/// # Errors
+/// [`AppError::NotFound`] when the person has no account; [`AppError::Db`] on failures.
+pub async fn revoke_current(
+    db: &Db,
+    auth_uid: Uuid,
+    provider_session: Uuid,
+    expires_at: Option<OffsetDateTime>,
+) -> Result<(), AppError> {
+    if dal::revoke_current(db.pool(), auth_uid, provider_session, expires_at).await? {
+        Ok(())
+    } else {
+        Err(AppError::NotFound("account"))
+    }
 }

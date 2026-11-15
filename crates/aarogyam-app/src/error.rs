@@ -32,6 +32,9 @@ pub enum AppError {
     /// The visit is closed, so it can't be finished again. Retrying changes nothing.
     #[error("this visit is already closed")]
     VisitClosed,
+    /// The app can't register devices yet (`422 unsupported_app`): the patient app is reserved.
+    #[error("this app can't register devices yet")]
+    UnsupportedApp,
     /// The doctor is on approved leave at the time asked for (`422 practitioner_on_leave`).
     #[error("the doctor is on leave at this time")]
     PractitionerOnLeave,

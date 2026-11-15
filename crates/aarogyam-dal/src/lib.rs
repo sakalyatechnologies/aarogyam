@@ -28,6 +28,7 @@ pub mod console;
 pub mod contact;
 pub mod dashboard;
 pub mod dental_terms;
+pub mod devices;
 pub mod duplicates;
 pub mod edge;
 pub mod erasure;

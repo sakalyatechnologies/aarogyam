@@ -139,6 +139,43 @@ fn authorization(grant: Grant) -> Authorization {
     }
 }
 
+/// The active members of a clinic, as `app.authorize` would describe each of them, for the
+/// push job: it works out who sees a notification by building each member's feed rules
+/// (`app.push_members`, migration 0714). Suspended and left members and disabled users are not
+/// returned.
+///
+/// # Errors
+/// [`DbError`] when the database can't be reached.
+pub async fn active_members(
+    pool: &PgPool,
+    clinic_id: ClinicId,
+) -> Result<Vec<Authorization>, DbError> {
+    let rows = sqlx::query!(
+        r#"select user_id as "user_id!", user_status as "user_status!",
+                  membership_id as "membership_id!", membership_status as "membership_status!",
+                  role_key as "role_key!", permissions as "permissions!", scopes as "scopes!"
+           from app.push_members($1)"#,
+        clinic_id.uuid()
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            authorization(Grant {
+                user_id: row.user_id,
+                user_status: row.user_status,
+                membership_id: row.membership_id,
+                membership_status: row.membership_status,
+                role_key: row.role_key,
+                permissions: row.permissions,
+                scopes: row.scopes,
+                session_revoked: false,
+            })
+        })
+        .collect())
+}
+
 /// [`resolve_host`] and, when the clinic is open, [`authorize`], in one round trip: for a
 /// request whose host and member are both not cached. `None` for an unknown host; the
 /// authorization is `None` for a closed clinic (not asked) or a non-member.

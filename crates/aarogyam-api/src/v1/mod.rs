@@ -19,6 +19,7 @@ pub(crate) mod console;
 pub(crate) mod console_support;
 pub(crate) mod dashboard;
 pub(crate) mod dental_terms;
+pub(crate) mod devices;
 pub(crate) mod duplicates;
 pub(crate) mod events;
 pub(crate) mod expenses;
@@ -123,7 +124,15 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/me/sessions/revoke-others",
             post(me::revoke_other_sessions),
         )
+        .route(
+            "/me/sessions/revoke-current",
+            post(me::revoke_current_session),
+        )
         .route("/me/sessions/{id}/revoke", post(me::revoke_session))
+        .route(
+            "/me/devices/{installation_id}",
+            put(devices::register).delete(devices::remove),
+        )
         .route("/session", get(me::session))
         .route(
             "/me/avatar",

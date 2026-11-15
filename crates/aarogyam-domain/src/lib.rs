@@ -76,6 +76,7 @@ pub mod contact;
 pub mod dashboard;
 pub mod dental;
 pub mod dental_terms;
+pub mod device;
 pub mod edge;
 pub mod event;
 pub mod expense;

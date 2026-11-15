@@ -3,10 +3,11 @@ import { useState } from "react";
 
 import { apiErrorOf } from "@aarogyam/api-client";
 import { formatTime } from "@aarogyam/app-kit";
-import { Badge, Button, Dialog, TextInput, useToast } from "@sakalya/ui";
+import { Badge, Button, Dialog, TextInput } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
-import { useAppointments, useSetAppointmentStatus } from "../../queries.js";
+import { useCheckIn } from "../../components/check-in.js";
+import { useAppointments } from "../../queries.js";
 import { WalkInWizard } from "./walk-in-wizard.js";
 
 /**
@@ -101,8 +102,7 @@ function CheckInList({ day, onDone }: { day: string; onDone: () => void }) {
   const { session } = useClinic();
   const [search, setSearch] = useState("");
   const appointments = useAppointments({ from: day, to: day });
-  const setStatus = useSetAppointmentStatus();
-  const toast = useToast();
+  const { checkIn, busy, dialog } = useCheckIn();
   const needle = search.trim().toLowerCase();
   const waiting = (appointments.data?.items ?? [])
     .filter((a) => (a.status === "booked" || a.status === "confirmed") && a.token_number == null)
@@ -111,6 +111,7 @@ function CheckInList({ day, onDone }: { day: string; onDone: () => void }) {
 
   return (
     <div className="flex flex-col gap-3">
+      {dialog}
       <TextInput
         type="search"
         aria-label="Search today's bookings"
@@ -143,21 +144,10 @@ function CheckInList({ day, onDone }: { day: string; onDone: () => void }) {
               </div>
               <Badge tone="info">Booked</Badge>
               <Button
-                disabled={setStatus.isPending}
+                disabled={busy}
                 aria-label={`Check in ${a.patient.full_name}`}
                 onClick={() => {
-                  setStatus.mutate(
-                    { id: a.id, change: { status: "arrived" } },
-                    {
-                      onSuccess: () => {
-                        toast.show({ title: `${a.patient.full_name} checked in`, tone: "success" });
-                        onDone();
-                      },
-                      onError: (thrown) => {
-                        toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't check in. Please try again.", tone: "danger" });
-                      },
-                    },
-                  );
+                  checkIn(a, { done: `${a.patient.full_name} checked in`, onDone });
                 }}
               >
                 Check in

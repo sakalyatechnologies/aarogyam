@@ -6,6 +6,7 @@ import { useToast } from "@sakalya/ui";
 
 import { useClinic } from "../clinic.js";
 import { useSetAppointmentStatus } from "../queries.js";
+import { useCheckIn, type CheckInTarget } from "./check-in.js";
 
 interface NextAction {
   label: string;
@@ -40,7 +41,7 @@ export function AppointmentActionButton({
   className = "mk-btn mk-btn-primary",
   label,
 }: {
-  appointment: Pick<Appointment, "id" | "status">;
+  appointment: Pick<Appointment, "id" | "status"> & Pick<CheckInTarget, "patient">;
   className?: string;
   /** Words for the button in place of the step's own (for a place that has its own way of saying it). */
   label?: (step: string) => string;
@@ -48,30 +49,35 @@ export function AppointmentActionButton({
   const { can } = useClinic();
   const toast = useToast();
   const setStatus = useSetAppointmentStatus();
+  const { checkIn, busy, dialog } = useCheckIn();
   const next = nextAction(appointment.status);
   if (next === undefined || !can("appointments.write")) {
     return null;
   }
+  const arriving = next.change === "arrived";
+  const advance = () => {
+    if (arriving) {
+      checkIn(appointment, { done: next.done });
+      return;
+    }
+    setStatus.mutate(
+      { id: appointment.id, change: { status: next.change } },
+      {
+        onSuccess: () => {
+          toast.show({ title: next.done, tone: "success" });
+        },
+        onError: (thrown) => {
+          toast.show({ title: apiErrorOf(thrown)?.message ?? `Couldn't update the appointment. Please try again.`, tone: "danger" });
+        },
+      },
+    );
+  };
   return (
-    <button
-      type="button"
-      className={className}
-      disabled={setStatus.isPending}
-      onClick={() => {
-        setStatus.mutate(
-          { id: appointment.id, change: { status: next.change } },
-          {
-            onSuccess: () => {
-              toast.show({ title: next.done, tone: "success" });
-            },
-            onError: (thrown) => {
-              toast.show({ title: apiErrorOf(thrown)?.message ?? `Couldn't update the appointment. Please try again.`, tone: "danger" });
-            },
-          },
-        );
-      }}
-    >
-      {next.icon} {label === undefined ? next.label : label(next.label)}
-    </button>
+    <>
+      <button type="button" className={className} disabled={setStatus.isPending || busy} onClick={advance}>
+        {next.icon} {label === undefined ? next.label : label(next.label)}
+      </button>
+      {dialog}
+    </>
   );
 }

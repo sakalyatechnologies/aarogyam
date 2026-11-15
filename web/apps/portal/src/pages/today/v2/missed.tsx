@@ -6,7 +6,8 @@ import { DateInput, TextInput, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
 import { localInstant } from "../../../lib/time.js";
-import { useChangeAppointment, useSetAppointmentStatus } from "../../../queries.js";
+import { useCheckIn } from "../../../components/check-in.js";
+import { useChangeAppointment } from "../../../queries.js";
 import { useSendMissedReminder } from "../../queue/desk-queries.js";
 import type { Appointment } from "./seeing.js";
 
@@ -16,28 +17,15 @@ type Missed = MissedListPage["items"][number];
 export function MissedSection({ missed, appointments, zone }: { missed: MissedListPage; appointments: readonly Appointment[]; zone: string }) {
   const { can } = useClinic();
   const canWrite = can("appointments.write");
-  const toast = useToast();
-  const setStatus = useSetAppointmentStatus();
+  const { checkIn, busy, dialog } = useCheckIn();
   const remind = useSendMissedReminder();
   const [moving, setMoving] = useState<AppointmentId | undefined>(undefined);
   if (missed.items.length === 0) {
     return null;
   }
-  const checkIn = (item: Missed) => {
-    setStatus.mutate(
-      { id: item.appointment_id, change: { status: "arrived" } },
-      {
-        onSuccess: () => {
-          toast.show({ title: "Checked in", tone: "success" });
-        },
-        onError: (thrown) => {
-          toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't check them in.", tone: "danger" });
-        },
-      },
-    );
-  };
   return (
     <section aria-label="Missed today">
+      {dialog}
       <h3 className="tv2-h3">Missed today ({missed.items.length})</h3>
       <ul aria-label="Missed today" className="tv2-list tv2-qlist">
         {missed.items.map((item) => {
@@ -54,10 +42,10 @@ export function MissedSection({ missed, appointments, zone }: { missed: MissedLi
                   <button
                     type="button"
                     className="tv2-chip"
-                    disabled={setStatus.isPending}
+                    disabled={busy}
                     aria-label={`Check in ${name}`}
                     onClick={() => {
-                      checkIn(item);
+                      checkIn({ id: item.appointment_id, patient: known?.patient }, { done: "Checked in" });
                     }}
                   >
                     Check in

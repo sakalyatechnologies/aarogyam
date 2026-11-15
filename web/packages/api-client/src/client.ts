@@ -41,6 +41,7 @@ import type {
 } from "./schemas.js";
 import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview, TaskProofUploaded } from "./schemas.js";
 import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
+import type { CheckedIn, CheckInRequest, DuplicateList, MergeRequest, Merged } from "./schemas.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
 import type { Conversation, LabReminders, LabRemindersRequest, MessageStats } from "./schemas.js";
 import type { Allergy, FamilyLink, FamilyList, NewFamilyLink, ConsentLink, ConsentRequestInput, ConsentRequested, ConsentSigned, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PatientsSummary, PhoneMatchPage, QuickPicks, SignConsentInput, StartedVisit, WalkIn, WalkInRequest, ConflictPolicy, ConflictPolicyChange, MoveAppointment } from "./schemas.js";
@@ -491,6 +492,8 @@ export interface ApiClient {
   bookAppointment(input: NewAppointmentBody, options?: RequestOptions): Promise<ApiResult<SavedAppointment>>;
   /** Clinic host: moves, reassigns or edits an appointment. Needs `appointments.write`. */
   changeAppointment(id: AppointmentId, changes: AppointmentChanges, options?: RequestOptions): Promise<ApiResult<SavedAppointment>>;
+  /** Clinic host: checks in a booked patient, recording sex, age, allergies and consents in one step. Needs `appointments.write`, `patients.write` and `intake.write`. */
+  checkInAppointment(id: AppointmentId, input: CheckInRequest, options?: RequestOptions): Promise<ApiResult<CheckedIn>>;
   /** Clinic host: moves an appointment's status along, or cancels (with a reason) or marks a no-show. Needs `appointments.write`. */
   setAppointmentStatus(id: AppointmentId, change: StatusChange, options?: RequestOptions): Promise<ApiResult<StatusChanged>>;
   /** Reschedules a requested, booked or confirmed appointment and confirms it. 409 `slot_occupied` when the new time is held. */
@@ -532,6 +535,12 @@ export interface ApiClient {
   listIncompletePatients(options?: RequestOptions): Promise<ApiResult<IncompleteList>>;
   /** Clinic host: takes a patient off the to-do list. Needs `patients.write`. */
   dismissIncompletePatient(id: PatientGapId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: online sign-ups whose phone matches an existing patient, to merge or dismiss. Needs `patients.read`. */
+  listPatientDuplicates(options?: RequestOptions): Promise<ApiResult<DuplicateList>>;
+  /** Clinic host: the two records are different people. Needs `patients.write`. */
+  dismissPatientDuplicate(id: string, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: merges an online sign-up (`id`) into an existing patient; irreversible. Needs `patients.write`. */
+  mergePatient(id: PatientId, into: MergeRequest, options?: RequestOptions): Promise<ApiResult<Merged>>;
 
   /** Clinic host: unread chat messages and notifications, for the minute poll. Needs `chat.use`. */
   getBadges(options?: RequestOptions): Promise<ApiResult<Badges>>;

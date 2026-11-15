@@ -1068,6 +1068,36 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     const demoRecalls = new Map<string, C.Recall[]>();
     const clinicPatients = (caller: Caller) => state.patients.filter((p) => p.clinic_id === caller.clinic.id && p.status !== "merged");
 
+    /** Marks an appointment arrived and gives it the next queue token of the day; returns the token's id. */
+    function issueArrivalToken(found: FakeAppointment, caller: Caller, now: Date): string {
+      found.arrived_at = now.toISOString();
+      const day = localClock(now, caller.clinic.timezone).date;
+      const nextNumber =
+        1 +
+        Math.max(
+          0,
+          ...state.queueTokens.filter((t) => t.clinic_id === caller.clinic.id && t.branch_id === found.branch_id && t.day === day).map((t) => t.token_number),
+        );
+      const token: FakeQueueToken = {
+        id: fakeUuid(random, now),
+        clinic_id: caller.clinic.id,
+        branch_id: found.branch_id,
+        day,
+        token_number: nextNumber,
+        patient_id: found.patient_id,
+        practitioner_id: found.practitioner_id,
+        appointment_id: found.id,
+        status: "waiting",
+        issued_at: now.toISOString(),
+        called_at: null,
+        done_at: null,
+      };
+      state.queueTokens.push(token);
+      notices.patientWaiting(noticeContext(caller), token);
+      found.token_number = nextNumber;
+      return token.id;
+    }
+
     const labsOf = (): FakeLabs => (state.labs ??= emptyLabs());
     /** What a lab order's names, late flag and costs depend on for this caller. */
     const labContext = (caller: Caller) => ({
@@ -2454,6 +2484,90 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ appointment: wired, warnings } satisfies C.SavedAppointment);
         }),
 
+      checkInAppointment: (id, input, opts) =>
+        respond(S.checkedIn, opts?.signal, async () => {
+          const caller = await inClinic("appointments.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const perms = caller.membership.role.permissions;
+          if (!hasPermission(perms, "patients.write") || !hasPermission(perms, "intake.write")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const found = state.appointments.find((a) => a.id === id && a.clinic_id === caller.clinic.id);
+          const patient = found === undefined ? undefined : state.patients.find((p) => p.id === found.patient_id);
+          if (found === undefined || patient === undefined) {
+            return notFound;
+          }
+          const now = clock();
+          const problem = checkInProblem(input, now);
+          if (problem !== null) {
+            return problem;
+          }
+          const allergies = (input.allergies ?? []).map((a) => a.trim());
+          const active = state.allergies.filter((a) => a.clinic_id === caller.clinic.id && a.patient_id === patient.id && a.status === "active");
+          if (input.no_known_allergies === true && active.length > 0) {
+            return refuse(409, "conflict", "this patient has an allergy on record; a doctor must review it first");
+          }
+          if (!["booked", "confirmed", "arrived", "no_show"].includes(found.status)) {
+            return refuse(409, "conflict", "That appointment can't be checked in from its status.");
+          }
+          if (input.sex != null) patient.sex = S.sex.parse(input.sex);
+          if (input.date_of_birth != null) {
+            patient.date_of_birth = input.date_of_birth;
+            patient.birth_date_estimated = false;
+          } else if (input.age_years != null) {
+            patient.date_of_birth = `${String(now.getUTCFullYear() - input.age_years)}-01-01`;
+            patient.birth_date_estimated = true;
+          }
+          if (patient.sex !== "unknown" && patient.date_of_birth != null) patient.registration_incomplete = false;
+          const recordedAllergies = allergies.filter((substance, i) => allergies.indexOf(substance) === i && !active.some((a) => a.substance.toLowerCase() === substance.toLowerCase()));
+          for (const substance of recordedAllergies) {
+            const at = now.toISOString();
+            state.allergies.push({
+              id: fakeUuid(random, now),
+              clinic_id: caller.clinic.id,
+              patient_id: patient.id,
+              substance,
+              reaction: null,
+              severity: "moderate",
+              status: "active",
+              source: "patient",
+              code: null,
+              verified_by: null,
+              created_at: at,
+              updated_at: at,
+            });
+          }
+          if (input.no_known_allergies === true) patient.allergies_reviewed = "none_known";
+          if (recordedAllergies.length + active.length > 0) patient.allergies_reviewed = "has_allergies";
+          const recorded: C.ConsentPurpose[] = [];
+          const stored = (state.consents ??= []);
+          for (const c of input.consents ?? []) {
+            const purpose = S.consentPurpose.parse(c.purpose);
+            if (stored.some((x) => x.clinic_id === caller.clinic.id && x.patient_id === patient.id && x.purpose === purpose && x.status === "given")) continue;
+            stored.push({
+              id: S.consentId.parse(fakeUuid(random, now)),
+              clinic_id: caller.clinic.id,
+              patient_id: patient.id,
+              purpose,
+              notice_version: input.notice_version ?? "v1 2026-10",
+              given_at: now.toISOString(),
+              method: S.consentMethod.parse(c.method),
+              recorded_by: caller.user.display_name,
+              status: "given",
+            });
+            recorded.push(purpose);
+          }
+          const queueTokenId = found.status === "arrived" ? (state.queueTokens.find((t) => t.appointment_id === found.id)?.id ?? null) : issueArrivalToken(found, caller, now);
+          found.status = "arrived";
+          const wired = wireAppointment(found, state, now);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply({ appointment: wired, allergies_recorded: recordedAllergies.length, consents_recorded: recorded, queue_token_id: queueTokenId } satisfies C.CheckedIn);
+        }),
+
       setAppointmentStatus: (id, change, opts) =>
         respond(S.statusChanged, opts?.signal, async () => {
           const caller = await inClinic("appointments.write");
@@ -2504,34 +2618,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (target === "cancelled") {
             found.cancel_reason = change.reason ?? null;
           } else if (target === "arrived") {
-            found.arrived_at = now.toISOString();
-            const day = localClock(now, caller.clinic.timezone).date;
-            const nextNumber =
-              1 +
-              Math.max(
-                0,
-                ...state.queueTokens
-                  .filter((t) => t.clinic_id === caller.clinic.id && t.branch_id === found.branch_id && t.day === day)
-                  .map((t) => t.token_number),
-              );
-            const token: FakeQueueToken = {
-              id: fakeUuid(random, now),
-              clinic_id: caller.clinic.id,
-              branch_id: found.branch_id,
-              day,
-              token_number: nextNumber,
-              patient_id: found.patient_id,
-              practitioner_id: found.practitioner_id,
-              appointment_id: found.id,
-              status: "waiting",
-              issued_at: now.toISOString(),
-              called_at: null,
-              done_at: null,
-            };
-            state.queueTokens.push(token);
-            notices.patientWaiting(noticeContext(caller), token);
-            found.token_number = nextNumber;
-            queueTokenId = token.id;
+            queueTokenId = issueArrivalToken(found, caller, now);
           } else if (target === "in_chair") {
             found.seated_at = now.toISOString();
             const token = state.queueTokens.find((t) => t.appointment_id === found.id);
@@ -3067,6 +3154,70 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             items.push({ id: null, patient_id: patient.id, number: patient.number, full_name: patient.full_name, missing, file_name: null, sheet: null, row: null, imported_at: null });
           }
           return reply({ items } satisfies C.IncompleteList);
+        }),
+
+      listPatientDuplicates: (opts) =>
+        respond(S.duplicateList, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const now = clock();
+          const side = (p: FakePatient): C.DuplicateSide => ({ id: p.id, number: p.number, full_name: p.full_name, sex: p.sex, age_years: ageYears(p.date_of_birth, now) });
+          const items: C.PossibleDuplicate[] = [];
+          for (const flag of state.patientDuplicates ?? []) {
+            const mine = clinicPatients(caller);
+            const signup = mine.find((p) => p.id === flag.patient_id);
+            const candidate = mine.find((p) => p.id === flag.candidate_id);
+            if (flag.clinic_id !== caller.clinic.id || flag.dismissed || signup === undefined || candidate === undefined) continue;
+            items.push({ id: flag.id, reason: flag.reason, flagged_at: flag.flagged_at, patient: side(signup), candidate: side(candidate) });
+          }
+          items.sort((a, b) => b.flagged_at.localeCompare(a.flagged_at));
+          return reply({ items: items.slice(0, 200) } satisfies C.DuplicateList);
+        }),
+
+      dismissPatientDuplicate: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const flag = (state.patientDuplicates ?? []).find((f) => f.id === id && f.clinic_id === caller.clinic.id && !f.dismissed);
+          if (flag === undefined) {
+            return notFound;
+          }
+          flag.dismissed = true;
+          return reply(undefined);
+        }),
+
+      mergePatient: (id, into, opts) =>
+        respond(S.merged, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const signup = state.patients.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          const keeper = clinicPatients(caller).find((p) => p.id === into.into_patient_id);
+          if (signup === undefined || keeper === undefined) {
+            return notFound;
+          }
+          if (signup.id === keeper.id) {
+            return invalid("into_patient_id", "can't merge a patient into themselves");
+          }
+          const flags = (state.patientDuplicates ?? []).filter((f) => f.clinic_id === caller.clinic.id && f.patient_id === signup.id);
+          if (signup.status === "merged") {
+            return refuse(409, "conflict", "That record is already merged.");
+          }
+          if (flags.length === 0) {
+            return invalid("id", "not a self-registered record");
+          }
+          const moved = state.appointments.filter((a) => a.patient_id === signup.id);
+          for (const a of moved) a.patient_id = keeper.id;
+          for (const t of state.queueTokens) if (t.patient_id === signup.id) t.patient_id = keeper.id;
+          if (keeper.email == null) keeper.email = signup.email ?? null;
+          signup.status = "merged";
+          for (const f of flags) f.dismissed = true;
+          return reply({ patient_id: keeper.id, appointments_moved: moved.length } satisfies C.Merged);
         }),
 
       dismissIncompletePatient: (id, opts) =>
@@ -8926,6 +9077,37 @@ function searchPatients(patients: readonly FakePatient[], q: string): FakePatien
     .map(({ p }) => p);
 }
 
+/** What is wrong with a check-in body, as the API's 400; null when it is fine. */
+function checkInProblem(input: C.CheckInRequest, now: Date): Outcome | null {
+  if (input.sex != null && !S.sex.safeParse(input.sex).success) {
+    return invalid("sex", "must be female, male, other or unknown");
+  }
+  if (input.age_years != null && input.date_of_birth != null) {
+    return invalid("age_years", "give age_years or date_of_birth, not both");
+  }
+  if (input.date_of_birth != null && !(/^\d{4}-\d{2}-\d{2}$/.test(input.date_of_birth) && new Date(input.date_of_birth) <= now)) {
+    return invalid("date_of_birth", "must be a past date, YYYY-MM-DD");
+  }
+  if (input.age_years != null && input.age_years > 130) {
+    return invalid("age_years", "must be 130 or less");
+  }
+  const allergies = (input.allergies ?? []).map((a) => a.trim());
+  if (input.no_known_allergies === true && allergies.length > 0) {
+    return invalid("no_known_allergies", "can't be given together with allergies");
+  }
+  if (allergies.length > 20 || allergies.some((a) => a.length < 1 || a.length > 200)) {
+    return invalid("allergies", "at most 20, each 1 to 200 characters of text");
+  }
+  const purposes = new Set<string>();
+  for (const c of input.consents ?? []) {
+    if (!S.consentPurpose.safeParse(c.purpose).success) return invalid("purpose", "unknown value");
+    if (!S.consentMethod.safeParse(c.method).success) return invalid("method", "unknown value");
+    if (purposes.has(c.purpose)) return invalid("consents", "name each purpose once");
+    purposes.add(c.purpose);
+  }
+  return null;
+}
+
 function validateNewPatient(input: C.NewPatient, now: Date): Outcome | null {
   const name = input.full_name.trim();
   if (name.length < 1 || name.length > 200) {
@@ -9510,7 +9692,7 @@ function wirePatientBrief(p: FakePatient, now: Date): C.PatientBrief {
     full_name: p.full_name,
     sex: p.sex,
     age_years: ageYears(p.date_of_birth, now),
-    registration_incomplete: false,
+    registration_incomplete: p.registration_incomplete === true,
   };
 }
 

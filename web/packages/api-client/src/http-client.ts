@@ -157,7 +157,7 @@ import {
   type RequestId,
 } from "./schemas.js";
 import { myTasks, task, taskHistory, taskList, taskOccurrence, taskPreview, taskProofUploaded } from "./schemas.js";
-import { consentLink, consentRequested, consentSigned, familyLink, familyList, patientsSummary, phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
+import { checkedIn, duplicateList, merged, consentLink, consentRequested, consentSigned, familyLink, familyList, patientsSummary, phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
 import { conversation, labReminders, messageStats } from "./schemas.js";
 import {
   audience,
@@ -418,6 +418,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: "/api/v1/appointments", schema: savedAppointment, body: input, signal: opts?.signal }),
     changeAppointment: (id, changes, opts) =>
       call({ method: "PATCH", path: `/api/v1/appointments/${encodeURIComponent(id)}`, schema: savedAppointment, body: changes, signal: opts?.signal }),
+    checkInAppointment: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/appointments/${encodeURIComponent(id)}/check-in`, schema: checkedIn, body: input, signal: opts?.signal }),
     setAppointmentStatus: (id, change, opts) =>
       call({ method: "POST", path: `/api/v1/appointments/${encodeURIComponent(id)}/status`, schema: statusChanged, body: change, signal: opts?.signal }),
     moveAppointment: (id, to, opts) =>
@@ -470,6 +472,11 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     discardImport: (id, opts) =>
       call({ method: "DELETE", path: `/api/v1/imports/sessions/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
     listIncompletePatients: (opts) => call({ method: "GET", path: "/api/v1/imports/incomplete", schema: incompleteList, signal: opts?.signal }),
+    listPatientDuplicates: (opts) => call({ method: "GET", path: "/api/v1/patient-duplicates", schema: duplicateList, signal: opts?.signal }),
+    dismissPatientDuplicate: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/patient-duplicates/${encodeURIComponent(id)}/dismiss`, schema: voidResponse, signal: opts?.signal }),
+    mergePatient: (id, into, opts) =>
+      call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/merge`, schema: merged, body: into, signal: opts?.signal }),
     dismissIncompletePatient: (id, opts) =>
       call({
         method: "POST",

@@ -6,6 +6,7 @@ import {
   unwrap,
   type AllergyFields,
   type AppointmentChanges,
+  type CheckInRequest,
   type ConflictPolicyChange,
   type MoveAppointment,
   type AppointmentFilter,
@@ -584,6 +585,20 @@ function applyStatus(today: Today, id: AppointmentId, status: AppointmentStatus)
   };
 }
 
+/** Checks a booked patient in with the details the desk collected; refreshes the same lists a status change does, and the patient. */
+export function useCheckInAppointment() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: AppointmentId; input: CheckInRequest }) => unwrap(api.checkInAppointment(id, input)),
+    onSettled: () => {
+      invalidateSchedule(queryClient, access.org_id);
+      void queryClient.invalidateQueries({ queryKey: ["patient", access.org_id] });
+      void queryClient.invalidateQueries({ queryKey: ["incomplete-patients", access.org_id] });
+    },
+  });
+}
+
 /** Moves an appointment along. Today updates at once and is put back if the API refuses. */
 export function useSetAppointmentStatus() {
   const { api, access } = useClinic();
@@ -914,4 +929,43 @@ export function useUploadAttachment(patientId: PatientId) {
 export function useDownloadLink() {
   const { api } = useClinic();
   return useMutation({ mutationFn: (id: AttachmentId) => unwrap(api.getDownloadLink(id)) });
+}
+
+/** Online sign-ups that may be an existing patient (same phone), for the desk to merge or dismiss. */
+export function usePatientDuplicates(enabled = true) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["patient-duplicates", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.listPatientDuplicates({ signal })),
+    enabled,
+  });
+}
+
+function useRefreshDuplicates() {
+  const { access } = useClinic();
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: ["patient-duplicates", access.org_id] });
+  };
+}
+
+export function useDismissDuplicate() {
+  const { api } = useClinic();
+  const refresh = useRefreshDuplicates();
+  return useMutation({ mutationFn: (id: string) => unwrap(api.dismissPatientDuplicate(id)), onSuccess: refresh });
+}
+
+/** Merges an online sign-up into the existing patient; the schedule and directory change with it. */
+export function useMergePatient() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  const refresh = useRefreshDuplicates();
+  return useMutation({
+    mutationFn: ({ id, into }: { id: PatientId; into: PatientId }) => unwrap(api.mergePatient(id, { into_patient_id: into })),
+    onSuccess: () => {
+      refresh();
+      invalidateSchedule(queryClient, access.org_id);
+      void queryClient.invalidateQueries({ queryKey: ["patients", access.org_id] });
+    },
+  });
 }

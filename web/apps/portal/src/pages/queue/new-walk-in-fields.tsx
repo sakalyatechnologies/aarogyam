@@ -39,34 +39,50 @@ export function NewWalkInFields({ value, onChange }: { value: NewWalkIn; onChang
             }}
           />
         </Field>
-        <Field label="Age" hint="Years">
-          <TextInput
-            inputMode="numeric"
-            autoComplete="off"
-            value={value.age}
-            onChange={(event) => {
-              onChange({ ...value, age: event.target.value.replace(/\D/g, "").slice(0, 3) });
-            }}
-          />
-        </Field>
+        <AgeField value={value} onChange={onChange} />
       </div>
-      <div>
-        <p className="qp-label">Sex</p>
-        <div className="qp-chips" role="group" aria-label="Sex">
-          {SEX_OPTIONS.filter((option) => option.value !== "unknown").map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className="qp-chip"
-              aria-pressed={value.sex === option.value}
-              onClick={() => {
-                onChange({ ...value, sex: value.sex === option.value ? null : option.value });
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+      <SexField value={value} onChange={onChange} />
+    </div>
+  );
+}
+
+type SexAge = Pick<NewWalkIn, "age" | "sex">;
+
+/** Age in whole years, as typed. */
+export function AgeField<T extends SexAge>({ value, onChange }: { value: T; onChange: (next: T) => void }) {
+  return (
+    <Field label="Age" hint="Years">
+      <TextInput
+        inputMode="numeric"
+        autoComplete="off"
+        value={value.age}
+        onChange={(event) => {
+          onChange({ ...value, age: event.target.value.replace(/\D/g, "").slice(0, 3) });
+        }}
+      />
+    </Field>
+  );
+}
+
+/** Sex as chips; pressing the chosen one again clears it. */
+export function SexField<T extends SexAge>({ value, onChange }: { value: T; onChange: (next: T) => void }) {
+  return (
+    <div>
+      <p className="qp-label">Sex</p>
+      <div className="qp-chips" role="group" aria-label="Sex">
+        {SEX_OPTIONS.filter((option) => option.value !== "unknown").map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className="qp-chip"
+            aria-pressed={value.sex === option.value}
+            onClick={() => {
+              onChange({ ...value, sex: value.sex === option.value ? null : option.value });
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
     </div>
   );

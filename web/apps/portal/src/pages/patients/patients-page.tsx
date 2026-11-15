@@ -13,6 +13,7 @@ import { displayName, formatPhone, patientPath } from "../../lib/patients.js";
 import { recentPatientIds } from "../../lib/recent-patients.js";
 import { SortHeader } from "../../components/sort-header.js";
 import { sortByColumn, useSortable, type SortColumn } from "../../components/use-sortable.js";
+import { DuplicatesChip } from "./duplicates-chip.js";
 import { usePatientDirectory, usePatientList, type DirectoryOrder } from "./queries.js";
 
 const SORT_COLUMNS: readonly SortColumn<Patient>[] = [
@@ -145,6 +146,7 @@ export function PatientsPage() {
             >
               <ListTodo aria-hidden="true" /> Missing details
             </button>
+            <DuplicatesChip />
             {register}
           </>
         }

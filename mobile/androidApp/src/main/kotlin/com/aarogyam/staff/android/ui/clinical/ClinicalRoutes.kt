@@ -5,6 +5,7 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.aarogyam.staff.AppGraph
+import com.aarogyam.staff.android.ui.labs.LabsScreen
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.clinic.ClinicContext
 
@@ -12,7 +13,13 @@ import com.aarogyam.staff.clinic.ClinicContext
 object ClinicalRoutes {
     const val CHATS = "clinical/chats"
     const val CHAT = "clinical/chat/{id}?title={title}"
+    const val LABS = "clinical/labs"
+    const val TEAM = "clinical/team"
 }
+
+fun NavController.openLabs() = navigate(ClinicalRoutes.LABS)
+
+fun NavController.openTeam() = navigate(ClinicalRoutes.TEAM)
 
 fun NavController.openChats() = navigate(ClinicalRoutes.CHATS)
 
@@ -35,5 +42,19 @@ fun NavGraphBuilder.clinicalDestinations(
         val id = entry.arguments?.getString("id") ?: return@composable
         val title = entry.arguments?.getString("title").orEmpty()
         ChatThreadScreen(rememberHolder { graph.chatThread(open, id, it) }, title, onBack = nav::popBackStack)
+    }
+    composable(ClinicalRoutes.LABS) {
+        val open = clinic() ?: return@composable
+        LabsScreen(graph, open, rememberHolder { graph.labs(open, it) }, onBack = nav::popBackStack)
+    }
+    composable(ClinicalRoutes.TEAM) {
+        val open = clinic() ?: return@composable
+        TeamScreen(
+            rememberHolder { graph.team(open, it) },
+            canChat = "chat.use" in open.permissions,
+            onBack = nav::popBackStack,
+            onChats = nav::openChats,
+            onOpenChat = nav::openChat,
+        )
     }
 }

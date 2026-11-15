@@ -94,6 +94,34 @@ object ClinicalFormat {
     /** `Pune · ~5 days · Crown, Aligner` pieces joined with a middle dot, leaving out what is missing. */
     fun joinDot(parts: List<String?>): String = parts.filterNot { it.isNullOrBlank() }.joinToString(" · ")
 
+    /** `18 Oct 2026` from a `YYYY-MM-DD` date; the text itself when it does not parse. */
+    fun date(
+        iso: String,
+        locale: Locale = Locale.getDefault(),
+    ): String =
+        runCatching {
+            java.time.LocalDate
+                .parse(
+                    iso.take(DATE_LENGTH),
+                ).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
+        }.getOrDefault(iso)
+
+    /** The date of an ISO 8601 instant in the clinic's time zone; null when it does not parse. */
+    fun dateOfInstant(
+        text: String,
+        zone: String,
+        locale: Locale = Locale.getDefault(),
+    ): String? {
+        val at = runCatching { Instant.parse(text) }.getOrNull() ?: return null
+        val id = runCatching { ZoneId.of(zone) }.getOrDefault(ZoneId.systemDefault())
+        return at
+            .atZone(id)
+            .toLocalDate()
+            .toString()
+            .let { date(it, locale) }
+    }
+
+    private const val DATE_LENGTH = 10
     private const val KB = 1024L
     private const val MB = 1024L * 1024L
 }

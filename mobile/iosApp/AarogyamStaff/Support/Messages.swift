@@ -27,6 +27,7 @@ extension SignInError {
         case .invalidCode: String(localized: "sign_in.error.invalid_code")
         case .emailNotAccepted: String(localized: "sign_in.error.email_not_accepted")
         case .codeRejected: String(localized: "sign_in.error.code_rejected")
+        case .wrongPassword: s11("store.signin.wrong_password")
         case .tooManyAttempts: String(localized: "sign_in.error.too_many")
         case .offline: String(localized: "error.offline")
         case .network: String(localized: "error.network")

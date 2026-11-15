@@ -2,6 +2,7 @@ package com.aarogyam.staff.signin
 
 import com.sakalya.mobile.auth.EmailAddress
 import com.sakalya.mobile.auth.OneTimeCode
+import com.sakalya.mobile.auth.Password
 import com.sakalya.mobile.auth.SessionManager
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.ApiErrorKind
@@ -14,8 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Which part of the email-code sign-in is showing. */
-enum class SignInStep { Email, Code }
+/** Which part of sign-in is showing: the email, then a code from the email or a password. */
+enum class SignInStep { Email, Code, Password }
 
 /** Why sign-in did not move on. */
 enum class SignInError {
@@ -25,6 +26,9 @@ enum class SignInError {
     /** Supabase would not send a code (no invitation for that address, or sign-in disabled). */
     EmailNotAccepted,
     CodeRejected,
+
+    /** Wrong email or password; Supabase does not say which. */
+    WrongPassword,
     TooManyAttempts,
     Offline,
     Network,
@@ -36,6 +40,7 @@ data class SignInState(
     val step: SignInStep = SignInStep.Email,
     val email: String = "",
     val code: String = "",
+    val password: String = "",
     val busy: Boolean = false,
     val error: SignInError? = null,
 )
@@ -92,8 +97,46 @@ class SignInStateHolder(
         }
     }
 
+    /** Typing the password; it stays in this state only until the attempt ends. Never logged. */
+    fun onPasswordChange(text: String) = mutableState.update { it.copy(password = text, error = null) }
+
+    /** Switches from the email step to a password. */
+    fun usePassword() = mutableState.update { it.copy(step = SignInStep.Password, password = "", error = null) }
+
+    /** Back from the password to the email step, where a code can be sent. */
+    fun useCode() = mutableState.update { it.copy(step = SignInStep.Email, password = "", error = null) }
+
+    /** Signs in with the entered email and password. */
+    fun submitPassword() {
+        val current = mutableState.value
+        if (current.busy) return
+        val email =
+            EmailAddress.parse(current.email)
+                ?: return mutableState.update { it.copy(password = "", error = SignInError.InvalidEmail) }
+        if (current.password.isEmpty()) return mutableState.update { it.copy(error = SignInError.WrongPassword) }
+        val password = Password(current.password)
+        mutableState.update { it.copy(busy = true, error = null) }
+        scope.launch {
+            when (val signedIn = sessions.signInWithPassword(email, password)) {
+                is Outcome.Success -> {
+                    mutableState.update { it.copy(busy = false, password = "") }
+                }
+
+                is Outcome.Failure -> {
+                    mutableState.update { it.copy(busy = false, password = "", error = passwordError(signedIn.error)) }
+                }
+            }
+        }
+    }
+
     /** Back to the email step, to fix the address or ask for a new code. */
-    fun changeEmail() = mutableState.update { it.copy(step = SignInStep.Email, code = "", error = null) }
+    fun changeEmail() = mutableState.update { it.copy(step = SignInStep.Email, code = "", password = "", error = null) }
+
+    private fun passwordError(error: ApiError): SignInError =
+        common(error) ?: when (error.kind) {
+            in REFUSED, ApiErrorKind.Unauthenticated -> SignInError.WrongPassword
+            else -> SignInError.Unknown
+        }
 
     private fun emailError(error: ApiError): SignInError =
         common(error) ?: when (error.kind) {

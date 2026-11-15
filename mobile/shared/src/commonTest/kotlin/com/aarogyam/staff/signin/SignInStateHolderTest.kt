@@ -99,4 +99,91 @@ class SignInStateHolderTest {
             assertEquals(SignInStep.Email, holder.state.value.step)
             assertEquals("asha.patil@example.com", holder.state.value.email)
         }
+
+    @Test
+    fun a_password_signs_in_and_is_cleared() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUPABASE/auth/v1/token", { json(sessionJson()) })
+            val graph = testGraph(backend, backgroundScope)
+            val holder = graph.signIn(this)
+            holder.onEmailChange("asha.patil@example.com")
+            holder.usePassword()
+            assertEquals(SignInStep.Password, holder.state.value.step)
+            holder.onPasswordChange("a long passphrase")
+            holder.submitPassword()
+            assertIs<SessionState.SignedIn>(graph.sessionState.first { it is SessionState.SignedIn })
+            assertEquals("", holder.state.first { !it.busy }.password)
+            val request = backend.requests.single { it.url.encodedPath == "/auth/v1/token" }
+            assertEquals("password", request.url.parameters["grant_type"])
+        }
+
+    @Test
+    fun a_wrong_password_is_reported_and_cleared() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(
+                "$SUPABASE/auth/v1/token",
+                { json("""{"error_code":"invalid_credentials","msg":"x"}""", HttpStatusCode.BadRequest) },
+            )
+            val graph = testGraph(backend, backgroundScope)
+            val holder = graph.signIn(this)
+            holder.onEmailChange("asha.patil@example.com")
+            holder.usePassword()
+            holder.onPasswordChange("wrong")
+            holder.submitPassword()
+            val state = holder.state.first { it.error != null }
+            assertEquals(SignInError.WrongPassword, state.error)
+            assertEquals(SignInStep.Password, state.step)
+            assertEquals("", state.password)
+            assertIs<SessionState.SignedOut>(graph.sessionState.value)
+        }
+
+    @Test
+    fun throttled_password_attempts_are_reported() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(
+                "$SUPABASE/auth/v1/token",
+                { apiError(HttpStatusCode.TooManyRequests, "over_request_rate_limit") },
+            )
+            val holder = testGraph(backend, backgroundScope).signIn(this)
+            holder.onEmailChange("asha.patil@example.com")
+            holder.usePassword()
+            holder.onPasswordChange("whatever")
+            holder.submitPassword()
+            assertEquals(SignInError.TooManyAttempts, holder.state.first { it.error != null }.error)
+        }
+
+    @Test
+    fun an_empty_password_or_bad_email_sends_nothing() =
+        runTest {
+            val backend = FakeBackend()
+            val holder = testGraph(backend, backgroundScope).signIn(this)
+            holder.onEmailChange("asha.patil@example.com")
+            holder.usePassword()
+            holder.submitPassword()
+            assertEquals(SignInError.WrongPassword, holder.state.value.error)
+            holder.onEmailChange("nope")
+            holder.onPasswordChange("x")
+            holder.submitPassword()
+            assertEquals(SignInError.InvalidEmail, holder.state.value.error)
+            assertEquals("", holder.state.value.password)
+            assertTrue(backend.requests.isEmpty())
+        }
+
+    @Test
+    fun switching_back_or_changing_email_clears_the_password() =
+        runTest {
+            val holder = testGraph(FakeBackend(), backgroundScope).signIn(this)
+            holder.usePassword()
+            holder.onPasswordChange("secret")
+            holder.useCode()
+            assertEquals(SignInStep.Email, holder.state.value.step)
+            assertEquals("", holder.state.value.password)
+            holder.usePassword()
+            holder.onPasswordChange("secret")
+            holder.changeEmail()
+            assertEquals("", holder.state.value.password)
+        }
 }

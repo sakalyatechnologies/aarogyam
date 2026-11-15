@@ -30,6 +30,7 @@ import com.aarogyam.staff.prescriptions.RxListStateHolder
 import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
 import com.aarogyam.staff.schedule.ScheduleStateHolder
+import com.aarogyam.staff.signin.DeleteAccountHolder
 import com.aarogyam.staff.signin.InviteStateHolder
 import com.aarogyam.staff.signin.RegistrationStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
@@ -91,6 +92,9 @@ class ScreenScope {
 
 /** The sign-in state holder, living as long as [screen]. */
 fun AppGraph.signIn(screen: ScreenScope): SignInStateHolder = signIn(screen.scope)
+
+/** The account-deletion state holder, living as long as [screen]. */
+fun AppGraph.deleteAccount(screen: ScreenScope): DeleteAccountHolder = deleteAccount(screen.scope)
 
 /** The clinic picker state holder, living as long as [screen]. */
 fun AppGraph.clinicPicker(

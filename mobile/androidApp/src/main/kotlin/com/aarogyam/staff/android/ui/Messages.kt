@@ -38,6 +38,7 @@ fun SignInError.message(): Int =
         SignInError.InvalidCode -> R.string.sign_in_error_invalid_code
         SignInError.EmailNotAccepted -> R.string.sign_in_error_email_not_accepted
         SignInError.CodeRejected -> R.string.sign_in_error_code_rejected
+        SignInError.WrongPassword -> R.string.sign_in_error_wrong_password
         SignInError.TooManyAttempts -> R.string.sign_in_error_too_many
         SignInError.Offline -> R.string.error_offline
         SignInError.Network -> R.string.error_network

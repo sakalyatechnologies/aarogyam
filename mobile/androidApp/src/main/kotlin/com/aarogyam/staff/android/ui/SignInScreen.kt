@@ -89,6 +89,16 @@ fun SignInScreen(holder: SignInStateHolder) {
                         )
                     }
 
+                    // Password sign-in is iOS-only for now (the kit has no masked field for Android): nothing opens it here.
+                    SignInStep.Password -> {
+                        SkButton(
+                            stringResource(R.string.change_email),
+                            holder::useCode,
+                            Modifier.fillMaxWidth(),
+                            variant = SkButtonVariant.Secondary,
+                        )
+                    }
+
                     SignInStep.Code -> {
                         Text(
                             stringResource(R.string.code_sent, state.email),

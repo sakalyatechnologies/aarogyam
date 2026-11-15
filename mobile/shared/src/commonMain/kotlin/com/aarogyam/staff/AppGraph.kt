@@ -53,6 +53,7 @@ import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
 import com.aarogyam.staff.schedule.ScheduleStateHolder
 import com.aarogyam.staff.schedule.WeekStateHolder
+import com.aarogyam.staff.signin.DeleteAccountHolder
 import com.aarogyam.staff.signin.InviteStateHolder
 import com.aarogyam.staff.signin.RegistrationStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
@@ -239,6 +240,10 @@ class AppGraph private constructor(
     }
 
     fun signIn(scope: CoroutineScope): SignInStateHolder = SignInStateHolder(sessions, scope)
+
+    /** "Delete account": on success this device signs out without telling Supabase (the server revoked every session). */
+    fun deleteAccount(scope: CoroutineScope): DeleteAccountHolder =
+        DeleteAccountHolder(directory.appApi(), scope, ::signOutLocally, logger("aarogyam.delete_account"))
 
     fun clinicPicker(
         scope: CoroutineScope,
@@ -499,6 +504,14 @@ class AppGraph private constructor(
     fun signOut() {
         scope.launch {
             sessions.signOut()
+            directory.clear()
+            endOutbox()
+        }
+    }
+
+    private fun signOutLocally() {
+        scope.launch {
+            sessions.signOutLocally()
             directory.clear()
             endOutbox()
         }

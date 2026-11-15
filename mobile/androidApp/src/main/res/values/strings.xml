@@ -24,6 +24,7 @@
     <string name="sign_in_error_invalid_code">Enter the code from the email.</string>
     <string name="sign_in_error_email_not_accepted">We couldn\'t send a code to that address. Ask your clinic for an invitation.</string>
     <string name="sign_in_error_code_rejected">That code didn\'t work or has expired. Check it, or ask for a new one.</string>
+    <string name="sign_in_error_wrong_password">Wrong email or password</string>
     <string name="sign_in_error_too_many">Too many attempts. Wait a minute and try again.</string>
 
     <!-- Clinic picker -->

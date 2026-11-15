@@ -5,6 +5,7 @@
 use aarogyam_dal::expenses::{self as expenses_dal, NewExpense};
 use aarogyam_dal::lab_payments::{self as dal, NewPayment, PaymentRow};
 use aarogyam_domain::access::ClinicActor;
+use aarogyam_domain::billing::PaymentMethod;
 use aarogyam_domain::expense::{ExpenseCategoryKey, check_amount, check_note};
 use aarogyam_domain::ids::{ExpenseId, LabOrderId, LabPaymentId, LabVendorId, MembershipId};
 use aarogyam_domain::lab::LabPaymentStatus;
@@ -40,6 +41,8 @@ pub struct PaymentView {
     pub lab_invoice_ref: Option<String>,
     /// A note.
     pub note: Option<String>,
+    /// How it was paid.
+    pub method: Option<PaymentMethod>,
     /// The expense recorded with it.
     pub expense_id: ExpenseId,
     /// Recorded or void.
@@ -63,6 +66,10 @@ fn view(row: PaymentRow) -> PaymentView {
         amount: Paise::new(row.amount_paise),
         lab_invoice_ref: row.lab_invoice_ref,
         note: row.note,
+        method: row
+            .method
+            .as_deref()
+            .and_then(|m| PaymentMethod::parse(m).ok()),
         expense_id: ExpenseId::from_uuid(row.expense_id),
         status: LabPaymentStatus::parse(&row.status).unwrap_or(LabPaymentStatus::Recorded),
         void_reason: row.void_reason,
@@ -87,6 +94,8 @@ pub struct NewPaymentInput {
     pub lab_invoice_ref: Option<String>,
     /// A note, up to 300 characters.
     pub note: Option<String>,
+    /// How it was paid: `cash`, `upi`, `card` or `bank`; absent when not recorded.
+    pub method: Option<String>,
 }
 
 fn require_money(actor: &ClinicActor) -> Result<(), AppError> {
@@ -112,6 +121,12 @@ pub async fn record(
     let amount = check_amount(input.amount).map_err(|e| AppError::invalid("amount_paise", e))?;
     let note = check_note(input.note.as_deref()).map_err(|e| AppError::invalid("note", e))?;
     let reference = trimmed(input.lab_invoice_ref.as_deref(), "lab_invoice_ref", 60)?;
+    let method = input
+        .method
+        .as_deref()
+        .map(PaymentMethod::parse)
+        .transpose()
+        .map_err(|e| AppError::invalid("method", e))?;
     if input.paid_on > clinic_today(&actor.timezone, now) {
         return Err(AppError::invalid("paid_on", "must not be after today"));
     }
@@ -159,6 +174,7 @@ pub async fn record(
                 amount_paise: amount.get(),
                 lab_invoice_ref: reference.as_deref(),
                 note: note.as_deref(),
+                method: method.map(PaymentMethod::as_str),
                 expense_id: expense.id,
                 recorded_by: actor.membership_id.uuid(),
             },

@@ -41,6 +41,10 @@ pub struct LabPayment {
     pub lab_invoice_ref: Option<String>,
     /// A note.
     pub note: Option<String>,
+    /// How it was paid: `cash`, `upi`, `card` or `bank`. Absent when it was not recorded.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
     /// The `lab` expense recorded with it.
     #[schema(value_type = String)]
     pub expense_id: Uuid,
@@ -67,6 +71,7 @@ impl From<PaymentView> for LabPayment {
             amount_paise: view.amount.get(),
             lab_invoice_ref: view.lab_invoice_ref,
             note: view.note,
+            method: view.method.map(|m| m.as_str().to_owned()),
             expense_id: view.expense_id.uuid(),
             status: view.status.as_str().to_owned(),
             void_reason: view.void_reason,
@@ -101,6 +106,8 @@ pub struct NewLabPayment {
     pub lab_invoice_ref: Option<String>,
     /// Up to 300 characters.
     pub note: Option<String>,
+    /// How it was paid: `cash`, `upi`, `card` or `bank`. Optional; nothing is assumed.
+    pub method: Option<String>,
 }
 
 /// Filters for the payment list.
@@ -126,7 +133,7 @@ pub struct LabPaymentParams {
     security(("bearer" = [])),
     responses(
         (status = 201, body = LabPayment),
-        (status = 400, description = "Invalid amount, note, reference or day, or an order at another lab"),
+        (status = 400, description = "Invalid amount, note, reference, method or day, or an order at another lab"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks expenses.write or finance.view"),
         (status = 404, description = "No such lab in this clinic")
@@ -149,6 +156,7 @@ pub(crate) async fn record(
             amount: Paise::new(body.amount_paise),
             lab_invoice_ref: body.lab_invoice_ref,
             note: body.note,
+            method: body.method,
         },
         OffsetDateTime::now_utc(),
     )

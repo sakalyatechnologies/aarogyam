@@ -3682,6 +3682,8 @@ export const labPayment = z.object({
   amount_paise: z.number().int(),
   lab_invoice_ref: optionalText,
   note: optionalText,
+  /** `cash`, `upi`, `card` or `bank`; absent (or null) when not recorded. */
+  method: z.string().nullable().exactOptional(),
   expense_id: z.string().min(1),
   status: z.string(),
   void_reason: optionalText,
@@ -3697,6 +3699,7 @@ export type LabPaymentList = z.output<typeof labPaymentList>;
 /** Request bodies. */
 export type NewLabOrder = C.NewLabOrder;
 export type NewLabOrderItem = C.NewLabOrderItem;
+export type LabOrderItemChanges = C.LabOrderItemChanges;
 export type LabOrderStatusChange = C.LabOrderStatusChange;
 export type LabOrderChanges = C.LabOrderChanges;
 export type LabContactLogEntry = C.LabContactLogEntry;

@@ -493,6 +493,109 @@ async fn labs_are_reminded_once_per_step_and_never_told_the_patient() {
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+async fn a_lab_payment_may_name_its_method() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (vendor, _) = lab(&app, &owner, "Precision Dental Lab").await;
+    let day = today().to_string();
+    let path = "/api/v1/lab-payments";
+
+    // A method is stored and returned; a payment without one has the field absent, not null.
+    let upi = post_ok(
+        &app,
+        &owner,
+        path,
+        json!({ "vendor_id": vendor, "paid_on": day, "amount_paise": 500, "method": "upi" }),
+    )
+    .await;
+    assert_eq!(upi["method"], "upi");
+    let plain = post_ok(
+        &app,
+        &owner,
+        path,
+        json!({ "vendor_id": vendor, "paid_on": day, "amount_paise": 700 }),
+    )
+    .await;
+    assert!(plain.get("method").is_none(), "{plain}");
+    let explicit_null = post_ok(
+        &app,
+        &owner,
+        path,
+        json!({ "vendor_id": vendor, "paid_on": day, "amount_paise": 800, "method": null }),
+    )
+    .await;
+    assert!(explicit_null.get("method").is_none(), "{explicit_null}");
+
+    // A row written before the column existed (no method) still lists.
+    let (status, list) = send(
+        &app,
+        &owner,
+        Method::GET,
+        &format!("{path}?vendor_id={vendor}"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{list}");
+    let items = list["items"].as_array().unwrap();
+    assert_eq!(items.len(), 3);
+    let listed = |amount: i64| {
+        items
+            .iter()
+            .find(|p| p["amount_paise"] == amount)
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(listed(500)["method"], "upi");
+    assert!(listed(700).get("method").is_none());
+
+    for method in ["cash", "card", "bank"] {
+        let paid = post_ok(
+            &app,
+            &owner,
+            path,
+            json!({ "vendor_id": vendor, "paid_on": day, "amount_paise": 100, "method": method }),
+        )
+        .await;
+        assert_eq!(paid["method"], method);
+    }
+    for bad in ["cheque", "", "UPI", "bank_transfer"] {
+        let body =
+            json!({ "vendor_id": vendor, "paid_on": day, "amount_paise": 100, "method": bad });
+        let (status, err) = send(&app, &owner, Method::POST, path, Some(body)).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{bad} {err}");
+    }
+    // The refused ones recorded nothing.
+    let (_, list) = send(&app, &owner, Method::GET, path, None).await;
+    assert_eq!(list["items"].as_array().unwrap().len(), 6);
+
+    // Voiding keeps the method on the voided row.
+    let voided = post_ok(
+        &app,
+        &owner,
+        &format!("{path}/{}/void", id(&upi)),
+        json!({ "reason": "Entered twice" }),
+    )
+    .await;
+    assert_eq!(
+        (voided["status"].as_str(), voided["method"].as_str()),
+        (Some("void"), Some("upi"))
+    );
+
+    // Another clinic sees none of it and cannot pay this lab.
+    let beta = app.token(BETA_OWNER);
+    let (_, theirs) = app.send(Method::GET, BETA, path, Some(&beta), None).await;
+    assert_eq!(theirs["items"].as_array().unwrap().len(), 0);
+    let body =
+        json!({ "vendor_id": vendor, "paid_on": day, "amount_paise": 100, "method": "cash" });
+    let (status, _) = app
+        .send(Method::POST, BETA, path, Some(&beta), Some(body))
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
 async fn payments_record_and_void_their_lab_expense() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);

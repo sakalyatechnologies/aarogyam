@@ -2,13 +2,23 @@ import { useState } from "react";
 
 import { apiErrorOf, type LabPayment } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatRupees } from "@aarogyam/app-kit";
-import { Button, DateInput, Field, TextInput, useToast } from "@sakalya/ui";
+import { Button, DateInput, Field, Select, TextInput, useToast } from "@sakalya/ui";
 
 import { Skeleton, Tag } from "../../components/mk/index.js";
 import { useTodayDate } from "../../lib/patients.js";
 import { useLabBalance, useLabPayments, useRecordLabPayment, useVoidLabPayment } from "./queries.js";
 
 const MAX_RUPEES = 10_000_000;
+
+/** The methods the API takes, the same as a patient's payment; "none" records no method. */
+const METHODS = [
+  { value: "none", label: "Not recorded" },
+  { value: "cash", label: "Cash" },
+  { value: "upi", label: "UPI" },
+  { value: "card", label: "Card" },
+  { value: "bank", label: "Bank transfer" },
+] as const;
+const methodLabel = (method: string): string => METHODS.find((m) => m.value === method)?.label ?? method;
 
 /** What a lab is owed, the payments so far, and recording or voiding one. Shown only to roles with `expenses.write` and `finance.view`. */
 export function PaymentsPanel({ vendorId }: { vendorId: string }) {
@@ -22,6 +32,7 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
   const [paidOn, setPaidOn] = useState("");
   const [ref, setRef] = useState("");
   const [note, setNote] = useState("");
+  const [method, setMethod] = useState<string>("none");
   const [error, setError] = useState<string>();
   const [voiding, setVoiding] = useState<string>();
   const [reason, setReason] = useState("");
@@ -41,6 +52,7 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
         amount_paise: Math.round(amount * 100),
         ...(ref.trim() === "" ? {} : { lab_invoice_ref: ref.trim() }),
         ...(note.trim() === "" ? {} : { note: note.trim() }),
+        ...(method === "none" ? {} : { method }),
       },
       {
         onSuccess: () => {
@@ -49,6 +61,7 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
           setRef("");
           setNote("");
           setPaidOn("");
+          setMethod("none");
         },
         onError: (thrown) => {
           setError(apiErrorOf(thrown)?.message ?? "Couldn't record this payment. Please try again.");
@@ -120,9 +133,14 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
           </Field>
         </div>
         <div className="lb-two">
+          <Field label="Paid by">
+            <Select options={METHODS} value={method} onValueChange={setMethod} />
+          </Field>
           <Field label="Lab's invoice number">
             <TextInput value={ref} maxLength={60} onChange={(event) => { setRef(event.currentTarget.value); }} />
           </Field>
+        </div>
+        <div className="lb-two">
           <Field label="Note">
             <TextInput value={note} maxLength={300} onChange={(event) => { setNote(event.currentTarget.value); }} />
           </Field>
@@ -150,6 +168,7 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
             <li key={payment.id}>
               <div>
                 <b>{formatRupees(payment.amount_paise)}</b> · {formatDate(payment.paid_on)}
+                {payment.method == null ? "" : ` · ${methodLabel(payment.method)}`}
                 {payment.lab_invoice_ref == null ? "" : ` · invoice ${payment.lab_invoice_ref}`}
                 {payment.status === "void" ? (
                   <>

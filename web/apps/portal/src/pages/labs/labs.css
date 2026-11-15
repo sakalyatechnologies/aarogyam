@@ -63,3 +63,5 @@
 .lb-pays { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
 .lb-pays > li { display: grid; gap: 6px; border-bottom: 1px solid var(--rule); padding-bottom: 8px; font-size: 13px; }
 .lb-void { display: grid; gap: 8px; }
+.lb-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.lb-itemform .lb-row { padding-right: 12px; }

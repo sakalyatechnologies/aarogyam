@@ -2,11 +2,12 @@ import { MessageCircle, Phone } from "lucide-react";
 import { useState } from "react";
 
 import { apiErrorOf, type LabContactLogEntry, type LabOrder, type LabVendor } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatDate, formatDateTime, formatRupees } from "@aarogyam/app-kit";
+import { ApiErrorNotice, formatDate, formatDateTime } from "@aarogyam/app-kit";
 import { Button, DateInput, Drawer, Field, Select, TextInput, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { Skeleton, Timeline } from "../../components/mk/index.js";
+import { ItemsSection } from "./item-editor.js";
 import { OrderStatusTags, Tracker } from "./order-card.js";
 import { useLabOrderById, useLabVendors, useLogLabContact, useMoveLabOrder, useRemindLab, useSetLabOrderStatus } from "./queries.js";
 import { STAGES, planMove, reminderText, stageIndex, telLink, waLink } from "./stages.js";
@@ -206,35 +207,7 @@ function OrderBody({ order }: { order: LabOrder }) {
         {order.instructions == null ? null : <p className="lb-note">{order.instructions}</p>}
       </section>
 
-      <section aria-labelledby="lb-d-items">
-        <h3 id="lb-d-items" className="mk-flabel">
-          Items
-        </h3>
-        <table className="lb-table">
-          <thead>
-            <tr>
-              <th scope="col">Work</th>
-              <th scope="col">Teeth</th>
-              <th scope="col">Shade</th>
-              <th scope="col">Material</th>
-              <th scope="col">Qty</th>
-              {order.costs_visible ? <th scope="col">Cost</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {order.items.map((item) => (
-              <tr key={item.id}>
-                <th scope="row">{item.work_type}</th>
-                <td>{item.teeth.length === 0 ? "—" : item.teeth.join(", ")}</td>
-                <td>{item.shade ?? "—"}</td>
-                <td>{item.material ?? "—"}</td>
-                <td>{item.qty}</td>
-                {order.costs_visible ? <td>{item.unit_cost_paise == null ? "—" : formatRupees(item.unit_cost_paise * item.qty)}</td> : null}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      <ItemsSection order={order} />
 
       {canWrite ? (
         <section aria-labelledby="lb-d-remind">

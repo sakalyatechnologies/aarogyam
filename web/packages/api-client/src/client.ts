@@ -43,7 +43,7 @@ import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, Task
 import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
 import type { Conversation, LabReminders, LabRemindersRequest, MessageStats } from "./schemas.js";
-import type { Allergy, FamilyLink, FamilyList, NewFamilyLink, ConsentLink, ConsentRequestInput, ConsentRequested, ConsentSigned, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PatientsSummary, PhoneMatchPage, QuickPicks, SignConsentInput, StartedVisit, WalkIn, WalkInRequest, ConflictPolicy, ConflictPolicyChange, MoveAppointment } from "./schemas.js";
+import type { Allergy, FamilyLink, FamilyList, NewFamilyLink, ConsentLink, ConsentRequestInput, ConsentRequested, ConsentSigned, LabBalance, LabContact, LabContactLogEntry, LabContactValues, LabOrder, LabOrderChanges, LabOrderItemChanges, NewLabOrderItem, LabOrderList, LabOrderState, LabOrderStatusChange, LabPayment, LabPaymentList, LabReminderQueued, LabVendor, LabVendorList, LabVendorValues, MonthSummary, NewLabOrder, NewLabPayment, OpenLabOrderPage, PatientsSummary, PhoneMatchPage, QuickPicks, SignConsentInput, StartedVisit, WalkIn, WalkInRequest, ConflictPolicy, ConflictPolicyChange, MoveAppointment } from "./schemas.js";
 import type {
   AcceptInvitation,
   Acceptance,
@@ -401,6 +401,12 @@ export interface ApiClient {
   updateLabOrder(id: string, changes: LabOrderChanges, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
   /** Clinic host: moves an order along (409 when the move isn't allowed). Needs `labs.write`. */
   setLabOrderStatus(id: string, change: LabOrderStatusChange, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: adds an item to an order (409 once the order is fitted, reworked or cancelled; a cost needs `finance.view`). Needs `labs.write`. */
+  addLabOrderItem(orderId: string, item: NewLabOrderItem, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: changes an order item (409 once the order is final; setting or clearing the cost needs `finance.view`). Needs `labs.write`. */
+  updateLabOrderItem(itemId: string, changes: LabOrderItemChanges, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
+  /** Clinic host: removes an order item (409 once the order is final, or when it is the last item). Needs `labs.write`. */
+  removeLabOrderItem(itemId: string, options?: RequestOptions): Promise<ApiResult<LabOrder>>;
   /** Clinic host: emails the lab a reminder, never naming the patient; 409 when the work isn't at the lab or the lab has no email. Needs `labs.write`. */
   remindLab(id: string, options?: RequestOptions): Promise<ApiResult<LabReminderQueued>>;
   /** Clinic host: reminds the labs of 1 to 50 orders at once, one message per lab and never naming a patient: `email` queues it (202), `whatsapp` returns a `wa.me` link per lab (200). 404 when an order isn't in the clinic (nothing is done). Needs `labs.write`. */

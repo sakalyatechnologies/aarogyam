@@ -104,7 +104,8 @@ Founder testing: a patient booked online from the clinic website and the booking
 
 ## Labs (8 Oct 2026) - backend built on feat/labs
 - Built: labs and contacts, lab orders with items, status and stage, reminders to the lab by email, payments that record a lab expense, a lab's balance, and lab turnaround in Analytics (see `decisions.md`, "Labs").
-- Still to do: portal, console and phone screens; editing an order's items; STL scans over 10 MB (files are capped at 10 MB); WhatsApp to labs once the messaging service exists; payment method on lab payments; pathology and radiology requisitions, printed or shared, never in a reminder.
+- Built 15 Nov 2026 on feat/lab-items-method: editing an order's items in the portal (inline edit, remove with a confirm, add item; locked once fitted, reworked or cancelled) and the payment method on lab payments (0715; cash, upi, card, bank, optional; `decisions.md`, 15 Nov 2026).
+- Still to do: console and phone screens; STL scans over 10 MB (files are capped at 10 MB); WhatsApp to labs once the messaging service exists; pathology and radiology requisitions, printed or shared, never in a reminder.
 
 ## Sign-in from the public website: one smooth step (8 Oct 2026)
 - **Problem:** after signing in on the public Aarogyam website, several different screens flash by while it redirects to the clinic portal, and it takes a while. Today the path goes from the website's sign-in, through the handoff, then the portal's own loading screens ("Loading your clinics", "Opening the clinic"), then the setup gate, then the page.

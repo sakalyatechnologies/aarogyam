@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ApiClient, LabRemindersRequest, LabVendorValues, NewLabOrder, Permission } from "@aarogyam/api-client";
+import type { ApiClient, LabRemindersRequest, LabVendorValues, NewLabOrder, NewLabPayment, Permission } from "@aarogyam/api-client";
 import { failure, parseApiError } from "@aarogyam/api-client";
 import { ROLES, createFixtures } from "@aarogyam/api-client/fake";
 
@@ -613,5 +613,200 @@ describe("Lab work: accessibility", () => {
     await user.click(await screen.findByRole("button", { name: "Send work" }));
     await screen.findByRole("dialog", { name: "Send work to a lab" });
     expect(await run()).toEqual([]);
+  });
+});
+
+async function openDrawer(user: ReturnType<typeof userEvent.setup>, number: string): Promise<HTMLElement> {
+  await user.click(within(await card(number)).getByRole("button", { name: `Details of ${number}` }));
+  const panel = await screen.findByRole("dialog", { name: new RegExp(number) });
+  await within(panel).findByRole("table");
+  return panel;
+}
+const row = (panel: HTMLElement, name: RegExp) => within(within(panel).getByRole("table")).getByRole("row", { name });
+
+describe("Lab work: editing an order's items", () => {
+  it("edits an item inline and keeps the other fields", async () => {
+    const user = userEvent.setup();
+    renderPortal("/labs", { as: PEOPLE.asha });
+    const panel = await openDrawer(user, "LAB-11");
+    await user.click(within(panel).getByRole("button", { name: "Edit Night guard" }));
+    const form = within(within(panel).getByRole("form", { name: "Edit item 2" }));
+    await user.type(form.getByRole("textbox", { name: "Shade" }), "A1");
+    await user.clear(form.getByRole("textbox", { name: "Qty" }));
+    await user.type(form.getByRole("textbox", { name: "Qty" }), "3");
+    await user.click(form.getByRole("button", { name: "Save item" }));
+    await waitFor(() => {
+      expect(row(panel, /Night guard.*A1.*Hard acrylic.*3/)).toBeTruthy();
+    });
+    expect(within(panel).queryByRole("form", { name: "Edit item 2" })).toBeNull();
+    expect(within(panel).getAllByText("Item changed")).toHaveLength(1);
+    expect(row(panel, /Complete denture.*A3.*Acrylic.*1/)).toBeTruthy();
+  });
+
+  it("rejects bad values before saving", async () => {
+    const user = userEvent.setup();
+    renderPortal("/labs", { as: PEOPLE.asha });
+    const panel = await openDrawer(user, "LAB-11");
+    await user.click(within(panel).getByRole("button", { name: "Edit Night guard" }));
+    const form = within(within(panel).getByRole("form", { name: "Edit item 2" }));
+    await user.type(form.getByRole("textbox", { name: /Teeth/ }), "7");
+    await user.click(form.getByRole("button", { name: "Save item" }));
+    expect((await form.findByRole("alert")).textContent).toMatch(/tooth numbers/);
+  });
+
+  it("removes an item only after a confirm", async () => {
+    const user = userEvent.setup();
+    renderPortal("/labs", { as: PEOPLE.asha });
+    const panel = await openDrawer(user, "LAB-11");
+    await user.click(within(panel).getByRole("button", { name: "Remove Night guard" }));
+    const confirm = within(within(panel).getByRole("group", { name: "Remove Night guard?" }));
+    await user.click(confirm.getByRole("button", { name: "Keep it" }));
+    expect(row(panel, /Night guard/)).toBeTruthy();
+
+    await user.click(within(panel).getByRole("button", { name: "Remove Night guard" }));
+    await user.click(within(within(panel).getByRole("group", { name: "Remove Night guard?" })).getByRole("button", { name: "Yes, remove" }));
+    await waitFor(() => {
+      expect(within(within(panel).getByRole("table")).queryByRole("row", { name: /Night guard/ })).toBeNull();
+    });
+    // The last item stays: the API refuses to remove it, and its message shows.
+    await user.click(within(panel).getByRole("button", { name: "Remove Complete denture" }));
+    await user.click(within(within(panel).getByRole("group", { name: "Remove Complete denture?" })).getByRole("button", { name: "Yes, remove" }));
+    expect((await within(panel).findByRole("alert")).textContent).toMatch(/at least one item/);
+    expect(row(panel, /Complete denture/)).toBeTruthy();
+  });
+
+  it("adds an item with the fields the new-order form uses", async () => {
+    const user = userEvent.setup();
+    const added = vi.fn<(item: unknown) => void>();
+    renderPortal("/labs", {
+      as: PEOPLE.asha,
+      wrap: (client) => ({
+        ...client,
+        addLabOrderItem: (orderId, item, opts) => {
+          added(item);
+          return client.addLabOrderItem(orderId, item, opts);
+        },
+      }),
+    });
+    const panel = await openDrawer(user, "LAB-11");
+    await user.click(within(panel).getByRole("button", { name: "Add item" }));
+    const form = within(within(panel).getByRole("form", { name: "Add an item" }));
+    await user.clear(form.getByRole("combobox", { name: /Work/ }));
+    await user.type(form.getByRole("combobox", { name: /Work/ }), "Retainer");
+    await user.type(form.getByRole("textbox", { name: /Teeth/ }), "11, 21");
+    await user.type(form.getByRole("textbox", { name: "Material" }), "Clear");
+    await user.type(form.getByRole("textbox", { name: /Cost each/ }), "1500");
+    await user.click(form.getByRole("button", { name: "Add item" }));
+    await waitFor(() => {
+      expect(row(panel, /Retainer.*11, 21.*Clear.*1.*₹1,500/)).toBeTruthy();
+    });
+    expect(added).toHaveBeenCalledWith({ work_type: "Retainer", teeth: [11, 21], qty: 1, material: "Clear", unit_cost_paise: 150_000 });
+    expect(within(panel).queryByRole("form", { name: "Add an item" })).toBeNull();
+  });
+
+  it("hides the edit controls on a delivered order and for a role without labs.write", async () => {
+    const user = userEvent.setup();
+    renderPortal("/labs", { as: PEOPLE.asha });
+    await card("LAB-12");
+    await user.click(within(screen.getByRole("group", { name: "Show" })).getByRole("button", { name: "All" }));
+    const panel = await openDrawer(user, "LAB-9");
+    expect(within(panel).queryByRole("button", { name: /^Edit / })).toBeNull();
+    expect(within(panel).queryByRole("button", { name: /^Remove / })).toBeNull();
+    expect(within(panel).queryByRole("button", { name: "Add item" })).toBeNull();
+    expect(within(panel).getByText(/items can't change/)).toBeTruthy();
+    cleanup();
+
+    const readOnly = farahAs({ key: "lab_reader", name: "Lab reader", permissions: ["patients.read", "labs.read"] });
+    renderPortal("/labs", { as: PEOPLE.farah, backend: readOnly });
+    const open = await openDrawer(user, "LAB-11");
+    expect(within(open).queryByRole("button", { name: /^Edit / })).toBeNull();
+    expect(within(open).queryByRole("button", { name: "Add item" })).toBeNull();
+  });
+
+  it("shows the API's message when it refuses a change because the order is locked", async () => {
+    const user = userEvent.setup();
+    const locked = parseApiError(409, { error: { code: "conflict", message: "a fitted, reworked or cancelled order can't change" } }, undefined);
+    renderPortal("/labs", {
+      as: PEOPLE.asha,
+      wrap: (client) => ({
+        ...client,
+        updateLabOrderItem: () => Promise.resolve(failure(locked)),
+        addLabOrderItem: () => Promise.resolve(failure(locked)),
+      }),
+    });
+    const panel = await openDrawer(user, "LAB-11");
+    await user.click(within(panel).getByRole("button", { name: "Edit Night guard" }));
+    const form = within(within(panel).getByRole("form", { name: "Edit item 2" }));
+    await user.click(form.getByRole("button", { name: "Save item" }));
+    expect((await form.findByRole("alert")).textContent).toContain("can't change");
+    // The form stays open so nothing typed is lost.
+    expect(within(panel).getByRole("form", { name: "Edit item 2" })).toBeTruthy();
+    await user.click(form.getByRole("button", { name: "Cancel" }));
+
+    await user.click(within(panel).getByRole("button", { name: "Add item" }));
+    const add = within(within(panel).getByRole("form", { name: "Add an item" }));
+    await user.click(add.getByRole("button", { name: "Add item" }));
+    expect((await add.findByRole("alert")).textContent).toContain("can't change");
+  });
+
+  it("shows an error when the order can't be loaded, and has no axe violations while editing", async () => {
+    const user = userEvent.setup();
+    renderPortal("/labs", { as: PEOPLE.asha });
+    const panel = await openDrawer(user, "LAB-11");
+    await user.click(within(panel).getByRole("button", { name: "Edit Night guard" }));
+    await within(panel).findByRole("form", { name: "Edit item 2" });
+    const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+    await user.click(within(panel).getByRole("button", { name: "Cancel" }));
+    await user.click(within(panel).getByRole("button", { name: "Add item" }));
+    await within(panel).findByRole("form", { name: "Add an item" });
+    const again = await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
+    expect(again.violations.map((v) => v.id)).toEqual([]);
+  });
+});
+
+describe("Lab work: the payment method", () => {
+  it("sends the chosen method and lists it, and sends none when none is chosen", async () => {
+    const user = userEvent.setup();
+    const recorded = vi.fn<(input: NewLabPayment) => void>();
+    renderPortal("/labs", {
+      as: PEOPLE.asha,
+      wrap: (client) => ({
+        ...client,
+        recordLabPayment: (input, opts) => {
+          recorded(input);
+          return client.recordLabPayment(input, opts);
+        },
+      }),
+    });
+    await card("LAB-12");
+    await user.click(screen.getByRole("button", { name: "Labs" }));
+    await user.click(await screen.findByRole("button", { name: "Precision Dental Lab" }));
+    const panel = await screen.findByRole("dialog", { name: "Precision Dental Lab" });
+    const method = await within(panel).findByRole("combobox", { name: "Paid by" });
+    expect(method).toHaveProperty("value", "none");
+
+    await user.type(within(panel).getByRole("textbox", { name: /Amount/ }), "1000");
+    // The fake clinic's clock is fixed at 3 Oct 2026; the page's own date is today's.
+    fireEvent.change(within(panel).getByLabelText("Paid on"), { target: { value: "2026-10-02" } });
+    await user.selectOptions(method, "upi");
+    await user.click(within(panel).getByRole("button", { name: "Record payment" }));
+    await waitFor(() => {
+      const listed = within(within(panel).getByRole("list", { name: "Payments so far" })).getAllByRole("listitem");
+      expect(listed.some((li) => li.textContent.includes("₹1,000 · ") && li.textContent.includes("UPI"))).toBe(true);
+    });
+    expect(recorded.mock.calls[0]?.[0]).toMatchObject({ amount_paise: 100_000, method: "upi" });
+    // The picker goes back to none after a payment.
+    expect(within(panel).getByRole("combobox", { name: "Paid by" })).toHaveProperty("value", "none");
+
+    await user.type(within(panel).getByRole("textbox", { name: /Amount/ }), "250");
+    fireEvent.change(within(panel).getByLabelText("Paid on"), { target: { value: "2026-10-02" } });
+    await user.click(within(panel).getByRole("button", { name: "Record payment" }));
+    await waitFor(() => {
+      expect(recorded).toHaveBeenCalledTimes(2);
+    });
+    expect(recorded.mock.calls[1]?.[0]).not.toHaveProperty("method");
+    const axeResult = await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
+    expect(axeResult.violations.map((v) => v.id)).toEqual([]);
   });
 });

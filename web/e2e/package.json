@@ -9,6 +9,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@sakalya/e2e": "link:../../../sakalya-e2e",
     "@types/node": "^24.0.0"
   }
 }

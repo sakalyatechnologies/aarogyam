@@ -36,23 +36,14 @@ WORKERS="${CLOUDFLARE_WORKERS_SUBDOMAIN}.workers.dev"
 export SUPABASE_URL SUPABASE_SECRET_KEY ARO_DB__URL ARO_DB__OWNER_URL
 export ARO_HTTP__BIND="127.0.0.1:${DEMO_PORT:-8095}"
 export ARO_HTTP__EDGE_SECRET="$EDGE_SECRET"
-# Tailscale Funnel overwrites x-forwarded-host; the Worker also sends the host in x-sakalya-host.
-export ARO_HTTP__EDGE_HOST_HEADER=x-sakalya-host
 export ARO_AUTH__MODE=supabase
 export ARO_AUTH__DEV_TOKENS=false
-# Demo: no authenticator step for Sakalya staff. The pilot sets STAFF_MFA=true.
-export ARO_AUTH__STAFF_MFA="${STAFF_MFA:-false}"
 # One portal Worker per clinic (workers.dev has no wildcard subdomains); the landing page and
 # sign-in live on aarogyam-portal, which belongs to no clinic.
 export ARO_HOSTS__PORTAL_HOST_TEMPLATE="{slug}-aarogyam.${WORKERS}"
 export ARO_HOSTS__APP="aarogyam-portal.${WORKERS}"
 export ARO_HOSTS__CONSOLE="aarogyam-console.${WORKERS}"
-export ARO_WEBSITE__ADDRESS_TEMPLATE="{slug}-site.${WORKERS}"
-export ARO_WEBSITE__SITES_TARGET="aarogyam-site.${WORKERS}"
 export ARO_EMAIL__PORTAL_LINK="https://{host}"
-# The outbox sender gives new clinics their Worker through the Cloudflare API (the
-# CLOUDFLARE_* values from .env.cloudflare), so a clinic made in the console works right away.
-export ARO_EDGE__HOSTS=workers_dev
 if [ -n "${RESEND_API_KEY:-}" ]; then
   export ARO_EMAIL__RESEND_API_KEY="$RESEND_API_KEY"
   export ARO_EMAIL__FROM="${ARO_EMAIL__FROM:-Aarogyam <noreply@aarogyam.sakalyatechnologies.com>}"

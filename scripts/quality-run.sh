@@ -67,23 +67,24 @@ else
 fi
 end_suite web
 
-# 4. The Playwright golden-journey E2E suite, only against an already-running local stack (API
-# :8080, portal :5173 on sunrise.localtest.me, console :5174). It never starts that stack itself:
-# recording a run must not be the thing that stands up a dev environment.
-begin_suite e2e "golden journey (Playwright)" e2e
-# E2E_API_URL, E2E_CONSOLE_URL and E2E_PORTAL_URL (the suite's own variables) point it at another
-# local stack; web/e2e refuses anything that isn't localhost or *.localtest.me.
+# 4. The Playwright end-to-end journeys (web/e2e), only against an already-running e2e stack
+# (scripts/e2e-stack.sh up: API :8181, portal :5273, console :5274, its own database). It never
+# starts that stack itself: recording a run must not be the thing that stands up an environment.
+# The suite's own reporter (@sakalya/e2e's Quality reporter) writes the suite summary, with each
+# test's status, retries and error, and marks tests that passed only on a retry as flaky.
+begin_suite e2e "journeys (Playwright)" e2e
 stack_up() {
-  curl -fsS -o /dev/null -m 3 "${E2E_API_URL:-http://localhost:8080}/healthz" &&
-    curl -fsS -o /dev/null -m 3 "${E2E_CONSOLE_URL:-http://console.localtest.me:5174}/" &&
-    curl -fsS -o /dev/null -m 3 "${E2E_PORTAL_URL:-http://sunrise.localtest.me:5173}/"
+  curl -fsS -o /dev/null -m 3 "${E2E_API_URL:-http://localhost:8181}/healthz" &&
+    curl -fsS -o /dev/null -m 3 "${E2E_CONSOLE_URL:-http://console.localtest.me:5274}/" &&
+    curl -fsS -o /dev/null -m 3 "http://app.localtest.me:${E2E_PORTAL_PORT:-5273}/"
 }
 if [ -d web/e2e ] && stack_up; then
-  (cd web/e2e && npx playwright test --reporter=json) >"$WORK/e2e.playwright.json" 2>"$WORK/e2e.stderr.log"
+  (cd web/e2e && SAKALYA_QUALITY_SUITE_FILE="$WORK/e2e.suite.json" GIT_COMMIT="$COMMIT" \
+    SAKALYA_QUALITY_ENV="$ENVIRONMENT" npx playwright test) >"$WORK/e2e.stdout.log" 2>&1
 else
-  echo "the local dev stack isn't up (API :8080, portal :5173, console :5174): E2E was not run"
-  total=$(grep -ho '^  test(' web/e2e/tests/*.spec.ts 2>/dev/null | wc -l | tr -d ' ')
-  printf '0 0 %s' "${total:-4}" >"$WORK/e2e.counts"
+  echo "the e2e stack isn't up (scripts/e2e-stack.sh up): E2E was not run"
+  total=$(grep -ho '^test(' web/e2e/tests/*.spec.ts 2>/dev/null | wc -l | tr -d ' ')
+  printf '0 0 %s' "${total:-0}" >"$WORK/e2e.counts"
 fi
 end_suite e2e
 

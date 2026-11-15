@@ -142,3 +142,13 @@ extension AppointmentView {
         String(format: String(localized: "visit.with_at"), doctorName, clinicName)
     }
 }
+
+extension MedicineView {
+    /// `1 · 1-0-1 · after food · for 5 days`.
+    var detailsText: String {
+        var parts = [dose, frequency]
+        if let timing { parts.append(Timing.text(timing)) }
+        if let days { parts.append(String(format: String(localized: "prescriptions.days"), days.intValue)) }
+        return parts.joined(separator: " · ")
+    }
+}

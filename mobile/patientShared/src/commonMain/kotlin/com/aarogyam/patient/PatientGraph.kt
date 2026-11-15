@@ -9,6 +9,8 @@ import com.aarogyam.patient.home.HomeStateHolder
 import com.aarogyam.patient.records.BillsStateHolder
 import com.aarogyam.patient.records.PrescriptionsStateHolder
 import com.aarogyam.patient.signin.SignInStateHolder
+import com.aarogyam.patient.visits.VisitStateHolder
+import com.aarogyam.patient.visits.VisitsStateHolder
 import com.sakalya.mobile.auth.PublishableKey
 import com.sakalya.mobile.auth.SecureSessionStore
 import com.sakalya.mobile.auth.SessionManager
@@ -73,6 +75,19 @@ class PatientGraph private constructor(
 
     fun booking(scope: CoroutineScope): BookingStateHolder =
         BookingStateHolder(directory, scope, logger("aarogyam.patient.booking"))
+
+    /** Booking with [clinicId] already picked (from a visit's follow-up), when it is a linked clinic. */
+    fun booking(
+        scope: CoroutineScope,
+        clinicId: String,
+    ): BookingStateHolder = BookingStateHolder(directory, scope, logger("aarogyam.patient.booking"), clinicId)
+
+    fun visits(scope: CoroutineScope): VisitsStateHolder = VisitsStateHolder(directory, scope)
+
+    fun visit(
+        scope: CoroutineScope,
+        id: String,
+    ): VisitStateHolder = VisitStateHolder(directory, scope, id)
 
     fun prescriptions(scope: CoroutineScope): PrescriptionsStateHolder = PrescriptionsStateHolder(directory, scope)
 

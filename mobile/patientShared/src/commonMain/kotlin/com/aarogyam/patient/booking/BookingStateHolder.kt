@@ -72,6 +72,7 @@ class BookingStateHolder(
     private val directory: PatientDirectory,
     private val scope: CoroutineScope,
     private val log: Logger = Logger("aarogyam.patient.booking"),
+    private val initialClinicId: String? = null,
 ) {
     private val mutableState = MutableStateFlow(BookingState())
     private var slotsJob: Job? = null
@@ -88,7 +89,7 @@ class BookingStateHolder(
                     ?.map { it.view() }
                     .orEmpty()
             mutableState.update { it.copy(clinics = clinics, loading = false) }
-            clinics.singleOrNull()?.let { selectClinic(it.id) }
+            (clinics.firstOrNull { it.id == initialClinicId } ?: clinics.singleOrNull())?.let { selectClinic(it.id) }
         }
     }
 

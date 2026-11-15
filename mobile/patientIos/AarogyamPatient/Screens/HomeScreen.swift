@@ -4,7 +4,9 @@ import SwiftUI
 
 /// Places Home opens.
 enum Route: Hashable {
-    case appointments, book, prescriptions, bills, clinics
+    case appointments, book, prescriptions, bills, clinics, visits
+    case visit(String)
+    case bookAt(String)
 }
 
 /// Home: the next visit, booking, prescriptions and bills, from every linked clinic.
@@ -24,10 +26,15 @@ struct HomeScreen: View {
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .appointments: AppointmentsScreen(graph: graph, onBook: { path.append(.book) })
-                case .book: BookScreen(graph: graph, onDone: { path.removeLast() })
+                case .book: BookScreen(graph: graph, clinicId: nil, onDone: { path.removeLast() })
                 case .prescriptions: PrescriptionsScreen(graph: graph)
                 case .bills: BillsScreen(graph: graph)
                 case .clinics: ClinicsScreen(graph: graph)
+                case .visits: VisitsScreen(graph: graph)
+                case .visit(let id):
+                    VisitScreen(graph: graph, id: id, onBook: { path.append(.bookAt($0.clinicId ?? "")) })
+                case .bookAt(let clinicId):
+                    BookScreen(graph: graph, clinicId: clinicId, onDone: { path.removeLast() })
                 }
             }
         }
@@ -73,6 +80,7 @@ private struct HomeContent: View {
         }
         SkButton(String(localized: "home.book"), systemImage: "calendar.badge.plus") { open(.book) }
         SkButton(String(localized: "home.appointments"), variant: .secondary) { open(.appointments) }
+        SkButton(String(localized: "home.visits"), variant: .secondary) { open(.visits) }
         HStack(spacing: SkSpacing.ml) {
             Button { open(.prescriptions) } label: {
                 SkStatTile(value: "\(view.prescriptions)", label: String(localized: "prescriptions.title"))

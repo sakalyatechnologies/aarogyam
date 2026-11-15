@@ -5,10 +5,12 @@ import SwiftUI
 /// Booking: clinic, doctor, day, time, reason; the clinic's online booking rules apply.
 struct BookScreen: View {
     let graph: PatientGraph
+    /// A clinic to start with (from a visit's follow-up); nil lets the patient pick.
+    let clinicId: String?
     let onDone: () -> Void
 
     var body: some View {
-        ScreenHost(make: { graph.booking(screen: $0) }, state: { $0.state }) { holder, state in
+        ScreenHost(make: { scope in clinicId.map { graph.booking(screen: scope, clinicId: $0) } ?? graph.booking(screen: scope) }, state: { $0.state }) { holder, state in
             BookContent(holder: holder, state: state, onDone: onDone)
         }
         .navigationTitle(String(localized: "book.title"))

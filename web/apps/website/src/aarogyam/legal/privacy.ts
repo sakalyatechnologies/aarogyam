@@ -5,7 +5,7 @@ import type { LegalDoc } from "./types";
 export const privacy: LegalDoc = {
   slug: "privacy",
   title: "Privacy Policy",
-  audience: "For everyone who visits the Aarogyam website, applies for access, or uses Aarogyam as clinic staff.",
+  audience: "For everyone who visits the Aarogyam website, applies for access, or uses Aarogyam, on the web or in the Aarogyam app, as clinic staff.",
   summary: "How Sakalya Technologies handles personal data on the Aarogyam website and in the Aarogyam clinic software.",
   sections: [
     {
@@ -34,10 +34,24 @@ export const privacy: LegalDoc = {
             ["Website visitors", "The pages you open and technical data your browser sends (IP address, browser type). Your theme choice is kept in your own browser.", "To show the site, keep it secure and fix faults."],
             ["People who ask for access", "Name, email, phone, role, clinic name and city, registration number, specialty.", "To review your request and contact you."],
             ["Clinic staff and Sakalya staff", "Name, email, role, sign-in records, devices and sessions.", "To sign you in, apply your permissions and keep an audit trail."],
+            ["People who use the Aarogyam app", "The device type, operating system and app version, a notification token if you allow notifications, and your language.", "To sign you in on that device, send the alerts your role gets, and fix faults."],
             ["Patients (as the clinic's processor)", "Whatever the clinic records: identity and contact details, visits, notes, prescriptions, files, bills, consent records.", "Only to run the clinic's service for the clinic."],
           ],
         },
         { kind: "p", text: "We do not put patient data in our logs, web addresses, notifications or analytics. Logs carry identifiers, not names, phone numbers or diagnoses." },
+      ],
+    },
+    {
+      id: "app",
+      title: "The Aarogyam app",
+      blocks: [
+        { kind: "ul", items: [
+          "Camera and photos: used only when you choose to take or attach a photo, such as an X-ray or a consent form. The photo is shrunk and its location and camera details are removed on the phone, then stored as the clinic's file. The app does not read your photo library on its own.",
+          "Notifications: only if you allow them. A notification says what happened (for example, a new booking request) and never carries a patient's name or details; you open the app to see more.",
+          "Screens with patient data cannot be captured in screenshots or screen recordings.",
+          "The app keeps no patient data on the phone after you sign out.",
+          "No advertising, no tracking across other apps, and no selling of data.",
+        ] },
       ],
     },
     {
@@ -80,7 +94,7 @@ export const privacy: LegalDoc = {
         { kind: "ul", items: [
           "Patient records: for as long as the clinic keeps them, and then as the clinic tells us. The clinic's retention schedule decides this, and we give clinics a report of records past their retention period.",
           "Access requests that are not approved: [period, for example 12 months], then deleted.",
-          "Staff account data: while the account is active, then as long as the law or the audit trail needs it.",
+          "Staff account data: while the account is active. When you delete your account, your sign-in, profile details, devices and notification tokens are deleted; records you made for a clinic stay with that clinic.",
           "The audit trail of who changed or viewed a record: kept as long as the record, so a clinic can answer a patient's question about access.",
         ] },
         { kind: "p", text: "When a purpose is over, or consent is withdrawn and no law requires us to keep the data, we erase it or make it anonymous." },
@@ -107,6 +121,7 @@ export const privacy: LegalDoc = {
       blocks: [
         { kind: "p", text: `Under ${DPDP} you may ask for a summary of the personal data held about you and who it was shared with, ask for it to be corrected, completed, updated or erased, withdraw consent, use the grievance process below, and nominate someone to exercise these rights if you die or cannot act for yourself.` },
         { kind: "p", text: "For data we hold in our own role, write to the Grievance Officer. For patient records, ask your clinic; we will help the clinic do it." },
+        { kind: "p", text: "You can delete your Aarogyam account at any time in the app (Profile, Account, Delete account) or by asking us; the page Delete your Aarogyam account (/account-deletion) explains how and what is kept." },
       ],
     },
     {

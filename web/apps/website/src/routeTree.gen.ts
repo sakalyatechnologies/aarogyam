@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccountDeletionRouteImport } from './routes/account-deletion'
 import { Route as DpaRouteImport } from './routes/dpa'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as PatientNoticeRouteImport } from './routes/patient-notice'
@@ -17,12 +18,18 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignOutRouteImport } from './routes/sign-out'
+import { Route as SupportRouteImport } from './routes/support'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountDeletionRoute = AccountDeletionRouteImport.update({
+  id: '/account-deletion',
+  path: '/account-deletion',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DpaRoute = DpaRouteImport.update({
@@ -60,6 +67,11 @@ const SignOutRoute = SignOutRouteImport.update({
   path: '/sign-out',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -73,6 +85,7 @@ const WorkspaceRoute = WorkspaceRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account-deletion': typeof AccountDeletionRoute
   '/dpa': typeof DpaRoute
   '/legal': typeof LegalRoute
   '/patient-notice': typeof PatientNoticeRoute
@@ -80,11 +93,13 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/sign-in': typeof SignInRoute
   '/sign-out': typeof SignOutRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account-deletion': typeof AccountDeletionRoute
   '/dpa': typeof DpaRoute
   '/legal': typeof LegalRoute
   '/patient-notice': typeof PatientNoticeRoute
@@ -92,12 +107,14 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/sign-in': typeof SignInRoute
   '/sign-out': typeof SignOutRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account-deletion': typeof AccountDeletionRoute
   '/dpa': typeof DpaRoute
   '/legal': typeof LegalRoute
   '/patient-notice': typeof PatientNoticeRoute
@@ -105,6 +122,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/sign-in': typeof SignInRoute
   '/sign-out': typeof SignOutRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/workspace': typeof WorkspaceRoute
 }
@@ -112,6 +130,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account-deletion'
     | '/dpa'
     | '/legal'
     | '/patient-notice'
@@ -119,11 +138,13 @@ export interface FileRouteTypes {
     | '/register'
     | '/sign-in'
     | '/sign-out'
+    | '/support'
     | '/terms'
     | '/workspace'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/account-deletion'
     | '/dpa'
     | '/legal'
     | '/patient-notice'
@@ -131,11 +152,13 @@ export interface FileRouteTypes {
     | '/register'
     | '/sign-in'
     | '/sign-out'
+    | '/support'
     | '/terms'
     | '/workspace'
   id:
     | '__root__'
     | '/'
+    | '/account-deletion'
     | '/dpa'
     | '/legal'
     | '/patient-notice'
@@ -143,12 +166,14 @@ export interface FileRouteTypes {
     | '/register'
     | '/sign-in'
     | '/sign-out'
+    | '/support'
     | '/terms'
     | '/workspace'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountDeletionRoute: typeof AccountDeletionRoute
   DpaRoute: typeof DpaRoute
   LegalRoute: typeof LegalRoute
   PatientNoticeRoute: typeof PatientNoticeRoute
@@ -156,6 +181,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   SignInRoute: typeof SignInRoute
   SignOutRoute: typeof SignOutRoute
+  SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
   WorkspaceRoute: typeof WorkspaceRoute
 }
@@ -167,6 +193,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-deletion': {
+      id: '/account-deletion'
+      path: '/account-deletion'
+      fullPath: '/account-deletion'
+      preLoaderRoute: typeof AccountDeletionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dpa': {
@@ -218,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignOutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
@@ -237,6 +277,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountDeletionRoute: AccountDeletionRoute,
   DpaRoute: DpaRoute,
   LegalRoute: LegalRoute,
   PatientNoticeRoute: PatientNoticeRoute,
@@ -244,6 +285,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   SignInRoute: SignInRoute,
   SignOutRoute: SignOutRoute,
+  SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
   WorkspaceRoute: WorkspaceRoute,
 }

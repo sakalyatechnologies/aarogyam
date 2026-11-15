@@ -225,7 +225,8 @@ class NotificationsStateHolder(
                             it.id,
                             it.kind,
                             it.read,
-                            it.createdAt,
+                            // The feed is ordered by latest activity, so show when the row last rose.
+                            it.remindedAt ?: it.createdAt,
                             it.appointment?.id.orEmpty(),
                             tokenId = token?.id,
                             tokenNumber = token?.number,

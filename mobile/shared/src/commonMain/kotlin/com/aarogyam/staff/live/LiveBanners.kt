@@ -28,7 +28,7 @@ data class LiveBannerState(
 
 /**
  * Watches the unread notifications while the app is in front and raises a [banner] for a new
- * `patient_waiting`, `send_in` or `collect_payment`. The first load only records what is there, so opening the
+ * `patient_waiting`, `send_in` or `collect_payment`, and again when someone Reminds (`reminded_at`). The first load only records what is there, so opening the
  * app never replays old rows. The server already filters by audience. A banner goes away by itself after
  * [showMillis]; the timer lives here, not in the view, so a screen covering the banner cannot stop it.
  */
@@ -72,8 +72,8 @@ class LiveBannerHolder(
     private suspend fun load() {
         when (val result = clinic.api.notificationEntries(unreadOnly = true, limit = 20)) {
             is Outcome.Success -> {
-                val fresh = result.value.items.filter { it.id !in seen }
-                fresh.forEach { seen.add(it.id) }
+                val fresh = result.value.items.filter { it.raiseKey !in seen }
+                fresh.forEach { seen.add(it.raiseKey) }
                 while (seen.size > MAX_SEEN) seen.remove(seen.first())
                 if (primed) {
                     fresh.firstOrNull { it.kind in KINDS && !it.isHandled }?.let {

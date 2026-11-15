@@ -469,6 +469,10 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       }),
     discardImport: (id, opts) =>
       call({ method: "DELETE", path: `/api/v1/imports/sessions/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
+    getImportFileDownloadLink: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/imports/sessions/${encodeURIComponent(id)}/file/download`, schema: downloadLink, signal: opts?.signal }),
+    deleteImportFile: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/imports/sessions/${encodeURIComponent(id)}/file`, schema: voidResponse, signal: opts?.signal }),
     listIncompletePatients: (opts) => call({ method: "GET", path: "/api/v1/imports/incomplete", schema: incompleteList, signal: opts?.signal }),
     dismissIncompletePatient: (id, opts) =>
       call({

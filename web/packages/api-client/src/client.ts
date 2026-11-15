@@ -528,6 +528,10 @@ export interface ApiClient {
   commitImport(id: ImportSessionId, choices: ImportChoices, options?: RequestOptions): Promise<ApiResult<SmartImportResult>>;
   /** Clinic host: ends an import session without importing and clears its rows. Needs `patients.write`. */
   discardImport(id: ImportSessionId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: a five-minute link to the clinic's original file of an import (404 once deleted). Needs `patients.write`. */
+  getImportFileDownloadLink(id: ImportSessionId, options?: RequestOptions): Promise<ApiResult<DownloadLink>>;
+  /** Clinic host: deletes the original file of an import (the session and its patients stay); repeating is fine. Needs `patients.write`. */
+  deleteImportFile(id: ImportSessionId, options?: RequestOptions): Promise<ApiResult<void>>;
   /** Clinic host: imported patients still missing details, the front desk's to-do list. Needs `patients.read`. */
   listIncompletePatients(options?: RequestOptions): Promise<ApiResult<IncompleteList>>;
   /** Clinic host: takes a patient off the to-do list. Needs `patients.write`. */

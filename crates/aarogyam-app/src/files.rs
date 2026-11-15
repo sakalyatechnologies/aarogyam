@@ -24,8 +24,8 @@ use aarogyam_domain::clinical::{
 use aarogyam_domain::dental::Tooth;
 use aarogyam_domain::files::{FileType, MAX_BYTES, MAX_VOICE_SECONDS, VoiceLanguage};
 use aarogyam_domain::ids::{
-    AttachmentId, ClinicId, ClinicalNoteId, EncounterId, MembershipId, NoteAddendumId, PatientId,
-    ShareLinkId, UserId,
+    AttachmentId, ClinicId, ClinicalNoteId, EncounterId, ImportSessionId, MembershipId,
+    NoteAddendumId, PatientId, ShareLinkId, UserId,
 };
 use aarogyam_domain::permission::Permission;
 use aws_lc_rs::{digest, hmac, rand};
@@ -156,6 +156,9 @@ impl Storage for LocalDisk {
 const PATIENT_FILE: &str = "attachment-download:v1";
 /// What a member-bound token is for: a file in a staff chat message.
 const CHAT_FILE: &str = "chat-attachment:v1";
+/// What a member-bound token is for: the original file of a patient import (bound to its
+/// session).
+const IMPORT_FILE: &str = "import-file:v1";
 
 /// Signs and checks download links.
 #[derive(Clone)]
@@ -251,6 +254,45 @@ impl LinkSigner {
         expires: OffsetDateTime,
     ) -> String {
         self.sign_kind(CHAT_FILE, clinic, file, user, expires)
+    }
+
+    /// A token for `user` to download the original file of import `session` until `expires`.
+    /// It can't open a patient file or a chat file, nor theirs this one.
+    #[must_use]
+    pub fn sign_import_file(
+        &self,
+        clinic: ClinicId,
+        session: ImportSessionId,
+        user: UserId,
+        expires: OffsetDateTime,
+    ) -> String {
+        self.sign_kind(
+            IMPORT_FILE,
+            clinic,
+            AttachmentId::from_uuid(session.uuid()),
+            user,
+            expires,
+        )
+    }
+
+    /// Checks an import file token at `now`.
+    ///
+    /// # Errors
+    /// As [`Self::verify`].
+    pub fn verify_import_file(
+        &self,
+        clinic: ClinicId,
+        session: ImportSessionId,
+        token: &str,
+        now: OffsetDateTime,
+    ) -> Result<LinkGrant, LinkRefusal> {
+        self.verify_kind(
+            IMPORT_FILE,
+            clinic,
+            AttachmentId::from_uuid(session.uuid()),
+            token,
+            now,
+        )
     }
 
     fn sign_kind(

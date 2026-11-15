@@ -221,6 +221,29 @@ pub async fn import_sessions(
     Ok(rows)
 }
 
+/// Original import files stored before `cutoff`, per clinic (the retention report).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn import_files(
+    pool: &PgPool,
+    cutoff: OffsetDateTime,
+    sample: i32,
+) -> Result<Vec<Group>, DbError> {
+    let rows = sqlx::query_as!(
+        Group,
+        r#"select org_id as "org_id?", count(*) as "count!", min(created_at) as "oldest?",
+                  (array_agg(id order by created_at))[1:$2] as "sample!: Vec<Uuid>"
+           from aarogyam.import_files where created_at < $1
+           group by org_id order by org_id"#,
+        cutoff,
+        sample
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 /// Stock import uploads made before `cutoff`.
 ///
 /// # Errors

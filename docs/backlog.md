@@ -32,7 +32,8 @@ Very important for onboarding: many clinics keep **paper case sheets**; others h
 - **Missing required data:** import what is present; mark records "incomplete" with exactly what's missing; let the clinic finish them later (front desk sees a to-do list). Never invent values.
 - **Review before it counts:** every automatic extraction is shown for confirmation (side by side with the scan) before it becomes a clinical record; the original scan is kept as an attachment.
 - **Exists:** smart file import (CSV in any delimiter or encoding, Excel `.xlsx`): automatic mapping from headers in English, Hindi and Marathi and from the values, remembered per clinic; lenient rows with a front-desk to-do list for missing details; duplicates by phone and name, skipped or merged; preview, then one idempotent commit with file, sheet and row kept (`/api/v1/imports/sessions`, web Patients → Import and Patients → Missing details; see `decisions.md`, 2026-10-06). The older CSV-text endpoint `/api/v1/imports/patients` remains.
-- **Still to build:** the paper path (designed in `decisions.md`, 2026-10-06), keeping the original file as a clinic attachment the clinic can delete, and importing balances as opening bills.
+- **Built (15 Nov 2026, migration 0717; `decisions.md`, 2026-11-15):** keeping the original file where the clinic can open and delete it, and importing the balance column as one issued opening-balance bill per row.
+- **Still to build:** the paper path (designed in `decisions.md`, 2026-10-06).
 - **Design notes:** extraction runs as a background job (outbox-style), never in the request path; the AI provider must meet the health-data rules (no training on our data, India data residency where required; see `docs/guidelines/`); imported records keep their source (scan id, file and row) for traceability.
 
 ## Moving between clinics and sign-in polish (6 Oct 2026)

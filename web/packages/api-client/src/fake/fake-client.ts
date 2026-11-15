@@ -234,7 +234,15 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
   /** Smart import sessions by id: the file's rows until imported or discarded. */
   const importSessions = new Map<
     string,
-    { clinicId: string; fileName: string; table: CsvTable | undefined; status: "open" | "committed" | "discarded"; result?: C.SmartImportResult }
+    {
+      clinicId: string;
+      fileName: string;
+      table: CsvTable | undefined;
+      status: "open" | "committed" | "discarded";
+      result?: C.SmartImportResult;
+      /** The original file kept for the clinic; undefined once it deletes it. */
+      file?: C.ImportFile | undefined;
+    }
   >();
   /** Patients imported without some details: the to-do list. */
   const patientGaps: { id: string; clinicId: string; patientId: string; fileName: string; row: number; missing: C.IncompletePatient["missing"]; importedAt: string; dismissed: boolean }[] = [];
@@ -371,6 +379,11 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       const decisions = new Map((choices.rows ?? []).map((d) => [d.row, d.choice]));
       const firstOf = new Map<string, number>();
       const rows: C.SmartImportRow[] = [];
+      const perms = caller.membership.role.permissions;
+      const canBill = hasPermission(perms, "billing.write");
+      const canSeeBills = hasPermission(perms, "billing.read");
+      /** Rows with an amount owed, to be billed once their patient is known. */
+      const owing: { row: C.SmartImportRow; paise: number }[] = [];
       const existingNumbers = state.patients.filter((p) => p.clinic_id === caller.clinic.id).map((p) => Number(p.number.split("-")[1] ?? 0));
       let nextNumber = 1 + Math.max(0, ...existingNumbers);
       for (const { line, cells } of session.table.rows) {
@@ -397,6 +410,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         }
         if (choice === "merge" && row.duplicate_of != null) {
           row.action = commit ? "merged" : "merge";
+          if (read.balancePaise !== undefined) owing.push({ row, paise: read.balancePaise });
           if (commit && existing !== undefined) {
             if (existing.sex === "unknown") existing.sex = read.sex;
             existing.date_of_birth ??= read.dateOfBirth;
@@ -408,6 +422,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         }
         if (key !== undefined && !firstOf.has(key)) firstOf.set(key, line);
         row.action = commit ? "imported" : "import";
+        if (read.balancePaise !== undefined) owing.push({ row, paise: read.balancePaise });
         row.missing = read.missing;
         row.values = commit
           ? {}
@@ -450,6 +465,60 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
         }
       }
+      // One issued bill per row with an amount owed (merged rows bill the patient they merged into).
+      let billed = 0;
+      let billedPaise = 0;
+      for (const { row, paise } of owing) {
+        if (canSeeBills && !commit) row.opening_balance_paise = paise;
+        if (!canBill) continue;
+        if (!commit) {
+          billed += 1;
+          billedPaise += paise;
+          continue;
+        }
+        const earlier = row.duplicate_of?.row == null ? undefined : rows.find((r) => r.row === row.duplicate_of?.row);
+        const patientId = row.patient_id ?? earlier?.patient_id;
+        if (patientId == null) continue;
+        row.patient_id = patientId;
+        const invoice: FakeInvoice = {
+          id: fakeUuid(random, now),
+          clinic_id: caller.clinic.id,
+          patient_id: patientId,
+          status: "issued",
+          number: nextInvoiceNumber(state, caller.clinic),
+          notes: `Imported from ${session.fileName}, row ${String(row.row)}`,
+          items: [
+            {
+              line_no: 1,
+              description: "Opening balance (imported)",
+              price_item_id: null,
+              procedure_id: null,
+              quantity: 1,
+              unit_price_paise: paise,
+              discount_paise: 0,
+              gst_rate: 0,
+              sac_hsn: null,
+              taxable_paise: 0,
+              cgst_paise: 0,
+              sgst_paise: 0,
+              igst_paise: 0,
+              total_paise: paise,
+            },
+          ],
+          created_at: now.toISOString(),
+          issued_at: now.toISOString(),
+        };
+        state.invoices.push(invoice);
+        if (canSeeBills) row.opening_balance_paise = paise;
+        billed += 1;
+        billedPaise += paise;
+      }
+      const owingNote =
+        choices.mapping.balance === undefined || owing.length === 0
+          ? []
+          : canBill
+            ? ['balance: each amount owed becomes one issued bill, "Opening balance (imported)", for the patient']
+            : ["balance: no opening-balance bills will be made, because issuing bills needs billing.write; the patients are still imported"];
       const count = (...actions: C.SmartImportRow["action"][]) => rows.filter((r) => actions.includes(r.action)).length;
       const result: C.SmartImportResult = {
         import_id: commit ? fakeUuid(random, now) : null,
@@ -459,7 +528,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         merged: count("merge", "merged"),
         skipped: count("skip", "skipped"),
         failed: count("fail", "failed"),
-        notes: choices.mapping.balance === undefined ? [] : ["balance: amounts owed are not imported; record opening balances in Billing"],
+        opening_bills: billed,
+        ...(canSeeBills ? { opening_total_paise: billedPaise } : {}),
+        notes: owingNote,
         rows,
       };
       if (commit) {
@@ -2992,7 +3063,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           const now = clock();
           const id = fakeUuid(random, now);
-          importSessions.set(id, { clinicId: caller.clinic.id, fileName: file.name, table, status: "open" });
+          const stored: C.ImportFile = { file_name: file.name, size_bytes: file.size, mime_type: "text/csv", stored_at: now.toISOString() };
+          importSessions.set(id, { clinicId: caller.clinic.id, fileName: file.name, table, status: "open", file: stored });
           return reply({
             id,
             file_name: file.name,
@@ -3005,6 +3077,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             sample: table.rows.slice(0, 5).map((r) => table.headers.map((_, i) => r.cells[i] ?? "")),
             suggestions: suggestColumns(table.headers),
             expires_at: new Date(now.getTime() + 24 * 3600 * 1000).toISOString(),
+            file: stored,
           } satisfies C.ImportSession);
         }),
 
@@ -3028,6 +3101,37 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             session.status = "discarded";
             session.table = undefined;
           }
+          return reply(undefined);
+        }),
+
+      getImportFileDownloadLink: (id, opts) =>
+        respond(S.downloadLink, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const session = importSessions.get(id);
+          if (session?.clinicId !== caller.clinic.id || session.file === undefined) {
+            return notFound;
+          }
+          const expires = new Date(clock().getTime() + 5 * 60 * 1000);
+          return reply({
+            url: `/api/v1/imports/sessions/${id}/file/content?token=fake-${String(expires.getTime())}`,
+            expires_at: expires.toISOString(),
+          } satisfies C.DownloadLink);
+        }),
+
+      deleteImportFile: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const session = importSessions.get(id);
+          if (session?.clinicId !== caller.clinic.id) {
+            return notFound;
+          }
+          session.file = undefined;
           return reply(undefined);
         }),
 

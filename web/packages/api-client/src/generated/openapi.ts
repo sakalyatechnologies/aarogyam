@@ -1195,7 +1195,8 @@ export interface paths {
         /**
          * Uploads a clinic's patient file (`multipart/form-data`, field `file`, optional `sheet`).
          *     The header row is found automatically and each column gets a suggested field from its
-         *     header (English, Hindi or Marathi), its values, and what the clinic chose last time.
+         *     header (English, Hindi or Marathi), its values, and what the clinic chose last time. The
+         *     original file is kept (in India, in the clinic's file storage) until the clinic deletes it.
          */
         post: operations["uploadImportFile"];
         delete?: never;
@@ -1233,10 +1234,75 @@ export interface paths {
         /**
          * Imports the session in one transaction: new patients numbered from the clinic's sequence,
          *     duplicates skipped or merged (filling only empty details), each row recorded with its file,
-         *     sheet and row, and patients missing details put on the to-do list. The mapping is
-         *     remembered for the next file. Sending it again returns the same result.
+         *     sheet and row, and patients missing details put on the to-do list. A row with an amount in
+         *     the balance column gets one issued bill, "Opening balance (imported)", when the caller has
+         *     `billing.write` (at most 300 per file); without it the patients are imported and no bills
+         *     are made. The mapping is remembered for the next file. Sending it again returns the same
+         *     result and bills nothing more.
          */
         post: operations["commitImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/sessions/{id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Deletes the original file of an import session: its record and its stored copy. The
+         *     session and the patients it imported stay. Needs `patients.write`; recorded in the change
+         *     history.
+         */
+        delete: operations["deleteImportFile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/sessions/{id}/file/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Streams the original file through a signed link from
+         *     `GET /imports/sessions/{id}/file/download`. The link is the proof of access; it works on the
+         *     clinic's own host for five minutes.
+         */
+        get: operations["getImportFileContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/sessions/{id}/file/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Issues a five-minute download link for the original file of an import session. Needs the
+         *     permission that runs imports (`patients.write`).
+         */
+        get: operations["getImportFileDownloadLink"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8087,14 +8153,32 @@ export interface components {
             /**
              * @description Our field to the column index (from 0). `full_name` is required. Fields: `full_name`,
              *     `sex`, `date_of_birth`, `age_years`, `phone`, `email`, `preferred_language`,
-             *     `file_number`, `legacy_id`, `address`, `last_visit`, `balance` (recognised, not
-             *     imported).
+             *     `file_number`, `legacy_id`, `address`, `last_visit`, `balance` (an amount above zero
+             *     becomes one issued "Opening balance (imported)" bill when the caller has
+             *     `billing.write`).
              */
             mapping: {
                 [key: string]: number;
             };
             /** @description Choices for particular rows, overriding `duplicates`. */
             rows?: components["schemas"]["RowDecision"][];
+        };
+        /**
+         * @description The original file of an import, kept for the clinic until it deletes it (and past 365 days
+         *     the retention report lists it).
+         */
+        ImportFile: {
+            /** @description The name it was uploaded with. */
+            file_name: string;
+            /** @description `text/csv` or the `.xlsx` media type. */
+            mime_type: string;
+            /**
+             * Format: int64
+             * @description Its size in bytes.
+             */
+            size_bytes: number;
+            /** @description When it was stored (RFC 3339). */
+            stored_at: string;
         };
         /** @description An import's result. */
         ImportResult: {
@@ -8131,6 +8215,7 @@ export interface components {
         ImportSession: {
             /** @description When the session ends unless imported (RFC 3339). */
             expires_at: string;
+            file?: components["schemas"]["ImportFile"] | null;
             /** @description The file's name. */
             file_name: string;
             /** @description Row of the file holding the headers (found automatically, below any title rows). */
@@ -13314,6 +13399,16 @@ export interface components {
             merged: number;
             /** @description Notes about the whole file. */
             notes: string[];
+            /**
+             * @description Opening-balance bills: to be made (preview, `0` without `billing.write`) or made
+             *     (commit).
+             */
+            opening_bills: number;
+            /**
+             * Format: int64
+             * @description Their total in paise. Only with `billing.read`.
+             */
+            opening_total_paise?: number | null;
             /** @description Every row, in file order. */
             rows: components["schemas"]["SmartImportRow"][];
             /** @description Left out. */
@@ -13338,6 +13433,12 @@ export interface components {
             missing: string[];
             /** @description Their number, on commit. */
             number?: string | null;
+            /**
+             * Format: int64
+             * @description The opening balance in paise, as it is billed (rounded to the rupee): the amount the
+             *     row carries in a preview, the bill made on commit. Only with `billing.read`.
+             */
+            opening_balance_paise?: number | null;
             /** @description The patient it became or was merged into, on commit. */
             patient_id?: string | null;
             /** @description Row in the file. */
@@ -18484,7 +18585,7 @@ export interface operations {
                     "application/json": components["schemas"]["SmartImportResult"];
                 };
             };
-            /** @description The mapping or a choice can't be used; the message says why */
+            /** @description The mapping or a choice can't be used (or more than 300 rows have a balance); the message says why */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -18514,6 +18615,129 @@ export interface operations {
             };
             /** @description The session has ended */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteImportFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The import session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted (or already deleted) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such import session in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getImportFileContent: {
+        parameters: {
+            query: {
+                /** @description The signed token from the download link */
+                token: string;
+            };
+            header?: never;
+            path: {
+                /** @description The import session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, as an attachment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link has expired; ask for a new one */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a valid link for this file on this host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getImportFileDownloadLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The import session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadLink"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such file in this clinic (or it was deleted) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

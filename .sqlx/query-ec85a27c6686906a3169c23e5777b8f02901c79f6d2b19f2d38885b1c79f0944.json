@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select r.row_number, r.status, r.error, r.patient_id, p.number as \"number?\",\n                  exists (select 1 from aarogyam.patient_gaps g\n                          where g.import_id = r.import_id and g.row_number = r.row_number) as \"incomplete!\"\n           from aarogyam.import_rows r\n           left join aarogyam.patients p on p.org_id = r.org_id and p.id = r.patient_id\n           where r.import_id = $1\n           order by r.row_number",
+  "query": "select r.row_number, r.status, r.error, r.patient_id, p.number as \"number?\",\n                  r.opening_paise,\n                  exists (select 1 from aarogyam.patient_gaps g\n                          where g.import_id = r.import_id and g.row_number = r.row_number) as \"incomplete!\"\n           from aarogyam.import_rows r\n           left join aarogyam.patients p on p.org_id = r.org_id and p.id = r.patient_id\n           where r.import_id = $1\n           order by r.row_number",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "opening_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.import_rows",
+            "name": "opening_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "incomplete!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -76,8 +87,9 @@
       true,
       true,
       false,
+      true,
       null
     ]
   },
-  "hash": "8792ad484e5cf2e3ba444c017820ca1a7f85cd4b22f02b05a35162b6ea061e68"
+  "hash": "ec85a27c6686906a3169c23e5777b8f02901c79f6d2b19f2d38885b1c79f0944"
 }

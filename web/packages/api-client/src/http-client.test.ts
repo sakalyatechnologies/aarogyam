@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiFailure, appointmentId, createDevTokenSource, createHttpClient, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, purchaseOrderId, queueTokenId, sessionId, taskId, taskOccurrenceId, unwrap, visitId } from "./index.js";
+import { ApiFailure, appointmentId, importSessionId, createDevTokenSource, createHttpClient, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, purchaseOrderId, queueTokenId, sessionId, taskId, taskOccurrenceId, unwrap, visitId } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -836,6 +836,60 @@ describe("createHttpClient settings v2", () => {
     const taken = stubFetch(json(409, { error: { code: "conflict", message: "that phone number belongs to another account" } }));
     const conflict = await createHttpClient("", () => "token", { fetch: taken.fetch }).updateMe({ phone: "9876543210" });
     expect(conflict.ok ? null : conflict.error.status).toBe(409);
+  });
+});
+
+describe("createHttpClient import file and opening balances", () => {
+  const session = {
+    id: "01a103b1-ea26-7120-ad93-41b6b4b4ebf2",
+    file_name: "register.xlsx",
+    kind: "xlsx",
+    sheets: ["Sheet1"],
+    header_row: 1,
+    headers: ["Naav", "Baki"],
+    row_count: 1,
+    sample: [["Asha", "1,200"]],
+    suggestions: [],
+    expires_at: "2026-11-16T05:30:00Z",
+  };
+  const result = { total: 1, imported: 1, incomplete: 0, merged: 0, skipped: 0, failed: 0, opening_bills: 1, notes: [], rows: [] };
+
+  it("calls the link and delete routes", async () => {
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, { url: "/x?token=t", expires_at: "2026-11-15T05:35:00Z" })));
+    const client = createHttpClient("", () => "abc", { fetch });
+    await client.getImportFileDownloadLink(importSessionId.parse(session.id));
+    await client.deleteImportFile(importSessionId.parse(session.id));
+    expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
+      `GET /api/v1/imports/sessions/${session.id}/file/download`,
+      `DELETE /api/v1/imports/sessions/${session.id}/file`,
+    ]);
+  });
+
+  it("reads a session with the file absent, null or present", async () => {
+    const read = async (body: unknown) => {
+      const client = createHttpClient("", () => "abc", { fetch: stubFetch(json(201, body)).fetch });
+      const out = await client.uploadImportFile(new FormData());
+      if (!out.ok) throw new Error(out.error.message);
+      return out.value.file;
+    };
+    expect(await read(session)).toBeUndefined();
+    expect(await read({ ...session, file: null })).toBeNull();
+    const file = { file_name: "register.xlsx", size_bytes: 2048, mime_type: "application/octet-stream", stored_at: "2026-11-15T05:30:00Z" };
+    expect(await read({ ...session, file })).toEqual(file);
+  });
+
+  it("reads results with the opening-balance fields absent, null or present", async () => {
+    const read = async (body: unknown) => {
+      const client = createHttpClient("", () => "abc", { fetch: stubFetch(json(200, body)).fetch });
+      const out = await client.commitImport(importSessionId.parse(session.id), { mapping: { full_name: 0 } });
+      if (!out.ok) throw new Error(out.error.message);
+      return out.value;
+    };
+    expect((await read(result)).opening_total_paise).toBeUndefined();
+    expect((await read({ ...result, opening_total_paise: null })).opening_total_paise).toBeNull();
+    expect((await read({ ...result, opening_total_paise: 120_000 })).opening_total_paise).toBe(120_000);
+    const row = { row: 2, action: "imported", missing: [], errors: [], warnings: [], values: {}, opening_balance_paise: 120_000 };
+    expect((await read({ ...result, rows: [row] })).rows[0]?.opening_balance_paise).toBe(120_000);
   });
 });
 

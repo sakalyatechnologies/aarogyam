@@ -5,10 +5,11 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use sakalya_types::{CallingCode, PhoneE164};
+use sakalya_types::{CallingCode, Paise, PhoneE164};
 use time::Date;
 
-use crate::import::{ImportField, MappedRow, loose_age, loose_date, loose_sex};
+use crate::billing::round_to_rupee;
+use crate::import::{ImportField, MappedRow, loose_age, loose_amount, loose_date, loose_sex};
 use crate::patient::{BirthDate, Email, Language, PersonName, Sex};
 use crate::schedule::parse_identifier;
 
@@ -634,6 +635,9 @@ pub struct LenientRow {
     pub file_number: Option<String>,
     /// The old software's ID.
     pub legacy_id: Option<String>,
+    /// What the patient owes, in paise rounded to the rupee as a bill would be, when the row
+    /// has a readable amount above zero. Zero, empty, negative and unreadable amounts are `None`.
+    pub balance_paise: Option<i64>,
     /// Why the row can't be imported, as `field: problem`. Never echoes values.
     pub errors: Vec<String>,
     /// Values that couldn't be read and were left empty, as `field: problem`.
@@ -754,6 +758,29 @@ pub fn read_leniently(row: &MappedRow, today: Date) -> LenientRow {
     };
     let file_number = identifier(ImportField::FileNumber);
     let legacy_id = identifier(ImportField::LegacyId);
+    let balance_paise = row
+        .get(ImportField::Balance)
+        .and_then(|text| match loose_amount(text) {
+            None => {
+                warnings.push("balance: not an amount we can read, left out".to_owned());
+                None
+            }
+            Some(paise) if paise < 0 => {
+                warnings.push(
+                    "balance: negative (an advance); nothing is billed and no credit is recorded"
+                        .to_owned(),
+                );
+                None
+            }
+            Some(0) => None,
+            Some(paise) => {
+                let billed = round_to_rupee(Paise::new(paise)).get();
+                if billed != paise {
+                    warnings.push("balance: billed to the nearest rupee".to_owned());
+                }
+                Some(billed)
+            }
+        });
     let mut missing = Vec::new();
     if phone.is_none() {
         missing.push(Missing::Phone);
@@ -776,6 +803,7 @@ pub fn read_leniently(row: &MappedRow, today: Date) -> LenientRow {
         last_visit,
         file_number,
         legacy_id,
+        balance_paise,
         errors,
         warnings,
         missing,

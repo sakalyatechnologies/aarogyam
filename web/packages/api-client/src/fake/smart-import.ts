@@ -121,6 +121,37 @@ function looseDate(text: string): string | undefined {
   return Number.isNaN(Date.parse(iso)) ? undefined : iso;
 }
 
+/**
+ * An amount in paise as the server reads it: `1200`, `1,200`, `₹1200`, `Rs 500`, `Rs. 500/-`,
+ * `1200.50`, `-300`, `(300)`; undefined when it can't be read (more than two decimals, other text).
+ */
+export function looseAmount(text: string): number | undefined {
+  let rest = text.trim().toLowerCase();
+  let negative = false;
+  const wrapped = /^\((.*)\)$/.exec(rest);
+  if (wrapped !== null) {
+    negative = true;
+    rest = (wrapped[1] ?? "").trim();
+  }
+  const sign = () => {
+    if (rest.startsWith("-") || rest.startsWith("\u2212")) {
+      negative = !negative;
+      rest = rest.slice(1).trimStart();
+    }
+  };
+  sign();
+  rest = rest.replace(/^(₹|rs\.|rs|inr)\s*/, "");
+  sign();
+  rest = rest.replace(/(\/-|\/=)\s*$/, "").trim();
+  const match = /^(\d+(?:,\d+)*)(?:\.(\d{1,2}))?$/.exec(rest);
+  if (match === null) return undefined;
+  const rupees = Number((match[1] ?? "").replace(/,/g, ""));
+  if (rupees > 100_000_000) return undefined;
+  const paise = Number((match[2] ?? "").padEnd(2, "0"));
+  const amount = rupees * 100 + paise;
+  return negative ? -amount : amount;
+}
+
 /** One row read leniently, as the server does. */
 export interface ReadRow {
   line: number;
@@ -131,6 +162,8 @@ export interface ReadRow {
   estimated: boolean;
   email: string | null;
   missing: ("phone" | "sex" | "date_of_birth")[];
+  /** What the patient owes in paise, rounded to the rupee as a bill is; undefined when none. */
+  balancePaise: number | undefined;
   errors: string[];
   warnings: string[];
 }
@@ -180,9 +213,22 @@ export function readRow(line: number, cells: readonly string[], mapping: Readonl
   const emailRaw = get("email");
   const email = emailRaw !== undefined && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw) ? emailRaw.toLowerCase() : null;
   if (emailRaw !== undefined && email === null) warnings.push("email: not a valid address, left empty");
+  let balancePaise: number | undefined;
+  const balanceRaw = get("balance");
+  if (balanceRaw !== undefined) {
+    const paise = looseAmount(balanceRaw);
+    if (paise === undefined) {
+      warnings.push("balance: not an amount we can read, left out");
+    } else if (paise < 0) {
+      warnings.push("balance: negative (an advance); nothing is billed and no credit is recorded");
+    } else if (paise > 0) {
+      balancePaise = Math.floor((paise + 50) / 100) * 100;
+      if (balancePaise !== paise) warnings.push("balance: billed to the nearest rupee");
+    }
+  }
   const missing: ReadRow["missing"] = [];
   if (phone === null) missing.push("phone");
   if (sex === "unknown") missing.push("sex");
   if (dateOfBirth === null) missing.push("date_of_birth");
-  return { line, name, phone, sex, dateOfBirth, estimated, email, missing, errors, warnings };
+  return { line, name, phone, sex, dateOfBirth, estimated, email, missing, balancePaise, errors, warnings };
 }

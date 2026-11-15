@@ -7894,6 +7894,7 @@
     }
    ],
    "referenced_by": [
+    "import_rows.opening_invoice_id",
     "invoice_items.invoice_id",
     "invoices.replaces_invoice_id",
     "payment_allocations.invoice_id",
@@ -11534,6 +11535,20 @@
      "nullable": true,
      "ref": "patients",
      "note": "the patient it became or was merged into"
+    },
+    {
+     "name": "opening_invoice_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "invoices",
+     "note": "the opening-balance bill the row made (migration 0717); unique, so a repeated commit bills nothing twice"
+    },
+    {
+     "name": "opening_paise",
+     "type": "bigint",
+     "nullable": true,
+     "ref": null,
+     "note": "that bill's total; set exactly when the bill is"
     }
    ],
    "referenced_by": [],
@@ -11543,7 +11558,7 @@
   {
    "name": "import_sessions",
    "domain": "onboarding",
-   "purpose": "An uploaded file being mapped and previewed before import. Holds the parsed rows, never the file.",
+   "purpose": "An uploaded file being mapped and previewed before import. Holds the parsed rows; the original file is in import_files.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
@@ -11644,8 +11659,60 @@
     }
    ],
    "referenced_by": [
+    "import_files.session_id",
     "imports.session_id"
    ],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "import_files",
+   "domain": "onboarding",
+   "purpose": "The original file a clinic uploaded to import patients, kept so the clinic can open it again and delete it.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0717). Bytes are stored under <clinic>/<id> through the file backend (Supabase Storage in Mumbai, local disk in development) and reached through a five-minute link bound to the member; deleting removes the row and the bytes and leaves the session and its patients. Holds names and phones: personal data, no support access. Kept 365 days (retention class import_files; report only).",
+   "cols": [
+    {
+     "name": "session_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "import_sessions",
+     "note": "unique: one file per session"
+    },
+    {
+     "name": "file_name",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "as uploaded, tidied; masked in the change history"
+    },
+    {
+     "name": "mime_type",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "text/csv or the .xlsx media type"
+    },
+    {
+     "name": "size_bytes",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "at most 5 MB"
+    },
+    {
+     "name": "sha256",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "of the content"
+    }
+   ],
+   "referenced_by": [],
    "sensitivity": "personal",
    "offline": "server_only"
   },
@@ -11787,6 +11854,7 @@
      "actor": "Import",
      "tables": [
       "import_sessions",
+      "import_files",
       "import_column_memory",
       "imports",
       "import_rows",

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /** A waiting token's wait: [Fresh] under a minute, [NoReply] at a minute or more without `called`. */
@@ -184,9 +185,10 @@ internal class WaitTimerStateHolder(
     override fun remind(tokenId: String) {
         if (!canRemind) return
         scope.launch {
-            when (clinic.api.remindDoctor(tokenId)) {
+            val answer = clinic.api.remindDoctor(tokenId)
+            when (answer.result) {
                 RemindResult.Sent, RemindResult.TooSoon -> {
-                    remindedAt[tokenId] = clock()
+                    remindedAt[tokenId] = answer.remindedAt(clock())
                     tick()
                 }
 
@@ -204,18 +206,46 @@ internal class WaitTimerStateHolder(
 /** What one Remind (G1) came to. [TooSoon] counts as sent: the doctor was reminded under a minute ago. */
 enum class RemindResult { Sent, TooSoon, NotWaiting, Failed }
 
-/** `POST /queue/{id}/remind`, folded to a [RemindResult] so each screen handles the four cases the same way. */
-suspend fun ClinicApi.remindDoctor(tokenId: String): RemindResult =
+/**
+ * A [RemindResult] and how many seconds the Remind button stays hidden: a minute after a send, or
+ * what the server says is left after `remind_too_soon` (a minute when it doesn't say).
+ */
+data class RemindAnswer(
+    val result: RemindResult,
+    val quietSeconds: Long = REMIND_AGAIN_AFTER_SECONDS,
+) {
+    /**
+     * When to count the reminder from, so that "hidden for a minute after it" ends after [quietSeconds]:
+     * screens keep one rule for both a send and a too-soon.
+     */
+    fun remindedAt(now: Instant): Instant = now - (REMIND_AGAIN_AFTER_SECONDS - quietSeconds).seconds
+}
+
+/** `POST /queue/{id}/remind`, folded to a [RemindAnswer] so each screen handles the four cases the same way. */
+suspend fun ClinicApi.remindDoctor(tokenId: String): RemindAnswer =
     when (val result = remindToken(tokenId)) {
         is Outcome.Success -> {
-            RemindResult.Sent
+            RemindAnswer(RemindResult.Sent)
         }
 
         is Outcome.Failure -> {
+            val error = result.error.error
             when {
-                result.error.kind != ApiErrorKind.Conflict -> RemindResult.Failed
-                result.error.code.value == "remind_too_soon" -> RemindResult.TooSoon
-                else -> RemindResult.NotWaiting
+                error.kind != ApiErrorKind.Conflict -> {
+                    RemindAnswer(RemindResult.Failed)
+                }
+
+                error.code.value == "remind_too_soon" -> {
+                    val left =
+                        result.error.body
+                            ?.error
+                            ?.retryAfterSeconds ?: REMIND_AGAIN_AFTER_SECONDS
+                    RemindAnswer(RemindResult.TooSoon, left.coerceIn(1, REMIND_AGAIN_AFTER_SECONDS))
+                }
+
+                else -> {
+                    RemindAnswer(RemindResult.NotWaiting)
+                }
             }
         }
     }

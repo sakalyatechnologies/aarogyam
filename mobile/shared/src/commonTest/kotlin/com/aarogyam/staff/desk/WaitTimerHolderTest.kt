@@ -97,6 +97,29 @@ class WaitTimerHolderTest {
         }
 
     @Test
+    fun remind_too_soon_brings_the_button_back_when_the_server_says() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(queue, { json(day(tokenJson())) })
+            backend.on(remind, {
+                json(
+                    """{"error":{"code":"remind_too_soon","message":"x","retry_after_seconds":20}}""",
+                    HttpStatusCode.Conflict,
+                )
+            })
+            now = issued + 90.seconds
+            val holder = timer(backend)
+            holder.remind("t1")
+            until { (holder.state.value as? WaitTimerState.Ready)?.entries?.single()?.canRemind == false }
+            now = issued + 109.seconds
+            holder.tick()
+            assertFalse(holder.entries().single().canRemind)
+            now = issued + 110.seconds
+            holder.tick()
+            assertTrue(holder.entries().single().canRemind)
+        }
+
+    @Test
     fun remind_too_soon_hides_the_button_and_not_waiting_reloads_the_queue() =
         runTest {
             val backend = FakeBackend()

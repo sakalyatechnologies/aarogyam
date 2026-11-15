@@ -121,11 +121,13 @@ final class DeskV10Feed {
         payInvoice = bills
     }
 
-    /// Reminds the token's doctor (G1). "Too soon" counts as reminded; "not waiting" reloads the board.
+    /// Reminds the token's doctor (G1). "Too soon" counts as reminded, until the server's `retry_after_seconds`
+    /// runs out; "not waiting" reloads the board.
     func remind(tokenId: String) async {
-        guard let result = try? await clinic.api.remindDoctor(tokenId: tokenId) else { return }
-        switch result {
-        case .sent, .tooSoon: remindedAt[tokenId] = Date()
+        guard let answer = try? await clinic.api.remindDoctor(tokenId: tokenId) else { return }
+        switch answer.result {
+        case .sent, .tooSoon:
+            remindedAt[tokenId] = Date().addingTimeInterval(Double(answer.quietSeconds) - DeskV10Wait.remindAgainAfter)
         case .notWaiting: await refresh()
         case .failed: break
         }

@@ -12,14 +12,19 @@ import com.aarogyam.staff.api.model.WalkIn
 import com.aarogyam.staff.api.model.WalkInRequest
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Outcome
+import com.sakalya.mobile.http.BodyFailure
 import com.sakalya.mobile.http.call
+import com.sakalya.mobile.http.callWithErrorBody
 import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * `POST /api/v1/patients/lookup` (`lookupPatientsByPhone`): registered patients with [phone].
@@ -70,14 +75,27 @@ suspend fun ClinicApi.callToken(id: String): Outcome<QueueToken, ApiError> =
 
 /**
  * `POST /api/v1/queue/{id}/remind` (`remindQueueToken`, G1): the doctor's "patient waiting" notice
- * comes back as unread. At most one per token per minute: 409 `remind_too_soon`; 409 `not_waiting`
- * once the patient was called or left. The answer body is not needed.
+ * comes back as unread. At most one per token per minute: 409 `remind_too_soon` with
+ * `retry_after_seconds` (in [BodyFailure.body]); 409 `not_waiting` once the patient was called or left.
  */
-suspend fun ClinicApi.remindToken(id: String): Outcome<Unit, ApiError> =
-    client.call {
+suspend fun ClinicApi.remindToken(id: String): Outcome<Unit, BodyFailure<CountedConflict>> =
+    client.callWithErrorBody(HttpStatusCode.Conflict.value) {
         method = HttpMethod.Post
         url("api/v1/queue/${id.encodeURLPathPart()}/remind")
     }
+
+/** The server's `CountedConflict`: a 409 that carries one number to act on. */
+@Serializable
+data class CountedConflict(
+    val error: CountedDetail,
+)
+
+/** Inside [CountedConflict]: `retry_after_seconds` for `remind_too_soon`. */
+@Serializable
+data class CountedDetail(
+    val code: String = "",
+    @SerialName("retry_after_seconds") val retryAfterSeconds: Long? = null,
+)
 
 /** `POST /api/v1/queue/{id}/status` (`setQueueTokenStatus`): `in_chair`, `done` or `left`; a repeat is a no-op. */
 suspend fun ClinicApi.setTokenStatus(

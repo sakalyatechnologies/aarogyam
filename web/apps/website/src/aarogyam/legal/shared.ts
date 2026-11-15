@@ -10,6 +10,12 @@ export const GRIEVANCE_OFFICER = {
   phone: "[Grievance Officer phone number]",
   hours: "[Days and hours the Grievance Officer can be reached]",
 } as const;
+/** How people reach Sakalya for help with the app or their account. */
+export const SUPPORT = {
+  email: "[Support email address]",
+  whatsapp: "[Support WhatsApp number]",
+  hours: "[Days and hours support answers]",
+} as const;
 export const DPDP = "the Digital Personal Data Protection Act, 2023 (DPDP Act) and the rules made under it";
 
 /** Where data is kept, as the privacy policy and the data processing agreement both say. */

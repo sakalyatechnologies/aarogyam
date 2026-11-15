@@ -10,6 +10,8 @@ export function LegalLinks({ className = "" }: { className?: string }) {
       <a href={legalPath("terms")}>Terms</a>
       <a href={legalPath("dpa")}>Data processing</a>
       <a href={legalPath("patient-notice")}>Patient notice</a>
+      <a href={legalPath("account-deletion")}>Delete your account</a>
+      <a href={legalPath("support")}>Support</a>
     </nav>
   );
 }

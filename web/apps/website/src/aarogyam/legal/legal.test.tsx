@@ -7,8 +7,16 @@ import { LegalLinks } from "./LegalLinks";
 import { DATA_LOCATION, GRIEVANCE_OFFICER } from "./shared";
 
 describe("legal pages", () => {
-  it("has the four pages, each at its own path", () => {
-    expect(LEGAL_DOCS.map((doc) => legalPath(doc.slug))).toEqual(["/privacy", "/terms", "/dpa", "/patient-notice"]);
+  it("has the six pages, each at its own path", () => {
+    expect(LEGAL_DOCS.map((doc) => legalPath(doc.slug))).toEqual(["/privacy", "/terms", "/dpa", "/patient-notice", "/account-deletion", "/support"]);
+  });
+
+  it("tells people how to delete their account in the app and without it, and what the clinic keeps", () => {
+    const html = renderToString(<LegalPage doc={LEGAL_DOCS[4]!} />);
+    for (const words of ["Delete account", "Ask us to delete it", "What is deleted", "What the clinic keeps"]) {
+      expect(html).toContain(words);
+    }
+    expect(renderToString(<LegalPage doc={LEGAL_DOCS[0]!} />)).toContain("/account-deletion");
   });
 
   it("marks every page, and the index, as a draft that a lawyer must review", () => {

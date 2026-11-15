@@ -6,6 +6,7 @@ import com.aarogyam.staff.api.forgetDevice
 import com.aarogyam.staff.api.registerDevice
 import com.aarogyam.staff.device.PreferenceKey
 import com.aarogyam.staff.device.Preferences
+import com.sakalya.mobile.auth.SessionState
 import com.sakalya.mobile.core.DeviceId
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
@@ -15,6 +16,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -30,7 +33,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 @OptIn(ExperimentalCoroutinesApi::class)
 class PushRegistration(
     private val preferences: Preferences,
-    signedIn: Flow<Boolean>,
+    session: Flow<Int?>,
     private val api: () -> AppApi?,
     scope: CoroutineScope,
     private val appVersion: String,
@@ -39,12 +42,11 @@ class PushRegistration(
     private data class Wanted(
         val token: String,
         val locale: String,
-        val session: Int,
     )
 
     private var token: String? = null
     private var locale: String = DEFAULT_LOCALE
-    private var session = 0
+    private var resetFor = 0
     private val wanted = MutableStateFlow<Wanted?>(null)
 
     /** This installation's random ID, made once and kept in preferences. */
@@ -55,8 +57,8 @@ class PushRegistration(
 
     init {
         scope.launch {
-            combine(signedIn, wanted) { on, want -> want.takeIf { on } }
-                .collectLatest { want -> if (want != null) send(want) }
+            combine(session, wanted) { on, want -> if (on != null && want != null) on to want else null }
+                .collectLatest { pair -> if (pair != null) send(pair.second, pair.first) }
         }
     }
 
@@ -71,13 +73,6 @@ class PushRegistration(
     /** The app's language (`en`, `hi` or `mr`); anything else counts as `en`. */
     fun setLocale(tag: String) {
         locale = tag.substringBefore('-').lowercase().takeIf { it in LOCALES } ?: DEFAULT_LOCALE
-        publish()
-    }
-
-    /** A new server session (a sign-in after a sign-out): send the token again even if it did not change. */
-    fun newSession() {
-        preferences.set(PreferenceKey.PushSent, null)
-        session++
         publish()
     }
 
@@ -97,10 +92,19 @@ class PushRegistration(
 
     private fun publish() {
         val t = token ?: return
-        wanted.value = Wanted(t, locale, session)
+        wanted.value = Wanted(t, locale)
     }
 
-    private suspend fun send(want: Wanted) {
+    private suspend fun send(
+        want: Wanted,
+        session: Int,
+    ) {
+        // Session 0 is the one restored at start; each later number is a new sign-in, which the
+        // server pushes to only once it registers, so what an earlier session sent no longer counts.
+        if (session > 0 && session != resetFor) {
+            preferences.set(PreferenceKey.PushSent, null)
+            resetFor = session
+        }
         val fingerprint = "${want.locale}:${want.token.length}:${want.token.hashCode()}:$appVersion"
         if (preferences.get(PreferenceKey.PushSent) == fingerprint) return
         val app = api() ?: return
@@ -123,3 +127,22 @@ class PushRegistration(
         const val FORGET_TIMEOUT_MS = 4_000L
     }
 }
+
+/**
+ * The session number [PushRegistration] takes: null while signed out or restoring, 0 for the session
+ * restored at start, and one more for each sign-in after a sign-out (a new server session).
+ */
+internal fun pushSessions(states: Flow<SessionState>): Flow<Int?> =
+    flow {
+        var count = 0
+        var last: SessionState = SessionState.Restoring
+        states.collect { now ->
+            if (now is SessionState.SignedIn && last !is SessionState.SignedIn &&
+                last !is SessionState.Restoring
+            ) {
+                count++
+            }
+            last = now
+            emit(if (now is SessionState.SignedIn) count else null)
+        }
+    }.distinctUntilChanged()

@@ -32,6 +32,7 @@ import com.aarogyam.staff.nav.HomeChoiceHolder
 import com.aarogyam.staff.nav.createHomeChoice
 import com.aarogyam.staff.notes.PatientNotesStateHolder
 import com.aarogyam.staff.notifications.PushRegistration
+import com.aarogyam.staff.notifications.pushSessions
 import com.aarogyam.staff.outbox.AudioSender
 import com.aarogyam.staff.outbox.Connectivity
 import com.aarogyam.staff.outbox.MemoryOutboxFiles
@@ -493,26 +494,12 @@ class AppGraph private constructor(
     val push: PushRegistration =
         PushRegistration(
             preferences,
-            sessions.state.map { it is SessionState.SignedIn }.distinctUntilChanged(),
+            pushSessions(sessions.state),
             directory::appApi,
             scope,
             config.version,
             logger("aarogyam.push"),
         )
-
-    init {
-        // A sign-in after a sign-out is a new server session, which gets pushes only once it registers,
-        // so register again even with the same token. A restore at start is the same session.
-        scope.launch {
-            var last: SessionState = SessionState.Restoring
-            sessions.state.collect { now ->
-                if (now is SessionState.SignedIn && last !is SessionState.SignedIn && last !is SessionState.Restoring) {
-                    push.newSession()
-                }
-                last = now
-            }
-        }
-    }
 
     /** Restores the session again, after secure storage was unavailable. */
     fun restore() {

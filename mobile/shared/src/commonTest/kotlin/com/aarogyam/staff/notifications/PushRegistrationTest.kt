@@ -15,6 +15,7 @@ import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -152,7 +153,7 @@ class PushRegistrationTest {
             val again =
                 PushRegistration(
                     graph.preferences,
-                    kotlinx.coroutines.flow.flowOf(true),
+                    kotlinx.coroutines.flow.flowOf(0),
                     graph.directory::appApi,
                     backgroundScope,
                     "0.1.0",
@@ -173,7 +174,7 @@ class PushRegistrationTest {
             val third =
                 PushRegistration(
                     graph.preferences,
-                    kotlinx.coroutines.flow.flowOf(true),
+                    kotlinx.coroutines.flow.flowOf(0),
                     graph.directory::appApi,
                     backgroundScope,
                     "0.1.0",
@@ -237,5 +238,26 @@ class PushRegistrationTest {
             )
             backend.on("$SUNRISE/api/v1/notifications/n-2/read", { apiError(HttpStatusCode.NotFound, "not_found") })
             assertIs<Outcome.Failure<*>>(clinic.api.markNotificationRead("n-2"))
+        }
+
+    @Test
+    fun aRestoredSessionIsZeroAndEachLaterSignInCountsUp() =
+        runTest {
+            val user =
+                checkNotNull(
+                    com.sakalya.mobile.auth.UserId
+                        .parse("01a1de2b-0000-7000-8000-000000000001"),
+                )
+            val states =
+                kotlinx.coroutines.flow.flowOf(
+                    com.sakalya.mobile.auth.SessionState.Restoring,
+                    com.sakalya.mobile.auth.SessionState
+                        .SignedIn(user),
+                    com.sakalya.mobile.auth.SessionState
+                        .SignedOut(com.sakalya.mobile.auth.SignOutReason.NeverSignedIn),
+                    com.sakalya.mobile.auth.SessionState
+                        .SignedIn(user),
+                )
+            assertEquals(listOf(null, 0, null, 1), pushSessions(states).toList())
         }
 }

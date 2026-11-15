@@ -24,7 +24,8 @@ import com.aarogyam.staff.android.GraphState
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.clinical.clinicalDestinations
 import com.aarogyam.staff.android.ui.desk.deskDestinations
-import com.aarogyam.staff.android.ui.patient.openPatient
+import com.aarogyam.staff.android.ui.live.LiveBannerOverlay
+import com.aarogyam.staff.android.ui.more.shellDestinations
 import com.aarogyam.staff.android.ui.patient.patientDestinations
 import com.aarogyam.staff.android.ui.visit.visitDestinations
 import com.aarogyam.staff.android.ui.walkin.WalkInScreen
@@ -128,14 +129,12 @@ private fun Signed(graph: AppGraph) {
                             graph,
                             open,
                             clinicCount,
-                            onOpenPatient = { nav.openPatient(it) },
+                            nav,
                             onWalkIn = { nav.navigate(Routes.WALK_IN) },
-                            onAddExpense = {},
                             onSwitchClinic = {
                                 chose = true
                                 graph.directory.leave()
                             },
-                            onSignOut = graph::signOut,
                         )
                     }
                     composable(Routes.WALK_IN) {
@@ -146,6 +145,11 @@ private fun Signed(graph: AppGraph) {
                     deskDestinations(graph, { clinic }, nav)
                     visitDestinations(graph, { clinic }, nav)
                     clinicalDestinations(graph, { clinic }, nav)
+                    shellDestinations(graph, { clinic }, nav)
+                }
+                // The live banner shows over every screen of the signed-in app (iOS `RoutesV10Live.hook`).
+                clinic?.takeIf { target == Routes.MAIN }?.let { open ->
+                    LiveBannerOverlay(open) { nav.popBackStack(Routes.MAIN, inclusive = false) }
                 }
             }
         }

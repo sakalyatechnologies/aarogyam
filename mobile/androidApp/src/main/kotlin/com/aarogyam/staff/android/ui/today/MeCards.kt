@@ -42,8 +42,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aarogyam.staff.android.R
-import com.aarogyam.staff.android.ui.art.ArtImage
-import com.aarogyam.staff.art.AvatarArt
 import com.aarogyam.staff.today.MeView
 import com.aarogyam.staff.today.ScheduleItem
 import com.aarogyam.staff.today.VisitStatus
@@ -128,7 +126,8 @@ private fun MeCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SkAvatarFrame(SkAvatarShape.Pebble, AVATAR.dp, glass) {
-                    AvatarArt.all[avatar]?.let { ArtImage(it, Modifier.fillMaxWidth().fillMaxHeight()) }
+                    com.aarogyam.staff.android.ui.more
+                        .MyAvatar(avatar)
                 }
                 Column {
                     Text(

@@ -629,6 +629,17 @@
         }
       }
     },
+    "home.visits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Past visits"
+          }
+        }
+      }
+    },
     "link.error.invalid_code": {
       "extractionState": "manual",
       "localizations": {
@@ -1069,6 +1080,171 @@
         }
       }
     },
+    "visit.advice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doctor's advice"
+          }
+        }
+      }
+    },
+    "visit.book": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book"
+          }
+        }
+      }
+    },
+    "visit.book_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books a visit at %@"
+          }
+        }
+      }
+    },
+    "visit.doctor": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "with %@"
+          }
+        }
+      }
+    },
+    "visit.earlier": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Earlier visits"
+          }
+        }
+      }
+    },
+    "visit.kind.cleaning": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cleaning"
+          }
+        }
+      }
+    },
+    "visit.kind.follow_up": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow-up"
+          }
+        }
+      }
+    },
+    "visit.kind.other": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-up"
+          }
+        }
+      }
+    },
+    "visit.next": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next visit"
+          }
+        }
+      }
+    },
+    "visit.next_due": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ due on %@"
+          }
+        }
+      }
+    },
+    "visit.not_found": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This visit could not be found."
+          }
+        }
+      }
+    },
+    "visit.prescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prescription"
+          }
+        }
+      }
+    },
+    "visit.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visit"
+          }
+        }
+      }
+    },
+    "visit.tooth": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tooth %lld"
+          }
+        }
+      }
+    },
+    "visit.treatments": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treatments done"
+          }
+        }
+      }
+    },
     "visit.with_at": {
       "extractionState": "manual",
       "localizations": {
@@ -1076,6 +1252,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "with %@ · %@"
+          }
+        }
+      }
+    },
+    "visits.empty": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your finished visits will show here."
+          }
+        }
+      }
+    },
+    "visits.open_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens the visit summary"
+          }
+        }
+      }
+    },
+    "visits.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visits"
           }
         }
       }

@@ -3,6 +3,7 @@ package com.aarogyam.patient.api
 import com.aarogyam.patient.api.model.Availability
 import com.aarogyam.patient.api.model.BookingOptions
 import com.aarogyam.patient.api.model.LinkedByCode
+import com.aarogyam.patient.api.model.MyVisits
 import com.aarogyam.patient.api.model.NewLinkRequest
 import com.aarogyam.patient.api.model.PatientAppointment
 import com.aarogyam.patient.api.model.PatientAppointments
@@ -12,6 +13,7 @@ import com.aarogyam.patient.api.model.PatientCancelled
 import com.aarogyam.patient.api.model.PatientHome
 import com.aarogyam.patient.api.model.PatientMe
 import com.aarogyam.patient.api.model.PatientPrescriptions
+import com.aarogyam.patient.api.model.PatientVisitSummary
 import com.aarogyam.patient.api.model.RedeemLinkCode
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Outcome
@@ -53,6 +55,13 @@ class PatientAppApi(
 
     /** `GET /api/v1/me/patient/bills` (`listMyBills`): issued bills and balances, read only. */
     suspend fun bills(): Outcome<PatientBills, ApiError> = client.call { url("api/v1/me/patient/bills") }
+
+    /** `GET /api/v1/me/patient/visits` (`listMyVisits`): the patient's closed visits, newest first per clinic. */
+    suspend fun visits(): Outcome<MyVisits, ApiError> = client.call { url("api/v1/me/patient/visits") }
+
+    /** `GET /api/v1/me/patient/visits/{id}` (`getMyVisit`): one closed visit; any other id is `404`. */
+    suspend fun visit(id: String): Outcome<PatientVisitSummary, ApiError> =
+        client.call { url("api/v1/me/patient/visits/${id.encodeURLPathPart()}") }
 
     /** `POST /api/v1/me/patient/links` (`redeemPatientLinkCode`): links a clinic with its code. */
     suspend fun redeem(code: String): Outcome<LinkedByCode, ApiError> =

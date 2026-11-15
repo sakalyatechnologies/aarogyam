@@ -8,6 +8,8 @@ import com.aarogyam.patient.home.HomeStateHolder
 import com.aarogyam.patient.records.BillsStateHolder
 import com.aarogyam.patient.records.PrescriptionsStateHolder
 import com.aarogyam.patient.signin.SignInStateHolder
+import com.aarogyam.patient.visits.VisitStateHolder
+import com.aarogyam.patient.visits.VisitsStateHolder
 import com.sakalya.mobile.http.PathNetworkMonitor
 import com.sakalya.mobile.securestorage.PlatformSecureStore
 import kotlinx.coroutines.CoroutineScope
@@ -46,6 +48,18 @@ fun PatientGraph.booking(screen: ScreenScope): BookingStateHolder = booking(scre
 fun PatientGraph.prescriptions(screen: ScreenScope): PrescriptionsStateHolder = prescriptions(screen.scope)
 
 fun PatientGraph.bills(screen: ScreenScope): BillsStateHolder = bills(screen.scope)
+
+fun PatientGraph.booking(
+    screen: ScreenScope,
+    clinicId: String,
+): BookingStateHolder = booking(screen.scope, clinicId)
+
+fun PatientGraph.visits(screen: ScreenScope): VisitsStateHolder = visits(screen.scope)
+
+fun PatientGraph.visit(
+    screen: ScreenScope,
+    id: String,
+): VisitStateHolder = visit(screen.scope, id)
 
 /** Minutes since midnight, for formatting a clinic-local time in Swift. */
 val LocalTime.minuteOfDay: Int get() = hour * MINUTES_PER_HOUR + minute

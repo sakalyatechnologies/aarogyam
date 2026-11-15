@@ -37,6 +37,20 @@ class PatientDirectory(
     fun clinicApi(clinic: PatientClinic): PatientClinicApi? =
         hosts.clinic(clinic.slug, clinic.host)?.let { PatientClinicApi(clientFor(it)) }
 
+    /**
+     * [path] (`/book`) on [clinicId]'s own host, as a URL to open in a browser, or null when the
+     * clinic isn't linked, the build can't reach it, or [path] isn't a plain absolute path.
+     */
+    fun clinicUrl(
+        clinicId: String,
+        path: String,
+    ): String? {
+        if (!path.startsWith("/") || path.startsWith("//")) return null
+        val clinic = clinic(clinicId) ?: return null
+        val base = hosts.clinic(clinic.slug, clinic.host) ?: return null
+        return base.toString().removeSuffix("/") + path
+    }
+
     /** The linked clinic with [clinicId], from the cache. */
     fun clinic(clinicId: String): PatientClinic? = mutableMe.value?.clinics?.firstOrNull { it.clinicId == clinicId }
 

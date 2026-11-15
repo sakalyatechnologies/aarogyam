@@ -37,6 +37,13 @@ val apiModels =
         "BookingOptions",
         "BookableDoctor",
         "Availability",
+        "MyVisits",
+        "PatientVisitSummary",
+        "VisitTreatment",
+        "VisitPrescription",
+        "VisitRxItem",
+        "VisitFollowUp",
+        "EarlierVisit",
     )
 val generatedApi = layout.buildDirectory.dir("generated/openapi")
 

@@ -312,6 +312,7 @@ describe("Staff chat: the Everyone channel, notices and files", () => {
     });
     const log = await openEveryone(user);
     await user.upload(screen.getByLabelText("Choose a file to attach"), new File(["%PDF-1.4 synthetic"], "rota.pdf", { type: "application/pdf" }));
+    await user.click(await screen.findByRole("button", { name: "Send without caption" }));
     expect((await within(log).findAllByText(/Sent a file: rota\.pdf/)).length).toBeGreaterThan(0);
     const files = await screen.findByRole("list", { name: "Files in this chat" });
     expect(files.textContent).toContain("rota.pdf");
@@ -322,6 +323,35 @@ describe("Staff chat: the Everyone channel, notices and files", () => {
     expect(links).toHaveLength(1);
     expect(String(open.mock.calls[0]?.[0])).toMatch(/\/chat-attachments\/.+\/content/);
     open.mockRestore();
+  });
+
+  it("sends what is typed as the caption of a chosen file, and a removed file is not sent", async () => {
+    const user = userEvent.setup();
+    const forms: FormData[] = [];
+    renderPortal("/messages", {
+      as: PEOPLE.farah,
+      backend: withChannel(["chat.use"]),
+      wrap: (client) => ({
+        ...client,
+        postChatAttachment: (id, form, options) => {
+          forms.push(form);
+          return client.postChatAttachment(id, form, options);
+        },
+      }),
+    });
+    const log = await openEveryone(user);
+    const input = screen.getByLabelText("Choose a file to attach");
+    await user.upload(input, new File(["%PDF-1.4"], "old.pdf", { type: "application/pdf" }));
+    await user.click(await screen.findByRole("button", { name: "Remove old.pdf" }));
+    expect(screen.queryByRole("button", { name: "Send without caption" })).toBeNull();
+    await user.upload(input, new File(["%PDF-1.4 synthetic"], "rota.pdf", { type: "application/pdf" }));
+    expect(await screen.findByText(/rota\.pdf \(/)).toBeTruthy();
+    await user.type(screen.getByLabelText("Message Everyone"), "Monday rota");
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+    expect((await within(log).findAllByText("Sent a file: rota.pdf. Monday rota")).length).toBeGreaterThan(0);
+    expect(forms).toHaveLength(1);
+    expect(forms[0]?.get("body")).toBe("Monday rota");
+    expect(screen.queryByRole("button", { name: "Send without caption" })).toBeNull();
   });
 
   it("refuses a file that isn't an image or PDF before sending it", async () => {
@@ -378,6 +408,9 @@ describe("Staff chat: the Everyone channel, notices and files", () => {
     await openEveryone(user);
     await screen.findByText(/Pinned notice/);
     await user.upload(screen.getByLabelText("Choose a file to attach"), new File(["%PDF-1.4"], "plan.pdf", { type: "application/pdf" }));
+    await screen.findByRole("button", { name: "Send without caption" });
+    expect(problems(await axe.run(document.body, AXE))).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Send without caption" }));
     await screen.findByRole("list", { name: "Files in this chat" });
     expect(problems(await axe.run(document.body, AXE))).toEqual([]);
   });

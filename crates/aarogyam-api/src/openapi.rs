@@ -343,6 +343,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::website::public_photo,
         crate::v1::patient_app::me,
         crate::v1::patient_app::home,
+        crate::v1::patient_visits::mine,
+        crate::v1::patient_visits::mine_one,
         crate::v1::patient_app::appointments,
         crate::v1::patient_app::prescriptions,
         crate::v1::patient_app::bills,

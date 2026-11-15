@@ -2211,6 +2211,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/patient/visits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's visits at every linked clinic, with the same summary as a link. */
+        get: operations["listMyVisits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/patient/visits/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of the patient's visits. */
+        get: operations["getMyVisit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/practitioner": {
         parameters: {
             query?: never;
@@ -7771,6 +7805,13 @@ export interface components {
             /** @description `female`, `male`, `other` or `unknown`. */
             sex: string;
         };
+        /** @description An earlier visit: the date and a title, nothing clinical. */
+        EarlierVisit: {
+            /** @description The treatments done, or `Consultation`. */
+            title: string;
+            /** @description The clinic day (`YYYY-MM-DD`). */
+            visited_on: string;
+        };
         /** @description Why a record is being marked entered in error. */
         EnteredInError: {
             /** @description 3 to 500 characters, such as "wrong patient". */
@@ -9676,6 +9717,11 @@ export interface components {
             /** @description Given to the caller or to their role, soonest first, plus any still open from earlier. */
             items: components["schemas"]["TaskOccurrence"][];
         };
+        /** @description The patient's visits. */
+        MyVisits: {
+            /** @description Newest first within each clinic, at most 25 per clinic. */
+            items: components["schemas"]["PatientVisitSummary"][];
+        };
         /** @description An addendum's text. */
         NewAddendum: {
             /** @description 1 to 10,000 characters. */
@@ -11252,6 +11298,31 @@ export interface components {
         PatientSessionList: {
             /** @description Live sessions, most recently used first, at most 50. */
             items: components["schemas"]["PatientSession"][];
+        };
+        /** @description What a patient sees of one visit. */
+        PatientVisitSummary: {
+            /** @description The Plan section of the visit's signed notes. */
+            advice?: string | null;
+            /** @description Where a patient books again, on the clinic's host. */
+            booking_path: string;
+            /** @description The clinic the visit was at. */
+            clinic_id?: string | null;
+            /** @description The clinic's name. */
+            clinic_name: string;
+            /** @description The doctor's name. */
+            doctor_name?: string | null;
+            /** @description The last five visits before this one, newest first. */
+            earlier_visits: components["schemas"]["EarlierVisit"][];
+            /** @description The visit. */
+            id: string;
+            next_follow_up?: components["schemas"]["VisitFollowUp"] | null;
+            /** @description Readable number, such as `V-318`. */
+            number: string;
+            prescription?: components["schemas"]["VisitPrescription"] | null;
+            /** @description What was done. */
+            treatments: components["schemas"]["VisitTreatment"][];
+            /** @description The clinic day (`YYYY-MM-DD`). */
+            visited_on: string;
         };
         /** @description The numbers behind the directory's ribbon. */
         PatientsSummary: {
@@ -14292,6 +14363,13 @@ export interface components {
             /** @description The visit. */
             visit: components["schemas"]["Visit"];
         };
+        /** @description The next follow-up. */
+        VisitFollowUp: {
+            /** @description The day it is due (`YYYY-MM-DD`). */
+            due_on: string;
+            /** @description `follow_up`, `cleaning`, and so on. */
+            kind: string;
+        };
         /** @description A new link to a visit summary. The token and PIN are shown once. */
         VisitLink: {
             /** @description How it was marked as handed over: `whatsapp`, `sms`, `qr` or `link`. No message is queued. */
@@ -14346,6 +14424,37 @@ export interface components {
             /** @description The visit's number, such as `V-318`. */
             visit_number: string;
         };
+        /** @description The prescription issued in the visit. */
+        VisitPrescription: {
+            /** @description The clinic day it was issued (`YYYY-MM-DD`). */
+            issued_on: string;
+            /** @description The medicines in order. */
+            items: components["schemas"]["VisitRxItem"][];
+            /** @description `RX-…`. */
+            number: string;
+        };
+        /** @description A medicine of the visit's prescription. */
+        VisitRxItem: {
+            /** @description How much per dose. */
+            dose: string;
+            /** @description As printed. */
+            drug_name: string;
+            /**
+             * Format: int32
+             * @description For how many days.
+             */
+            duration_days?: number | null;
+            /** @description Form, such as `tablet`. */
+            form?: string | null;
+            /** @description `1-0-1`. */
+            frequency: string;
+            /** @description In the prescription's language. */
+            instructions?: string | null;
+            /** @description Strength, such as `500 mg`. */
+            strength?: string | null;
+            /** @description `after_food`, and so on. */
+            timing?: string | null;
+        };
         /** @description Visits in the range by how they came. */
         VisitSources: {
             /**
@@ -14381,6 +14490,18 @@ export interface components {
             visit_number: string;
             /** @description The clinic day of the visit (`YYYY-MM-DD`). */
             visited_on: string;
+        };
+        /** @description A treatment done in the visit. No fee. */
+        VisitTreatment: {
+            /** @description What was done. */
+            name: string;
+            /** @description Surfaces, such as `O`. */
+            surfaces: string[];
+            /**
+             * Format: int32
+             * @description FDI tooth number.
+             */
+            tooth?: number | null;
         };
         /** @description What a walk-in did. */
         WalkIn: {
@@ -21630,6 +21751,75 @@ export interface operations {
                 content?: never;
             };
             /** @description Not one of this patient's sessions, or not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMyVisits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyVisits"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not the app host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMyVisit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientVisitSummary"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit of this patient */
             404: {
                 headers: {
                     [name: string]: unknown;

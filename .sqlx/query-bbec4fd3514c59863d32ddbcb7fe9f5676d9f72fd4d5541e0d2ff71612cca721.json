@@ -1,0 +1,60 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select distinct on (r.encounter_id)\n                  r.encounter_id as \"encounter_id!\", r.number as \"number!\",\n                  r.issued_at as \"issued_at!\",\n                  coalesce((select jsonb_agg(jsonb_build_object(\n                              'drug_name', i.drug_name, 'strength', i.strength, 'form', i.form,\n                              'dose', i.dose, 'frequency', i.frequency, 'timing', i.timing,\n                              'duration_days', i.duration_days, 'instructions', i.instructions)\n                            order by i.line_no)\n                            from aarogyam.prescription_items i\n                            where i.org_id = r.org_id and i.prescription_id = r.id), '[]'::jsonb)\n                    as \"items!\"\n           from aarogyam.prescriptions r\n           where r.patient_id = $1 and r.encounter_id = any($2) and r.status = 'issued'\n           order by r.encounter_id, r.issued_at desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "encounter_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "encounter_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "issued_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescriptions",
+            "name": "issued_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "items!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "bbec4fd3514c59863d32ddbcb7fe9f5676d9f72fd4d5541e0d2ff71612cca721"
+}

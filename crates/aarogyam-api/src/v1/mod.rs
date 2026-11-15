@@ -50,6 +50,7 @@ pub(crate) mod patient_links;
 pub(crate) mod patient_notes;
 pub(crate) mod patient_photos;
 pub(crate) mod patient_sessions;
+pub(crate) mod patient_visits;
 pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
@@ -144,6 +145,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/me/patient/appointments", get(patient_app::appointments))
         .route("/me/patient/prescriptions", get(patient_app::prescriptions))
         .route("/me/patient/bills", get(patient_app::bills))
+        .route("/me/patient/visits", get(patient_visits::mine))
+        .route("/me/patient/visits/{id}", get(patient_visits::mine_one))
         .route("/me/patient/files", get(patient_app::files))
         .route("/me/patient/links", post(patient_app::redeem))
         .route("/me/patient/links/{id}/revoke", post(patient_app::revoke))

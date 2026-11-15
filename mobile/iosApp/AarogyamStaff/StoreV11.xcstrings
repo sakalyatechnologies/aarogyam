@@ -1,0 +1,397 @@
+{
+  "sourceLanguage": "en",
+  "version": "1.0",
+  "strings": {
+    "store.delete.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your sign-in is deleted and you leave every clinic. Clinic records you wrote, such as visits and notes, stay with the clinic. This cannot be undone."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपका साइन-इन हट जाएगा और आप हर क्लिनिक से बाहर हो जाएँगे। आपके लिखे क्लिनिक रिकॉर्ड, जैसे विज़िट और नोट्स, क्लिनिक के पास रहेंगे। इसे पूर्ववत नहीं किया जा सकता।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचे साइन-इन हटवले जाईल आणि तुम्ही प्रत्येक क्लिनिकमधून बाहेर पडाल. तुम्ही लिहिलेल्या क्लिनिक नोंदी, जसे की भेटी आणि नोट्स, क्लिनिककडेच राहतील. हे परत करता येत नाही."
+          }
+        }
+      }
+    },
+    "store.delete.button": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete my account"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मेरा खाता हटाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "माझे खाते हटवा"
+          }
+        }
+      }
+    },
+    "store.delete.cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रद्द करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रद्द करा"
+          }
+        }
+      }
+    },
+    "store.delete.close": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बंद करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बंद करा"
+          }
+        }
+      }
+    },
+    "store.delete.confirm_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete your account for good?"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्या अपना खाता हमेशा के लिए हटाएँ?"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचे खाते कायमचे हटवायचे?"
+          }
+        }
+      }
+    },
+    "store.delete.last_owner": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make someone else the owner of %@ first"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पहले %@ का मालिक किसी और को बनाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आधी %@ चे मालक दुसऱ्या कोणाला तरी करा"
+          }
+        }
+      }
+    },
+    "store.delete.no_staff": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This account has no clinic staff profile to delete"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस खाते में हटाने के लिए कोई क्लिनिक स्टाफ़ प्रोफ़ाइल नहीं है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या खात्यात हटवण्यासाठी क्लिनिक स्टाफ प्रोफाइल नाही"
+          }
+        }
+      }
+    },
+    "store.delete.platform": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sakalya staff accounts are closed from the console"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सकाल्य स्टाफ़ खाते कंसोल से बंद किए जाते हैं"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सकाल्य स्टाफ खाती कन्सोलमधून बंद केली जातात"
+          }
+        }
+      }
+    },
+    "store.delete.row": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete account"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खाता हटाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खाते हटवा"
+          }
+        }
+      }
+    },
+    "store.delete.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete your account?"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपना खाता हटाएँ?"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचे खाते हटवायचे?"
+          }
+        }
+      }
+    },
+    "store.delete.unsent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anything not yet sent from this phone is lost."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस फ़ोन से जो अभी तक भेजा नहीं गया है, वह खो जाएगा।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या फोनवरून जे अजून पाठवले नाही ते गमावले जाईल."
+          }
+        }
+      }
+    },
+    "store.signin.password_label": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पासवर्ड"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पासवर्ड"
+          }
+        }
+      }
+    },
+    "store.signin.password_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with a password"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पासवर्ड से साइन इन करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पासवर्डने साइन इन करा"
+          }
+        }
+      }
+    },
+    "store.signin.sign_in": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन इन करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन इन करा"
+          }
+        }
+      }
+    },
+    "store.signin.use_code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use an email code instead"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इसके बजाय ईमेल कोड का उपयोग करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "त्याऐवजी ईमेल कोड वापरा"
+          }
+        }
+      }
+    },
+    "store.signin.use_password": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use a password"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पासवर्ड का उपयोग करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पासवर्ड वापरा"
+          }
+        }
+      }
+    },
+    "store.signin.wrong_password": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrong email or password"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ईमेल या पासवर्ड गलत है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ईमेल किंवा पासवर्ड चुकीचा आहे"
+          }
+        }
+      }
+    }
+  }
+}

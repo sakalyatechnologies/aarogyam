@@ -21,6 +21,7 @@ struct MoreScreen: View {
     @Binding var path: [MoreRoute]
     @State private var settingsURL: URL?
     @State private var avatars = false
+    @State private var deleting = false
     @State private var languages = false
     @State private var avatarRevision = 0
     @State private var unsent: Int?
@@ -49,6 +50,11 @@ struct MoreScreen: View {
                     }
                 }
                 .padding(.top, MoreSizes.gridTop)
+                Button { deleting = true } label: {
+                    Text(s11("store.delete.row")).skTextStyle(SkTypeScale.footnote).fontWeight(.bold).foregroundStyle(r.error.color)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .padding(.top, SkSpacing.s)
                 Text("v7.more.version").skTextStyle(SkTypeScale.caption).foregroundStyle(r.onSurfaceVariant.color)
                     .frame(maxWidth: .infinity).padding(.top, SkSpacing.l)
             }
@@ -63,6 +69,7 @@ struct MoreScreen: View {
             Button(String(localized: "outbox.signout.anyway"), role: .destructive) { graph.signOut() }
             Button(String(localized: "outbox.signout.stay"), role: .cancel) {}
         }
+        .sheet(isPresented: $deleting) { DeleteAccountSheet(graph: graph) }
         .sheet(isPresented: $languages) { LanguageSheet().presentationDetents([.medium]) }
         .sheet(isPresented: $avatars) { AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large]) }
     }

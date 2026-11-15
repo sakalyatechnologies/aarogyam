@@ -21,6 +21,7 @@
     <string name="sign_in_error_invalid_code">ईमेलमधील कोड टाका.</string>
     <string name="sign_in_error_email_not_accepted">या पत्त्यावर कोड पाठवता आला नाही. क्लिनिककडे आमंत्रण मागा.</string>
     <string name="sign_in_error_code_rejected">हा कोड चालला नाही किंवा त्याची मुदत संपली. तपासा, किंवा नवीन कोड मागा.</string>
+    <string name="sign_in_error_wrong_password">ईमेल किंवा पासवर्ड चुकीचा आहे</string>
     <string name="sign_in_error_too_many">खूप प्रयत्न झाले. एक मिनिट थांबा आणि पुन्हा प्रयत्न करा.</string>
     <string name="clinics_title">क्लिनिक निवडा</string>
     <string name="clinics_empty_title">अजून कोणतेही क्लिनिक नाही</string>

@@ -59,12 +59,14 @@ struct RootView: View {
                 MainTabs(
                     graph: graph,
                     clinic: clinic,
+                    pushTarget: Binding(get: { app.pushTarget }, set: { app.pushTarget = $0 }),
                     onSwitchClinic: {
                         app.choseToLeave = true
                         graph.directory.leave()
                     }
                 )
                 .id("main-\(clinic.slug)")
+                .pushPrompt(graph: graph)
                 .overlay(alignment: .top) { RoutesV10Live.hook(graph: graph, clinic: clinic) }
             } else {
                 let autoOpen = !app.choseToLeave

@@ -1,6 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 
-import { useAuth } from "@aarogyam/auth";
+import { BootStage, useAuth } from "@aarogyam/auth";
 import { Button, Skeleton } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
@@ -15,24 +15,20 @@ const SetupPage = lazy(() => import("./setup-page.js").then((m) => ({ default: m
  * cannot change settings (doctors, front desk), go straight through. If the setup can't be read the
  * owner is let in rather than locked out.
  */
-export function SetupGate({ children }: { children: ReactNode }) {
+export function SetupGate({ children, opening }: { children: ReactNode; opening: string }) {
   const { can } = useClinic();
   if (!can("settings.manage")) {
     return children;
   }
-  return <OwnerGate>{children}</OwnerGate>;
+  return <OwnerGate opening={opening}>{children}</OwnerGate>;
 }
 
-function OwnerGate({ children }: { children: ReactNode }) {
+function OwnerGate({ children, opening }: { children: ReactNode; opening: string }) {
   const setup = useClinicSetup();
   const { session } = useClinic();
   const auth = useAuth();
   if (setup.isPending) {
-    return (
-      <div className="p-6" role="status" aria-label="Loading setup">
-        <Skeleton shape="block" />
-      </div>
-    );
+    return <BootStage text={opening} />;
   }
   if (setup.isError || (setup.data.standing !== "new" && setup.data.standing !== "in_progress")) {
     return children;

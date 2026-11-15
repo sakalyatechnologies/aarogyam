@@ -2,11 +2,10 @@ import { LazyMotion, MotionConfig } from "motion/react";
 import { useMemo } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 
-import { hasPermission, readBranding, type ClinicAccess } from "@aarogyam/api-client";
-import { ApiErrorNotice } from "@aarogyam/app-kit";
-import { CentralSignInRedirect, signOutToSite, useAuth, useAuthState } from "@aarogyam/auth";
+import { apiErrorOf, hasPermission, readBranding, type ClinicAccess } from "@aarogyam/api-client";
+import { BootStage, CentralSignInRedirect, signOutToSite, useAuth, useAuthState, type BootFailure } from "@aarogyam/auth";
 import { parseHexColor } from "@sakalya/tokens";
-import { Avatar, Button, Card, EmptyState, Skeleton, ThemeScope } from "@sakalya/ui";
+import { Avatar, Button, Card, EmptyState, ThemeScope } from "@sakalya/ui";
 
 import { centralSignInSetting } from "../env.js";
 import { ClinicProvider, useClinicChoice, useMe, useServices, useSession, type ClinicContextValue } from "../clinic.js";
@@ -15,12 +14,28 @@ import { loadMotionFeatures } from "./motion-features.js";
 import { SetupGate } from "../pages/setup/setup-gate.js";
 import { ShellChoice } from "./shell-v2.js";
 
-function Loading({ label }: { label: string }) {
-  return (
-    <div className="p-6" role="status" aria-label={label}>
-      <Skeleton shape="block" />
-    </div>
-  );
+/** The one line shown until the clinic is known. */
+export const SIGNING_IN = "Signing you in…";
+
+/** What a failed load tells the person: the API's safe message, and the reference to quote. */
+function failureMessage(error: unknown): string {
+  const known = apiErrorOf(error);
+  const base = known?.message ?? "Something went wrong. Please try again.";
+  return known?.requestId === undefined ? base : `${base} (Reference ${known.requestId})`;
+}
+
+/** Back to the start: signs out, then to the site's sign-in (or this app's own). */
+function useBackToSignIn(): () => void {
+  const auth = useAuth();
+  const navigate = useNavigate();
+  return () => {
+    const central = centralSignInSetting();
+    void signOutToSite(auth, central).then(() => {
+      if (central === "") {
+        void navigate("/sign-in", { replace: true });
+      }
+    });
+  };
 }
 
 /** Sends signed-out visitors to sign-in, remembering where they were going. */
@@ -28,7 +43,7 @@ export function RequireAuth() {
   const state = useAuthState();
   const location = useLocation();
   if (state.status === "loading") {
-    return <Loading label="Checking your session" />;
+    return <BootStage text={SIGNING_IN} />;
   }
   if (state.status === "signed_out") {
     const central = centralSignInSetting();
@@ -50,17 +65,22 @@ export function ClinicGate() {
   const navigate = useNavigate();
   const me = useMe();
   const choice = useClinicChoice(me.data);
-  const host = choice.current?.host ?? choice.current?.slug;
+  // On the real API the clinic is this page's host, known before `/me` answers, so the session
+  // loads alongside it instead of after it.
+  const host = services.mode === "http" ? window.location.hostname : (choice.current?.host ?? choice.current?.slug);
+  const backToSignIn = useBackToSignIn();
+  const failure = (error: unknown, retry: () => void): BootFailure => ({ message: failureMessage(error), onRetry: retry, onBack: backToSignIn });
+  const opening = choice.current === undefined ? SIGNING_IN : `Opening ${choice.current.name}…`;
   const api = host === undefined ? undefined : services.clinic(host);
   const session = useSession(api, host);
   const branding = session.data === undefined ? {} : readBranding(session.data.clinic.branding);
   const theme = useMemo(() => mockupTheme(parseHexColor(branding.brand ?? "") ?? MOCKUP_BRAND, branding.mode ?? "light"), [branding.brand, branding.mode]);
 
-  if (me.isPending) {
-    return <Loading label="Loading your clinics" />;
+  if (me.isPending || (me.isError && me.fetchStatus === "fetching")) {
+    return <BootStage text={SIGNING_IN} />;
   }
   if (me.isError) {
-    return <ApiErrorNotice title="Couldn't load your clinics" error={me.error} onRetry={() => void me.refetch()} />;
+    return <BootStage text="We couldn't load your clinics" failure={failure(me.error, () => void me.refetch())} />;
   }
   if (choice.clinics.length === 0) {
     return (
@@ -88,11 +108,11 @@ export function ClinicGate() {
   if (choice.current === undefined || api === undefined) {
     return <ChooseClinic clinics={choice.clinics} onChoose={choice.choose} />;
   }
-  if (session.isPending) {
-    return <Loading label="Opening the clinic" />;
+  if (session.isPending || (session.isError && session.fetchStatus === "fetching")) {
+    return <BootStage text={opening} />;
   }
   if (session.isError) {
-    return <ApiErrorNotice title="Couldn't open this clinic" error={session.error} onRetry={() => void session.refetch()} />;
+    return <BootStage text="We couldn't open this clinic" failure={failure(session.error, () => void session.refetch())} />;
   }
   const value: ClinicContextValue = {
     me: me.data,
@@ -109,7 +129,7 @@ export function ClinicGate() {
           {/* Motion's features load after first paint; `strict` keeps the heavy `motion.*` out. */}
           <LazyMotion features={loadMotionFeatures} strict>
             <MotionConfig reducedMotion="user">
-              <SetupGate>
+              <SetupGate opening={opening}>
                 <ShellChoice />
               </SetupGate>
             </MotionConfig>

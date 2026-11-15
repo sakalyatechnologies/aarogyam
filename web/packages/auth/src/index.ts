@@ -15,7 +15,7 @@ export {
 } from "./auth-client.js";
 export { createDevAuth, createParentDomainStorage, personInToken, type DevAuthOptions } from "./dev-auth.js";
 export { AuthProvider, useAuth, useAuthState, useCompleteAuthRedirect, type AuthProviderProps } from "./react.js";
-export { AuthHeading, AuthShell, AuthSteps, ClinicVisual, ConsoleVisual, type AuthShellProps, type AuthStepsProps } from "./auth-shell.js";
+export { AUTH_BRAND_CSS, AuthBrandStyle, AuthHeading, AuthShell, AuthSteps, ClinicVisual, ConsoleVisual, type AuthShellProps, type AuthStepsProps } from "./auth-shell.js";
 export {
   CodeInput,
   DevSignIn,
@@ -39,3 +39,4 @@ export {
 export { PasswordDialog, supportsPassword, usePasswordDialog, type PasswordDialogProps } from "./password-dialog.js";
 export { centralSignOutUrl, centralSignInUrl, CONSOLE_NEXT, completeHandoff, handoffUrl, handoffCode, HANDOFF_EXPIRED, type HandoffSessionLike, type RedeemHandoff } from "./handoff.js";
 export { CentralSignInRedirect, signOutToSite } from "./central.js";
+export { BootLoader, BootLoaderProvider, BootStage, type BootFailure, type BootState } from "./boot-loader.js";

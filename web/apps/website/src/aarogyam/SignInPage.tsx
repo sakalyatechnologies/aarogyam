@@ -1,14 +1,22 @@
 // Aarogyam-owned. The one sign-in for everyone, styled with the Lovable site's own classes.
 import { useEffect, useState } from "react";
 
+import { BootLoader } from "@aarogyam/auth/boot-loader";
+
 import { fetchMe, handoffUrl, requestHandoff } from "./api";
-import { getAuthClient, signInConfigured, verifiedAccessToken } from "./auth";
+import { getAuthClient, signInConfigured, signOutEverywhere, verifiedAccessToken } from "./auth";
 import { CONSOLE_URL } from "./env";
 import { LegalLinks } from "./legal/LegalLinks";
 import { Showcase } from "./Showcase";
 import { decideDestination, resolveNext, type Destination } from "./routing";
 
 type Step = "email" | "code" | "password" | "routing";
+
+/** A failed hop, shown on the loader with a way to retry it. */
+interface Fail {
+  message: string;
+  retry: () => void;
+}
 
 export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegister: () => void }) {
   const [step, setStep] = useState<Step>("email");
@@ -20,31 +28,38 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
   const [picker, setPicker] = useState<Extract<Destination, { kind: "picker" }> | null>(null);
   const [none, setNone] = useState(false);
   const [token, setToken] = useState("");
+  // The loader covers the page from pressing Sign in until the redirect, with one line of text.
+  const [signing, setSigning] = useState(false);
+  const [opening, setOpening] = useState("Signing you in…");
+  const [fail, setFail] = useState<Fail | null>(null);
 
   const goTo = async (accessToken: string) => {
     setStep("routing");
     setErr("");
+    setFail(null);
     const me = await fetchMe(accessToken);
     if (!me.ok) {
-      setErr(me.message);
-      setStep("email");
+      setFail({ message: me.message, retry: () => void goTo(accessToken) });
       return;
     }
     // `?next=` (set by a clinic or the console) goes first, but only to a place this person belongs to.
     const wanted = resolveNext(me.value, new URLSearchParams(window.location.search).get("next"), CONSOLE_URL);
     const dest: Destination = wanted === null ? decideDestination(me.value, CONSOLE_URL) : { kind: "go", place: wanted };
     setToken(accessToken);
-    if (dest.kind === "go") await openPlace(accessToken, dest.place.host);
+    if (dest.kind === "go") await openPlace(accessToken, dest.place.host, dest.place.name);
     else if (dest.kind === "picker") setPicker(dest);
     else setNone(true);
   };
 
   // A one-time code signs the person in on the clinic's (or the console's) own host.
-  const openPlace = async (accessToken: string, host: string) => {
+  const openPlace = async (accessToken: string, host: string, name: string) => {
     setErr("");
+    setFail(null);
+    setPicker(null);
+    setOpening(`Opening ${name}…`);
     const handoff = await requestHandoff(accessToken, host);
     if (!handoff.ok) {
-      setErr(handoff.message);
+      setFail({ message: handoff.message, retry: () => void openPlace(accessToken, host, name) });
       return;
     }
     window.location.assign(handoffUrl(host, handoff.value));
@@ -63,10 +78,26 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
   const run = async (work: () => Promise<{ ok: true } | { ok: false; message: string }>, next: () => Promise<void> | void) => {
     setBusy(true);
     setErr("");
-    const out = await work();
-    setBusy(false);
-    if (out.ok) await next();
-    else setErr(out.message);
+    try {
+      const out = await work();
+      if (out.ok) await next();
+      else {
+        setSigning(false);
+        setErr(out.message);
+      }
+    } catch {
+      setSigning(false);
+      setErr("Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // After a good sign-in: read the token, then route. Without a token the loader says so.
+  const finish = async (auth: Awaited<ReturnType<typeof getAuthClient>>) => {
+    const t = await auth.getAccessToken();
+    if (t !== null) await goTo(t);
+    else setFail({ message: "We couldn't finish signing you in.", retry: () => void finish(auth) });
   };
 
   const sendCode = async () => {
@@ -76,18 +107,26 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
   };
   const verify = async () => {
     const auth = await getAuthClient();
-    await run(() => auth.verifyCode(email.trim(), code), async () => {
-      const t = await auth.getAccessToken();
-      if (t !== null) await goTo(t);
-    });
+    setSigning(true);
+    await run(() => auth.verifyCode(email.trim(), code), () => finish(auth));
   };
   const withPassword = async () => {
     const auth = await getAuthClient();
-    await run(() => auth.signInWithPassword(email.trim(), password), async () => {
-      const t = await auth.getAccessToken();
-      if (t !== null) await goTo(t);
-    });
+    setSigning(true);
+    await run(() => auth.signInWithPassword(email.trim(), password), () => finish(auth));
   };
+
+  // Ends the session too, so a reload doesn't skip the form and land in the same failure.
+  const backToSignIn = async () => {
+    await signOutEverywhere();
+    setFail(null);
+    setSigning(false);
+    setStep("email");
+  };
+  if ((step === "routing" || signing) && !picker && !none) {
+    const failure = fail === null ? undefined : { message: fail.message, onRetry: fail.retry, onBack: () => void backToSignIn() };
+    return <BootLoader text={fail === null ? opening : "We couldn't finish signing you in"} failure={failure} />;
+  }
 
   return (
     <div className="v4-auth">
@@ -144,14 +183,13 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
             </div>
           )}
 
-          {step === "routing" && !picker && !none && <p className="auth-sub" style={{ marginTop: 22 }}>Taking you there…</p>}
 
           {picker && (
             <div className="field" style={{ marginTop: 22 }}>
               <label>Choose where to go</label>
               {picker.places.map((p) => (
                 <button key={p.key} className="btn ghost" style={{ width: "100%", justifyContent: "space-between", marginTop: 10 }}
-                  onClick={() => void openPlace(token, p.host)}>
+                  onClick={() => void openPlace(token, p.host, p.name)}>
                   <span>{p.name}</span><span style={{ opacity: 0.7 }}>{p.detail}</span>
                 </button>
               ))}

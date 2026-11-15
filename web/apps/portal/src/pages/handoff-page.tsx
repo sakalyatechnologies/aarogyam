@@ -1,17 +1,14 @@
-import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { AuthHeading, completeHandoff, useAuth } from "@aarogyam/auth";
-import { Button } from "@sakalya/ui";
+import { BootStage, completeHandoff, useAuth } from "@aarogyam/auth";
 
 import { useServices } from "../clinic.js";
-import { PortalAuthShell } from "./brand.js";
 
 /**
  * Where central sign-in lands (`/auth/handoff#code=…`): redeems the one-time code on this
- * clinic's host, signs in here, then lands on Today.
+ * clinic's host, signs in here, then lands on Today. The loader stays up through the whole trip.
  */
 export function HandoffPage() {
   useDocumentTitle("Signing in", "Aarogyam");
@@ -22,7 +19,7 @@ export function HandoffPage() {
   const started = useRef(false);
 
   useEffect(() => {
-    // Once per page: a code works once, so a second run would only fail.
+    // Once per page: a code works once, so a second run would only fail. It is never sent again.
     if (started.current) {
       return;
     }
@@ -45,28 +42,12 @@ export function HandoffPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return (
-    <PortalAuthShell>
-      {problem === undefined ? (
-        <div role="status" className="flex items-center gap-3 text-sm text-muted">
-          <Loader2 aria-hidden="true" className="size-5 animate-spin text-primary" />
-          Signing you in…
-        </div>
-      ) : (
-        <>
-          <AuthHeading title="That sign-in link didn't work" />
-          <p role="alert" className="mb-5 rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger-text">
-            {problem}
-          </p>
-          <Button
-            onClick={() => {
-              void navigate("/sign-in", { replace: true });
-            }}
-          >
-            Back to sign in
-          </Button>
-        </>
-      )}
-    </PortalAuthShell>
-  );
+  if (problem === undefined) {
+    return <BootStage text="Signing you in…" />;
+  }
+  // No Try again: the code is used up. Signing in again on the site makes a fresh one.
+  const back = () => {
+    void navigate("/sign-in", { replace: true });
+  };
+  return <BootStage text="That sign-in didn't work" failure={{ message: problem, onBack: back }} />;
 }

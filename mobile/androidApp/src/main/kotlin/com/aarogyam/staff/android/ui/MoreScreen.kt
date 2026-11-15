@@ -46,6 +46,7 @@ import com.aarogyam.staff.android.ui.clinical.openLabs
 import com.aarogyam.staff.android.ui.clinical.openTeam
 import com.aarogyam.staff.android.ui.more.AvatarChoice
 import com.aarogyam.staff.android.ui.more.AvatarPicker
+import com.aarogyam.staff.android.ui.more.DeleteAccountSheet
 import com.aarogyam.staff.android.ui.more.MyAvatar
 import com.aarogyam.staff.android.ui.more.openHelp
 import com.aarogyam.staff.android.ui.more.openStock
@@ -99,6 +100,7 @@ fun MoreScreen(
     var language by rememberSaveable { mutableStateOf(false) }
     var avatars by rememberSaveable { mutableStateOf(false) }
     var qr by rememberSaveable { mutableStateOf(false) }
+    var deleting by rememberSaveable { mutableStateOf(false) }
     var soon by rememberSaveable { mutableStateOf(false) }
     var unsent by rememberSaveable { mutableStateOf<Int?>(null) }
     var avatar by remember { mutableStateOf(AvatarChoice.current(graph)) }
@@ -213,6 +215,17 @@ fun MoreScreen(
                 )
             }
             Text(
+                stringResource(R.string.sh_store_delete_row),
+                style = SkTypography.footnote.copy(fontWeight = FontWeight.Bold),
+                color = p.error.color,
+                textAlign = TextAlign.Center,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Button) { deleting = true }
+                        .padding(top = Spacing.L.dp, bottom = Spacing.S.dp),
+            )
+            Text(
                 stringResource(R.string.sh_v7_more_version),
                 style = SkTypography.caption,
                 color = p.onSurfaceVariant.color,
@@ -226,6 +239,7 @@ fun MoreScreen(
     if (avatars) {
         AvatarPicker(graph, onChange = { avatar = AvatarChoice.current(graph) }) { avatars = false }
     }
+    if (deleting) DeleteAccountSheet(graph) { deleting = false }
     if (qr) ClinicQrSheet(bookingUrl(clinic.api.origin), clinic.session.clinic.name) { qr = false }
     unsent?.let { count ->
         AlertDialog(

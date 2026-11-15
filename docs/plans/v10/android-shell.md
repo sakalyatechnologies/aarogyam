@@ -11,7 +11,11 @@ Branch `v11-and-shell`. Android baseline already had Today v7, Schedule (queue/d
 - Shared: `DoctorWaitingHolder` moved from iosMain to commonMain (`shared/.../DoctorWaiting.kt`) with a commonTest; the iOS `doctorWaiting(screen)` extension stays in `IosDoctorV10.kt`.
 - Strings: `strings_shell.xml` en/hi/mr, all names prefixed `sh_`.
 
+## Also done after merging v11-store
+- Sign-in: "Use a password" step with masked field (`ui/PasswordField.kt`) and way back to the code; More: Delete account sheet with confirm (`ui/more/DeleteAccountSheet.kt`).
+
 ## Left
+- Desk role's Walk-in action should call the desk worker's `openDeskLookup()` (stub `DeskHomeStub.kt` has it); AppRoot still opens the old walk-in route. Use `DeskAlert` from desk for the bell rows if wanted.
 - Schedule: booking sheet and iOS queue/day polish (ScheduleV7/BookingSheet) not ported.
 - Sign-in v7: OTP boxes, welcome pager, registration, invite screens not ported (existing plain email/code screen remains).
 - Remove unused `sh_` strings if lint reports UnusedResources.

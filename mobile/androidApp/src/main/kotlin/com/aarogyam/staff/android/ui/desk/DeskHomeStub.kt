@@ -17,3 +17,7 @@ fun DeskHome(
 ) {
     ComingSoon(R.string.tab_today)
 }
+
+/** STUB (shell worker): the desk worker's opener (desk role's Walk-in action) replaces this at merge. */
+fun androidx.navigation.NavController.openDeskLookup() {
+}

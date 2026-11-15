@@ -68,7 +68,7 @@ pub async fn conversations(
              where m.org_id = c.org_id and m.conversation_id = c.id
              order by m.id desc limit 1) last on true
            left join lateral (
-             select o.membership_id, u.display_name from aarogyam.conversation_members o
+             select o.membership_id, coalesce(om.display_name, u.display_name) as display_name from aarogyam.conversation_members o
              join aarogyam.memberships om on om.org_id = o.org_id and om.id = o.membership_id
              join aarogyam.users u on u.id = om.user_id
              where c.kind = 'direct' and o.org_id = c.org_id and o.conversation_id = c.id
@@ -151,7 +151,7 @@ pub async fn conversation(conn: &mut PgConnection, id: Uuid) -> Result<Vec<Membe
     let rows = sqlx::query_as!(
         MemberRow,
         r#"select c.id, c.kind, c.title, c.archived_at, c.created_at, cm.membership_id, cm.role,
-                  cm.joined_at, u.display_name
+                  cm.joined_at, coalesce(m.display_name, u.display_name) as "display_name!"
            from aarogyam.conversations c
            join aarogyam.conversation_members cm
              on cm.org_id = c.org_id and cm.conversation_id = c.id and cm.left_at is null
@@ -459,7 +459,7 @@ pub async fn page(
            )
            select conv.id as "conversation_id!", p.id as "id?",
                   p.author_membership_id as "author_membership_id?",
-                  u.display_name as "author_name?", p.body as "body?", p.patient_id as "patient_id?",
+                  coalesce(am.display_name, u.display_name) as "author_name?", p.body as "body?", p.patient_id as "patient_id?",
                   p.client_id as "client_id?", p.deleted_at as "deleted_at?",
                   p.created_at as "created_at?", p.is_notice as "is_notice?",
                   a.id as "attachment_id?", a.mime_type as "attachment_mime_type?",
@@ -802,7 +802,7 @@ pub async fn pinned_notice(
         MessageRow,
         r#"select m.conversation_id as "conversation_id!", m.id as "id?",
                   m.author_membership_id as "author_membership_id?",
-                  u.display_name as "author_name?", m.body as "body?", m.patient_id as "patient_id?",
+                  coalesce(am.display_name, u.display_name) as "author_name?", m.body as "body?", m.patient_id as "patient_id?",
                   m.client_id as "client_id?", m.deleted_at as "deleted_at?",
                   m.created_at as "created_at?", m.is_notice as "is_notice?",
                   a.id as "attachment_id?", a.mime_type as "attachment_mime_type?",

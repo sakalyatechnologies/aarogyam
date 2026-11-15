@@ -535,6 +535,15 @@ export type ProfileUpdate = C.ProfileUpdate;
 export const revokedSessions = z.object({ revoked: z.number().int() }) satisfies z.ZodType<C.RevokedSessions>;
 export type RevokedSessions = z.output<typeof revokedSessions>;
 
+export const ownedClinic = z.object({ id: z.string(), name: z.string() }) satisfies z.ZodType<C.OwnedClinic>;
+export type OwnedClinic = z.output<typeof ownedClinic>;
+
+/** The `409 last_owner` answer to deleting an account: the usual error and the clinics to hand over first. */
+export const lastOwnerRefused = z.object({
+  error: z.object({ code: z.literal("last_owner"), message: z.string() }),
+  clinics: z.array(ownedClinic),
+});
+
 /** Body of `PATCH /api/v1/patients/{id}`. Fields left out stay as they are. */
 export type PatientChanges = C.PatientChanges;
 

@@ -7,11 +7,11 @@
 
 use std::sync::{Arc, Mutex};
 
-use aarogyam_app::accounts::{SignInAccounts as _, SupabaseAdmin};
+use aarogyam_app::accounts::{AuthUid, SignInAccounts as _, SupabaseAdmin};
 use aarogyam_domain::patient::Email;
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::routing::get;
+use axum::routing::{delete, get};
 use axum::{Json, Router};
 use secrecy::SecretString;
 use serde_json::{Value, json};
@@ -69,9 +69,27 @@ async fn list(State(fake): State<Arc<Fake>>, headers: HeaderMap) -> (StatusCode,
     )
 }
 
+async fn remove(
+    State(fake): State<Arc<Fake>>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> StatusCode {
+    if !authorised(&headers) {
+        return StatusCode::UNAUTHORIZED;
+    }
+    let mut users = fake.users.lock().unwrap();
+    let before = users.len();
+    users.retain(|(known, _)| *known != id);
+    if users.len() == before {
+        return StatusCode::NOT_FOUND;
+    }
+    StatusCode::OK
+}
+
 async fn serve(fake: Arc<Fake>) -> String {
     let app = Router::new()
         .route("/auth/v1/admin/users", get(list).post(create))
+        .route("/auth/v1/admin/users/{id}", delete(remove))
         .with_state(fake);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -109,4 +127,36 @@ async fn accounts_are_created_confirmed_or_found() {
     assert!(wrong.ensure_user(&email).await.is_err());
     // Debug output never shows the key.
     assert!(!format!("{admin:?}").contains(KEY));
+}
+
+#[tokio::test]
+async fn deleting_an_account_counts_an_account_already_gone_as_done() {
+    let fake = Arc::new(Fake::default());
+    let existing = Uuid::now_v7();
+    fake.users
+        .lock()
+        .unwrap()
+        .push((existing, "leaving@clinic.test".to_owned()));
+    let url = serve(Arc::clone(&fake)).await;
+    let admin = SupabaseAdmin::new(&url, SecretString::from(KEY)).unwrap();
+
+    admin
+        .delete_user(AuthUid::from_uuid(existing))
+        .await
+        .unwrap();
+    assert!(fake.users.lock().unwrap().is_empty());
+    // Gone already (404): the aim is reached, so a retry after a lost answer succeeds.
+    admin
+        .delete_user(AuthUid::from_uuid(existing))
+        .await
+        .unwrap();
+
+    // A wrong key is an error, never a pretended deletion.
+    let wrong = SupabaseAdmin::new(&url, SecretString::from("sb_secret_wrong")).unwrap();
+    assert!(
+        wrong
+            .delete_user(AuthUid::from_uuid(existing))
+            .await
+            .is_err()
+    );
 }

@@ -1869,6 +1869,29 @@ export interface paths {
         patch: operations["updateMe"];
         trace?: never;
     };
+    "/api/v1/me/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Deletes the signed-in person's own account, for any staff member of any clinic (a person can
+         *     only delete themselves, so there is no clinic permission). In one transaction they leave
+         *     every clinic, are signed out on every device, lose their push tokens, and their name, email
+         *     and phone are cleared; clinic records stay. Their sign-in identity is deleted a moment later
+         *     by the outbox job. Asking again answers `401`: the session ended with the first call.
+         */
+        delete: operations["deleteMyAccount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/avatar": {
         parameters: {
             query?: never;
@@ -7581,6 +7604,11 @@ export interface components {
              */
             payments: number;
         };
+        /** @description The confirmation a person sends to delete their own account. */
+        DeleteAccount: {
+            /** @description Must be `delete`; anything else, or nothing, is a `400` on `confirm`. */
+            confirm?: string | null;
+        };
         /** @description A patient's dental chart. Teeth without entries are absent: draw them as sound. */
         DentalChart: {
             /** @description The current entries, by tooth (the whole-tooth entry first, then surfaces). */
@@ -9026,6 +9054,16 @@ export interface components {
              *     list on a change; an empty list clears it.
              */
             work_types?: string[] | null;
+        };
+        /**
+         * @description The `409 last_owner` answer to deleting an account: the usual error and the clinics the person
+         *     alone owns, next to it, so the client can name them.
+         */
+        LastOwnerRefused: {
+            /** @description The clinics to hand over first; absent for `platform_staff`, which has no clinics. */
+            clinics?: components["schemas"]["OwnedClinic"][];
+            /** @description The refusal, code `last_owner`. */
+            error: components["schemas"]["ErrorDetail"];
         };
         /** @description Everything the portal needs to draw and edit layouts. */
         LayoutCatalogue: {
@@ -10743,6 +10781,13 @@ export interface components {
         OwnDentalTermList: {
             /** @description By list, then label; retired ones included. */
             items: components["schemas"]["OwnDentalTerm"][];
+        };
+        /** @description A clinic whose only active owner is the person deleting their account. */
+        OwnedClinic: {
+            /** @description The clinic. */
+            id: string;
+            /** @description Its name. */
+            name: string;
         };
         /** @description Whether a clinic's owner invitation email went out. Never carries the address, link or body. */
         OwnerInvitationDelivery: {
@@ -20902,6 +20947,65 @@ export interface operations {
             };
             /** @description Another account holds that phone number */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteMyAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccount"];
+            };
+        };
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `confirm` is not `delete` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in, or the account is already deleted */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `no_staff_account`: this sign-in has no staff account (a patient-only identity) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `last_owner`: the person alone owns the listed `clinics`, so another member must own each first; or `platform_staff` (no `clinics`): Sakalya staff are managed in the console */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LastOwnerRefused"];
+                };
+            };
+            /** @description The request has no JSON body */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };

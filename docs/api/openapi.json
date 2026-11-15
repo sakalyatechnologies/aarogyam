@@ -6258,6 +6258,57 @@
         ]
       }
     },
+    "/api/v1/me/account": {
+      "delete": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Deletes the signed-in person's own account, for any staff member of any clinic (a person can\nonly delete themselves, so there is no clinic permission). In one transaction they leave\nevery clinic, are signed out on every device, lose their push tokens, and their name, email\nand phone are cleared; clinic records stay. Their sign-in identity is deleted a moment later\nby the outbox job. Asking again answers `401`: the session ended with the first call.",
+        "operationId": "deleteMyAccount",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccount"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "`confirm` is not `delete`"
+          },
+          "401": {
+            "description": "Not signed in, or the account is already deleted"
+          },
+          "404": {
+            "description": "`no_staff_account`: this sign-in has no staff account (a patient-only identity)"
+          },
+          "409": {
+            "description": "`last_owner`: the person alone owns the listed `clinics`, so another member must own each first; or `platform_staff` (no `clinics`): Sakalya staff are managed in the console",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LastOwnerRefused"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request has no JSON body"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/avatar": {
       "put": {
         "tags": [
@@ -22899,6 +22950,19 @@
           }
         }
       },
+      "DeleteAccount": {
+        "type": "object",
+        "description": "The confirmation a person sends to delete their own account.",
+        "properties": {
+          "confirm": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Must be `delete`; anything else, or nothing, is a `400` on `confirm`."
+          }
+        }
+      },
       "DentalChart": {
         "type": "object",
         "description": "A patient's dental chart. Teeth without entries are absent: draw them as sound.",
@@ -26430,6 +26494,26 @@
               "type": "string"
             },
             "description": "The kinds of work it does: up to 20 different ones of up to 40 characters. Replaces the\nlist on a change; an empty list clears it."
+          }
+        }
+      },
+      "LastOwnerRefused": {
+        "type": "object",
+        "description": "The `409 last_owner` answer to deleting an account: the usual error and the clinics the person\nalone owns, next to it, so the client can name them.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "clinics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OwnedClinic"
+            },
+            "description": "The clinics to hand over first; absent for `platform_staff`, which has no clinics."
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail",
+            "description": "The refusal, code `last_owner`."
           }
         }
       },
@@ -30726,6 +30810,24 @@
               "$ref": "#/components/schemas/OwnDentalTerm"
             },
             "description": "By list, then label; retired ones included."
+          }
+        }
+      },
+      "OwnedClinic": {
+        "type": "object",
+        "description": "A clinic whose only active owner is the person deleting their account.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
           }
         }
       },

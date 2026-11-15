@@ -86,7 +86,7 @@ pub async fn list_for_patient(
                     select jsonb_agg(to_jsonb(t) order by t.created_at desc, t.id desc)
                     from (select p.id, p.patient_id, p.clinician_id, p.encounter_id, p.title,
                                  p.status, p.accepted_at, p.created_at,
-                                 u.display_name as clinician_name,
+                                 coalesce(m.display_name, u.display_name) as clinician_name,
                                  coalesce((
                                    select jsonb_agg(to_jsonb(x) order by x.phase, x.id)
                                    from (select i.id, i.plan_id, i.patient_id, i.name,

@@ -222,3 +222,19 @@ describe("staff notifications", () => {
     expect(value(await asha.countUnreadNotifications()).unread).toBe(0);
   });
 });
+
+describe("deleting the person's own account", () => {
+  it("lets a member go, answers 401 the second time, and names the clinics a sole owner must hand over", async () => {
+    const { as } = setup();
+    const farah = as(FARAH);
+    expect(value(await farah.getMe()).clinics.length).toBeGreaterThan(0);
+    expect((await farah.deleteMyAccount()).ok).toBe(true);
+    expect(errorOf(await farah.deleteMyAccount())?.status).toBe(401);
+
+    const refused = errorOf(await as(ASHA).deleteMyAccount());
+    expect([refused?.status, refused?.code]).toEqual([409, "last_owner"]);
+    expect(refused?.clinics?.map((c) => c.name)).toEqual(["Sunrise Dental"]);
+    // Nothing changed: the owner is still signed in.
+    expect(value(await as(ASHA).getMe()).clinics.length).toBeGreaterThan(0);
+  });
+});

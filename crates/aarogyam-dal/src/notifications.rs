@@ -237,7 +237,7 @@ pub async fn feed(
     let rows = sqlx::query_as!(
         FeedRow,
         r#"select n.id, n.kind, n.created_at, r.read_at as "read_at?", n.handled_at, n.handled_by,
-                  u.display_name as "handled_by_name?", n.reminded_at, n.escalated_at,
+                  coalesce(m.display_name, u.display_name) as "handled_by_name?", n.reminded_at, n.escalated_at,
                   a.id as "appointment_id?", a.starts_at as "starts_at?", a.ends_at as "ends_at?",
                   a.status as "appointment_status?", p.id as "practitioner_id?",
                   p.display_name as "practitioner_name?", o.id as "lab_order_id?",

@@ -1,6 +1,7 @@
 //! Who is signed in: their clinics and sign-in sessions (any host) and the current clinic
 //! session (clinic host).
 
+use aarogyam_app::account as account_app;
 use aarogyam_app::patients as app;
 use aarogyam_app::profile::{self as profile_app, ProfileChanges};
 use aarogyam_app::sessions as sessions_app;
@@ -19,7 +20,7 @@ use super::avatars::{self, Avatar};
 use super::rfc3339;
 use crate::AppState;
 use crate::extract::{ClinicRequest, SignedIn};
-use crate::failure::ApiFailure;
+use crate::failure::{ApiFailure, LastOwnerRefused};
 
 /// A clinic the person belongs to.
 #[derive(Debug, Serialize, ToSchema)]
@@ -384,4 +385,58 @@ pub(crate) async fn revoke_other_sessions(
     Ok(Json(RevokedSessions {
         revoked: revoked.len(),
     }))
+}
+
+/// The confirmation a person sends to delete their own account.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct DeleteAccount {
+    /// Must be `delete`; anything else, or nothing, is a `400` on `confirm`.
+    pub confirm: Option<String>,
+}
+
+/// Deletes the signed-in person's own account, for any staff member of any clinic (a person can
+/// only delete themselves, so there is no clinic permission). In one transaction they leave
+/// every clinic, are signed out on every device, lose their push tokens, and their name, email
+/// and phone are cleared; clinic records stay. Their sign-in identity is deleted a moment later
+/// by the outbox job. Asking again answers `401`: the session ended with the first call.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/me/account",
+    operation_id = "deleteMyAccount",
+    tag = "session",
+    request_body = DeleteAccount,
+    security(("bearer" = [])),
+    responses(
+        (status = 204, description = "Deleted"),
+        (status = 400, description = "`confirm` is not `delete`"),
+        (status = 401, description = "Not signed in, or the account is already deleted"),
+        (status = 404, description = "`no_staff_account`: this sign-in has no staff account (a patient-only identity)"),
+        (status = 415, description = "The request has no JSON body"),
+        (status = 409, body = LastOwnerRefused, description = "`last_owner`: the person alone owns the listed `clinics`, so another member must own each first; or `platform_staff` (no `clinics`): Sakalya staff are managed in the console")
+    )
+)]
+pub(crate) async fn delete_account(
+    State(state): State<AppState>,
+    signed_in: SignedIn,
+    ApiJson(body): ApiJson<DeleteAccount>,
+) -> Result<StatusCode, ApiFailure> {
+    let revoked = account_app::delete_own(
+        state.db(),
+        state.files().ok(),
+        signed_in.claims.subject().uuid(),
+        signed_in.claims.session_id(),
+        body.confirm.as_deref(),
+    )
+    .await?;
+    for provider_session in &revoked {
+        state.forget_session(*provider_session);
+    }
+    if !revoked.is_empty() {
+        tracing::info!(
+            event = Event::AccountDeleted.as_str(),
+            sessions = revoked.len(),
+            "account deleted"
+        );
+    }
+    Ok(StatusCode::NO_CONTENT)
 }

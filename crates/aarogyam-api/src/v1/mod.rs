@@ -118,6 +118,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             post(client_errors::report).layer(DefaultBodyLimit::max(client_errors::MAX_BODY)),
         )
         .route("/me", get(me::me).patch(me::update_me))
+        .route("/me/account", delete(me::delete_account))
         .route("/me/sessions", get(me::sessions))
         .route(
             "/me/sessions/revoke-others",

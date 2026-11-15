@@ -295,7 +295,7 @@ pub async fn list_for_patient(
                     select jsonb_agg(to_jsonb(v) order by v.started_at desc, v.id desc)
                     from (select e.id, e.number, e.patient_id, e.clinician_id, e.branch_id,
                                  e.appointment_id, e.status, e.chief_complaint, e.started_at,
-                                 e.ended_at, u.display_name as clinician_name
+                                 e.ended_at, coalesce(m.display_name, u.display_name) as clinician_name
                           from aarogyam.encounters e
                           left join aarogyam.memberships m
                             on m.org_id = e.org_id and m.id = e.clinician_id
@@ -343,7 +343,7 @@ pub async fn member_names(
     ids: &[Uuid],
 ) -> Result<Vec<(Uuid, String)>, DbError> {
     let rows = sqlx::query!(
-        r#"select m.id, u.display_name
+        r#"select m.id, coalesce(m.display_name, u.display_name) as "display_name!"
            from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
            where m.id = any($1)"#,
         ids
@@ -735,7 +735,7 @@ pub async fn get_note_bundle(
                               order by a.created_at, a.id), '[]'::jsonb)
                    from aarogyam.note_addenda a where a.note_id = n.id
                   ) as "addenda!: Json<Vec<AddendumJson>>",
-                  (select coalesce(jsonb_agg(jsonb_build_array(m.id, u.display_name)), '[]'::jsonb)
+                  (select coalesce(jsonb_agg(jsonb_build_array(m.id, coalesce(m.display_name, u.display_name))), '[]'::jsonb)
                    from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
                    where m.id = n.author_id
                       or m.id in (select a.author_id from aarogyam.note_addenda a

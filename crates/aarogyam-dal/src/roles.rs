@@ -152,9 +152,11 @@ pub async fn role(conn: &mut PgConnection, key: &str) -> Result<Option<RoleDetai
                      and m.status in ('invited', 'active', 'suspended')) as "members!",
                   coalesce((select jsonb_agg(h order by h.at desc)
                             from (select c.id, c.action, c.created_at as at, c.changed_by,
-                                         u.display_name as changed_by_name, c.before, c.after
+                                         coalesce(cm.display_name, u.display_name) as changed_by_name, c.before, c.after
                                   from aarogyam.role_changes c
                                   left join aarogyam.users u on u.id = c.changed_by
+                                  left join aarogyam.memberships cm
+                                    on cm.org_id = c.org_id and cm.user_id = c.changed_by
                                   where c.org_id = r.org_id and c.role_id = r.id
                                   order by c.created_at desc, c.id desc
                                   limit $2) h), '[]')

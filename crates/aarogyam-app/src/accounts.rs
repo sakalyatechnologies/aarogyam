@@ -85,6 +85,9 @@ impl fmt::Debug for SignInToken {
 pub type TokenFuture<'a> =
     Pin<Box<dyn Future<Output = Result<SignInToken, AccountsError>> + Send + 'a>>;
 
+/// A boxed future for [`SignInAccounts::delete_user`].
+pub type DeleteFuture<'a> = Pin<Box<dyn Future<Output = Result<(), AccountsError>> + Send + 'a>>;
+
 /// Makes sure a person can sign in with an email address.
 pub trait SignInAccounts: Send + Sync + fmt::Debug {
     /// The account for `email`, created (confirmed) when there is none.
@@ -96,6 +99,16 @@ pub trait SignInAccounts: Send + Sync + fmt::Debug {
         Box::pin(async {
             Err(AccountsError::Configuration(
                 "these accounts can't issue sign-in tokens",
+            ))
+        })
+    }
+
+    /// Deletes the account of `auth_uid`; an account that is already gone counts as deleted.
+    /// Unsupported unless implemented.
+    fn delete_user(&self, _auth_uid: AuthUid) -> DeleteFuture<'_> {
+        Box::pin(async {
+            Err(AccountsError::Configuration(
+                "these accounts can't delete users",
             ))
         })
     }
@@ -284,6 +297,22 @@ impl SupabaseAdmin {
             .ok_or_else(|| AccountsError::Upstream(format!("{status} without a token")))
     }
 
+    /// Deletes the account of `auth_uid`. `404` means it is already gone, which is the aim.
+    async fn remove(&self, auth_uid: AuthUid) -> Result<(), AccountsError> {
+        let url = format!("{}/{}", self.users_url, auth_uid.uuid());
+        let response = self
+            .request(reqwest::Method::DELETE, &url)
+            .send()
+            .await
+            .map_err(|error| AccountsError::Upstream(transport(&error)))?;
+        let status = response.status();
+        if status.is_success() || status == StatusCode::NOT_FOUND {
+            Ok(())
+        } else {
+            Err(AccountsError::Upstream(status.as_u16().to_string()))
+        }
+    }
+
     /// The account for `email`, if there is one; never creates one.
     ///
     /// # Errors
@@ -318,5 +347,9 @@ impl SignInAccounts for SupabaseAdmin {
 
     fn sign_in_token<'a>(&'a self, email: &'a Email) -> TokenFuture<'a> {
         Box::pin(self.link_token(email))
+    }
+
+    fn delete_user(&self, auth_uid: AuthUid) -> DeleteFuture<'_> {
+        Box::pin(self.remove(auth_uid))
     }
 }

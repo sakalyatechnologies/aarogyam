@@ -66,11 +66,11 @@ pub async fn list(
     let rows = sqlx::query_as!(
         ConsentRow,
         r#"select c.id, c.purpose, c.notice_version, c.notice_id, c.given_at, c.method, c.recorded_by,
-                  (select u.display_name from aarogyam.memberships m
+                  (select coalesce(m.display_name, u.display_name) from aarogyam.memberships m
                    join aarogyam.users u on u.id = m.user_id
                    where m.org_id = c.org_id and m.id = c.recorded_by) as recorded_by_name,
                   c.status, c.withdrawn_at,
-                  (select u.display_name from aarogyam.memberships m
+                  (select coalesce(m.display_name, u.display_name) from aarogyam.memberships m
                    join aarogyam.users u on u.id = m.user_id
                    where m.org_id = c.org_id and m.id = c.withdrawn_by) as withdrawn_by_name,
                   c.withdrawn_method, c.note, c.withdrawal_note, c.signature_attachment_id

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select c.id, c.purpose, c.notice_version, c.notice_id, c.given_at, c.method, c.recorded_by,\n                  (select u.display_name from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.recorded_by) as recorded_by_name,\n                  c.status, c.withdrawn_at,\n                  (select u.display_name from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.withdrawn_by) as withdrawn_by_name,\n                  c.withdrawn_method, c.note, c.withdrawal_note, c.signature_attachment_id\n           from aarogyam.patient_consents c\n           where c.patient_id = $1\n           order by c.given_at desc, c.id desc",
+  "query": "select c.id, c.purpose, c.notice_version, c.notice_id, c.given_at, c.method, c.recorded_by,\n                  (select coalesce(m.display_name, u.display_name) from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.recorded_by) as recorded_by_name,\n                  c.status, c.withdrawn_at,\n                  (select coalesce(m.display_name, u.display_name) from aarogyam.memberships m\n                   join aarogyam.users u on u.id = m.user_id\n                   where m.org_id = c.org_id and m.id = c.withdrawn_by) as withdrawn_by_name,\n                  c.withdrawn_method, c.note, c.withdrawal_note, c.signature_attachment_id\n           from aarogyam.patient_consents c\n           where c.patient_id = $1\n           order by c.given_at desc, c.id desc",
   "describe": {
     "columns": [
       {
@@ -182,5 +182,5 @@
       true
     ]
   },
-  "hash": "59e657c5925faacd54ad083b35f4049cfc1a888133036f5bed822dc81e54db50"
+  "hash": "1cc4cbe66f02fd6224eefca5c0e61d17d50d790e981f2525d9d01d2bdeb366a8"
 }

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.account_deletion_done($1, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_deletion_done",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "dcaf482aa7270b2135167f4581b2e86f11281568400908d8726ab07fbcf597c0"
+}

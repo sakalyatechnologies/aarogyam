@@ -123,10 +123,10 @@ pub async fn own(conn: &mut PgConnection, id: Option<Uuid>) -> Result<Vec<OwnTer
     let rows = sqlx::query_as!(
         OwnTermRow,
         r#"select t.id, t.kind, t.label,
-                  (select u.display_name from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
+                  (select coalesce(m.display_name, u.display_name) from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
                    where m.org_id = t.org_id and m.id = t.added_by) as added_by_name,
                   t.created_at, t.retired_at,
-                  (select u.display_name from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
+                  (select coalesce(m.display_name, u.display_name) from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
                    where m.org_id = t.org_id and m.id = t.retired_by) as retired_by_name
            from aarogyam.dental_terms t
            where $1::uuid is null or t.id = $1

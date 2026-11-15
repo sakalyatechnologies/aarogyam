@@ -83,15 +83,17 @@ pub async fn overview(
                           where id = $1 and deleted_at is null and app.patient_in_reach(id, $2)) as "found!",
                   (select to_jsonb(s) from (
                      select pn.id, pn.body, pn.row_version, pn.updated_at,
-                            u.display_name as updated_by_name
+                            coalesce(um.display_name, u.display_name) as updated_by_name
                      from aarogyam.patient_notes pn
                      left join aarogyam.users u on u.id = pn.updated_by
+                     left join aarogyam.memberships um
+                       on um.org_id = pn.org_id and um.user_id = pn.updated_by
                      where pn.patient_id = $1) s
                   ) as "summary: Json<SummaryRow>",
                   coalesce((
                     select jsonb_agg(to_jsonb(v) order by v.created_at desc, v.id desc)
                     from (select n.id, n.encounter_id, e.number as visit_number, n.kind, n.status,
-                                 n.body, n.author_id, au.display_name as author_name,
+                                 n.body, n.author_id, coalesce(m.display_name, au.display_name) as author_name,
                                  n.signed_at, n.created_at, n.updated_at, n.row_version,
                                  (select count(*) from aarogyam.note_addenda a
                                   where a.note_id = n.id) as addenda_count
@@ -147,7 +149,9 @@ pub async fn update_summary(
              returning id, body, row_version, updated_at, updated_by)
            select c.id as "id!", c.body as "body!", c.row_version as "row_version!",
                   c.updated_at as "updated_at!",
-                  (select u.display_name from aarogyam.users u where u.id = c.updated_by) as updated_by_name
+                  (select coalesce(um.display_name, u.display_name) from aarogyam.users u
+                   left join aarogyam.memberships um on um.user_id = u.id and um.org_id = (select app.tenant_id())
+                   where u.id = c.updated_by) as updated_by_name
            from changed c"#,
         patient_id,
         body
@@ -179,7 +183,9 @@ pub async fn insert_summary(
              returning id, body, row_version, updated_at, updated_by)
            select c.id as "id!", c.body as "body!", c.row_version as "row_version!",
                   c.updated_at as "updated_at!",
-                  (select u.display_name from aarogyam.users u where u.id = c.updated_by) as updated_by_name
+                  (select coalesce(um.display_name, u.display_name) from aarogyam.users u
+                   left join aarogyam.memberships um on um.user_id = u.id and um.org_id = (select app.tenant_id())
+                   where u.id = c.updated_by) as updated_by_name
            from made c"#,
         patient_id,
         body

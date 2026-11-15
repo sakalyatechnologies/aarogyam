@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select t.id, t.title, t.description,\n                  t.assignee_membership_id, u.display_name as \"assignee_name?\",\n                  t.assignee_role_id, r.name as \"assignee_role_name?\",\n                  t.schedule_kind, t.once_at, t.interval_days, t.weekdays, t.due_time,\n                  t.starts_on, t.ends_on, t.remind_every_minutes, t.escalate_after, t.action,\n                  t.active, t.activated_at, t.is_default, t.default_key, t.created_at, t.updated_at\n           from aarogyam.task_templates t\n           left join aarogyam.memberships m on m.org_id = t.org_id and m.id = t.assignee_membership_id\n           left join aarogyam.users u on u.id = m.user_id\n           left join aarogyam.roles r on r.org_id = t.org_id and r.id = t.assignee_role_id\n           where t.deleted_at is null\n           order by t.active desc, t.title, t.id",
+  "query": "select t.id, t.title, t.description,\n                  t.assignee_membership_id, coalesce(m.display_name, u.display_name) as \"assignee_name?\",\n                  t.assignee_role_id, r.name as \"assignee_role_name?\",\n                  t.schedule_kind, t.once_at, t.interval_days, t.weekdays, t.due_time,\n                  t.starts_on, t.ends_on, t.remind_every_minutes, t.escalate_after, t.action,\n                  t.active, t.activated_at, t.is_default, t.default_key, t.created_at, t.updated_at\n           from aarogyam.task_templates t\n           left join aarogyam.memberships m on m.org_id = t.org_id and m.id = t.assignee_membership_id\n           left join aarogyam.users u on u.id = m.user_id\n           left join aarogyam.roles r on r.org_id = t.org_id and r.id = t.assignee_role_id\n           where t.id = $1 and t.deleted_at is null",
   "describe": {
     "columns": [
       {
@@ -51,12 +51,7 @@
         "ordinal": 4,
         "name": "assignee_name?",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "aarogyam.users",
-            "name": "display_name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
@@ -258,16 +253,18 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
       false,
       true,
       true,
-      false,
+      null,
       true,
-      false,
+      true,
       false,
       true,
       true,
@@ -286,5 +283,5 @@
       false
     ]
   },
-  "hash": "2199cb5214ef055681a168bc060e2745be278ac06bb722f89cbd0ac99c73c132"
+  "hash": "a244542b20972150b9772947b6d92a0f8355a1a007f480a293d4bdf9fe30b8a0"
 }

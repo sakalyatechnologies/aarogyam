@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.account_deletion_failed($1, $2, $3)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_deletion_failed",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7a922d1dc6ecc0e841b1dd57e61834ca28d644879ae8c6915b3652e4a558e874"
+}

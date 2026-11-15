@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "with changed as (\n             update aarogyam.patient_notes set body = $2 where patient_id = $1\n             returning id, body, row_version, updated_at, updated_by)\n           select c.id as \"id!\", c.body as \"body!\", c.row_version as \"row_version!\",\n                  c.updated_at as \"updated_at!\",\n                  (select u.display_name from aarogyam.users u where u.id = c.updated_by) as updated_by_name\n           from changed c",
+  "query": "with made as (\n             insert into aarogyam.patient_notes (patient_id, body) values ($1, $2)\n             on conflict (org_id, patient_id) do nothing\n             returning id, body, row_version, updated_at, updated_by)\n           select c.id as \"id!\", c.body as \"body!\", c.row_version as \"row_version!\",\n                  c.updated_at as \"updated_at!\",\n                  (select coalesce(um.display_name, u.display_name) from aarogyam.users u\n                   left join aarogyam.memberships um on um.user_id = u.id and um.org_id = (select app.tenant_id())\n                   where u.id = c.updated_by) as updated_by_name\n           from made c",
   "describe": {
     "columns": [
       {
@@ -68,5 +68,5 @@
       null
     ]
   },
-  "hash": "86d68470c0f92496f83a0cdcff4c6c326906c139556564d7665dffb31e8aa901"
+  "hash": "dceccdb66955e8eb122e076fa21ff821677851a40f1efb84b9543ac5e18ad200"
 }

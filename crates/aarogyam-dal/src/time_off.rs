@@ -264,7 +264,7 @@ pub async fn member_names(
     ids: &[Uuid],
 ) -> Result<Vec<(Uuid, String)>, DbError> {
     let rows = sqlx::query!(
-        r#"select m.id, u.display_name
+        r#"select m.id, coalesce(m.display_name, u.display_name) as "display_name!"
            from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
            where m.id = any($1)"#,
         ids

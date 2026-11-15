@@ -22,6 +22,14 @@ pub enum Event {
     SessionsRevokedOthers,
     /// A person changed their own name or phone.
     ProfileChanged,
+    /// A staff member deleted their own account.
+    AccountDeleted,
+    /// A deleted account's sign-in identity was removed from Supabase Auth.
+    AccountIdentityDeleted,
+    /// Removing a deleted account's sign-in identity failed; it will be tried again.
+    AccountIdentityRetried,
+    /// Removing a deleted account's sign-in identity failed for the last time.
+    AccountIdentityFailed,
     /// A queued message was delivered.
     MessageSent,
     /// A queued message failed and will be tried again.
@@ -238,6 +246,10 @@ impl Event {
             Self::SessionRevoked => "session.revoked",
             Self::SessionsRevokedOthers => "session.revoked_others",
             Self::ProfileChanged => "profile.changed",
+            Self::AccountDeleted => "account.deleted",
+            Self::AccountIdentityDeleted => "account.identity_deleted",
+            Self::AccountIdentityRetried => "account.identity_retried",
+            Self::AccountIdentityFailed => "account.identity_failed",
             Self::MessageSent => "message.sent",
             Self::MessageRetried => "message.retried",
             Self::BookingReminded => "booking.reminded",

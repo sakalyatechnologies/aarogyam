@@ -133,10 +133,10 @@ pub async fn list(conn: &mut PgConnection, id: Option<Uuid>) -> Result<Vec<Grant
         GrantRow,
         r#"select g.id, g.platform_user_id, s.display_name as "staff_name?", s.email as "staff_email?",
                   g.access, g.reason, g.starts_at, g.ends_at,
-                  (select u.display_name from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
+                  (select coalesce(m.display_name, u.display_name) from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
                    where m.org_id = g.org_id and m.id = g.granted_by) as granted_by_name,
                   g.revoked_at,
-                  (select u.display_name from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
+                  (select coalesce(m.display_name, u.display_name) from aarogyam.memberships m join aarogyam.users u on u.id = m.user_id
                    where m.org_id = g.org_id and m.id = g.revoked_by) as revoked_by_name,
                   a.actions as "actions!", a.last_action_at
            from aarogyam.support_grants g

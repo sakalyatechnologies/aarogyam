@@ -35,6 +35,12 @@ pub enum ApiFailure {
         /// Its value.
         value: i64,
     },
+    /// `409 last_owner`: the person is the only active owner of these clinics, which the client
+    /// shows by name.
+    LastOwner {
+        /// The clinics, by id and name.
+        clinics: Vec<OwnedClinic>,
+    },
     /// `412`: `If-Match` names a version the record no longer has.
     Stale {
         /// The record's version now, sent back as the `ETag`.
@@ -93,6 +99,27 @@ pub struct MoveRefused {
     pub current: serde_json::Value,
 }
 
+/// A clinic whose only active owner is the person deleting their account.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct OwnedClinic {
+    /// The clinic.
+    #[schema(value_type = String)]
+    pub id: uuid::Uuid,
+    /// Its name.
+    pub name: String,
+}
+
+/// The `409 last_owner` answer to deleting an account: the usual error and the clinics the person
+/// alone owns, next to it, so the client can name them.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LastOwnerRefused {
+    /// The refusal, code `last_owner`.
+    pub error: ErrorDetail,
+    /// The clinics to hand over first; absent for `platform_staff`, which has no clinics.
+    #[schema(required = false)]
+    pub clinics: Vec<OwnedClinic>,
+}
+
 impl IntoResponse for ApiFailure {
     fn into_response(self) -> Response {
         match self {
@@ -105,6 +132,17 @@ impl IntoResponse for ApiFailure {
                         message,
                     },
                     current,
+                };
+                (StatusCode::CONFLICT, Json(body)).into_response()
+            }
+            Self::LastOwner { clinics } => {
+                tracing::debug!(code = "last_owner", "request rejected");
+                let body = LastOwnerRefused {
+                    error: ErrorDetail {
+                        code: "last_owner".to_owned(),
+                        message: "Make another member an owner of these clinics first.".to_owned(),
+                    },
+                    clinics,
                 };
                 (StatusCode::CONFLICT, Json(body)).into_response()
             }
@@ -228,6 +266,23 @@ impl From<AppError> for ApiFailure {
                 field: "balance_paise",
                 value: balance_paise,
             },
+            AppError::LastOwner { clinics } => Self::LastOwner {
+                clinics: clinics
+                    .into_iter()
+                    .map(|clinic| OwnedClinic {
+                        id: clinic.id,
+                        name: clinic.name,
+                    })
+                    .collect(),
+            },
+            AppError::NoStaffAccount => Self::Error(ApiError::not_found(
+                "no_staff_account",
+                "This sign-in has no staff account to delete.",
+            )),
+            AppError::PlatformStaff => Self::Error(ApiError::conflict(
+                "platform_staff",
+                "Sakalya staff accounts are managed in the console.",
+            )),
             AppError::Forbidden(message) => Self::Error(ApiError::forbidden("forbidden", message)),
             AppError::Db(error) => error.into(),
             AppError::Internal(what) => Self::Error(ApiError::internal(what)),

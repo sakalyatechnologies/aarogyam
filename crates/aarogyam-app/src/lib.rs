@@ -5,6 +5,7 @@
 //! security limits every query to the caller's clinic. HTTP handlers in `aarogyam-api` call
 //! these; nothing here knows about HTTP.
 
+pub mod account;
 pub mod accounts;
 pub mod analytics;
 pub mod appointments;

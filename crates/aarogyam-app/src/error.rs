@@ -71,6 +71,20 @@ pub enum AppError {
     /// A rule beyond the permission forbids it (only owners may make owners).
     #[error("forbidden: {0}")]
     Forbidden(&'static str),
+    /// The person is the only active owner of these clinics, so they can't delete their account
+    /// (`409 last_owner`) until another member owns each.
+    #[error("the only owner of {} clinic(s)", clinics.len())]
+    LastOwner {
+        /// The clinics, by id and name.
+        clinics: Vec<aarogyam_dal::accounts::SoleOwned>,
+    },
+    /// The sign-in has no staff account to delete (`404 no_staff_account`).
+    #[error("no staff account")]
+    NoStaffAccount,
+    /// Active Sakalya staff are managed in the console, not deleted by themselves
+    /// (`409 platform_staff`).
+    #[error("platform staff are managed in the console")]
+    PlatformStaff,
     /// The database failed or refused.
     #[error(transparent)]
     Db(#[from] DbError),

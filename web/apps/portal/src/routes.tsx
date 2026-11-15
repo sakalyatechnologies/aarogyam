@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useParams, type RouteObject } from "react-router";
 
 import { lazyPage, RouterLinks } from "@aarogyam/app-kit";
+import { BootLoaderProvider } from "@aarogyam/auth";
 
 import { RequireCan } from "./components/require-can.js";
 import { ClinicGate, RequireAuth } from "./layout/portal-layout.js";
@@ -21,7 +22,9 @@ export const routes: RouteObject[] = [
     hydrateFallbackElement: loading,
     element: (
       <RouterLinks>
-        <Outlet />
+        <BootLoaderProvider>
+          <Outlet />
+        </BootLoaderProvider>
       </RouterLinks>
     ),
     children: [

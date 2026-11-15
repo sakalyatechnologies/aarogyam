@@ -200,3 +200,35 @@ export function AuthHeading({ title, subtitle, id }: { title: string; subtitle?:
     </div>
   );
 }
+
+/**
+ * The public website's look for the full-screen loader: its palette (ivory, charcoal, deep green,
+ * gold) and type (Newsreader for words, IBM Plex Sans for text), copied from the website's
+ * `styles.css`. Every value hangs off an `--ab-*` variable so one theme can replace them later
+ * (the planned "Aarogyam brand" theme in sakalya-web). Dark follows the system, or `data-theme`.
+ */
+export const AUTH_BRAND_CSS = `
+:root{--ab-bg:oklch(0.982 0.008 95);--ab-text:oklch(0.235 0.015 160);--ab-muted:oklch(0.5 0.02 160);--ab-primary:oklch(0.42 0.08 166);--ab-on-primary:oklch(0.985 0.008 95);--ab-accent:oklch(0.69 0.11 75);--ab-danger:oklch(0.52 0.14 27);--ab-border:oklch(0.9 0.012 150);--ab-serif:"Newsreader","Iowan Old Style",Georgia,serif;--ab-sans:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ab-bg:oklch(0.2 0.02 170);--ab-text:oklch(0.93 0.02 160);--ab-muted:oklch(0.74 0.02 160);--ab-primary:oklch(0.56 0.1 162);--ab-on-primary:oklch(0.985 0.008 95);--ab-danger:oklch(0.72 0.13 27);--ab-border:oklch(0.32 0.03 165)}}
+:root[data-theme="dark"]{--ab-bg:oklch(0.2 0.02 170);--ab-text:oklch(0.93 0.02 160);--ab-muted:oklch(0.74 0.02 160);--ab-primary:oklch(0.56 0.1 162);--ab-on-primary:oklch(0.985 0.008 95);--ab-danger:oklch(0.72 0.13 27);--ab-border:oklch(0.32 0.03 165)}
+.ab-boot{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:24px;text-align:center;background:var(--ab-bg);color:var(--ab-text);font-family:var(--ab-sans)}
+.ab-brand{display:flex;align-items:center;gap:12px}
+.ab-mark{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--ab-primary);color:var(--ab-on-primary);font:500 26px/1 var(--ab-serif);box-shadow:0 0 0 3px color-mix(in oklab,var(--ab-accent) 55%,transparent)}
+.ab-word{font:500 28px/1 var(--ab-serif);letter-spacing:-.02em}
+.ab-line{display:flex;align-items:center;gap:12px;min-height:28px;margin:0;font-size:16px;color:var(--ab-muted)}
+.ab-spin{width:20px;height:20px;border-radius:50%;border:2px solid var(--ab-border);border-top-color:var(--ab-primary);animation:ab-spin .9s linear infinite}
+.ab-fail{display:flex;flex-direction:column;align-items:center;gap:16px;max-width:380px}
+.ab-fail h1{margin:0;font:500 24px/1.2 var(--ab-serif)}
+.ab-fail p{margin:0;font-size:15px;color:var(--ab-danger)}
+.ab-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.ab-btn{min-height:44px;padding:0 20px;border-radius:12px;border:1px solid var(--ab-border);background:transparent;color:var(--ab-text);font:600 15px var(--ab-sans);cursor:pointer}
+.ab-btn.ab-primary{background:var(--ab-primary);border-color:var(--ab-primary);color:var(--ab-on-primary)}
+.ab-btn:focus-visible{outline:3px solid var(--ab-accent);outline-offset:2px}
+@keyframes ab-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.ab-spin{animation:none}}
+`;
+
+/** Puts the brand variables and loader styles on the page (once is enough). */
+export function AuthBrandStyle() {
+  return <style data-auth-brand="">{AUTH_BRAND_CSS}</style>;
+}

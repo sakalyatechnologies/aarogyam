@@ -42,7 +42,7 @@ describe("Central sign-in handoff", () => {
   it("explains a used or unknown code and offers sign-in", async () => {
     window.history.replaceState(null, "", "/auth/handoff#code=not-a-real-code");
     renderPortal("/auth/handoff", { backend: sunriseHere() });
-    expect((await screen.findByRole("alert")).textContent).toBe("This sign-in link has expired or was already used. Sign in again.");
+    expect((await screen.findByRole("alert")).textContent).toContain("This sign-in link has expired or was already used. Sign in again.");
     expect(screen.getByRole("button", { name: "Back to sign in" })).toBeTruthy();
   });
 

@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./supabase": "./src/supabase.ts",
-    "./handoff": "./src/handoff.ts"
+    "./handoff": "./src/handoff.ts",
+    "./boot-loader": "./src/boot-loader.tsx"
   },
   "scripts": {
     "typecheck": "tsc -p ."

@@ -38,6 +38,7 @@
 .ms-unread { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--brand); color: var(--sk-on-primary, #fff); font-size: 11.5px; font-weight: 800; text-align: center; }
 .ms-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ms-composer { margin-top: 12px; }
+.ms-staged { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 12px 0 0; font-size: 12.5px; color: var(--muted); }
 .ms-confirm { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--amber-soft); font-size: 13px; }
 .ms-new { display: grid; gap: 8px; padding: 12px; margin: 8px 0 12px; border: 1px solid var(--rule); border-radius: 16px; }
 .ms-people { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 200px; overflow-y: auto; }

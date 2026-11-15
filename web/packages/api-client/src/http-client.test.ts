@@ -109,6 +109,26 @@ describe("createHttpClient errors", () => {
     }
   });
 
+  it("reads a queue token whose automatic-message status is null or absent", async () => {
+    const token = {
+      id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405163",
+      branch_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405165",
+      day: "2026-10-03",
+      token_number: 4,
+      patient: { id: patientBody.id, number: "SD-9", full_name: "Test Patient", sex: "female" },
+      status: "waiting",
+      issued_at: "2026-10-03T05:30:00Z",
+      wait_minutes: 3,
+    };
+    const { fetch } = stubFetch(json(200, { date: "2026-10-03", items: [{ ...token, welcome_status: null, thanks_status: null }, token] }));
+    const client = createHttpClient("", () => null, { fetch });
+
+    const result = await client.listQueue("2026-10-03");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.items).toHaveLength(2);
+  });
+
   it("rejects a success body that doesn't match the contract, without quoting it", async () => {
     const { fetch } = stubFetch(json(200, { ...patientBody, sex: "mystery" }));
     const client = createHttpClient("", () => null, { fetch });

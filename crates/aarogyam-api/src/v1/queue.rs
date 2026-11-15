@@ -63,15 +63,19 @@ pub struct QueueToken {
     /// The welcome message to a walk-in's new patient: `queued`, `sent`, `failed` or `skipped`.
     /// Absent when no welcome applied (an appointment, a returning patient, or switched off).
     #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub welcome_status: Option<String>,
     /// Why the welcome was skipped (`no_consent`, `opted_out`, `no_address`), when it was.
     #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub welcome_skip_reason: Option<String>,
     /// The thank-you queued when a payment settled the bill, with the same values.
     #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub thanks_status: Option<String>,
     /// Why the thank-you was skipped, when it was.
     #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub thanks_skip_reason: Option<String>,
 }
 

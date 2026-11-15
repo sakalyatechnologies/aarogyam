@@ -99,3 +99,38 @@ describe("Patients page: server sort and paging", () => {
     expect(calls.slice(before).every((c) => c.sort === undefined)).toBe(true);
   });
 });
+
+describe("Patients page: a search capped at its best matches", () => {
+  /** Sunrise with `count` more patients named "Extra …". */
+  function withExtras(count: number) {
+    return fakeApi((fixtures) => {
+      const [seed] = fixtures.patients.filter((p) => p.clinic_id === fixtures.clinics[0]?.id);
+      if (seed === undefined) throw new Error("no seed patient");
+      for (let i = 0; i < count; i += 1) {
+        fixtures.patients.push({
+          ...seed,
+          id: `00000000-0000-4000-8000-${String(900 + i).padStart(12, "0")}`,
+          number: `SD-${String(900 + i)}`,
+          full_name: `Extra Person${String(i)}`,
+        });
+      }
+    });
+  }
+
+  it("says to narrow the search when it returns the most matches", async () => {
+    const user = userEvent.setup();
+    renderPortal("/patients", { as: PEOPLE.asha, backend: withExtras(55) });
+    await user.type(await screen.findByRole("searchbox", { name: "Search patients" }), "Extra");
+    expect(await screen.findByText(/Showing the best 50 matches/)).toBeTruthy();
+  });
+
+  it("says nothing when every match fits", async () => {
+    const user = userEvent.setup();
+    renderPortal("/patients", { as: PEOPLE.asha, backend: withExtras(5) });
+    await user.type(await screen.findByRole("searchbox", { name: "Search patients" }), "Extra");
+    await waitFor(() => {
+      expect(names()).toHaveLength(5);
+    });
+    expect(screen.queryByText(/Showing the best/)).toBeNull();
+  });
+});

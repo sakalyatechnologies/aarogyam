@@ -133,6 +133,8 @@ function Thread({
   const [later, setLater] = useState<ChatMessage[]>([]);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  // A chosen file waits here until Send, so what is typed goes with it as its caption.
+  const [staged, setStaged] = useState<File | null>(null);
   const id = conversation.id;
 
   const first = useQuery({
@@ -208,14 +210,16 @@ function Thread({
   });
 
   const attach = useMutation({
-    mutationFn: (file: File) => {
+    mutationFn: ({ file, caption }: { file: File; caption: string }) => {
       const form = new FormData();
       form.set("client_id", randomUuid());
       form.set("file", file);
+      if (caption !== "") form.set("body", caption);
       return unwrap(api.postChatAttachment(id, form));
     },
     onSuccess: (sent) => {
       setSendError(null);
+      setStaged(null);
       merge([sent]);
     },
     onError: (thrown) => {
@@ -230,7 +234,7 @@ function Thread({
       setSendError("That file is over 5 MB.");
     } else {
       setSendError(null);
-      attach.mutate(file);
+      setStaged(file);
     }
   };
   const download = useMutation({
@@ -250,7 +254,7 @@ function Thread({
       messages.map((m) => ({
         id: m.id,
         author: m.author_name ?? "Colleague",
-        text: m.deleted ? "This message was deleted." : (m.body ?? (m.attachment == null ? "This message was deleted." : `Sent a file: ${m.attachment.file_name ?? "attachment"}`)),
+        text: m.deleted ? "This message was deleted." : messageText(m),
         ...(m.is_notice === true ? { flagged: true } : {}),
         time: timeLabel(m.created_at, timezone),
         mine: m.author_membership_id === me,
@@ -322,8 +326,22 @@ function Thread({
         </ul>
       )}
       {sendError !== null ? <p role="alert" className="ms-error">{sendError}</p> : null}
+      {staged === null ? null : (
+        <p className="ms-staged" role="status">
+          <FileText aria-hidden="true" size={14} /> {staged.name} ({kb(staged.size)}). Type a caption and send, or{" "}
+          <button type="button" className="ms-link" disabled={attach.isPending} onClick={() => { attach.mutate({ file: staged, caption: "" }); }}>
+            Send without caption
+          </button>{" "}
+          <button type="button" className="ms-link" disabled={attach.isPending} aria-label={`Remove ${staged.name}`} onClick={() => { setStaged(null); }}>
+            Remove
+          </button>
+        </p>
+      )}
       <Composer
-        onSend={(text, options) => { post.mutate({ body: text, notice: options.flagged }); }}
+        onSend={(text, options) => {
+          if (staged === null) post.mutate({ body: text, notice: options.flagged });
+          else attach.mutate({ file: staged, caption: text });
+        }}
         {...(canNotice ? { flagOption: { label: "Post as notice", hint: "Pinned at the top for everyone in this chat" } } : {})}
         onAttach={() => { fileInput.current?.click(); }}
         disabled={!loaded}
@@ -345,6 +363,13 @@ function Thread({
       />
     </MkCard>
   );
+}
+
+/** The thread line: the text, and for a file its name before any caption. */
+function messageText(m: ChatMessage): string {
+  if (m.attachment == null) return m.body ?? "This message was deleted.";
+  const sent = `Sent a file: ${m.attachment.file_name ?? "attachment"}`;
+  return m.body == null ? sent : `${sent}. ${m.body}`;
 }
 
 /** "14:05" today, otherwise "3 Oct", in the clinic's time zone. */

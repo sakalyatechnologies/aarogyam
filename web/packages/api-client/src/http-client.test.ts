@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { createFakeBackend, createFixtures, fakeTokenFor } from "./fake/index.js";
 import { ApiFailure, appointmentId, createDevTokenSource, createHttpClient, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, purchaseOrderId, queueTokenId, sessionId, taskId, taskOccurrenceId, unwrap, visitId } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
@@ -207,6 +208,45 @@ describe("createHttpClient requests", () => {
     expect(result.ok && result.value.amount_paise).toBe(50000);
     const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { uri: 1 })).fetch });
     expect((await bad.getInvoiceUpiLink(invoiceId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170"))).ok).toBe(false);
+  });
+
+  it("checks a patient in, lists and dismisses duplicates and merges on their own paths, checking each body against the contract", async () => {
+    const fixtures = createFixtures({ now: new Date("2026-10-03T05:30:00Z") });
+    const fake = createFakeBackend(fixtures).client({ host: "sunrise.localtest.me", getToken: () => fakeTokenFor({ id: "a1a1a1a1-0000-4000-8000-000000000003" }), now: () => new Date("2026-10-03T05:30:00Z") });
+    const appointment = (await unwrap(fake.listAppointments({ from: "2026-01-01", to: "2026-12-31" }))).items[0];
+    const checked = { appointment, allergies_recorded: 1, consents_recorded: ["care"], queue_token_id: "tok-1" };
+    const make = (response: Response) => {
+      const stub = stubFetch(response);
+      return { stub, client: createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stub.fetch }) };
+    };
+    const id = appointmentId.parse("0192f1c4-7a10-7c3e-9b2a-1d2e3f405170");
+    const checkIn = make(json(200, checked));
+    const result = await checkIn.client.checkInAppointment(id, { sex: "female", age_years: 31, no_known_allergies: true });
+    expect(checkIn.stub.calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/appointments/0192f1c4-7a10-7c3e-9b2a-1d2e3f405170/check-in");
+    expect(checkIn.stub.calls[0]?.init?.method).toBe("POST");
+    expect(checkIn.stub.calls[0]?.init?.body).toBe(JSON.stringify({ sex: "female", age_years: 31, no_known_allergies: true }));
+    expect(result.ok && result.value.consents_recorded).toEqual(["care"]);
+    expect((await make(json(200, { ...checked, consents_recorded: 3 })).client.checkInAppointment(id, {})).ok).toBe(false);
+
+    const side = (n: string) => ({ id: `01a103b1-ea26-7120-ad93-41b6b4b4eb0${n}`, number: `SD-${n}`, full_name: "Test Person", sex: "unknown" });
+    const flag = { id: "flag-1", reason: "phone", flagged_at: "2026-10-03T04:00:00Z", patient: side("1"), candidate: side("2") };
+    const list = make(json(200, { items: [flag] }));
+    const listed = await list.client.listPatientDuplicates();
+    expect(list.stub.calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/patient-duplicates");
+    expect(listed.ok && listed.value.items[0]?.candidate.number).toBe("SD-2");
+    expect((await make(json(200, { items: [{ ...flag, patient: { id: 1 } }] })).client.listPatientDuplicates()).ok).toBe(false);
+
+    const dismiss = make(new Response(null, { status: 204 }));
+    expect((await dismiss.client.dismissPatientDuplicate("flag-1")).ok).toBe(true);
+    expect(dismiss.stub.calls[0]?.url).toBe("http://sunrise.localtest.me/api/v1/patient-duplicates/flag-1/dismiss");
+    expect(dismiss.stub.calls[0]?.init?.method).toBe("POST");
+
+    const merge = make(json(200, { patient_id: side("2").id, appointments_moved: 2 }));
+    const into = patientId.parse(side("2").id);
+    const merged = await merge.client.mergePatient(patientId.parse(side("1").id), { into_patient_id: into });
+    expect(merge.stub.calls[0]?.url).toBe(`http://sunrise.localtest.me/api/v1/patients/${side("1").id}/merge`);
+    expect(merge.stub.calls[0]?.init?.body).toBe(JSON.stringify({ into_patient_id: side("2").id }));
+    expect(merged.ok && merged.value.appointments_moved).toBe(2);
   });
 
   it("sends purchase orders and the stock import to their own paths and checks each body against the contract", async () => {

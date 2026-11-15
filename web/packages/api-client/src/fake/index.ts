@@ -5,6 +5,7 @@ export {
   type FakeClinic,
   type FakeMembership,
   type FakePatient,
+  type FakePatientDuplicate,
   type FakePlatformUser,
   type FakeRole,
   type FakeUser,

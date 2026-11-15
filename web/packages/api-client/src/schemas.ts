@@ -618,6 +618,9 @@ export type AppointmentChanges = C.AppointmentChanges;
 export type StatusChange = C.StatusChange;
 export type TokenStatusChange = C.TokenStatusChange;
 
+/** Body of `POST /api/v1/appointments/{id}/check-in`. Every field is optional. */
+export type CheckInRequest = C.CheckInRequest;
+
 export const bookingWarning = z.object({ code: bookingWarningCode, message: z.string() }) satisfies z.ZodType<C.BookingWarning>;
 export type BookingWarning = z.output<typeof bookingWarning>;
 
@@ -1159,6 +1162,35 @@ export type IncompletePatient = z.output<typeof incompletePatient>;
 export const incompleteList = z.object({ items: z.array(incompletePatient) }) satisfies z.ZodType<C.IncompleteList>;
 export type IncompleteList = z.output<typeof incompleteList>;
 
+/** One of the two records of a possible duplicate. */
+export const duplicateSide = z.object({
+  id: patientId,
+  number: patientNumber,
+  full_name: z.string(),
+  sex,
+  age_years: count.nullable().exactOptional(),
+}) satisfies z.ZodType<C.DuplicateSide>;
+export type DuplicateSide = z.output<typeof duplicateSide>;
+
+/** An online sign-up whose phone matches an existing patient. */
+export const possibleDuplicate = z.object({
+  id: z.string().min(1),
+  reason: z.string(),
+  flagged_at: timestamp,
+  patient: duplicateSide,
+  candidate: duplicateSide,
+}) satisfies z.ZodType<C.PossibleDuplicate>;
+export type PossibleDuplicate = z.output<typeof possibleDuplicate>;
+
+export const duplicateList = z.object({ items: z.array(possibleDuplicate) }) satisfies z.ZodType<C.DuplicateList>;
+export type DuplicateList = z.output<typeof duplicateList>;
+
+/** Body of `POST /api/v1/patients/{id}/merge`: the existing patient that keeps its record. */
+export type MergeRequest = C.MergeRequest;
+
+export const merged = z.object({ patient_id: patientId, appointments_moved: count }) satisfies z.ZodType<C.Merged>;
+export type Merged = z.output<typeof merged>;
+
 // Console host -------------------------------------------------------------------------------
 
 export const clinicStatus = z.enum(["trial", "active", "suspended", "churned"]);
@@ -1559,6 +1591,15 @@ export const consentPurpose = z.enum(["care", "reminders", "promotional", "shari
 export type ConsentPurpose = z.output<typeof consentPurpose>;
 export const consentMethod = z.enum(["paper", "verbal", "app"]) satisfies z.ZodType<C.ConsentMethod>;
 export type ConsentMethod = z.output<typeof consentMethod>;
+
+/** What a check-in did: the appointment, arrived, and its queue token. */
+export const checkedIn = z.object({
+  appointment,
+  allergies_recorded: count,
+  consents_recorded: z.array(consentPurpose),
+  queue_token_id: queueTokenId.nullable().exactOptional(),
+}) satisfies z.ZodType<C.CheckedIn>;
+export type CheckedIn = z.output<typeof checkedIn>;
 export const consentStatus = z.enum(["given", "withdrawn"]) satisfies z.ZodType<C.ConsentStatus>;
 export type ConsentStatus = z.output<typeof consentStatus>;
 

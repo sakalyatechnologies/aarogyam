@@ -131,6 +131,21 @@ export interface FakePatient
   status: "active" | "inactive" | "deceased" | "merged";
   /** Set by a walk-in's "No known allergies"; active allergies always mean `has_allergies`. */
   allergies_reviewed?: "unknown" | "none_known" | "has_allergies";
+  /** An online sign-up still missing sex or age; the desk's check-in asks for them. Cleared by a check-in that gives both. */
+  registration_incomplete?: boolean;
+}
+
+/** An online sign-up flagged as possibly an existing patient (same phone). */
+export interface FakePatientDuplicate {
+  id: string;
+  clinic_id: string;
+  /** The self-registered record. */
+  patient_id: string;
+  /** The existing patient it may be. */
+  candidate_id: string;
+  reason: string;
+  flagged_at: string;
+  dismissed?: boolean;
 }
 
 /** `relation` is what `related_patient_id` is to `patient_id`. */
@@ -697,6 +712,8 @@ export interface Fixtures {
   notes: FakeNote[];
   /** Consent records (DPDP), made on first use. */
   consents?: FakeConsent[];
+  /** Possible duplicates among online sign-ups, made on first use. */
+  patientDuplicates?: FakePatientDuplicate[];
   /** Patient summary notes, made on first save. */
   summaryNotes?: FakeSummaryNote[];
   observations: FakeObservation[];

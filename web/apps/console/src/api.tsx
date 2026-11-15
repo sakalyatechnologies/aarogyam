@@ -143,6 +143,16 @@ export function useRejectApplication() {
   });
 }
 
+/** The clinic access grants this staff member holds, refreshed every minute so a revoked one disappears. */
+export function useSupportGrants() {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["support-grants"],
+    queryFn: ({ signal }) => unwrap(api.listMySupportGrants({ signal })),
+    refetchInterval: 60_000,
+  });
+}
+
 /** The 30 most recent quality runs, refreshed every minute: a run completes every so often, not
  * on every keystroke. */
 export function useQuality() {

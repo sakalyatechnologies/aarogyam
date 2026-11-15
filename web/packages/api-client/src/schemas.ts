@@ -1919,6 +1919,23 @@ export const application = z.object({
 }) satisfies z.ZodType<C.Application>;
 export type Application = z.output<typeof application>;
 
+export const staffSupportGrant = z.object({
+  id: z.string(),
+  access: z.string(),
+  clinic_id: z.string(),
+  clinic_name: z.string(),
+  slug: z.string(),
+  portal_host: optionalText,
+  reason: z.string(),
+  starts_at: z.string(),
+  ends_at: z.string(),
+  status: z.string(),
+  granted_by: z.string(),
+}) satisfies z.ZodType<C.StaffSupportGrant>;
+export type StaffSupportGrant = z.output<typeof staffSupportGrant>;
+export const staffSupportGrants = z.object({ items: z.array(staffSupportGrant) }) satisfies z.ZodType<C.StaffSupportGrants>;
+export type StaffSupportGrants = z.output<typeof staffSupportGrants>;
+
 export const applications = z.object({ items: z.array(application) }) satisfies z.ZodType<C.Applications>;
 export type Applications = z.output<typeof applications>;
 

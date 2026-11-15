@@ -1,4 +1,4 @@
-import { Activity, Building2, CheckCircle2, Inbox, KeyRound, LogOut } from "lucide-react";
+import { Activity, Building2, CheckCircle2, Inbox, KeyRound, LifeBuoy, LogOut } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router";
 
 import { renderRouterLink } from "@aarogyam/app-kit";
@@ -14,6 +14,7 @@ const NAV: readonly NavEntry[] = [
   { id: "quality", label: "Quality", icon: <CheckCircle2 />, href: "/quality" },
   { id: "applications", label: "Applications", icon: <Inbox />, href: "/applications" },
   { id: "clinics", label: "Clinics", icon: <Building2 />, href: "/clinics" },
+  { id: "support", label: "Support access", icon: <LifeBuoy />, href: "/support" },
 ];
 
 /** Sends signed-out visitors to sign-in, remembering where they were going. */

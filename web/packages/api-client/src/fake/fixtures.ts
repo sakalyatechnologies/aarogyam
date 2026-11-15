@@ -459,6 +459,18 @@ export interface FakeApplication {
   updated_at: string;
 }
 
+/** A support grant a staff member holds on a clinic. */
+export interface FakeSupportGrant {
+  id: string;
+  staff_id: string;
+  clinic_id: string;
+  reason: string;
+  starts_at: string;
+  ends_at: string;
+  granted_by: string;
+  revoked?: boolean;
+}
+
 /** Where a clinic buys materials. */
 export interface FakeSupplier {
   id: string;
@@ -698,6 +710,8 @@ export interface Fixtures {
   /** Staff notifications, made by tests; the bell reads them. */
   notifications?: FakeNotification[];
   applications: FakeApplication[];
+  /** Support grants staff hold, made by tests; the console lists them. */
+  supportGrants?: FakeSupportGrant[];
   priceItems: FakePriceItem[];
   suppliers: FakeSupplier[];
   inventoryItems: FakeInventoryItem[];

@@ -34,6 +34,7 @@ export const routes: RouteObject[] = [
               { path: "clinics", lazy: lazyPage(() => import("./pages/clinics/clinics-page.js"), (m) => m.ClinicsPage) },
               { path: "clinics/new", lazy: lazyPage(() => import("./pages/clinics/new-clinic-page.js"), (m) => m.NewClinicPage) },
               { path: "clinics/:id", lazy: lazyPage(() => import("./pages/clinics/clinic-detail-page.js"), (m) => m.ClinicDetailPage) },
+              { path: "support", lazy: lazyPage(() => import("./pages/support/support-page.js"), (m) => m.SupportPage) },
               { path: "*", lazy: lazyPage(() => import("./pages/not-found-page.js"), (m) => m.NotFoundPage) },
             ],
           },

@@ -5773,7 +5773,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       listMySupportGrants: (opts) =>
         respond(S.staffSupportGrants, opts?.signal, async () => {
           const staffId = await subject();
-          return inConsole(() => reply({ items: supportGrantsOf(state, staffId, clock()) } satisfies C.StaffSupportGrants));
+          return inConsole(() => reply({ items: supportGrantsOf(state, staffId, clock(), taskMemberName) } satisfies C.StaffSupportGrants));
         }),
 
       listApplications: (status, opts) =>
@@ -10530,16 +10530,16 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date, asked: strin
 // Onboarding: applications, clinic detail -------------------------------------------------------
 
 /** A staff member's grants, newest end first: active until revoked or past `ends_at`. */
-function supportGrantsOf(state: Fixtures, staffId: string | undefined, now: Date): C.StaffSupportGrant[] {
+function supportGrantsOf(state: Fixtures, staffId: string | undefined, now: Date, memberName: (id: string) => string | null): C.StaffSupportGrant[] {
   return (state.supportGrants ?? [])
-    .filter((g) => g.staff_id === staffId)
+    .filter((g) => g.staff_user_id === staffId)
     .sort((a, b) => b.ends_at.localeCompare(a.ends_at))
     .flatMap((g) => {
       const clinic = state.clinics.find((c) => c.id === g.clinic_id);
       if (clinic === undefined) {
         return [];
       }
-      const status = g.revoked === true ? "revoked" : new Date(g.ends_at) <= now ? "ended" : "active";
+      const status = grantStatus(g, now);
       return [
         {
           id: g.id,
@@ -10552,7 +10552,7 @@ function supportGrantsOf(state: Fixtures, staffId: string | undefined, now: Date
           starts_at: g.starts_at,
           ends_at: g.ends_at,
           status,
-          granted_by: g.granted_by,
+          granted_by: memberName(g.granted_by) ?? "A clinic member",
         },
       ];
     });

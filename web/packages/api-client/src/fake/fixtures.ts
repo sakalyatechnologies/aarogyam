@@ -474,17 +474,6 @@ export interface FakeApplication {
   updated_at: string;
 }
 
-/** A support grant a staff member holds on a clinic. */
-export interface FakeSupportGrant {
-  id: string;
-  staff_id: string;
-  clinic_id: string;
-  reason: string;
-  starts_at: string;
-  ends_at: string;
-  granted_by: string;
-  revoked?: boolean;
-}
 
 /** Where a clinic buys materials. */
 export interface FakeSupplier {
@@ -721,7 +710,7 @@ export interface Fixtures {
   chartEntries: FakeChartEntry[];
   /** Procedures and materials clinics added, made on first use. */
   dentalTerms?: import("./dental-terms.js").FakeDentalTerm[];
-  /** Support grants clinics gave Sakalya staff, made on first use. */
+  /** Support grants clinics gave Sakalya staff, made on first use; the console lists a staff member's own. */
   supportGrants?: import("./support-grants.js").FakeSupportGrant[];
   supportActions?: import("./support-grants.js").FakeSupportAction[];
   plans: FakePlan[];
@@ -730,8 +719,6 @@ export interface Fixtures {
   /** Staff notifications, made by tests; the bell reads them. */
   notifications?: FakeNotification[];
   applications: FakeApplication[];
-  /** Support grants staff hold, made by tests; the console lists them. */
-  supportGrants?: FakeSupportGrant[];
   priceItems: FakePriceItem[];
   suppliers: FakeSupplier[];
   inventoryItems: FakeInventoryItem[];

@@ -602,7 +602,7 @@ describe("fake client: patient list sort and paging", () => {
 describe("fake client: my support grants", () => {
   const grant = (id: string, ends: string, extra: object = {}) => ({
     id,
-    staff_id: PEOPLE.admin,
+    staff_user_id: PEOPLE.admin,
     clinic_id: "",
     reason: "Synthetic: check a booking page",
     starts_at: "2026-10-03T04:00:00Z",
@@ -618,8 +618,8 @@ describe("fake client: my support grants", () => {
     fixtures.supportGrants = [
       grant("g-old", "2026-10-03T05:00:00Z", { clinic_id }),
       grant("g-live", "2026-10-03T08:00:00Z", { clinic_id }),
-      grant("g-revoked", "2026-10-04T08:00:00Z", { clinic_id, revoked: true }),
-      grant("g-other", "2026-10-05T08:00:00Z", { clinic_id, staff_id: PEOPLE.asha }),
+      grant("g-revoked", "2026-10-04T08:00:00Z", { clinic_id, revoked_at: "2026-10-03T05:10:00Z" }),
+      grant("g-other", "2026-10-05T08:00:00Z", { clinic_id, staff_user_id: PEOPLE.asha }),
     ];
     const client = createFakeBackend(fixtures).client({ getToken: () => fakeTokenFor({ id: PEOPLE.admin }), now: () => NOW });
     const { items } = value(await client.listMySupportGrants());

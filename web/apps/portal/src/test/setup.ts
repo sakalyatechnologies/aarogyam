@@ -1,8 +1,9 @@
 import { cleanup, configure } from "@testing-library/react";
 import { afterEach } from "vitest";
 
-// Pages load lazily; on a busy machine (a concurrent cargo build, or CI) the default 1s is too tight.
-configure({ asyncUtilTimeout: 6000 });
+// Pages load lazily; on a busy machine (a concurrent cargo build, or CI) the default 1s is too tight,
+// and 6s still failed the longest flows (setup wizard, Patient 360, studio) when Gradle and Xcode ran.
+configure({ asyncUtilTimeout: 15_000 });
 
 afterEach(() => {
   cleanup();

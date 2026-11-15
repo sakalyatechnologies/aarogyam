@@ -1,9 +1,11 @@
 # T13 patient worker: Android patient screens (branch v11-and-patient)
 
-Status (resume here): code for the v9 page written under `mobile/androidApp/.../ui/patient/`, not yet compiled or committed.
+Status: all five scopes done, compiled, lint and unit tests green, committed in one commit (see git log). No emulator check yet.
 
-Written (uncommitted): PatientLogic (+test), PatientKit, PatientHeader (money strip behind eye, quick actions, flags, pill tabs), PatientPage, OverviewTab, JawChart, ToothSheet, AddTreatmentForm, FollowUpsCard, HistoryTab, VisitDetail(+Cards, MedicineCard, DoseDisplay +test), PaymentSheet, SendRxSheet, ConsentTab, RecordConsentSheet, PhotoSheet, BookSheet, OutboxBadge, PatientIcons.
+Done vs iOS: v9 page (header, money strip behind eye, quick actions, flags, pill tabs, Start treatment), Overview (jaw chart with tilt, tooth sheet with add/edit treatment, alerts, treatments, last visit, Follow-ups with Dismiss, media), History cards, visit detail (`patient/{id}/visit/{visitId}`: summary, treatment, notes, Rx dose grid, send Rx, files, bill with Record payment), Consent (record, withdraw), Photo/Book/Share sheets, Patients list (search, chips, recall pill). Old RxTab/NotesTab/FilesTab/BillingTab/Patient360Screen deleted, with their now-unused strings.
 
-To do: ShareSheet, PatientRoutes (host PatientPage + visit detail route, `startTreatment` lambda param), strings_patient.xml en/hi/mr (generate from PatientV9/PatientV7 xcstrings; only used keys), PatientsScreen (chips, due pill), delete old tabs (RxTab, NotesTab, FilesTab, BillingTab, Patient360Screen) and their unused strings, compile, lint, commit.
+Deviations: tooth "now" card shows a coloured crown bubble instead of the painted tooth; Android has no eye icons so PatientIcons draws eye/eye_off; the visit detail has its own BillingStateHolder and the page refreshes on resume; jaw tilt sign (rotationX) unverified without emulator.
 
-Needs from others: visit area `openVisitForPatient(patientId)`: wire into `patientDestinations` `startTreatment` default at merge. Reuses visit-owned `ui/chart` (FindingSwatch, label()), strings_chart.xml, RxSheet strings (rx_*).
+Openers: `openPatient(id)` kept. `patientDestinations(..., startTreatment: (String) -> Unit = {})`: coordinator passes `nav::openVisitForPatient` at merge.
+
+Needs: visit area keeps `ui/chart` FindingSwatch and label() extensions, strings_chart.xml (chart_*, finding_*, surface_*, kind_*) and rx_* strings used by SendRxSheet. New `ui/RxDays.kt` keeps `daysText` that RxSheet.kt used from the deleted RxTab. NotesLabels.kt and RichTextView.kt are now unused (left in place).

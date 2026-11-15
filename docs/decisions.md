@@ -787,3 +787,9 @@ so tests exercise the stream.
 **Decision.** `GET /patients` takes optional `sort` (`recent` default, `name`, `number`, `last_visit`), `dir`, `offset` (0 to 10000) and `limit` (1 to 50, default 20); bad values are a 400 naming the field. The order ends in the patient id, so pages never repeat or skip; `last_visit` puts patients never seen last either way; `name` ignores case. The response gains optional `total` (patients passing the filter, from `count(*) over ()` in the same statement, so the round-trip budget holds; absent on an empty page) and `has_more`. Filters, RLS and reach are unchanged. The portal sends the sort for name, number and last visit when the search box is empty; Next and Balance still sort the loaded rows, and a text search (POST) still sorts in the browser. Additive, no migration.
 
 **Why.** The browser sorted only the newest 50, so a clinic with more patients could not reach the rest by name or number.
+
+## 2026-11-14: A reminded notification rises to the top of the staff feed
+
+**Decision.** Remind (`POST /queue/{id}/remind`) now also sets `staff_notifications.reminded_at = now()` on the token's `patient_waiting` row. The feed orders by `greatest(created_at, coalesce(reminded_at, created_at)) desc, id desc`; the `before` id cursor is a keyset on that same key (the cursor row's key is read inside the statement, so no extra query). Count and badges are unchanged. The escalation job only steps `booking_requested` and `booking_conflict` rows, so a desk remind on `patient_waiting` cannot suppress or hasten it.
+
+**Why.** The re-raised row kept its old id position, often far down the feed, so the doctor never saw it.

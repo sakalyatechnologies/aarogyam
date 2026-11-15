@@ -1710,3 +1710,75 @@ async fn remind_re_raises_the_doctors_notification_once_a_minute() {
 
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_reminded_notification_rises_to_the_top_and_paging_stays_whole() {
+    let app = TestApp::start().await;
+    let clinic = app.clinic_id("alpha").await;
+    let owner = app.token(ALPHA_OWNER);
+    let (doctor, member) = new_member(&app, clinic, "doctor").await;
+    let practitioner = on_rota(&app, clinic, member, branch(&app, clinic).await, "Dr Rao").await;
+    let mut tokens = Vec::new();
+    for name in ["Asha Nair", "Bela Rao", "Chitra Das"] {
+        let patient = register(&app, &owner, name).await;
+        tokens.push(walk_in(&app, &owner, &patient, Some(practitioner)).await);
+    }
+    let oldest = tokens[0].clone();
+    let waiting = |items: &[Value]| -> Vec<String> {
+        items
+            .iter()
+            .filter(|item| item["kind"] == "patient_waiting")
+            .map(|item| item["queue_token"]["id"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let before = waiting(&feed(&app, &doctor).await);
+    assert_eq!(before.len(), 3);
+    assert_eq!(before[2], oldest);
+
+    // The oldest is read, then reminded: first in the feed and unread again.
+    post_ok(&app, &doctor, "/api/v1/notifications/read-all", None).await;
+    post_ok(
+        &app,
+        &owner,
+        &format!("/api/v1/queue/{oldest}/remind"),
+        None,
+    )
+    .await;
+    let items = feed(&app, &doctor).await;
+    assert_eq!(items[0]["kind"], "patient_waiting");
+    assert_eq!(items[0]["queue_token"]["id"], oldest.as_str());
+    assert_eq!(items[0]["read"], false);
+    let order = waiting(&items);
+    assert_eq!(order[0], oldest);
+
+    // Paging two at a time with `before` yields the same list: no duplicate, no gap.
+    let mut paged: Vec<String> = Vec::new();
+    let mut cursor: Option<String> = None;
+    loop {
+        let path = match &cursor {
+            Some(id) => format!("/api/v1/notifications?limit=2&before={id}"),
+            None => "/api/v1/notifications?limit=2".to_string(),
+        };
+        let page = get_ok(&app, &doctor, &path).await;
+        let rows = page["items"].as_array().unwrap().clone();
+        if rows.is_empty() {
+            break;
+        }
+        for row in &rows {
+            paged.push(row["id"].as_str().unwrap().to_string());
+        }
+        cursor = Some(rows.last().unwrap()["id"].as_str().unwrap().to_string());
+    }
+    let whole: Vec<String> = items
+        .iter()
+        .map(|i| i["id"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(paged, whole);
+    let mut unique = paged.clone();
+    unique.sort();
+    unique.dedup();
+    assert_eq!(unique.len(), paged.len());
+
+    app.finish().await;
+}

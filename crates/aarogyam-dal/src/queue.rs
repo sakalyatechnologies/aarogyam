@@ -505,13 +505,14 @@ pub async fn remind(conn: &mut PgConnection, id: Uuid, now: OffsetDateTime) -> R
              insert into aarogyam.staff_notifications (kind, queue_token_id, href, audience)
              values ('patient_waiting', $1, '/queue', 'doctor')
              on conflict (org_id, queue_token_id, kind) where queue_token_id is not null
-             do update set handled_at = null, handled_by = null
+             do update set handled_at = null, handled_by = null, reminded_at = $2
              returning id
            )
            delete from aarogyam.staff_notification_reads r
            using raised
            where r.notification_id = raised.id"#,
-        id
+        id,
+        now
     )
     .execute(conn)
     .await?;

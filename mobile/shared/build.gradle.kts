@@ -148,6 +148,7 @@ val apiModels =
         "ConversationList",
         "ConversationMember",
         "ConversationStarted",
+        "DownloadLink",
         "ErrorDetail",
         "Expense",
         "ExpenseCategory",

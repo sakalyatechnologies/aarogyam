@@ -994,6 +994,17 @@ async fn the_welcome_status_shows_on_the_queue_token_and_stays_in_the_clinic() {
     )
     .await;
     assert!(again["token"]["welcome_status"].is_null());
+    // Absent, not null: clients read these fields as optional strings.
+    let again_token = again["token"]["id"].as_str().unwrap().to_owned();
+    let listed = queue_token(&app, &desk, &again_token).await;
+    for field in [
+        "welcome_status",
+        "welcome_skip_reason",
+        "thanks_status",
+        "thanks_skip_reason",
+    ] {
+        assert!(listed.get(field).is_none(), "{field} in {listed}");
+    }
     // The other clinic's queue shows none of this, and its own token has no status.
     let beta = app.token(BETA_OWNER);
     let (status, theirs) = app

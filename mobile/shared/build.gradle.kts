@@ -357,3 +357,7 @@ kotlin {
         }
     }
 }
+
+// AGP looks for release baseline profiles next to every Kotlin source folder, the generated one
+// included, so the release-only profile task must run after the models are generated.
+tasks.matching { it.name == "prepareAndroidMainArtProfile" }.configureEach { dependsOn(generateApiModels) }

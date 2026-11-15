@@ -1,0 +1,16 @@
+source 'https://rubygems.org'
+
+# Release automation (docs/release.md). Gemfile.lock is committed, so the version is reproducible;
+# take App Store Connect and Play API fixes with `bundle update fastlane`.
+gem 'fastlane'
+
+# Removed from Ruby's default gems in 3.4+; fastlane still requires them.
+gem 'abbrev'
+gem 'base64'
+gem 'benchmark'
+gem 'bigdecimal'
+gem 'csv'
+gem 'logger'
+gem 'mutex_m'
+gem 'nkf'
+gem 'ostruct'

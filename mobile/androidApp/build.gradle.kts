@@ -18,6 +18,20 @@ fun secret(
     env: String,
 ): String = providers.environmentVariable(env).orNull ?: secrets.getProperty(key).orEmpty()
 
+// The Play upload key (docs/release.md): AAROGYAM_UPLOAD_* environment variables win, else the
+// git-ignored androidApp/keystore.properties. Without either, release builds stay unsigned and
+// `fastlane android build` refuses to run.
+val uploadKey =
+    Properties().apply {
+        val file = file("keystore.properties")
+        if (file.isFile) file.inputStream().use(::load)
+    }
+
+fun upload(
+    key: String,
+    env: String,
+): String? = providers.environmentVariable(env).orNull ?: uploadKey.getProperty(key)
+
 fun quoted(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 android {
@@ -58,6 +72,16 @@ android {
             dimension = "environment"
             buildConfigField("String", "ENVIRONMENT", quoted("Prod"))
         }
+    }
+    upload("storeFile", "AAROGYAM_UPLOAD_STORE_FILE")?.let { store ->
+        val key =
+            signingConfigs.create("upload") {
+                storeFile = file(store)
+                storePassword = upload("storePassword", "AAROGYAM_UPLOAD_STORE_PASSWORD")
+                keyAlias = upload("keyAlias", "AAROGYAM_UPLOAD_KEY_ALIAS")
+                keyPassword = upload("keyPassword", "AAROGYAM_UPLOAD_KEY_PASSWORD")
+            }
+        buildTypes.getByName("release").signingConfig = key
     }
     // The development sign-in exists in the local flavour's debug build only; every other variant
     // gets an empty stand-in, and `checkNoDevSignIn` proves it.

@@ -1,0 +1,5 @@
+Aarogyam Clinic is for staff of clinics that use Aarogyam. Accounts are created by a clinic owner's invitation.
+
+To review: on the sign-in screen tap "Use a password" and sign in with the demo account above. It is the owner of a demo clinic that holds only made-up patients, so every feature is visible and no real patient data is shown.
+
+The camera is used for patient photos and X-rays, and the microphone and speech recognition for dictating visit notes. Recordings are never stored.

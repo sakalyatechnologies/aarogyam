@@ -40,6 +40,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.staff
         TARGETED_DEVICE_FAMILY: "1"
+        # Interim store icon (docs/release.md); replace AppIcon-1024.png with the approved artwork.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         OTHER_LDFLAGS: [-framework, AarogyamShared]
         GENERATE_INFOPLIST_FILE: NO
         # Which API the build talks to: Local, Demo or Prod (as Android's flavours).

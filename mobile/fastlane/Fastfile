@@ -1,0 +1,243 @@
+# Store releases for the one Aarogyam app (iOS and Android). How to set up and run: docs/release.md.
+#
+# Rules carried over from MyDwarpal's release setup:
+# - The repository holds the version and build numbers; a build never bumps them. The bump lanes edit
+#   the file and stop, so the change is committed before the upload.
+# - Credentials come from environment variables or git-ignored files in fastlane/credentials, never
+#   from this file. A missing credential stops the lane with what to set.
+# - Uploads land as TestFlight builds or Play drafts; submitting for review stays a person's click.
+
+require 'base64'
+require 'json'
+require 'shellwords'
+require 'tmpdir'
+
+opt_out_usage
+skip_docs
+
+def mobile
+  @mobile ||= begin
+    dir = Dir.pwd
+    dir = File.dirname(dir) until File.exist?(File.join(dir, 'iosApp', 'project.yml')) || dir == '/'
+    UI.user_error!("Could not find mobile/ from #{Dir.pwd}") if dir == '/'
+    dir
+  end
+end
+
+def m(*parts)
+  File.join(mobile, *parts)
+end
+
+def project_yml = m('iosApp', 'project.yml')
+def gradle_file = m('androidApp', 'build.gradle.kts')
+def credentials_dir = m('fastlane', 'credentials')
+def out_dir = m('build', 'release')
+def ipa_path = File.join(out_dir, 'Aarogyam.ipa')
+def aab_path = m('androidApp', 'build', 'outputs', 'bundle', 'prodRelease', 'androidApp-prod-release.aab')
+def team_id = CredentialsManager::AppfileConfig.try_fetch_value(:team_id)
+def app_identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+
+IOS_SCHEME = 'AarogyamStaff'.freeze
+
+# --------------------------------------------------------------------------- versions
+
+def ios_build_number = File.read(project_yml)[/^\s+CURRENT_PROJECT_VERSION: (\d+)$/, 1].to_i
+def ios_marketing_version = File.read(project_yml)[/^\s+MARKETING_VERSION: ([\d.]+)$/, 1]
+def android_version_code = File.read(gradle_file)[/versionCode = (\d+)/, 1].to_i
+def android_version_name = File.read(gradle_file)[/versionName = "([^"]+)"/, 1]
+
+def bump(file, pattern, name)
+  text = File.read(file)
+  current = text[pattern, 1].to_i
+  File.write(file, text.sub(pattern) { |line| line.sub(current.to_s, (current + 1).to_s) })
+  UI.success("#{name} #{current} -> #{current + 1} in #{file}. Commit it, then release.")
+end
+
+# --------------------------------------------------------------------------- prod settings
+
+# The Release build reads these into the app (write-build-settings.sh, build.gradle.kts). An empty
+# one would ship an app that cannot sign in, so the build lanes refuse it.
+def require_prod_settings
+  props = {}
+  file = m('local.secrets.properties')
+  File.readlines(file).each { |l| k, v = l.strip.split('=', 2); props[k] = v if v } if File.exist?(file)
+  missing = { 'AAROGYAM_SUPABASE_URL' => 'supabase.url', 'AAROGYAM_SUPABASE_KEY' => 'supabase.key',
+              'AAROGYAM_PROD_APP_HOST' => 'prod.app_host' }.select { |env, key| ENV[env].to_s.empty? && props[key].to_s.empty? }
+  return if missing.empty?
+
+  UI.user_error!("Set #{missing.map { |env, key| "#{env} (or #{key} in mobile/local.secrets.properties)" }.join(', ')} " \
+                 'to the production values before a release build.')
+end
+
+# --------------------------------------------------------------------------- credentials
+
+def write_private(file, contents)
+  File.write(file, contents)
+  File.chmod(0o600, file)
+  file
+end
+
+# App Store Connect API key: APP_STORE_CONNECT_API_KEY_ID + _ISSUER_ID with either _PATH (the .p8) or
+# _CONTENT (base64 of the .p8, for CI), or fastlane/credentials/AuthKey_<KEYID>.p8 plus the two ids.
+def asc_key_material
+  return @asc_key_material if defined?(@asc_key_material)
+
+  key_id = ENV['APP_STORE_CONNECT_API_KEY_ID'].to_s
+  issuer_id = ENV['APP_STORE_CONNECT_ISSUER_ID'].to_s
+  p8 = ENV['APP_STORE_CONNECT_API_KEY_PATH'].to_s
+  if (b64 = ENV['APP_STORE_CONNECT_API_KEY_CONTENT'].to_s).length.positive?
+    p8 = write_private(File.join(Dir.tmpdir, "AuthKey_#{key_id}.p8"), Base64.decode64(b64))
+  elsif p8.empty?
+    p8 = Dir[File.join(credentials_dir, 'AuthKey_*.p8')].first.to_s
+  end
+  key_id = File.basename(p8)[/\AAuthKey_(\w+)\.p8\z/, 1].to_s if key_id.empty? && !p8.empty?
+  @asc_key_material =
+    if key_id.empty? || issuer_id.empty? || p8.empty? || !File.exist?(p8)
+      nil
+    else
+      { p8: p8, key_id: key_id, issuer_id: issuer_id }
+    end
+end
+
+def app_store_api_key
+  @app_store_api_key ||= begin
+    material = asc_key_material || UI.user_error!(
+      "No App Store Connect API key. Set APP_STORE_CONNECT_API_KEY_ID and APP_STORE_CONNECT_ISSUER_ID, and either\n" \
+      'APP_STORE_CONNECT_API_KEY_PATH or fastlane/credentials/AuthKey_<KEYID>.p8 (git-ignored). See docs/release.md.'
+    )
+    app_store_connect_api_key(key_id: material[:key_id], issuer_id: material[:issuer_id],
+                              key_filepath: material[:p8], in_house: false)
+  end
+end
+
+# Google Play service account: GOOGLE_PLAY_JSON_KEY_DATA (the JSON, for CI), GOOGLE_PLAY_JSON_KEY (a
+# path), or fastlane/credentials/google-play.json.
+def google_play_key
+  data = ENV['GOOGLE_PLAY_JSON_KEY_DATA'].to_s
+  return { json_key_data: data } unless data.empty?
+
+  key = ENV['GOOGLE_PLAY_JSON_KEY'].to_s
+  key = File.join(credentials_dir, 'google-play.json') if key.empty?
+  UI.user_error!('No Google Play service account key. Set GOOGLE_PLAY_JSON_KEY or add fastlane/credentials/google-play.json (git-ignored). See docs/release.md.') unless File.exist?(key)
+  { json_key: key }
+end
+
+def changelog_for(version_code)
+  dir = m('fastlane', 'metadata', 'android', 'en-US', 'changelogs')
+  ["#{version_code}.txt", 'default.txt'].map { |name| File.join(dir, name) }.find { |file| File.exist?(file) }
+end
+
+# --------------------------------------------------------------------------- iOS
+
+platform :ios do
+  desc 'Build the App Store-signed Release .ipa (talks to Prod)'
+  lane :build do
+    require_prod_settings
+    sh("cd #{m('iosApp').shellescape} && xcodegen generate --quiet")
+    xcargs = ['-allowProvisioningUpdates', "DEVELOPMENT_TEAM=#{team_id}", 'CODE_SIGN_STYLE=Automatic']
+    if (key = asc_key_material)
+      xcargs += ['-authenticationKeyPath', key[:p8].shellescape, '-authenticationKeyID', key[:key_id].shellescape,
+                 '-authenticationKeyIssuerID', key[:issuer_id].shellescape]
+    else
+      UI.important('No App Store Connect API key; signing relies on an Apple ID signed into Xcode.')
+    end
+    build_app(
+      project: m('iosApp', 'AarogyamStaff.xcodeproj'),
+      scheme: IOS_SCHEME,
+      configuration: 'Release',
+      export_method: 'app-store',
+      output_directory: out_dir,
+      output_name: File.basename(ipa_path),
+      xcargs: xcargs.join(' '),
+      export_options: { signingStyle: 'automatic', teamID: team_id, uploadSymbols: true,
+                        manageAppVersionAndBuildNumber: false }
+    )
+    UI.success("Built #{ios_marketing_version} (#{ios_build_number}) -> #{ipa_path}")
+  end
+
+  desc 'Build and upload to TestFlight (internal testers)'
+  lane :beta do
+    latest = latest_testflight_build_number(api_key: app_store_api_key, app_identifier: app_identifier,
+                                            version: ios_marketing_version, initial_build_number: 0)
+    if ios_build_number <= latest
+      UI.user_error!("Build #{ios_build_number} of #{ios_marketing_version} is already on TestFlight (latest #{latest}). " \
+                     'Run `bundle exec fastlane ios bump_build_number` and commit it.')
+    end
+    build
+    upload_to_testflight(api_key: app_store_api_key, ipa: ipa_path, distribute_external: false,
+                         skip_submission: true, skip_waiting_for_build_processing: true)
+  end
+
+  desc 'Build and upload to App Store Connect, ready for a person to submit for review'
+  lane :production do
+    build
+    upload_to_app_store(api_key: app_store_api_key, ipa: ipa_path, skip_metadata: true, skip_screenshots: true,
+                        submit_for_review: false, automatic_release: false, run_precheck_before_submit: false,
+                        force: true)
+    UI.important('Uploaded. Submit for review from App Store Connect.')
+  end
+
+  desc 'Upload the listing text and screenshots (no binary)'
+  lane :metadata do
+    upload_to_app_store(api_key: app_store_api_key, skip_binary_upload: true,
+                        metadata_path: m('fastlane', 'metadata', 'ios'),
+                        screenshots_path: m('fastlane', 'screenshots', 'ios'),
+                        overwrite_screenshots: true, submit_for_review: false, force: true,
+                        run_precheck_before_submit: false)
+  end
+
+  desc 'Increase CURRENT_PROJECT_VERSION in iosApp/project.yml by one'
+  lane :bump_build_number do
+    bump(project_yml, /^\s+CURRENT_PROJECT_VERSION: (\d+)$/, 'CURRENT_PROJECT_VERSION')
+  end
+end
+
+# --------------------------------------------------------------------------- Android
+
+platform :android do
+  desc 'Build the signed prod release App Bundle (.aab)'
+  lane :build do
+    require_prod_settings
+    upload_key = ENV['AAROGYAM_UPLOAD_STORE_FILE'].to_s.empty? ? m('androidApp', 'keystore.properties') : nil
+    if upload_key && !File.exist?(upload_key)
+      UI.user_error!('No upload key: add mobile/androidApp/keystore.properties (git-ignored) or the AAROGYAM_UPLOAD_* ' \
+                     'variables. A release without it is unsigned, and Play refuses it. See docs/release.md.')
+    end
+    gradle(project_dir: mobile, task: ':androidApp:bundleProdRelease', flags: '--max-workers=2')
+    UI.success("Built versionCode #{android_version_code} (#{android_version_name}) -> #{aab_path}")
+  end
+
+  [%w[beta internal], %w[closed_testing alpha]].each do |name, track|
+    desc "Build and upload to the Play #{track} track"
+    lane name.to_sym do
+      build
+      upload_to_play_store(**google_play_key, track: track, aab: aab_path, release_status: 'completed',
+                           skip_upload_metadata: true, skip_upload_images: true, skip_upload_screenshots: true,
+                           skip_upload_changelogs: changelog_for(android_version_code).nil?,
+                           metadata_path: m('fastlane', 'metadata', 'android'))
+    end
+  end
+
+  desc 'Build and upload to Play production as a draft (rollout:0.1 starts a 10% rollout)'
+  lane :production do |options|
+    rollout = options[:rollout]&.to_s
+    UI.user_error!('rollout is a fraction between 0 and 1, e.g. rollout:0.1') if rollout && !(0.0..1.0).cover?(rollout.to_f)
+    build
+    upload_to_play_store(**google_play_key, track: 'production', aab: aab_path,
+                         release_status: rollout ? 'inProgress' : 'draft', rollout: rollout,
+                         skip_upload_metadata: true, skip_upload_images: true, skip_upload_screenshots: true,
+                         skip_upload_changelogs: changelog_for(android_version_code).nil?,
+                         metadata_path: m('fastlane', 'metadata', 'android'))
+  end
+
+  desc 'Upload the listing text, artwork and screenshots (no binary)'
+  lane :metadata do
+    upload_to_play_store(**google_play_key, skip_upload_aab: true, skip_upload_apk: true,
+                         skip_upload_changelogs: true, metadata_path: m('fastlane', 'metadata', 'android'))
+  end
+
+  desc 'Increase versionCode in androidApp/build.gradle.kts by one'
+  lane :bump_version_code do
+    bump(gradle_file, /versionCode = (\d+)/, 'versionCode')
+  end
+end

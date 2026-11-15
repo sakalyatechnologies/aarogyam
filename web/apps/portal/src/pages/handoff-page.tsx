@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { BootStage, completeHandoff, useAuth, type AuthOutcome } from "@aarogyam/auth";
+import { BootStage, completeHandoff, useAuth } from "@aarogyam/auth";
 
 import { useServices } from "../clinic.js";
 
@@ -15,14 +15,19 @@ export function HandoffPage() {
   const navigate = useNavigate();
   const auth = useAuth();
   const services = useServices();
-  const [failed, setFailed] = useState<Extract<AuthOutcome, { ok: false }>>();
+  const [problem, setProblem] = useState<string>();
   const started = useRef(false);
-  // Kept only so a dropped connection can retry; the address bar is cleared at once.
-  const hash = useRef("");
 
-  const redeem = useCallback(() => {
-    setFailed(undefined);
-    void completeHandoff(auth, hash.current, async (code) => {
+  useEffect(() => {
+    // Once per page: a code works once, so a second run would only fail. It is never sent again.
+    if (started.current) {
+      return;
+    }
+    started.current = true;
+    const hash = window.location.hash;
+    // The code leaves the address bar (and the history) at once.
+    window.history.replaceState(null, "", window.location.pathname);
+    void completeHandoff(auth, hash, async (code) => {
       // Redeemed on this very host: the API refuses a code made for any other.
       const result = await services.clinic(window.location.hostname).redeemHandoff({ code });
       return result.ok ? result.value : null;
@@ -30,30 +35,19 @@ export function HandoffPage() {
       if (outcome.ok) {
         void navigate("/today", { replace: true });
       } else {
-        setFailed(outcome);
+        setProblem(outcome.message);
       }
     });
-  }, [auth, navigate, services]);
+    // Runs once per mount, guarded by `started`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => {
-    // Once per page: a code works once, so a second run would only fail.
-    if (started.current) {
-      return;
-    }
-    started.current = true;
-    hash.current = window.location.hash;
-    // The code leaves the address bar (and the history) at once.
-    window.history.replaceState(null, "", window.location.pathname);
-    redeem();
-  }, [redeem]);
-
+  if (problem === undefined) {
+    return <BootStage text="Signing you in…" />;
+  }
+  // No Try again: the code is used up. Signing in again on the site makes a fresh one.
   const back = () => {
     void navigate("/sign-in", { replace: true });
   };
-  if (failed === undefined) {
-    return <BootStage text="Signing you in…" />;
-  }
-  // Only a dropped connection can be retried with the same code; a used one needs a new sign-in.
-  const retry = failed.code === "network" ? redeem : back;
-  return <BootStage text="That sign-in didn't work" failure={{ message: failed.message, onRetry: retry, onBack: back }} />;
+  return <BootStage text="That sign-in didn't work" failure={{ message: problem, onBack: back }} />;
 }

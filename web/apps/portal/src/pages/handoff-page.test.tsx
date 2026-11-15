@@ -44,6 +44,7 @@ describe("Central sign-in handoff", () => {
     renderPortal("/auth/handoff", { backend: sunriseHere() });
     expect((await screen.findByRole("alert")).textContent).toContain("This sign-in link has expired or was already used. Sign in again.");
     expect(screen.getByRole("button", { name: "Back to sign in" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
   it("refuses another clinic's host", async () => {

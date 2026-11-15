@@ -76,7 +76,7 @@ export function ClinicGate() {
   const branding = session.data === undefined ? {} : readBranding(session.data.clinic.branding);
   const theme = useMemo(() => mockupTheme(parseHexColor(branding.brand ?? "") ?? MOCKUP_BRAND, branding.mode ?? "light"), [branding.brand, branding.mode]);
 
-  if (me.isPending) {
+  if (me.isPending || (me.isError && me.fetchStatus === "fetching")) {
     return <BootStage text={SIGNING_IN} />;
   }
   if (me.isError) {
@@ -108,7 +108,7 @@ export function ClinicGate() {
   if (choice.current === undefined || api === undefined) {
     return <ChooseClinic clinics={choice.clinics} onChoose={choice.choose} />;
   }
-  if (session.isPending) {
+  if (session.isPending || (session.isError && session.fetchStatus === "fetching")) {
     return <BootStage text={opening} />;
   }
   if (session.isError) {

@@ -45,4 +45,11 @@ describe("BootLoader", () => {
     expect(onRetry).toHaveBeenCalledOnce();
     expect(onBack).toHaveBeenCalledOnce();
   });
+
+  it("moves focus to the error heading and offers only Back to sign in when there is no retry", () => {
+    render(<BootLoader text="That sign-in didn't work" failure={{ message: "Used.", onBack: vi.fn() }} />);
+    expect(document.activeElement?.tagName).toBe("H1");
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Back to sign in" })).toBeTruthy();
+  });
 });

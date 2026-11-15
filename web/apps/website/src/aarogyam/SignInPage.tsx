@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BootLoader } from "@aarogyam/auth/boot-loader";
 
 import { fetchMe, handoffUrl, requestHandoff } from "./api";
-import { getAuthClient, signInConfigured, verifiedAccessToken } from "./auth";
+import { getAuthClient, signInConfigured, signOutEverywhere, verifiedAccessToken } from "./auth";
 import { CONSOLE_URL } from "./env";
 import { LegalLinks } from "./legal/LegalLinks";
 import { Showcase } from "./Showcase";
@@ -78,13 +78,26 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
   const run = async (work: () => Promise<{ ok: true } | { ok: false; message: string }>, next: () => Promise<void> | void) => {
     setBusy(true);
     setErr("");
-    const out = await work();
-    setBusy(false);
-    if (out.ok) await next();
-    else {
+    try {
+      const out = await work();
+      if (out.ok) await next();
+      else {
+        setSigning(false);
+        setErr(out.message);
+      }
+    } catch {
       setSigning(false);
-      setErr(out.message);
+      setErr("Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
     }
+  };
+
+  // After a good sign-in: read the token, then route. Without a token the loader says so.
+  const finish = async (auth: Awaited<ReturnType<typeof getAuthClient>>) => {
+    const t = await auth.getAccessToken();
+    if (t !== null) await goTo(t);
+    else setFail({ message: "We couldn't finish signing you in.", retry: () => void finish(auth) });
   };
 
   const sendCode = async () => {
@@ -95,27 +108,23 @@ export function SignInPage({ onBack, onRegister }: { onBack: () => void; onRegis
   const verify = async () => {
     const auth = await getAuthClient();
     setSigning(true);
-    await run(() => auth.verifyCode(email.trim(), code), async () => {
-      const t = await auth.getAccessToken();
-      if (t !== null) await goTo(t);
-    });
+    await run(() => auth.verifyCode(email.trim(), code), () => finish(auth));
   };
   const withPassword = async () => {
     const auth = await getAuthClient();
     setSigning(true);
-    await run(() => auth.signInWithPassword(email.trim(), password), async () => {
-      const t = await auth.getAccessToken();
-      if (t !== null) await goTo(t);
-    });
+    await run(() => auth.signInWithPassword(email.trim(), password), () => finish(auth));
   };
 
-  const backToSignIn = () => {
+  // Ends the session too, so a reload doesn't skip the form and land in the same failure.
+  const backToSignIn = async () => {
+    await signOutEverywhere();
     setFail(null);
     setSigning(false);
     setStep("email");
   };
   if ((step === "routing" || signing) && !picker && !none) {
-    const failure = fail === null ? undefined : { message: fail.message, onRetry: fail.retry, onBack: backToSignIn };
+    const failure = fail === null ? undefined : { message: fail.message, onRetry: fail.retry, onBack: () => void backToSignIn() };
     return <BootLoader text={fail === null ? opening : "We couldn't finish signing you in"} failure={failure} />;
   }
 

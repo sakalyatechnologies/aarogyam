@@ -1,11 +1,12 @@
-import { createContext, useContext, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { AuthBrandStyle } from "./auth-shell.js";
 
 /** What went wrong and what to do about it; shown on the loader's own surface. */
 export interface BootFailure {
   message: string;
-  onRetry: () => void;
+  /** Left out when retrying can't help (say, a one-time code that is already used). */
+  onRetry?: (() => void) | undefined;
   onBack: () => void;
 }
 
@@ -15,10 +16,36 @@ export interface BootState {
   failure?: BootFailure | undefined;
 }
 
+/** The failure, in its own alert so it is announced; focus moves to its heading when it appears. */
+function BootFailureView({ text, failure }: { text: string; failure: BootFailure }) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus();
+  }, []);
+  return (
+    <div className="ab-fail" role="alert">
+      <h1 ref={heading} tabIndex={-1}>
+        {text}
+      </h1>
+      <p>{failure.message}</p>
+      <div className="ab-actions">
+        {failure.onRetry === undefined ? null : (
+          <button type="button" className="ab-btn ab-primary" onClick={failure.onRetry}>
+            Try again
+          </button>
+        )}
+        <button type="button" className={`ab-btn${failure.onRetry === undefined ? " ab-primary" : ""}`} onClick={failure.onBack}>
+          Back to sign in
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** The full-screen branded loader. One root element; only its text (or failure) changes. */
 export function BootLoader({ text, failure }: BootState) {
   return (
-    <div className="ab-boot" role={failure === undefined ? "status" : "alert"} data-testid="boot-loader">
+    <div className="ab-boot" role="status" data-testid="boot-loader">
       <AuthBrandStyle />
       <div className="ab-brand" aria-hidden="true">
         <span className="ab-mark">A</span>
@@ -30,18 +57,7 @@ export function BootLoader({ text, failure }: BootState) {
           <span>{text}</span>
         </p>
       ) : (
-        <div className="ab-fail">
-          <h1>{text}</h1>
-          <p>{failure.message}</p>
-          <div className="ab-actions">
-            <button type="button" className="ab-btn ab-primary" onClick={failure.onRetry}>
-              Try again
-            </button>
-            <button type="button" className="ab-btn" onClick={failure.onBack}>
-              Back to sign in
-            </button>
-          </div>
-        </div>
+        <BootFailureView text={text} failure={failure} />
       )}
     </div>
   );

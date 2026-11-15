@@ -9,6 +9,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.ui.LoadingIndicator
+import com.aarogyam.staff.android.ui.desk.openDeskPayment
 import com.aarogyam.staff.api.queue
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.Outcome
@@ -61,8 +62,16 @@ private fun QueueVisit(
     if (found == null) {
         LoadingIndicator()
     } else {
-        VisitScreen(graph, clinic, VisitTarget(found, tokenId = tokenId), onBack = nav::popBackStack, onCollect = {
-            nav.popBackStack()
-        })
+        // Collect now: the doctor takes the payment on the desk's sheet for this token.
+        VisitScreen(
+            graph,
+            clinic,
+            VisitTarget(found, tokenId = tokenId),
+            onBack = nav::popBackStack,
+            onCollect = { invoiceId ->
+                nav.popBackStack()
+                nav.openDeskPayment(tokenId, invoiceId)
+            },
+        )
     }
 }

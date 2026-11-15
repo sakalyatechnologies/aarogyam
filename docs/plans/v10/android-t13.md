@@ -62,3 +62,11 @@ Keep `docs/plans/v10/android-<area>.md` up to date as you go:
 - the commits.
 
 This file is how work resumes after a usage-limit stop: a new worker reads it and carries on.
+
+## Merge checklist (coordinator)
+- Delete the shell's `ui/*/…Stub.kt` files once the real openers are merged.
+- Visit's `onCollect` in `ui/visit/VisitRoutes.kt` calls `nav.openDeskPayment(tokenId, invoiceId)` after the desk merge.
+- Shell: `AarogyamApp.kt` passes `dictation = AndroidDictation(this)`; the manifest has `RECORD_AUDIO`, `CAMERA` and `POST_NOTIFICATIONS`.
+- Clinical: `openAnalytics()` is a coming-soon page until the new analytics (`v11-analytics`) is ported.
+- `SignInScreen.kt` (shell) vs `v11-store`'s compile fix: keep the shell's, with the Password step.
+- Run the full gate after each merge; push only when it is green.

@@ -157,7 +157,7 @@ export interface FakeBackend {
   sentConsentLinks(): readonly { patient_id: string; token: string }[];
 }
 
-type Outcome = { ok: true; body: unknown } | { ok: false; status: number; body: C.ErrorBody | C.IssueBlocked };
+type Outcome = { ok: true; body: unknown } | { ok: false; status: number; body: C.ErrorBody | C.IssueBlocked | C.LastOwnerRefused };
 
 /** A success body; call sites add `satisfies` with the contract type. */
 const reply = (body: unknown): Outcome => ({ ok: true, body });
@@ -5731,6 +5731,42 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (current !== undefined) {
             current.revoked = true;
           }
+          return reply(undefined);
+        }),
+
+      deleteMyAccount: (opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const id = await subject();
+          const user = state.users.find((u) => u.id === id);
+          if (id === undefined || user === undefined) {
+            // Unknown, or already deleted: the session ended with the first call.
+            return state.platformUsers.some((u) => u.id === id)
+              ? refuse(409, "platform_staff", "Sakalya staff accounts are managed in the console.")
+              : signedOut;
+          }
+          const active = (m: FakeMembership) => (m.status ?? "active") === "active";
+          const mine = state.memberships.filter((m) => m.user_id === id);
+          const sole = mine.filter(
+            (m) =>
+              m.role.key === "owner" &&
+              active(m) &&
+              !state.memberships.some((o) => o.clinic_id === m.clinic_id && o.user_id !== id && o.role.key === "owner" && active(o)),
+          );
+          if (sole.length > 0) {
+            const clinics = sole.flatMap((m) => state.clinics.filter((c) => c.id === m.clinic_id).map((c) => ({ id: c.id, name: c.name })));
+            return {
+              ok: false,
+              status: 409,
+              body: { error: { code: "last_owner", message: "Make another member an owner of these clinics first." }, clinics },
+            };
+          }
+          for (const m of mine) {
+            m.status = "left";
+          }
+          for (const session of state.sessions.filter((s) => s.user_id === id)) {
+            session.revoked = true;
+          }
+          state.users.splice(state.users.indexOf(user), 1);
           return reply(undefined);
         }),
 

@@ -102,7 +102,7 @@ pub async fn templates(conn: &mut PgConnection) -> Result<Vec<TemplateRow>, DbEr
     let rows = sqlx::query_as!(
         TemplateRow,
         r#"select t.id, t.title, t.description,
-                  t.assignee_membership_id, u.display_name as "assignee_name?",
+                  t.assignee_membership_id, coalesce(m.display_name, u.display_name) as "assignee_name?",
                   t.assignee_role_id, r.name as "assignee_role_name?",
                   t.schedule_kind, t.once_at, t.interval_days, t.weekdays, t.due_time,
                   t.starts_on, t.ends_on, t.remind_every_minutes, t.escalate_after, t.action,
@@ -127,7 +127,7 @@ pub async fn template(conn: &mut PgConnection, id: Uuid) -> Result<Option<Templa
     let row = sqlx::query_as!(
         TemplateRow,
         r#"select t.id, t.title, t.description,
-                  t.assignee_membership_id, u.display_name as "assignee_name?",
+                  t.assignee_membership_id, coalesce(m.display_name, u.display_name) as "assignee_name?",
                   t.assignee_role_id, r.name as "assignee_role_name?",
                   t.schedule_kind, t.once_at, t.interval_days, t.weekdays, t.due_time,
                   t.starts_on, t.ends_on, t.remind_every_minutes, t.escalate_after, t.action,
@@ -407,7 +407,7 @@ pub async fn occurrence(
         OccurrenceRow,
         r#"select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,
                   o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,
-                  o.completed_by, u.display_name as "completed_by_name?", o.note,
+                  o.completed_by, coalesce(m.display_name, u.display_name) as "completed_by_name?", o.note,
                   (o.proof_file_id is not null) as "has_proof!"
            from aarogyam.task_occurrences o
            left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by
@@ -454,7 +454,7 @@ pub async fn mine(
         OccurrenceRow,
         r#"select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,
                   o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,
-                  o.completed_by, u.display_name as "completed_by_name?", o.note,
+                  o.completed_by, coalesce(m.display_name, u.display_name) as "completed_by_name?", o.note,
                   (o.proof_file_id is not null) as "has_proof!"
            from aarogyam.task_occurrences o
            left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by
@@ -489,7 +489,7 @@ pub async fn history(
         OccurrenceRow,
         r#"select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,
                   o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,
-                  o.completed_by, u.display_name as "completed_by_name?", o.note,
+                  o.completed_by, coalesce(m.display_name, u.display_name) as "completed_by_name?", o.note,
                   (o.proof_file_id is not null) as "has_proof!"
            from aarogyam.task_occurrences o
            left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by

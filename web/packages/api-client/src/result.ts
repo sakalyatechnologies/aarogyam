@@ -1,6 +1,6 @@
 /** Failures are values: every client call resolves to an `ApiResult`, never rejects. */
 
-import { errorBody, issueBlocked, type Alert, type RequestId } from "./schemas.js";
+import { errorBody, issueBlocked, lastOwnerRefused, type Alert, type OwnedClinic, type RequestId } from "./schemas.js";
 
 /** Client-side error codes, used when there is no API error body to read. */
 export type ClientErrorCode = "network_error" | "aborted" | "invalid_response" | "unexpected_status";
@@ -18,6 +18,8 @@ export interface ApiError {
   requestId?: RequestId;
   /** Present on `409 allergy_alerts` from issuing a prescription: what to show before asking for an override reason. */
   alerts?: Alert[];
+  /** Present on `409 last_owner` from deleting an account: the clinics the person alone owns, to hand over first. */
+  clinics?: OwnedClinic[];
 }
 
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; error: ApiError };
@@ -54,6 +56,18 @@ export function parseApiError(status: number, body: unknown, requestId: RequestI
         code: blocked.data.code,
         message: "This prescription has allergy alerts. Review them and give a reason to continue.",
         alerts: blocked.data.alerts,
+        ...(requestId === undefined ? {} : { requestId }),
+      };
+    }
+  }
+  if (status === 409) {
+    const sole = lastOwnerRefused.safeParse(body);
+    if (sole.success) {
+      return {
+        status,
+        code: sole.data.error.code,
+        message: sole.data.error.message,
+        clinics: sole.data.clinics,
         ...(requestId === undefined ? {} : { requestId }),
       };
     }

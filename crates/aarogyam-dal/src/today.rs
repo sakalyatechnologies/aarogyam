@@ -191,7 +191,7 @@ pub async fn today(
              ) as "stock!: Json<Vec<StockRow>>",
              (select coalesce(json_agg(v order by v.ended_at, v.id), '[]'::json)
               from (select e.id, e.number, e.appointment_id, e.patient_id, p.number as patient_number,
-                           p.full_name as patient_name, e.clinician_id, u.display_name as clinician_name,
+                           p.full_name as patient_name, e.clinician_id, coalesce(m.display_name, u.display_name) as clinician_name,
                            e.started_at, e.ended_at,
                            case when $7 then b.billed end as billed_paise,
                            case when $7 then b.paid end as paid_paise

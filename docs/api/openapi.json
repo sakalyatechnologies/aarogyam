@@ -6258,6 +6258,57 @@
         ]
       }
     },
+    "/api/v1/me/account": {
+      "delete": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Deletes the signed-in person's own account, for any staff member of any clinic (a person can\nonly delete themselves, so there is no clinic permission). In one transaction they leave\nevery clinic, are signed out on every device, lose their push tokens, and their name, email\nand phone are cleared; clinic records stay. Their sign-in identity is deleted a moment later\nby the outbox job. Asking again answers `401`: the session ended with the first call.",
+        "operationId": "deleteMyAccount",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccount"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "`confirm` is not `delete`"
+          },
+          "401": {
+            "description": "Not signed in, or the account is already deleted"
+          },
+          "404": {
+            "description": "`no_staff_account`: this sign-in has no staff account (a patient-only identity)"
+          },
+          "409": {
+            "description": "`last_owner`: the person alone owns the listed `clinics`, so another member must own each first; or `platform_staff` (no `clinics`): Sakalya staff are managed in the console",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LastOwnerRefused"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request has no JSON body"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/avatar": {
       "put": {
         "tags": [
@@ -6452,6 +6503,86 @@
           },
           "404": {
             "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/devices/{installation_id}": {
+      "put": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Registers this install of the staff app for push notifications, or refreshes it (the token\nchanges now and then). It is an upsert by the person and `installation_id`, a UUID the app\nmakes once per install. A token already registered for another person or install moves to\nthis one, since the phone changed hands. A notification is pushed to the devices of the\nmembers who see it in their feed, as IDs and kind codes only. Signing the session out\nstops pushes to the devices it registered.",
+        "operationId": "registerMyDevice",
+        "parameters": [
+          {
+            "name": "installation_id",
+            "in": "path",
+            "description": "The app's id for this install, a UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRegistration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Registered"
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "422": {
+            "description": "The patient app can't register devices yet (`unsupported_app`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Stops pushes to this install; the app calls it on sign-out. Removing an install that is\nalready removed, unknown, or someone else's is `204` and changes nothing: an install id is\nonly ever looked up among the caller's own.",
+        "operationId": "removeMyDevice",
+        "parameters": [
+          {
+            "name": "installation_id",
+            "in": "path",
+            "description": "The app's id for this install, a UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed, or there was nothing to remove"
+          },
+          "401": {
+            "description": "Not signed in"
           }
         },
         "security": [
@@ -7218,6 +7349,28 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/sessions/revoke-current": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Signs out the session making the request, in one call: the app's sign-out. Its next request\ngets `401` on every host, and the push tokens of the devices it registered are cleared, so\nno notification reaches the phone afterwards.",
+        "operationId": "revokeCurrentSession",
+        "responses": {
+          "204": {
+            "description": "Signed out"
           },
           "401": {
             "description": "Not signed in"
@@ -22899,6 +23052,19 @@
           }
         }
       },
+      "DeleteAccount": {
+        "type": "object",
+        "description": "The confirmation a person sends to delete their own account.",
+        "properties": {
+          "confirm": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Must be `delete`; anything else, or nothing, is a `400` on `confirm`."
+          }
+        }
+      },
       "DentalChart": {
         "type": "object",
         "description": "A patient's dental chart. Teeth without entries are absent: draw them as sound.",
@@ -23020,6 +23186,42 @@
             "description": "Seconds until it expires."
           }
         }
+      },
+      "DeviceRegistration": {
+        "type": "object",
+        "description": "An install of the app and where to push to it.",
+        "required": [
+          "platform",
+          "token",
+          "app",
+          "locale"
+        ],
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "`staff`; `patient` is reserved (`422 unsupported_app`); anything else is `400`."
+          },
+          "app_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The app's version, up to 40 characters."
+          },
+          "locale": {
+            "type": "string",
+            "description": "The phone's language, such as `en-IN`."
+          },
+          "platform": {
+            "type": "string",
+            "description": "`ios` or `android`; anything else is `400`."
+          },
+          "token": {
+            "type": "string",
+            "description": "The push provider's token for this install (APNs or FCM), 1 to 4096 characters."
+          }
+        },
+        "additionalProperties": false
       },
       "DismissRecall": {
         "type": "object",
@@ -26437,6 +26639,26 @@
               "type": "string"
             },
             "description": "The kinds of work it does: up to 20 different ones of up to 40 characters. Replaces the\nlist on a change; an empty list clears it."
+          }
+        }
+      },
+      "LastOwnerRefused": {
+        "type": "object",
+        "description": "The `409 last_owner` answer to deleting an account: the usual error and the clinics the person\nalone owns, next to it, so the client can name them.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "clinics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OwnedClinic"
+            },
+            "description": "The clinics to hand over first; absent for `platform_staff`, which has no clinics."
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail",
+            "description": "The refusal, code `last_owner`."
           }
         }
       },
@@ -30740,6 +30962,24 @@
               "$ref": "#/components/schemas/OwnDentalTerm"
             },
             "description": "By list, then label; retired ones included."
+          }
+        }
+      },
+      "OwnedClinic": {
+        "type": "object",
+        "description": "A clinic whose only active owner is the person deleting their account.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
           }
         }
       },

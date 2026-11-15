@@ -663,6 +663,10 @@ export interface ApiClient {
   revokeCurrentSession(options?: RequestOptions): Promise<ApiResult<void>>;
   /** Any host: signs out every session but the one asking, and says how many it ended. */
   revokeOtherSessions(options?: RequestOptions): Promise<ApiResult<RevokedSessions>>;
+  /**
+   * Any host: deletes the signed-in person's own account (Apple 5.1.1(v)). They leave every clinic, are signed out everywhere and lose their push tokens; clinic records stay. `409 last_owner` carries the top-level `ApiError.clinics`: the clinics they alone own, to hand over first; `409 platform_staff` for Sakalya staff; `404 no_staff_account` for a sign-in with no staff account. A second call is `401`, because the session ended with the first.
+   */
+  deleteMyAccount(options?: RequestOptions): Promise<ApiResult<void>>;
   /** Any host: changes the person's own name and phone (across every clinic they belong to). `400` names the field; `409` when another account holds the phone. */
   updateMe(changes: ProfileUpdate, options?: RequestOptions): Promise<ApiResult<Profile>>;
   /** Clinic host: sets the caller's own avatar from a form with exactly one of `preset` (an id such as `tooth_3`) or `file` (PNG or JPEG, up to 2 MB). `400` for neither, both, a bad preset or another file type. */

@@ -602,6 +602,28 @@ async fn addresses(config: Config, clinic: Option<&str>) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// People who deleted their account: deletes their sign-in identity in Supabase Auth. The step
+/// lives here, not in aarogyam-notify, because `SupabaseAdmin` is in aarogyam-app. Without
+/// Supabase configured the rows stay queued.
+async fn delete_account_identities(db: &Db, supabase: Option<&SupabaseAdmin>) {
+    let Some(supabase) = supabase else {
+        return;
+    };
+    match aarogyam_app::account::drain_deletions(db, supabase, time::OffsetDateTime::now_utc())
+        .await
+    {
+        Ok(report) if report.claimed > 0 => tracing::info!(
+            claimed = report.claimed,
+            deleted = report.deleted,
+            kept = report.kept,
+            retrying = report.retrying,
+            "account identities deleted"
+        ),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(error = %error, "could not delete account identities"),
+    }
+}
+
 /// Makes new portal hosts work, reminds staff of unanswered booking requests (then the owners)
 /// and labs of work due, then delivers due outbox messages, over the API connection, once or on a fixed interval.
 async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
@@ -613,6 +635,8 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
     }
     let db = Db::connect_lazy(&config.db.api_config())
         .context("db.url is not a valid Postgres URL or the pool settings are invalid")?;
+    // Deleted accounts' sign-in identities: without Supabase configured they stay queued.
+    let supabase = accounts(&config)?;
     let interval = every.map(|seconds| std::time::Duration::from_secs(seconds.max(1)));
     loop {
         // Addresses first, so the invitation emails sent next link to hosts that work.
@@ -631,6 +655,7 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not provision portal addresses"),
         }
+        delete_account_identities(&db, supabase.as_ref()).await;
         remind_bookings(&notifier, &db).await;
         // Lab work due in two days or today: email the lab; flag work overdue.
         match aarogyam_notify::remind_labs(&db, time::OffsetDateTime::now_utc()).await {

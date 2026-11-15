@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,\n                  o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,\n                  o.completed_by, u.display_name as \"completed_by_name?\", o.note,\n                  (o.proof_file_id is not null) as \"has_proof!\"\n           from aarogyam.task_occurrences o\n           left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by\n           left join aarogyam.users u on u.id = m.user_id\n           where o.id = $1",
+  "query": "select o.id, o.template_id, o.title, o.action, o.assignee_membership_id,\n                  o.assignee_role_id, o.local_date, o.due_at, o.status, o.completed_at,\n                  o.completed_by, coalesce(m.display_name, u.display_name) as \"completed_by_name?\", o.note,\n                  (o.proof_file_id is not null) as \"has_proof!\"\n           from aarogyam.task_occurrences o\n           left join aarogyam.memberships m on m.org_id = o.org_id and m.id = o.completed_by\n           left join aarogyam.users u on u.id = m.user_id\n           where o.id = $1",
   "describe": {
     "columns": [
       {
@@ -128,12 +128,7 @@
         "ordinal": 11,
         "name": "completed_by_name?",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "aarogyam.users",
-            "name": "display_name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 12,
@@ -170,10 +165,10 @@
       false,
       true,
       true,
-      true,
+      null,
       true,
       null
     ]
   },
-  "hash": "bf5d27f8ed6d2a69f3ddc08dfa080d4a5d561738b12023d16eeff10c527c413c"
+  "hash": "4f4c76237fd6400578ab8b19afb5218b523d406e2ae84033e86b5c75617ecd91"
 }

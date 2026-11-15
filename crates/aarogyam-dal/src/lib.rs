@@ -9,6 +9,7 @@
 use sqlx::migrate::Migrator;
 
 pub mod access;
+pub mod accounts;
 pub mod analytics;
 pub mod applications;
 pub mod appointments;

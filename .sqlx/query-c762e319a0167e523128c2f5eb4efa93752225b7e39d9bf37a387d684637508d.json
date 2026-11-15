@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id as \"id!\", auth_uid as \"auth_uid!\", attempts as \"attempts!\",\n                  keep_identity as \"keep_identity!\"\n           from app.account_deletions_claim($1, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "auth_uid!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "attempts!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "keep_identity!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "c762e319a0167e523128c2f5eb4efa93752225b7e39d9bf37a387d684637508d"
+}

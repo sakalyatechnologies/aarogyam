@@ -753,6 +753,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: "/api/v1/me/sessions/revoke-current", schema: voidResponse, signal: opts?.signal }),
     revokeOtherSessions: (opts) =>
       call({ method: "POST", path: "/api/v1/me/sessions/revoke-others", schema: revokedSessions, signal: opts?.signal }),
+    deleteMyAccount: (opts) =>
+      call({ method: "DELETE", path: "/api/v1/me/account", schema: voidResponse, body: { confirm: "delete" }, signal: opts?.signal }),
     updateMe: (changes, opts) => call({ method: "PATCH", path: "/api/v1/me", schema: profile, body: changes, signal: opts?.signal }),
     putMyAvatar: (form, opts) => call({ method: "PUT", path: "/api/v1/me/avatar", schema: avatar, body: form, signal: opts?.signal }),
     deleteMyAvatar: (opts) => call({ method: "DELETE", path: "/api/v1/me/avatar", schema: voidResponse, signal: opts?.signal }),

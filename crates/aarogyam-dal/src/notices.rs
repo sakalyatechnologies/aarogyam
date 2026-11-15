@@ -31,7 +31,7 @@ pub async fn list(conn: &mut PgConnection) -> Result<Vec<NoticeRow>, DbError> {
     let rows = sqlx::query_as!(
         NoticeRow,
         r#"select n.id, n.version, n.label, n.body, n.published_at,
-                  (select u.display_name from aarogyam.memberships m
+                  (select coalesce(m.display_name, u.display_name) from aarogyam.memberships m
                    join aarogyam.users u on u.id = m.user_id
                    where m.org_id = n.org_id and m.id = n.published_by) as published_by_name
            from aarogyam.consent_notices n

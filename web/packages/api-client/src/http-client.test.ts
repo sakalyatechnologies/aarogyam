@@ -1050,3 +1050,22 @@ describe("createHttpClient stock analytics requests", () => {
     ]);
   });
 });
+
+describe("deleting the own account", () => {
+  it("sends the confirmation, and reads the clinics of a last_owner refusal", async () => {
+    const bodies = [
+      new Response(null, { status: 204 }),
+      json(409, {
+        error: { code: "last_owner", message: "Make another member an owner of these clinics first." },
+        clinics: [{ id: "a0000000-0000-4000-8000-000000000001", name: "Alpha Dental" }],
+      }),
+    ];
+    const { calls, fetch } = stubFetch(() => Promise.resolve(bodies.shift() ?? json(500, {})));
+    const client = createHttpClient("http://sunrise.localtest.me", () => "token", { fetch });
+    expect((await client.deleteMyAccount()).ok).toBe(true);
+    const refused = await client.deleteMyAccount();
+    expect(refused.ok ? undefined : [refused.error.code, refused.error.clinics?.map((c) => c.name)]).toEqual(["last_owner", ["Alpha Dental"]]);
+    expect(calls.map((c) => `${c.init?.method ?? ""} ${new URL(c.url).pathname}`)).toEqual(["DELETE /api/v1/me/account", "DELETE /api/v1/me/account"]);
+    expect(calls[0]?.init?.body).toBe(JSON.stringify({ confirm: "delete" }));
+  });
+});

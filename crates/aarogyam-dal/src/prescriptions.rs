@@ -636,7 +636,7 @@ pub async fn doctor(
     membership_id: Uuid,
 ) -> Result<Option<(String, Option<String>)>, DbError> {
     let row = sqlx::query!(
-        r#"select coalesce(pr.display_name, u.display_name) as "display_name!",
+        r#"select coalesce(pr.display_name, m.display_name, u.display_name) as "display_name!",
                   coalesce(pr.registration_number,
                            s.prescription -> 'registration_numbers' ->> m.id::text) as registration_number
            from aarogyam.memberships m

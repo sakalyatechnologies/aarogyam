@@ -43,7 +43,7 @@ pub struct MemberRow {
 pub async fn members(conn: &mut PgConnection) -> Result<Vec<MemberRow>, DbError> {
     let rows = sqlx::query_as!(
         MemberRow,
-        r#"select m.id, m.user_id, u.display_name, r.key as role_key, r.name as role_name, m.status,
+        r#"select m.id, m.user_id, coalesce(m.display_name, u.display_name) as "display_name!", r.key as role_key, r.name as role_name, m.status,
                   m.joined_at, m.avatar_preset, m.avatar_file_id,
                   coalesce(array_agg(b.id order by b.name) filter (where b.id is not null), '{}')
                     as "branch_ids!",
@@ -55,9 +55,9 @@ pub async fn members(conn: &mut PgConnection) -> Result<Vec<MemberRow>, DbError>
            left join aarogyam.membership_branches mb on mb.org_id = m.org_id and mb.membership_id = m.id
            left join aarogyam.branches b
              on b.org_id = mb.org_id and b.id = mb.branch_id and b.deleted_at is null
-           group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at,
+           group by m.id, m.user_id, m.display_name, u.display_name, r.key, r.name, m.status, m.joined_at,
                     m.avatar_preset, m.avatar_file_id
-           order by m.status = 'active' desc, u.display_name, m.id"#
+           order by m.status = 'active' desc, coalesce(m.display_name, u.display_name), m.id"#
     )
     .fetch_all(conn)
     .await?;
@@ -71,7 +71,7 @@ pub async fn members(conn: &mut PgConnection) -> Result<Vec<MemberRow>, DbError>
 pub async fn member(conn: &mut PgConnection, id: Uuid) -> Result<Option<MemberRow>, DbError> {
     let row = sqlx::query_as!(
         MemberRow,
-        r#"select m.id, m.user_id, u.display_name, r.key as role_key, r.name as role_name, m.status,
+        r#"select m.id, m.user_id, coalesce(m.display_name, u.display_name) as "display_name!", r.key as role_key, r.name as role_name, m.status,
                   m.joined_at, m.avatar_preset, m.avatar_file_id,
                   coalesce(array_agg(b.id order by b.name) filter (where b.id is not null), '{}')
                     as "branch_ids!",
@@ -84,7 +84,7 @@ pub async fn member(conn: &mut PgConnection, id: Uuid) -> Result<Option<MemberRo
            left join aarogyam.branches b
              on b.org_id = mb.org_id and b.id = mb.branch_id and b.deleted_at is null
            where m.id = $1
-           group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at,
+           group by m.id, m.user_id, m.display_name, u.display_name, r.key, r.name, m.status, m.joined_at,
                     m.avatar_preset, m.avatar_file_id"#,
         id
     )
@@ -265,7 +265,7 @@ pub async fn members_and_invitations(
     let row = sqlx::query!(
         r#"select coalesce((
                     select jsonb_agg(to_jsonb(x) order by x.active desc, x.display_name, x.id)
-                    from (select m.id, m.user_id, u.display_name, r.key as role_key,
+                    from (select m.id, m.user_id, coalesce(m.display_name, u.display_name) as display_name, r.key as role_key,
                                  r.name as role_name, m.status, m.joined_at,
                                  m.avatar_preset, m.avatar_file_id,
                                  m.status = 'active' as active,
@@ -278,7 +278,7 @@ pub async fn members_and_invitations(
                             on mb.org_id = m.org_id and mb.membership_id = m.id
                           left join aarogyam.branches b
                             on b.org_id = mb.org_id and b.id = mb.branch_id and b.deleted_at is null
-                          group by m.id, m.user_id, u.display_name, r.key, r.name, m.status, m.joined_at,
+                          group by m.id, m.user_id, m.display_name, u.display_name, r.key, r.name, m.status, m.joined_at,
                                    m.avatar_preset, m.avatar_file_id) x
                   ), '[]'::jsonb) as "members!: sqlx::types::Json<Vec<MemberRow>>",
                   coalesce((

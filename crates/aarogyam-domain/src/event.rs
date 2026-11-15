@@ -220,6 +220,12 @@ pub enum Event {
     StockImportPreviewed,
     /// A stock import preview was committed.
     StockImportCommitted,
+    /// A person's phone registered for push notifications.
+    DeviceRegistered,
+    /// A person's phone stopped receiving push notifications (they signed out).
+    DeviceRemoved,
+    /// A staff notification was pushed to the devices of the members who see it.
+    PushSent,
 }
 
 impl Event {
@@ -337,6 +343,9 @@ impl Event {
             Self::PurchaseOrderCancelled => "purchase_order.cancelled",
             Self::StockImportPreviewed => "stock_import.previewed",
             Self::StockImportCommitted => "stock_import.committed",
+            Self::DeviceRegistered => "device.registered",
+            Self::DeviceRemoved => "device.removed",
+            Self::PushSent => "push.sent",
         }
     }
 }

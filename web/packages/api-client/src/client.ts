@@ -659,6 +659,8 @@ export interface ApiClient {
   listMySessions(options?: RequestOptions): Promise<ApiResult<MySessions>>;
   /** Any host: signs one of the person's own sessions out. */
   revokeMySession(id: SessionId, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Any host: signs out the session asking (the app's sign-out in one call) and clears the push tokens of the devices it registered. `401` afterwards. */
+  revokeCurrentSession(options?: RequestOptions): Promise<ApiResult<void>>;
   /** Any host: signs out every session but the one asking, and says how many it ended. */
   revokeOtherSessions(options?: RequestOptions): Promise<ApiResult<RevokedSessions>>;
   /** Any host: changes the person's own name and phone (across every clinic they belong to). `400` names the field; `409` when another account holds the phone. */

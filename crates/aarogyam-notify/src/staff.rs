@@ -1,9 +1,12 @@
 //! Staff notifications in the outbox job: the reminder and escalation step for booking
-//! requests nobody has answered, and the seam where push delivery will plug in.
+//! requests nobody has answered, and the channels an alert leaves through.
 //!
 //! The notification rows themselves are the in-app delivery: the portal polls the feed and the
-//! count. Push (FCM for Android, APNs for iOS) becomes another [`StaffChannel`] once the
-//! credentials exist; it will carry [`StaffAlert`]'s IDs only, never a patient's name.
+//! count. Push (FCM for Android, APNs for iOS, `push.rs`) is another [`StaffChannel`]: it
+//! carries [`StaffAlert`]'s IDs only, never a patient's name, and does nothing until push keys
+//! are configured. A new staff notification is pushed by the push step ([`Push::run`]), which
+//! claims the rows; only the reminder and escalation alerts, which write no new notification
+//! row, come through this channel.
 
 use aarogyam_dal::notifications as dal;
 use aarogyam_domain::booking::BookingSettings;
@@ -14,6 +17,7 @@ use sakalya_db::{Db, DbError};
 use time::OffsetDateTime;
 
 use crate::Failure;
+use crate::push::Push;
 
 /// Most open booking requests one run looks at.
 const BATCH: i32 = 200;
@@ -39,32 +43,44 @@ pub enum StaffChannel {
     /// In the portal and the staff app's list: the notification and inbox rows are the
     /// delivery, so nothing more is sent.
     InApp,
+    /// A push notification to the staff devices of the members the alert is for: APNs and FCM,
+    /// each only once its keys are configured.
+    Push,
 }
 
 impl StaffChannel {
-    /// The channels in use: in-app only until push credentials exist.
-    pub const ACTIVE: &'static [Self] = &[Self::InApp];
+    /// The channels in use: in-app always, push when it has a provider (it skips itself
+    /// otherwise).
+    pub const ACTIVE: &'static [Self] = &[Self::InApp, Self::Push];
 
     /// The channel's name, for logs.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             Self::InApp => "in_app",
+            Self::Push => "push",
         }
     }
 
     /// Delivers one alert to the members it is addressed to.
     ///
     /// # Errors
-    /// A [`Failure`] when the provider refuses it (none yet: in-app always succeeds).
-    pub(crate) fn deliver(
+    /// A [`Failure`] when the recipients can't be worked out (in-app always succeeds). A
+    /// provider that refuses a push is logged by device and is not a failure here.
+    pub(crate) async fn deliver(
         self,
-        _alert: &StaffAlert,
-    ) -> impl Future<Output = Result<(), Failure>> + use<> {
-        // Push providers will be called over HTTP here; in-app has nothing to send.
-        std::future::ready(match self {
+        db: &Db,
+        push: &Push,
+        alert: &StaffAlert,
+    ) -> Result<(), Failure> {
+        match self {
             Self::InApp => Ok(()),
-        })
+            Self::Push => push
+                .alert(db, alert)
+                .await
+                .map(|_| ())
+                .map_err(|_| Failure::retryable("could not work out who to push to")),
+        }
     }
 }
 
@@ -90,6 +106,19 @@ pub async fn remind(
     db: &Db,
     now: OffsetDateTime,
     hours: OpenHours,
+) -> Result<ReminderReport, DbError> {
+    remind_with(db, now, hours, &Push::off()).await
+}
+
+/// [`remind`], also pushing each reminder and escalation through `push`.
+///
+/// # Errors
+/// [`DbError`] when the database fails; steps already recorded stay recorded.
+pub async fn remind_with(
+    db: &Db,
+    now: OffsetDateTime,
+    hours: OpenHours,
+    push: &Push,
 ) -> Result<ReminderReport, DbError> {
     let pool = db.pool();
     let open = dal::open_requests(pool, now, MIN_WAIT_MINUTES, BATCH).await?;
@@ -136,16 +165,16 @@ pub async fn remind(
             "booking request {}",
             step.as_str()
         );
-        deliver(&alert).await;
+        deliver(db, push, &alert).await;
     }
     Ok(report)
 }
 
 /// Sends an alert through every active channel. The inbox message is already saved, so a
 /// channel that fails is logged and the alert is not retried (push will be best effort).
-async fn deliver(alert: &StaffAlert) {
+async fn deliver(db: &Db, push: &Push, alert: &StaffAlert) {
     for channel in StaffChannel::ACTIVE {
-        if let Err(failure) = channel.deliver(alert).await {
+        if let Err(failure) = channel.deliver(db, push, alert).await {
             tracing::warn!(
                 org_id = %alert.clinic_id.uuid(),
                 message_id = %alert.message_id.uuid(),
@@ -162,9 +191,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_in_app_delivery_is_active_until_push_credentials_exist() {
-        assert_eq!(StaffChannel::ACTIVE, [StaffChannel::InApp]);
+    fn in_app_and_push_are_the_channels() {
+        assert_eq!(
+            StaffChannel::ACTIVE,
+            [StaffChannel::InApp, StaffChannel::Push]
+        );
         assert_eq!(StaffChannel::InApp.name(), "in_app");
+        assert_eq!(StaffChannel::Push.name(), "push");
     }
 }
 

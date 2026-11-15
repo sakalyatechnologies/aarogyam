@@ -18,8 +18,9 @@
 //! The same job makes new clinics' portal addresses work at the edge first ([`PortalAddresses`],
 //! in `addresses.rs`), so an invitation link works by the time its email arrives, and reminds
 //! staff of booking requests nobody has answered, then tells the owners ([`remind`], in
-//! `staff.rs`, which also holds the delivery seam for push), and reminds labs of work due
-//! ([`remind_labs`], in `lab.rs`).
+//! `staff.rs`, which also holds the channels alerts leave through), pushes every new staff
+//! notification to the staff app ([`Push`], in `push.rs`; off until keys are configured), and
+//! reminds labs of work due ([`remind_labs`], in `lab.rs`).
 
 mod addresses;
 pub mod cloudflare;
@@ -27,6 +28,7 @@ pub mod hub_signature;
 mod lab;
 mod messages;
 mod patient_templates;
+pub mod push;
 mod resend;
 mod staff;
 mod staff_ops;
@@ -47,8 +49,11 @@ use time::OffsetDateTime;
 pub use addresses::{AddressReport, PortalAddresses, WorkersDev};
 pub use lab::{LabReminderReport, remind_labs};
 pub use messages::MessageReport;
+pub use push::{Push, PushReport, PushSetup};
 pub use resend::Resend;
-pub use staff::{FlagReport, ReminderReport, StaffAlert, StaffChannel, flag_alerts, remind};
+pub use staff::{
+    FlagReport, ReminderReport, StaffAlert, StaffChannel, flag_alerts, remind, remind_with,
+};
 pub use staff_ops::{StaffOpsReport, run_staff_ops};
 pub use stock::{StockReport, run_stock_alerts};
 pub use tasks::TaskReport;
@@ -152,6 +157,8 @@ pub struct Notifier {
     whatsapp: WhatsappSetup,
     /// The platform kill switch for campaigns (`ARO_CAMPAIGNS__ENABLED`).
     campaigns_enabled: bool,
+    /// Staff push notifications; off unless providers are configured.
+    push: Push,
 }
 
 impl Notifier {
@@ -165,6 +172,7 @@ impl Notifier {
             resend_webhook_secret: None,
             whatsapp: WhatsappSetup::default(),
             campaigns_enabled: true,
+            push: Push::off(),
         }
     }
 
@@ -184,6 +192,7 @@ impl Notifier {
             resend_webhook_secret: None,
             whatsapp: WhatsappSetup::default(),
             campaigns_enabled: true,
+            push: Push::off(),
         })
     }
 
@@ -216,6 +225,19 @@ impl Notifier {
     pub const fn with_campaigns_enabled(mut self, enabled: bool) -> Self {
         self.campaigns_enabled = enabled;
         self
+    }
+
+    /// Staff push notifications through `push` (APNs and FCM); without it nothing is pushed.
+    #[must_use]
+    pub fn with_push(mut self, push: Push) -> Self {
+        self.push = push;
+        self
+    }
+
+    /// Staff push notifications: the job runs [`Push::run`] and passes it to [`remind_with`].
+    #[must_use]
+    pub const fn push(&self) -> &Push {
+        &self.push
     }
 
     /// Whether `WhatsApp` messages are sent (else skipped with `channel_disabled`).

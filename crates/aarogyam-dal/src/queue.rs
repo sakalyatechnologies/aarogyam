@@ -487,7 +487,8 @@ pub async fn last_reminded_at(
 }
 
 /// Stamps the reminder and re-opens the token's `patient_waiting` notification: unhandled, and
-/// unread again for everyone who had read it (its `updated_at` moves to now). Writes the row if
+/// unread again for everyone who had read it (its `updated_at` moves to now), and pushed again
+/// (`pushed_at` cleared, so the push job sends the reminder to the doctor's phone). Writes the row if
 /// the token has none. Writes ids only.
 ///
 /// # Errors
@@ -505,7 +506,8 @@ pub async fn remind(conn: &mut PgConnection, id: Uuid, now: OffsetDateTime) -> R
              insert into aarogyam.staff_notifications (kind, queue_token_id, href, audience)
              values ('patient_waiting', $1, '/queue', 'doctor')
              on conflict (org_id, queue_token_id, kind) where queue_token_id is not null
-             do update set handled_at = null, handled_by = null, reminded_at = $2
+             do update set handled_at = null, handled_by = null, reminded_at = $2,
+                           pushed_at = null
              returning id
            )
            delete from aarogyam.staff_notification_reads r

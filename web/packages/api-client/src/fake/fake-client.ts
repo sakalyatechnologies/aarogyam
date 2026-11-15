@@ -5717,6 +5717,23 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(undefined);
         }),
 
+      revokeCurrentSession: (opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const id = await subject();
+          if (id === undefined) {
+            return signedOut;
+          }
+          const now = clock().toISOString();
+          // The current session is the most recently used one, as `listMySessions` says.
+          const current = state.sessions
+            .filter((s) => s.user_id === id && !s.revoked && s.expires_at > now)
+            .sort((a, b) => b.last_active_at.localeCompare(a.last_active_at))[0];
+          if (current !== undefined) {
+            current.revoked = true;
+          }
+          return reply(undefined);
+        }),
+
       revokeOtherSessions: (opts) =>
         respond(S.revokedSessions, opts?.signal, async () => {
           const id = await subject();

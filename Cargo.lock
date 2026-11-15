@@ -10,6 +10,7 @@ dependencies = [
  "aarogyam-dal",
  "aarogyam-domain",
  "aarogyam-notify",
+ "aws-lc-rs",
  "axum",
  "base64 0.22.1",
  "jsonwebtoken",
@@ -91,10 +92,12 @@ dependencies = [
 name = "aarogyam-notify"
 version = "0.1.0"
 dependencies = [
+ "aarogyam-app",
  "aarogyam-dal",
  "aarogyam-domain",
  "aws-lc-rs",
  "base64 0.22.1",
+ "jsonwebtoken",
  "reqwest",
  "sakalya-db",
  "sakalya-types",
@@ -1779,6 +1782,7 @@ dependencies = [
  "base64 0.23.1",
  "bytes",
  "futures-core",
+ "h2",
  "http",
  "http-body",
  "http-body-util",

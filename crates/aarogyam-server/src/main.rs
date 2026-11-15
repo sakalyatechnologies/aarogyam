@@ -15,8 +15,11 @@ use aarogyam_domain::client::ClientPolicy;
 use aarogyam_domain::notification::OpenHours;
 use aarogyam_domain::patient::Email;
 use aarogyam_notify::cloudflare::{API_BASE, AccountId, WorkersApi};
+use aarogyam_notify::push::{APNS_HOST, APNS_SANDBOX_HOST, Apns, FCM_HOST, Fcm};
 use aarogyam_notify::whatsapp::{Costs, Meta};
-use aarogyam_notify::{Notifier, PortalAddresses, PortalLinks, WhatsappSetup, WorkersDev};
+use aarogyam_notify::{
+    Notifier, PortalAddresses, PortalLinks, Push, PushSetup, WhatsappSetup, WorkersDev,
+};
 use aarogyam_server::config::{AuthMode, Config, EdgeHosts, FileBackend};
 use anyhow::Context;
 use axum::http::HeaderName;
@@ -421,11 +424,50 @@ fn notifier(config: &Config, local: bool) -> anyhow::Result<Notifier> {
     let notifier = notifier
         .with_daily_budget(config.email.daily_budget)
         .with_campaigns_enabled(config.campaigns.enabled)
-        .with_whatsapp(whatsapp(config)?);
+        .with_whatsapp(whatsapp(config)?)
+        .with_push(push(config)?);
     Ok(match config.email.resend_webhook_secret.clone() {
         Some(secret) => notifier.with_resend_webhook_secret(secret),
         None => notifier,
     })
+}
+
+/// Staff push notifications when enabled: APNs with its key, key id, team id and topic, and FCM
+/// with its project and service account. A provider with any of its settings missing is skipped
+/// (the log says which provider, never a value); one with a key that doesn't parse stops the
+/// start.
+fn push(config: &Config) -> anyhow::Result<Push> {
+    let settings = &config.push;
+    if !settings.enabled {
+        return Ok(Push::off());
+    }
+    let apns = if let (Some(key), Some(key_id), Some(team_id), Some(topic)) = (
+        &settings.apns_key_p8,
+        &settings.apns_key_id,
+        &settings.apns_team_id,
+        &settings.apns_topic,
+    ) {
+        let host = if settings.apns_sandbox {
+            APNS_SANDBOX_HOST
+        } else {
+            APNS_HOST
+        };
+        Some(Apns::new(host, key, key_id, team_id, topic).context("push apns settings")?)
+    } else {
+        tracing::warn!("push.enabled but the APNs settings are incomplete: iPhones are skipped");
+        None
+    };
+    let fcm = if let (Some(project), Some(account)) =
+        (&settings.fcm_project_id, &settings.fcm_service_account_json)
+    {
+        Some(Fcm::new(FCM_HOST, project, account).context("push fcm settings")?)
+    } else {
+        tracing::warn!(
+            "push.enabled but the FCM settings are incomplete: Android phones are skipped"
+        );
+        None
+    };
+    Ok(Push::new(PushSetup { apns, fcm }))
 }
 
 /// `WhatsApp` through Meta when enabled (which needs its token and number id); otherwise
@@ -589,19 +631,7 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not provision portal addresses"),
         }
-        // Booking requests nobody has answered: remind staff, then tell the owners.
-        match aarogyam_notify::remind(&db, time::OffsetDateTime::now_utc(), OpenHours::DEFAULT)
-            .await
-        {
-            Ok(report) if report.reminded + report.escalated > 0 => tracing::info!(
-                open = report.open,
-                reminded = report.reminded,
-                escalated = report.escalated,
-                "booking requests reminded"
-            ),
-            Ok(_) => {}
-            Err(error) => tracing::warn!(error = %error, "could not remind booking requests"),
-        }
+        remind_bookings(&notifier, &db).await;
         // Lab work due in two days or today: email the lab; flag work overdue.
         match aarogyam_notify::remind_labs(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) if report.reminded + report.skipped + report.overdue > 0 => tracing::info!(
@@ -635,6 +665,7 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not flag staff alerts"),
         }
+        push_staff(&notifier, &db).await;
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(
                 provider = notifier.email_provider(),
@@ -663,6 +694,48 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             () = tokio::time::sleep(interval) => {}
             _ = tokio::signal::ctrl_c() => return Ok(()),
         }
+    }
+}
+
+/// Booking requests nobody has answered: remind staff (and push it), then tell the owners.
+async fn remind_bookings(notifier: &Notifier, db: &Db) {
+    match aarogyam_notify::remind_with(
+        db,
+        time::OffsetDateTime::now_utc(),
+        OpenHours::DEFAULT,
+        notifier.push(),
+    )
+    .await
+    {
+        Ok(report) if report.reminded + report.escalated > 0 => tracing::info!(
+            open = report.open,
+            reminded = report.reminded,
+            escalated = report.escalated,
+            "booking requests reminded"
+        ),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(error = %error, "could not remind booking requests"),
+    }
+}
+
+/// Every new staff notification, whoever wrote it, pushed to the staff app (a no-op until push
+/// keys are configured, but it still marks them pushed).
+async fn push_staff(notifier: &Notifier, db: &Db) {
+    match notifier
+        .push()
+        .run(db, time::OffsetDateTime::now_utc())
+        .await
+    {
+        Ok(report) if report.claimed > 0 => tracing::info!(
+            claimed = report.claimed,
+            too_old = report.too_old,
+            sent = report.sent,
+            cleared = report.cleared,
+            failed = report.failed,
+            "staff notifications pushed"
+        ),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(error = %error, "could not push staff notifications"),
     }
 }
 

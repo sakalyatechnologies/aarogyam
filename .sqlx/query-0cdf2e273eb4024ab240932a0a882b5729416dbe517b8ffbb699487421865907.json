@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id as \"id!\", user_id as \"user_id!\", platform as \"platform!\",\n                  push_token as \"push_token!\"\n           from app.push_devices($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "platform!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "push_token!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "0cdf2e273eb4024ab240932a0a882b5729416dbe517b8ffbb699487421865907"
+}

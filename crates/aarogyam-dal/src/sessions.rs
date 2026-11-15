@@ -106,3 +106,25 @@ pub async fn revoke_others(
     .await?;
     Ok(revoked)
 }
+
+/// Signs out the session of the token asking, and clears the push tokens of the devices it
+/// registered (`app.revoke_current_session`). `false` when the person has no user record.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn revoke_current(
+    pool: &PgPool,
+    auth_uid: Uuid,
+    provider_session: Uuid,
+    expires_at: Option<OffsetDateTime>,
+) -> Result<bool, DbError> {
+    let done = sqlx::query_scalar!(
+        r#"select app.revoke_current_session($1, $2, $3) as "done!""#,
+        auth_uid,
+        provider_session,
+        expires_at
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(done)
+}

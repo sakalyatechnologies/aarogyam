@@ -156,7 +156,12 @@ TABLES = [
       purpose="Phones and browsers a user signs in from, with push tokens.",
       cols=["user_id uuid -> users", "platform device_platform | android, ios, web",
             "model text?", "app_version text?", "push_token text?",
-            "push_token_updated_at timestamptz?"]),
+            "push_token_updated_at timestamptz?",
+            "installation_id uuid? | the app's own id for this install; unique per user (user_id, installation_id)",
+            "app text? | staff or patient (reserved); null on rows from before migration 0714, which are never pushed to",
+            "locale text? | the device's language, such as en-IN",
+            "session_id uuid? -> sessions | the sign-in session that registered it; a revoked session stops pushes to it"],
+      notes="Staff push (migration 0714): PUT and DELETE /me/devices/{installation_id} (app.register_device, app.unregister_device, run by the API login before any clinic is known). A token is held by one device: registering it again, for anyone, moves it. Sign-out clears the token. The push job reads devices through app.push_devices, which leaves out devices whose registering session was revoked; a token the provider calls dead is cleared (app.clear_device_token). The change history masks push_token."),
 
     # ------------------------------------------------------------------ tenancy
     T(name="organizations", domain="tenancy", rls="global", star=True, lifecycle="mutable",
@@ -869,7 +874,8 @@ TABLES = [
             "handled_at timestamptz? | set when the appointment is confirmed, declined or cancelled",
             "handled_by uuid? -> memberships | null when the patient cancelled",
             "reminded_at timestamptz? | the reminder job reminded everyone",
-            "escalated_at timestamptz? | the reminder job told the owners"],
+            "escalated_at timestamptz? | the reminder job told the owners",
+            "pushed_at timestamptz? | the push job claimed it (app.claim_staff_push): sent to the staff devices of the members who see it, or, when older than 30 minutes, only marked; excluded from the change history"],
       notes="Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor. Since migration 0395 also lab_overdue, written by a trigger when the reminder job flags an order overdue (overdue_flagged_on) and handled when the work comes back, is cancelled or gets a new due date; seen by members with labs.read whose scope reaches the order (app.clinical_in_reach). Since migration 0617 also arrival (trigger on appointments, handled when the patient moves on; seen with appointments.read), payment_due (trigger when a bill is issued with a balance; handled when paid or voided; billing.read), recall_due (app.flag_due_recalls from the reminder job unless the clinic switched recall off; handled when the recall is booked, done or dismissed; patients.read within reach), patient_waiting and send_in, and collect_payment, which migration 0678 reworks (see below). Visit notifications (migration 0678): patient_waiting is written by a trigger when a token is created waiting (app.flag_waiting_tokens stays as a safety net), send_in when the token becomes called, and arrival is no longer written; both go to the token's practitioner's member, or when unassigned to the doctors on duty (a practitioner with a working_hours row for the token's weekday at its branch and no leave block or approved time off covering now), or when nobody is on duty to every clinical.write holder (app.visit_notification_visible). collect_payment is about the bill and is written when the visit's token reaches ready_to_bill, when a bill gets lines while the token is already there, or by the app when a visit without a token is sent for payment (app.write_collect_payment); it handles the bill's payment_due row, is handled by payment in full, a void, or the token becoming done or left, goes to billing.write or payments.collect holders, and Done writes none. A handled patient_waiting, send_in, collect_payment, arrival or payment_due row does not count as unread (app.notification_counts_unread). The feed reads the bill's total and balance (app.invoice_total_paise, app.invoice_balance_paise), never stored. Recall alerts go in the patient's erasure."),
     T(name="staff_notification_reads", domain="notify", rls="clinic", lifecycle="ephemeral",
       purpose="Which member has read which notification: read state is per person.",

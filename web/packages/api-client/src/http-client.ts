@@ -749,6 +749,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     listMySessions: (opts) => call({ method: "GET", path: "/api/v1/me/sessions", schema: mySessionsResponse, signal: opts?.signal }),
     revokeMySession: (id, opts) =>
       call({ method: "POST", path: `/api/v1/me/sessions/${encodeURIComponent(id)}/revoke`, schema: voidResponse, signal: opts?.signal }),
+    revokeCurrentSession: (opts) =>
+      call({ method: "POST", path: "/api/v1/me/sessions/revoke-current", schema: voidResponse, signal: opts?.signal }),
     revokeOtherSessions: (opts) =>
       call({ method: "POST", path: "/api/v1/me/sessions/revoke-others", schema: revokedSessions, signal: opts?.signal }),
     updateMe: (changes, opts) => call({ method: "PATCH", path: "/api/v1/me", schema: profile, body: changes, signal: opts?.signal }),

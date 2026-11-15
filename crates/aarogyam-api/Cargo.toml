@@ -33,6 +33,7 @@ utoipa.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+aws-lc-rs.workspace = true
 sakalya-testkit.workspace = true
 sqlx.workspace = true
 tokio = { workspace = true, features = ["macros", "net"] }

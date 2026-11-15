@@ -81,6 +81,13 @@ export function canMove(from: C.LabOrderState, to: C.LabOrderState): boolean {
   }
 }
 
+/** Fitted, reworked and cancelled orders no longer change (the API answers 409 to item edits). */
+export const isLocked = (status: C.LabOrderState): boolean => status === "fitted" || status === "returned_for_rework" || status === "cancelled";
+export const LOCKED_MESSAGE = "a fitted, reworked or cancelled order can't change";
+
+/** The methods a payment to a lab may name, the same as a patient's payment. */
+export const LAB_PAYMENT_METHODS: readonly string[] = ["cash", "upi", "card", "bank"];
+
 export const atLab = (status: C.LabOrderState): boolean => status === "sent" || status === "in_progress";
 
 const PIPELINE: Readonly<Record<C.LabOrderState, C.LabPipelineStage>> = {
@@ -183,6 +190,8 @@ export const wireLabPayment = (p: FakeLabPayment): C.LabPayment => ({
   amount_paise: p.amount_paise,
   lab_invoice_ref: p.lab_invoice_ref ?? null,
   note: p.note ?? null,
+  // Absent, as the API leaves it, when no method was recorded.
+  ...(p.method == null ? {} : { method: p.method }),
   expense_id: p.expense_id,
   status: p.status,
   void_reason: p.void_reason ?? null,
@@ -194,6 +203,13 @@ export const wireLabPayment = (p: FakeLabPayment): C.LabPayment => ({
 export const nextOrderNumber = (labs: FakeLabs): string =>
   `LAB-${String(labs.orders.reduce((max, o) => Math.max(max, Number(o.number.replace(/\D/g, "")) || 0), 0) + 1)}`;
 
+/** FDI tooth numbers: permanent 11-48 and primary 51-85, each quadrant's last digit within its range. */
+const isFdi = (t: number): boolean => {
+  const quadrant = Math.floor(t / 10);
+  const tooth = t % 10;
+  return Number.isInteger(t) && ((quadrant >= 1 && quadrant <= 4 && tooth >= 1 && tooth <= 8) || (quadrant >= 5 && quadrant <= 8 && tooth >= 1 && tooth <= 5));
+};
+
 /** Checks a new order's items; the first problem as field and message. */
 export function checkItems(items: readonly C.NewLabOrderItem[]): { field: string; problem: string } | null {
   if (items.length === 0 || items.length > 50) {
@@ -204,7 +220,7 @@ export function checkItems(items: readonly C.NewLabOrderItem[]): { field: string
     if (work === "" || work.length > 80) {
       return { field: "work_type", problem: "write the kind of work in 1 to 80 characters" };
     }
-    if ((item.teeth ?? []).some((t) => !Number.isInteger(t) || t < 11 || t > 85)) {
+    if ((item.teeth ?? []).some((t) => !isFdi(t))) {
       return { field: "teeth", problem: "use tooth numbers such as 36" };
     }
     if (item.qty != null && (!Number.isInteger(item.qty) || item.qty < 1 || item.qty > 99)) {

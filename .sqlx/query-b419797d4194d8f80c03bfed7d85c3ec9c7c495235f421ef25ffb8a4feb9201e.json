@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update aarogyam.lab_payments\n           set status = 'void', void_reason = $2, voided_at = $3, voided_by = $4\n           where id = $1 and status = 'recorded'\n           returning id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,\n                     expense_id, status, void_reason, voided_at, recorded_by, created_at",
+  "query": "update aarogyam.lab_payments\n           set status = 'void', void_reason = $2, voided_at = $3, voided_by = $4\n           where id = $1 and status = 'recorded'\n           returning id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,\n                     method, expense_id, status, void_reason, voided_at, recorded_by, created_at",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,17 @@
       },
       {
         "ordinal": 7,
+        "name": "method",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "method"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "expense_id",
         "type_info": "Uuid",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "status",
         "type_info": "Text",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "void_reason",
         "type_info": "Text",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "voided_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -125,7 +136,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "recorded_by",
         "type_info": "Uuid",
         "origin": {
@@ -136,7 +147,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -163,6 +174,7 @@
       false,
       true,
       true,
+      true,
       false,
       false,
       true,
@@ -171,5 +183,5 @@
       false
     ]
   },
-  "hash": "f1fbe372d4295962bc3c5a93da611e49de336140389d4ce88b4654a41e8bb404"
+  "hash": "b419797d4194d8f80c03bfed7d85c3ec9c7c495235f421ef25ffb8a4feb9201e"
 }

@@ -23,6 +23,8 @@ pub struct PaymentRow {
     pub lab_invoice_ref: Option<String>,
     /// A note.
     pub note: Option<String>,
+    /// How it was paid, when recorded.
+    pub method: Option<String>,
     /// The expense recorded with it.
     pub expense_id: Uuid,
     /// `recorded` or `void`.
@@ -54,6 +56,8 @@ pub struct NewPayment<'a> {
     pub lab_invoice_ref: Option<&'a str>,
     /// A note.
     pub note: Option<&'a str>,
+    /// How it was paid.
+    pub method: Option<&'a str>,
     /// The expense just recorded for it.
     pub expense_id: Uuid,
     /// Who.
@@ -103,10 +107,10 @@ pub async fn insert(conn: &mut PgConnection, new: &NewPayment<'_>) -> Result<Pay
         PaymentRow,
         r#"insert into aarogyam.lab_payments
              (id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,
-              expense_id, recorded_by)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+              method, expense_id, recorded_by)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
            returning id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,
-                     expense_id, status, void_reason, voided_at, recorded_by, created_at"#,
+                     method, expense_id, status, void_reason, voided_at, recorded_by, created_at"#,
         new.id,
         new.vendor_id,
         new.lab_order_id,
@@ -114,6 +118,7 @@ pub async fn insert(conn: &mut PgConnection, new: &NewPayment<'_>) -> Result<Pay
         new.amount_paise,
         new.lab_invoice_ref,
         new.note,
+        new.method,
         new.expense_id,
         new.recorded_by
     )
@@ -137,7 +142,7 @@ pub async fn list(
     let rows = sqlx::query_as!(
         PaymentRow,
         r#"select id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,
-                  expense_id, status, void_reason, voided_at, recorded_by, created_at
+                  method, expense_id, status, void_reason, voided_at, recorded_by, created_at
            from aarogyam.lab_payments
            where ($1::uuid is null or vendor_id = $1)
              and ($2::date is null or paid_on >= $2) and ($3::date is null or paid_on <= $3)
@@ -170,7 +175,7 @@ pub async fn void(
            set status = 'void', void_reason = $2, voided_at = $3, voided_by = $4
            where id = $1 and status = 'recorded'
            returning id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,
-                     expense_id, status, void_reason, voided_at, recorded_by, created_at"#,
+                     method, expense_id, status, void_reason, voided_at, recorded_by, created_at"#,
         id,
         reason,
         at,

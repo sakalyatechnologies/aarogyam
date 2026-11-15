@@ -120,6 +120,79 @@ describe("fake client: lab work", () => {
     expect(status(await doctor.recordLabPayment({ vendor_id: vendor.id, paid_on: "2026-10-03", amount_paise: 100 }))).toBe(403);
   });
 
+  it("adds, changes and removes order items until the order is final", async () => {
+    const { me, client } = setup();
+    const lab12 = value(await me.listLabOrders()).items.find((o) => o.number === "LAB-12");
+    if (lab12 === undefined) throw new Error("no LAB-12");
+    const first = lab12.items[0];
+    if (first === undefined) throw new Error("no item");
+
+    const added = value(await me.addLabOrderItem(lab12.id, { work_type: " Bridge ", teeth: [13, 11, 12], qty: 2, unit_cost_paise: 100_000 }));
+    expect(added.items.map((i) => [i.line_no, i.work_type, i.teeth, i.qty])).toEqual([[1, "PFM crown", [46], 1], [2, "Bridge", [11, 12, 13], 2]]);
+    expect(added.events.at(-1)).toMatchObject({ kind: "item_added", line_no: 2 });
+    const second = added.items[1];
+    if (second === undefined) throw new Error("no second");
+
+    const changed = value(await me.updateLabOrderItem(second.id, { shade: "A3", qty: 3, unit_cost_paise: null }));
+    expect(changed.items[1]).toMatchObject({ shade: "A3", qty: 3, work_type: "Bridge", unit_cost_paise: null });
+    expect(changed.events.at(-1)).toMatchObject({ kind: "item_changed", line_no: 2 });
+    expect(status(await me.updateLabOrderItem(second.id, { qty: 101 }))).toBe(400);
+    expect(status(await me.updateLabOrderItem(second.id, { work_type: " " }))).toBe(400);
+    expect(status(await me.addLabOrderItem(lab12.id, { work_type: "Crown", teeth: [19] }))).toBe(400);
+    expect(status(await me.updateLabOrderItem("no-such-item", { qty: 1 }))).toBe(404);
+
+    const removed = value(await me.removeLabOrderItem(second.id));
+    expect(removed.items).toHaveLength(1);
+    expect(removed.events.at(-1)).toMatchObject({ kind: "item_removed", line_no: 2 });
+    const last = await me.removeLabOrderItem(first.id);
+    expect(status(last)).toBe(409);
+    expect(status(await me.removeLabOrderItem(second.id))).toBe(404);
+
+    // A role without finance.view can't set a cost.
+    const doctor = client(DEV);
+    if (status(await doctor.addLabOrderItem(lab12.id, { work_type: "Crown" })) === undefined) {
+      expect(status(await doctor.addLabOrderItem(lab12.id, { work_type: "Crown", unit_cost_paise: 1 }))).toBe(403);
+    }
+
+    // Fitted and cancelled orders are locked.
+    const fitted = value(await me.listLabOrders()).items.find((o) => o.status === "fitted");
+    const fittedItem = fitted?.items[0];
+    if (fitted === undefined || fittedItem === undefined) throw new Error("no fitted order");
+    expect(status(await me.addLabOrderItem(fitted.id, { work_type: "Crown" }))).toBe(409);
+    expect(status(await me.updateLabOrderItem(fittedItem.id, { qty: 1 }))).toBe(409);
+    expect(status(await me.removeLabOrderItem(fittedItem.id))).toBe(409);
+    const refusal = await me.addLabOrderItem(fitted.id, { work_type: "Crown" });
+    if (refusal.ok) throw new Error("expected a refusal");
+    expect(refusal.error.message).toContain("can't change");
+  });
+
+  it("keeps order items to their own clinic", async () => {
+    const { me, client } = setup();
+    const lab12 = value(await me.listLabOrders()).items.find((o) => o.number === "LAB-12");
+    const item = lab12?.items[0];
+    if (lab12 === undefined || item === undefined) throw new Error("no LAB-12");
+    const other = client(BINA, "lotus.localtest.me");
+    expect(status(await other.addLabOrderItem(lab12.id, { work_type: "Crown" }))).toBeDefined();
+    expect(status(await other.updateLabOrderItem(item.id, { qty: 2 }))).toBe(404);
+    expect(status(await other.removeLabOrderItem(item.id))).toBe(404);
+  });
+
+  it("records a payment's method, leaves it absent when none, and refuses an unknown one", async () => {
+    const { me } = setup();
+    const vendor = value(await me.listLabVendors()).items[0];
+    if (vendor === undefined) throw new Error("no lab");
+    const paid = value(await me.recordLabPayment({ vendor_id: vendor.id, paid_on: "2026-10-03", amount_paise: 500, method: "upi" }));
+    expect(paid.method).toBe("upi");
+    const plain = value(await me.recordLabPayment({ vendor_id: vendor.id, paid_on: "2026-10-03", amount_paise: 600 }));
+    expect("method" in plain).toBe(false);
+    const listed = value(await me.listLabPayments(vendor.id)).items;
+    expect(listed.find((p) => p.id === paid.id)?.method).toBe("upi");
+    expect("method" in (listed.find((p) => p.id === plain.id) ?? {})).toBe(false);
+    for (const bad of ["cheque", "", "UPI"]) {
+      expect(status(await me.recordLabPayment({ vendor_id: vendor.id, paid_on: "2026-10-03", amount_paise: 100, method: bad }))).toBe(400);
+    }
+  });
+
   it("records a payment against the balance and voids it with a reason", async () => {
     const { me } = setup();
     const vendor = value(await me.listLabVendors()).items.find((v) => v.name === "Precision Dental Lab");

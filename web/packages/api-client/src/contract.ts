@@ -304,6 +304,7 @@ export type NewLabOrder = Schemas["NewLabOrder"];
 export type NewLabOrderItem = Schemas["NewLabOrderItem"];
 export type LabOrderStatusChange = Schemas["LabOrderStatusChange"];
 export type LabOrderChanges = Schemas["LabOrderChanges"];
+export type LabOrderItemChanges = Schemas["LabOrderItemChanges"];
 export type LabContactLogEntry = Schemas["LabContactLogEntry"];
 export type LabReminderQueued = Schemas["LabReminderQueued"];
 export type LabReminders = Schemas["LabReminders"];

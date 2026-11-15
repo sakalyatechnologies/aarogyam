@@ -5567,7 +5567,7 @@
             }
           },
           "400": {
-            "description": "Invalid amount, note, reference or day, or an order at another lab"
+            "description": "Invalid amount, note, reference, method or day, or an order at another lab"
           },
           "401": {
             "description": "Not signed in"
@@ -25980,6 +25980,13 @@
             ],
             "description": "The order paid for."
           },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How it was paid: `cash`, `upi`, `card` or `bank`. Absent when it was not recorded."
+          },
           "note": {
             "type": [
               "string",
@@ -28858,6 +28865,13 @@
               "null"
             ],
             "description": "The order paid for, at that lab."
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How it was paid: `cash`, `upi`, `card` or `bank`. Optional; nothing is assumed."
           },
           "note": {
             "type": [

@@ -77,6 +77,9 @@ import {
   trimmedOrNull,
   wireLabOrder,
   wireLabPayment,
+  isLocked,
+  LOCKED_MESSAGE,
+  LAB_PAYMENT_METHODS,
   wireVendor,
   type FakeLabOrder,
   type FakeLabPayment,
@@ -1525,6 +1528,122 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wireLabOrder(found, labContext(caller)));
         }),
 
+      addLabOrderItem: (orderId, item, opts) =>
+        respond(S.labOrder, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = labsOf().orders.find((o) => o.id === orderId && o.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (item.unit_cost_paise != null && !hasPermission(caller.membership.role.permissions, "finance.view")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const problem = checkItems([item]);
+          if (problem !== null) {
+            return invalid(problem.field, problem.problem);
+          }
+          if (isLocked(found.status)) {
+            return refuse(409, "conflict", LOCKED_MESSAGE);
+          }
+          if (found.items.length >= 50) {
+            return invalid("items", "an order has at most 50 items");
+          }
+          const now = clock().toISOString();
+          const line_no = found.items.reduce((max, i) => Math.max(max, i.line_no), 0) + 1;
+          found.items.push({
+            id: fakeUuid(random, clock()),
+            line_no,
+            work_type: item.work_type.trim(),
+            teeth: [...(item.teeth ?? [])].sort((a, b) => a - b),
+            shade: trimmedOrNull(item.shade),
+            material: trimmedOrNull(item.material),
+            qty: item.qty ?? 1,
+            unit_cost_paise: item.unit_cost_paise ?? null,
+          });
+          found.events.push({ kind: "item_added", line_no, at: now, actor_id: caller.membership.id });
+          return reply(wireLabOrder(found, labContext(caller)));
+        }),
+
+      updateLabOrderItem: (itemId, changes, opts) =>
+        respond(S.labOrder, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = labsOf().orders.find((o) => o.clinic_id === caller.clinic.id && o.items.some((i) => i.id === itemId));
+          const item = found?.items.find((i) => i.id === itemId);
+          if (found === undefined || item === undefined) {
+            return notFound;
+          }
+          if ("unit_cost_paise" in changes && !hasPermission(caller.membership.role.permissions, "finance.view")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          if (changes.work_type != null) {
+            const work = changes.work_type.trim();
+            if (work === "" || work.length > 80) {
+              return invalid("work_type", "write the kind of work in 1 to 80 characters");
+            }
+          }
+          const merged: C.NewLabOrderItem = {
+            work_type: changes.work_type ?? item.work_type,
+            teeth: changes.teeth ?? item.teeth,
+            qty: changes.qty ?? item.qty,
+            unit_cost_paise: "unit_cost_paise" in changes ? (changes.unit_cost_paise ?? null) : (item.unit_cost_paise ?? null),
+          };
+          const problem = checkItems([merged]);
+          if (problem !== null) {
+            return invalid(problem.field, problem.problem);
+          }
+          if (isLocked(found.status)) {
+            return refuse(409, "conflict", LOCKED_MESSAGE);
+          }
+          if (changes.work_type != null) {
+            item.work_type = changes.work_type.trim();
+          }
+          if (changes.teeth != null) {
+            item.teeth = [...changes.teeth].sort((a, b) => a - b);
+          }
+          if (changes.shade !== undefined) {
+            item.shade = trimmedOrNull(changes.shade);
+          }
+          if (changes.material !== undefined) {
+            item.material = trimmedOrNull(changes.material);
+          }
+          if (changes.qty != null) {
+            item.qty = changes.qty;
+          }
+          if ("unit_cost_paise" in changes) {
+            item.unit_cost_paise = changes.unit_cost_paise ?? null;
+          }
+          found.events.push({ kind: "item_changed", line_no: item.line_no, at: clock().toISOString(), actor_id: caller.membership.id });
+          return reply(wireLabOrder(found, labContext(caller)));
+        }),
+
+      removeLabOrderItem: (itemId, opts) =>
+        respond(S.labOrder, opts?.signal, async () => {
+          const caller = await inClinic("labs.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = labsOf().orders.find((o) => o.clinic_id === caller.clinic.id && o.items.some((i) => i.id === itemId));
+          const item = found?.items.find((i) => i.id === itemId);
+          if (found === undefined || item === undefined) {
+            return notFound;
+          }
+          if (isLocked(found.status)) {
+            return refuse(409, "conflict", LOCKED_MESSAGE);
+          }
+          if (found.items.length === 1) {
+            return refuse(409, "conflict", "An order keeps at least one item.");
+          }
+          found.items = found.items.filter((i) => i.id !== itemId);
+          found.events.push({ kind: "item_removed", line_no: item.line_no, at: clock().toISOString(), actor_id: caller.membership.id });
+          return reply(wireLabOrder(found, labContext(caller)));
+        }),
+
       setLabOrderStatus: (id, change, opts) =>
         respond(S.labOrder, opts?.signal, async () => {
           const caller = await inClinic("labs.write");
@@ -1849,6 +1968,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (ref !== null && ref.length > 60) {
             return invalid("lab_invoice_ref", "at most 60 characters");
           }
+          if (input.method != null && !LAB_PAYMENT_METHODS.includes(input.method)) {
+            return invalid("method", "must be cash, upi, card or bank");
+          }
           const now = clock();
           const expense: FakeExpense = {
             id: fakeUuid(random, now),
@@ -1870,6 +1992,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             amount_paise: input.amount_paise,
             lab_invoice_ref: ref,
             note,
+            ...(input.method == null ? {} : { method: input.method }),
             expense_id: expense.id,
             status: "recorded",
             void_reason: null,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,\n                  expense_id, status, void_reason, voided_at, recorded_by, created_at\n           from aarogyam.lab_payments\n           where ($1::uuid is null or vendor_id = $1)\n             and ($2::date is null or paid_on >= $2) and ($3::date is null or paid_on <= $3)\n           order by paid_on desc, id desc\n           limit $4",
+  "query": "insert into aarogyam.lab_payments\n             (id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,\n              method, expense_id, recorded_by)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n           returning id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,\n                     method, expense_id, status, void_reason, voided_at, recorded_by, created_at",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,17 @@
       },
       {
         "ordinal": 7,
+        "name": "method",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "method"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "expense_id",
         "type_info": "Uuid",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "status",
         "type_info": "Text",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "void_reason",
         "type_info": "Text",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "voided_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -125,7 +136,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "recorded_by",
         "type_info": "Uuid",
         "origin": {
@@ -136,7 +147,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -150,9 +161,15 @@
     "parameters": {
       "Left": [
         "Uuid",
+        "Uuid",
+        "Uuid",
         "Date",
-        "Date",
-        "Int8"
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Uuid",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -163,6 +180,7 @@
       false,
       true,
       true,
+      true,
       false,
       false,
       true,
@@ -171,5 +189,5 @@
       false
     ]
   },
-  "hash": "9547f81be60cdcb01ac94672d3a1c895354e3bb6c5df759d0630c935c4523235"
+  "hash": "0a0333f921028d03ced7c1580a85042bc8a85722f5e06f682b4460719ea1c8df"
 }

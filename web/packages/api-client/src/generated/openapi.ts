@@ -8845,6 +8845,8 @@ export interface components {
             lab_invoice_ref?: string | null;
             /** @description The order paid for. */
             lab_order_id?: string | null;
+            /** @description How it was paid: `cash`, `upi`, `card` or `bank`. Absent when it was not recorded. */
+            method?: string | null;
             /** @description A note. */
             note?: string | null;
             /** @description The clinic day, `YYYY-MM-DD`. */
@@ -9988,6 +9990,8 @@ export interface components {
             lab_invoice_ref?: string | null;
             /** @description The order paid for, at that lab. */
             lab_order_id?: string | null;
+            /** @description How it was paid: `cash`, `upi`, `card` or `bank`. Optional; nothing is assumed. */
+            method?: string | null;
             /** @description Up to 300 characters. */
             note?: string | null;
             /** @description The clinic day, `YYYY-MM-DD`; today or earlier. */
@@ -20203,7 +20207,7 @@ export interface operations {
                     "application/json": components["schemas"]["LabPayment"];
                 };
             };
-            /** @description Invalid amount, note, reference or day, or an order at another lab */
+            /** @description Invalid amount, note, reference, method or day, or an order at another lab */
             400: {
                 headers: {
                     [name: string]: unknown;

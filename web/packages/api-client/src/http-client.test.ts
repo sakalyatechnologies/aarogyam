@@ -947,6 +947,10 @@ describe("createHttpClient lab requests", () => {
     await client.listLabOrders({ overdue: true });
     await client.setLabOrderStatus("o1", { status: "received", stage: "Final" });
     await client.updateLabOrder("o1", { stage: "Trial" });
+    await client.addLabOrderItem("o1", { work_type: "Crown", teeth: [36] });
+    await client.updateLabOrderItem("i1", { qty: 2, unit_cost_paise: null });
+    await client.removeLabOrderItem("i 1");
+    await client.recordLabPayment({ vendor_id: "v1", paid_on: "2026-10-03", amount_paise: 100, method: "upi" });
     await client.remindLab("o1");
     await client.logLabContact("o1", { channel: "call", outcome: "no_answer" });
     await client.getLabBalance("v1");
@@ -958,6 +962,10 @@ describe("createHttpClient lab requests", () => {
       "GET /api/v1/lab-orders?overdue=true",
       "POST /api/v1/lab-orders/o1/status",
       "PATCH /api/v1/lab-orders/o1",
+      "POST /api/v1/lab-orders/o1/items",
+      "PATCH /api/v1/lab-order-items/i1",
+      "DELETE /api/v1/lab-order-items/i%201",
+      "POST /api/v1/lab-payments",
       "POST /api/v1/lab-orders/o1/remind",
       "POST /api/v1/lab-orders/o1/contacts-log",
       "GET /api/v1/lab-vendors/v1/balance",
@@ -966,6 +974,37 @@ describe("createHttpClient lab requests", () => {
     ]);
     const sentBody = calls[2]?.init?.body;
     expect(JSON.parse(typeof sentBody === "string" ? sentBody : "{}")).toEqual({ status: "received", stage: "Final" });
+    const bodyOf = (i: number): unknown => {
+      const body = calls[i]?.init?.body;
+      return JSON.parse(typeof body === "string" ? body : "null");
+    };
+    expect(bodyOf(4)).toEqual({ work_type: "Crown", teeth: [36] });
+    expect(bodyOf(5)).toEqual({ qty: 2, unit_cost_paise: null });
+    expect(calls[6]?.init?.body).toBeUndefined();
+    expect(bodyOf(7)).toMatchObject({ method: "upi" });
+  });
+
+  it("reads a lab payment with its method absent, null or present", async () => {
+    const payment = {
+      id: "p1",
+      vendor_id: "v1",
+      paid_on: "2026-10-03",
+      amount_paise: 100,
+      expense_id: "e1",
+      status: "recorded",
+      recorded_by: "m1",
+      created_at: "2026-10-03T05:30:00Z",
+    };
+    const read = async (extra: object) => {
+      const client = createHttpClient("", () => "abc", { fetch: stubFetch(json(200, { items: [{ ...payment, ...extra }] })).fetch });
+      return client.listLabPayments();
+    };
+    for (const extra of [{}, { method: null }, { method: "upi" }]) {
+      const result = await read(extra);
+      expect(result.ok, JSON.stringify(extra)).toBe(true);
+    }
+    const upi = await read({ method: "upi" });
+    expect(upi.ok && upi.value.items[0]?.method).toBe("upi");
   });
 
   it("decodes an order and refuses one the contract doesn't allow", async () => {

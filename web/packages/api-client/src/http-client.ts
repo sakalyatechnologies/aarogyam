@@ -338,6 +338,12 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     createLabOrder: (input, opts) => call({ method: "POST", path: "/api/v1/lab-orders", schema: labOrder, body: input, signal: opts?.signal }),
     updateLabOrder: (id, changes, opts) =>
       call({ method: "PATCH", path: `/api/v1/lab-orders/${encodeURIComponent(id)}`, schema: labOrder, body: changes, signal: opts?.signal }),
+    addLabOrderItem: (orderId, item, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-orders/${encodeURIComponent(orderId)}/items`, schema: labOrder, body: item, signal: opts?.signal }),
+    updateLabOrderItem: (itemId, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/lab-order-items/${encodeURIComponent(itemId)}`, schema: labOrder, body: changes, signal: opts?.signal }),
+    removeLabOrderItem: (itemId, opts) =>
+      call({ method: "DELETE", path: `/api/v1/lab-order-items/${encodeURIComponent(itemId)}`, schema: labOrder, signal: opts?.signal }),
     setLabOrderStatus: (id, change, opts) =>
       call({ method: "POST", path: `/api/v1/lab-orders/${encodeURIComponent(id)}/status`, schema: labOrder, body: change, signal: opts?.signal }),
     remindLab: (id, opts) =>

@@ -7,9 +7,11 @@ import {
   type LabContactValues,
   type LabOrder,
   type LabOrderFilter,
+  type LabOrderItemChanges,
   type LabRemindersRequest,
   type LabVendorValues,
   type NewLabOrder,
+  type NewLabOrderItem,
   type NewLabPayment,
   type Reason,
 } from "@aarogyam/api-client";
@@ -76,6 +78,40 @@ export function useMoveLabOrder() {
     },
     onSettled: () => {
       refresh(queryClient, access.org_id);
+    },
+  });
+}
+
+/** Adds, changes or removes an order's items. Each answers with the whole order, so the drawer and the cards refresh together. */
+export function useAddLabOrderItem() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderId, item }: { orderId: string; item: NewLabOrderItem }) => unwrap(api.addLabOrderItem(orderId, item)),
+    onSuccess: () => {
+      refresh(queryClient, access.org_id, "lab-balance");
+    },
+  });
+}
+
+export function useUpdateLabOrderItem() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, changes }: { itemId: string; changes: LabOrderItemChanges }) => unwrap(api.updateLabOrderItem(itemId, changes)),
+    onSuccess: () => {
+      refresh(queryClient, access.org_id, "lab-balance");
+    },
+  });
+}
+
+export function useRemoveLabOrderItem() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (itemId: string) => unwrap(api.removeLabOrderItem(itemId)),
+    onSuccess: () => {
+      refresh(queryClient, access.org_id, "lab-balance");
     },
   });
 }

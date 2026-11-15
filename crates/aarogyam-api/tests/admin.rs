@@ -13,6 +13,71 @@ use serde_json::json;
 use support::people::*;
 use support::{ALPHA, BETA, TestApp};
 
+/// Supabase's Admin API as a fake that keeps the passwords it was given.
+#[derive(Debug, Default)]
+struct PasswordAccounts {
+    users: std::sync::Mutex<Vec<(String, uuid::Uuid, String)>>,
+}
+
+impl PasswordAccounts {
+    fn password(&self, email: &str) -> Option<String> {
+        let users = self.users.lock().unwrap();
+        users.iter().find(|u| u.0 == email).map(|u| u.2.clone())
+    }
+}
+
+impl aarogyam_app::accounts::SignInAccounts for PasswordAccounts {
+    fn ensure_user<'a>(
+        &'a self,
+        email: &'a aarogyam_domain::patient::Email,
+    ) -> aarogyam_app::accounts::AccountFuture<'a> {
+        let id = uuid::Uuid::now_v7();
+        self.users
+            .lock()
+            .unwrap()
+            .push((email.as_str().to_owned(), id, String::new()));
+        Box::pin(async move { Ok(aarogyam_app::accounts::AuthUid::from_uuid(id)) })
+    }
+
+    fn ensure_user_with_password<'a>(
+        &'a self,
+        email: &'a aarogyam_domain::patient::Email,
+        password: &'a secrecy::SecretString,
+    ) -> aarogyam_app::accounts::AccountFuture<'a> {
+        use secrecy::ExposeSecret;
+        let mut users = self.users.lock().unwrap();
+        let password = password.expose_secret().to_owned();
+        let id = if let Some(user) = users.iter_mut().find(|u| u.0 == email.as_str()) {
+            user.2 = password;
+            user.1
+        } else {
+            let id = uuid::Uuid::now_v7();
+            users.push((email.as_str().to_owned(), id, password));
+            id
+        };
+        Box::pin(async move { Ok(aarogyam_app::accounts::AuthUid::from_uuid(id)) })
+    }
+
+    fn replace_password<'a>(
+        &'a self,
+        email: &'a aarogyam_domain::patient::Email,
+        password: &'a secrecy::SecretString,
+    ) -> aarogyam_app::accounts::AccountFuture<'a> {
+        use secrecy::ExposeSecret;
+        let mut users = self.users.lock().unwrap();
+        let result = match users.iter_mut().find(|u| u.0 == email.as_str()) {
+            Some(user) => {
+                password.expose_secret().clone_into(&mut user.2);
+                Ok(aarogyam_app::accounts::AuthUid::from_uuid(user.1))
+            }
+            None => Err(aarogyam_app::accounts::AccountsError::Upstream(
+                "no such account".to_owned(),
+            )),
+        };
+        Box::pin(async move { result })
+    }
+}
+
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
 async fn clinic_settings_are_validated_and_kept_per_clinic() {
@@ -863,5 +928,102 @@ async fn add_member_bootstraps_a_clinic_owner_over_the_owner_connection() {
         .send(Method::GET, ALPHA, "/api/v1/session", Some(&token), None)
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn review_account_makes_an_active_owner_and_off_ends_it_without_showing_the_password() {
+    use aarogyam_app::review_account::{disable, enable};
+
+    async fn review_membership(app: &TestApp) -> (String, String) {
+        sqlx::query_as::<_, (String, String)>(
+            "select r.key, m.status from aarogyam.memberships m
+             join aarogyam.users u on u.id = m.user_id
+             join aarogyam.roles r on r.id = m.role_id
+             join aarogyam.organizations o on o.id = m.org_id
+             where u.email = 'reviewer@example.com' and o.slug = 'sunrise'",
+        )
+        .fetch_one(&app.owner)
+        .await
+        .unwrap()
+    }
+    use secrecy::SecretString;
+
+    let app = TestApp::start().await;
+    // A synthetic demo clinic, and a real one that must be refused.
+    sqlx::query(
+        "select app.create_clinic('sunrise', 'Sunrise Dental', 'SD', 'dental', 'sunrise.localtest.me',
+                                  '01900000-0000-7000-8000-0000000000a1')",
+    )
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let db = app.owner_db();
+    let accounts = PasswordAccounts::default();
+    let email = aarogyam_domain::patient::Email::parse("reviewer@example.com").unwrap();
+    let secret = "correct-horse-battery-staple-9";
+    let password = SecretString::from(secret);
+    let mut shown: Vec<String> = Vec::new();
+
+    // A clinic outside the allowlist is refused before anything is touched.
+    let error = enable(&db, &accounts, "alpha", &email, None, &password)
+        .await
+        .unwrap_err();
+    shown.push(format!("{error} {error:?}"));
+    assert!(accounts.password("reviewer@example.com").is_none());
+    // So is platform staff, with their account left alone.
+    let staff = aarogyam_domain::patient::Email::parse("staff@sakalya.test").unwrap();
+    let error = enable(&db, &accounts, "sunrise", &staff, None, &password)
+        .await
+        .unwrap_err();
+    shown.push(format!("{error} {error:?}"));
+    assert!(accounts.password("staff@sakalya.test").is_none());
+
+    let out = enable(
+        &db,
+        &accounts,
+        "sunrise",
+        &email,
+        Some("App Reviewer"),
+        &password,
+    )
+    .await
+    .unwrap();
+    shown.push(out.clone());
+    assert_eq!(
+        out,
+        "clinic: sunrise, email: reviewer@example.com, password set from ARO_REVIEW_PASSWORD"
+    );
+    assert_eq!(
+        accounts.password("reviewer@example.com").as_deref(),
+        Some(secret)
+    );
+
+    assert_eq!(
+        review_membership(&app).await,
+        ("owner".into(), "active".into())
+    );
+    // Running it again is fine and keeps one membership.
+    enable(&db, &accounts, "sunrise", &email, None, &password)
+        .await
+        .unwrap();
+
+    let out = disable(&db, &accounts, "sunrise", &email).await.unwrap();
+    shown.push(out.clone());
+    assert_eq!(review_membership(&app).await.1, "left");
+    let scrambled = accounts.password("reviewer@example.com").unwrap();
+    assert_ne!(scrambled, secret);
+    assert_eq!(scrambled.len(), 64);
+    shown.push(format!("{password:?}"));
+    let shown = shown.join(" | ");
+    assert!(!shown.contains(secret), "the password leaked: {shown}");
+    assert!(!shown.contains(&scrambled), "the scrambled password leaked");
+    // Off for someone who never had an account is an error, not a panic.
+    let nobody = aarogyam_domain::patient::Email::parse("nobody@example.com").unwrap();
+    let error = disable(&db, &accounts, "sunrise", &nobody)
+        .await
+        .unwrap_err();
+    assert!(!format!("{error}").contains(secret));
     app.finish().await;
 }

@@ -116,4 +116,36 @@
     <string name="cn_c_team_not_allowed_title">The team list is for owners</string>
     <string name="cn_c_team_title">Team</string>
     <string name="cn_c_team_you">You</string>
+    <string name="cn_c_analytics_title">Analytics</string>
+    <string name="cn_c_cat_electricity">Utilities</string>
+    <string name="cn_c_cat_lab">Lab work</string>
+    <string name="cn_c_cat_material">Materials</string>
+    <string name="cn_c_cat_other">Other</string>
+    <string name="cn_c_cat_rent">Rent</string>
+    <string name="cn_c_cat_salary">Salaries</string>
+    <string name="cn_c_expenses_add">Add expense</string>
+    <string name="cn_c_expenses_amount_a11y">Amount %1$s</string>
+    <string name="cn_c_expenses_delete">Delete digit</string>
+    <string name="cn_c_expenses_empty_message">Add the first one with the button above.</string>
+    <string name="cn_c_expenses_empty_title">No expenses this month</string>
+    <string name="cn_c_expenses_entries" tools:ignore="PluralsCandidate">%1$d recorded</string>
+    <string name="cn_c_expenses_not_allowed_message">Your role can\'t see the clinic\'s spending.</string>
+    <string name="cn_c_expenses_not_allowed_title">Expenses are for finance</string>
+    <string name="cn_c_expenses_note">Note</string>
+    <string name="cn_c_expenses_note_prompt">What was it for?</string>
+    <string name="cn_c_expenses_photo">Bill photo</string>
+    <string name="cn_c_expenses_photo_preview">Preview: bill photos need server support</string>
+    <string name="cn_c_expenses_problem_amount">Enter an amount.</string>
+    <string name="cn_c_expenses_problem_future">The date can\'t be in the future.</string>
+    <string name="cn_c_expenses_problem_large">That amount is too large.</string>
+    <string name="cn_c_expenses_problem_note">The note is too long.</string>
+    <string name="cn_c_expenses_save">Save expense</string>
+    <string name="cn_c_expenses_saved_message">It is in this month\'s list.</string>
+    <string name="cn_c_expenses_saved_title">Expense saved</string>
+    <string name="cn_c_expenses_title">Expenses</string>
+    <string name="cn_c_expenses_void">Voided</string>
+    <string name="cn_c_pay_bank">Bank</string>
+    <string name="cn_c_pay_card">Card</string>
+    <string name="cn_c_pay_cash">Cash</string>
+    <string name="cn_c_pay_upi">UPI</string>
 </resources>

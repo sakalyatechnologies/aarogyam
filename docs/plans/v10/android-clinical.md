@@ -9,9 +9,10 @@ Branch `v11-and-clinical`. Files: `ui/clinical/**`, `ui/labs/**`, `res/values*/s
 - Labs (`ui/labs/`): directory with vendor line, cases with tracker pill, case sheet (tracker, contact log, Remind, Mark received), new case (patient picker + form), Remind all with Email/WhatsApp and result card. `openLabs()`.
 - Team list (`ui/clinical/TeamScreen.kt`), `openTeam()`.
 
+- Expenses (`ExpensesScreen`, `ExpenseSheet` with keypad), `openExpenses()`.
+
 ## Left
-- Expenses (+ ExpenseSheet), `openExpenses()`.
-- Analytics: DEFERRED by coordinator. Another worker is rebuilding iOS Analytics (custom dates, revenue vs expenses, expense categories, per-chair use, real data) with new shared holder logic; port that version once it lands. `openAnalytics()` still to add (stub it to ComingSoon meanwhile).
+- Analytics: DEFERRED by coordinator. Another worker is rebuilding iOS Analytics (custom dates, revenue vs expenses, expense categories, per-chair use, real data) with new shared holder logic; port that version once it lands. `openAnalytics()` exists and shows a coming-soon page until then (route `clinical/analytics` in `ClinicalRoutes.kt`).
 - Messages/Inbox page (iOS InboxPage) not in the opener list; not ported.
 
 ## Notes

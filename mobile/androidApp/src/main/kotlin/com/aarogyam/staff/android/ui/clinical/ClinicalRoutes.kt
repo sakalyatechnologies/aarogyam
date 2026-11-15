@@ -1,13 +1,23 @@
 package com.aarogyam.staff.android.ui.clinical
 
 import android.net.Uri
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.aarogyam.staff.AppGraph
+import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.BarAction
+import com.aarogyam.staff.android.ui.ComingSoon
 import com.aarogyam.staff.android.ui.labs.LabsScreen
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.clinic.ClinicContext
+import com.sakalya.mobile.designcompose.SkTheme
+import com.sakalya.mobile.designcompose.SkTopBar
+import com.sakalya.mobile.designcompose.color
 
 /** Labs, team chat and the More extras (T13, owned by the clinical worker). AppRoot calls [clinicalDestinations]. */
 object ClinicalRoutes {
@@ -15,7 +25,14 @@ object ClinicalRoutes {
     const val CHAT = "clinical/chat/{id}?title={title}"
     const val LABS = "clinical/labs"
     const val TEAM = "clinical/team"
+    const val EXPENSES = "clinical/expenses"
+    const val ANALYTICS = "clinical/analytics"
 }
+
+fun NavController.openExpenses() = navigate(ClinicalRoutes.EXPENSES)
+
+/** Analytics waits for the rebuilt iOS version (T13 handoff); until then it shows the coming-soon page. */
+fun NavController.openAnalytics() = navigate(ClinicalRoutes.ANALYTICS)
 
 fun NavController.openLabs() = navigate(ClinicalRoutes.LABS)
 
@@ -56,5 +73,24 @@ fun NavGraphBuilder.clinicalDestinations(
             onChats = nav::openChats,
             onOpenChat = nav::openChat,
         )
+    }
+    composable(ClinicalRoutes.EXPENSES) {
+        val open = clinic() ?: return@composable
+        ExpensesScreen(rememberHolder { graph.expenses(open, it) }, onBack = nav::popBackStack)
+    }
+    composable(ClinicalRoutes.ANALYTICS) {
+        Column(Modifier.fillMaxSize()) {
+            SkTopBar(
+                title = stringResource(R.string.cn_c_analytics_title),
+                navigation = {
+                    BarAction(
+                        stringResource(R.string.back),
+                        SkTheme.colors.onBrandDark.color,
+                        nav::popBackStack,
+                    )
+                },
+            )
+            ComingSoon(R.string.cn_c_analytics_title)
+        }
     }
 }

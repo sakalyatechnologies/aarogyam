@@ -83,6 +83,7 @@ private struct NewLabCaseForm: View {
                     SkSheetHeader(pv("pv.newlab.title"), subtitle: patientName)
                     V7Label(text: pv("pv.newlab.lab"))
                     SkChoiceChips(labs, selected: Set(labs.filter { $0.id == state.labId }), label: { $0.name }) { holder.chooseLab(labId: $0.id, contactId: nil) }
+                    if let lab = labs.first(where: { $0.id == state.labId }), !lab.infoLine.isEmpty { V7Muted(lab.infoLine) }
                     if let lab = labs.first(where: { $0.id == state.labId }), !lab.contacts.isEmpty {
                         SkChoiceChips(lab.contacts, selected: Set(lab.contacts.filter { $0.id == state.contactId }), label: { $0.name }) {
                             holder.chooseLab(labId: lab.id, contactId: $0.id)

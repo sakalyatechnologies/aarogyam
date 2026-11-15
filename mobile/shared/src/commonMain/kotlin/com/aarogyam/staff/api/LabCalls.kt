@@ -5,6 +5,8 @@ import com.aarogyam.staff.api.model.LabOrder
 import com.aarogyam.staff.api.model.LabOrderList
 import com.aarogyam.staff.api.model.LabOrderStatusChange
 import com.aarogyam.staff.api.model.LabReminderQueued
+import com.aarogyam.staff.api.model.LabReminders
+import com.aarogyam.staff.api.model.LabRemindersRequest
 import com.aarogyam.staff.api.model.LabVendorList
 import com.aarogyam.staff.api.model.NewLabOrder
 import com.sakalya.mobile.core.ApiError
@@ -70,4 +72,13 @@ suspend fun ClinicApi.remindLab(id: String): Outcome<LabReminderQueued, ApiError
     client.call {
         method = HttpMethod.Post
         url("api/v1/lab-orders/${id.encodeURLPathPart()}/remind")
+    }
+
+/** `POST /api/v1/lab-orders/reminders` (`remindLabs`, `labs.write`): up to 50 orders, one message or `wa.me` link per lab (200 or 202). */
+suspend fun ClinicApi.remindLabs(request: LabRemindersRequest): Outcome<LabReminders, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/lab-orders/reminders")
+        contentType(ContentType.Application.Json)
+        setBody(request)
     }

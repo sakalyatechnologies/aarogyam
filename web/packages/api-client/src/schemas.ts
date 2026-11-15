@@ -800,9 +800,9 @@ export const queueToken = z.object({
   done_at: optionalTimestamp,
   room_id: roomId.nullable().exactOptional(),
   reason: optionalText,
-  welcome_status: autoMessageStatus.exactOptional(),
+  welcome_status: autoMessageStatus.nullable().exactOptional(),
   welcome_skip_reason: optionalText,
-  thanks_status: autoMessageStatus.exactOptional(),
+  thanks_status: autoMessageStatus.nullable().exactOptional(),
   thanks_skip_reason: optionalText,
   wait_minutes: z.number().int().nonnegative(),
 }) satisfies z.ZodType<C.QueueToken>;

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="cn_c_chat_compose">Message</string>
+    <string name="cn_c_chat_deleted">Message deleted</string>
+    <string name="cn_c_chat_empty_message">Open Team and tap a person to start one.</string>
+    <string name="cn_c_chat_empty_title">No conversations yet</string>
+    <string name="cn_c_chat_failed">Not sent. Tap to retry.</string>
+    <string name="cn_c_chat_no_messages">No messages yet</string>
+    <string name="cn_c_chat_not_allowed_message">Ask the owner to turn it on.</string>
+    <string name="cn_c_chat_not_allowed_title">Chat is not on for your role</string>
+    <string name="cn_c_chat_send">Send</string>
+    <string name="cn_c_chat_sending">Sending…</string>
+    <string name="cn_c_chat_thread_empty">Say hello.</string>
+    <string name="cn_c_chat_title">Team chat</string>
+    <string name="cn_c_chat_unread_a11y" tools:ignore="PluralsCandidate">%1$s, %2$d unread</string>
+    <string name="cn_c11_notice">Notice</string>
+    <string name="cn_c11_notice_toggle">Post as notice</string>
+    <string name="cn_c11_pinned_a11y">Pinned notice</string>
+    <string name="cn_c11_attach">Send a photo</string>
+    <string name="cn_c11_photo_camera">Take a photo</string>
+    <string name="cn_c11_photo_library">Choose from library</string>
+    <string name="cn_c11_photo_refused">That photo is over 5 MB and was not sent.</string>
+    <string name="cn_c11_photo_unreadable">That photo could not be read.</string>
+    <string name="cn_c11_photo_a11y">Photo</string>
+    <string name="cn_c11_file_a11y">File</string>
+    <string name="cn_c11_file_open_failed">Could not open the file. Try again.</string>
+    <string name="cn_c11_close">Close</string>
+    <string name="cn_c11_ok">OK</string>
+</resources>

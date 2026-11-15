@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="cn_c_chat_compose">संदेश</string>
+    <string name="cn_c_chat_deleted">संदेश हटाया गया</string>
+    <string name="cn_c_chat_empty_message">टीम खोलें और किसी व्यक्ति को छुएँ।</string>
+    <string name="cn_c_chat_empty_title">अभी कोई बातचीत नहीं</string>
+    <string name="cn_c_chat_failed">भेजा नहीं गया। फिर कोशिश करें।</string>
+    <string name="cn_c_chat_no_messages">अभी कोई संदेश नहीं</string>
+    <string name="cn_c_chat_not_allowed_message">मालिक से इसे चालू करने को कहें।</string>
+    <string name="cn_c_chat_not_allowed_title">आपकी भूमिका के लिए चैट बंद है</string>
+    <string name="cn_c_chat_send">भेजें</string>
+    <string name="cn_c_chat_sending">भेज रहे हैं…</string>
+    <string name="cn_c_chat_thread_empty">नमस्ते कहें।</string>
+    <string name="cn_c_chat_title">टीम चैट</string>
+    <string name="cn_c_chat_unread_a11y" tools:ignore="PluralsCandidate">%1$s, %2$d अपठित</string>
+    <string name="cn_c11_notice">सूचना</string>
+    <string name="cn_c11_notice_toggle">सूचना के रूप में पोस्ट करें</string>
+    <string name="cn_c11_pinned_a11y">पिन की गई सूचना</string>
+    <string name="cn_c11_attach">फ़ोटो भेजें</string>
+    <string name="cn_c11_photo_camera">फ़ोटो खींचें</string>
+    <string name="cn_c11_photo_library">लाइब्रेरी से चुनें</string>
+    <string name="cn_c11_photo_refused">यह फ़ोटो 5 MB से बड़ी है, भेजी नहीं गई।</string>
+    <string name="cn_c11_photo_unreadable">यह फ़ोटो पढ़ी नहीं जा सकी।</string>
+    <string name="cn_c11_photo_a11y">फ़ोटो</string>
+    <string name="cn_c11_file_a11y">फ़ाइल</string>
+    <string name="cn_c11_file_open_failed">फ़ाइल नहीं खुल सकी। फिर कोशिश करें।</string>
+    <string name="cn_c11_close">बंद करें</string>
+    <string name="cn_c11_ok">ठीक है</string>
+</resources>

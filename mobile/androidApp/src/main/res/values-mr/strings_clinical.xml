@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="cn_c_chat_compose">संदेश</string>
+    <string name="cn_c_chat_deleted">संदेश हटवला</string>
+    <string name="cn_c_chat_empty_message">टीम उघडा आणि एखाद्या व्यक्तीला दाबा.</string>
+    <string name="cn_c_chat_empty_title">अजून संवाद नाही</string>
+    <string name="cn_c_chat_failed">पाठवले नाही. पुन्हा प्रयत्न करा.</string>
+    <string name="cn_c_chat_no_messages">अजून संदेश नाही</string>
+    <string name="cn_c_chat_not_allowed_message">मालकांना ते चालू करायला सांगा.</string>
+    <string name="cn_c_chat_not_allowed_title">तुमच्या भूमिकेसाठी चॅट बंद आहे</string>
+    <string name="cn_c_chat_send">पाठवा</string>
+    <string name="cn_c_chat_sending">पाठवत आहे…</string>
+    <string name="cn_c_chat_thread_empty">नमस्कार म्हणा.</string>
+    <string name="cn_c_chat_title">टीम चॅट</string>
+    <string name="cn_c_chat_unread_a11y" tools:ignore="PluralsCandidate">%1$s, %2$d न वाचलेले</string>
+    <string name="cn_c11_notice">सूचना</string>
+    <string name="cn_c11_notice_toggle">सूचना म्हणून पोस्ट करा</string>
+    <string name="cn_c11_pinned_a11y">पिन केलेली सूचना</string>
+    <string name="cn_c11_attach">फोटो पाठवा</string>
+    <string name="cn_c11_photo_camera">फोटो काढा</string>
+    <string name="cn_c11_photo_library">लायब्ररीतून निवडा</string>
+    <string name="cn_c11_photo_refused">हा फोटो 5 MB पेक्षा मोठा आहे, पाठवला नाही.</string>
+    <string name="cn_c11_photo_unreadable">हा फोटो वाचता आला नाही.</string>
+    <string name="cn_c11_photo_a11y">फोटो</string>
+    <string name="cn_c11_file_a11y">फाइल</string>
+    <string name="cn_c11_file_open_failed">फाइल उघडता आली नाही. पुन्हा प्रयत्न करा.</string>
+    <string name="cn_c11_close">बंद करा</string>
+    <string name="cn_c11_ok">ठीक आहे</string>
+</resources>

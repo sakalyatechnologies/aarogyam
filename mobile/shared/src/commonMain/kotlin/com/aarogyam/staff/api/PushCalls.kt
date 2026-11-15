@@ -50,3 +50,13 @@ suspend fun ClinicApi.markNotificationRead(id: String): Outcome<Unit, ApiError> 
         method = HttpMethod.Post
         url("api/v1/notifications/${id.encodeURLPathPart()}/read")
     }
+
+/**
+ * `POST /api/v1/me/sessions/revoke-current`: ends this session on the server and drops its push
+ * tokens, before the Supabase sign-out. 204; a repeat is 401.
+ */
+suspend fun AppApi.revokeCurrent(): Outcome<Unit, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/me/sessions/revoke-current")
+    }

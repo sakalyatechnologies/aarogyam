@@ -1,6 +1,7 @@
 package com.aarogyam.staff
 
 import com.aarogyam.staff.analytics.AnalyticsStateHolder
+import com.aarogyam.staff.api.revokeCurrent
 import com.aarogyam.staff.billing.BillingStateHolder
 import com.aarogyam.staff.booking.BookingStateHolder
 import com.aarogyam.staff.calendar.CalendarStateHolder
@@ -107,6 +108,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.LocalDate
 
 /**
@@ -493,6 +495,20 @@ class AppGraph private constructor(
             logger("aarogyam.push"),
         )
 
+    init {
+        // A sign-in after a sign-out is a new server session, which gets pushes only once it registers,
+        // so register again even with the same token. A restore at start is the same session.
+        scope.launch {
+            var last: SessionState = SessionState.Restoring
+            sessions.state.collect { now ->
+                if (now is SessionState.SignedIn && last !is SessionState.SignedIn && last !is SessionState.Restoring) {
+                    push.newSession()
+                }
+                last = now
+            }
+        }
+    }
+
     /** Restores the session again, after secure storage was unavailable. */
     fun restore() {
         scope.launch { sessions.restore() }
@@ -513,6 +529,11 @@ class AppGraph private constructor(
     fun signOut() {
         scope.launch {
             push.forget()
+            // Best effort, like the DELETE above: the server ends this session and its push tokens.
+            directory.appApi()?.let { app ->
+                val answer = withTimeoutOrNull(REVOKE_TIMEOUT_MS) { app.revokeCurrent() }
+                if (answer !is Outcome.Success) logger("aarogyam.session").warn("session.revoke_failed")
+            }
             sessions.signOut()
             directory.clear()
             endOutbox()
@@ -523,6 +544,8 @@ class AppGraph private constructor(
         clients.getOrPut(base) { factory.create(base, tokens = sessions) }
 
     companion object {
+        private const val REVOKE_TIMEOUT_MS = 4_000L
+
         /**
          * Builds the graph and starts restoring the session. Fails only when this build has no
          * valid Supabase URL. [store] holds the session and the device ID; every log line goes to

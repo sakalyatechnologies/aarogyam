@@ -110,6 +110,34 @@ class PushRegistrationTest {
         }
 
     @Test
+    fun signOutRevokesTheSessionAndTheNextSignInSendsTheSameTokenAgain() =
+        runTest {
+            val backend = FakeBackend()
+            val graph = testGraph(backend, backgroundScope)
+            val id = graph.push.installationId
+            backend.on("$route/$id", { json("", HttpStatusCode.NoContent) })
+            backend.on("$DEMO_APP/api/v1/me/sessions/revoke-current", { json("", HttpStatusCode.NoContent) })
+            graph.push.setToken("ab12")
+            signIn(graph, backend)
+            backend.waitFor("PUT", 1)
+            graph.signOut()
+            withContext(Dispatchers.Default) {
+                withTimeout(5_000) {
+                    while (backend.requests.none {
+                            it.url.encodedPath.endsWith(
+                                "/me/sessions/revoke-current",
+                            )
+                        }
+                    ) {
+                        delay(10)
+                    }
+                }
+            }
+            signIn(graph, backend)
+            backend.waitFor("PUT", 2)
+        }
+
+    @Test
     fun aFailedSendIsRetriedOnTheNextStart() =
         runTest {
             val backend = FakeBackend()

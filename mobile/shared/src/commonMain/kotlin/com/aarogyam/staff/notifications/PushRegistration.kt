@@ -39,10 +39,12 @@ class PushRegistration(
     private data class Wanted(
         val token: String,
         val locale: String,
+        val session: Int,
     )
 
     private var token: String? = null
     private var locale: String = DEFAULT_LOCALE
+    private var session = 0
     private val wanted = MutableStateFlow<Wanted?>(null)
 
     /** This installation's random ID, made once and kept in preferences. */
@@ -72,6 +74,13 @@ class PushRegistration(
         publish()
     }
 
+    /** A new server session (a sign-in after a sign-out): send the token again even if it did not change. */
+    fun newSession() {
+        preferences.set(PreferenceKey.PushSent, null)
+        session++
+        publish()
+    }
+
     /** Best effort: tells the server to stop pushing to this phone, then forgets what it accepted. Never throws. */
     suspend fun forget() {
         val app = api()
@@ -88,7 +97,7 @@ class PushRegistration(
 
     private fun publish() {
         val t = token ?: return
-        wanted.value = Wanted(t, locale)
+        wanted.value = Wanted(t, locale, session)
     }
 
     private suspend fun send(want: Wanted) {

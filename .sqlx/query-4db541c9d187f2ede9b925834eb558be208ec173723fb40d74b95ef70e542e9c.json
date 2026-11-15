@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select due_on, kind from aarogyam.recalls\n           where patient_id = $1 and status in ('due', 'notified') and due_on >= $2\n           order by due_on, id\n           limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "due_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recalls",
+            "name": "due_on"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recalls",
+            "name": "kind"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "4db541c9d187f2ede9b925834eb558be208ec173723fb40d74b95ef70e542e9c"
+}

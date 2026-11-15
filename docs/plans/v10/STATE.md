@@ -33,13 +33,8 @@ Paused by the founder. This is the one place to resume from. The approved plan i
 | `v9-pb` | `~/project/wt-v9-pb` | backend port: SSE 0702 committed (e8f360c2); auto messages, follow-up link and recall dismiss, payment→done are WIP | **backend work, so hand it to the backend agent** (single-backend rule). See `docs/plans/v9/port-pb.md` on that branch |
 | `v9-pa` (a3a0a578) | — | reference only: family, payment proof, patient visits | the backend agent copies the shapes (G11 and its own branches) |
 
-## Not started (plan order)
-1. **T8:** iOS intake form + PencilKit signature
-2. **T9:** iOS doctor "Waiting for you", intake summary, chair mode, Wrap up, celebration
-3. **T10:** iOS My tasks + confetti; the bell
-4. **T11:** iOS live banners on `LiveUpdates`
-5. **T12:** timed E2E on two simulators
-6. **T13:** Android
+## Plan order
+T8–T12 (iOS intake and signature, doctor screens, My tasks and the bell, live banners, the timed two-simulator E2E) are done; see the dated sections below. Not started: **T13** Android, after iOS sign-off.
 
 ## How to resume
 1. Read this file, then the plan.

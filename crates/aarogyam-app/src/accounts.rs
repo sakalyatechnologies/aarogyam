@@ -90,6 +90,35 @@ pub trait SignInAccounts: Send + Sync + fmt::Debug {
     /// The account for `email`, created (confirmed) when there is none.
     fn ensure_user<'a>(&'a self, email: &'a Email) -> AccountFuture<'a>;
 
+    /// The account for `email` with `password` as its password: created (confirmed) when there
+    /// is none, else its password is replaced. For the store reviewer's account only.
+    /// Unsupported unless implemented.
+    fn ensure_user_with_password<'a>(
+        &'a self,
+        _email: &'a Email,
+        _password: &'a SecretString,
+    ) -> AccountFuture<'a> {
+        Box::pin(async {
+            Err(AccountsError::Configuration(
+                "these accounts can't set passwords",
+            ))
+        })
+    }
+
+    /// Replaces the password of the existing account of `email`; an error when there is none
+    /// (it never creates one). Unsupported unless implemented.
+    fn replace_password<'a>(
+        &'a self,
+        _email: &'a Email,
+        _password: &'a SecretString,
+    ) -> AccountFuture<'a> {
+        Box::pin(async {
+            Err(AccountsError::Configuration(
+                "these accounts can't set passwords",
+            ))
+        })
+    }
+
     /// A one-time sign-in token for the existing account of `email`, for the session handoff.
     /// Unsupported unless implemented.
     fn sign_in_token<'a>(&'a self, _email: &'a Email) -> TokenFuture<'a> {
@@ -202,10 +231,21 @@ impl SupabaseAdmin {
     }
 
     /// Creates a confirmed account; `None` when the address already has one.
-    async fn create(&self, email: &Email) -> Result<Option<AuthUid>, AccountsError> {
+    async fn create(
+        &self,
+        email: &Email,
+        password: Option<&SecretString>,
+    ) -> Result<Option<AuthUid>, AccountsError> {
+        let mut body = serde_json::json!({ "email": email.as_str(), "email_confirm": true });
+        if let (Some(password), Some(object)) = (password, body.as_object_mut()) {
+            object.insert(
+                "password".to_owned(),
+                serde_json::Value::String(password.expose_secret().to_owned()),
+            );
+        }
         let response = self
             .request(reqwest::Method::POST, &self.users_url)
-            .json(&serde_json::json!({ "email": email.as_str(), "email_confirm": true }))
+            .json(&body)
             .send()
             .await
             .map_err(|error| AccountsError::Upstream(transport(&error)))?;
@@ -223,6 +263,32 @@ impl SupabaseAdmin {
             }
         }
         Err(AccountsError::Upstream(status.as_u16().to_string()))
+    }
+
+    /// Sets an existing account's password (and confirms its address).
+    async fn put_password(
+        &self,
+        id: AuthUid,
+        password: &SecretString,
+    ) -> Result<(), AccountsError> {
+        let response = self
+            .request(
+                reqwest::Method::PUT,
+                &format!("{}/{}", self.users_url, id.0),
+            )
+            .json(&serde_json::json!({
+                "password": password.expose_secret(),
+                "email_confirm": true,
+            }))
+            .send()
+            .await
+            .map_err(|error| AccountsError::Upstream(transport(&error)))?;
+        let status = response.status();
+        if status.is_success() {
+            Ok(())
+        } else {
+            Err(AccountsError::Upstream(status.as_u16().to_string()))
+        }
     }
 
     /// Finds the account for an address, reading the user list a page at a time.
@@ -307,12 +373,44 @@ fn transport(error: &reqwest::Error) -> String {
 impl SignInAccounts for SupabaseAdmin {
     fn ensure_user<'a>(&'a self, email: &'a Email) -> AccountFuture<'a> {
         Box::pin(async move {
-            if let Some(created) = self.create(email).await? {
+            if let Some(created) = self.create(email, None).await? {
                 return Ok(created);
             }
             self.find(email).await?.ok_or_else(|| {
                 AccountsError::Upstream("an existing account that could not be found".to_owned())
             })
+        })
+    }
+
+    fn ensure_user_with_password<'a>(
+        &'a self,
+        email: &'a Email,
+        password: &'a SecretString,
+    ) -> AccountFuture<'a> {
+        Box::pin(async move {
+            if let Some(created) = self.create(email, Some(password)).await? {
+                return Ok(created);
+            }
+            let existing = self.find(email).await?.ok_or_else(|| {
+                AccountsError::Upstream("an existing account that could not be found".to_owned())
+            })?;
+            self.put_password(existing, password).await?;
+            Ok(existing)
+        })
+    }
+
+    fn replace_password<'a>(
+        &'a self,
+        email: &'a Email,
+        password: &'a SecretString,
+    ) -> AccountFuture<'a> {
+        Box::pin(async move {
+            let existing = self
+                .find(email)
+                .await?
+                .ok_or_else(|| AccountsError::Upstream("no such account".to_owned()))?;
+            self.put_password(existing, password).await?;
+            Ok(existing)
         })
     }
 

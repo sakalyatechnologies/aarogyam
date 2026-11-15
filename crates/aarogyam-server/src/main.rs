@@ -9,6 +9,7 @@ use std::sync::Arc;
 use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck};
 use aarogyam_app::accounts::{SignInAccounts as _, SupabaseAdmin};
 use aarogyam_app::files::{Files, LinkSigner, LocalDisk, Storage, SupabaseStorage};
+use aarogyam_app::review_account;
 use aarogyam_domain::access::PlatformRole;
 use aarogyam_domain::client::ClientPolicy;
 use aarogyam_domain::notification::OpenHours;
@@ -161,6 +162,31 @@ enum Admin {
         /// Their name as the clinic shows it; defaults to the part of the email before the @.
         #[arg(long)]
         name: Option<String>,
+    },
+    /// Set up the app-store reviewer's sign-in: an active owner of a synthetic demo clinic
+    /// (sunrise or lotus) who signs in with the password in the environment variable
+    /// `ARO_REVIEW_PASSWORD` (at least 16 characters; never printed or logged). Refused for any
+    /// other clinic and for platform staff.
+    ReviewAccount {
+        /// The demo clinic's slug: `sunrise` or `lotus`.
+        #[arg(long)]
+        clinic: String,
+        /// The reviewer's sign-in email address.
+        #[arg(long)]
+        email: String,
+        /// Their name as the clinic shows it; defaults to the part of the email before the @.
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// End the reviewer's access after review: their membership becomes `left` and their
+    /// Supabase password becomes a random value nobody sees.
+    ReviewAccountOff {
+        /// The demo clinic's slug.
+        #[arg(long)]
+        clinic: String,
+        /// The reviewer's sign-in email address.
+        #[arg(long)]
+        email: String,
     },
     /// How long a clinic keeps patient records: 7 (the default) to 50 years, or --default.
     RetentionYears {
@@ -674,6 +700,34 @@ async fn admin(config: Config, action: Admin) -> anyhow::Result<()> {
             .context("could not add the member")?
             .context("no clinic with that --clinic slug, or it has no role with that --role key")?;
             tracing::info!(%membership_id, auth_uid = %person.auth_uid, role = role.trim(), "member added");
+        }
+        Admin::ReviewAccount {
+            clinic,
+            email,
+            name,
+        } => {
+            let email = Email::parse(&email)
+                .map_err(|_| anyhow::anyhow!("--email is not an email address"))?;
+            let password =
+                review_account::password_from(std::env::var(review_account::PASSWORD_ENV).ok())?;
+            review_account::check_clinic(&clinic)?;
+            let supabase =
+                accounts(&config)?.context("set SUPABASE_URL and SUPABASE_SECRET_KEY")?;
+            let db = owner_db(&config)?;
+            let summary =
+                review_account::enable(&db, &supabase, &clinic, &email, name.as_deref(), &password)
+                    .await?;
+            tracing::info!("{summary}");
+        }
+        Admin::ReviewAccountOff { clinic, email } => {
+            let email = Email::parse(&email)
+                .map_err(|_| anyhow::anyhow!("--email is not an email address"))?;
+            review_account::check_clinic(&clinic)?;
+            let supabase =
+                accounts(&config)?.context("set SUPABASE_URL and SUPABASE_SECRET_KEY")?;
+            let db = owner_db(&config)?;
+            let summary = review_account::disable(&db, &supabase, &clinic, &email).await?;
+            tracing::info!("{summary}");
         }
         Admin::RetentionYears {
             clinic,

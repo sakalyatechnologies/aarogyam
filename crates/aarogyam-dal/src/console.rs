@@ -540,6 +540,65 @@ pub async fn add_member(
     Ok(Some(membership_id))
 }
 
+/// What to check before the store reviewer's account is touched.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReviewPreflight {
+    /// A clinic with that slug exists.
+    pub clinic_exists: bool,
+    /// The address belongs to active Sakalya platform staff.
+    pub platform_staff: bool,
+}
+
+/// Whether the clinic `slug` exists and whether `email` is active platform staff, for
+/// `aarogyam admin review-account`, so nothing is changed for staff or a missing clinic.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn review_preflight(
+    owner: &PgPool,
+    slug: &str,
+    email: &str,
+) -> Result<ReviewPreflight, DbError> {
+    let (clinic_exists, platform_staff): (bool, bool) = sqlx::query_as(
+        "select exists (select 1 from aarogyam.organizations where slug = $1),
+                exists (select 1 from aarogyam.platform_users p
+                        join aarogyam.users u on u.id = p.user_id
+                        where p.active and lower(u.email) = lower($2))",
+    )
+    .bind(slug)
+    .bind(email)
+    .fetch_one(owner)
+    .await?;
+    Ok(ReviewPreflight {
+        clinic_exists,
+        platform_staff,
+    })
+}
+
+/// Ends the membership (status `left`) of the person with `email` at the clinic `slug`, as the
+/// staff change path does. `false` when they had no membership there or it had already ended.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn end_membership_by_email(
+    owner: &PgPool,
+    slug: &str,
+    email: &str,
+) -> Result<bool, DbError> {
+    let ended = sqlx::query(
+        "update aarogyam.memberships m set status = 'left'
+         from aarogyam.organizations o, aarogyam.users u
+         where o.slug = $1 and m.org_id = o.id and u.id = m.user_id
+           and lower(u.email) = lower($2) and m.status <> 'left'",
+    )
+    .bind(slug)
+    .bind(email)
+    .execute(owner)
+    .await?
+    .rows_affected();
+    Ok(ended > 0)
+}
+
 /// Which of `slugs` (at most 20 are looked at) belong to a clinic already.
 ///
 /// # Errors

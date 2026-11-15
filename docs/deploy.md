@@ -141,6 +141,36 @@ Moving the console from `ketankrishnapatil@gmail.com` to a dedicated admin addre
 
 `/me` reports `console_access: true` while the person has an active `platform_users` row, so the new address gets the console and the revoked one loses it on its next request. If the old address also holds a clinic membership, it keeps the clinic and loses only the console. Roles: `owner`, `support`, `onboarding`, `analyst`; run `grant` again to change one.
 
+## Store reviewer account
+
+App Store and Google Play reviewers can't receive emailed sign-in codes, and there is no fixed-code bypass. The reviewer signs in with a Supabase **password** (the staff app's "Use a password") as the **owner of a synthetic demo clinic**, so they see every feature and no real data.
+
+Run it once, over the owner connection and with the Supabase secret key, the way `platform grant` is run (both from `.env.supabase`, never echoed):
+
+```sh
+set -a; . ./.env.supabase; set +a
+# Paste the password from your password manager into this prompt; it never goes in a file, history or chat.
+read -rs ARO_REVIEW_PASSWORD; export ARO_REVIEW_PASSWORD; echo
+./target/debug/aarogyam admin review-account --clinic sunrise --email reviewer@<your-domain>
+unset ARO_REVIEW_PASSWORD
+```
+
+It prints the clinic, the email and "password set from ARO_REVIEW_PASSWORD", nothing else. Type the same password into App Store Connect and the Play Console. Running it again changes the password. After review is approved:
+
+```sh
+set -a; . ./.env.supabase; set +a
+./target/debug/aarogyam admin review-account-off --clinic sunrise --email reviewer@<your-domain>
+```
+
+That ends the membership (`left`) and sets the Supabase password to a random value nobody sees.
+
+Rules:
+
+- Only the synthetic demo clinics in `REVIEW_CLINICS` (`sunrise`, `lotus`; `crates/aarogyam-app/src/review_account.rs`) are accepted; any other slug, a real clinic, is refused. `suhasyadental` is not on the list because nothing marks it synthetic.
+- The password is read only from `ARO_REVIEW_PASSWORD`, at least 16 characters, from a password manager. It is never printed or logged.
+- Platform staff are refused (they can't hold a clinic membership).
+- Turn it off after review.
+
 ## Public website (Cloudflare Pages)
 
 The marketing site (`web/apps/website`, built in Lovable, kept here) is a static build served by

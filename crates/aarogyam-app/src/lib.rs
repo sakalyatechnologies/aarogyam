@@ -68,6 +68,7 @@ pub mod record;
 pub mod record_share;
 pub mod reports;
 pub mod retention;
+pub mod review_account;
 pub mod roles;
 pub mod schedule;
 mod scope;

@@ -1,0 +1,22 @@
+# Store identifiers, read from the native projects so there is one place to change them: the
+# Release bundle id from iosApp/project.yml, the application id from androidApp/build.gradle.kts.
+# The Apple team is Sakalya Technologies' (the account MyDwarpal ships from); APPLE_TEAM_ID overrides it.
+
+# fastlane evaluates this file with instance_eval, so find mobile/ from the working directory.
+mobile = Dir.pwd
+mobile = File.dirname(mobile) until File.exist?(File.join(mobile, 'iosApp', 'project.yml')) || mobile == '/'
+
+def read_setting(file, pattern, name)
+  raise "fastlane: #{file} is missing" unless File.exist?(file)
+
+  File.read(file)[pattern, 1] || raise("fastlane: no #{name} in #{file}")
+end
+
+app_identifier read_setting(File.join(mobile, 'iosApp', 'project.yml'),
+                            /^\s{8}PRODUCT_BUNDLE_IDENTIFIER: ([\w.\-]+)$/, 'PRODUCT_BUNDLE_IDENTIFIER')
+team_id ENV.fetch('APPLE_TEAM_ID', 'WQCU2WYFHG')
+
+for_platform :android do
+  package_name read_setting(File.join(mobile, 'androidApp', 'build.gradle.kts'),
+                            /applicationId = "([\w.]+)"/, 'applicationId')
+end

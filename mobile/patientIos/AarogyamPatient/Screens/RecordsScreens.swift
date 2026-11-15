@@ -39,7 +39,7 @@ struct BillsScreen: View {
 }
 
 /// A read-only list state: Kotlin's generic `ListState` reaches Swift with its items erased.
-private struct ListContent<Item, Rows: View>: View {
+struct ListContent<Item, Rows: View>: View {
     let state: ListState
     let retry: () -> Void
     let empty: String.LocalizationValue?
@@ -90,7 +90,7 @@ private struct PrescriptionCard: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text([medicine.name, medicine.strength].compactMap { $0 }.joined(separator: " "))
                             .skTextStyle(SkTypeScale.label).foregroundStyle(p.text.color)
-                        Text(details(medicine)).skTextStyle(SkTypeScale.footnote).foregroundStyle(p.textMuted.color)
+                        Text(medicine.detailsText).skTextStyle(SkTypeScale.footnote).foregroundStyle(p.textMuted.color)
                     }
                 }
                 if let advice = rx.advice { Text(advice).skTextStyle(SkTypeScale.body).foregroundStyle(p.text.color) }
@@ -101,12 +101,6 @@ private struct PrescriptionCard: View {
         }
     }
 
-    private func details(_ medicine: MedicineView) -> String {
-        var parts = [medicine.dose, medicine.frequency]
-        if let timing = medicine.timing { parts.append(Timing.text(timing)) }
-        if let days = medicine.days { parts.append(String(format: String(localized: "prescriptions.days"), days.intValue)) }
-        return parts.joined(separator: " · ")
-    }
 }
 
 private struct BillCard: View {

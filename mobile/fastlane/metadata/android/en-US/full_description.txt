@@ -1,0 +1,17 @@
+Aarogyam Clinic is the staff app for clinics that run on Aarogyam. Doctors, front desk, assistants and owners each sign in and see only what their role allows.
+
+Front desk
+• Find a patient by mobile number, or register a new one with consent and family.
+• See who is waiting, who is with the doctor and who still has to pay.
+• Collect payment by UPI, cash or card, with a photo of the proof.
+
+Doctors
+• Your waiting list, with a reminder when a patient has been waiting too long.
+• Start the visit, mark teeth and surfaces, write or dictate notes, and issue a prescription with morning, afternoon and night doses.
+• Wrap up with the follow-up and fee in one step; the front desk is told to collect.
+
+The whole team
+• Today at a glance, tasks with photo proof, lab cases from impression to delivery, and team chat.
+• English, Hindi and Marathi.
+
+Your clinic's data stays with your clinic. The app needs an Aarogyam clinic account: ask your clinic owner for an invitation.

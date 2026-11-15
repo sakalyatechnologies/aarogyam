@@ -27,6 +27,7 @@ struct LabCaseSheet: View {
                     SkSheetHeader(item.titleText, subtitle: "\(item.patientName) · \(item.patientNumber)")
                     let pill = item.status.pill(overdue: LabFormat.isOverdue(dueOn: item.dueOn, today: LabFormat.today(zone: zone)))
                     V7Pill(text: pill.text, kind: pill.kind)
+                    V7Card { LabTracker(current: item.trackerIndex) }
                     V7Card {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(item.detailText).v7Text(13).foregroundStyle(r.onSurface.color)
@@ -47,6 +48,11 @@ struct LabCaseSheet: View {
             .padding(.horizontal, 18).padding(.top, 22).padding(.bottom, 30)
         }
         .scrollDismissesKeyboard(.interactively)
+        .onChange(of: state.waLink) { _, link in
+            guard let link else { return }
+            if let url = LabsV11.whatsAppURL(link) { openURL(url) }
+            holder.waLinkOpened()
+        }
         .skSheet()
     }
 

@@ -11,6 +11,7 @@ struct LabsScreen: View {
     @State private var page = 0
     @State private var open: LabCase?
     @State private var creating = false
+    @State private var confirmingRemind = false
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -47,6 +48,17 @@ struct LabsScreen: View {
             SkChoiceChip(pv("pv.labs.all"), selected: !state.overdueOnly) { holder.showOverdue(only: false) }
             SkChoiceChip(pv("pv.labs.overdue"), selected: state.overdueOnly) { holder.showOverdue(only: true) }
         }
+        if state.canWrite && state.overdueOnly && !state.cases.isEmpty {
+            SkPillButton(l11f("lv.remind_all", state.cases.count), variant: .tonal, icon: V7Icon.path("bell"), wide: true, loading: state.remindingAll) {
+                confirmingRemind = true
+            }
+            .confirmationDialog(l11("lv.remind_all.title"), isPresented: $confirmingRemind, titleVisibility: .visible) {
+                Button(l11("lv.remind_all.email")) { holder.remindOverdue(channel: .email) }
+                Button(l11("lv.remind_all.whatsapp")) { holder.remindOverdue(channel: .whatsApp) }
+                Button(l11("lv.cancel"), role: .cancel) {}
+            } message: { Text(l11("lv.remind_all.message")) }
+        }
+        if let result = state.reminderResult { LabRemindResultCard(result: result) { holder.reminderResultSeen() } }
         if state.loading && state.cases.isEmpty {
             SkLoadingIndicator(pv("pv.loading")).frame(maxWidth: .infinity).padding(SkSpacing.xl)
         } else if state.cases.isEmpty {
@@ -83,7 +95,10 @@ struct LabCaseRow: View {
                 Text(item.detailText).v7Text(11.5).foregroundStyle(r.onSurfaceVariant.color)
             }
             Spacer(minLength: 4)
-            V7Pill(text: pill.text, kind: pill.kind)
+            VStack(alignment: .trailing, spacing: 4) {
+                V7Pill(text: pill.text, kind: pill.kind)
+                if let index = item.trackerIndex { V7Pill(text: LabsV11.stageTitle(index), kind: .done) }
+            }
         }
         .accessibilityElement(children: .combine)
     }
@@ -102,7 +117,10 @@ struct LabDirectory: View {
             V7Card {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text(lab.name).v7Text(14, .bold).foregroundStyle(r.onSurface.color)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(lab.name).v7Text(14, .bold).foregroundStyle(r.onSurface.color)
+                            if !lab.infoLine.isEmpty { V7Muted(lab.infoLine) }
+                        }
                         Spacer()
                         callButton(lab.phone)
                     }

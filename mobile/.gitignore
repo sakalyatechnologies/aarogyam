@@ -8,3 +8,15 @@ local.secrets.properties
 build/
 *.iml
 .idea/
+# Release (docs/release.md): fastlane gems, outputs and credentials, and the Play upload key.
+/vendor/bundle/
+/.bundle/
+/fastlane/report.xml
+/fastlane/README.md
+/fastlane/credentials/*
+!/fastlane/credentials/README.md
+/fastlane/metadata/ios/review_information/demo_password.txt
+/androidApp/keystore.properties
+*.jks
+*.keystore
+*.p8

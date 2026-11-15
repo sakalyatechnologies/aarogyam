@@ -437,6 +437,15 @@ export type NewChartEntries = Schemas["NewChartEntries"];
 export type DentalTermKind = "procedure" | "material";
 export type DentalTerm = Omit<Schemas["DentalTerm"], "kind"> & { kind: DentalTermKind };
 export type NewDentalTerm = Omit<Schemas["NewDentalTerm"], "kind"> & { kind: DentalTermKind };
+export type OwnDentalTerm = Omit<Schemas["OwnDentalTerm"], "kind"> & { kind: DentalTermKind };
+export type OwnDentalTermList = { items: OwnDentalTerm[] };
+export type RenameDentalTerm = Schemas["RenameDentalTerm"];
+export type SupportGrantStatus = "active" | "ended" | "revoked";
+export type SupportGrantView = Omit<Schemas["SupportGrantView"], "status"> & { status: SupportGrantStatus };
+export type SupportGrantList = { items: SupportGrantView[] };
+export type NewSupportGrant = Schemas["NewSupportGrant"];
+export type SupportAction = Schemas["SupportAction"];
+export type SupportActionList = Schemas["SupportActionList"];
 
 // Patient files (M4) ------------------------------------------------------------------------------
 

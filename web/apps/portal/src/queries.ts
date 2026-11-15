@@ -874,6 +874,7 @@ export function useAddDentalTerm() {
   return useMutation({
     mutationFn: (input: NewDentalTerm) => unwrap(api.addDentalTerm(input)),
     onSuccess: (term) => {
+      void queryClient.invalidateQueries({ queryKey: ["dental-terms", access.org_id] });
       queryClient.setQueriesData<DentalChart>({ queryKey: ["dental-chart", access.org_id] }, (chart) =>
         chart === undefined || chart.terms.some((t) => t.id === term.id) ? chart : { ...chart, terms: [...chart.terms, term] },
       );

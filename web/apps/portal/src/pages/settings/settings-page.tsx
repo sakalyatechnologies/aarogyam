@@ -14,8 +14,10 @@ import { PriceListPanel } from "./price-list-panel.js";
 import { MyProfile } from "./my-profile.js";
 import { ProfileTab } from "./profile-panel.js";
 import { SessionsPanel } from "./sessions-panel.js";
+import { SupportPanel } from "./support-panel.js";
 import { TasksPanel } from "./tasks-panel.js";
 import { TeamPanel } from "./team-panel.js";
+import { TermsPanel } from "./terms-panel.js";
 import { ThemePanel } from "./theme-panel.js";
 import { TimeOffPanel } from "./time-off-panel.js";
 import { WebsitePanel } from "./website/website-panel.js";
@@ -45,6 +47,8 @@ export function SettingsPage() {
     { value: "booking", label: "Booking & notifications", content: <BookingPanel /> },
     ...(owner ? [{ value: "website", label: "Website", content: <MkCard><WebsitePanel /></MkCard> }] : []),
     ...(can("tasks.manage") ? [{ value: "tasks", label: "Tasks", content: <TasksPanel /> }] : []),
+    ...(owner ? [{ value: "terms", label: "Treatment terms", content: <TermsPanel /> }] : []),
+    ...(can("support.grant") ? [{ value: "support", label: "Support access", content: <SupportPanel /> }] : []),
     { value: "sessions", label: "Sessions", content: <MkCard title="Sessions" hint="The devices you are signed in on"><SessionsPanel /></MkCard> },
   ];
   const choose = (next: string) => {
@@ -75,7 +79,7 @@ export function SettingsPage() {
 }
 
 /** The new look's order and wording: My profile first, then Appearance, as in the design. */
-const NEW_LOOK_ORDER = ["me", "appearance", "profile", "letterhead", "chairs-doctors", "price-list", "team", "time-off", "tasks", "booking", "website", "sessions"];
+const NEW_LOOK_ORDER = ["me", "appearance", "profile", "letterhead", "chairs-doctors", "price-list", "team", "time-off", "tasks", "booking", "website", "terms", "support", "sessions"];
 const NEW_LOOK_LABEL: Readonly<Record<string, string>> = { "chairs-doctors": "Chairs & doctors" };
 
 /**

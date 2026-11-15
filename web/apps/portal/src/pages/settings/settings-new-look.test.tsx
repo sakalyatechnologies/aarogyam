@@ -47,6 +47,8 @@ describe("Settings in the new look", () => {
       "Tasks",
       "Booking & notifications",
       "Website",
+      "Treatment terms",
+      "Support access",
       "Sessions",
     ]);
     expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeTruthy();

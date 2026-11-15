@@ -1790,6 +1790,51 @@ const dentalTermRef = dentalTerm.nullable().exactOptional();
 /** Body of `POST /api/v1/dental-terms`. */
 export type NewDentalTerm = C.NewDentalTerm;
 
+/** One of the clinic's own terms in Settings, retired ones included (`GET /api/v1/dental-terms`). */
+export const ownDentalTerm = z.object({
+  id: z.string().min(1),
+  kind: dentalTermKind,
+  label: z.string().min(1),
+  retired: z.boolean(),
+  added_at: z.string(),
+  added_by: z.string().nullable().exactOptional(),
+  retired_at: z.string().nullable().exactOptional(),
+  retired_by: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.OwnDentalTerm>;
+export type OwnDentalTerm = z.output<typeof ownDentalTerm>;
+export const ownDentalTermList = z.object({ items: z.array(ownDentalTerm) }) satisfies z.ZodType<C.OwnDentalTermList>;
+export type OwnDentalTermList = z.output<typeof ownDentalTermList>;
+/** Body of `PATCH /api/v1/dental-terms/{id}`. */
+export type RenameDentalTerm = C.RenameDentalTerm;
+
+export const supportGrantStatus = z.enum(["active", "ended", "revoked"]) satisfies z.ZodType<C.SupportGrantStatus>;
+/** A grant of read access to one Sakalya staff member (`GET /api/v1/support-grants`). */
+export const supportGrantView = z.object({
+  id: z.string().min(1),
+  access: z.string(),
+  reason: z.string(),
+  starts_at: z.string(),
+  ends_at: z.string(),
+  status: supportGrantStatus,
+  actions: z.number().int(),
+  granted_by: z.string().nullable().exactOptional(),
+  last_action_at: z.string().nullable().exactOptional(),
+  revoked_at: z.string().nullable().exactOptional(),
+  revoked_by: z.string().nullable().exactOptional(),
+  staff_email: z.string().nullable().exactOptional(),
+  staff_name: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.SupportGrantView>;
+export type SupportGrantView = z.output<typeof supportGrantView>;
+export const supportGrantList = z.object({ items: z.array(supportGrantView) }) satisfies z.ZodType<C.SupportGrantList>;
+export type SupportGrantList = z.output<typeof supportGrantList>;
+/** Body of `POST /api/v1/support-grants`. */
+export type NewSupportGrant = C.NewSupportGrant;
+/** One request a staff member made under a grant: the route is a template, never a value from it. */
+export const supportAction = z.object({ at: z.string(), method: z.string(), route: z.string() }) satisfies z.ZodType<C.SupportAction>;
+export type SupportAction = z.output<typeof supportAction>;
+export const supportActionList = z.object({ items: z.array(supportAction) }) satisfies z.ZodType<C.SupportActionList>;
+export type SupportActionList = z.output<typeof supportActionList>;
+
 /** One canal of a root canal entry, with its working length in millimetres when measured. */
 export const rootCanal = z.object({
   name: z.string().min(1),

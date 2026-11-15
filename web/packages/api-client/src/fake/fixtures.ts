@@ -692,6 +692,9 @@ export interface Fixtures {
   chartEntries: FakeChartEntry[];
   /** Procedures and materials clinics added, made on first use. */
   dentalTerms?: import("./dental-terms.js").FakeDentalTerm[];
+  /** Support grants clinics gave Sakalya staff, made on first use. */
+  supportGrants?: import("./support-grants.js").FakeSupportGrant[];
+  supportActions?: import("./support-grants.js").FakeSupportAction[];
   plans: FakePlan[];
   attachments: FakeAttachment[];
   sessions: FakeSession[];

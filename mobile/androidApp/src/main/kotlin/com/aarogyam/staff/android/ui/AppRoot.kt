@@ -26,6 +26,7 @@ import com.aarogyam.staff.android.ui.clinical.clinicalDestinations
 import com.aarogyam.staff.android.ui.desk.deskDestinations
 import com.aarogyam.staff.android.ui.patient.openPatient
 import com.aarogyam.staff.android.ui.patient.patientDestinations
+import com.aarogyam.staff.android.ui.visit.openVisitForPatient
 import com.aarogyam.staff.android.ui.visit.visitDestinations
 import com.aarogyam.staff.android.ui.walkin.WalkInScreen
 import com.aarogyam.staff.clinic.ClinicBranding
@@ -142,7 +143,7 @@ private fun Signed(graph: AppGraph) {
                         val open = clinic ?: return@composable
                         WalkInScreen(rememberHolder { graph.walkIn(open, it) }, onClose = nav::popBackStack)
                     }
-                    patientDestinations(graph, { clinic }, nav)
+                    patientDestinations(graph, { clinic }, nav, startTreatment = { nav.openVisitForPatient(it) })
                     deskDestinations(graph, { clinic }, nav)
                     visitDestinations(graph, { clinic }, nav)
                     clinicalDestinations(graph, { clinic }, nav)

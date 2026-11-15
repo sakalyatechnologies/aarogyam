@@ -3219,19 +3219,22 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return caller;
           }
           const signup = state.patients.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
-          const keeper = clinicPatients(caller).find((p) => p.id === into.into_patient_id);
+          const keeper = state.patients.find((p) => p.id === into.into_patient_id && p.clinic_id === caller.clinic.id);
           if (signup === undefined || keeper === undefined) {
             return notFound;
           }
           if (signup.id === keeper.id) {
-            return invalid("into_patient_id", "can't merge a patient into themselves");
+            return invalid("into_patient_id", "must be another patient");
+          }
+          if (signup.status === "merged" || keeper.status === "merged") {
+            return refuse(409, "conflict", "that record was already merged");
           }
           const flags = (state.patientDuplicates ?? []).filter((f) => f.clinic_id === caller.clinic.id && f.patient_id === signup.id);
-          if (signup.status === "merged") {
-            return refuse(409, "conflict", "That record is already merged.");
-          }
           if (flags.length === 0) {
-            return invalid("id", "not a self-registered record");
+            return invalid("patient", "only a self-registered record can be merged into another");
+          }
+          if (hasClinicalOrBilling(state, signup)) {
+            return refuse(409, "conflict", "the self-registered record already has clinical or billing records; it can't be merged");
           }
           const moved = state.appointments.filter((a) => a.patient_id === signup.id);
           for (const a of moved) a.patient_id = keeper.id;
@@ -9242,6 +9245,16 @@ function searchPatients(patients: readonly FakePatient[], q: string): FakePatien
     .filter(({ s }) => s > 0)
     .sort((a, b) => b.s - a.s || recent(a.p, b.p))
     .map(({ p }) => p);
+}
+
+/** Whether a patient has any clinical or billing record, which stops a merge (the API checks the same tables). */
+function hasClinicalOrBilling(state: Fixtures, patient: FakePatient): boolean {
+  const id = patient.id;
+  const mine = (rows: readonly object[] | undefined) => (rows ?? []).some((r) => "patient_id" in r && r.patient_id === id);
+  return (
+    (patient.allergies_reviewed ?? "unknown") !== "unknown" ||
+    [state.visits, state.allergies, state.conditions, state.observations, state.notes, state.procedures, state.plans, state.prescriptions, state.attachments, state.summaryNotes, state.invoices, state.payments, state.shareLinks].some(mine)
+  );
 }
 
 /** What is wrong with a check-in body, as the API's 400; null when it is fine. */

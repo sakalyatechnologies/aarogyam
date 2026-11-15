@@ -18,6 +18,8 @@ export interface CheckInTarget {
 interface Form {
   sex: Sex | null;
   age: string;
+  /** The age the patient already had on record; it is sent only when the desk changes it, so an exact birth date isn't replaced by an estimate. */
+  recordedAge: string;
   intake: Intake;
 }
 
@@ -28,7 +30,7 @@ export function checkInRequest(form: Form): CheckInRequest | string {
   if (form.intake.reminders) consents.push({ purpose: "reminders", method: "verbal" });
   return {
     ...(form.sex === null ? {} : { sex: form.sex }),
-    ...(form.age === "" ? {} : { age_years: Number(form.age) }),
+    ...(form.age === "" || form.age === form.recordedAge ? {} : { age_years: Number(form.age) }),
     allergies: [...form.intake.allergies],
     no_known_allergies: form.intake.noKnownAllergies,
     consents,
@@ -39,7 +41,9 @@ const firstName = (fullName: string) => fullName.trim().split(/\s+/)[0] ?? fullN
 
 function initialForm(patient: CheckInTarget["patient"]): Form {
   const sex = patient === undefined || patient.sex === "unknown" ? null : patient.sex;
-  return { sex, age: patient?.age_years == null ? "" : String(patient.age_years), intake: EMPTY_INTAKE };
+  const age = patient?.age_years == null ? "" : String(patient.age_years);
+  // Reminders start unticked: consent has to be given, not pre-ticked.
+  return { sex, age, recordedAge: age, intake: { ...EMPTY_INTAKE, reminders: false } };
 }
 
 interface Pending {

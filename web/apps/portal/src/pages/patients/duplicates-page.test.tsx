@@ -66,17 +66,21 @@ describe("Possible duplicates", () => {
     expect((await table()).getByText("Test Signup")).toBeTruthy();
   });
 
-  it("shows the API's message when the merge is refused", async () => {
+  it("shows the API's message and keeps the row when the sign-up already has clinical data", async () => {
     const user = userEvent.setup();
-    const wrap = (client: ApiClient): ApiClient => ({
-      ...client,
-      mergePatient: () => Promise.resolve(failure({ code: "conflict", status: 409, message: "That record already has clinical data." })),
+    const backend = fakeApi((fixtures) => {
+      const { signup } = seedOnlineSignup(fixtures);
+      signup.allergies_reviewed = "none_known";
     });
-    renderPortal("/patients/duplicates", { as: PEOPLE.farah, backend: fakeApi(seedOnlineSignup), wrap });
+    renderPortal("/patients/duplicates", { as: PEOPLE.farah, backend });
     await user.click(await (await table()).findByRole("button", { name: "Same person: merge" }));
     const dialog = await screen.findByRole("dialog", { name: "Merge these records?" });
     await user.click(within(dialog).getByRole("button", { name: "Merge" }));
-    expect((await within(dialog).findByRole("alert")).textContent).toBe("That record already has clinical data.");
+    expect((await within(dialog).findByRole("alert")).textContent).toBe(
+      "the self-registered record already has clinical or billing records; it can't be merged",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect((await table()).getByText("Test Signup")).toBeTruthy();
   });
 
   it("removes the row when they are different people", async () => {

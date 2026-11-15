@@ -102,6 +102,19 @@ describe("possible duplicates (fake)", () => {
     expect(status(await desk.mergePatient(patient(signup.id), { into_patient_id: existing.id }))).toBe(409);
   });
 
+  it("refuses a merge of a record with clinical data, or into one already merged", async () => {
+    const { as, signup, existing } = setup();
+    const desk = as(FARAH);
+    value(await desk.checkInAppointment(appointmentId.parse("e1e1e1e1-0000-4000-8000-000000000001"), { no_known_allergies: true }));
+    const clinical = await desk.mergePatient(patient(signup.id), { into_patient_id: existing.id });
+    expect(status(clinical)).toBe(409);
+    expect(!clinical.ok && clinical.error.message).toMatch(/clinical or billing/);
+    const other = setup();
+    const kept = value(await other.as(FARAH).mergePatient(patient(other.signup.id), { into_patient_id: other.existing.id }));
+    expect(kept.appointments_moved).toBe(1);
+    expect(status(await other.as(FARAH).mergePatient(patient(other.existing.id), { into_patient_id: other.signup.id }))).toBe(409);
+  });
+
   it("refuses a merge into itself, and of a record that isn't a sign-up", async () => {
     const { as, signup, existing } = setup();
     expect(status(await as(FARAH).mergePatient(patient(signup.id), { into_patient_id: signup.id }))).toBe(400);

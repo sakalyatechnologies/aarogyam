@@ -53,6 +53,7 @@ import type {
   ApplicationId,
   ApplicationStatus,
   Applications,
+  StaffSupportGrants,
   Availability,
   AppointmentChanges,
   AppointmentId,
@@ -783,6 +784,8 @@ export interface ApiClient {
 
   /** Console host: applications, newest first. */
   listApplications(status: ApplicationStatus | undefined, options?: RequestOptions): Promise<ApiResult<Applications>>;
+  /** Console host: the clinic access grants the signed-in staff member holds, newest end first. */
+  listMySupportGrants(options?: RequestOptions): Promise<ApiResult<StaffSupportGrants>>;
   /** Console host: approves an application, creating the clinic, the owner's account and invitation. */
   /** Console host: whether a clinic address is free, with free suggestions when it isn't. Sakalya staff only. */
   checkSlug(query: SlugQuery, options?: RequestOptions): Promise<ApiResult<SlugCheck>>;

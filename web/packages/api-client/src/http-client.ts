@@ -10,6 +10,7 @@ import {
   plan,
   planList,
   applications,
+  staffSupportGrants,
   appointmentList,
   approvedApplication,
   attachment,
@@ -749,6 +750,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     listApplications: (status, opts) =>
       call({ method: "GET", path: "/api/v1/console/applications", schema: applications, query: { status }, signal: opts?.signal }),
+    listMySupportGrants: (opts) =>
+      call({ method: "GET", path: "/api/v1/console/support-grants", schema: staffSupportGrants, signal: opts?.signal }),
     checkSlug: (query, opts) =>
       call({
         method: "GET",

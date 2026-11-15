@@ -238,6 +238,8 @@ export type TimeOffDecision = Schemas["TimeOffDecision"];
 export type AffectedAppointment = Schemas["AffectedAppointment"];
 export type AffectedAppointments = Schemas["AffectedAppointments"];
 export type FreeDoctorSuggestion = Schemas["FreeDoctorSuggestion"];
+export type StaffSupportGrant = Schemas["StaffSupportGrant"];
+export type StaffSupportGrants = Schemas["StaffSupportGrants"];
 export type StaffOpsSettingsBody = Schemas["StaffOpsSettingsBody"];
 export type StaffOpsSettingsChanges = Schemas["StaffOpsSettingsChanges"];
 

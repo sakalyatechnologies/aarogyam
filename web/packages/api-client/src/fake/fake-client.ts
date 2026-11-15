@@ -5458,6 +5458,12 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           } satisfies C.RegistrationReceived);
         }),
 
+      listMySupportGrants: (opts) =>
+        respond(S.staffSupportGrants, opts?.signal, async () => {
+          const staffId = await subject();
+          return inConsole(() => reply({ items: supportGrantsOf(state, staffId, clock()) } satisfies C.StaffSupportGrants));
+        }),
+
       listApplications: (status, opts) =>
         respond(S.applications, opts?.signal, () =>
           inConsole(() => {
@@ -10179,6 +10185,35 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date, asked: strin
 }
 
 // Onboarding: applications, clinic detail -------------------------------------------------------
+
+/** A staff member's grants, newest end first: active until revoked or past `ends_at`. */
+function supportGrantsOf(state: Fixtures, staffId: string | undefined, now: Date): C.StaffSupportGrant[] {
+  return (state.supportGrants ?? [])
+    .filter((g) => g.staff_id === staffId)
+    .sort((a, b) => b.ends_at.localeCompare(a.ends_at))
+    .flatMap((g) => {
+      const clinic = state.clinics.find((c) => c.id === g.clinic_id);
+      if (clinic === undefined) {
+        return [];
+      }
+      const status = g.revoked === true ? "revoked" : new Date(g.ends_at) <= now ? "ended" : "active";
+      return [
+        {
+          id: g.id,
+          access: "read",
+          clinic_id: clinic.id,
+          clinic_name: clinic.name,
+          slug: clinic.slug,
+          portal_host: clinic.host,
+          reason: g.reason,
+          starts_at: g.starts_at,
+          ends_at: g.ends_at,
+          status,
+          granted_by: g.granted_by,
+        },
+      ];
+    });
+}
 
 function wireApplication(a: FakeApplication): C.Application {
   return {

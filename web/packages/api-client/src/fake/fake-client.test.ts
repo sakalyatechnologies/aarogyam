@@ -598,3 +598,43 @@ describe("fake client: patient list sort and paging", () => {
     expect(seen).toEqual([...seen].sort((a, b) => Number(b) - Number(a)));
   });
 });
+
+describe("fake client: my support grants", () => {
+  const grant = (id: string, ends: string, extra: object = {}) => ({
+    id,
+    staff_id: PEOPLE.admin,
+    clinic_id: "",
+    reason: "Synthetic: check a booking page",
+    starts_at: "2026-10-03T04:00:00Z",
+    ends_at: ends,
+    granted_by: "Asha Kulkarni",
+    ...extra,
+  });
+
+  it("lists the staff member's grants, newest end first, with ended and revoked ones marked", async () => {
+    const fixtures = createFixtures({ now: NOW });
+    const clinic = fixtures.clinics.find((c) => c.slug === "sunrise");
+    const clinic_id = clinic?.id ?? "";
+    fixtures.supportGrants = [
+      grant("g-old", "2026-10-03T05:00:00Z", { clinic_id }),
+      grant("g-live", "2026-10-03T08:00:00Z", { clinic_id }),
+      grant("g-revoked", "2026-10-04T08:00:00Z", { clinic_id, revoked: true }),
+      grant("g-other", "2026-10-05T08:00:00Z", { clinic_id, staff_id: PEOPLE.asha }),
+    ];
+    const client = createFakeBackend(fixtures).client({ getToken: () => fakeTokenFor({ id: PEOPLE.admin }), now: () => NOW });
+    const { items } = value(await client.listMySupportGrants());
+    expect(items.map((g) => [g.id, g.status])).toEqual([
+      ["g-revoked", "revoked"],
+      ["g-live", "active"],
+      ["g-old", "ended"],
+    ]);
+    expect(items[1]).toMatchObject({ access: "read", clinic_name: "Sunrise Dental", portal_host: SUNRISE });
+  });
+
+  it("is only for the Sakalya team", async () => {
+    const { as } = setup();
+    expect(errorOf(await as(null).listMySupportGrants())?.status).toBe(401);
+    expect(errorOf(await as(PEOPLE.asha).listMySupportGrants())?.status).toBe(403);
+    expect(value(await as(PEOPLE.admin).listMySupportGrants()).items).toEqual([]);
+  });
+});

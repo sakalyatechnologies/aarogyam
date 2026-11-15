@@ -171,6 +171,30 @@ describe("createHttpClient errors", () => {
 });
 
 describe("createHttpClient requests", () => {
+  it("reads the staff member's support grants from the console path and checks the body against the contract", async () => {
+    const item = {
+      id: "g1",
+      access: "read",
+      clinic_id: "c1",
+      clinic_name: "Sunrise Dental",
+      slug: "sunrise",
+      portal_host: "sunrise.localtest.me",
+      reason: "Synthetic reason",
+      starts_at: "2026-10-03T04:00:00Z",
+      ends_at: "2026-10-03T08:00:00Z",
+      status: "active",
+      granted_by: "Asha Kulkarni",
+    };
+    const { fetch, calls } = stubFetch(json(200, { items: [item] }));
+    const result = await createHttpClient("http://console.localtest.me/", () => Promise.resolve("abc"), { fetch }).listMySupportGrants();
+
+    expect(calls[0]?.url).toBe("http://console.localtest.me/api/v1/console/support-grants");
+    expect(calls[0]?.init?.method).toBe("GET");
+    expect(result.ok && result.value.items[0]?.clinic_name).toBe("Sunrise Dental");
+    const bad = createHttpClient("", () => null, { fetch: stubFetch(json(200, { items: [{ ...item, ends_at: 5 }] })).fetch });
+    expect((await bad.listMySupportGrants()).ok).toBe(false);
+  });
+
   it("reads the UPI link of a bill from its own path and checks the body against the contract", async () => {
     const body = { uri: "upi://pay?pa=a@b", qr_data: "upi://pay?pa=a@b", upi_id: "a@b", payee_name: "Sunrise Dental", invoice_number: "INV-1", amount_paise: 50000 };
     const { fetch, calls } = stubFetch(json(200, body));

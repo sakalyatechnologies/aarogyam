@@ -30,6 +30,7 @@ import com.aarogyam.staff.live.SseLiveUpdates
 import com.aarogyam.staff.nav.HomeChoiceHolder
 import com.aarogyam.staff.nav.createHomeChoice
 import com.aarogyam.staff.notes.PatientNotesStateHolder
+import com.aarogyam.staff.notifications.PushRegistration
 import com.aarogyam.staff.outbox.AudioSender
 import com.aarogyam.staff.outbox.Connectivity
 import com.aarogyam.staff.outbox.MemoryOutboxFiles
@@ -102,7 +103,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
@@ -479,6 +482,17 @@ class AppGraph private constructor(
         scope: CoroutineScope,
     ): MyTasksHolder = createMyTasks(clinic, scope)
 
+    /** The push token and language to the server, and the DELETE before sign-out ([PushRegistration]). */
+    val push: PushRegistration =
+        PushRegistration(
+            preferences,
+            sessions.state.map { it is SessionState.SignedIn }.distinctUntilChanged(),
+            directory::appApi,
+            scope,
+            config.version,
+            logger("aarogyam.push"),
+        )
+
     /** Restores the session again, after secure storage was unavailable. */
     fun restore() {
         scope.launch { sessions.restore() }
@@ -498,6 +512,7 @@ class AppGraph private constructor(
     /** Revokes the session at Supabase and clears secure storage and the caches. Unsent writes are dropped: see [trySignOut]. */
     fun signOut() {
         scope.launch {
+            push.forget()
             sessions.signOut()
             directory.clear()
             endOutbox()

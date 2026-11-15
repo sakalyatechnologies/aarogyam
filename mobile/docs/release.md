@@ -53,6 +53,8 @@ The files are listed in `fastlane/credentials/README.md`.
 | `bundle exec fastlane android production [rollout:0.1]` | Upload to production: a draft, or a staged rollout |
 | `bundle exec fastlane android metadata` | Upload the listing text, icon, feature graphic and screenshots |
 
+Push notifications: `iosApp/AarogyamStaff/AarogyamStaff.entitlements` says `aps-environment` = `development`. App Store and TestFlight builds get `production` automatically when exported (signing rewrites it), so do not edit the file for a release. The server needs the APNs key (`.p8`, key ID, team ID) for the same environment before alerts arrive.
+
 Uploads never submit for review. That stays a person's click.
 
 ## 4. Versions

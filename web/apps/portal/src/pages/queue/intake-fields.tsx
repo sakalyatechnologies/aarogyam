@@ -9,7 +9,8 @@ export interface Intake {
   reminders: boolean;
 }
 
-export const EMPTY_INTAKE: Intake = { allergies: [], noKnownAllergies: false, reminders: true };
+/** Reminders start unticked: consent has to be given, not pre-ticked. */
+export const EMPTY_INTAKE: Intake = { allergies: [], noKnownAllergies: false, reminders: false };
 
 export function IntakeFields({ value, onChange }: { value: Intake; onChange: (next: Intake) => void }) {
   return (

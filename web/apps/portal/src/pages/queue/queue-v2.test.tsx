@@ -149,6 +149,32 @@ describe("Front desk (New look)", () => {
     expect(within(cardOf("Ramesh Pawar")).getByText("Walk-in (no booking)")).toBeTruthy();
   });
 
+  it("a walk-in with the reminders box left unticked sends only the care consent", async () => {
+    const user = userEvent.setup();
+    const register = vi.fn<(consents: readonly { purpose: string }[] | undefined) => void>();
+    const wrap = (client: ApiClient): ApiClient => ({
+      ...client,
+      registerWalkIn: (input, options) => {
+        register(input.consents);
+        return client.registerWalkIn(input, options);
+      },
+    });
+    renderPortal("/queue", { as: PEOPLE.asha, wrap });
+    await user.click(await screen.findByRole("button", { name: "Add to queue" }));
+    await user.click(await screen.findByRole("button", { name: /Register a walk-in/ }));
+    const wizard = await screen.findByRole("dialog", { name: "Walk-in (no booking)" });
+    await user.type(within(wizard).getByLabelText(/^Name/), "Ramesh Pawar");
+    await user.click(within(wizard).getByRole("button", { name: "Next" }));
+    await user.click(await within(wizard).findByRole("button", { name: "No known allergies" }));
+    await user.click(within(wizard).getByRole("button", { name: "Next" }));
+    expect(await within(wizard).findByRole("checkbox", { name: /visit reminders/ })).toHaveProperty("checked", false);
+    await user.click(within(wizard).getByRole("button", { name: "Add to queue" }));
+    await waitFor(() => {
+      expect(register).toHaveBeenCalledTimes(1);
+    });
+    expect(register.mock.calls[0]?.[0]).toEqual([{ purpose: "care", method: "verbal" }]);
+  });
+
   it("checks in today's booking from a search", async () => {
     const user = userEvent.setup();
     const backend = fakeApi();

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { Link } from "react-router";
 
 import { apiErrorOf, type AppointmentId, type CheckInRequest, type PatientBrief, type Sex } from "@aarogyam/api-client";
 import { Button, Dialog, useToast } from "@sakalya/ui";
@@ -6,13 +7,13 @@ import { Button, Dialog, useToast } from "@sakalya/ui";
 import { useClinic } from "../clinic.js";
 import { EMPTY_INTAKE, IntakeFields, type Intake } from "../pages/queue/intake-fields.js";
 import { AgeField, SexField } from "../pages/queue/new-walk-in-fields.js";
-import { useCheckInAppointment, useSetAppointmentStatus } from "../queries.js";
+import { useCheckInAppointment, usePatientDuplicates, useSetAppointmentStatus } from "../queries.js";
 import "./quick-picks.css";
 
 /** The booking being checked in; `patient` says whether the desk still has details to collect. */
 export interface CheckInTarget {
   id: AppointmentId;
-  patient?: Pick<PatientBrief, "full_name" | "sex" | "age_years" | "registration_incomplete"> | undefined;
+  patient?: Pick<PatientBrief, "id" | "full_name" | "sex" | "age_years" | "registration_incomplete"> | undefined;
 }
 
 interface Form {
@@ -42,8 +43,7 @@ const firstName = (fullName: string) => fullName.trim().split(/\s+/)[0] ?? fullN
 function initialForm(patient: CheckInTarget["patient"]): Form {
   const sex = patient === undefined || patient.sex === "unknown" ? null : patient.sex;
   const age = patient?.age_years == null ? "" : String(patient.age_years);
-  // Reminders start unticked: consent has to be given, not pre-ticked.
-  return { sex, age, recordedAge: age, intake: { ...EMPTY_INTAKE, reminders: false } };
+  return { sex, age, recordedAge: age, intake: EMPTY_INTAKE };
 }
 
 interface Pending {
@@ -82,6 +82,24 @@ export function useCheckIn(): { checkIn: (target: CheckInTarget, options: { done
   };
   const dialog = pending === undefined ? null : <CheckInDialog key={pending.target.id} pending={pending} onClose={() => { setPending(undefined); }} />;
   return { checkIn, busy: setStatus.isPending, dialog };
+}
+
+/** Warns when the booking is an online sign-up flagged as an existing patient: recording allergies makes the records unmergeable. */
+function DuplicateWarning({ patientId }: { patientId: string | undefined }) {
+  const { can } = useClinic();
+  const flags = usePatientDuplicates(can("patients.read"));
+  const flag = patientId === undefined ? undefined : flags.data?.items.find((d) => d.patient.id === patientId);
+  if (flag === undefined) {
+    return null;
+  }
+  return (
+    <p role="note" className="rounded-xl bg-warning-soft px-4 py-3 text-sm font-medium text-warning-text">
+      Possible duplicate of {flag.candidate.full_name} ({flag.candidate.number}). Merge them first: once allergies are recorded at check-in, the records can't be merged.{" "}
+      <Link to="/patients/duplicates" className="underline">
+        Review possible duplicates
+      </Link>
+    </p>
+  );
 }
 
 function CheckInDialog({ pending, onClose }: { pending: Pending; onClose: () => void }) {
@@ -135,6 +153,7 @@ function CheckInDialog({ pending, onClose }: { pending: Pending; onClose: () => 
       }
     >
       <div className="flex flex-col gap-4">
+        <DuplicateWarning patientId={target.patient?.id} />
         <div className="wi-section">
           <div className="wi-grid">
             <AgeField value={form} onChange={setForm} />

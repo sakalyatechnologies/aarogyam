@@ -26,7 +26,9 @@ class LiveBannerHolderTest {
         kind: String,
         token: Int? = 7,
         handled: Boolean = false,
+        reminded: String? = null,
     ) = """{"id":"$id","kind":"$kind","created_at":"2026-10-08T04:00:00Z","read":false,
+        "reminded_at":${reminded?.let { "\"$it\"" } ?: "null"},
         "queue_token":${token?.let { """{"id":"t$it","number":$it}""" } ?: "null"},
         "handled":${if (handled) """{"at":"2026-10-08T04:01:00Z"}""" else "null"}}"""
 
@@ -81,6 +83,20 @@ class LiveBannerHolderTest {
             val polls = r.backend.count(url)
             until { r.backend.count(url) >= polls + 2 }
             assertNull(r.holder.banner.value)
+            assertEquals(1, r.shown.count { it != null })
+        }
+
+    @Test
+    fun a_remind_raises_the_same_row_again() =
+        runTest {
+            val r = rig(items(row("n3", "patient_waiting")))
+            until { r.backend.count(url) >= 1 }
+            r.backend.on(url, { json(items(row("n3", "patient_waiting", reminded = "2026-10-08T04:05:00Z"))) })
+            until { r.shown.any { it != null } }
+            assertEquals(LiveBanner("n3", "patient_waiting", 7), r.shown.filterNotNull().first())
+            r.holder.dismiss()
+            val polls = r.backend.count(url)
+            until { r.backend.count(url) >= polls + 2 }
             assertEquals(1, r.shown.count { it != null })
         }
 

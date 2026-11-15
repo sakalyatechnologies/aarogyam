@@ -117,6 +117,7 @@ data class NotificationEntry(
     val id: String,
     val kind: String = "",
     @SerialName("created_at") val createdAt: String = "",
+    @SerialName("reminded_at") val remindedAt: String? = null,
     val read: Boolean = false,
     val href: String? = null,
     val title: String? = null,
@@ -130,6 +131,9 @@ data class NotificationEntry(
 
     /** True once someone handled it; false when `handled` is absent, including on an older server. */
     val isHandled: Boolean get() = handled != null
+
+    /** One key per raise: a Remind sets `reminded_at` (always after `created_at`), so the same row counts as new. */
+    val raiseKey: String get() = remindedAt?.let { "$id@$it" } ?: id
 
     /** A handled row of a queue kind no longer counts as unread (BE4). */
     val isUnread: Boolean get() = !read && !isHandled

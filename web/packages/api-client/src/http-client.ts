@@ -157,6 +157,7 @@ import {
   workingHours,
   type RequestId,
 } from "./schemas.js";
+import { ownDentalTerm, ownDentalTermList, supportActionList, supportGrantList, supportGrantView } from "./schemas.js";
 import { myTasks, task, taskHistory, taskList, taskOccurrence, taskPreview, taskProofUploaded } from "./schemas.js";
 import { checkedIn, duplicateList, merged, consentLink, consentRequested, consentSigned, familyLink, familyList, patientsSummary, phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
 import { conversation, labReminders, messageStats } from "./schemas.js";
@@ -611,6 +612,17 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         signal: opts?.signal,
       }),
     addDentalTerm: (input, opts) => call({ method: "POST", path: "/api/v1/dental-terms", schema: dentalTerm, body: input, signal: opts?.signal }),
+    listOwnDentalTerms: (opts) => call({ method: "GET", path: "/api/v1/dental-terms", schema: ownDentalTermList, signal: opts?.signal }),
+    renameDentalTerm: (id, input, opts) =>
+      call({ method: "PATCH", path: `/api/v1/dental-terms/${encodeURIComponent(id)}`, schema: ownDentalTerm, body: input, signal: opts?.signal }),
+    retireDentalTerm: (id, opts) => call({ method: "POST", path: `/api/v1/dental-terms/${encodeURIComponent(id)}/retire`, schema: ownDentalTerm, signal: opts?.signal }),
+    restoreDentalTerm: (id, opts) => call({ method: "POST", path: `/api/v1/dental-terms/${encodeURIComponent(id)}/restore`, schema: ownDentalTerm, signal: opts?.signal }),
+
+    listSupportGrants: (opts) => call({ method: "GET", path: "/api/v1/support-grants", schema: supportGrantList, signal: opts?.signal }),
+    createSupportGrant: (input, opts) => call({ method: "POST", path: "/api/v1/support-grants", schema: supportGrantView, body: input, signal: opts?.signal }),
+    revokeSupportGrant: (id, opts) => call({ method: "POST", path: `/api/v1/support-grants/${encodeURIComponent(id)}/revoke`, schema: supportGrantView, signal: opts?.signal }),
+    listSupportGrantActions: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/support-grants/${encodeURIComponent(id)}/actions`, schema: supportActionList, signal: opts?.signal }),
 
     listAttachments: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/attachments`, schema: attachmentList, signal: opts?.signal }),

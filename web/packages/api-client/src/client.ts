@@ -39,6 +39,7 @@ import type {
   RevokedSessions,
   UnreadCount,
 } from "./schemas.js";
+import type { NewSupportGrant, OwnDentalTerm, OwnDentalTermList, RenameDentalTerm, SupportActionList, SupportGrantList, SupportGrantView } from "./schemas.js";
 import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview, TaskProofUploaded } from "./schemas.js";
 import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
 import type { CheckedIn, CheckInRequest, DuplicateList, MergeRequest, Merged } from "./schemas.js";
@@ -771,6 +772,23 @@ export interface ApiClient {
   recordChartEntries(id: PatientId, input: NewChartEntries, options?: RequestOptions): Promise<ApiResult<DentalChart>>;
   /** Clinic host: adds a procedure or material to the clinic's list; a label already there (or seeded) returns that term. Needs `clinical.write`. */
   addDentalTerm(input: NewDentalTerm, options?: RequestOptions): Promise<ApiResult<DentalTerm>>;
+  /** Clinic host: the clinic's own terms, retired ones included, by kind then label. Needs `clinical.read` or `settings.manage`. */
+  listOwnDentalTerms(options?: RequestOptions): Promise<ApiResult<OwnDentalTermList>>;
+  /** Clinic host: renames an own term; old chart entries show the new label. `409` for a label already on the list. Needs `settings.manage`. */
+  renameDentalTerm(id: string, input: RenameDentalTerm, options?: RequestOptions): Promise<ApiResult<OwnDentalTerm>>;
+  /** Clinic host: stops offering an own term for new entries; old entries keep it. Needs `settings.manage`. */
+  retireDentalTerm(id: string, options?: RequestOptions): Promise<ApiResult<OwnDentalTerm>>;
+  /** Clinic host: offers a retired own term again. Needs `settings.manage`. */
+  restoreDentalTerm(id: string, options?: RequestOptions): Promise<ApiResult<OwnDentalTerm>>;
+
+  /** Clinic host: the clinic's support grants (active, ended, revoked), newest first. Needs `support.grant`. */
+  listSupportGrants(options?: RequestOptions): Promise<ApiResult<SupportGrantList>>;
+  /** Clinic host: lets a Sakalya staff member read the clinic from now until `ends_at` (15 minutes to 7 days). `400` bad input; `409` they already have access. Needs `support.grant`. */
+  createSupportGrant(input: NewSupportGrant, options?: RequestOptions): Promise<ApiResult<SupportGrantView>>;
+  /** Clinic host: ends a grant now. `409` when it already ended. Needs `support.grant`. */
+  revokeSupportGrant(id: string, options?: RequestOptions): Promise<ApiResult<SupportGrantView>>;
+  /** Clinic host: what the staff member requested under a grant, newest first (routes only). Needs `support.grant`. */
+  listSupportGrantActions(id: string, options?: RequestOptions): Promise<ApiResult<SupportActionList>>;
 
   /** Clinic host: a patient's files, newest first. Needs `clinical.read`. */
   listAttachments(id: PatientId, options?: RequestOptions): Promise<ApiResult<AttachmentPage>>;

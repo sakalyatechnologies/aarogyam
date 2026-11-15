@@ -61,7 +61,8 @@ import {
 } from "./fixtures.js";
 import { EXPENSE_NAMES, buildAnalytics, daysInclusive, wireExpense, type FakeExpense } from "./analytics.js";
 import { DASHBOARD_CATALOGUE, builtInLayout, validateLayout } from "./dashboard-layout.js";
-import { clinicTerms } from "./dental-terms.js";
+import { clinicTerms, type FakeDentalTerm } from "./dental-terms.js";
+import { MAX_GRANT_MS, MIN_GRANT_MS, grantStatus, wireGrant, type FakeSupportGrant } from "./support-grants.js";
 import {
   atLab,
   byDue,
@@ -932,6 +933,27 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     const taskMemberName = (membershipId: string): string | null => {
       const member = state.memberships.find((m) => m.id === membershipId);
       return state.users.find((u) => u.id === member?.user_id)?.display_name ?? null;
+    };
+
+    const ownTermsOf = (clinicId: string) =>
+      (state.dentalTerms ?? [])
+        .filter((t) => t.clinic_id === clinicId)
+        .sort((a, b) => a.kind.localeCompare(b.kind) || a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+    const wireOwnTerm = (t: FakeDentalTerm): C.OwnDentalTerm => ({
+      id: t.id,
+      kind: t.kind,
+      label: t.label,
+      retired: t.retired_at !== undefined,
+      added_at: t.added_at,
+      added_by: null,
+      retired_at: t.retired_at ?? null,
+      retired_by: null,
+    });
+    const grantsOf = (clinicId: string) => (state.supportGrants ?? []).filter((g) => g.clinic_id === clinicId);
+    const wireSupportGrant = (g: FakeSupportGrant): C.SupportGrantView => {
+      const staff = state.platformUsers.find((u) => u.id === g.staff_user_id);
+      const who = staff === undefined ? undefined : { email: staff.email, name: staff.display_name };
+      return wireGrant(g, clock(), who, state.supportActions ?? [], taskMemberName(g.granted_by), g.revoked_by === undefined ? null : taskMemberName(g.revoked_by));
     };
 
     const taskRoleName = (clinic: FakeClinic, key: string): string | null => rolesOf(clinic.id).find((r) => r.key === key)?.name ?? null;
@@ -4574,9 +4596,148 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (found !== undefined) {
             return reply(found satisfies C.DentalTerm);
           }
-          const term = { id: fakeUuid(random, clock()), clinic_id: caller.clinic.id, kind: kind.data, label };
+          const term = { id: fakeUuid(random, clock()), clinic_id: caller.clinic.id, kind: kind.data, label, added_at: clock().toISOString() };
           (state.dentalTerms ??= []).push(term);
           return reply({ id: term.id, kind: term.kind, label, own: true, retired: false } satisfies C.DentalTerm);
+        }),
+
+      listOwnDentalTerms: (opts) =>
+        respond(S.ownDentalTermList, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const perms = caller.membership.role.permissions;
+          if (!hasPermission(perms, "clinical.read") && !hasPermission(perms, "settings.manage")) {
+            return refuse(403, "forbidden", "Your role can't do this.");
+          }
+          const items = ownTermsOf(caller.clinic.id).map(wireOwnTerm);
+          return reply({ items } satisfies C.OwnDentalTermList);
+        }),
+
+      renameDentalTerm: (id, input, opts) =>
+        respond(S.ownDentalTerm, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = ownTermsOf(caller.clinic.id).find((t) => t.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const label = input.label.split(/\s+/).filter((w) => w !== "").join(" ");
+          if (label.length < 1 || label.length > 80) {
+            return invalid("label", "label must be 1 to 80 characters");
+          }
+          const taken = clinicTerms(state.dentalTerms, caller.clinic.id).some((t) => t.id !== id && t.kind === found.kind && t.label.toLowerCase() === label.toLowerCase());
+          if (taken) {
+            return refuse(409, "conflict", "The list already has that label.");
+          }
+          found.label = label;
+          return reply(wireOwnTerm(found) satisfies C.OwnDentalTerm);
+        }),
+
+      retireDentalTerm: (id, opts) =>
+        respond(S.ownDentalTerm, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = ownTermsOf(caller.clinic.id).find((t) => t.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          found.retired_at ??= clock().toISOString();
+          return reply(wireOwnTerm(found) satisfies C.OwnDentalTerm);
+        }),
+
+      restoreDentalTerm: (id, opts) =>
+        respond(S.ownDentalTerm, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = ownTermsOf(caller.clinic.id).find((t) => t.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          delete found.retired_at;
+          return reply(wireOwnTerm(found) satisfies C.OwnDentalTerm);
+        }),
+
+      listSupportGrants: (opts) =>
+        respond(S.supportGrantList, opts?.signal, async () => {
+          const caller = await inClinic("support.grant");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = grantsOf(caller.clinic.id)
+            .sort((a, b) => b.starts_at.localeCompare(a.starts_at))
+            .map(wireSupportGrant);
+          return reply({ items } satisfies C.SupportGrantList);
+        }),
+
+      createSupportGrant: (input, opts) =>
+        respond(S.supportGrantView, opts?.signal, async () => {
+          const caller = await inClinic("support.grant");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const now = clock();
+          const reason = input.reason.trim();
+          const ends = new Date(input.ends_at);
+          if (reason.length < 3 || reason.length > 500) {
+            return invalid("reason", "reason must be 3 to 500 characters");
+          }
+          const span = ends.getTime() - now.getTime();
+          if (Number.isNaN(span) || span < MIN_GRANT_MS || span > MAX_GRANT_MS) {
+            return invalid("ends_at", "access must end 15 minutes to 7 days from now");
+          }
+          const email = input.staff_email.trim().toLowerCase();
+          const staff = state.platformUsers.find((u) => u.email.toLowerCase() === email && (u.role === "owner" || u.role === "support"));
+          if (staff === undefined) {
+            return invalid("staff_email", "that person is not Sakalya support staff");
+          }
+          if (grantsOf(caller.clinic.id).some((g) => g.staff_user_id === staff.id && grantStatus(g, now) === "active")) {
+            return refuse(409, "conflict", "That person already has access; revoke it first.");
+          }
+          const grant = { id: fakeUuid(random, now), clinic_id: caller.clinic.id, staff_user_id: staff.id, starts_at: now.toISOString(), ends_at: ends.toISOString(), reason, granted_by: caller.membership.id };
+          (state.supportGrants ??= []).push(grant);
+          return reply(wireSupportGrant(grant) satisfies C.SupportGrantView);
+        }),
+
+      revokeSupportGrant: (id, opts) =>
+        respond(S.supportGrantView, opts?.signal, async () => {
+          const caller = await inClinic("support.grant");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = grantsOf(caller.clinic.id).find((g) => g.id === id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (grantStatus(found, clock()) !== "active") {
+            return refuse(409, "conflict", "That access already ended.");
+          }
+          found.revoked_at = clock().toISOString();
+          found.revoked_by = caller.membership.id;
+          return reply(wireSupportGrant(found) satisfies C.SupportGrantView);
+        }),
+
+      listSupportGrantActions: (id, opts) =>
+        respond(S.supportActionList, opts?.signal, async () => {
+          const caller = await inClinic("support.grant");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!grantsOf(caller.clinic.id).some((g) => g.id === id)) {
+            return notFound;
+          }
+          const items = (state.supportActions ?? [])
+            .filter((a) => a.grant_id === id)
+            .sort((a, b) => b.at.localeCompare(a.at))
+            .map(({ at, method, route }) => ({ at, method, route }));
+          return reply({ items } satisfies C.SupportActionList);
         }),
 
       listAttachments: (id, opts) =>

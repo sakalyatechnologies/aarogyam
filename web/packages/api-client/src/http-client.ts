@@ -285,6 +285,10 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         path: "/api/v1/patients",
         schema: patientList,
         query: {
+          sort: opts?.sort,
+          dir: opts?.dir,
+          offset: opts?.offset === undefined ? undefined : String(opts.offset),
+          limit: opts?.limit === undefined ? undefined : String(opts.limit),
           with_balance: opts?.withBalance === true ? "true" : undefined,
           recalls_due: opts?.recallsDue === true ? "true" : undefined,
           new_this_month: opts?.newThisMonth === true ? "true" : undefined,

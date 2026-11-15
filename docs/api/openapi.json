@@ -8267,9 +8267,47 @@
         "tags": [
           "patients"
         ],
-        "summary": "The most recently registered patients.",
+        "summary": "The patients, most recently registered first unless `sort` says otherwise.",
         "operationId": "listPatients",
         "parameters": [
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "recent (default), name, number or last_visit",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dir",
+            "in": "query",
+            "description": "asc or desc",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Patients to skip, 0 to 10000",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most patients, 1 to 50 (default 20)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
           {
             "name": "with_balance",
             "in": "query",
@@ -8307,6 +8345,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "sort, dir, offset or limit is out of range"
           },
           "401": {
             "description": "Not signed in"
@@ -31644,12 +31685,27 @@
           "items"
         ],
         "properties": {
+          "has_more": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether more patients follow this page. Only on `GET /patients`."
+          },
           "items": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Patient"
             },
             "description": "Matching patients, best first."
+          },
+          "total": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Patients passing the filter over all pages. Only on `GET /patients`, and absent for an\nempty page. Optional in the schema, so apps built before it read on."
           }
         }
       },

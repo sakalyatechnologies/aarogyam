@@ -310,6 +310,18 @@ export interface PatientFilter {
   newThisMonth?: boolean | undefined;
 }
 
+/** Order and paging of `listPatients`; the server sorts and pages, so it covers every patient. */
+export interface PatientListOptions extends PatientFilter {
+  /** `recent` (default), `name`, `number` or `last_visit` (never-seen patients last). */
+  sort?: "recent" | "name" | "number" | "last_visit" | undefined;
+  /** Defaults to newest first for `recent` and `last_visit`, else ascending. */
+  dir?: "asc" | "desc" | undefined;
+  /** Patients to skip, 0 to 10000. */
+  offset?: number | undefined;
+  /** Most patients, 1 to 50 (default 20). */
+  limit?: number | undefined;
+}
+
 export interface PatientSearch extends PatientFilter {
   /** Name, clinic number or phone. Sent in the request body, never in a URL. */
   q: string;
@@ -363,7 +375,7 @@ export interface ApiClient {
   /** Clinic host: the clinic, its branding, and the caller's role and permissions. */
   getSession(options?: RequestOptions): Promise<ApiResult<Session>>;
   /** Clinic host: recently seen patients. Needs `patients.read`. */
-  listPatients(options?: RequestOptions & PatientFilter): Promise<ApiResult<PatientPage>>;
+  listPatients(options?: RequestOptions & PatientListOptions): Promise<ApiResult<PatientPage>>;
   /** Clinic host: `POST /patients/search`. Needs `patients.read`. */
   searchPatients(search: PatientSearch, options?: RequestOptions): Promise<ApiResult<PatientPage>>;
   /** Clinic host: needs `patients.read`; contact details are masked without `patients.contact`. */

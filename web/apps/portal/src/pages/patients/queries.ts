@@ -1,5 +1,5 @@
 /** Patient 360 mutations that have no home in the shared `queries.ts`, kept here so this work never touches it. */
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   unwrap,
@@ -8,6 +8,7 @@ import {
   type AttachmentId,
   type ConsentId,
   type PatientFilter,
+  type PatientListOptions,
   type PatientId,
   type RecordConsent,
   type WithdrawConsent,
@@ -25,17 +26,38 @@ export function useEditAllergy(patientId: PatientId) {
   });
 }
 
+/** The order the server sorts the empty-box list in; `null` is newest registered first. */
+export type DirectoryOrder = { sort: NonNullable<PatientListOptions["sort"]>; dir: "asc" | "desc" } | null;
+
 /**
- * The patient list: recent patients while the box is empty, otherwise a search, narrowed by the
- * quick filters. The term travels in a POST body, never a URL; the filters are flags.
+ * A search (the box has text): `POST /patients/search`, narrowed by the quick filters. The term
+ * travels in the body, never a URL; the filters are flags. Off while the box is empty.
  */
 export function usePatientList(q: string, filter: PatientFilter) {
   const { api, access } = useClinic();
   return useQuery({
     queryKey: ["patients", access.org_id, q, filter.withBalance === true, filter.recallsDue === true, filter.newThisMonth === true],
-    queryFn: ({ signal }) =>
-      unwrap(q === "" ? api.listPatients({ signal, ...filter }) : api.searchPatients({ q, limit: 50, ...filter }, { signal })),
+    queryFn: ({ signal }) => unwrap(api.searchPatients({ q, limit: 50, ...filter }, { signal })),
     placeholderData: keepPreviousData,
+    enabled: q !== "",
+  });
+}
+
+/**
+ * The directory while the box is empty: the server sorts, filters and pages (`sort`, `dir`,
+ * `offset`), so the order covers every patient, not only the newest. Pages append as `fetchNextPage`
+ * runs, following `has_more`.
+ */
+export function usePatientDirectory(filter: PatientFilter, order: DirectoryOrder, pageSize: number, enabled: boolean) {
+  const { api, access } = useClinic();
+  return useInfiniteQuery({
+    queryKey: ["patients", access.org_id, "directory", filter.withBalance === true, filter.recallsDue === true, filter.newThisMonth === true, order?.sort ?? "recent", order?.dir ?? "default", pageSize],
+    initialPageParam: 0,
+    queryFn: ({ pageParam, signal }) =>
+      unwrap(api.listPatients({ signal, ...filter, sort: order?.sort, dir: order?.dir, offset: pageParam, limit: pageSize })),
+    getNextPageParam: (last, pages) => (last.has_more === true ? pages.reduce((n, page) => n + page.items.length, 0) : undefined),
+    placeholderData: keepPreviousData,
+    enabled,
   });
 }
 

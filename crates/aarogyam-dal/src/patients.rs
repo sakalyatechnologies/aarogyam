@@ -573,6 +573,124 @@ pub async fn recent_filtered(
     Ok(rows)
 }
 
+/// How the sorted list orders patients: a key and a direction.
+#[derive(Debug, Clone, Copy)]
+pub struct ListOrder {
+    /// `recent` (registration time), `name`, `number` or `last_visit`.
+    pub key: &'static str,
+    /// Ascending when true.
+    pub ascending: bool,
+}
+
+/// One page of the sorted list and the count of patients that pass the filter.
+#[derive(Debug, Clone)]
+pub struct ListedPage {
+    /// The page, in order.
+    pub rows: Vec<ListedPatient>,
+    /// Patients passing the filter, over all pages. `None` when the page is empty.
+    pub total: Option<i64>,
+}
+
+/// A page of the patients that pass `filter`, ordered by `order` with the id as the last
+/// tie-break (`last_visit` puts patients never seen last either way), and the count of
+/// all of them from the same statement.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn list_sorted(
+    conn: &mut PgConnection,
+    filter: &ListFilter,
+    order: ListOrder,
+    limit: i64,
+    offset: i64,
+    at: SummaryAt,
+    member: Option<Uuid>,
+) -> Result<ListedPage, DbError> {
+    let rows = sqlx::query!(
+        r#"with f as (
+               select p.*, count(*) over () as total from aarogyam.patients p
+               where p.deleted_at is null and app.patient_in_reach(p.id, $7)
+                 and ($4::timestamptz is null or p.created_at >= $4)
+                 and (not $2 or exists (select 1 from aarogyam.recalls r
+                                        where r.patient_id = p.id and r.status in ('due', 'notified')
+                                          and r.due_on <= $3))
+                 and (not $1 or (select coalesce(sum(i.total_paise
+                                        - coalesce((select sum(a.amount_paise)
+                                                    from aarogyam.payment_allocations a
+                                                    join aarogyam.payments m on m.org_id = a.org_id and m.id = a.payment_id
+                                                    where a.invoice_id = i.id and a.org_id = i.org_id
+                                                      and m.status = 'received'), 0)), 0)
+                                 from aarogyam.invoices i
+                                 where i.patient_id = p.id and i.status = 'issued') > 0)
+           ), o as (
+               select f.*, row_number() over (order by
+                   case when $8::text = 'name' and $9::bool then lower(f.full_name) end asc,
+                   case when $8 = 'name' and not $9 then lower(f.full_name) end desc,
+                   case when $8 = 'number' and $9 then length(f.number) end asc,
+                   case when $8 = 'number' and $9 then f.number end asc,
+                   case when $8 = 'number' and not $9 then length(f.number) end desc,
+                   case when $8 = 'number' and not $9 then f.number end desc,
+                   case when $8 = 'last_visit' and $9 then f.last_visit_at end asc nulls last,
+                   case when $8 = 'last_visit' and not $9 then f.last_visit_at end desc nulls last,
+                   case when $8 = 'recent' and $9 then f.created_at end asc,
+                   case when $8 = 'recent' and not $9 then f.created_at end desc,
+                   f.id) as rn
+               from f
+           )
+           select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,
+                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
+                  p.total as "total!",
+                  s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
+                  s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!",
+                  f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
+                  f.has_photo as "has_photo!"
+           from (select * from o where rn > $10 order by rn limit $5) p
+           cross join lateral app.patient_summary(p.id, $6, $3) s
+           cross join lateral app.patient_flags(p.id) f
+           order by p.rn"#,
+        filter.with_balance,
+        filter.recalls_due,
+        at.today,
+        filter.created_since,
+        limit,
+        at.now,
+        member,
+        order.key,
+        order.ascending,
+        offset
+    )
+    .fetch_all(conn)
+    .await?;
+    let total = rows.first().map(|r| r.total);
+    let rows = rows
+        .into_iter()
+        .map(|r| ListedPatient {
+            id: r.id,
+            number: r.number,
+            full_name: r.full_name,
+            sex: r.sex,
+            date_of_birth: r.date_of_birth,
+            birth_date_estimated: r.birth_date_estimated,
+            phone_e164: r.phone_e164,
+            email: r.email,
+            preferred_language: r.preferred_language,
+            status: r.status,
+            created_at: r.created_at,
+            last_visit_at: r.last_visit_at,
+            row_version: r.row_version,
+            next_starts_at: r.next_starts_at,
+            next_practitioner: r.next_practitioner,
+            balance_paise: r.balance_paise,
+            lifetime_paid_paise: r.lifetime_paid_paise,
+            recall_due: r.recall_due,
+            allergy_alert: r.allergy_alert,
+            consent_pending: r.consent_pending,
+            has_photo: r.has_photo,
+        })
+        .collect();
+    Ok(ListedPage { rows, total })
+}
+
 /// The patient with this clinic number, with their summary.
 ///
 /// # Errors

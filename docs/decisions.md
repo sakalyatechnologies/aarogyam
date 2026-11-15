@@ -781,3 +781,9 @@ so tests exercise the stream.
 **Decision.** The portal serves `/learn` and `/learn/:topic` with no sign-in, like `/book`; the text is placeholder copy in `pages/public/learn-topics.ts` for the founder to replace. A new variable `{{learn_link}}` (`PortalLinks::learn`, `{base}/learn`) is allowed in `patient.welcome` and in WhatsApp variable lists. Migration 0711 adds a defaults version whose six welcome bodies end with "Care tips: {{learn_link}}" (English, Hindi, Marathi). New clinics are seeded from it. An existing clinic's welcome row moves to the new text only while body, ref and status still equal the old default, so a clinic's edits are never overwritten; WhatsApp rows take the new name `aro_welcome_v2` and stay `draft`.
 
 **Why.** Patients get care guidance from the clinic's own link; Meta approves a template name with its exact text, so a changed body needs a new name.
+
+## 2026-11-14: The patient list sorts and pages on the server (`sort`, `dir`, `offset`, `limit`)
+
+**Decision.** `GET /patients` takes optional `sort` (`recent` default, `name`, `number`, `last_visit`), `dir`, `offset` (0 to 10000) and `limit` (1 to 50, default 20); bad values are a 400 naming the field. The order ends in the patient id, so pages never repeat or skip; `last_visit` puts patients never seen last either way; `name` ignores case. The response gains optional `total` (patients passing the filter, from `count(*) over ()` in the same statement, so the round-trip budget holds; absent on an empty page) and `has_more`. Filters, RLS and reach are unchanged. The portal sends the sort for name, number and last visit when the search box is empty; Next and Balance still sort the loaded rows, and a text search (POST) still sorts in the browser. Additive, no migration.
+
+**Why.** The browser sorted only the newest 50, so a clinic with more patients could not reach the rest by name or number.

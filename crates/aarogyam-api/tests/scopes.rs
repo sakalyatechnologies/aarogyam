@@ -256,6 +256,18 @@ fn colleague_reads(w: &World) -> Vec<String> {
 async fn lists_hold_only_own(app: &TestApp, w: &World, doctor_a: &str) {
     let (_, list) = get(app, doctor_a, "/api/v1/patients").await;
     assert_eq!(ids(&list), [w.patient_a.as_str()]);
+    // Sorted and paged, the list still holds only their own, and counts only those.
+    for query in [
+        "sort=name&dir=desc",
+        "sort=last_visit&limit=1",
+        "sort=number&offset=0",
+    ] {
+        let (status, sorted) = get(app, doctor_a, &format!("/api/v1/patients?{query}")).await;
+        assert_eq!(status, StatusCode::OK, "{sorted}");
+        assert_eq!(ids(&sorted), [w.patient_a.as_str()], "{query}");
+        assert_eq!(sorted["total"], 1, "{query}");
+        assert_eq!(sorted["has_more"], false, "{query}");
+    }
     for (query, expected) in [("Meera", 0), ("Ravi", 1), ("", 1)] {
         let (status, found) = app
             .send(

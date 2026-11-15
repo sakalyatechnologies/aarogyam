@@ -205,7 +205,7 @@ export const patient = z.object({
 }) satisfies z.ZodType<C.Patient>;
 export type Patient = z.output<typeof patient>;
 
-export const patientList = z.object({ items: z.array(patient) }) satisfies z.ZodType<C.PatientList>;
+export const patientList = z.object({ items: z.array(patient), total: z.number().nullable().exactOptional(), has_more: z.boolean().nullable().exactOptional() }) satisfies z.ZodType<C.PatientList>;
 export type PatientPage = z.output<typeof patientList>;
 
 // Staff ----------------------------------------------------------------------------------------

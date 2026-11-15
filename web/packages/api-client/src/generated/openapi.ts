@@ -2669,7 +2669,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The most recently registered patients. */
+        /** The patients, most recently registered first unless `sort` says otherwise. */
         get: operations["listPatients"];
         put?: never;
         /** Registers a patient and issues the clinic's next number. */
@@ -11136,8 +11136,16 @@ export interface components {
         };
         /** @description Search results. */
         PatientList: {
+            /** @description Whether more patients follow this page. Only on `GET /patients`. */
+            has_more?: boolean | null;
             /** @description Matching patients, best first. */
             items: components["schemas"]["Patient"][];
+            /**
+             * Format: int64
+             * @description Patients passing the filter over all pages. Only on `GET /patients`, and absent for an
+             *     empty page. Optional in the schema, so apps built before it read on.
+             */
+            total?: number | null;
         };
         /** @description The signed-in patient and the clinics that linked them. */
         PatientMe: {
@@ -22846,6 +22854,14 @@ export interface operations {
     listPatients: {
         parameters: {
             query?: {
+                /** @description recent (default), name, number or last_visit */
+                sort?: string;
+                /** @description asc or desc */
+                dir?: string;
+                /** @description Patients to skip, 0 to 10000 */
+                offset?: number;
+                /** @description Most patients, 1 to 50 (default 20) */
+                limit?: number;
                 /** @description Only patients with a balance (needs billing.read) */
                 with_balance?: boolean;
                 /** @description Only patients with an open recall due */
@@ -22866,6 +22882,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PatientList"];
                 };
+            };
+            /** @description sort, dir, offset or limit is out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not signed in */
             401: {

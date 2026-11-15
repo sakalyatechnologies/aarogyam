@@ -209,3 +209,34 @@ T8–T12 (iOS intake and signature, doctor screens, My tasks and the bell, live 
 - **Logs:** `tasks.proof_failed`, `tasks.complete_failed` (occurrence id and code). `dv10.waiting.banner` removed.
 - **T12, quiet machine (load under 20):** doctor 53 s / 12 taps (Send in 4.8, start 3.2, chair 5.0, tooth 10.1, Rx 3.6, wrap-up 26.2).
 - **Still open:** Remind `retry_after_seconds` (kit `ApiError` change); camera, dictation, sound and haptics untested on a device; Android T13 after iOS sign-off.
+
+## 14–15 Nov: store release and the work queue (resume here after a limit reset)
+The founder's decisions:
+- One role-based app for everyone. Patients join the same app later; the patient app is not shipped.
+- Released from Sakalya's existing Apple and Google accounts.
+- fastlane is the priority (`mobile/docs/release.md`).
+
+Done:
+- fastlane lanes, Android upload signing (key in `~/.aarogyam-release/`), the iOS icon and privacy manifest, the listing text (`7e43e01d`).
+- B7 labs (`v11-labs`) and chat (`v11-chat`), merged on `feat/v10`.
+- G11 patient visit history (`v11-pvisits`).
+- Remind cooldown; kit `v0.2.0-dev.3` (SkFlowLayout).
+
+**Queue, in order:**
+1. Visual check of labs and chat (`AarogyamStaffE2E/StoreScreensTests.swift`, local API on 8090 with synthetic LAB-1/LAB-2 and an Everyone notice). Merge `v11-pvisits`. Push.
+2. Chat thumbnails: when a download link has expired, ask for a new one instead of leaving a blank tile.
+3. `v11-store` (worker): "Use a password" sign-in (kit `SupabaseAuthClient.signInWithPassword` in `wt-sakalya-kit`) and Delete account (`DELETE /me/account`). Then tag the kit `v0.2.0-dev.4`, push the tag, repin, merge.
+4. Store screenshots: extend StoreScreensTests (Today, desk board, doctor waiting, patient tooth chart, visit with Rx, labs, chat) on the largest iPhone, exported to `fastlane/screenshots/ios/en-US`.
+5. Push on iOS, once the backend ships migration 0713 and `PUT/DELETE /me/devices/{installation_id}`:
+   - register for APNs and send the token;
+   - `push.<kind>` loc-keys for the 19 kinds plus `push.generic` and `push.title`, in en/hi/mr;
+   - on tap, switch to `org_id`, open `href` and mark `id` read.
+6. Connect Delete account to the live endpoint and check the `last_owner` 409 body.
+7. Android T13 parity (v9/v10 desk, doctor, visit, intake, tasks, banners, labs, chat, password, deletion, FCM push), then Play screenshots and the first internal upload.
+
+**Waiting on the founder:**
+- the App Store Connect API key and the Play service-account JSON (in `mobile/fastlane/credentials/`);
+- the store name, icon, support email and WhatsApp, and the review phone number;
+- the stable domain before production;
+- a backup of `~/.aarogyam-release/`;
+- approval of the privacy text.

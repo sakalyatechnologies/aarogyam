@@ -1,6 +1,5 @@
 package com.aarogyam.staff.android.ui
 
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -23,7 +22,11 @@ import androidx.navigation.compose.rememberNavController
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.GraphState
 import com.aarogyam.staff.android.R
-import com.aarogyam.staff.android.ui.chart.ChartTab
+import com.aarogyam.staff.android.ui.clinical.clinicalDestinations
+import com.aarogyam.staff.android.ui.desk.deskDestinations
+import com.aarogyam.staff.android.ui.patient.openPatient
+import com.aarogyam.staff.android.ui.patient.patientDestinations
+import com.aarogyam.staff.android.ui.visit.visitDestinations
 import com.aarogyam.staff.android.ui.walkin.WalkInScreen
 import com.aarogyam.staff.clinic.ClinicBranding
 import com.sakalya.mobile.auth.SessionState
@@ -37,7 +40,6 @@ private object Routes {
     const val SIGN_IN = "sign-in"
     const val CLINICS = "clinics"
     const val MAIN = "main"
-    const val PATIENT = "patient/{id}"
     const val WALK_IN = "walk-in"
 }
 
@@ -126,7 +128,7 @@ private fun Signed(graph: AppGraph) {
                             graph,
                             open,
                             clinicCount,
-                            onOpenPatient = { nav.navigate("patient/${Uri.encode(it)}") },
+                            onOpenPatient = { nav.openPatient(it) },
                             onWalkIn = { nav.navigate(Routes.WALK_IN) },
                             onAddExpense = {},
                             onSwitchClinic = {
@@ -140,19 +142,10 @@ private fun Signed(graph: AppGraph) {
                         val open = clinic ?: return@composable
                         WalkInScreen(rememberHolder { graph.walkIn(open, it) }, onClose = nav::popBackStack)
                     }
-                    composable(Routes.PATIENT) { entry ->
-                        val open = clinic ?: return@composable
-                        val id = entry.arguments?.getString("id") ?: return@composable
-                        Patient360Screen(
-                            rememberHolder { graph.patient360(open, id, it) },
-                            onBack = nav::popBackStack,
-                            chartTab = { ChartTab(rememberHolder { graph.chart(open, id, it) }) },
-                            rxTab = { RxTab(graph, open, id, it.flags.allergies) },
-                            notesTab = { NotesTab(rememberHolder { graph.patientNotes(open, id, it) }) },
-                            filesTab = { FilesTab(rememberHolder { graph.files(open, id, it) }) },
-                            billing = rememberHolder { graph.billing(open, id, it) },
-                        )
-                    }
+                    patientDestinations(graph, { clinic }, nav)
+                    deskDestinations(graph, { clinic }, nav)
+                    visitDestinations(graph, { clinic }, nav)
+                    clinicalDestinations(graph, { clinic }, nav)
                 }
             }
         }

@@ -79,6 +79,7 @@ import {
   isLocked,
   LOCKED_MESSAGE,
   LAB_PAYMENT_METHODS,
+  LAB_PROOF_TYPES,
   wireVendor,
   type FakeLabOrder,
   type FakeLabPayment,
@@ -1950,6 +1951,71 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           };
           labs.payments.push(row);
           return reply(wireLabPayment(row));
+        }),
+
+      uploadLabPaymentProof: (id, form, opts) =>
+        respond(S.labPayment, opts?.signal, async () => {
+          const caller = await inClinic("expenses.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!hasPermission(caller.membership.role.permissions, "finance.view")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const found = labsOf().payments.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const file = form.get("file");
+          if (!(file instanceof File) || file.size === 0 || !LAB_PROOF_TYPES.includes(file.type)) {
+            return invalid("file", "must be a JPEG, PNG or PDF");
+          }
+          if (file.size > 10 * 1024 * 1024) {
+            return refuse(413, "too_large", "file: must be at most 10 MB");
+          }
+          if (found.status === "void") {
+            return refuse(409, "conflict", "a voided payment takes no new proof");
+          }
+          found.proof = { mime_type: file.type, size_bytes: file.size, ...(file.name === "" ? {} : { file_name: file.name }) };
+          found.proof_file_id = fakeUuid(random, clock());
+          return reply(wireLabPayment(found));
+        }),
+
+      removeLabPaymentProof: (id, opts) =>
+        respond(S.labPayment, opts?.signal, async () => {
+          const caller = await inClinic("expenses.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!hasPermission(caller.membership.role.permissions, "finance.view")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const found = labsOf().payments.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found === undefined || found.proof == null) {
+            return notFound;
+          }
+          if (found.status === "void") {
+            return refuse(409, "conflict", "a voided payment keeps its proof");
+          }
+          delete found.proof;
+          delete found.proof_file_id;
+          return reply(wireLabPayment(found));
+        }),
+
+      getLabPaymentProofDownloadLink: (id, opts) =>
+        respond(S.downloadLink, opts?.signal, async () => {
+          const caller = await inClinic("finance.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = labsOf().payments.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (found?.proof_file_id === undefined) {
+            return notFound;
+          }
+          return reply({
+            url: `/api/v1/lab-payment-files/${found.proof_file_id}/content?token=fake`,
+            expires_at: new Date(clock().getTime() + 5 * 60_000).toISOString(),
+          } satisfies C.DownloadLink);
         }),
 
       voidLabPayment: (id, reason, opts) =>

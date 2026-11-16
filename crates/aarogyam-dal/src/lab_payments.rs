@@ -127,8 +127,63 @@ pub async fn insert(conn: &mut PgConnection, new: &NewPayment<'_>) -> Result<Pay
     Ok(row)
 }
 
-/// Payments, voided ones too, newest day first: to one lab or all, paid on clinic days `from`
-/// to `to` (both included, either open).
+/// A listed payment with its current proof, flat as the join returns it.
+struct ListedRow {
+    id: Uuid,
+    vendor_id: Uuid,
+    lab_order_id: Option<Uuid>,
+    paid_on: Date,
+    amount_paise: i64,
+    lab_invoice_ref: Option<String>,
+    note: Option<String>,
+    method: Option<String>,
+    expense_id: Uuid,
+    status: String,
+    void_reason: Option<String>,
+    voided_at: Option<OffsetDateTime>,
+    recorded_by: Uuid,
+    created_at: OffsetDateTime,
+    proof_id: Option<Uuid>,
+    proof_mime_type: Option<String>,
+    proof_size_bytes: Option<i64>,
+    proof_file_name: Option<String>,
+}
+
+impl From<ListedRow> for (PaymentRow, Option<ProofRow>) {
+    fn from(row: ListedRow) -> Self {
+        let proof = match (row.proof_id, row.proof_mime_type, row.proof_size_bytes) {
+            (Some(id), Some(mime_type), Some(size_bytes)) => Some(ProofRow {
+                id,
+                lab_payment_id: row.id,
+                mime_type,
+                size_bytes,
+                file_name: row.proof_file_name,
+            }),
+            _ => None,
+        };
+        let payment = PaymentRow {
+            id: row.id,
+            vendor_id: row.vendor_id,
+            lab_order_id: row.lab_order_id,
+            paid_on: row.paid_on,
+            amount_paise: row.amount_paise,
+            lab_invoice_ref: row.lab_invoice_ref,
+            note: row.note,
+            method: row.method,
+            expense_id: row.expense_id,
+            status: row.status,
+            void_reason: row.void_reason,
+            voided_at: row.voided_at,
+            recorded_by: row.recorded_by,
+            created_at: row.created_at,
+        };
+        (payment, proof)
+    }
+}
+
+/// Payments, voided ones too, newest day first, each with its current proof: to one lab or all,
+/// paid on clinic days `from` to `to` (both included, either open). One query, so the list
+/// stays within its round-trip budget.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -138,15 +193,20 @@ pub async fn list(
     from: Option<Date>,
     to: Option<Date>,
     limit: i64,
-) -> Result<Vec<PaymentRow>, DbError> {
+) -> Result<Vec<(PaymentRow, Option<ProofRow>)>, DbError> {
     let rows = sqlx::query_as!(
-        PaymentRow,
-        r#"select id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,
-                  method, expense_id, status, void_reason, voided_at, recorded_by, created_at
-           from aarogyam.lab_payments
-           where ($1::uuid is null or vendor_id = $1)
-             and ($2::date is null or paid_on >= $2) and ($3::date is null or paid_on <= $3)
-           order by paid_on desc, id desc
+        ListedRow,
+        r#"select p.id, p.vendor_id, p.lab_order_id, p.paid_on, p.amount_paise, p.lab_invoice_ref,
+                  p.note, p.method, p.expense_id, p.status, p.void_reason, p.voided_at,
+                  p.recorded_by, p.created_at,
+                  f.id as "proof_id?", f.mime_type as "proof_mime_type?",
+                  f.size_bytes as "proof_size_bytes?", f.file_name as "proof_file_name?"
+           from aarogyam.lab_payments p
+           left join aarogyam.lab_payment_files f
+             on f.org_id = p.org_id and f.lab_payment_id = p.id and f.superseded_at is null
+           where ($1::uuid is null or p.vendor_id = $1)
+             and ($2::date is null or p.paid_on >= $2) and ($3::date is null or p.paid_on <= $3)
+           order by p.paid_on desc, p.id desc
            limit $4"#,
         vendor_id,
         from,
@@ -155,7 +215,24 @@ pub async fn list(
     )
     .fetch_all(conn)
     .await?;
-    Ok(rows)
+    Ok(rows.into_iter().map(Into::into).collect())
+}
+
+/// One payment; `None` when the clinic has none with `id`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<PaymentRow>, DbError> {
+    let row = sqlx::query_as!(
+        PaymentRow,
+        r#"select id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,
+                  method, expense_id, status, void_reason, voided_at, recorded_by, created_at
+           from aarogyam.lab_payments where id = $1"#,
+        id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
 }
 
 /// Voids a recorded payment; `None` when there is no recorded payment with `id`.
@@ -195,6 +272,120 @@ pub async fn status(conn: &mut PgConnection, id: Uuid) -> Result<Option<String>,
         .fetch_optional(conn)
         .await?;
     Ok(status)
+}
+
+/// The current proof of a payment.
+#[derive(Debug, Clone)]
+pub struct ProofRow {
+    /// Identifier; also the name of the bytes in storage.
+    pub id: Uuid,
+    /// The payment it proves.
+    pub lab_payment_id: Uuid,
+    /// `image/jpeg`, `image/png` or `application/pdf`.
+    pub mime_type: String,
+    /// Bytes.
+    pub size_bytes: i64,
+    /// The name the uploader's device gave it, tidied.
+    pub file_name: Option<String>,
+}
+
+/// A new proof file.
+#[derive(Debug, Clone, Copy)]
+pub struct NewProof<'a> {
+    /// Identifier, also the storage name.
+    pub id: Uuid,
+    /// The payment.
+    pub lab_payment_id: Uuid,
+    /// Media type.
+    pub mime_type: &'a str,
+    /// Bytes.
+    pub size_bytes: i64,
+    /// Tidied file name.
+    pub file_name: Option<&'a str>,
+}
+
+/// The current proofs of these payments.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn current_proofs(
+    conn: &mut PgConnection,
+    payment_ids: &[Uuid],
+) -> Result<Vec<ProofRow>, DbError> {
+    let rows = sqlx::query_as!(
+        ProofRow,
+        r#"select id, lab_payment_id, mime_type, size_bytes, file_name
+           from aarogyam.lab_payment_files
+           where lab_payment_id = any($1) and superseded_at is null"#,
+        payment_ids
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// A proof file by id, current or superseded; `None` when the clinic has none.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn proof_file(conn: &mut PgConnection, id: Uuid) -> Result<Option<ProofRow>, DbError> {
+    let row = sqlx::query_as!(
+        ProofRow,
+        r#"select id, lab_payment_id, mime_type, size_bytes, file_name
+           from aarogyam.lab_payment_files where id = $1"#,
+        id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Locks a payment and returns its status; `None` when the clinic has none with `id`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn lock_status(conn: &mut PgConnection, id: Uuid) -> Result<Option<String>, DbError> {
+    let status = sqlx::query_scalar!(
+        "select status from aarogyam.lab_payments where id = $1 for update",
+        id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(status)
+}
+
+/// Marks the payment's current proof superseded, if it has one.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn supersede_proof(conn: &mut PgConnection, payment_id: Uuid) -> Result<(), DbError> {
+    sqlx::query!(
+        "update aarogyam.lab_payment_files set superseded_at = now()
+         where lab_payment_id = $1 and superseded_at is null",
+        payment_id
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// Adds a proof file as the payment's current one (supersede the old one first).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn insert_proof(conn: &mut PgConnection, new: &NewProof<'_>) -> Result<(), DbError> {
+    sqlx::query!(
+        "insert into aarogyam.lab_payment_files (id, lab_payment_id, mime_type, size_bytes, file_name)
+         values ($1, $2, $3, $4, $5)",
+        new.id,
+        new.lab_payment_id,
+        new.mime_type,
+        new.size_bytes,
+        new.file_name
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
 }
 
 /// What a lab has billed and been paid.

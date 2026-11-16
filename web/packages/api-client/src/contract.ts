@@ -317,6 +317,7 @@ export type LabContactValues = Schemas["LabContactValues"];
 export type LabBalance = Schemas["LabBalance"];
 export type LabPayment = Schemas["LabPayment"];
 export type LabPaymentList = Schemas["LabPaymentList"];
+export type LabPaymentProof = Schemas["LabPaymentProof"];
 export type NewLabPayment = Schemas["NewLabPayment"];
 export type AttentionKind = "late_arrival" | "long_wait";
 export type ChairOccupancy = "in_use" | "free";

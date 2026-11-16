@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,\n                  method, expense_id, status, void_reason, voided_at, recorded_by, created_at\n           from aarogyam.lab_payments\n           where ($1::uuid is null or vendor_id = $1)\n             and ($2::date is null or paid_on >= $2) and ($3::date is null or paid_on <= $3)\n           order by paid_on desc, id desc\n           limit $4",
+  "query": "select id, vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note,\n                  method, expense_id, status, void_reason, voided_at, recorded_by, created_at\n           from aarogyam.lab_payments where id = $1",
   "describe": {
     "columns": [
       {
@@ -160,10 +160,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Date",
-        "Date",
-        "Int8"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -183,5 +180,5 @@
       false
     ]
   },
-  "hash": "19818b499552d6130aee45ecfb3c925b89289798fc67378bebda54c3932ac3a1"
+  "hash": "4d8919b381e6027c034693dd8abb034f11050a9a6464876e247dc39b91914a54"
 }

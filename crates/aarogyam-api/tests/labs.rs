@@ -12,11 +12,13 @@
 
 mod support;
 
-use axum::http::{Method, StatusCode};
+use axum::body::{Body, to_bytes};
+use axum::http::{HeaderMap, Method, Request, StatusCode};
 use serde_json::{Value, json};
 use support::people::*;
 use support::{ALPHA, BETA, TestApp};
 use time::{Date, Duration, OffsetDateTime, Time, UtcOffset};
+use tower::ServiceExt as _;
 use uuid::{Uuid, uuid};
 
 const DOCTOR_A: Uuid = uuid!("a0000000-0000-4000-8000-0000000000da");
@@ -823,6 +825,17 @@ fn routes(
             format!("/api/v1/lab-payments/{payment}/void"),
             Some(json!({ "reason": "Wrong lab" })),
         ),
+        // The proof upload is a multipart form: tested on its own (a_lab_payment_may_carry_a_proof).
+        (
+            Method::DELETE,
+            format!("/api/v1/lab-payments/{payment}/proof"),
+            None,
+        ),
+        (
+            Method::GET,
+            format!("/api/v1/lab-payments/{payment}/proof/download"),
+            None,
+        ),
         (
             Method::DELETE,
             format!("/api/v1/lab-contacts/{contact}"),
@@ -908,7 +921,8 @@ async fn lab_records_stay_in_their_clinic() {
                       + (select count(*) from aarogyam.lab_orders where org_id <> $1)
                       + (select count(*) from aarogyam.lab_order_items where org_id <> $1)
                       + (select count(*) from aarogyam.lab_order_events where org_id <> $1)
-                      + (select count(*) from aarogyam.lab_payments where org_id <> $1)",
+                      + (select count(*) from aarogyam.lab_payments where org_id <> $1)
+                      + (select count(*) from aarogyam.lab_payment_files where org_id <> $1)",
             )
             .bind(beta_id)
             .fetch_one(tx.conn())
@@ -1475,5 +1489,212 @@ async fn contacting_the_lab_is_logged_and_can_move_the_due_date() {
         "select count(*) from aarogyam.lab_order_events where lab_order_id = $1::uuid and note is not null")
         .bind(&order_id).fetch_one(&app.owner).await.unwrap();
     assert_eq!(notes, 0);
+    app.finish().await;
+}
+
+const PNG: &[u8] = b"\x89PNG\r\n\x1a\nsynthetic UPI screenshot";
+const PDF: &[u8] = b"%PDF-1.7 synthetic receipt";
+
+async fn upload_proof(
+    app: &TestApp,
+    host: &str,
+    token: &str,
+    payment: &str,
+    bytes: &[u8],
+    name: &str,
+) -> (StatusCode, Value) {
+    const BOUNDARY: &str = "aarogyam-proof-boundary";
+    let mut body = format!(
+        "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\n\
+         Content-Type: application/octet-stream\r\n\r\n"
+    )
+    .into_bytes();
+    body.extend_from_slice(bytes);
+    body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
+    let request = Request::post(format!("/api/v1/lab-payments/{payment}/proof"))
+        .header("host", host)
+        .header("authorization", format!("Bearer {token}"))
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={BOUNDARY}"),
+        )
+        .body(Body::from(body))
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
+}
+
+async fn fetch(app: &TestApp, host: &str, path: &str) -> (StatusCode, HeaderMap, Vec<u8>) {
+    let request = Request::get(path)
+        .header("host", host)
+        .body(Body::empty())
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let headers = response.headers().clone();
+    let bytes = to_bytes(response.into_body(), 16 * 1024 * 1024)
+        .await
+        .unwrap();
+    (status, headers, bytes.to_vec())
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_lab_payment_may_carry_a_proof() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (vendor, _) = lab(&app, &owner, "Precision Dental Lab").await;
+    let day = today().to_string();
+    let paid = post_ok(
+        &app,
+        &owner,
+        "/api/v1/lab-payments",
+        json!({ "vendor_id": vendor, "paid_on": day, "amount_paise": 500 }),
+    )
+    .await;
+    let payment = id(&paid);
+    let proof_path = format!("/api/v1/lab-payments/{payment}/proof");
+    let link_path = format!("{proof_path}/download");
+
+    // No proof: the field is absent, and there is nothing to link to.
+    assert!(paid.get("proof").is_none(), "{paid}");
+    let (status, _) = send(&app, &owner, Method::GET, &link_path, None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // Attach a PNG: its type is read from the bytes; the name is tidied; the file is stored.
+    let (status, with) = upload_proof(&app, ALPHA, &owner, &payment, PNG, "../upi/shot.png").await;
+    assert_eq!(status, StatusCode::OK, "{with}");
+    assert_eq!(with["proof"]["mime_type"], "image/png");
+    assert_eq!(with["proof"]["size_bytes"], PNG.len());
+    assert_eq!(with["proof"]["file_name"], "shot.png");
+    assert_eq!(with["id"], payment.as_str());
+    let (_, list) = send(&app, &owner, Method::GET, "/api/v1/lab-payments", None).await;
+    assert_eq!(list["items"][0]["proof"]["mime_type"], "image/png");
+
+    // A short-lived signed link gives the bytes, with safe headers; not on another host.
+    let link = send(&app, &owner, Method::GET, &link_path, None).await.1;
+    let url = link["url"].as_str().unwrap().to_owned();
+    assert!(url.starts_with("/api/v1/lab-payment-files/"), "{url}");
+    let (status, headers, bytes) = fetch(&app, ALPHA, &url).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(bytes, PNG);
+    assert_eq!(headers["content-type"], "image/png");
+    assert_eq!(headers["x-content-type-options"], "nosniff");
+    assert_eq!(fetch(&app, BETA, &url).await.0, StatusCode::NOT_FOUND);
+    assert_eq!(
+        fetch(&app, ALPHA, &format!("{url}x")).await.0,
+        StatusCode::NOT_FOUND
+    );
+    let bare = url.split('?').next().unwrap();
+    assert_eq!(fetch(&app, ALPHA, bare).await.0, StatusCode::NOT_FOUND);
+
+    // Replacing keeps the old row (superseded) and its bytes; only the new one is current.
+    let (status, replaced) = upload_proof(&app, ALPHA, &owner, &payment, PDF, "receipt.pdf").await;
+    assert_eq!(status, StatusCode::OK, "{replaced}");
+    assert_eq!(replaced["proof"]["mime_type"], "application/pdf");
+    let (current, superseded): (i64, i64) = sqlx::query_as(
+        "select count(*) filter (where superseded_at is null),
+                count(*) filter (where superseded_at is not null)
+         from aarogyam.lab_payment_files",
+    )
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!((current, superseded), (1, 1));
+    let new_link = send(&app, &owner, Method::GET, &link_path, None).await.1;
+    let (status, headers, bytes) = fetch(&app, ALPHA, new_link["url"].as_str().unwrap()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(bytes, PDF);
+    assert_eq!(headers["content-type"], "application/pdf");
+
+    // Wrong type and empty: 400; too large: 413. None of them replaces the proof.
+    for (bytes, name) in [
+        (&b"MZ\x90\x00 not a proof"[..], "x.exe"),
+        (&b""[..], "x.png"),
+    ] {
+        let (status, body) = upload_proof(&app, ALPHA, &owner, &payment, bytes, name).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    }
+    let mut big = PDF.to_vec();
+    big.resize(10 * 1024 * 1024 + 1, 0);
+    let (status, _) = upload_proof(&app, ALPHA, &owner, &payment, &big, "big.pdf").await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    let (_, list) = send(&app, &owner, Method::GET, "/api/v1/lab-payments", None).await;
+    assert_eq!(list["items"][0]["proof"]["mime_type"], "application/pdf");
+
+    // Permissions: nothing at all is refused; finance.view alone may read the proof but not
+    // attach one.
+    let nobody = app.token(ALPHA_NOTHING);
+    let (status, _) = upload_proof(&app, ALPHA, &nobody, &payment, PNG, "x.png").await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = send(&app, &nobody, Method::GET, &link_path, None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    sqlx::raw_sql(
+        "do $$ declare o uuid := (select id from aarogyam.organizations where slug = 'alpha');
+                       r uuid; u uuid;
+         begin
+           insert into aarogyam.roles (org_id, key, name) values (o, 'money_reader', 'Money reader')
+             returning id into r;
+           insert into aarogyam.role_permissions (org_id, role_id, permission, scope)
+             values (o, r, 'finance.view', 'all');
+           insert into aarogyam.users (auth_uid, display_name, email)
+             values ('a0000000-0000-4000-8000-0000000000dc', 'Money Reader', 'money@alpha.test')
+             returning id into u;
+           insert into aarogyam.memberships (org_id, user_id, role_id, status) values (o, u, r, 'active');
+         end $$",
+    )
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let reader = app.token(READER);
+    let (status, _) = send(&app, &reader, Method::GET, &link_path, None).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = upload_proof(&app, ALPHA, &reader, &payment, PNG, "x.png").await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = send(&app, &reader, Method::DELETE, &proof_path, None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    // Another clinic sees nothing: 404 to attach, none to read.
+    let beta = app.token(BETA_OWNER);
+    let (status, _) = upload_proof(&app, BETA, &beta, &payment, PNG, "x.png").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = app
+        .send(Method::GET, BETA, &link_path, Some(&beta), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // Removing a proof: the payment shows none, the file stays as superseded.
+    let (status, removed) = send(&app, &owner, Method::DELETE, &proof_path, None).await;
+    assert_eq!(status, StatusCode::OK, "{removed}");
+    assert!(removed.get("proof").is_none(), "{removed}");
+    let (status, _) = send(&app, &owner, Method::DELETE, &proof_path, None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = send(&app, &owner, Method::GET, &link_path, None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // A voided payment keeps its proof readable but takes no new one, and it can't be removed.
+    let (status, _) = upload_proof(&app, ALPHA, &owner, &payment, PNG, "again.png").await;
+    assert_eq!(status, StatusCode::OK);
+    let voided = post_ok(
+        &app,
+        &owner,
+        &format!("/api/v1/lab-payments/{payment}/void"),
+        json!({ "reason": "Paid twice" }),
+    )
+    .await;
+    assert_eq!(voided["status"], "void");
+    assert_eq!(voided["proof"]["mime_type"], "image/png");
+    let (status, _) = upload_proof(&app, ALPHA, &owner, &payment, PDF, "late.pdf").await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let (status, _) = send(&app, &owner, Method::DELETE, &proof_path, None).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let link = send(&app, &owner, Method::GET, &link_path, None).await.1;
+    let (status, _, bytes) = fetch(&app, ALPHA, link["url"].as_str().unwrap()).await;
+    assert_eq!((status, bytes.as_slice()), (StatusCode::OK, PNG));
     app.finish().await;
 }

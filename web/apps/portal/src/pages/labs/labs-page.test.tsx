@@ -810,3 +810,158 @@ describe("Lab work: the payment method", () => {
     expect(axeResult.violations.map((v) => v.id)).toEqual([]);
   });
 });
+
+describe("Lab work: a payment's proof", () => {
+  const png = () => new File(["png"], "upi.png", { type: "image/png" });
+
+  /** Opens Precision Dental Lab's panel; `wrap` can watch or fail the proof calls. */
+  async function openPanel(user: ReturnType<typeof userEvent.setup>, wrap?: (client: ApiClient) => ApiClient) {
+    renderPortal("/labs", { as: PEOPLE.asha, ...(wrap === undefined ? {} : { wrap }) });
+    await card("LAB-12");
+    await user.click(screen.getByRole("button", { name: "Labs" }));
+    await user.click(await screen.findByRole("button", { name: "Precision Dental Lab" }));
+    return screen.findByRole("dialog", { name: "Precision Dental Lab" });
+  }
+  async function fillPayment(user: ReturnType<typeof userEvent.setup>, panel: HTMLElement, rupees: string) {
+    await user.type(within(panel).getByRole("textbox", { name: /Amount/ }), rupees);
+    // The fake clinic's clock is fixed at 3 Oct 2026; the page's own date is today's.
+    fireEvent.change(within(panel).getByLabelText("Paid on"), { target: { value: "2026-10-02" } });
+  }
+  const watch = (calls: string[]) => (client: ApiClient): ApiClient => ({
+    ...client,
+    recordLabPayment: (input, opts) => {
+      calls.push("record");
+      return client.recordLabPayment(input, opts);
+    },
+    uploadLabPaymentProof: (id, form, opts) => {
+      calls.push("proof");
+      return client.uploadLabPaymentProof(id, form, opts);
+    },
+  });
+  const proofRow = (panel: HTMLElement, rupees: string) => {
+    const row = within(within(panel).getByRole("list", { name: "Payments so far" }))
+      .getAllByRole("listitem")
+      .find((li) => li.textContent.includes(rupees));
+    if (row === undefined) throw new Error(`no payment of ${rupees}`);
+    return within(row);
+  };
+
+  it("records a payment with its proof as two requests, in order, and records one without", async () => {
+    const user = userEvent.setup();
+    const calls: string[] = [];
+    const panel = await openPanel(user, watch(calls));
+    await fillPayment(user, panel, "1000");
+    await user.upload(within(panel).getByLabelText("Proof (photo or PDF)"), png());
+    await user.click(within(panel).getByRole("button", { name: "Record payment" }));
+    await waitFor(() => {
+      expect(proofRow(panel, "₹1,000").getByRole("button", { name: /^View proof/ })).toBeTruthy();
+    });
+    expect(calls).toEqual(["record", "proof"]);
+    // The file field is empty again for the next payment.
+    expect(within(panel).getByLabelText("Proof (photo or PDF)")).toHaveProperty("value", "");
+
+    await fillPayment(user, panel, "250");
+    await user.click(within(panel).getByRole("button", { name: "Record payment" }));
+    await waitFor(() => {
+      expect(proofRow(panel, "₹250").getByRole("button", { name: /^Add proof/ })).toBeTruthy();
+    });
+    expect(calls).toEqual(["record", "proof", "record"]);
+    expect(proofRow(panel, "₹250").queryByRole("button", { name: /^View proof/ })).toBeNull();
+  });
+
+  it("keeps the payment when the proof fails and offers a retry", async () => {
+    const user = userEvent.setup();
+    const calls: string[] = [];
+    let failNext = true;
+    const panel = await openPanel(user, (client) => {
+      const watched = watch(calls)(client);
+      return {
+        ...watched,
+        uploadLabPaymentProof: (id, form, opts) => {
+          if (failNext) {
+            failNext = false;
+            calls.push("proof");
+            return Promise.resolve(failure(parseApiError(500, { code: "internal", message: "storage is down" }, undefined)));
+          }
+          return watched.uploadLabPaymentProof(id, form, opts);
+        },
+      };
+    });
+    await fillPayment(user, panel, "1000");
+    await user.upload(within(panel).getByLabelText("Proof (photo or PDF)"), png());
+    await user.click(within(panel).getByRole("button", { name: "Record payment" }));
+    const alert = await within(panel).findByText(/is recorded, but its proof didn't upload/);
+    expect(alert.textContent).toContain("₹1,000");
+    // The payment is in the list, without a proof, and was not recorded twice.
+    expect(proofRow(panel, "₹1,000").getByRole("button", { name: /^Add proof/ })).toBeTruthy();
+    await user.click(within(panel).getByRole("button", { name: "Try the proof again" }));
+    await waitFor(() => {
+      expect(proofRow(panel, "₹1,000").getByRole("button", { name: /^View proof/ })).toBeTruthy();
+    });
+    expect(calls).toEqual(["record", "proof", "proof"]);
+    expect(within(panel).queryByText(/didn't upload/)).toBeNull();
+  });
+
+  it("opens the proof through its short-lived link, also for a voided payment", async () => {
+    const user = userEvent.setup();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const panel = await openPanel(user);
+    await fillPayment(user, panel, "1000");
+    await user.upload(within(panel).getByLabelText("Proof (photo or PDF)"), png());
+    await user.click(within(panel).getByRole("button", { name: "Record payment" }));
+    await waitFor(() => {
+      expect(proofRow(panel, "₹1,000").getByRole("button", { name: /^View proof/ })).toBeTruthy();
+    });
+    await user.click(proofRow(panel, "₹1,000").getByRole("button", { name: /^View proof/ }));
+    await waitFor(() => {
+      expect(open).toHaveBeenCalledTimes(1);
+    });
+    expect(open.mock.calls[0]?.[0]).toMatch(/^\/api\/v1\/lab-payment-files\/.+\/content\?token=/);
+    expect(open.mock.calls[0]?.[2]).toBe("noopener,noreferrer");
+
+    await user.click(within(panel).getByRole("button", { name: /^Void the payment of ₹1,000/ }));
+    await user.type(within(panel).getByRole("textbox", { name: /Reason for voiding/ }), "Paid twice");
+    await user.click(within(panel).getByRole("button", { name: "Void payment" }));
+    await waitFor(() => {
+      expect(within(panel).getAllByText("Void").length).toBeGreaterThan(0);
+    });
+    // Still viewable, and nothing more can be added to it.
+    await user.click(proofRow(panel, "₹1,000").getByRole("button", { name: /^View proof/ }));
+    await waitFor(() => {
+      expect(open).toHaveBeenCalledTimes(2);
+    });
+    open.mockRestore();
+  });
+
+  it("adds a proof later, and refuses a wrong type or a large file before sending", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const calls: string[] = [];
+    const panel = await openPanel(user, watch(calls));
+    await fillPayment(user, panel, "1000");
+    await user.click(within(panel).getByRole("button", { name: "Record payment" }));
+    await waitFor(() => {
+      expect(proofRow(panel, "₹1,000").getByRole("button", { name: /^Add proof/ })).toBeTruthy();
+    });
+
+    // A wrong type on the form: refused in the browser, nothing sent.
+    await user.upload(within(panel).getByLabelText("Proof (photo or PDF)"), new File(["x"], "notes.txt", { type: "text/plain" }));
+    expect((await within(panel).findByText("Choose a JPEG or PNG photo, or a PDF.")).getAttribute("role")).toBe("alert");
+    expect(within(panel).getByLabelText("Proof (photo or PDF)")).toHaveProperty("value", "");
+    // Too large, when adding later.
+    const big = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.pdf", { type: "application/pdf" });
+    await user.click(proofRow(panel, "₹1,000").getByRole("button", { name: /^Add proof/ }));
+    await user.upload(within(panel).getByLabelText("Proof file to add"), big);
+    expect(await within(panel).findByText("Choose a file of at most 10 MB.")).toBeTruthy();
+    expect(calls).toEqual(["record"]);
+
+    // A good file attaches to that payment.
+    await user.click(proofRow(panel, "₹1,000").getByRole("button", { name: /^Add proof/ }));
+    await user.upload(within(panel).getByLabelText("Proof file to add"), new File(["%PDF"], "receipt.pdf", { type: "application/pdf" }));
+    await waitFor(() => {
+      expect(proofRow(panel, "₹1,000").getByRole("button", { name: /^View proof/ })).toBeTruthy();
+    });
+    expect(calls).toEqual(["record", "proof"]);
+    const axeResult = await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
+    expect(axeResult.violations.map((v) => v.id)).toEqual([]);
+  });
+});

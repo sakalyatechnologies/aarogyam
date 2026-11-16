@@ -431,6 +431,12 @@ export interface ApiClient {
   recordLabPayment(input: NewLabPayment, options?: RequestOptions): Promise<ApiResult<LabPayment>>;
   /** Clinic host: voids a payment (and its expense) with a reason. Needs `expenses.write`. */
   voidLabPayment(id: string, reason: Reason, options?: RequestOptions): Promise<ApiResult<LabPayment>>;
+  /** Clinic host: attaches or replaces the proof of a lab payment (a `FormData` with `file`: JPEG, PNG or PDF of at most 10 MB). The old proof is kept as superseded. Needs `expenses.write` and `finance.view`; a voided payment answers 409. */
+  uploadLabPaymentProof(id: string, form: FormData, options?: RequestOptions): Promise<ApiResult<LabPayment>>;
+  /** Clinic host: takes the proof off a payment that is not void. Needs `expenses.write` and `finance.view`. */
+  removeLabPaymentProof(id: string, options?: RequestOptions): Promise<ApiResult<LabPayment>>;
+  /** Clinic host: a five-minute link to the payment's proof, also when the payment is void. Needs `finance.view`; 404 when there is none. */
+  getLabPaymentProofDownloadLink(id: string, options?: RequestOptions): Promise<ApiResult<DownloadLink>>;
   /** Clinic host: edits a patient's details. Needs `patients.write`, and `patients.contact` to change phone or email. */
   updatePatient(id: PatientId, changes: PatientChanges, options?: RequestOptions): Promise<ApiResult<Patient>>;
 

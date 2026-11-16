@@ -540,6 +540,8 @@ async fn every_route_requires_sign_in_and_a_permission() {
             || path == "/api/v1/attachments/{id}/content"
             // A chat file link is signed and bound to the member (tests/labs_chat_b7.rs).
             || path == "/api/v1/chat-attachments/{id}/content"
+            // A lab payment proof link is signed and bound to the member (tests/labs.rs).
+            || path == "/api/v1/lab-payment-files/{id}/content"
             // A letterhead image link is signed too (tests/letterhead.rs).
             || path == "/api/v1/letterhead/images/{id}/content"
             // So is an avatar photo link (tests/mobile_avatar.rs).

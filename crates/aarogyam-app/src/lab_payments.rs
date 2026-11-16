@@ -3,14 +3,18 @@
 //! Payments need `expenses.write` and `finance.view`; listing and balances need `finance.view`.
 
 use aarogyam_dal::expenses::{self as expenses_dal, NewExpense};
-use aarogyam_dal::lab_payments::{self as dal, NewPayment, PaymentRow};
+use aarogyam_dal::lab_payments::{self as dal, NewPayment, NewProof, PaymentRow, ProofRow};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::billing::PaymentMethod;
+use aarogyam_domain::chat::tidy_file_name;
 use aarogyam_domain::expense::{ExpenseCategoryKey, check_amount, check_note};
-use aarogyam_domain::ids::{ExpenseId, LabOrderId, LabPaymentId, LabVendorId, MembershipId};
-use aarogyam_domain::lab::LabPaymentStatus;
+use aarogyam_domain::files::FileType;
+use aarogyam_domain::ids::{
+    AttachmentId, ClinicId, ExpenseId, LabOrderId, LabPaymentId, LabVendorId, MembershipId,
+};
+use aarogyam_domain::lab::{LabPaymentStatus, check_payment_proof};
 use aarogyam_domain::permission::Permission;
-use sakalya_db::Db;
+use sakalya_db::{Db, ScopedTx};
 use sakalya_types::Paise;
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -18,8 +22,9 @@ use uuid::Uuid;
 use crate::billing::void_reason;
 use crate::clock::clinic_today;
 use crate::error::AppError;
+use crate::files::{DownloadRefusal, Files, LINK_LIFETIME, LinkRefusal, StorageKey};
 use crate::labs::trimmed;
-use crate::scope::staff_scope as scope;
+use crate::scope::{STAFF, staff_scope as scope};
 
 /// Most payments one list returns.
 pub const MAX_LIST: i64 = 500;
@@ -55,6 +60,32 @@ pub struct PaymentView {
     pub recorded_by: MembershipId,
     /// When.
     pub created_at: OffsetDateTime,
+    /// The current proof of payment, if one was attached.
+    pub proof: Option<ProofView>,
+}
+
+/// The proof file of a payment, as shown. Fetch it with [`proof_link`].
+#[derive(Debug, Clone)]
+pub struct ProofView {
+    /// The file.
+    pub id: AttachmentId,
+    /// `image/jpeg`, `image/png` or `application/pdf`.
+    pub mime_type: String,
+    /// Bytes.
+    pub size_bytes: i64,
+    /// The name the uploader's device gave it.
+    pub file_name: Option<String>,
+}
+
+impl From<ProofRow> for ProofView {
+    fn from(row: ProofRow) -> Self {
+        Self {
+            id: AttachmentId::from_uuid(row.id),
+            mime_type: row.mime_type,
+            size_bytes: row.size_bytes,
+            file_name: row.file_name,
+        }
+    }
 }
 
 fn view(row: PaymentRow) -> PaymentView {
@@ -76,7 +107,27 @@ fn view(row: PaymentRow) -> PaymentView {
         voided_at: row.voided_at,
         recorded_by: MembershipId::from_uuid(row.recorded_by),
         created_at: row.created_at,
+        proof: None,
     }
+}
+
+/// The views of these rows, each with its current proof.
+async fn with_proofs(
+    tx: &mut ScopedTx,
+    rows: Vec<PaymentRow>,
+) -> Result<Vec<PaymentView>, AppError> {
+    let ids: Vec<Uuid> = rows.iter().map(|row| row.id).collect();
+    let mut proofs = dal::current_proofs(tx.conn(), &ids).await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            let proof = proofs
+                .iter()
+                .position(|p| p.lab_payment_id == row.id)
+                .map(|at| ProofView::from(proofs.swap_remove(at)));
+            PaymentView { proof, ..view(row) }
+        })
+        .collect())
 }
 
 /// A payment to record.
@@ -214,7 +265,13 @@ pub async fn list(
             limit.clamp(1, MAX_LIST),
         )
         .await?;
-        Ok(rows.into_iter().map(view).collect())
+        Ok(rows
+            .into_iter()
+            .map(|(row, proof)| PaymentView {
+                proof: proof.map(ProofView::from),
+                ..view(row)
+            })
+            .collect())
     })
     .await
 }
@@ -246,7 +303,8 @@ pub async fn void(
         expenses_dal::void(tx.conn(), row.expense_id, &reason, now, by)
             .await?
             .ok_or(AppError::Internal("lab payment expense not voidable"))?;
-        Ok(view(row))
+        // A voided payment keeps its proof.
+        Ok(with_proofs(tx, vec![row]).await?.remove(0))
     })
     .await
 }
@@ -293,4 +351,228 @@ pub async fn balance(
         })
     })
     .await
+}
+
+/// A proof file to attach.
+#[derive(Debug)]
+pub struct ProofUpload {
+    /// The bytes.
+    pub bytes: Vec<u8>,
+    /// The name the sender's device gave it.
+    pub file_name: Option<String>,
+}
+
+fn refused_proof(error: aarogyam_domain::lab::ProofError) -> AppError {
+    AppError::Invalid {
+        field: "file",
+        message: error.to_string(),
+    }
+}
+
+/// Attaches a proof of payment (a JPEG, PNG or PDF of at most 10 MB, judged by its content) to
+/// a payment, replacing the current one: that stays as a superseded row, with its bytes. The
+/// bytes are stored first and removed again when the row can't be written.
+///
+/// # Errors
+/// [`AppError::Denied`] without `expenses.write` and `finance.view`; [`AppError::Invalid`] for
+/// an empty, too large or unrecognised file; [`AppError::NotFound`] for an unknown payment;
+/// [`AppError::Conflict`] when the payment is void.
+pub async fn upload_proof(
+    db: &Db,
+    files: &Files,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: LabPaymentId,
+    upload: ProofUpload,
+) -> Result<PaymentView, AppError> {
+    require_money(actor)?;
+    let file_type = check_payment_proof(&upload.bytes).map_err(refused_proof)?;
+    let size = i64::try_from(upload.bytes.len()).map_err(|_| AppError::Internal("file size"))?;
+    let file_name = upload.file_name.as_deref().and_then(tidy_file_name);
+    let file_id = AttachmentId::new_v7();
+    let key = StorageKey::new(actor.clinic_id, file_id);
+    let mut wrote = false;
+    let result = db
+        .scoped(&scope(actor, request_id), async |tx| {
+            match dal::lock_status(tx.conn(), id.uuid()).await?.as_deref() {
+                None => return Err(AppError::NotFound("lab payment")),
+                Some(status) if status != LabPaymentStatus::Recorded.as_str() => {
+                    return Err(AppError::Conflict("a voided payment takes no new proof"));
+                }
+                Some(_) => {}
+            }
+            files
+                .storage()
+                .put(key, &upload.bytes)
+                .await
+                .map_err(|_| AppError::Internal("could not store the file"))?;
+            wrote = true;
+            dal::supersede_proof(tx.conn(), id.uuid()).await?;
+            dal::insert_proof(
+                tx.conn(),
+                &NewProof {
+                    id: file_id.uuid(),
+                    lab_payment_id: id.uuid(),
+                    mime_type: file_type.mime_type(),
+                    size_bytes: size,
+                    file_name: file_name.as_deref(),
+                },
+            )
+            .await?;
+            payment(tx, id).await
+        })
+        .await;
+    if result.is_err() && wrote {
+        let _ = files.storage().delete(key).await;
+    }
+    result
+}
+
+/// Takes the proof off a payment that is not void. The file stays, superseded.
+///
+/// # Errors
+/// [`AppError::Denied`] without `expenses.write` and `finance.view`; [`AppError::NotFound`] for
+/// an unknown payment or one without a proof; [`AppError::Conflict`] when it is void.
+pub async fn remove_proof(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: LabPaymentId,
+) -> Result<PaymentView, AppError> {
+    require_money(actor)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        match dal::lock_status(tx.conn(), id.uuid()).await?.as_deref() {
+            None => return Err(AppError::NotFound("lab payment")),
+            Some(status) if status != LabPaymentStatus::Recorded.as_str() => {
+                return Err(AppError::Conflict("a voided payment keeps its proof"));
+            }
+            Some(_) => {}
+        }
+        if dal::current_proofs(tx.conn(), &[id.uuid()])
+            .await?
+            .is_empty()
+        {
+            return Err(AppError::NotFound("proof"));
+        }
+        dal::supersede_proof(tx.conn(), id.uuid()).await?;
+        payment(tx, id).await
+    })
+    .await
+}
+
+/// One payment with its current proof.
+async fn payment(tx: &mut ScopedTx, id: LabPaymentId) -> Result<PaymentView, AppError> {
+    let row = dal::get(tx.conn(), id.uuid())
+        .await?
+        .ok_or(AppError::NotFound("lab payment"))?;
+    Ok(with_proofs(tx, vec![row]).await?.remove(0))
+}
+
+/// A short-lived link to a payment's proof.
+#[derive(Debug, Clone)]
+pub struct ProofLink {
+    /// The file.
+    pub file_id: AttachmentId,
+    /// The signed token, bound to the caller.
+    pub token: String,
+    /// When it stops working.
+    pub expires_at: OffsetDateTime,
+}
+
+/// Issues a five-minute link to a payment's current proof. A voided payment's proof stays
+/// readable.
+///
+/// # Errors
+/// [`AppError::Denied`] without `finance.view`; [`AppError::NotFound`] for an unknown payment or
+/// one without a proof; [`AppError::Forbidden`] for Sakalya staff under a support grant.
+pub async fn proof_link(
+    db: &Db,
+    files: &Files,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: LabPaymentId,
+    now: OffsetDateTime,
+) -> Result<ProofLink, AppError> {
+    actor.require(Permission::FinanceView)?;
+    if actor.support_grant.is_some() {
+        return Err(AppError::Forbidden(
+            "Support access doesn't download files.",
+        ));
+    }
+    let proof = db
+        .scoped(&scope(actor, request_id), async |tx| {
+            dal::current_proofs(tx.conn(), &[id.uuid()])
+                .await?
+                .pop()
+                .ok_or(AppError::NotFound("proof"))
+        })
+        .await?;
+    let file_id = AttachmentId::from_uuid(proof.id);
+    let expires_at = now + LINK_LIFETIME;
+    Ok(ProofLink {
+        file_id,
+        token: files.signer().sign_lab_payment_file(
+            actor.clinic_id,
+            file_id,
+            actor.user_id,
+            expires_at,
+        ),
+        expires_at,
+    })
+}
+
+/// A proof file to send.
+#[derive(Debug, Clone)]
+pub struct ProofDownload {
+    /// Its type.
+    pub file_type: FileType,
+    /// The bytes.
+    pub bytes: Vec<u8>,
+}
+
+/// Opens a proof link on `clinic`'s host: checks the signature and expiry, that the file is
+/// this clinic's, and returns it.
+///
+/// # Errors
+/// The [`DownloadRefusal`] that applies.
+pub async fn proof_content(
+    db: &Db,
+    files: &Files,
+    clinic: ClinicId,
+    request_id: Option<Uuid>,
+    file_id: AttachmentId,
+    token: &str,
+    now: OffsetDateTime,
+) -> Result<ProofDownload, DownloadRefusal> {
+    let grant = files
+        .signer()
+        .verify_lab_payment_file(clinic, file_id, token, now)
+        .map_err(|refusal| match refusal {
+            LinkRefusal::Expired => DownloadRefusal::Expired,
+            LinkRefusal::Invalid => DownloadRefusal::NotFound,
+        })?;
+    let mut scope = sakalya_db::Scope::tenant(clinic.uuid())
+        .with_user(grant.user_id.uuid())
+        .with_actor_kind(STAFF);
+    if let Some(request) = request_id {
+        scope = scope.with_request_id(request);
+    }
+    let row = db
+        .scoped(&scope, async |tx| {
+            Ok::<_, DownloadRefusal>(
+                dal::proof_file(tx.conn(), file_id.uuid())
+                    .await?
+                    .ok_or(AppError::NotFound("proof"))?,
+            )
+        })
+        .await?;
+    let file_type = FileType::from_mime_type(&row.mime_type).ok_or(DownloadRefusal::Failed(
+        AppError::Internal("unknown stored type"),
+    ))?;
+    let bytes = files
+        .storage()
+        .get(StorageKey::new(clinic, file_id))
+        .await
+        .map_err(|_| DownloadRefusal::Failed(AppError::Internal("could not read the file")))?;
+    Ok(ProofDownload { file_type, bytes })
 }

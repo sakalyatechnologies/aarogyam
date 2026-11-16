@@ -230,3 +230,25 @@ export function useVoidLabPayment() {
     },
   });
 }
+
+/** Attaches (or replaces) the proof of a payment: a receipt photo, a UPI screenshot or a PDF. */
+export function useUploadLabPaymentProof() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, file }: { id: string; file: File }) => {
+      const form = new FormData();
+      form.set("file", file);
+      return unwrap(api.uploadLabPaymentProof(id, form));
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["lab-payments", access.org_id] });
+    },
+  });
+}
+
+/** A five-minute link to a payment's proof. */
+export function useLabPaymentProofLink() {
+  const { api } = useClinic();
+  return useMutation({ mutationFn: (id: string) => unwrap(api.getLabPaymentProofDownloadLink(id)) });
+}

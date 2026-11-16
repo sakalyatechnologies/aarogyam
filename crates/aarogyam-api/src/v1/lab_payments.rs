@@ -1,14 +1,17 @@
 //! Money paid to labs: record and void (`expenses.write` and `finance.view`), list
 //! (`finance.view`). Each payment records, and voids with it, an expense in the `lab` category.
 
-use aarogyam_app::lab_payments::{self as app, NewPaymentInput, PaymentView};
+use aarogyam_app::files::DownloadRefusal;
+use aarogyam_app::lab_payments::{self as app, NewPaymentInput, PaymentView, ProofUpload};
 use aarogyam_domain::event::Event;
-use aarogyam_domain::ids::{LabOrderId, LabPaymentId, LabVendorId};
+use aarogyam_domain::ids::{AttachmentId, LabOrderId, LabPaymentId, LabVendorId};
 use aarogyam_domain::permission::require::{ExpensesWrite, FinanceView};
 use axum::Json;
 use axum::extract::State;
-use axum::http::StatusCode;
-use sakalya_http::{ApiJson, ApiPath, ApiQuery};
+use axum::extract::multipart::{Multipart, MultipartRejection};
+use axum::http::{HeaderValue, StatusCode, header};
+use axum::response::{IntoResponse, Response};
+use sakalya_http::{ApiError, ApiJson, ApiPath, ApiQuery};
 use sakalya_types::Paise;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -16,10 +19,27 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::billing::Reason;
+use super::files::{ContentQuery, DownloadLink, bad_form, form_error, too_large};
 use super::{optional_uuid, parse_day, rfc3339};
 use crate::AppState;
-use crate::extract::Require;
-use crate::failure::ApiFailure;
+use crate::extract::{ClinicHost, Require};
+use crate::failure::{ApiFailure, not_found};
+
+/// Largest proof upload body: the file (10 MB, as patient files) plus room for the form.
+pub(crate) const MAX_UPLOAD_BODY: usize = aarogyam_domain::files::MAX_BYTES + 64 * 1024;
+
+/// The proof of a payment to a lab: a receipt photo, a UPI screenshot or a PDF.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct LabPaymentProof {
+    /// `image/jpeg`, `image/png` or `application/pdf`.
+    pub mime_type: String,
+    /// Bytes.
+    pub size_bytes: i64,
+    /// The name the uploader's device gave it, when it gave one.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_name: Option<String>,
+}
 
 /// Money paid to a lab.
 #[derive(Debug, Serialize, ToSchema)]
@@ -45,6 +65,11 @@ pub struct LabPayment {
     #[schema(required = false)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub method: Option<String>,
+    /// The proof of payment, when one was attached; fetch it with
+    /// `GET /lab-payments/{id}/proof/download`. Absent when there is none.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof: Option<LabPaymentProof>,
     /// The `lab` expense recorded with it.
     #[schema(value_type = String)]
     pub expense_id: Uuid,
@@ -72,6 +97,11 @@ impl From<PaymentView> for LabPayment {
             lab_invoice_ref: view.lab_invoice_ref,
             note: view.note,
             method: view.method.map(|m| m.as_str().to_owned()),
+            proof: view.proof.map(|p| LabPaymentProof {
+                mime_type: p.mime_type,
+                size_bytes: p.size_bytes,
+                file_name: p.file_name,
+            }),
             expense_id: view.expense_id.uuid(),
             status: view.status.as_str().to_owned(),
             void_reason: view.void_reason,
@@ -255,4 +285,213 @@ pub(crate) async fn void(
     .await?;
     tracing::info!(event = Event::LabPaymentVoided.as_str(), lab_payment_id = %id, "lab payment voided");
     Ok(Json(view.into()))
+}
+
+/// The proof upload form.
+#[derive(Debug, ToSchema)]
+#[expect(dead_code, reason = "documents the multipart form for OpenAPI")]
+pub struct LabPaymentProofForm {
+    /// A JPEG, PNG or PDF of at most 10 MB, checked by content.
+    #[schema(value_type = String, format = Binary)]
+    file: String,
+}
+
+/// Attaches a proof of payment (a receipt photo, UPI screenshot or PDF) as `multipart/form-data`
+/// field `file`: JPEG, PNG or PDF, up to 10 MB, checked by content. Replaces the current proof,
+/// which is kept as superseded. Returns the payment.
+#[utoipa::path(
+    post,
+    path = "/api/v1/lab-payments/{id}/proof",
+    operation_id = "uploadLabPaymentProof",
+    tag = "labs",
+    params(("id" = String, Path, description = "The payment")),
+    request_body(content = LabPaymentProofForm, content_type = "multipart/form-data"),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = LabPayment),
+        (status = 400, description = "Not a JPEG, PNG or PDF, or empty"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks expenses.write or finance.view"),
+        (status = 404, description = "No such payment in this clinic"),
+        (status = 409, description = "The payment is void"),
+        (status = 413, description = "Larger than 10 MB")
+    )
+)]
+pub(crate) async fn upload_proof(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ExpensesWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    form: Result<Multipart, MultipartRejection>,
+) -> Result<Json<LabPayment>, ApiFailure> {
+    let mut form = form.map_err(|_| bad_form("send the file as multipart/form-data"))?;
+    let mut upload = None;
+    while let Some(field) = form.next_field().await.map_err(|e| form_error(&e))? {
+        if field.name() == Some("file") {
+            let file_name = field.file_name().map(str::to_owned);
+            let bytes = field.bytes().await.map_err(|e| form_error(&e))?;
+            if bytes.len() > aarogyam_domain::files::MAX_BYTES {
+                return Err(too_large());
+            }
+            upload = Some(ProofUpload {
+                bytes: bytes.to_vec(),
+                file_name,
+            });
+        } else {
+            return Err(bad_form("unknown form field"));
+        }
+    }
+    let upload = upload.ok_or_else(|| bad_form("file: is required"))?;
+    let view = app::upload_proof(
+        state.db(),
+        state.files()?,
+        &request.actor,
+        request.request_id,
+        LabPaymentId::from_uuid(id),
+        upload,
+    )
+    .await?;
+    tracing::info!(lab_payment_id = %id, "lab payment proof attached");
+    Ok(Json(view.into()))
+}
+
+/// Takes the proof off a payment that is not void. The file is kept as superseded.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/lab-payments/{id}/proof",
+    operation_id = "removeLabPaymentProof",
+    tag = "labs",
+    params(("id" = String, Path, description = "The payment")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = LabPayment),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks expenses.write or finance.view"),
+        (status = 404, description = "No such payment in this clinic, or it has no proof"),
+        (status = 409, description = "The payment is void")
+    )
+)]
+pub(crate) async fn remove_proof(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ExpensesWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<LabPayment>, ApiFailure> {
+    let view = app::remove_proof(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        LabPaymentId::from_uuid(id),
+    )
+    .await?;
+    tracing::info!(lab_payment_id = %id, "lab payment proof removed");
+    Ok(Json(view.into()))
+}
+
+/// Issues a five-minute link to a payment's proof. A voided payment's proof stays readable.
+#[utoipa::path(
+    get,
+    path = "/api/v1/lab-payments/{id}/proof/download",
+    operation_id = "getLabPaymentProofDownloadLink",
+    tag = "labs",
+    params(("id" = String, Path, description = "The payment")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = DownloadLink),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks finance.view"),
+        (status = 404, description = "No such payment in this clinic, or it has no proof")
+    )
+)]
+pub(crate) async fn proof_link(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<FinanceView>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<DownloadLink>, ApiFailure> {
+    let link = app::proof_link(
+        state.db(),
+        state.files()?,
+        &request.actor,
+        request.request_id,
+        LabPaymentId::from_uuid(id),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(DownloadLink {
+        url: format!(
+            "/api/v1/lab-payment-files/{}/content?token={}",
+            link.file_id.uuid(),
+            link.token
+        ),
+        expires_at: rfc3339(link.expires_at),
+    }))
+}
+
+/// Streams a proof file through a signed link from `GET /lab-payments/{id}/proof/download`. The
+/// link is the proof of access (an `<img>` can use it); it works on the clinic's own host for
+/// five minutes.
+#[utoipa::path(
+    get,
+    path = "/api/v1/lab-payment-files/{id}/content",
+    operation_id = "getLabPaymentProofContent",
+    tag = "public",
+    params(
+        ("id" = String, Path, description = "The file"),
+        ("token" = String, Query, description = "The signed token from the download link")
+    ),
+    responses(
+        (status = 200, description = "The file, with its media type"),
+        (status = 403, description = "The link has expired; ask for a new one"),
+        (status = 404, description = "Not a valid link for this file on this host")
+    )
+)]
+pub(crate) async fn proof_content(
+    State(state): State<AppState>,
+    host: ClinicHost,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiQuery(query): ApiQuery<ContentQuery>,
+) -> Result<Response, ApiFailure> {
+    let download = app::proof_content(
+        state.db(),
+        state.files()?,
+        host.clinic_id,
+        host.request_id,
+        AttachmentId::from_uuid(id),
+        &query.token,
+        OffsetDateTime::now_utc(),
+    )
+    .await
+    .map_err(|refusal| match refusal {
+        DownloadRefusal::Expired => ApiFailure::Error(ApiError::forbidden(
+            "link_expired",
+            "This link has expired; ask for a new one.",
+        )),
+        DownloadRefusal::NotFound => ApiFailure::Error(not_found()),
+        DownloadRefusal::Failed(error) => error.into(),
+    })?;
+    let disposition = format!(
+        "inline; filename=\"proof-{}.{}\"",
+        id.simple(),
+        download.file_type.extension()
+    );
+    let mut response = download.bytes.into_response();
+    let headers = response.headers_mut();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static(download.file_type.mime_type()),
+    );
+    if let Ok(value) = HeaderValue::from_str(&disposition) {
+        headers.insert(header::CONTENT_DISPOSITION, value);
+    }
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    headers.insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static("sandbox; default-src 'none'"),
+    );
+    Ok(response)
 }

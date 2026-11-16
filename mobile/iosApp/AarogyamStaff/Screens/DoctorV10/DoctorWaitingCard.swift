@@ -32,6 +32,12 @@ private struct DoctorWaitingHost: View {
     }
 }
 
+/// How many walk-in tokens wait for the signed-in doctor, shared with the Today me card ("N patients for you").
+@Observable final class WaitingForMe {
+    static let shared = WaitingForMe()
+    var count = 0
+}
+
 private struct DoctorWaitingPresenter: View {
     let holder: DoctorWaitingHolder
     let state: WaitingState
@@ -53,12 +59,16 @@ private struct DoctorWaitingPresenter: View {
                 }
                 .padding(.horizontal, SkSpacing.l).frame(minHeight: SkSpacing.minTouchTarget)
             } else {
-                DoctorWaitingCard(holder: holder, state: state, onStart: onStart) { collapsed = true }
-                    .frame(maxHeight: 300)
+                DoctorWaitingCard(holder: holder, state: state, maxRows: 3, onStart: onStart) { collapsed = true }
             }
         }
-        .onChange(of: state.rows.map(\.id)) { _, ids in arrivals(ids) }
-        .onAppear { if state.loaded { arrivals(state.rows.map(\.id)) } }
+        .onChange(of: state.rows.map(\.id)) { _, ids in
+            arrivals(ids)
+            WaitingForMe.shared.count = ids.count
+        }
+        .onAppear {
+            if state.loaded { arrivals(state.rows.map(\.id)); WaitingForMe.shared.count = state.rows.count }
+        }
         // Leaving for the visit, then coming back, should show the queue as it is now.
         .onAppear { holder.refresh() }
     }
@@ -77,14 +87,17 @@ struct DoctorWaitingCard: View {
     let holder: DoctorWaitingHolder
     let state: WaitingState
     var banner: String?
+    /// Inline on Today: show whole cards only (the first rows, then "+N more"). Nil scrolls the full list.
+    var maxRows: Int?
     let onStart: (VisitRoute) -> Void
     let onClose: () -> Void
     @Environment(\.skTheme) private var theme
 
     var body: some View {
         let r = theme.roles
-        ScrollView {
-            VStack(alignment: .leading, spacing: SkSpacing.m) {
+        let rows = maxRows.map { Array(state.rows.prefix($0)) } ?? state.rows
+        let hidden = state.rows.count - rows.count
+        let content = VStack(alignment: .leading, spacing: SkSpacing.m) {
                 HStack {
                     Text(dv10("dv10.waiting.title")).v7Text(20, .heavy).foregroundStyle(r.onSurface.color)
                         .accessibilityAddTraits(.isHeader)
@@ -101,9 +114,15 @@ struct DoctorWaitingCard: View {
                 if state.rows.isEmpty {
                     Text(dv10("dv10.waiting.empty")).v7Text(14).foregroundStyle(r.onSurfaceVariant.color)
                 }
-                ForEach(state.rows, id: \.id) { row in WaitingRow(holder: holder, row: row, onStart: onStart) }
+                ForEach(rows, id: \.id) { row in WaitingRow(holder: holder, row: row, onStart: onStart) }
+                if hidden > 0 {
+                    Text(dv10f("dv10.waiting.more", String(hidden))).v7Text(13, .semibold).foregroundStyle(r.onSurfaceVariant.color)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
             }
             .padding(SkSpacing.l)
+        return Group {
+            if maxRows == nil { ScrollView { content } } else { content }
         }
         .background(r.background.color)
     }

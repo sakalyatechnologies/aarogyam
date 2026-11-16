@@ -49,17 +49,19 @@ final class StoreScreensTests: XCTestCase {
         _ = wait(app.buttons["Wrap up this visit"], timeout: 20)
         scrolledTo(app.buttons["Write prescription"]).tap()
         scrolledTo(wait(app.buttons["Add set Dental pain, 2 medicines"], timeout: 15)).tap()
-        let first = scrolledTo(wait(app.buttons["Remove Ibuprofen"]))
-        // Park the prescription header near the top and both medicines on screen.
-        let screenHeight = app.windows.firstMatch.frame.height
+        // One medicine keeps the dose grid whole on screen; then park the prescription header just under the top bar.
+        scrolledTo(wait(app.buttons["Remove Pantoprazole"])).tap()
+        let header = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Write prescription")).firstMatch
+        wait(header)
+        let height = app.windows.firstMatch.frame.height
         for _ in 0..<12 {
-            let y = first.frame.minY
-            if y < screenHeight * 0.42 {
-                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
-            } else if y > screenHeight * 0.54 {
-                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55)).press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
-            } else { break }
-            usleep(600_000)
+            let delta = header.frame.minY - height * 0.15
+            if abs(delta) < height * 0.03 { break }
+            let step = max(-0.3, min(0.3, delta / height))
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6 - step))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.4)
+            usleep(500_000)
         }
         sleep(1)
         shot("2-visit-rx")

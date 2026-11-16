@@ -1,0 +1,235 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.id, p.vendor_id, p.lab_order_id, p.paid_on, p.amount_paise, p.lab_invoice_ref,\n                  p.note, p.method, p.expense_id, p.status, p.void_reason, p.voided_at,\n                  p.recorded_by, p.created_at,\n                  f.id as \"proof_id?\", f.mime_type as \"proof_mime_type?\",\n                  f.size_bytes as \"proof_size_bytes?\", f.file_name as \"proof_file_name?\"\n           from aarogyam.lab_payments p\n           left join aarogyam.lab_payment_files f\n             on f.org_id = p.org_id and f.lab_payment_id = p.id and f.superseded_at is null\n           where ($1::uuid is null or p.vendor_id = $1)\n             and ($2::date is null or p.paid_on >= $2) and ($3::date is null or p.paid_on <= $3)\n           order by p.paid_on desc, p.id desc\n           limit $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "vendor_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "vendor_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "lab_order_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "lab_order_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "paid_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "paid_on"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "amount_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "amount_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "lab_invoice_ref",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "lab_invoice_ref"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "method",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "method"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "expense_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "expense_id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "void_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "void_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "voided_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "voided_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "recorded_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "recorded_by"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payments",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "proof_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payment_files",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "proof_mime_type?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payment_files",
+            "name": "mime_type"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "proof_size_bytes?",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payment_files",
+            "name": "size_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "proof_file_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.lab_payment_files",
+            "name": "file_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "a306a6d8291dccc1b2bdac9083bb368a33cd8c1b027463ab54582b4c08be6ad3"
+}

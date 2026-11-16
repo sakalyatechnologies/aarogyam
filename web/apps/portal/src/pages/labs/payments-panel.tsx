@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { Paperclip } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { apiErrorOf, type LabPayment } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatRupees } from "@aarogyam/app-kit";
@@ -6,9 +7,22 @@ import { Button, DateInput, Field, Select, TextInput, useToast } from "@sakalya/
 
 import { Skeleton, Tag } from "../../components/mk/index.js";
 import { useTodayDate } from "../../lib/patients.js";
-import { useLabBalance, useLabPayments, useRecordLabPayment, useVoidLabPayment } from "./queries.js";
+import { useLabBalance, useLabPaymentProofLink, useLabPayments, useRecordLabPayment, useUploadLabPaymentProof, useVoidLabPayment } from "./queries.js";
 
 const MAX_RUPEES = 10_000_000;
+
+/** What a proof of payment may be, and how large: the same as a patient's file. Checked here before sending; the server checks the content. */
+const PROOF_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+const MAX_PROOF_BYTES = 10 * 1024 * 1024;
+const PROOF_ACCEPT = PROOF_TYPES.join(",");
+
+/** Why a file can't be a proof, or `undefined` when it can. */
+function proofProblem(file: File): string | undefined {
+  if (!PROOF_TYPES.includes(file.type)) return "Choose a JPEG or PNG photo, or a PDF.";
+  if (file.size === 0) return "That file is empty.";
+  if (file.size > MAX_PROOF_BYTES) return "Choose a file of at most 10 MB.";
+  return undefined;
+}
 
 /** The methods the API takes, the same as a patient's payment; "none" records no method. */
 const METHODS = [
@@ -28,6 +42,8 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
   const payments = useLabPayments(vendorId, true);
   const record = useRecordLabPayment();
   const voidPayment = useVoidLabPayment();
+  const uploadProof = useUploadLabPaymentProof();
+  const proofLink = useLabPaymentProofLink();
   const [rupees, setRupees] = useState("");
   const [paidOn, setPaidOn] = useState("");
   const [ref, setRef] = useState("");
@@ -37,6 +53,52 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
   const [voiding, setVoiding] = useState<string>();
   const [reason, setReason] = useState("");
   const [voidError, setVoidError] = useState<string>();
+  const [proof, setProof] = useState<File>();
+  const [proofError, setProofError] = useState<string>();
+  /** A payment that was recorded but whose proof didn't upload: offered a retry. */
+  const [failed, setFailed] = useState<{ payment: LabPayment; file: File; message: string }>();
+  const formFile = useRef<HTMLInputElement>(null);
+  const laterFile = useRef<HTMLInputElement>(null);
+  const [addingTo, setAddingTo] = useState<LabPayment>();
+
+  const choose = (file: File | undefined, input: HTMLInputElement, onChosen: (file: File) => void) => {
+    setProofError(undefined);
+    if (file === undefined) return;
+    const problem = proofProblem(file);
+    if (problem !== undefined) {
+      input.value = "";
+      setProofError(problem);
+      return;
+    }
+    onChosen(file);
+  };
+
+  /** Uploads a proof for a payment; a failure keeps the payment and offers a retry. */
+  const sendProof = (payment: LabPayment, file: File, recorded: string) => {
+    setFailed(undefined);
+    uploadProof.mutate(
+      { id: payment.id, file },
+      {
+        onSuccess: () => {
+          toast.show({ title: `${recorded} with proof`, tone: "success" });
+        },
+        onError: (thrown) => {
+          setFailed({ payment, file, message: apiErrorOf(thrown)?.message ?? "Please try again." });
+        },
+      },
+    );
+  };
+
+  const viewProof = (payment: LabPayment) => {
+    proofLink.mutate(payment.id, {
+      onSuccess: (link) => {
+        window.open(link.url, "_blank", "noopener,noreferrer");
+      },
+      onError: (thrown) => {
+        toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't open that proof.", tone: "danger" });
+      },
+    });
+  };
 
   const submit = () => {
     setError(undefined);
@@ -45,6 +107,7 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
       setError("Enter more than ₹0 and at most ₹1,00,00,000.");
       return;
     }
+    const attached = proof;
     record.mutate(
       {
         vendor_id: vendorId,
@@ -55,8 +118,16 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
         ...(method === "none" ? {} : { method }),
       },
       {
-        onSuccess: () => {
-          toast.show({ title: `${formatRupees(Math.round(amount * 100))} recorded`, tone: "success" });
+        onSuccess: (payment) => {
+          const recorded = `${formatRupees(Math.round(amount * 100))} recorded`;
+          if (attached === undefined) {
+            toast.show({ title: recorded, tone: "success" });
+          } else {
+            sendProof(payment, attached, recorded);
+          }
+          setProof(undefined);
+          setProofError(undefined);
+          if (formFile.current !== null) formFile.current.value = "";
           setRupees("");
           setRef("");
           setNote("");
@@ -144,18 +215,77 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
           <Field label="Note">
             <TextInput value={note} maxLength={300} onChange={(event) => { setNote(event.currentTarget.value); }} />
           </Field>
+          <Field label="Proof (photo or PDF)">
+            <input
+              ref={formFile}
+              type="file"
+              accept={PROOF_ACCEPT}
+              aria-label="Proof (photo or PDF)"
+              onChange={(event) => {
+                const input = event.currentTarget;
+                setProof(undefined);
+                choose(input.files?.[0], input, setProof);
+              }}
+            />
+          </Field>
         </div>
         {error === undefined ? null : (
           <p role="alert" className="lb-error">
             {error}
           </p>
         )}
+        {proofError === undefined ? null : (
+          <p role="alert" className="lb-error">
+            {proofError}
+          </p>
+        )}
         <div className="lb-actions">
-          <Button type="submit" disabled={record.isPending}>
+          <Button type="submit" disabled={record.isPending || uploadProof.isPending}>
             {record.isPending ? "Recording…" : "Record payment"}
           </Button>
         </div>
       </form>
+      {failed === undefined ? null : (
+        <div role="alert" className="lb-error lb-retry">
+          <span>
+            The payment of {formatRupees(failed.payment.amount_paise)} is recorded, but its proof didn't upload. {failed.message}
+          </span>
+          <div className="lb-actions">
+            <Button
+              variant="secondary"
+              disabled={uploadProof.isPending}
+              onClick={() => {
+                sendProof(failed.payment, failed.file, `${formatRupees(failed.payment.amount_paise)} recorded`);
+              }}
+            >
+              Try the proof again
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setFailed(undefined);
+              }}
+            >
+              Skip it
+            </Button>
+          </div>
+        </div>
+      )}
+      <input
+        ref={laterFile}
+        type="file"
+        hidden
+        accept={PROOF_ACCEPT}
+        aria-label="Proof file to add"
+        onChange={(event) => {
+          const input = event.currentTarget;
+          const target = addingTo;
+          choose(input.files?.[0], input, (file) => {
+            if (target !== undefined) sendProof(target, file, "Proof added");
+          });
+          input.value = "";
+        }}
+      />
       {payments.isPending ? (
         <Skeleton shape="line" />
       ) : payments.isError ? (
@@ -178,6 +308,34 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
                   </>
                 ) : null}
               </div>
+              {payment.proof != null ? (
+                <button
+                  type="button"
+                  className="lb-btn"
+                  aria-label={`View proof for the payment of ${formatRupees(payment.amount_paise)} on ${formatDate(payment.paid_on)}`}
+                  disabled={proofLink.isPending}
+                  onClick={() => {
+                    viewProof(payment);
+                  }}
+                >
+                  <Paperclip aria-hidden="true" />
+                  View proof
+                </button>
+              ) : payment.status === "void" ? null : (
+                <button
+                  type="button"
+                  className="lb-btn"
+                  aria-label={`Add proof to the payment of ${formatRupees(payment.amount_paise)} on ${formatDate(payment.paid_on)}`}
+                  disabled={uploadProof.isPending}
+                  onClick={() => {
+                    setAddingTo(payment);
+                    laterFile.current?.click();
+                  }}
+                >
+                  <Paperclip aria-hidden="true" />
+                  Add proof
+                </button>
+              )}
               {payment.status === "void" ? null : voiding === payment.id ? (
                 <form
                   className="lb-void"

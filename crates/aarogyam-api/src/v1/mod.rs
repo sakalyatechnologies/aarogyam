@@ -751,6 +751,20 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(lab_payments::list).post(lab_payments::record),
         )
         .route("/lab-payments/{id}/void", post(lab_payments::void))
+        .route(
+            "/lab-payments/{id}/proof",
+            post(lab_payments::upload_proof)
+                .delete(lab_payments::remove_proof)
+                .layer(DefaultBodyLimit::max(lab_payments::MAX_UPLOAD_BODY)),
+        )
+        .route(
+            "/lab-payments/{id}/proof/download",
+            get(lab_payments::proof_link),
+        )
+        .route(
+            "/lab-payment-files/{id}/content",
+            get(lab_payments::proof_content),
+        )
         .route("/today/money", get(reports::today_money))
         .route("/patients/{id}/recalls", post(recalls::create))
         .route("/recalls", get(recalls::due))

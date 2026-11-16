@@ -3803,6 +3803,13 @@ export const messageStats = z.object({
 }) satisfies z.ZodType<C.MessageStats>;
 export type MessageStats = z.output<typeof messageStats>;
 
+export const labPaymentProof = z.object({
+  mime_type: z.string(),
+  size_bytes: z.number().int(),
+  file_name: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.LabPaymentProof>;
+export type LabPaymentProof = z.output<typeof labPaymentProof>;
+
 export const labPayment = z.object({
   id: z.string().min(1),
   vendor_id: z.string().min(1),
@@ -3813,6 +3820,8 @@ export const labPayment = z.object({
   note: optionalText,
   /** `cash`, `upi`, `card` or `bank`; absent (or null) when not recorded. */
   method: z.string().nullable().exactOptional(),
+  /** The proof of payment; absent (or null) when none was attached. */
+  proof: labPaymentProof.nullable().exactOptional(),
   expense_id: z.string().min(1),
   status: z.string(),
   void_reason: optionalText,

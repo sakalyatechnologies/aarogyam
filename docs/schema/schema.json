@@ -6466,6 +6466,59 @@
      "note": ""
     }
    ],
+   "referenced_by": [
+    "lab_payment_files.lab_payment_id"
+   ],
+   "sensitivity": "financial",
+   "offline": "server_only"
+  },
+  {
+   "name": "lab_payment_files",
+   "domain": "ops",
+   "purpose": "The optional proof of a payment to a lab: a receipt photo, UPI screenshot or PDF (JPEG, PNG or PDF, up to 10 MB).",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0716). lab_payments freezes once recorded, so the proof is its own table, as chat_attachments is for messages. Bytes are stored under <clinic>/<id> and reached through a five-minute link bound to the member (GET /lab-payments/{id}/proof/download); a voided payment's proof stays readable but takes no new one. Needs expenses.write and finance.view to attach or remove, finance.view to read.",
+   "cols": [
+    {
+     "name": "lab_payment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "lab_payments",
+     "note": "at most one current proof per payment"
+    },
+    {
+     "name": "mime_type",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "image/jpeg, image/png, application/pdf"
+    },
+    {
+     "name": "size_bytes",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "1 byte to 10 MB"
+    },
+    {
+     "name": "file_name",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the name the device gave it, tidied; masked in the change history"
+    },
+    {
+     "name": "superseded_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "set when a newer proof replaces it or it is removed; the file and its bytes stay"
+    }
+   ],
    "referenced_by": [],
    "sensitivity": "financial",
    "offline": "server_only"

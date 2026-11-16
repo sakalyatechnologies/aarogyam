@@ -365,6 +365,12 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     listLabPayments: (vendorId, opts) =>
       call({ method: "GET", path: "/api/v1/lab-payments", schema: labPaymentList, query: { vendor_id: vendorId }, signal: opts?.signal }),
     recordLabPayment: (input, opts) => call({ method: "POST", path: "/api/v1/lab-payments", schema: labPayment, body: input, signal: opts?.signal }),
+    uploadLabPaymentProof: (id, form, opts) =>
+      call({ method: "POST", path: `/api/v1/lab-payments/${encodeURIComponent(id)}/proof`, schema: labPayment, body: form, signal: opts?.signal }),
+    removeLabPaymentProof: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/lab-payments/${encodeURIComponent(id)}/proof`, schema: labPayment, signal: opts?.signal }),
+    getLabPaymentProofDownloadLink: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/lab-payments/${encodeURIComponent(id)}/proof/download`, schema: downloadLink, signal: opts?.signal }),
     voidLabPayment: (id, reason, opts) =>
       call({ method: "POST", path: `/api/v1/lab-payments/${encodeURIComponent(id)}/void`, schema: labPayment, body: reason, signal: opts?.signal }),
     updatePatient: (id, changes, opts) =>

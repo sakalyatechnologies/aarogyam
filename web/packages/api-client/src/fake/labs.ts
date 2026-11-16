@@ -49,6 +49,8 @@ export interface FakeLabOrder {
 
 export interface FakeLabPayment extends C.LabPayment {
   clinic_id: string;
+  /** The current proof file's id, when one is attached. */
+  proof_file_id?: string;
 }
 
 export interface FakeLabs {
@@ -87,6 +89,9 @@ export const LOCKED_MESSAGE = "a fitted, reworked or cancelled order can't chang
 
 /** The methods a payment to a lab may name, the same as a patient's payment. */
 export const LAB_PAYMENT_METHODS: readonly string[] = ["cash", "upi", "card", "bank"];
+
+/** What a proof of payment may be: a receipt photo, a UPI screenshot or a PDF. */
+export const LAB_PROOF_TYPES: readonly string[] = ["image/jpeg", "image/png", "application/pdf"];
 
 export const atLab = (status: C.LabOrderState): boolean => status === "sent" || status === "in_progress";
 
@@ -192,6 +197,8 @@ export const wireLabPayment = (p: FakeLabPayment): C.LabPayment => ({
   note: p.note ?? null,
   // Absent, as the API leaves it, when no method was recorded.
   ...(p.method == null ? {} : { method: p.method }),
+  // Absent, as the API leaves it, when there is no proof.
+  ...(p.proof == null ? {} : { proof: p.proof }),
   expense_id: p.expense_id,
   status: p.status,
   void_reason: p.void_reason ?? null,

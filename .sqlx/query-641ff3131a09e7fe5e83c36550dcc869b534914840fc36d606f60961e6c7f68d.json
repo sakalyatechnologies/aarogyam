@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.lab_payment_files (id, lab_payment_id, mime_type, size_bytes, file_name)\n         values ($1, $2, $3, $4, $5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "641ff3131a09e7fe5e83c36550dcc869b534914840fc36d606f60961e6c7f68d"
+}

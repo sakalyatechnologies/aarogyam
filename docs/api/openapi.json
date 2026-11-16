@@ -5592,6 +5592,46 @@
         ]
       }
     },
+    "/api/v1/lab-payment-files/{id}/content": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Streams a proof file through a signed link from `GET /lab-payments/{id}/proof/download`. The\nlink is the proof of access (an `<img>` can use it); it works on the clinic's own host for\nfive minutes.",
+        "operationId": "getLabPaymentProofContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "The signed token from the download link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, with its media type"
+          },
+          "403": {
+            "description": "The link has expired; ask for a new one"
+          },
+          "404": {
+            "description": "Not a valid link for this file on this host"
+          }
+        }
+      }
+    },
     "/api/v1/lab-payments": {
       "get": {
         "tags": [
@@ -5701,6 +5741,161 @@
           },
           "404": {
             "description": "No such lab in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-payments/{id}/proof": {
+      "post": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Attaches a proof of payment (a receipt photo, UPI screenshot or PDF) as `multipart/form-data`\nfield `file`: JPEG, PNG or PDF, up to 10 MB, checked by content. Replaces the current proof,\nwhich is kept as superseded. Returns the payment.",
+        "operationId": "uploadLabPaymentProof",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The payment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/LabPaymentProofForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabPayment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a JPEG, PNG or PDF, or empty"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write or finance.view"
+          },
+          "404": {
+            "description": "No such payment in this clinic"
+          },
+          "409": {
+            "description": "The payment is void"
+          },
+          "413": {
+            "description": "Larger than 10 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Takes the proof off a payment that is not void. The file is kept as superseded.",
+        "operationId": "removeLabPaymentProof",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The payment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabPayment"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write or finance.view"
+          },
+          "404": {
+            "description": "No such payment in this clinic, or it has no proof"
+          },
+          "409": {
+            "description": "The payment is void"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lab-payments/{id}/proof/download": {
+      "get": {
+        "tags": [
+          "labs"
+        ],
+        "summary": "Issues a five-minute link to a payment's proof. A voided payment's proof stays readable.",
+        "operationId": "getLabPaymentProofDownloadLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The payment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks finance.view"
+          },
+          "404": {
+            "description": "No such payment in this clinic, or it has no proof"
           }
         },
         "security": [
@@ -26364,6 +26559,17 @@
             "type": "string",
             "description": "The clinic day, `YYYY-MM-DD`."
           },
+          "proof": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LabPaymentProof",
+                "description": "The proof of payment, when one was attached; fetch it with\n`GET /lab-payments/{id}/proof/download`. Absent when there is none."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "recorded_by": {
             "type": "string",
             "description": "The membership that recorded it."
@@ -26405,6 +26611,46 @@
               "$ref": "#/components/schemas/LabPayment"
             },
             "description": "Newest day first, voided ones included."
+          }
+        }
+      },
+      "LabPaymentProof": {
+        "type": "object",
+        "description": "The proof of a payment to a lab: a receipt photo, a UPI screenshot or a PDF.",
+        "required": [
+          "mime_type",
+          "size_bytes"
+        ],
+        "properties": {
+          "file_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name the uploader's device gave it, when it gave one."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "`image/jpeg`, `image/png` or `application/pdf`."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bytes."
+          }
+        }
+      },
+      "LabPaymentProofForm": {
+        "type": "object",
+        "description": "The proof upload form.",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "A JPEG, PNG or PDF of at most 10 MB, checked by content."
           }
         }
       },

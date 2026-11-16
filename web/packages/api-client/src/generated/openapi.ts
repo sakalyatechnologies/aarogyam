@@ -1733,6 +1733,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lab-payment-files/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Streams a proof file through a signed link from `GET /lab-payments/{id}/proof/download`. The
+         *     link is the proof of access (an `<img>` can use it); it works on the clinic's own host for
+         *     five minutes.
+         */
+        get: operations["getLabPaymentProofContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/lab-payments": {
         parameters: {
             query?: never;
@@ -1745,6 +1766,45 @@ export interface paths {
         put?: never;
         /** Records a payment to a lab and its `lab` expense. */
         post: operations["recordLabPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lab-payments/{id}/proof": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attaches a proof of payment (a receipt photo, UPI screenshot or PDF) as `multipart/form-data`
+         *     field `file`: JPEG, PNG or PDF, up to 10 MB, checked by content. Replaces the current proof,
+         *     which is kept as superseded. Returns the payment.
+         */
+        post: operations["uploadLabPaymentProof"];
+        /** Takes the proof off a payment that is not void. The file is kept as superseded. */
+        delete: operations["removeLabPaymentProof"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lab-payments/{id}/proof/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issues a five-minute link to a payment's proof. A voided payment's proof stays readable. */
+        get: operations["getLabPaymentProofDownloadLink"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -9027,6 +9087,7 @@ export interface components {
             note?: string | null;
             /** @description The clinic day, `YYYY-MM-DD`. */
             paid_on: string;
+            proof?: components["schemas"]["LabPaymentProof"] | null;
             /** @description The membership that recorded it. */
             recorded_by: string;
             /** @description `recorded` or `void`. */
@@ -9042,6 +9103,26 @@ export interface components {
         LabPaymentList: {
             /** @description Newest day first, voided ones included. */
             items: components["schemas"]["LabPayment"][];
+        };
+        /** @description The proof of a payment to a lab: a receipt photo, a UPI screenshot or a PDF. */
+        LabPaymentProof: {
+            /** @description The name the uploader's device gave it, when it gave one. */
+            file_name?: string | null;
+            /** @description `image/jpeg`, `image/png` or `application/pdf`. */
+            mime_type: string;
+            /**
+             * Format: int64
+             * @description Bytes.
+             */
+            size_bytes: number;
+        };
+        /** @description The proof upload form. */
+        LabPaymentProofForm: {
+            /**
+             * Format: binary
+             * @description A JPEG, PNG or PDF of at most 10 MB, checked by content.
+             */
+            file: string;
         };
         /**
          * @description Where an order stands for the front desk, derived from its status.
@@ -20469,6 +20550,44 @@ export interface operations {
             };
         };
     };
+    getLabPaymentProofContent: {
+        parameters: {
+            query: {
+                /** @description The signed token from the download link */
+                token: string;
+            };
+            header?: never;
+            path: {
+                /** @description The file */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link has expired; ask for a new one */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a valid link for this file on this host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listLabPayments: {
         parameters: {
             query?: {
@@ -20561,6 +20680,167 @@ export interface operations {
                 content?: never;
             };
             /** @description No such lab in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    uploadLabPaymentProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The payment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["LabPaymentProofForm"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabPayment"];
+                };
+            };
+            /** @description Not a JPEG, PNG or PDF, or empty */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write or finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such payment in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The payment is void */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 10 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removeLabPaymentProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The payment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabPayment"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write or finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such payment in this clinic, or it has no proof */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The payment is void */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getLabPaymentProofDownloadLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The payment */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadLink"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such payment in this clinic, or it has no proof */
             404: {
                 headers: {
                     [name: string]: unknown;

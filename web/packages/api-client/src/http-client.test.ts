@@ -1010,6 +1010,11 @@ describe("createHttpClient lab requests", () => {
     await client.getLabBalance("v1");
     await client.listLabPayments("v1");
     await client.voidLabPayment("p1", { reason: "Entered twice" });
+    const proof = new FormData();
+    proof.set("file", new File(["%PDF"], "receipt.pdf", { type: "application/pdf" }));
+    await client.uploadLabPaymentProof("p 1", proof);
+    await client.getLabPaymentProofDownloadLink("p1");
+    await client.removeLabPaymentProof("p1");
 
     expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
       "GET /api/v1/lab-orders?vendor_id=v1&open=1",
@@ -1025,6 +1030,9 @@ describe("createHttpClient lab requests", () => {
       "GET /api/v1/lab-vendors/v1/balance",
       "GET /api/v1/lab-payments?vendor_id=v1",
       "POST /api/v1/lab-payments/p1/void",
+      "POST /api/v1/lab-payments/p%201/proof",
+      "GET /api/v1/lab-payments/p1/proof/download",
+      "DELETE /api/v1/lab-payments/p1/proof",
     ]);
     const sentBody = calls[2]?.init?.body;
     expect(JSON.parse(typeof sentBody === "string" ? sentBody : "{}")).toEqual({ status: "received", stage: "Final" });
@@ -1036,6 +1044,7 @@ describe("createHttpClient lab requests", () => {
     expect(bodyOf(5)).toEqual({ qty: 2, unit_cost_paise: null });
     expect(calls[6]?.init?.body).toBeUndefined();
     expect(bodyOf(7)).toMatchObject({ method: "upi" });
+    expect(calls[13]?.init?.body).toBeInstanceOf(FormData);
   });
 
   it("reads a lab payment with its method absent, null or present", async () => {
@@ -1059,6 +1068,32 @@ describe("createHttpClient lab requests", () => {
     }
     const upi = await read({ method: "upi" });
     expect(upi.ok && upi.value.items[0]?.method).toBe("upi");
+  });
+
+  it("reads a lab payment with its proof absent, null or present", async () => {
+    const payment = {
+      id: "p1",
+      vendor_id: "v1",
+      paid_on: "2026-10-03",
+      amount_paise: 100,
+      expense_id: "e1",
+      status: "recorded",
+      recorded_by: "m1",
+      created_at: "2026-10-03T05:30:00Z",
+    };
+    const read = async (extra: object) => {
+      const client = createHttpClient("", () => "abc", { fetch: stubFetch(json(200, { items: [{ ...payment, ...extra }] })).fetch });
+      return client.listLabPayments();
+    };
+    const proofs = [{}, { proof: null }, { proof: { mime_type: "application/pdf", size_bytes: 4 } }, { proof: { mime_type: "image/png", size_bytes: 9, file_name: "a.png" } }];
+    for (const extra of proofs) {
+      const result = await read(extra);
+      expect(result.ok, JSON.stringify(extra)).toBe(true);
+    }
+    const shown = await read({ proof: { mime_type: "image/png", size_bytes: 9, file_name: "a.png" } });
+    expect(shown.ok && shown.value.items[0]?.proof?.file_name).toBe("a.png");
+    // Not a proof at all: refused.
+    expect((await read({ proof: { mime_type: 3 } })).ok).toBe(false);
   });
 
   it("decodes an order and refuses one the contract doesn't allow", async () => {

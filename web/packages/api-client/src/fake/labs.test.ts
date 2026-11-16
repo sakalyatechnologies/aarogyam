@@ -193,6 +193,45 @@ describe("fake client: lab work", () => {
     }
   });
 
+  it("attaches, replaces and removes a payment's proof, keeping it readable once void", async () => {
+    const { me, client } = setup();
+    const vendor = value(await me.listLabVendors()).items[0];
+    if (vendor === undefined) throw new Error("no lab");
+    const paid = value(await me.recordLabPayment({ vendor_id: vendor.id, paid_on: "2026-10-03", amount_paise: 700 }));
+    expect("proof" in paid).toBe(false);
+    expect(status(await me.getLabPaymentProofDownloadLink(paid.id))).toBe(404);
+    const form = (bytes: BlobPart, type: string, name: string): FormData => {
+      const body = new FormData();
+      body.set("file", new File([bytes], name, { type }));
+      return body;
+    };
+    const shown = value(await me.uploadLabPaymentProof(paid.id, form("png", "image/png", "upi.png")));
+    expect(shown.proof).toEqual({ mime_type: "image/png", size_bytes: 3, file_name: "upi.png" });
+    expect(value(await me.listLabPayments(vendor.id)).items.find((p) => p.id === paid.id)?.proof?.mime_type).toBe("image/png");
+    const link = value(await me.getLabPaymentProofDownloadLink(paid.id));
+    expect(link.url).toContain("/api/v1/lab-payment-files/");
+    const replaced = value(await me.uploadLabPaymentProof(paid.id, form("%PDF", "application/pdf", "receipt.pdf")));
+    expect(replaced.proof?.mime_type).toBe("application/pdf");
+    // A wrong type is 400, an oversized file 413; neither replaces the proof.
+    expect(status(await me.uploadLabPaymentProof(paid.id, form("x", "text/plain", "x.txt")))).toBe(400);
+    expect(status(await me.uploadLabPaymentProof(paid.id, form(new Uint8Array(10 * 1024 * 1024 + 1), "application/pdf", "big.pdf")))).toBe(413);
+    expect(status(await me.uploadLabPaymentProof(paid.id, new FormData()))).toBe(400);
+    expect(value(await me.listLabPayments(vendor.id)).items.find((p) => p.id === paid.id)?.proof?.mime_type).toBe("application/pdf");
+    // Another clinic sees nothing.
+    const stranger = client(BINA, "lotus.localtest.me");
+    expect(status(await stranger.uploadLabPaymentProof(paid.id, form("png", "image/png", "x.png")))).toBe(404);
+    expect(status(await stranger.getLabPaymentProofDownloadLink(paid.id))).toBe(404);
+    // Removing it leaves none; a second removal is 404.
+    expect("proof" in value(await me.removeLabPaymentProof(paid.id))).toBe(false);
+    expect(status(await me.removeLabPaymentProof(paid.id))).toBe(404);
+    // Void: the proof stays readable, but no new one is taken and it can't be removed.
+    value(await me.uploadLabPaymentProof(paid.id, form("png", "image/png", "again.png")));
+    value(await me.voidLabPayment(paid.id, { reason: "Entered twice" }));
+    expect(status(await me.uploadLabPaymentProof(paid.id, form("png", "image/png", "late.png")))).toBe(409);
+    expect(status(await me.removeLabPaymentProof(paid.id))).toBe(409);
+    expect(value(await me.getLabPaymentProofDownloadLink(paid.id)).url).toContain("/content?token=");
+  });
+
   it("records a payment against the balance and voids it with a reason", async () => {
     const { me } = setup();
     const vendor = value(await me.listLabVendors()).items.find((v) => v.name === "Precision Dental Lab");

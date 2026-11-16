@@ -4,6 +4,7 @@
 use std::fmt::Write as _;
 
 use crate::dental::Tooth;
+use crate::files::{FileType, MAX_BYTES};
 
 text_value!(
     /// What kind of lab.
@@ -511,6 +512,38 @@ pub const fn check_unit_cost(paise: i64) -> Result<i64, LabError> {
     }
 }
 
+/// Why a payment proof was refused. Messages never echo the file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum ProofError {
+    /// Nothing was sent.
+    #[error("must not be empty")]
+    Empty,
+    /// Over 10 MB, the cap for patient files.
+    #[error("must be at most 10 MB")]
+    TooLarge,
+    /// Not a JPEG, PNG or PDF, judged by its content.
+    #[error("must be a JPEG, PNG or PDF")]
+    Type,
+}
+
+/// Checks the proof of a payment to a lab: not empty, at most 10 MB (as patient files), and a
+/// JPEG, PNG or PDF by its content, never by its name or the type the sender claims.
+///
+/// # Errors
+/// What is wrong with it.
+pub fn check_payment_proof(bytes: &[u8]) -> Result<FileType, ProofError> {
+    if bytes.is_empty() {
+        return Err(ProofError::Empty);
+    }
+    if bytes.len() > MAX_BYTES {
+        return Err(ProofError::TooLarge);
+    }
+    match FileType::sniff(bytes) {
+        Some(kind @ (FileType::Jpeg | FileType::Png | FileType::Pdf)) => Ok(kind),
+        _ => Err(ProofError::Type),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -670,5 +703,21 @@ mod tests {
             Ok(ReminderChannel::Whatsapp)
         );
         assert!(ReminderChannel::parse("sms").is_err());
+    }
+
+    #[test]
+    fn a_payment_proof_is_a_small_image_or_pdf_by_content() {
+        assert_eq!(check_payment_proof(b"%PDF-1.7"), Ok(FileType::Pdf));
+        assert_eq!(
+            check_payment_proof(b"\x89PNG\r\n\x1a\nx"),
+            Ok(FileType::Png)
+        );
+        assert_eq!(check_payment_proof(b""), Err(ProofError::Empty));
+        assert_eq!(check_payment_proof(b"MZ\x90\x00"), Err(ProofError::Type));
+        let mut big = b"%PDF-".to_vec();
+        big.resize(MAX_BYTES + 1, 0);
+        assert_eq!(check_payment_proof(&big), Err(ProofError::TooLarge));
+        big.truncate(MAX_BYTES);
+        assert_eq!(check_payment_proof(&big), Ok(FileType::Pdf));
     }
 }

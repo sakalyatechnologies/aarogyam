@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.lab_payment_files set superseded_at = now()\n         where lab_payment_id = $1 and superseded_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "67ef93cc7eeae134ac1445f812f501ff07c09e214e8aa68236902a1ff7e9b20c"
+}

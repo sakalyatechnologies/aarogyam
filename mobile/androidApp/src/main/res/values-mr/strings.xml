@@ -9,14 +9,11 @@
     <string name="storage_unavailable_message">तुमचे साइन-इन सुरक्षित ठेवले आहे; फोन अनलॉक होईपर्यंत ते वाचता येत नाही.</string>
     <string name="try_again">पुन्हा प्रयत्न करा</string>
     <string name="sign_out">साइन आउट</string>
-    <string name="sign_in_title">साइन इन</string>
-    <string name="sign_in_subtitle">क्लिनिकने आमंत्रण पाठवलेला ईमेल पत्ता वापरा.</string>
     <string name="email_label">ईमेल</string>
     <string name="send_code">कोड पाठवा</string>
     <string name="code_label">कोड</string>
     <string name="code_sent">%1$s वर कोड पाठवला आहे.</string>
     <string name="verify_code">साइन इन</string>
-    <string name="change_email">दुसरा ईमेल वापरा</string>
     <string name="sign_in_error_invalid_email">योग्य ईमेल पत्ता टाका.</string>
     <string name="sign_in_error_invalid_code">ईमेलमधील कोड टाका.</string>
     <string name="sign_in_error_email_not_accepted">या पत्त्यावर कोड पाठवता आला नाही. क्लिनिककडे आमंत्रण मागा.</string>

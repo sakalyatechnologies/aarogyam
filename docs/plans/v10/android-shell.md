@@ -15,10 +15,15 @@ Branch `v11-and-shell`. Android baseline already had Today v7, Schedule (queue/d
 - Sign-in: "Use a password" step with masked field (`ui/PasswordField.kt`) and way back to the code; More: Delete account sheet with confirm (`ui/more/DeleteAccountSheet.kt`).
 
 ## Left
-- Desk role's Walk-in action should call the desk worker's `openDeskLookup()` (stub `DeskHomeStub.kt` has it); AppRoot still opens the old walk-in route. Use `DeskAlert` from desk for the bell rows if wanted.
-- Schedule: booking sheet and iOS queue/day polish (ScheduleV7/BookingSheet) not ported.
-- Sign-in v7: OTP boxes, welcome pager, registration, invite screens not ported (existing plain email/code screen remains).
 - Remove unused `sh_` strings if lint reports UnusedResources.
+- Desk role's Walk-in action should call `openDeskLookup()` (AppRoot already routes the walk-in; check visually).
+
+## Second pass (wt-v11-and-shell2, 15 Nov)
+- Schedule (`ui/schedule/*`, `ui/ScheduleTab.kt`): `QueueV7` + `QueueChairs` (chair board, free chairs, waiting tickets with live timers, summary chips, preview notices), `DayV7` + `DayColumns` (week strip, doctor/chair columns, lanes, now line, appointment sheet), `WeekV7` (heat map card, busiest hour, open-slots preview), `BookFlow` (patient picker, then the shared `BookingStateHolder` with doctor, day, kind, chair, slot chips and reason). Maths in `ScheduleLogic.kt` (`QueueBoard`, `DayGrid`) with `ScheduleLogicTest`. The Queue segment has the waiting-room board entry row (`openDeskBoard()`); the book button sits beside the segmented control.
+- Sign-in v7 (`ui/auth/*`, `ui/SignInScreen.kt`, `ui/SignInSteps.kt`): welcome pager, `SignedOutFlow`, 8-box `OtpBoxes` (hidden field with SMS one-time-code autofill semantics), registration, invite screen (signed out and signed in), password step kept. `aarogyam://invite#token` intent-filter in the manifest, `PendingInvite` holds the link in memory only (never logged or stored); AppRoot shows the invite screen when signed in with a pending link. MainActivity is `singleTask` with `onNewIntent`.
+- Doctor Today: "Waiting for you" shows 3 rows then "+N more waiting"; `WaitingForMe` (in memory) adds the doctor's waiting tokens to the me-card count.
+- Bell rows use `DeskAlert.detail` from desk.
+- Strings: `sh_s_*` (schedule and auth) and `sh_dv10_waiting_more`, generated from the iOS xcstrings by `scratchpad/shell2/addstr.py`.
 
 ## Stubs (coordinator deletes at merge)
 - `ui/desk/DeskHomeStub.kt`: `DeskHome(graph, clinic, nav)`.

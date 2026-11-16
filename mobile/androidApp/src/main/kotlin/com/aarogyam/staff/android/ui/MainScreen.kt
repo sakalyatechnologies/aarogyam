@@ -25,6 +25,7 @@ import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.clinical.ExpensesPage
 import com.aarogyam.staff.android.ui.clinical.openExpenses
+import com.aarogyam.staff.android.ui.desk.openDeskBoard
 import com.aarogyam.staff.android.ui.patient.openPatient
 import com.aarogyam.staff.android.ui.today.TodayTab
 import com.aarogyam.staff.art.Icons
@@ -142,7 +143,14 @@ private fun TabContent(
         }
 
         Tab.Schedule -> {
-            ScheduleTab(rememberHolder { graph.schedule(clinic, it) }, onWalkIn, onOpenPatient)
+            ScheduleTab(
+                rememberHolder { graph.schedule(clinic, it) },
+                graph,
+                clinic,
+                onWalkIn,
+                nav::openDeskBoard,
+                onOpenPatient,
+            )
         }
 
         Tab.Expenses -> {

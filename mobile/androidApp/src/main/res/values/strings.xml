@@ -12,14 +12,11 @@
     <string name="sign_out">Sign out</string>
 
     <!-- Sign-in -->
-    <string name="sign_in_title">Sign in</string>
-    <string name="sign_in_subtitle">Use the email address your clinic invited.</string>
     <string name="email_label">Email</string>
     <string name="send_code">Send code</string>
     <string name="code_label">Code</string>
     <string name="code_sent">We sent a code to %1$s.</string>
     <string name="verify_code">Sign in</string>
-    <string name="change_email">Use a different email</string>
     <string name="sign_in_error_invalid_email">Enter a valid email address.</string>
     <string name="sign_in_error_invalid_code">Enter the code from the email.</string>
     <string name="sign_in_error_email_not_accepted">We couldn\'t send a code to that address. Ask your clinic for an invitation.</string>

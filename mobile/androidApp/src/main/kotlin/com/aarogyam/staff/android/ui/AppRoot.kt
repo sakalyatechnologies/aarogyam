@@ -22,6 +22,9 @@ import androidx.navigation.compose.rememberNavController
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.GraphState
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.auth.InviteScreen
+import com.aarogyam.staff.android.ui.auth.PendingInvite
+import com.aarogyam.staff.android.ui.auth.SignedOutFlow
 import com.aarogyam.staff.android.ui.clinical.clinicalDestinations
 import com.aarogyam.staff.android.ui.desk.deskDestinations
 import com.aarogyam.staff.android.ui.desk.openDeskLookup
@@ -41,6 +44,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 private object Routes {
     const val SIGN_IN = "sign-in"
+    const val INVITE = "invite"
     const val CLINICS = "clinics"
     const val MAIN = "main"
     const val WALK_IN = "walk-in"
@@ -76,6 +80,7 @@ private fun Signed(graph: AppGraph) {
     val clinic by graph.directory.current.collectAsStateWithLifecycle()
     // After the person leaves a clinic, the picker waits for a tap even if there is only one.
     var chose by rememberSaveable { mutableStateOf(false) }
+    val invite by PendingInvite.link.collectAsStateWithLifecycle()
     Themed(clinic?.branding ?: ClinicBranding.Default) {
         when (session) {
             SessionState.Restoring -> {
@@ -95,6 +100,7 @@ private fun Signed(graph: AppGraph) {
                 val target =
                     when {
                         session !is SessionState.SignedIn -> Routes.SIGN_IN
+                        invite != null -> Routes.INVITE
                         clinic == null -> Routes.CLINICS
                         else -> Routes.MAIN
                     }
@@ -112,9 +118,19 @@ private fun Signed(graph: AppGraph) {
                     composable(Routes.SIGN_IN) {
                         LaunchedEffect(Unit) { chose = false }
                         Box(Modifier.fillMaxSize()) {
-                            SignInScreen(rememberHolder { graph.signIn(it) })
+                            SignedOutFlow(graph)
                             Box(Modifier.align(Alignment.BottomCenter).systemBarsPadding()) { DevSignInPanel(graph) }
                         }
+                    }
+                    composable(Routes.INVITE) {
+                        val done = { PendingInvite.set(null) }
+                        InviteScreen(
+                            rememberHolder { graph.invite(it, invite) },
+                            signedIn = true,
+                            onLink = {},
+                            onContinue = done,
+                            onBack = done,
+                        )
                     }
                     composable(Routes.CLINICS) {
                         ClinicPickerScreen(

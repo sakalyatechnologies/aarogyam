@@ -233,6 +233,7 @@ val apiModels =
         "LabOrderStatusChange",
         "LabPayment",
         "LabPaymentList",
+        "LabPaymentProof",
         "LabReminderQueued",
         "LabTurnaround",
         "LabVendor",

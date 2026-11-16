@@ -109,7 +109,15 @@ internal fun VisitNotes(
                     ) {
                         BasicTextField(
                             value = draft,
-                            onValueChange = { draft = it },
+                            // A hardware Return (or a pasted list) types a line break: each finished line is a point.
+                            onValueChange = { typed ->
+                                val lines = typed.split('\n')
+                                lines.dropLast(1).forEach {
+                                    draft = it
+                                    add()
+                                }
+                                draft = lines.last()
+                            },
                             textStyle = SkTypography.bodyText.copy(color = colors.text.color),
                             cursorBrush = SolidColor(colors.primary.color),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),

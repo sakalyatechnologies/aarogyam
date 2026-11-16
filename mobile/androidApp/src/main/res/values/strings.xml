@@ -12,14 +12,11 @@
     <string name="sign_out">Sign out</string>
 
     <!-- Sign-in -->
-    <string name="sign_in_title">Sign in</string>
-    <string name="sign_in_subtitle">Use the email address your clinic invited.</string>
     <string name="email_label">Email</string>
     <string name="send_code">Send code</string>
     <string name="code_label">Code</string>
     <string name="code_sent">We sent a code to %1$s.</string>
     <string name="verify_code">Sign in</string>
-    <string name="change_email">Use a different email</string>
     <string name="sign_in_error_invalid_email">Enter a valid email address.</string>
     <string name="sign_in_error_invalid_code">Enter the code from the email.</string>
     <string name="sign_in_error_email_not_accepted">We couldn\'t send a code to that address. Ask your clinic for an invitation.</string>
@@ -62,13 +59,8 @@
     <!-- Patients -->
     <string name="patients_title">Patients</string>
     <string name="patients_search">Search name, phone or file number</string>
-    <string name="patients_empty_title">No patients found</string>
-    <string name="patients_empty_message">Try a different name, phone number or file number.</string>
-    <string name="patients_none_title">No patients yet</string>
-    <string name="patients_none_message">Registered patients will show here.</string>
     <string name="patients_not_allowed_title">Patients aren\'t available</string>
     <string name="patients_not_allowed_message">Your role can\'t see patients at this clinic.</string>
-    <string name="recall_due">Recall due</string>
     <string name="sex_female">Female</string>
     <string name="sex_male">Male</string>
     <string name="sex_other">Other</string>
@@ -78,35 +70,12 @@
     <string name="patient_title">Patient</string>
     <string name="patient_not_allowed_title">This record isn\'t available</string>
     <string name="patient_not_allowed_message">Your role can\'t open patient records at this clinic.</string>
-    <string name="flags_title">Allergies and conditions</string>
-    <string name="flags_none">No allergies or conditions flagged.</string>
-    <string name="flags_counts">Allergies %1$d · Conditions %2$d</string>
-    <string name="flags_hidden">Details need clinical access.</string>
     <string name="severity_mild">Mild</string>
     <string name="severity_moderate">Moderate</string>
     <string name="severity_severe">Severe</string>
     <string name="severity_unknown">Allergy</string>
-    <string name="contact_title">Contact</string>
-    <string name="upcoming_title">Upcoming appointment</string>
-    <string name="upcoming_none">Nothing booked.</string>
-    <string name="visits_title">Recent visits</string>
-    <string name="visits_none">No visits yet.</string>
-    <string name="visit_open">Open</string>
-    <string name="balance_title">Balance</string>
-    <string name="balance_due">%1$s due</string>
-    <string name="balance_clear">Nothing due.</string>
 
     <!-- Prescriptions -->
-    <string name="patient_tab_overview">Overview</string>
-    <string name="patient_tab_rx">Rx</string>
-    <string name="rx_new">New prescription</string>
-    <string name="rx_empty">No prescriptions yet.</string>
-    <string name="rx_not_allowed">Your role can\'t see prescriptions at this clinic.</string>
-    <string name="rx_status_draft">Draft</string>
-    <string name="rx_status_issued">Issued</string>
-    <string name="rx_status_cancelled">Cancelled</string>
-    <string name="rx_status_unknown">Prescription</string>
-    <string name="rx_allergy_overridden">Allergy overridden</string>
     <plurals name="rx_days">
         <item quantity="one">%1$d day</item>
         <item quantity="other">%1$d days</item>
@@ -166,23 +135,11 @@
     <string name="error_not_configured">This build has no address for this environment.</string>
     <string name="error_unknown">Something went wrong. Try again.</string>
     <!-- Billing -->
-    <string name="billing_title">Billing</string>
-    <string name="bills_title">Bills</string>
-    <string name="bills_none">No bills yet.</string>
-    <string name="bill_no_number">Bill</string>
-    <string name="bill_total">Total %1$s</string>
-    <string name="bill_issued">Issued</string>
-    <string name="bill_part_paid">Part paid</string>
-    <string name="bill_paid">Paid</string>
-    <string name="bill_void">Void</string>
-    <string name="bill_unknown">Bill</string>
     <string name="record_payment">Record payment</string>
-    <string name="payment_recording">Recording…</string>
     <string name="payment_balance">Balance: %1$s</string>
     <string name="payment_amount">Amount (₹)</string>
     <string name="payment_amount_invalid">Enter an amount more than zero.</string>
     <string name="payment_reference">Reference (optional)</string>
-    <string name="payment_recorded">Receipt %1$s recorded</string>
     <string name="pay_cash">Cash</string>
     <string name="pay_upi">UPI</string>
     <string name="pay_card">Card</string>

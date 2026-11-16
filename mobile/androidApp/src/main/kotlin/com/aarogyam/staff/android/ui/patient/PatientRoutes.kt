@@ -5,40 +5,47 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.aarogyam.staff.AppGraph
-import com.aarogyam.staff.android.ui.FilesTab
-import com.aarogyam.staff.android.ui.NotesTab
-import com.aarogyam.staff.android.ui.Patient360Screen
-import com.aarogyam.staff.android.ui.RxTab
-import com.aarogyam.staff.android.ui.chart.ChartTab
-import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.clinic.ClinicContext
 
-/**
- * The patient page (T13, owned by the patient worker). AppRoot calls [patientDestinations] and every
- * screen opens a patient with [openPatient]. Until the v9 page lands this hosts the v7 Patient 360.
- */
+/** The patient page (T13, owned by the patient worker): the v9 page with Overview, History and Consent. */
 object PatientRoutes {
     const val PATIENT = "patient/{id}"
+    const val VISIT = "patient/{id}/visit/{visitId}"
 }
 
 fun NavController.openPatient(id: String) = navigate("patient/${Uri.encode(id)}")
 
+private fun NavController.openVisitDetail(
+    patientId: String,
+    visitId: String,
+) = navigate("patient/${Uri.encode(patientId)}/visit/${Uri.encode(visitId)}")
+
+/**
+ * [startTreatment] is the visit area's `openVisitForPatient`; the coordinator passes it at merge
+ * (until then Start treatment does nothing).
+ */
 fun NavGraphBuilder.patientDestinations(
     graph: AppGraph,
     clinic: () -> ClinicContext?,
     nav: NavController,
+    startTreatment: (String) -> Unit = {},
 ) {
     composable(PatientRoutes.PATIENT) { entry ->
         val open = clinic() ?: return@composable
         val id = entry.arguments?.getString("id") ?: return@composable
-        Patient360Screen(
-            rememberHolder { graph.patient360(open, id, it) },
+        PatientPage(
+            graph,
+            open,
+            id,
             onBack = nav::popBackStack,
-            chartTab = { ChartTab(rememberHolder { graph.chart(open, id, it) }) },
-            rxTab = { RxTab(graph, open, id, it.flags.allergies) },
-            notesTab = { NotesTab(rememberHolder { graph.patientNotes(open, id, it) }) },
-            filesTab = { FilesTab(rememberHolder { graph.files(open, id, it) }) },
-            billing = rememberHolder { graph.billing(open, id, it) },
+            onOpenVisit = { nav.openVisitDetail(id, it) },
+            onStartTreatment = startTreatment,
         )
+    }
+    composable(PatientRoutes.VISIT) { entry ->
+        val open = clinic() ?: return@composable
+        val id = entry.arguments?.getString("id") ?: return@composable
+        val visitId = entry.arguments?.getString("visitId") ?: return@composable
+        VisitDetailScreen(graph, open, id, visitId, onBack = nav::popBackStack)
     }
 }

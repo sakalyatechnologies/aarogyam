@@ -50,7 +50,7 @@ struct TodayV7Screen: View {
         .sheet(isPresented: $qr) {
             ClinicQRSheet(url: TodayV7.bookingURL(origin: clinic.api.origin), clinicName: clinic.session.clinic.name)
         }
-        .sheet(isPresented: $bell) { NotificationsSheet(holder: notifications, state: notificationsState) }
+        .sheet(isPresented: $bell) { NotificationsSheet(holder: notifications, state: notificationsState).closableSheet() }
         .sheet(isPresented: $avatars) {
             AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large])
         }
@@ -136,6 +136,7 @@ private struct DayContent: View {
     let onAddExpense: (() -> Void)?
     let onEditAvatar: () -> Void
     @Environment(\.skTheme) private var theme
+    private let queue = WaitingForMe.shared
 
     var body: some View {
         let view = state.view
@@ -190,7 +191,7 @@ private struct DayContent: View {
 
     private func model(_ me: MeView, waiting: Int) -> MeCardModel {
         let chips = TodayV7.meChips(
-            isDoctor: me.practitionerId != nil, remaining: Int(me.remaining),
+            isDoctor: me.practitionerId != nil, remaining: Int(me.remaining) + (me.practitionerId != nil ? queue.count : 0),
             treatments: me.treatments.map { ($0.name, Int($0.count)) }, waiting: waiting, onLeave: me.onLeave
         )
         var progress: MeCardModel.Progress?

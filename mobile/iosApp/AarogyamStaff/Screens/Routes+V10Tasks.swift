@@ -10,7 +10,7 @@ enum RoutesV10Tasks {
 
     /// The My tasks screen.
     static func screen(graph: AppGraph, clinic: ClinicContext) -> some View {
-        TasksV10Screen(graph: graph, clinic: clinic)
+        TasksV10Screen(graph: graph, clinic: clinic).closableSheet()
     }
 
     /// The open-task count for a tab badge; nil when there is none or the role has no tasks.

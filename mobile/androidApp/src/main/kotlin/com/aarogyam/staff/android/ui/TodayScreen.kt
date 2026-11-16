@@ -57,6 +57,8 @@ fun TodayScreen(
     onQr: () -> Unit,
     onNotifications: () -> Unit,
     unread: Boolean,
+    onTasks: (() -> Unit)? = null,
+    openTasks: Int = 0,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     val list = rememberLazyListState()
@@ -75,6 +77,14 @@ fun TodayScreen(
             kicker = loaded?.view?.let { "${it.date.longDay()} · ${it.clinicName}" },
             actions = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (onTasks != null) {
+                        IconWell(
+                            "check",
+                            stringResource(R.string.sh_tasks10_title),
+                            onTasks,
+                            badge = openTasks > 0,
+                        )
+                    }
                     if (money == null) IconWell("qr", stringResource(R.string.v7_tile_clinic_qr), onQr)
                     IconWell("bell", stringResource(R.string.v7_notifications), onNotifications, badge = unread)
                 }

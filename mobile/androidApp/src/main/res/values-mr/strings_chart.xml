@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Machine-drafted; a native speaker reviews before the pilot (docs/backlog.md). -->
 <resources>
-    <string name="patient_tab_chart">चार्ट</string>
-    <string name="patient_tab_billing">बिलिंग</string>
     <string name="chart_title">दातांचा चार्ट</string>
     <string name="chart_need_care">उपचार हवे: %1$d/%2$d</string>
     <string name="chart_adult">प्रौढ</string>

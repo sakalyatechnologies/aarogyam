@@ -102,6 +102,7 @@ import com.sakalya.mobile.securestorage.deviceId
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -110,6 +111,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.LocalDate
 
@@ -523,7 +525,8 @@ class AppGraph private constructor(
             push.forget()
             // Best effort, like the DELETE above: the server ends this session and its push tokens.
             directory.appApi()?.let { app ->
-                val answer = withTimeoutOrNull(REVOKE_TIMEOUT_MS) { app.revokeCurrent() }
+                val answer =
+                    withContext(Dispatchers.Default) { withTimeoutOrNull(REVOKE_TIMEOUT_MS) { app.revokeCurrent() } }
                 if (answer !is Outcome.Success) logger("aarogyam.session").warn("session.revoke_failed")
             }
             sessions.signOut()

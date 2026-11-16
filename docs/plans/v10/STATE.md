@@ -275,6 +275,10 @@ Done:
   5. Optional: retake iOS shot 2 (visit with Rx) cleaner.
 - **The founder's open question:** the "ROCM … icon on the top right".
 
+### 16 Nov, early: main 1a2f6305
+- **Booking overlap:** both booking sheets (iOS and Android, Schedule and Patient) show "This patient is also booked 10:00–10:30 with Dr. Rao, Chair 2" from `patient_overlaps` (backend e641c5fa). Strings in en/hi/mr. The app never moves appointments, so the /move overlaps don't apply.
+- **Note corrections (0719):** nothing to change. The app never edits a note after End visit (edits stop once the visit is closed or the note is signed, and the outbox sends a queued close only after that visit's note writes), so the new PATCH 409 is safe. The note lists now return the current version only. An "Amend note" action in visit history is possible later via `POST /notes/{id}/amend`.
+
 ### 15 Nov, night: main 0f243a97
 - **Prod:** 0713–0717 are live (API rev 00034). Signed out, the new routes answer 401 on lotus: DELETE /me/account, PUT/DELETE /me/devices/{id}, POST /me/sessions/revoke-current. Signed-in tests wait for the founder's review account at lotus (`review-account`).
 - **Fixed and pushed:**

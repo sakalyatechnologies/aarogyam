@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +25,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
@@ -41,6 +40,22 @@ import com.sakalya.mobile.designcompose.SkPillButton
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/** How many walk-in tokens wait for the signed-in doctor, shared with the Today me card (iOS `WaitingForMe`). In memory only. */
+object WaitingForMe {
+    private val held = MutableStateFlow(0)
+    val count: StateFlow<Int> = held.asStateFlow()
+
+    fun set(value: Int) {
+        held.value = value
+    }
+}
+
+/** Inline on Today: whole cards only, the first rows and then "+N more waiting". */
+private const val MAX_ROWS = 3
 
 /** Whether the "Waiting for you" card belongs on Today: the person's home is the doctor's. */
 fun showsWaiting(permissions: Set<String>): Boolean =
@@ -79,6 +94,7 @@ private fun WaitingHost(
     val haptic = LocalHapticFeedback.current
     val ids = state.rows.map { it.id }
     // The first list only sets what is known; a token that was not there before is an arrival.
+    LaunchedEffect(ids.size, state.loaded) { if (state.loaded) WaitingForMe.set(ids.size) }
     LaunchedEffect(ids, state.loaded) {
         if (!state.loaded) return@LaunchedEffect
         val before = known
@@ -125,10 +141,7 @@ private fun WaitingHost(
 
         else -> {
             Column(
-                Modifier
-                    .heightIn(max = CARD_MAX.dp)
-                    .verticalScroll(rememberScrollState())
-                    .padding(Spacing.L.dp),
+                Modifier.padding(Spacing.L.dp),
                 verticalArrangement = Arrangement.spacedBy(Spacing.M.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -163,7 +176,19 @@ private fun WaitingHost(
                         color = p.onSurfaceVariant.color,
                     )
                 }
-                state.rows.forEach { row -> WaitingRow(row, onSendIn = { holder.sendIn(row.id) }, onStart = onStart) }
+                state.rows.take(MAX_ROWS).forEach { row ->
+                    WaitingRow(row, onSendIn = { holder.sendIn(row.id) }, onStart = onStart)
+                }
+                val hidden = state.rows.size - MAX_ROWS
+                if (hidden > 0) {
+                    Text(
+                        stringResource(R.string.sh_dv10_waiting_more, hidden),
+                        style = SkTypography.footnote.copy(fontWeight = FontWeight.SemiBold),
+                        color = p.onSurfaceVariant.color,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }
@@ -223,5 +248,4 @@ private fun WaitingRow(
     }
 }
 
-private const val CARD_MAX = 300
 private const val ROW_RADIUS = 16

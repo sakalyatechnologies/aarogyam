@@ -2,8 +2,11 @@ package com.aarogyam.staff.android.ui.today
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -80,10 +83,12 @@ fun TodayTab(
         if (showsTasks) pollWhileInFront(PollingUpdates.POLL_MILLIS) { tasks.refresh() }
     }
     Column(Modifier.fillMaxSize()) {
-        if (TodayLogic.showsWaitingCard(clinic.permissions)) {
-            DoctorWaitingTop(graph, clinic) { nav.openVisitFromQueue(it) }
+        val card = TodayLogic.showsWaitingCard(clinic.permissions)
+        if (card) {
+            // The card sits at the very top, so it clears the status bar; Today below then has no inset left to add.
+            Box(Modifier.statusBarsPadding()) { DoctorWaitingTop(graph, clinic) { nav.openVisitFromQueue(it) } }
         }
-        Box(Modifier.weight(1f)) {
+        Box(Modifier.weight(1f).then(if (card) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier)) {
             if (usesDesk) {
                 DeskHome(graph, clinic, nav)
                 if (showsTasks) {

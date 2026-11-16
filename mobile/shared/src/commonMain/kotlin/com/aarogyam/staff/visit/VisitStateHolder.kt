@@ -9,9 +9,11 @@ import com.aarogyam.staff.api.model.NewVisit
 import com.aarogyam.staff.api.model.Note
 import com.aarogyam.staff.api.model.NoteContent
 import com.aarogyam.staff.api.model.Visit
+import com.aarogyam.staff.api.queue
 import com.aarogyam.staff.api.signNote
 import com.aarogyam.staff.api.startVisit
 import com.aarogyam.staff.api.startVisitFromQueue
+import com.aarogyam.staff.api.visit
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.DictationEvent
@@ -20,6 +22,7 @@ import com.aarogyam.staff.outbox.Queued
 import com.aarogyam.staff.outbox.WriteQueue
 import com.aarogyam.staff.outbox.shouldQueue
 import com.aarogyam.staff.today.parseInstant
+import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
@@ -221,23 +224,28 @@ class VisitStateHolder(
     }
 
     private suspend fun start() {
+        var restored: List<Bullet> = emptyList()
         val answer =
             if (tokenId != null) {
-                when (val started = clinic.api.startVisitFromQueue(tokenId)) {
-                    is Outcome.Success -> Outcome.Success(started.value.visit)
-                    is Outcome.Failure -> started
-                }
+                fromQueue(tokenId)
             } else {
-                clinic.api.startVisit(
-                    patientId,
-                    NewVisit(id = IdempotencyKey.generate().toString(), appointmentId = appointmentId),
-                )
+                val open = myOpenVisit()
+                if (open != null) {
+                    restored = restoreNote(open.id)
+                    Outcome.Success(open)
+                } else {
+                    waitingToken()?.let { fromQueue(it) } ?: clinic.api.startVisit(
+                        patientId,
+                        NewVisit(id = IdempotencyKey.generate().toString(), appointmentId = appointmentId),
+                    )
+                }
             }
         mutableState.value =
             when (answer) {
                 is Outcome.Success -> {
                     log.info("visit.started") { id("visit", answer.value.id) }
-                    VisitState.Open(answer.value.toView())
+                    val saved = if (restored.isEmpty()) NoteSave.Empty else NoteSave.Saved
+                    VisitState.Open(answer.value.toView().copy(bullets = restored, save = saved))
                 }
 
                 is Outcome.Failure -> {
@@ -245,6 +253,41 @@ class VisitStateHolder(
                     VisitState.Failed(ScreenError.of(answer.error))
                 }
             }
+    }
+
+    private suspend fun fromQueue(token: String): Outcome<Visit, ApiError> =
+        when (val started = clinic.api.startVisitFromQueue(token)) {
+            is Outcome.Success -> Outcome.Success(started.value.visit)
+            is Outcome.Failure -> started
+        }
+
+    // Start treatment from the patient page carries on the caller's open visit with them instead of
+    // opening a second one. A lookup that fails falls through to the next way to start.
+    private suspend fun myOpenVisit(): Visit? =
+        (clinic.api.visits(patientId) as? Outcome.Success)
+            ?.value
+            ?.items
+            ?.firstOrNull { it.status == OPEN && it.clinician.id == clinic.session.membership.id }
+
+    // The patient's token still waiting today: starting from it seats them, so the desk sees it.
+    private suspend fun waitingToken(): String? =
+        (clinic.api.queue() as? Outcome.Success)
+            ?.value
+            ?.items
+            ?.firstOrNull { it.patient.id == patientId && it.status in WAITING }
+            ?.id
+
+    // The caller's draft note of a carried-on visit: its bullets come back and later saves edit it.
+    private suspend fun restoreNote(visitId: String): List<Bullet> {
+        val detail = (clinic.api.visit(visitId) as? Outcome.Success)?.value ?: return emptyList()
+        val draft =
+            detail.notes.firstOrNull { it.status == DRAFT && it.author.id == clinic.session.membership.id }
+                ?: return emptyList()
+        val bullets = bulletsOf(draft.sections) ?: return emptyList()
+        noteId = draft.id
+        rowVersion = draft.rowVersion
+        nextBullet = bullets.size + 1
+        return bullets
     }
 
     /** Saves the note on screen now; Wrap up calls this before it finishes the visit. */
@@ -387,5 +430,8 @@ class VisitStateHolder(
 
         private const val CLINICAL_WRITE = "clinical.write"
         private const val SOAP = "soap"
+        private const val OPEN = "open"
+        private const val DRAFT = "draft"
+        private val WAITING = setOf("waiting", "called")
     }
 }

@@ -153,6 +153,107 @@ class VisitStateHolderTest {
         }
 
     @Test
+    fun my_open_visit_is_carried_on_with_its_draft_note_instead_of_a_second_visit() =
+        runTest {
+            val backend = FakeBackend().apply { serveNotes() }
+            backend.on("$SUNRISE/api/v1/patients/p1/visits", { json("""{"items":[$visit]}""") })
+            val draft =
+                note(4).replace(
+                    "\"sections\":{}",
+                    "\"sections\":{\"subjective\":\"• Cold sensitivity on 36\",\"plan\":\"• Desensitising paste\"}",
+                )
+            backend.on(
+                "$SUNRISE/api/v1/visits/v1",
+                {
+                    json(
+                        """{"visit":$visit,"notes":[$draft],"procedures":[],"chart_entries":[],"attachments":[],"observations":[]}""",
+                    )
+                },
+            )
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("clinical.write"))
+            val holder = VisitStateHolder(clinic, "p1", null, null, FakeDictation(), backgroundScope)
+            val open = holder.state.first { it is VisitState.Open } as VisitState.Open
+            assertEquals(
+                listOf(
+                    Bullet(1, BulletKind.Complaint, "Cold sensitivity on 36"),
+                    Bullet(2, BulletKind.Advice, "Desensitising paste"),
+                ),
+                open.view.bullets,
+            )
+            assertEquals(NoteSave.Saved, open.view.save)
+            assertTrue(
+                backend.requests.none {
+                    it.method.value == "POST" &&
+                        it.url.encodedPath == "/api/v1/patients/p1/visits"
+                },
+            )
+            holder.addBullet(BulletKind.Finding, "No caries")
+            holder.state.first { backend.count("$SUNRISE/api/v1/notes/n1") == 1 }
+            assertEquals(0, backend.count("$SUNRISE/api/v1/visits/v1/notes"), "the draft is edited, not a second note")
+            assertEquals(
+                "\"4\"",
+                backend.requests.last { it.url.encodedPath == "/api/v1/notes/n1" }.headers["If-Match"],
+            )
+        }
+
+    @Test
+    fun a_patient_still_waiting_in_the_queue_starts_from_their_token() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/patients/p1/visits", { json("""{"items":[]}""") })
+            backend.on(
+                "$SUNRISE/api/v1/queue",
+                {
+                    json(
+                        """{"date":"2026-10-08","items":[${com.aarogyam.staff.walkin.tokenJson("t0", patientId = "p2")},
+                           ${com.aarogyam.staff.walkin.tokenJson("t1")}]}""",
+                    )
+                },
+            )
+            backend.on(
+                "$SUNRISE/api/v1/queue/t1/start-visit",
+                {
+                    json(
+                        """{"visit":$visit,"created":true,"token":${com.aarogyam.staff.walkin.tokenJson(
+                            "t1",
+                            status = "in_chair",
+                        )}}""",
+                    )
+                },
+            )
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("clinical.write"))
+            val holder = VisitStateHolder(clinic, "p1", null, null, FakeDictation(), backgroundScope)
+            holder.state.first { it is VisitState.Open }
+            assertEquals(1, backend.count("$SUNRISE/api/v1/queue/t1/start-visit"))
+            assertTrue(
+                backend.requests.none {
+                    it.method.value == "POST" &&
+                        it.url.encodedPath == "/api/v1/patients/p1/visits"
+                },
+            )
+        }
+
+    @Test
+    fun bullets_come_back_from_saved_sections_unless_there_is_an_assessment() {
+        val bullets =
+            listOf(
+                Bullet(1, BulletKind.Complaint, "a"),
+                Bullet(2, BulletKind.Complaint, "b"),
+                Bullet(3, BulletKind.Finding, "c"),
+            )
+        assertEquals(bullets, bulletsOf(sectionsOf(bullets)))
+        assertEquals(
+            null,
+            bulletsOf(
+                com.aarogyam.staff.api.model
+                    .NoteSections(subjective = "• a", assessment = "Caries"),
+            ),
+        )
+    }
+
+    @Test
     fun sections_join_bullets_by_kind() {
         val s =
             sectionsOf(

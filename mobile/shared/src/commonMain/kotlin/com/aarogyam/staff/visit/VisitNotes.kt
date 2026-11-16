@@ -37,3 +37,23 @@ fun sectionsOf(bullets: List<Bullet>): NoteSections {
         plan = lines(BulletKind.Advice),
     )
 }
+
+/**
+ * The bullets of a saved note, the reverse of [sectionsOf]: each line of a section is one bullet,
+ * its "• " dropped. Null when the note has an Assessment, which bullets cannot hold.
+ */
+fun bulletsOf(sections: NoteSections): List<Bullet>? {
+    if (!sections.assessment.isNullOrBlank()) return null
+
+    fun lines(text: String?) =
+        text
+            .orEmpty()
+            .lines()
+            .map { it.trim().removePrefix("•").trim() }
+            .filter { it.isNotEmpty() }
+    val kinded =
+        lines(sections.subjective).map { BulletKind.Complaint to it } +
+            lines(sections.objective).map { BulletKind.Finding to it } +
+            lines(sections.plan).map { BulletKind.Advice to it }
+    return kinded.mapIndexed { i, (kind, text) -> Bullet(i + 1, kind, text) }
+}

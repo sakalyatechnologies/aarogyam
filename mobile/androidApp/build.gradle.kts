@@ -117,6 +117,7 @@ dependencies {
     // Per-app language (AppCompatDelegate.setApplicationLocales), back to API 26.
     implementation(libs.appcompat)
     implementation(libs.exifinterface)
+    implementation(libs.zxing.core)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.navigation.compose)

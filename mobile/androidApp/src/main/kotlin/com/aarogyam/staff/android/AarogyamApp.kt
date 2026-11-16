@@ -4,6 +4,7 @@ import android.app.Application
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.device.FilesDirOutboxFile
 import com.aarogyam.staff.android.device.SharedPreferencesStore
+import com.aarogyam.staff.android.ui.visit.AndroidDictation
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.AppEnvironment
 import com.aarogyam.staff.outbox.AndroidOutboxFiles
@@ -56,6 +57,7 @@ class AarogyamApp : Application() {
                     scope,
                     ConnectivityNetworkMonitor(this@AarogyamApp),
                     preferences = SharedPreferencesStore(this@AarogyamApp),
+                    dictation = AndroidDictation(this@AarogyamApp),
                     outboxStore = PersistentOutboxStore(JsonOutboxPersistence(FilesDirOutboxFile(this@AarogyamApp))),
                     outboxFiles = AndroidOutboxFiles(this@AarogyamApp),
                 )

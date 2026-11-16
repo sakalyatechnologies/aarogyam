@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.signin.SignInError
 import com.aarogyam.staff.signin.SignInStateHolder
 import com.aarogyam.staff.signin.SignInStep
 import com.sakalya.mobile.design.Spacing
@@ -87,16 +88,17 @@ fun SignInScreen(holder: SignInStateHolder) {
                             Modifier.fillMaxWidth(),
                             enabled = !state.busy,
                         )
-                    }
-
-                    // Password sign-in is iOS-only for now (the kit has no masked field for Android): nothing opens it here.
-                    SignInStep.Password -> {
                         SkButton(
-                            stringResource(R.string.change_email),
-                            holder::useCode,
+                            stringResource(R.string.sh_store_signin_use_password),
+                            holder::usePassword,
                             Modifier.fillMaxWidth(),
                             variant = SkButtonVariant.Secondary,
+                            enabled = !state.busy,
                         )
+                    }
+
+                    SignInStep.Password -> {
+                        PasswordStep(holder, state.email, state.password, state.busy, state.error)
                     }
 
                     SignInStep.Code -> {
@@ -135,4 +137,61 @@ fun SignInScreen(holder: SignInStateHolder) {
             }
         }
     }
+}
+
+/** The "Use a password" step (iOS `SignInPasswordStep`): the email, a masked password field and a way back to the emailed code. */
+@Composable
+private fun PasswordStep(
+    holder: SignInStateHolder,
+    email: String,
+    password: String,
+    busy: Boolean,
+    error: SignInError?,
+) {
+    val colors = SkTheme.colors
+    val emailError = error.takeIf { it == SignInError.InvalidEmail }?.let { stringResource(it.message()) }
+    val passwordError =
+        error.takeIf { it != null && it != SignInError.InvalidEmail }?.let {
+            stringResource(
+                it.message(),
+            )
+        }
+    Text(
+        stringResource(R.string.sh_store_signin_password_title),
+        style = SkTypography.titleSmall,
+        color = colors.text.color,
+    )
+    SkTextField(
+        value = email,
+        onValueChange = holder::onEmailChange,
+        label = stringResource(R.string.email_label),
+        supportingText = emailError,
+        isError = emailError != null,
+        keyboardOptions =
+            KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                autoCorrectEnabled = false,
+                imeAction = ImeAction.Next,
+            ),
+    )
+    PasswordField(
+        value = password,
+        onValueChange = holder::onPasswordChange,
+        label = stringResource(R.string.sh_store_signin_password_label),
+        onDone = holder::submitPassword,
+        supportingText = passwordError,
+    )
+    SkButton(
+        stringResource(R.string.sh_store_signin_sign_in),
+        holder::submitPassword,
+        Modifier.fillMaxWidth(),
+        enabled = !busy,
+    )
+    SkButton(
+        stringResource(R.string.sh_store_signin_use_code),
+        holder::useCode,
+        Modifier.fillMaxWidth(),
+        variant = SkButtonVariant.Secondary,
+        enabled = !busy,
+    )
 }

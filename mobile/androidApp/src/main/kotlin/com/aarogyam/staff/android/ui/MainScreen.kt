@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,17 +20,18 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
-import com.aarogyam.staff.android.ui.today.NotificationsSheet
+import com.aarogyam.staff.android.ui.clinical.ExpensesPage
+import com.aarogyam.staff.android.ui.clinical.openExpenses
+import com.aarogyam.staff.android.ui.patient.openPatient
+import com.aarogyam.staff.android.ui.today.TodayTab
 import com.aarogyam.staff.art.Icons
 import com.aarogyam.staff.clinic.ClinicContext
-import com.aarogyam.staff.device.PreferenceKey
 import com.aarogyam.staff.nav.NavModel
 import com.aarogyam.staff.nav.PrimaryAction
 import com.aarogyam.staff.nav.Tab
-import com.aarogyam.staff.pollWhileInFront
 import com.sakalya.mobile.design.FloatingNavSizes
 import com.sakalya.mobile.designcompose.SkFloatingNavBar
 import com.sakalya.mobile.designcompose.SkNavAction
@@ -46,27 +46,25 @@ private val RAIL_FROM = 600.dp
 /**
  * The signed-in shell of the v7 design: tabs and the bar action come from [NavModel] (the role's
  * permissions), on a floating bar that hides while scrolling down, or a rail on wide windows. Tabs
- * fade through; each tab's state holder lives as long as this destination.
+ * fade through; each tab's state holder lives as long as this destination. Other areas open through [nav].
  */
 @Composable
 fun MainScreen(
     graph: AppGraph,
     clinic: ClinicContext,
     clinicCount: Int,
-    onOpenPatient: (String) -> Unit,
+    nav: NavController,
     onWalkIn: () -> Unit,
-    onAddExpense: () -> Unit,
     onSwitchClinic: () -> Unit,
-    onSignOut: () -> Unit,
 ) {
-    val nav = remember(clinic.permissions, clinicCount) { NavModel.of(clinic.permissions, clinicCount) }
-    var tab by rememberSaveable { mutableStateOf(nav.tabs.first()) }
-    if (tab !in nav.tabs) tab = nav.tabs.first()
+    val navModel = remember(clinic.permissions, clinicCount) { NavModel.of(clinic.permissions, clinicCount) }
+    var tab by rememberSaveable { mutableStateOf(navModel.tabs.first()) }
+    if (tab !in navModel.tabs) tab = navModel.tabs.first()
     var barVisible by remember { mutableStateOf(true) }
     val hideOnScroll = remember { BarHider { barVisible = it } }
-    val items = nav.tabs.map { SkNavDestination(it.name, stringResource(it.label), Icons.of(it.icon)) }
+    val items = navModel.tabs.map { SkNavDestination(it.name, stringResource(it.label), Icons.of(it.icon)) }
     val action =
-        when (nav.action) {
+        when (navModel.action) {
             PrimaryAction.WalkIn -> {
                 SkNavAction(stringResource(R.string.v7_action_walk_in), Icons.of("plus"), onWalkIn)
             }
@@ -75,7 +73,7 @@ fun MainScreen(
                 SkNavAction(
                     stringResource(R.string.v7_action_add_expense),
                     Icons.of("wallet"),
-                    onAddExpense,
+                    nav::openExpenses,
                 )
             }
 
@@ -98,16 +96,7 @@ fun MainScreen(
                     transitionSpec = { SkTransitions.tabEnter(reduced) togetherWith SkTransitions.tabExit() },
                     label = "tab",
                 ) { shown ->
-                    TabContent(
-                        shown,
-                        nav,
-                        graph,
-                        clinic,
-                        onOpenPatient,
-                        onWalkIn,
-                        onSwitchClinic,
-                        onSignOut,
-                    ) { select(it.name) }
+                    TabContent(shown, navModel, graph, clinic, nav, onWalkIn, onSwitchClinic) { select(it.name) }
                 }
                 if (!wide) {
                     SkFloatingNavBar(
@@ -127,63 +116,44 @@ fun MainScreen(
 @Composable
 private fun TabContent(
     tab: Tab,
-    nav: NavModel,
+    navModel: NavModel,
     graph: AppGraph,
     clinic: ClinicContext,
-    onOpenPatient: (String) -> Unit,
+    nav: NavController,
     onWalkIn: () -> Unit,
     onSwitchClinic: () -> Unit,
-    onSignOut: () -> Unit,
     onTab: (Tab) -> Unit,
 ) {
+    val onOpenPatient: (String) -> Unit = { nav.openPatient(it) }
     when (tab) {
-        Tab.Today -> TodayTab(graph, clinic, nav, onOpenPatient, onOpenSchedule = { onTab(Tab.Schedule) })
-        Tab.Patients -> PatientsScreen(rememberHolder { graph.patients(clinic, it) }, onOpenPatient, onWalkIn)
-        Tab.Schedule -> ScheduleTab(rememberHolder { graph.schedule(clinic, it) }, onWalkIn, onOpenPatient)
-        Tab.Expenses -> ComingSoon(R.string.v7_tab_expenses)
-        Tab.More -> MoreScreen(nav, onSwitchClinic, onSignOut)
+        Tab.Today -> {
+            TodayTab(
+                graph,
+                clinic,
+                nav,
+                onOpenPatient,
+                onOpenSchedule = { onTab(Tab.Schedule) },
+                onAddExpense = nav::openExpenses,
+            )
+        }
+
+        Tab.Patients -> {
+            PatientsScreen(rememberHolder { graph.patients(clinic, it) }, onOpenPatient, onWalkIn)
+        }
+
+        Tab.Schedule -> {
+            ScheduleTab(rememberHolder { graph.schedule(clinic, it) }, onWalkIn, onOpenPatient)
+        }
+
+        Tab.Expenses -> {
+            ExpensesPage(graph, clinic, showsAdd = false)
+        }
+
+        Tab.More -> {
+            MoreScreen(graph, clinic, navModel, nav, onSwitchClinic)
+        }
     }
 }
-
-/** Today with its sheets (notifications) and the unread badge, refreshed every minute. */
-@Composable
-private fun TodayTab(
-    graph: AppGraph,
-    clinic: ClinicContext,
-    nav: NavModel,
-    onOpenPatient: (String) -> Unit,
-    onOpenSchedule: () -> Unit,
-) {
-    var notifications by rememberSaveable { mutableStateOf(false) }
-    val badges = rememberHolder { graph.badges(clinic, it) }
-    val counts by badges.state.collectAsStateWithLifecycle()
-    LaunchedEffect(badges) { pollWhileInFront(BADGE_POLL_MS) { badges.refresh() } }
-    val avatar =
-        remember {
-            graph.preferences.get(PreferenceKey.AvatarChoice)
-                ?: defaultAvatar(clinic.session.membership.id)
-        }
-    TodayScreen(
-        rememberHolder { graph.today(clinic, it) },
-        roleName = clinic.roleName,
-        avatar = avatar,
-        onOpenPatient = onOpenPatient,
-        onOpenSchedule = onOpenSchedule,
-        onAddExpense = null.takeIf { nav.action != com.aarogyam.staff.nav.PrimaryAction.AddExpense },
-        onEditAvatar = {},
-        onQr = {},
-        onNotifications = { notifications = true },
-        unread = counts.notifications > 0,
-    )
-    if (notifications) NotificationsSheet(rememberHolder { graph.notifications(clinic, it) }) { notifications = false }
-}
-
-/** One of the eight illustrated avatars, stable for a member until they pick their own. */
-private fun defaultAvatar(membershipId: String): String =
-    "d${(membershipId.hashCode() and Int.MAX_VALUE) % AVATARS + 1}"
-
-private const val AVATARS = 8
-private const val BADGE_POLL_MS = 60_000L
 
 /** Hides the floating bar while the content scrolls down past the threshold, and shows it on any scroll up. */
 private class BarHider(

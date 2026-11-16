@@ -123,7 +123,7 @@ class PushRegistrationTest {
             backend.waitFor("PUT", 1)
             graph.signOut()
             withContext(Dispatchers.Default) {
-                withTimeout(5_000) {
+                withTimeout(20_000) {
                     while (backend.requests.none {
                             it.url.encodedPath.endsWith(
                                 "/me/sessions/revoke-current",

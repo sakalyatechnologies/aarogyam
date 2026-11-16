@@ -53,16 +53,19 @@ import java.time.format.TextStyle
 @Composable
 fun ExpensesScreen(
     holder: ExpensesStateHolder,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
+    showsAdd: Boolean = true,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     var adding by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         SkTopBar(
             title = stringResource(R.string.cn_c_expenses_title),
-            navigation = { BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack) },
+            navigation = {
+                if (onBack != null) BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack)
+            },
             actions = {
-                if (state.canAdd) {
+                if (showsAdd && state.canAdd) {
                     BarAction(stringResource(R.string.cn_c_expenses_add), SkTheme.colors.onBrandDark.color, {
                         adding =
                             true

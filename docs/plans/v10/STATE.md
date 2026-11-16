@@ -274,3 +274,16 @@ Done:
   4. The first TestFlight and Play internal uploads once the founder adds the keys (`mobile/docs/release.md`).
   5. Optional: retake iOS shot 2 (visit with Rx) cleaner.
 - **The founder's open question:** the "ROCM … icon on the top right".
+
+### 15 Nov, night: main 0f243a97
+- **Prod:** 0713–0717 are live (API rev 00034). Signed out, the new routes answer 401 on lotus: DELETE /me/account, PUT/DELETE /me/devices/{id}, POST /me/sessions/revoke-current. Signed-in tests wait for the founder's review account at lotus (`review-account`).
+- **Fixed and pushed:**
+  - Start treatment from the patient page always opened a new visit, so a second tap left two open visits and the queue token waiting. It now resumes my open visit with that patient, its draft note's bullets restored; otherwise it starts from the patient's waiting or called token; otherwise it opens a new visit. Shared code, so both apps.
+  - Android: a hardware Return in the visit note field adds the point.
+  - `LabPaymentProof` was added to apiModels; backend 0716 had broken the mobile build. The backend now adds nested schemas itself.
+  - The push test waits got 20 s of real time.
+- **Play screenshots:** 3 of them (Today, Patient, History, 1080×1920) in `mobile/fastlane/metadata/android/en-US/images/phoneScreenshots`, which meets Play's minimum of 2. Still to do: Visit, Desk, Analytics and Labs. The emulator stalls under load above 60. Keep the local Patients list out of shots: it holds E2E junk and a real person's name.
+- **Seen, not fixed yet:**
+  - Jaw chart: teeth 17/18 and 37/38 overlap at 1080 px wide.
+  - The collapsed "Waiting for you" line has no count or chevron.
+  - Scrolled content shows under the status bar on Visit.

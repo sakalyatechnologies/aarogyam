@@ -27,6 +27,7 @@ struct SignInV7Screen: View {
                 switch state.step {
                 case .email: emailStep(r)
                 case .code: codeStep(r)
+                case .password: SignInPasswordStep(holder: holder, state: state)
                 }
             }
             .padding(.horizontal, SkSpacing.xl)
@@ -35,11 +36,19 @@ struct SignInV7Screen: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .overlay(alignment: .topLeading) {
-            Button(action: state.step == .code ? holder.changeEmail : onBack) {
+            Button(action: backAction) {
                 V7Icon(name: "back", size: 20).frame(width: 40, height: 40).background(.ultraThinMaterial, in: Circle())
             }
             .buttonStyle(.skPressable).padding(.leading, 12).padding(.top, 6)
             .accessibilityLabel(String(localized: "t7.back", table: "TodayV7"))
+        }
+    }
+
+    private var backAction: () -> Void {
+        switch state.step {
+        case .code: holder.changeEmail
+        case .password: holder.useCode
+        default: onBack
         }
     }
 
@@ -57,6 +66,11 @@ struct SignInV7Screen: View {
             .textInputAutocapitalization(.never).autocorrectionDisabled().submitLabel(.send)
             .focused($focused).onSubmit { holder.submitEmail() }
             SkPillButton(String(localized: "sign_in.send_code"), wide: true, loading: state.busy) { holder.submitEmail() }.padding(.top, 12)
+            Button { holder.usePassword() } label: {
+                Text(s11("store.signin.use_password")).font(.system(size: 13.5, weight: .bold)).foregroundStyle(r.primary.color)
+                    .frame(minHeight: 44)
+            }
+            .padding(.top, 4)
             Text("t7.signin.or", tableName: "TodayV7").font(.system(size: 12.5)).foregroundStyle(r.onSurfaceVariant.color).padding(.vertical, 16)
             PreviewNotice(text: String(localized: "t7.signin.sso_preview", table: "TodayV7"))
             VStack(spacing: 4) {

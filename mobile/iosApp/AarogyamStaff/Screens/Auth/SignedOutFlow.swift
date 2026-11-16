@@ -66,7 +66,7 @@ struct SignedOutFlow: View {
     private func shown(_ state: SignInState) -> SignInState {
         #if DEBUG && AARO_ENV_Local
         if ProcessInfo.processInfo.environment["AAROGYAM_DEV_STEP"] == "code" {
-            return SignInState(step: .code, email: "asha@sunrise.example", code: "482", busy: false, error: nil)
+            return SignInState(step: .code, email: "asha@sunrise.example", code: "482", password: "", busy: false, error: nil)
         }
         #endif
         return state

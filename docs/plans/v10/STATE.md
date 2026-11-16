@@ -240,3 +240,25 @@ Done:
 - the stable domain before production;
 - a backup of `~/.aarogyam-release/`;
 - approval of the privacy text.
+
+### 15 Nov, progress (update)
+- **Pushed:** main f8b826c7 (full gate passed): fastlane, labs, chat, patient visits, the thumbnail fix and the Android route stubs.
+- **On `feat/v10`, not pushed** (it needs one full gate, run as `sh scratchpad gate.sh`: gradle check, ios-check and the patient check, through `~/project/.targets/build-lock.sh`):
+  - store screens test;
+  - `v11-push` merged (the iOS push client);
+  - fc9f5944: push registers again on each new sign-in, and sign-out revokes the session.
+- **Workers and branches** (each has a handoff in `docs/plans/v10/android-<area>.md` or a commit message):
+
+  | Branch | Work |
+  |---|---|
+  | `v11-and-{desk,visit,patient,clinical,shell}` | Android T13 |
+  | `v11-store` + kit `wt-sakalya-kit` | password sign-in and Delete account (a 404 `no_staff_account` state). After merge: tag kit `v0.2.0-dev.4`, push the tag, repin. |
+  | `v11-shots` | store demo seed (`iosApp/scripts/store-seed.sh`), App Store screenshots into `fastlane/screenshots/ios/en-US`, the waiting card clipping and the "patients for you" count |
+  | `v11-analytics` | custom dates, revenue vs expenses, expense categories, per-chair use, Preview cards filled from the live API, and a Close button on My tasks |
+
+- **Backend:**
+  - Account deletion: `DELETE /me/account` (0713).
+  - Push: `PUT/DELETE /me/devices` and `POST /me/sessions/revoke-current` (0714); off until the keys exist.
+  - The pages /support, /account-deletion and /privacy.
+- **Open question to the founder:** the "ROCM … icon on the top right" request; is it a profile or role icon?
+- **The founder is viewing the app** on simulator "iPhone 18 Pro" (no worker uses it).

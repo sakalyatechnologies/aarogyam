@@ -13,6 +13,8 @@ struct PatientRoute: Hashable {
 struct MainTabs: View {
     let graph: AppGraph
     let clinic: ClinicContext
+    /// A tapped push asking for a screen; cleared once opened.
+    @Binding var pushTarget: PushTarget?
     let onSwitchClinic: () -> Void
     @State private var clinicCount: Int32 = 1
     @State private var selected: NavTab = .today
@@ -58,6 +60,11 @@ struct MainTabs: View {
         .sheet(isPresented: $addExpense, onDismiss: { expenseRevision += 1 }) { ExpenseSheetHost(graph: graph, clinic: clinic) }
         .devClinicalHooks(graph: graph, clinic: clinic, selected: $selected, morePath: $morePath)
         .task { clinicCount = await countClinics() }
+        .onChange(of: pushTarget, initial: true) { _, target in
+            guard let target else { return }
+            pushTarget = nil
+            openPush(target.destination, nav: nav)
+        }
         #if DEBUG && AARO_ENV_Local
         .onAppear {
             if let tab = DevLaunch.tab { selected = tab }
@@ -135,6 +142,22 @@ struct MainTabs: View {
             NavigationStack(path: $morePath) {
                 MoreScreen(graph: graph, clinic: clinic, nav: nav, onSwitchClinic: onSwitchClinic, path: $morePath)
             }
+        }
+    }
+
+    /// Opens the screen a tapped push names; Today when the role has no such screen.
+    private func openPush(_ destination: PushDestination, nav: NavModel) {
+        todayPath = []
+        todayVisit = nil
+        switch destination {
+        case .tasks where TodayV10Logic.showsTasks(permissions: clinic.permissions):
+            selected = .today
+            tasksOpen = true
+        case .labs where nav.tabs.contains(.more):
+            selected = .more
+            morePath = [.labs]
+        default:
+            selected = .today
         }
     }
 

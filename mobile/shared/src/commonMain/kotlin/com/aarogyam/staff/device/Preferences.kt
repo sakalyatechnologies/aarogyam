@@ -9,6 +9,15 @@ enum class PreferenceKey(
 
     /** The language last used for dictation, as a [DictationLanguage] tag. */
     DictationLanguage("dictation_language"),
+
+    /** The random ID of this installation, the key of its push registration. Not secret. */
+    PushInstallationId("push_installation_id"),
+
+    /** A fingerprint of the token and locale the server last accepted; never the token itself. */
+    PushSent("push_sent"),
+
+    /** `1` once the pre-prompt for alerts was answered, so it is not asked again. */
+    PushAsked("push_asked"),
 }
 
 /**

@@ -1,6 +1,7 @@
 package com.aarogyam.staff
 
 import com.aarogyam.staff.analytics.AnalyticsStateHolder
+import com.aarogyam.staff.api.revokeCurrent
 import com.aarogyam.staff.billing.BillingStateHolder
 import com.aarogyam.staff.booking.BookingStateHolder
 import com.aarogyam.staff.calendar.CalendarStateHolder
@@ -30,6 +31,8 @@ import com.aarogyam.staff.live.SseLiveUpdates
 import com.aarogyam.staff.nav.HomeChoiceHolder
 import com.aarogyam.staff.nav.createHomeChoice
 import com.aarogyam.staff.notes.PatientNotesStateHolder
+import com.aarogyam.staff.notifications.PushRegistration
+import com.aarogyam.staff.notifications.pushSessions
 import com.aarogyam.staff.outbox.AudioSender
 import com.aarogyam.staff.outbox.Connectivity
 import com.aarogyam.staff.outbox.MemoryOutboxFiles
@@ -53,6 +56,7 @@ import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
 import com.aarogyam.staff.schedule.ScheduleStateHolder
 import com.aarogyam.staff.schedule.WeekStateHolder
+import com.aarogyam.staff.signin.DeleteAccountHolder
 import com.aarogyam.staff.signin.InviteStateHolder
 import com.aarogyam.staff.signin.RegistrationStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
@@ -102,8 +106,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.LocalDate
 
 /**
@@ -239,6 +246,10 @@ class AppGraph private constructor(
     }
 
     fun signIn(scope: CoroutineScope): SignInStateHolder = SignInStateHolder(sessions, scope)
+
+    /** "Delete account": on success this device signs out without telling Supabase (the server revoked every session). */
+    fun deleteAccount(scope: CoroutineScope): DeleteAccountHolder =
+        DeleteAccountHolder(directory.appApi(), scope, ::signOutLocally, logger("aarogyam.delete_account"))
 
     fun clinicPicker(
         scope: CoroutineScope,
@@ -479,6 +490,17 @@ class AppGraph private constructor(
         scope: CoroutineScope,
     ): MyTasksHolder = createMyTasks(clinic, scope)
 
+    /** The push token and language to the server, and the DELETE before sign-out ([PushRegistration]). */
+    val push: PushRegistration =
+        PushRegistration(
+            preferences,
+            pushSessions(sessions.state),
+            directory::appApi,
+            scope,
+            config.version,
+            logger("aarogyam.push"),
+        )
+
     /** Restores the session again, after secure storage was unavailable. */
     fun restore() {
         scope.launch { sessions.restore() }
@@ -498,7 +520,21 @@ class AppGraph private constructor(
     /** Revokes the session at Supabase and clears secure storage and the caches. Unsent writes are dropped: see [trySignOut]. */
     fun signOut() {
         scope.launch {
+            push.forget()
+            // Best effort, like the DELETE above: the server ends this session and its push tokens.
+            directory.appApi()?.let { app ->
+                val answer = withTimeoutOrNull(REVOKE_TIMEOUT_MS) { app.revokeCurrent() }
+                if (answer !is Outcome.Success) logger("aarogyam.session").warn("session.revoke_failed")
+            }
             sessions.signOut()
+            directory.clear()
+            endOutbox()
+        }
+    }
+
+    private fun signOutLocally() {
+        scope.launch {
+            sessions.signOutLocally()
             directory.clear()
             endOutbox()
         }
@@ -508,6 +544,8 @@ class AppGraph private constructor(
         clients.getOrPut(base) { factory.create(base, tokens = sessions) }
 
     companion object {
+        private const val REVOKE_TIMEOUT_MS = 4_000L
+
         /**
          * Builds the graph and starts restoring the session. Fails only when this build has no
          * valid Supabase URL. [store] holds the session and the device ID; every log line goes to

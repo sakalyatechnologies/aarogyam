@@ -5,8 +5,15 @@ import Observation
 import class AarogyamShared.AppGraph
 import class AarogyamShared.ClinicContext
 import class AarogyamShared.InviteLink
+import class AarogyamShared.PushTap
+import class AarogyamShared.MyClinic
 import class AarogyamShared.IosAppKt
 import protocol AarogyamShared.SessionState
+
+struct PushPending {
+    var token: String?
+    var tap: PushTap?
+}
 
 /// Builds the shared app graph once and exposes the session and the open clinic to SwiftUI.
 @MainActor
@@ -26,6 +33,11 @@ final class AppModel {
     var choseToLeave = false
     /// An invitation link (opened as `aarogyam://invite#...` or pasted) waiting for sign-in and Join.
     var pendingInvite: String?
+
+    /// Set by a tapped push, cleared by MainTabs once it has opened the screen.
+    var pushTarget: PushTarget?
+    /// A token or tap that came before the graph or the sign-in was ready (see AppModel+Push).
+    @ObservationIgnored var pushState = PushPending()
 
     @ObservationIgnored private let speech = SpeechDictation()
     @ObservationIgnored private var watchers: [Task<Void, Never>] = []
@@ -50,9 +62,13 @@ final class AppModel {
         session = graph.sessionState.value
         clinic = graph.directory.current.value
         phase = .ready(graph)
+        flushPush()
         watchers = [
             Task { [weak self] in
-                for await state in graph.sessionState { self?.session = state }
+                for await state in graph.sessionState {
+                    self?.session = state
+                    self?.flushPush()
+                }
             },
             Task { [weak self] in
                 for await open in graph.directory.current { self?.clinic = open }

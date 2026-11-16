@@ -1,0 +1,98 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "push11.ask.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stay on top of the clinic"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिक की हर खबर पाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिकची प्रत्येक बातमी मिळवा"
+          }
+        }
+      }
+    },
+    "push11.ask.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get an alert when a patient arrives, a booking comes in or a task is due. Alerts never show patient names."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मरीज़ के आने, बुकिंग आने या कार्य की समय-सीमा पर सूचना पाएँ। सूचनाओं में मरीज़ के नाम नहीं दिखते।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्ण आल्यावर, बुकिंग आल्यावर किंवा कामाची वेळ झाल्यावर सूचना मिळवा. सूचनांमध्ये रुग्णांची नावे दिसत नाहीत."
+          }
+        }
+      }
+    },
+    "push11.ask.allow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on alerts"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सूचनाएँ चालू करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सूचना सुरू करा"
+          }
+        }
+      }
+    },
+    "push11.ask.later": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not now"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी नहीं"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आत्ता नको"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -174,6 +174,7 @@
     <string name="sh_s_book_warn_leave">डॉक्टर त्या दिवशी रजेवर आहेत.</string>
     <string name="sh_s_book_warn_hours">ही वेळ कामाच्या वेळेबाहेर आहे.</string>
     <string name="sh_s_book_warn_other">सर्व्हरने या बुकिंगवर इशारा जोडला आहे.</string>
+    <string name="sh_s_book_overlap">या रुग्णाची %1$s ला %2$s यांच्याकडेही बुकिंग आहे</string>
     <string name="sh_s_preview">प्रिव्ह्यू: सर्व्हर सपोर्ट हवा</string>
     <string name="sh_s_week_prev">मागील आठवडा</string>
     <string name="sh_s_week_next">पुढील आठवडा</string>

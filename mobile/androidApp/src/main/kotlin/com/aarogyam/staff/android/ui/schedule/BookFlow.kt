@@ -39,6 +39,7 @@ import com.aarogyam.staff.android.ui.patient.V7Muted
 import com.aarogyam.staff.android.ui.patient.V7Pill
 import com.aarogyam.staff.android.ui.patient.v7
 import com.aarogyam.staff.android.ui.today.InitialsAvatar
+import com.aarogyam.staff.booking.BookingOverlap
 import com.aarogyam.staff.booking.BookingState
 import com.aarogyam.staff.booking.BookingStateHolder
 import com.aarogyam.staff.booking.BookingWarningKind
@@ -212,9 +213,19 @@ private fun Booked(
             color = SkTheme.palette.onSurface.color,
         )
         state.warnings.forEach { V7Pill(stringResource(it.label()), PillKind.Warm) }
+        state.overlaps.forEach { V7Pill(it.label(), PillKind.Warm) }
         SkPillButton(stringResource(R.string.sh_s_book_close), onDismiss, wide = true)
     }
 }
+
+/** "This patient is also booked 10:00–10:30 with Dr. Rao, Chair 2". */
+@Composable
+internal fun BookingOverlap.label(): String =
+    stringResource(
+        R.string.sh_s_book_overlap,
+        "${starts.display()}–${ends.display()}",
+        listOfNotNull(doctor, chair).joinToString(", "),
+    )
 
 private fun BookingWarningKind.label(): Int =
     when (this) {

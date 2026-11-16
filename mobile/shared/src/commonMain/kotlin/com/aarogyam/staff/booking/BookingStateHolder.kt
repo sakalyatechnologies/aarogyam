@@ -4,6 +4,7 @@ import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.availability
 import com.aarogyam.staff.api.book
 import com.aarogyam.staff.api.model.NewAppointmentBody
+import com.aarogyam.staff.api.model.PatientOverlap
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.today.parseInstant
 import com.sakalya.mobile.core.Logger
@@ -46,6 +47,14 @@ enum class VisitKind(
 /** A warning the server attached to a booking it accepted. */
 enum class BookingWarningKind { PractitionerBusy, PractitionerOnLeave, OutsideWorkingHours, Other }
 
+/** Another booking of the same patient that overlaps the new one, in clinic time. */
+data class BookingOverlap(
+    val starts: LocalTime,
+    val ends: LocalTime,
+    val doctor: String,
+    val chair: String?,
+)
+
 /** The booking sheet. Patient details are never logged. */
 data class BookingState(
     val allowed: Boolean,
@@ -65,6 +74,8 @@ data class BookingState(
     /** Set once booked: the new appointment, and any warnings to show beside the success. */
     val booked: String? = null,
     val warnings: List<BookingWarningKind> = emptyList(),
+    /** The patient's other bookings at that time, with any doctor or chair. */
+    val overlaps: List<BookingOverlap> = emptyList(),
 ) {
     /** Whether Book can be pressed. */
     val canBook: Boolean get() = allowed && doctorId != null && chosen != null && !saving && booked == null
@@ -141,6 +152,10 @@ class BookingStateHolder(
                                 answer.value.warnings.map { w ->
                                     warning(w.code)
                                 },
+                            overlaps =
+                                answer.value.patientOverlaps
+                                    .orEmpty()
+                                    .mapNotNull { overlap(it) },
                         )
                     }
                 }
@@ -209,6 +224,17 @@ class BookingStateHolder(
                     }
                 }
             }
+    }
+
+    private fun overlap(o: PatientOverlap): BookingOverlap? {
+        val starts = parseInstant(o.startsAt) ?: return null
+        val ends = parseInstant(o.endsAt) ?: return null
+        return BookingOverlap(
+            starts.toLocalDateTime(clinic.timeZone).time,
+            ends.toLocalDateTime(clinic.timeZone).time,
+            o.practitionerName,
+            o.roomName,
+        )
     }
 
     private fun warning(code: String) =

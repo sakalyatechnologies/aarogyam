@@ -23,6 +23,7 @@ import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.dayLabel
 import com.aarogyam.staff.android.ui.display
 import com.aarogyam.staff.android.ui.message
+import com.aarogyam.staff.android.ui.schedule.label
 import com.aarogyam.staff.booking.BookingState
 import com.aarogyam.staff.booking.BookingStateHolder
 import com.aarogyam.staff.booking.BookingWarningKind
@@ -188,6 +189,7 @@ private fun Done(
             color = SkTheme.palette.onSurface.color,
         )
         state.warnings.forEach { V7Pill(it.label(), PillKind.Warm) }
+        state.overlaps.forEach { V7Pill(it.label(), PillKind.Warm) }
         SkPillButton(stringResource(R.string.done), onDismiss, wide = true)
     }
 }

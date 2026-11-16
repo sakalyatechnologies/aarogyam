@@ -438,6 +438,29 @@
         }
       }
     },
+    "t7.book.overlap %@ %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This patient is also booked %1$@ with %2$@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस मरीज़ की %1$@ पर %2$@ के साथ भी बुकिंग है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या रुग्णाची %1$@ ला %2$@ यांच्याकडेही बुकिंग आहे"
+          }
+        }
+      }
+    },
     "t7.book.pick_patient": {
       "extractionState": "manual",
       "localizations": {

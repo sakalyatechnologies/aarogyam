@@ -174,6 +174,7 @@
     <string name="sh_s_book_warn_leave">डॉक्टर उस दिन छुट्टी पर हैं.</string>
     <string name="sh_s_book_warn_hours">यह समय काम के घंटों के बाहर है.</string>
     <string name="sh_s_book_warn_other">सर्वर ने इस बुकिंग पर चेतावनी जोड़ी है.</string>
+    <string name="sh_s_book_overlap">इस मरीज़ की %1$s पर %2$s के साथ भी बुकिंग है</string>
     <string name="sh_s_preview">प्रीव्यू: सर्वर सपोर्ट चाहिए</string>
     <string name="sh_s_week_prev">पिछला सप्ताह</string>
     <string name="sh_s_week_next">अगला सप्ताह</string>

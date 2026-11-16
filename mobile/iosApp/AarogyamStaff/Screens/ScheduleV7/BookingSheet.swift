@@ -87,8 +87,8 @@ struct BookingSheet: View {
         VStack(spacing: 12) {
             SkCheckDraw().frame(width: 64, height: 64)
             Text("t7.book.done", tableName: "TodayV7").skTextStyle(SkTypeScale.title).foregroundStyle(theme.roles.onSurface.color)
-            ForEach(state.warnings, id: \.self) { warning in
-                Text(BookingLabels.warning(warning)).skTextStyle(SkTypeScale.footnote).foregroundStyle(theme.roles.onTertiaryContainer.color)
+            ForEach(state.warnings.map(BookingLabels.warning) + state.overlaps.map(BookingLabels.overlap), id: \.self) { text in
+                Text(text).skTextStyle(SkTypeScale.footnote).foregroundStyle(theme.roles.onTertiaryContainer.color)
                     .padding(8).background(theme.roles.tertiaryContainer.color, in: RoundedRectangle(cornerRadius: 12))
             }
             SkPillButton(String(localized: "t7.book.close", table: "TodayV7"), wide: true) { dismiss() }
@@ -165,6 +165,13 @@ enum BookingLabels {
         case "procedure": String(localized: "t7.book.kind.procedure", table: "TodayV7")
         default: String(localized: "t7.book.kind.emergency", table: "TodayV7")
         }
+    }
+
+    /// "This patient is also booked 10:00–10:30 with Dr. Rao, Chair 2".
+    static func overlap(_ o: BookingOverlap) -> String {
+        let time = "\(ClinicFormat.time(minuteOfDay: o.starts.minuteOfDay))–\(ClinicFormat.time(minuteOfDay: o.ends.minuteOfDay))"
+        let with = [o.doctor, o.chair].compactMap { $0 }.joined(separator: ", ")
+        return String(localized: "t7.book.overlap \(time) \(with)", table: "TodayV7")
     }
 
     static func warning(_ kind: BookingWarningKind) -> String {

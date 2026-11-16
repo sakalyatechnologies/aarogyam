@@ -99,6 +99,7 @@ private struct BookBody: View {
             SkCheckDraw().frame(width: 72, height: 72)
             Text(pv("pv.book.done")).v7Text(18, .heavy).foregroundStyle(theme.roles.onSurface.color)
             ForEach(state.warnings, id: \.self) { w in V7Pill(text: w.label, kind: .warm) }
+            ForEach(state.overlaps.map(BookingLabels.overlap), id: \.self) { V7Pill(text: $0, kind: .warm) }
             SkPillButton(String(localized: "done"), wide: true) { dismiss() }
         }
         .frame(maxWidth: .infinity)

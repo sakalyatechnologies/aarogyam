@@ -174,6 +174,7 @@
     <string name="sh_s_book_warn_leave">The doctor is on leave that day.</string>
     <string name="sh_s_book_warn_hours">That time is outside working hours.</string>
     <string name="sh_s_book_warn_other">The server added a warning to this booking.</string>
+    <string name="sh_s_book_overlap">This patient is also booked %1$s with %2$s</string>
     <string name="sh_s_preview">Preview: needs server support</string>
     <string name="sh_s_week_prev">Previous week</string>
     <string name="sh_s_week_next">Next week</string>

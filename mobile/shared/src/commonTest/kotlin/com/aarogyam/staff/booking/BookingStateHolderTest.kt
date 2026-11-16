@@ -84,6 +84,7 @@ class BookingStateHolderTest {
             val done = holder.state.first { it.booked != null }
             assertEquals("7", done.booked)
             assertEquals(listOf(BookingWarningKind.OutsideWorkingHours), done.warnings)
+            assertEquals(emptyList(), done.overlaps, "no overlaps when the server leaves them out")
             val body = backend.requests.last { it.url.encodedPath == "/api/v1/appointments" }.text()
             assertTrue(""""starts_at":"2026-10-09T04:30:00Z"""" in body, body)
             assertTrue(""""ends_at":"2026-10-09T05:00:00Z"""" in body, body)
@@ -92,6 +93,33 @@ class BookingStateHolderTest {
                 body,
             )
             assertFalse(holder.state.value.canBook, "a booked sheet cannot book again")
+        }
+
+    @Test
+    fun the_patients_other_bookings_at_that_time_show_in_clinic_time() =
+        runTest {
+            val backend = FakeBackend().apply { serve() }
+            val overlapping =
+                """{"appointment":${appointment("7", "2026-10-09T04:30:00Z", "booked", "Meera Shah")},"warnings":[],
+                   "patient_overlaps":[
+                     {"appointment_id":"5","starts_at":"2026-10-09T04:15:00Z","ends_at":"2026-10-09T04:45:00Z",
+                      "practitioner_name":"Dr. Rao","room_name":"Chair 2"},
+                     {"appointment_id":"6","starts_at":"2026-10-09T04:40:00Z","ends_at":"2026-10-09T05:10:00Z",
+                      "practitioner_name":"Dr. Iyer"}]}"""
+            backend.on("$SUNRISE/api/v1/appointments", { json(overlapping, HttpStatusCode.Created) })
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("appointments.write"))
+            val holder = BookingStateHolder(clinic, "p1", day, this)
+            holder.chooseSlot(holder.state.first { it.slots.isNotEmpty() }.slots[0])
+            holder.book()
+            val done = holder.state.first { it.booked != null }
+            assertEquals(
+                listOf(
+                    BookingOverlap(LocalTime(9, 45), LocalTime(10, 15), "Dr. Rao", "Chair 2"),
+                    BookingOverlap(LocalTime(10, 10), LocalTime(10, 40), "Dr. Iyer", null),
+                ),
+                done.overlaps,
+            )
         }
 
     @Test

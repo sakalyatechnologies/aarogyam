@@ -70,3 +70,6 @@ This file is how work resumes after a usage-limit stop: a new worker reads it an
 - Clinical: `openAnalytics()` is a coming-soon page until the new analytics (`v11-analytics`) is ported.
 - `SignInScreen.kt` (shell) vs `v11-store`'s compile fix: keep the shell's, with the Password step.
 - Run the full gate after each merge; push only when it is green.
+
+## Analytics (v11-and-analytics worktree)
+Done: `ui/clinical/AnalyticsScreen.kt` + `ui/analytics/*` (range chips and Material3 pickers, KPIs, money, categories, patients, chairs, donut, heat, sources, procedures, radar, age, sex, lab; all states), strings `strings_analytics.xml` (en/hi/mr, generator in the worker scratchpad `analytics/gen_strings.py`), JVM `AnalyticsFormatTest`. Charts are Canvas (the kit has none). Left: visual check.

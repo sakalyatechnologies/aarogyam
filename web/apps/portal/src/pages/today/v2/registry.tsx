@@ -33,7 +33,7 @@ import { Bars, StatusChip } from "../../../components/mk/index.js";
 import { useClinic } from "../../../clinic.js";
 import { APPOINTMENT_CHIP } from "../../../lib/appointment-status.js";
 import { displayName } from "../../../lib/patients.js";
-import { usePatientPeek } from "../../../layout/peek.js";
+import { useOpenPatient } from "../../../layout/peek.js";
 import { useStaff } from "../../../queries.js";
 import { useLowStock } from "../../stock/queries.js";
 import { useTodayMoney } from "../../billing/queries.js";
@@ -68,7 +68,7 @@ function AppointmentsWidget({ opts, spec }: WidgetProps) {
   const { date } = useBoard();
   const day = useDayToday(date);
   const zone = useZone();
-  const peek = usePatientPeek();
+  const peek = useOpenPatient();
   const asTable = opts["view"] !== "list";
   return (
     <WidgetCard
@@ -184,7 +184,7 @@ function TimelineWidget({ spec }: WidgetProps) {
   const { date } = useBoard();
   const day = useDayToday(date);
   const zone = useZone();
-  const peek = usePatientPeek();
+  const peek = useOpenPatient();
   return (
     <WidgetCard title={spec.label} subtitle="The day hour by hour">
       <Body query={day} label={spec.label} isEmpty={(t) => t.appointments.length === 0} empty={<Empty title={COPY.calmDay} />}>

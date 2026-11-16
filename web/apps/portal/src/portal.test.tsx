@@ -275,7 +275,8 @@ describe("Patient 360", () => {
       path = `/patients/${patient?.id ?? ""}`;
     });
     renderPortal(path, { as: PEOPLE.farah, backend });
-    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(await screen.findByRole("button", { name: "More" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Edit/ }));
     const name = await screen.findByLabelText(/full name/i);
     await user.clear(name);
     await user.type(name, "Updated Patient Name");
@@ -294,7 +295,8 @@ describe("Patient 360", () => {
       path = `/patients/${patient?.id ?? ""}`;
     });
     renderPortal(path, { as: PEOPLE.farah, backend });
-    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(await screen.findByRole("button", { name: "More" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Edit/ }));
     await screen.findByLabelText(/full name/i);
     expect(screen.queryByLabelText(/mobile/i)).toBeNull();
     expect(screen.queryByLabelText(/email/i)).toBeNull();

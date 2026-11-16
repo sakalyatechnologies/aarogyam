@@ -67,11 +67,13 @@ describe("Patient summary", () => {
     expect(await screen.findByText("No recalls due")).toBeTruthy();
   });
 
-  it("opens booking with this patient chosen from the Follow-up button", async () => {
+  it("opens booking with this patient chosen from Follow-up under More", async () => {
     const user = userEvent.setup();
     const { path, backend } = billedPatient();
     const { router } = renderPortal(path, { as: PEOPLE.asha, backend });
-    await user.click(await screen.findByRole("button", { name: /Follow-up/ }));
+    // Follow-up is a secondary action: it sits under More, so the one primary step stays obvious.
+    await user.click(await screen.findByRole("button", { name: "More" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Follow-up/ }));
     // The page's code loads on first visit, so the navigation lands a moment later.
     await waitFor(() => { expect(router.state.location.pathname).toBe("/calendar"); });
     const dialog = await screen.findByRole("dialog", { name: "New appointment" });

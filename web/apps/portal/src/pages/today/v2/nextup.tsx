@@ -10,7 +10,7 @@ import { AppointmentActionButton } from "../../../components/appointment-action.
 import { MkAvatar } from "../../../components/mk/index.js";
 import { useClinic } from "../../../clinic.js";
 import { displayName, patientPath } from "../../../lib/patients.js";
-import { usePatientPeek } from "../../../layout/peek.js";
+import { useCanLinkPatient, usePatientPeek } from "../../../layout/peek.js";
 import { useBoard } from "./board-context.js";
 import { useDayToday } from "./queries.js";
 import { KIND_LABEL, seeingOrder, useZone, type Appointment } from "./seeing.js";
@@ -36,6 +36,7 @@ function eyebrowOf(a: Appointment, index: number, zone: string): string {
 /** The next or ongoing patient as a wide dark card, with arrows to look at the next few. */
 function Hero({ today, count, label }: { today: Today; count: number; label: string }) {
   const { can } = useClinic();
+  const linkable = useCanLinkPatient();
   const zone = useZone();
   const peek = usePatientPeek();
   const list = seeingOrder(today).slice(0, count);
@@ -90,7 +91,13 @@ function Hero({ today, count, label }: { today: Today; count: number; label: str
             <MkAvatar name={a.patient.full_name} size="pa" />
             <div className="tv2-hero-text">
               <p className="tv2-hero-name">
-                <span>{displayName(a.patient.full_name)}</span>
+                {linkable ? (
+                  <Link to={patientPath(a.patient)} className="tv2-hero-link">
+                    {displayName(a.patient.full_name)}
+                  </Link>
+                ) : (
+                  <span>{displayName(a.patient.full_name)}</span>
+                )}
                 <span className="tv2-hero-badge">{TYPE_LABEL[a.patient_type]}</span>
               </p>
               <p className="tv2-hero-sub">
@@ -107,7 +114,7 @@ function Hero({ today, count, label }: { today: Today; count: number; label: str
                 ))}
             </div>
             <div className="tv2-hero-actions">
-              <AppointmentActionButton appointment={a} className="tv2-hero-start" label={(step) => (a.status === "arrived" ? "Start" : step)} />
+              <AppointmentActionButton appointment={a} className="tv2-hero-start" label={(step) => (a.status === "arrived" && can("clinical.write") ? "Start" : step)} />
               {can("patients.read") ? (
                 <Link to={patientPath(a.patient)} className="tv2-hero-file">
                   File
@@ -134,6 +141,7 @@ function Hero({ today, count, label }: { today: Today; count: number; label: str
 /** Next up: a wide hero in the main area or top strip; the small carousel in the side column. */
 export function NextupWidget({ opts, spec, zone: place }: WidgetProps) {
   const { date } = useBoard();
+  const linkable = useCanLinkPatient();
   const day = useDayToday(date);
   const zone = useZone();
   const peek = usePatientPeek();
@@ -161,7 +169,15 @@ export function NextupWidget({ opts, spec, zone: place }: WidgetProps) {
                     <MkAvatar name={a.patient.full_name} />
                     <div className="tv2-next-text">
                       <p className="tv2-eyebrow">{eyebrowOf(a, index, zone)}</p>
-                      <p className="tv2-name">{displayName(a.patient.full_name)}</p>
+                      <p className="tv2-name">
+                        {linkable ? (
+                          <Link to={patientPath(a.patient)} className="tv2-hero-link">
+                            {displayName(a.patient.full_name)}
+                          </Link>
+                        ) : (
+                          displayName(a.patient.full_name)
+                        )}
+                      </p>
                       <p className="tv2-sub">{detailOf(a)}</p>
                     </div>
                     <div className="tv2-next-actions">

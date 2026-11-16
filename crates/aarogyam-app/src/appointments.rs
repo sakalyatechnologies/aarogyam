@@ -94,6 +94,9 @@ pub struct Saved {
     pub appointment: AppointmentView,
     /// Warnings, empty when all is well.
     pub warnings: Vec<Warning>,
+    /// The patient's other active appointments overlapping the new time; empty when none, or
+    /// when nothing about the time or doctor changed.
+    pub patient_overlaps: Vec<dal::PatientOverlap>,
 }
 
 /// Which appointments the calendar wants.
@@ -303,6 +306,28 @@ async fn warnings(
     Ok(warnings)
 }
 
+/// The patient's other active appointments overlapping `slot`; none when `check` is false (a
+/// note-only edit moved nothing, so there is nothing new to warn about).
+async fn clashes(
+    tx: &mut ScopedTx,
+    patient_id: Uuid,
+    slot: TimeSlot,
+    except: Uuid,
+    check: bool,
+) -> Result<Vec<dal::PatientOverlap>, AppError> {
+    if !check {
+        return Ok(Vec::new());
+    }
+    Ok(dal::patient_overlaps(
+        tx.conn(),
+        patient_id,
+        slot.starts_at(),
+        slot.ends_at(),
+        except,
+    )
+    .await?)
+}
+
 async fn reload(tx: &mut ScopedTx, id: Uuid, today: Date) -> Result<AppointmentView, AppError> {
     let row = dal::get(tx.conn(), id, None)
         .await?
@@ -410,9 +435,11 @@ pub async fn book(
             slot,
         )
         .await?;
+        let patient_overlaps = clashes(tx, input.patient_id.uuid(), slot, id, true).await?;
         Ok(Saved {
             appointment: reload(tx, id, today).await?,
             warnings,
+            patient_overlaps,
         })
     })
     .await
@@ -563,10 +590,9 @@ pub async fn change(
             None => current.practitioner_id,
         };
         // Only a move to another doctor or time is refused; a note on an existing booking isn't.
-        if practitioner_id != current.practitioner_id
-            || slot.starts_at() != current.starts_at
-            || slot.ends_at() != current.ends_at
-        {
+        let moved = (practitioner_id, slot.starts_at(), slot.ends_at())
+            != (current.practitioner_id, current.starts_at, current.ends_at);
+        if moved {
             refuse_on_leave(tx, practitioner_id, slot).await?;
         }
         let (room_id, branch_id) = match input.room_id {
@@ -618,6 +644,7 @@ pub async fn change(
         Ok(Saved {
             appointment: reload(tx, current.id, today).await?,
             warnings,
+            patient_overlaps: clashes(tx, current.patient_id, slot, current.id, moved).await?,
         })
     })
     .await
@@ -630,6 +657,8 @@ pub struct StatusChanged {
     pub appointment: AppointmentView,
     /// The queue token's id, once the patient has arrived.
     pub token_id: Option<Uuid>,
+    /// After a move: the patient's other active appointments overlapping the new time.
+    pub patient_overlaps: Vec<dal::PatientOverlap>,
 }
 
 /// What a status request comes to for an appointment, by the transition table.
@@ -760,6 +789,7 @@ pub(crate) async fn status_changed(
     Ok(StatusChanged {
         appointment: reload(tx, id, today).await?,
         token_id,
+        patient_overlaps: Vec::new(),
     })
 }
 
@@ -825,6 +855,7 @@ pub async fn set_status_with(
             return Ok(Moved::AlreadyDone(StatusChanged {
                 token_id: row.token_id,
                 appointment: AppointmentView::new(row, today),
+                patient_overlaps: Vec::new(),
             }));
         }
         let profile = clinic::profile(tx.conn())
@@ -892,6 +923,7 @@ pub async fn set_status_with(
         Ok(Moved::Done(StatusChanged {
             appointment: reload(tx, current.id, today).await?,
             token_id,
+            patient_overlaps: Vec::new(),
         }))
     })
     .await
@@ -1033,7 +1065,9 @@ pub async fn move_to(
             )
             .await?;
         }
-        status_changed(tx, current.id, today).await
+        let mut changed = status_changed(tx, current.id, today).await?;
+        changed.patient_overlaps = clashes(tx, current.patient_id, slot, current.id, true).await?;
+        Ok(changed)
     })
     .await
 }

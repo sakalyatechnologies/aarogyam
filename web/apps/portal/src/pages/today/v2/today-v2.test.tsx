@@ -205,7 +205,7 @@ describe("next up", () => {
     const hero = await screen.findByRole("region", { name: "Next up" });
     const user = userEvent.setup();
     const eyebrow = () => hero.querySelector(".tv2-hero-eyebrow")?.textContent ?? "";
-    const name = () => hero.querySelector(".tv2-hero-name span")?.textContent ?? "";
+    const name = () => hero.querySelector(".tv2-hero-name > :first-child")?.textContent ?? "";
     const first = name();
     expect(eyebrow()).toMatch(/^(In the chair|Next up) · /);
     expect(within(hero).getByRole("button", { name: "Previous patient" }).hasAttribute("disabled")).toBe(true);

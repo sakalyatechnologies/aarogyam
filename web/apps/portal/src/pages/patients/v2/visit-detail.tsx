@@ -12,12 +12,14 @@ import { Empty, Tag, statusTone } from "../../../components/mk/index.js";
 import { SkeletonRows } from "../../../components/skeleton-rows.js";
 import { useClinic } from "../../../clinic.js";
 import { useVisit } from "../../../queries.js";
+import { vitalsOf } from "../../visits/vitals.js";
 import { FINDING_STYLE, surfaceLabel } from "../../visits/odontogram/model.js";
 import { useInvoices, usePayments } from "../../billing/queries.js";
 import { usePrescriptions } from "../../prescriptions/queries.js";
 import { RecordingPlayer } from "../../visits/voice/recording-player.js";
 import { ImageGrid, isGalleryFile } from "./images.js";
 import { splitNote } from "./note-lines.js";
+import { VitalChips } from "./vitals-block.js";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -79,8 +81,9 @@ export function VisitDetail({ patientId, visit, onClose }: { patientId: PatientI
   const entries = currentEntries(detail.data?.chart_entries ?? []);
   const treated = entries.length + (detail.data?.procedures.length ?? 0);
   const noted = (detail.data?.notes ?? []).map((note) => ({ note, parts: splitNote(note.sections) })).filter(({ parts }) => parts.voice.length + parts.other.length > 0);
+  const vitals = detail.data?.observations ?? [];
   const waiting = detail.isPending || prescriptions.isLoading || invoices.isLoading || payments.isLoading;
-  const empty = !waiting && !detail.isError && noted.length === 0 && recordings.length === 0 && treated === 0 && rxs.length === 0 && images.length === 0 && bills.length === 0;
+  const empty = !waiting && !detail.isError && noted.length === 0 && recordings.length === 0 && treated === 0 && vitalsOf(vitals).length === 0 && rxs.length === 0 && images.length === 0 && bills.length === 0;
 
   return (
     <Drawer
@@ -102,10 +105,15 @@ export function VisitDetail({ patientId, visit, onClose }: { patientId: PatientI
           <ApiErrorNotice title="Couldn't load this visit" error={detail.error} onRetry={() => void detail.refetch()} />
         ) : empty ? (
           <Empty art="notes" title="Nothing was recorded in this visit">
-            No treatment, note, prescription, image or bill was saved with it. Anything recorded later will show here.
+            No vitals, treatment, note, prescription, image or bill was saved with it. Anything recorded later will show here.
           </Empty>
         ) : (
           <>
+            {vitalsOf(vitals).length === 0 ? null : (
+              <Section title="Vitals">
+                <VitalChips observations={vitals} />
+              </Section>
+            )}
             <Section title="Treatments">
               {treated === 0 ? (
                 <p className="mk-hint">No treatments recorded.</p>

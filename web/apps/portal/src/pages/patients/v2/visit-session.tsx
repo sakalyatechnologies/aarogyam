@@ -21,6 +21,8 @@ import {
   type VisitId,
 } from "@aarogyam/api-client";
 
+import { useOpenAppointment } from "../../../components/appointment-action.js";
+import { StartBlocked, useStartAppointmentVisit } from "../../../components/start-appointment-visit.js";
 import { useClinic } from "../../../clinic.js";
 import { useStartVisit, useVisit, useVisits } from "../../../queries.js";
 import { useCreatePrescription, useLastPrescription, usePrescriptions } from "../../prescriptions/queries.js";
@@ -67,6 +69,10 @@ export interface VisitSession {
   visitLoading: boolean;
   startVisit: () => void;
   starting: boolean;
+  /** Today's appointment for this patient that is still open, if any: Start visit links the visit to it. */
+  appointment: ReturnType<typeof useOpenAppointment>;
+  /** The appointment's visit when it is already finished and the appointment waits on payment: never start another. */
+  finishedVisit: Visit | undefined;
   procedures: readonly Procedure[];
   note: {
     hasDraft: boolean;
@@ -161,6 +167,10 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
   const visit = visits.data?.items.find((v) => v.status === "open");
   const detail = useVisit(visit?.id).data;
   const startVisitMutation = useStartVisit(patientId);
+  const appointment = useOpenAppointment(patientId);
+  const startAppointmentVisit = useStartAppointmentVisit();
+  const finishedVisit =
+    visit === undefined && appointment !== undefined ? visits.data?.items.find((v) => v.appointment_id === appointment.id && v.status === "closed") : undefined;
 
   const refreshRecord = useCallback(
     (visitId: VisitId) => {
@@ -378,16 +388,18 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
     visitLoading: canClinical && visits.isPending,
     startVisit: () => {
       setError(undefined);
-      startVisitMutation.mutate(
-        {},
-        {
-          onError: (thrown) => {
-            setError(apiErrorOf(thrown)?.message ?? "Couldn't start a visit.");
-          },
-        },
-      );
+      const onError = (thrown: unknown) => {
+        setError(thrown instanceof StartBlocked ? thrown.message : (apiErrorOf(thrown)?.message ?? "Couldn't start a visit."));
+      };
+      if (appointment !== undefined) {
+        startAppointmentVisit.mutateAsync(appointment).then(() => undefined, onError);
+        return;
+      }
+      startVisitMutation.mutate({}, { onError });
     },
-    starting: startVisitMutation.isPending,
+    starting: startVisitMutation.isPending || startAppointmentVisit.isPending,
+    appointment,
+    finishedVisit,
     procedures: detail?.procedures ?? [],
     note: {
       hasDraft: draftNote !== undefined,

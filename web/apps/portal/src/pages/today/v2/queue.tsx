@@ -4,7 +4,7 @@ import { formatRupees, formatTime } from "@aarogyam/app-kit";
 
 import { MkAvatar } from "../../../components/mk/index.js";
 import { displayName } from "../../../lib/patients.js";
-import { usePatientPeek } from "../../../layout/peek.js";
+import { useOpenPatient } from "../../../layout/peek.js";
 import { waitingMinutes } from "../today-page.js";
 import { useBoard } from "./board-context.js";
 import { useShowMoney } from "./money.js";
@@ -36,7 +36,7 @@ export function QueueWidget({ spec }: WidgetProps) {
   const [showMoney] = useShowMoney();
   const day = useDayToday(date);
   const zone = useZone();
-  const peek = usePatientPeek();
+  const peek = useOpenPatient();
   const missed = useMissed(date, can("appointments.read"));
   const live = date === undefined || date === todayIso;
   return (

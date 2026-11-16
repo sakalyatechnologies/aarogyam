@@ -170,6 +170,7 @@ describe("Visit detail shows what was done", () => {
       fixtures.prescriptions = [];
       fixtures.procedures = [];
       fixtures.invoices = [];
+      fixtures.observations = [];
     });
     renderPortal(path, { as: PEOPLE.asha, backend });
     const card = await openRecords(user, "console");

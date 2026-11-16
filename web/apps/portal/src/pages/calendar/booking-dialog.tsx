@@ -2,7 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
 import { apiErrorOf, patientId as patientIdSchema, practitionerId as practitionerIdSchema, type Patient, type PractitionerPage, type RoomPage } from "@aarogyam/api-client";
-import { Button, Dialog, Field, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, Select, Switch, TextArea, TextInput, useToast } from "@sakalya/ui";
 
 import { DatePicker } from "../../components/mk/date-picker.js";
 import { TimeSlotPicker } from "../../components/mk/time-slots.js";
@@ -14,6 +14,7 @@ import { useTimeOff } from "../../lib/time-off-queries.js";
 import { isAway } from "./away.js";
 import { useAppointments, useBookAppointment, usePatient, useWorkingHours } from "../../queries.js";
 import { BookingPatient } from "./booking-patient.js";
+import { PatientOverlapNotice, clashSentence, clashesFromServer, patientOverlaps } from "./patient-overlap.js";
 
 const DURATIONS = [15, 20, 30, 45, 60, 90] as const;
 const KINDS = [
@@ -48,7 +49,10 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
     setCleared(next === undefined);
   };
   const [practitionerId, setPractitionerId] = useState("");
-  const [roomId, setRoomId] = useState("");
+  const [assignChair, setAssignChair] = useState(false);
+  const [chosenRoomId, setRoomId] = useState("");
+  // A chair counts only while the switch is on.
+  const roomId = assignChair ? chosenRoomId : "";
   // Until the person picks a day, follow the calendar's.
   const [chosenDate, setChosenDate] = useState<string | undefined>(undefined);
   const date = chosenDate ?? defaultDate;
@@ -86,6 +90,9 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
     slotStart !== undefined &&
     slotEnd !== undefined &&
     (day.data?.items ?? []).some((a) => a.practitioner.id === id && a.status !== "cancelled" && a.status !== "no_show" && Date.parse(a.starts_at) < Date.parse(slotEnd) && Date.parse(slotStart) < Date.parse(a.ends_at));
+  // While the day's list is loading (or still the previous day's), the patient's clashes are unknown, not absent.
+  const checkingOverlaps = patient !== undefined && (day.isPending || day.isPlaceholderData);
+  const overlaps = patient === undefined || checkingOverlaps ? [] : patientOverlaps(day.data?.items ?? [], patient.id, slotStart, slotEnd);
   const freeDoctors = practitioners.filter((p) => p.active && p.id !== practitionerId && !awayAt(p.id) && !busyAt(p.id));
   const chosenAway = practitionerId !== "" && awayAt(practitionerId);
   const [refused, setRefused] = useState(false);
@@ -96,6 +103,7 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
     setCleared(false);
     setPractitionerId("");
     setRoomId("");
+    setAssignChair(false);
     setChosenDate(undefined);
     setStartTime("09:00");
     setDuration(30);
@@ -134,8 +142,10 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
       },
       {
         onSuccess: (saved) => {
-          if (saved.warnings.length > 0) {
-            toast.show({ title: saved.warnings.map((w) => w.message).join(" "), tone: "warning" });
+          // The server's answer is the authority: it sees what this page couldn't (another desk, a narrower role).
+          const notes = [...saved.warnings.map((w) => w.message), ...clashesFromServer(saved.patient_overlaps).map((c) => clashSentence(c, patient.full_name, timeZone))];
+          if (notes.length > 0) {
+            toast.show({ title: notes.join(" "), tone: "warning" });
           } else {
             toast.show({ title: "Appointment booked", tone: "success" });
           }
@@ -170,7 +180,7 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
             Cancel
           </Button>
           <Button onClick={submit} disabled={!canSubmit || book.isPending}>
-            {book.isPending ? "Booking…" : "Book appointment"}
+            {book.isPending ? "Booking…" : overlaps.length > 0 ? "Book anyway" : "Book appointment"}
           </Button>
         </>
       }
@@ -183,9 +193,14 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
             <Field label="Doctor" required>
               <Select options={practitioners.map((p) => ({ value: p.id, label: awayAt(p.id) ? `${p.display_name} (Away)` : p.display_name }))} value={practitionerId} onValueChange={(value) => { setPractitionerId(value); setRefused(false); setError(undefined); }} placeholder="Choose a doctor" />
             </Field>
-            <Field label="Chair">
-              <Select options={rooms.map((r) => ({ value: r.id, label: r.name }))} value={roomId} onValueChange={setRoomId} placeholder="Any chair" />
-            </Field>
+            <div className="flex flex-col gap-2">
+              <Switch label="Assign a chair" checked={assignChair} onCheckedChange={setAssignChair} />
+              {assignChair ? (
+                <Field label="Chair" hideLabel>
+                  <Select options={rooms.map((r) => ({ value: r.id, label: r.name }))} value={chosenRoomId} onValueChange={setRoomId} placeholder="Choose a chair" />
+                </Field>
+              ) : null}
+            </div>
           </div>
         </section>
 
@@ -250,6 +265,13 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
             emptyNote={doctor.success ? "No free times that day. Type a custom time above." : "Choose a doctor to see their free times, or type a time above."}
           />
         </section>
+
+        {patient === undefined ? null : <PatientOverlapNotice overlaps={overlaps} patientName={patient.full_name} timeZone={timeZone} action="Book anyway" />}
+        {checkingOverlaps ? (
+          <p role="status" className="text-xs text-muted">
+            Checking {patient.full_name.split(" ")[0]}'s other appointments…
+          </p>
+        ) : null}
 
         <Field label="Kind">
           <Select options={KINDS} value={kind} onValueChange={setKind} />

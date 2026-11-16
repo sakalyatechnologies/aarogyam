@@ -81,7 +81,7 @@
         "tags": [
           "appointments"
         ],
-        "summary": "Books an appointment. Two active bookings can't overlap in one chair (`409`); a doctor\nbooked in another chair at the same time, on leave, or outside their hours is allowed, with\n`warnings`.",
+        "summary": "Books an appointment. Two active bookings can't overlap in one chair (`409`); a doctor\nbooked in another chair at the same time, or outside their hours, is allowed, with\n`warnings`; so is a patient who already has an active appointment then, listed in\n`patient_overlaps`. A doctor on leave is refused.",
         "operationId": "bookAppointment",
         "requestBody": {
           "content": {
@@ -32582,6 +32582,41 @@
           }
         }
       },
+      "PatientOverlap": {
+        "type": "object",
+        "description": "Another appointment of the same patient at the same time, with any doctor or chair.",
+        "required": [
+          "appointment_id",
+          "starts_at",
+          "ends_at",
+          "practitioner_name"
+        ],
+        "properties": {
+          "appointment_id": {
+            "type": "string",
+            "description": "The other appointment."
+          },
+          "ends_at": {
+            "type": "string",
+            "description": "Its end (RFC 3339, UTC)."
+          },
+          "practitioner_name": {
+            "type": "string",
+            "description": "The doctor it is with."
+          },
+          "room_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The chair or room, if any."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "Its start (RFC 3339, UTC)."
+          }
+        }
+      },
       "PatientPrescription": {
         "type": "object",
         "description": "One of the patient's issued prescriptions.",
@@ -36159,6 +36194,13 @@
             "$ref": "#/components/schemas/Appointment",
             "description": "The appointment."
           },
+          "patient_overlaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientOverlap"
+            },
+            "description": "The patient's other active appointments overlapping this time, with any doctor or\nchair. Left out when there are none, or when an edit changed neither time nor doctor."
+          },
           "warnings": {
             "type": "array",
             "items": {
@@ -38100,6 +38142,13 @@
           "appointment": {
             "$ref": "#/components/schemas/Appointment",
             "description": "The appointment."
+          },
+          "patient_overlaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientOverlap"
+            },
+            "description": "After a move: the patient's other active appointments overlapping the new time.\nLeft out when there are none."
           },
           "queue_token_id": {
             "type": [

@@ -630,15 +630,31 @@ export type TokenStatusChange = C.TokenStatusChange;
 /** Body of `POST /api/v1/appointments/{id}/check-in`. Every field is optional. */
 export type CheckInRequest = C.CheckInRequest;
 
-export const bookingWarning = z.object({ code: bookingWarningCode, message: z.string() }) satisfies z.ZodType<C.BookingWarning>;
+/** A code this build doesn't know (a newer server) still parses: the booking was saved, so the answer must not be refused. */
+export const bookingWarning = z.object({ code: z.union([bookingWarningCode, z.string()]), message: z.string() }) satisfies z.ZodType<C.BookingWarning>;
 export type BookingWarning = z.output<typeof bookingWarning>;
 
-export const savedAppointment = z.object({ appointment, warnings: z.array(bookingWarning) }) satisfies z.ZodType<C.SavedAppointment>;
+/** The patient's other active appointment overlapping a booked or moved time, with any doctor or chair. */
+export const patientOverlap = z.object({
+  appointment_id: appointmentId,
+  starts_at: timestamp,
+  ends_at: timestamp,
+  practitioner_name: z.string(),
+  room_name: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.PatientOverlap>;
+export type PatientOverlap = z.output<typeof patientOverlap>;
+
+export const savedAppointment = z.object({
+  appointment,
+  warnings: z.array(bookingWarning),
+  patient_overlaps: z.array(patientOverlap).exactOptional(),
+}) satisfies z.ZodType<C.SavedAppointment>;
 export type SavedAppointment = z.output<typeof savedAppointment>;
 
 export const statusChanged = z.object({
   appointment,
   queue_token_id: queueTokenId.nullable().exactOptional(),
+  patient_overlaps: z.array(patientOverlap).exactOptional(),
 }) satisfies z.ZodType<C.StatusChanged>;
 export type StatusChanged = z.output<typeof statusChanged>;
 

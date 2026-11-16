@@ -26,7 +26,7 @@ import { coverText } from "../stock/projection.js";
 import { AppointmentActionButton, nextAction } from "../../components/appointment-action.js";
 import { APPOINTMENT_CHIP } from "../../lib/appointment-status.js";
 import { useClinic } from "../../clinic.js";
-import { usePatientPeek } from "../../layout/peek.js";
+import { useCanLinkPatient, useOpenPatient } from "../../layout/peek.js";
 import { DayTimeline } from "./day-timeline.js";
 import { FinishSetupCard } from "../setup/finish-card.js";
 import { displayName, patientPath } from "../../lib/patients.js";
@@ -115,7 +115,7 @@ function todayContent(today: ReturnType<typeof useToday>, timeZone: string, show
 function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: string; showMoney: boolean }) {
   const { session, can } = useClinic();
   const money = useTodayMoney(showMoney);
-  const peek = usePatientPeek();
+  const peek = useOpenPatient();
   // The front desk (no clinical access) sees arrivals and checks people in; clinicians see their next consultation.
   const frontDesk = !can("clinical.read");
   const booked = today.appointments.filter((a) => a.status !== "cancelled");
@@ -318,6 +318,7 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
  */
 function NextCard({ target, frontDesk, current, today, timeZone }: { target: TodayAppointment | undefined; frontDesk: boolean; current: boolean; today: Today; timeZone: string }) {
   const { can } = useClinic();
+  const linkable = useCanLinkPatient();
   const ring = (
     <ProgressRing
       value={today.counts.done}
@@ -347,7 +348,7 @@ function NextCard({ target, frontDesk, current, today, timeZone }: { target: Tod
     <HeroCard
       label={frontDesk ? "Next arrival" : current ? "Current consultation" : "Next consultation"}
       eyebrow={`${frontDesk ? "Next arrival" : current ? "Now in clinic" : "Next consultation"} · ${formatTime(target.starts_at, timeZone)}`}
-      title={displayName(target.patient.full_name)}
+      title={linkable ? <Link to={patientPath(target.patient)} className="mk-hero-name">{displayName(target.patient.full_name)}</Link> : displayName(target.patient.full_name)}
       detail={[target.reason, target.room, target.practitioner.display_name].filter((part) => part != null && part !== "").join(" · ")}
       meta={`${target.patient.number} · ${APPOINTMENT_CHIP[target.status].label}`}
       ring={ring}
@@ -556,7 +557,7 @@ export function ChairStatus({ chairs, timeZone }: { chairs: readonly TodayChair[
 }
 
 export function RecentPatients({ tokens, appointments, pending }: { tokens: readonly TodayQueueToken[]; appointments: Today["appointments"]; pending: readonly PendingItem[] }) {
-  const peek = usePatientPeek();
+  const peek = useOpenPatient();
   if (tokens.length === 0) {
     return <Empty art="queue" title="Nobody has come in yet">Patients who arrive today will show here.</Empty>;
   }

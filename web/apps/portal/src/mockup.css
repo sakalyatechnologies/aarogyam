@@ -143,6 +143,8 @@
 .mk-hero > * { position: relative; }
 .mk-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--on-brand); }
 .mk-hero h1 { font-family: "Newsreader", Georgia, serif; font-weight: 600; font-size: clamp(30px, 4vw, 44px); letter-spacing: -.02em; margin: 8px 0 6px; line-height: 1.15; }
+.mk-hero .mk-hero-name { color: inherit; text-decoration: none; }
+.mk-hero .mk-hero-name:hover, .mk-hero .mk-hero-name:focus-visible { text-decoration: underline; }
 .mk-hero p { margin: 0; color: var(--on-brand); font-size: 14.5px; max-width: 56ch; }
 .mk-hero-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
 .mk-hero .mk-btn-primary { background: var(--on-brand); color: var(--brand2); box-shadow: 0 8px 20px rgba(0,0,0,.25); }

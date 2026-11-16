@@ -66,6 +66,45 @@ describe("finishing a visit (fake, same contract as the API)", () => {
   });
 });
 
+describe("a visit started from an appointment (fake, same contract as the API)", () => {
+  it("links the visit to the appointment and its token, and finishing completes both (ready to bill keeps the chair until paid)", async () => {
+    for (const queueStatus of ["done", "ready_to_bill"] as const) {
+      const { as } = setup();
+      const owner = as(ASHA);
+      const today = value(await owner.getToday());
+      const booked = today.appointments.find((a) => a.status === "confirmed" || a.status === "booked");
+      if (booked === undefined) throw new Error("fixtures hold no open appointment");
+      const arrived = value(await owner.setAppointmentStatus(booked.id, { status: "arrived" }));
+      const tokenId = arrived.queue_token_id;
+      if (tokenId == null) throw new Error("check-in issues a token");
+      const started = value(await owner.startVisitFromQueue(tokenId));
+      expect(started.created).toBe(true);
+      expect(started.visit.appointment_id).toBe(booked.id);
+      // A second start returns the same visit: never two for one appointment.
+      const again = value(await owner.startVisitFromQueue(tokenId));
+      expect(again.created).toBe(false);
+      expect(again.visit.id).toBe(started.visit.id);
+      const statusOf = async () => value(await owner.getToday()).appointments.find((a) => a.id === booked.id)?.status;
+      expect(await statusOf()).toBe("in_chair");
+      value(await owner.finishVisit(started.visit.id, { queue_status: queueStatus }));
+      expect(await statusOf()).toBe(queueStatus === "done" ? "completed" : "in_chair");
+    }
+  });
+});
+
+describe("one visit per appointment (fake)", () => {
+  it("refuses a second visit for an appointment, open or closed", async () => {
+    const { as } = setup();
+    const owner = as(ASHA);
+    const booked = value(await owner.getToday()).appointments[0];
+    if (booked === undefined) throw new Error("fixtures hold no appointment");
+    const first = value(await owner.startVisit(booked.patient.id, { appointment_id: booked.id }));
+    expect(errorOf(await owner.startVisit(booked.patient.id, { appointment_id: booked.id }))?.status).toBe(409);
+    value(await owner.closeVisit(first.id));
+    expect(errorOf(await owner.startVisit(booked.patient.id, { appointment_id: booked.id }))?.status).toBe(409);
+  });
+});
+
 describe("share links (fake)", () => {
   it("opens a visit summary with its PIN, for visit links only, and checks hours and channel", async () => {
     const { as } = setup();

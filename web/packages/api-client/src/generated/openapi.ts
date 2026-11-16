@@ -16,8 +16,9 @@ export interface paths {
         put?: never;
         /**
          * Books an appointment. Two active bookings can't overlap in one chair (`409`); a doctor
-         *     booked in another chair at the same time, on leave, or outside their hours is allowed, with
-         *     `warnings`.
+         *     booked in another chair at the same time, or outside their hours, is allowed, with
+         *     `warnings`; so is a patient who already has an active appointment then, listed in
+         *     `patient_overlaps`. A doctor on leave is refused.
          */
         post: operations["bookAppointment"];
         delete?: never;
@@ -11508,6 +11509,19 @@ export interface components {
             /** @description Visit notes, newest first (up to 100), limited to those the caller's role reaches. */
             visit_notes: components["schemas"]["VisitNote"][];
         };
+        /** @description Another appointment of the same patient at the same time, with any doctor or chair. */
+        PatientOverlap: {
+            /** @description The other appointment. */
+            appointment_id: string;
+            /** @description Its end (RFC 3339, UTC). */
+            ends_at: string;
+            /** @description The doctor it is with. */
+            practitioner_name: string;
+            /** @description The chair or room, if any. */
+            room_name?: string | null;
+            /** @description Its start (RFC 3339, UTC). */
+            starts_at: string;
+        };
         /** @description One of the patient's issued prescriptions. */
         PatientPrescription: {
             /** @description Advice as printed. */
@@ -12904,6 +12918,11 @@ export interface components {
         SavedAppointment: {
             /** @description The appointment. */
             appointment: components["schemas"]["Appointment"];
+            /**
+             * @description The patient's other active appointments overlapping this time, with any doctor or
+             *     chair. Left out when there are none, or when an edit changed neither time nor doctor.
+             */
+            patient_overlaps?: components["schemas"]["PatientOverlap"][];
             /** @description Warnings; empty when all is well. */
             warnings: components["schemas"]["BookingWarning"][];
         };
@@ -13720,6 +13739,11 @@ export interface components {
         StatusChanged: {
             /** @description The appointment. */
             appointment: components["schemas"]["Appointment"];
+            /**
+             * @description After a move: the patient's other active appointments overlapping the new time.
+             *     Left out when there are none.
+             */
+            patient_overlaps?: components["schemas"]["PatientOverlap"][];
             /** @description Its queue token, once the patient has arrived. */
             queue_token_id?: string | null;
         };

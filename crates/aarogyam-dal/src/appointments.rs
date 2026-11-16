@@ -73,7 +73,8 @@ pub struct AppointmentRow {
     pub token_id: Option<Uuid>,
     /// Goes up when the appointment changes; edits send it back to detect a stale copy.
     pub row_version: i64,
-    /// `new` without an earlier completed visit or appointment at this clinic, else `follow_up`.
+    /// `follow_up` when the patient has a closed visit, a completed appointment or an imported last
+    /// visit before this appointment starts, else `new`.
     #[serde(default)]
     pub patient_type: String,
 }
@@ -104,6 +105,10 @@ pub async fn list(
                                     where v.org_id = a.org_id and v.patient_id = a.patient_id
                                       and v.status = 'closed' and v.started_at < a.starts_at
                                       and v.appointment_id is distinct from a.id)
+                         or (p.last_visit_at < a.starts_at
+                             and not exists (select 1 from aarogyam.encounters i
+                                             where i.org_id = a.org_id and i.patient_id = a.patient_id
+                                               and i.started_at = p.last_visit_at))
                        then 'follow_up' else 'new' end as "patient_type!",
                   a.patient_id, p.number as patient_number, p.full_name as patient_name,
                   p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
@@ -155,6 +160,10 @@ pub async fn get(
                                     where v.org_id = a.org_id and v.patient_id = a.patient_id
                                       and v.status = 'closed' and v.started_at < a.starts_at
                                       and v.appointment_id is distinct from a.id)
+                         or (p.last_visit_at < a.starts_at
+                             and not exists (select 1 from aarogyam.encounters i
+                                             where i.org_id = a.org_id and i.patient_id = a.patient_id
+                                               and i.started_at = p.last_visit_at))
                        then 'follow_up' else 'new' end as "patient_type!",
                   a.patient_id, p.number as patient_number, p.full_name as patient_name,
                   p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
@@ -381,6 +390,54 @@ pub async fn practitioner_busy(
     .fetch_one(conn)
     .await?;
     Ok(busy)
+}
+
+/// Another appointment of the same patient that overlaps a new time.
+#[derive(Debug, Clone)]
+pub struct PatientOverlap {
+    /// The appointment.
+    pub id: Uuid,
+    /// Its start.
+    pub starts_at: OffsetDateTime,
+    /// Its end.
+    pub ends_at: OffsetDateTime,
+    /// The doctor's name.
+    pub practitioner_name: String,
+    /// The chair or room, if any.
+    pub room_name: Option<String>,
+}
+
+/// The patient's other active appointments overlapping `[starts_at, ends_at)`, with any doctor
+/// or chair. Active means not cancelled, no-show or completed.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn patient_overlaps(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    starts_at: OffsetDateTime,
+    ends_at: OffsetDateTime,
+    except: Uuid,
+) -> Result<Vec<PatientOverlap>, DbError> {
+    let rows = sqlx::query_as!(
+        PatientOverlap,
+        r#"select a.id, a.starts_at, a.ends_at, d.display_name as practitioner_name,
+                  r.name as "room_name?"
+           from aarogyam.appointments a
+           join aarogyam.practitioners d on d.org_id = a.org_id and d.id = a.practitioner_id
+           left join aarogyam.rooms r on r.org_id = a.org_id and r.id = a.room_id
+           where a.patient_id = $1 and a.id <> $4 and a.deleted_at is null
+             and a.status not in ('cancelled', 'no_show', 'completed')
+             and a.starts_at < $3 and a.ends_at > $2
+           order by a.starts_at, a.id"#,
+        patient_id,
+        starts_at,
+        ends_at,
+        except
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
 }
 
 /// Whether the doctor is on leave during any of `[starts_at, ends_at)`.

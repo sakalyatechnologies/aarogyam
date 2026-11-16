@@ -39,17 +39,7 @@ import type { FinishedRecording } from "./voice/use-voice-recorder.js";
 import { VoiceRecorder } from "./voice/voice-recorder.js";
 import { insertAt } from "./voice/dictation.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
-
-const OBSERVATION_KINDS: readonly { value: ObservationKind; label: string; unit: string }[] = [
-  { value: "bp_systolic", label: "BP systolic", unit: "mmHg" },
-  { value: "bp_diastolic", label: "BP diastolic", unit: "mmHg" },
-  { value: "pulse", label: "Pulse", unit: "/min" },
-  { value: "temperature", label: "Temperature", unit: "Cel" },
-  { value: "spo2", label: "SpO2", unit: "%" },
-  { value: "weight", label: "Weight", unit: "kg" },
-  { value: "height", label: "Height", unit: "cm" },
-  { value: "blood_sugar", label: "Blood sugar", unit: "mg/dL" },
-];
+import { OBSERVATION_KINDS, parseValue } from "./vitals.js";
 
 function parseIds(patientParam: string | undefined, visitParam: string | undefined): { patientId: PatientId; visitId: VisitId } | undefined {
   const patient = parsePatientId.safeParse(patientParam);
@@ -539,8 +529,8 @@ export function VitalsCard({
   const [value, setValue] = useState("");
 
   const submit = () => {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) {
+    const numeric = parseValue(value);
+    if (numeric === undefined) {
       return;
     }
     record.mutate(

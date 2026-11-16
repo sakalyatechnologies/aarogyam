@@ -134,6 +134,7 @@ val apiModels =
         "Availability",
         "Badges",
         "BookingWarning",
+        "PatientOverlap",
         "BusyHour",
         "CategorySpend",
         "ChairUtilization",

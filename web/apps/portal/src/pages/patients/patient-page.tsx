@@ -1,16 +1,17 @@
-import { CalendarPlus, ChevronLeft, Eye, EyeOff, Mail, Pencil, Phone, ShieldCheck, ShieldQuestion } from "lucide-react";
+import { CalendarPlus, ChevronLeft, CircleCheck, Eye, EyeOff, Mail, Pencil, Phone, ShieldCheck, ShieldQuestion, Stethoscope } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
-import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
+import { apiErrorOf, patientId, type Patient, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
-import { Tabs } from "@sakalya/ui";
+import { Menu, Tabs, type MenuItem } from "@sakalya/ui";
 
-import { AppointmentActionButton, isOpenAppointment } from "../../components/appointment-action.js";
+import { AppointmentActionButton, useOpenAppointment } from "../../components/appointment-action.js";
+import { StartBlocked, useStartAppointmentVisit } from "../../components/start-appointment-visit.js";
 import { Empty, Initials, ListRow, MkCard, Skeleton, StatusChip, Timeline } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { ageSex, displayName, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
-import { usePatient, useTimeline, useToday } from "../../queries.js";
+import { usePatient, useSetAppointmentStatus, useStartVisit, useTimeline, useVisits } from "../../queries.js";
 import { rememberPatient } from "../../lib/recent-patients.js";
 import { usePlans } from "../treatment-plans/queries.js";
 import { NotFoundPage } from "../not-found-page.js";
@@ -110,12 +111,28 @@ function PatientView({ patient }: { patient: Patient }) {
   // Without patients.contact the API sends contact details already masked: show them as they are.
   const revealable = can("patients.contact");
   const age = patient.age_years ?? null;
-  // Today's appointment for this patient that can still move along: the desk or the doctor takes the next step from here.
-  const today = useToday(can("appointments.read"));
-  const todayAppointment = today.data?.appointments.find((a) => a.patient.id === patient.id && isOpenAppointment(a.status));
   useEffect(() => {
     rememberPatient(access.org_id, patient.id);
   }, [access.org_id, patient.id]);
+  // Edit and Follow-up are rare next to the visit's own step, so they sit in a menu.
+  const appointment = useOpenAppointment(patient.id);
+  const setStatus = useSetAppointmentStatus();
+  const visits = useVisits(canSeeClinical ? patient.id : undefined);
+  // A visit that ended with its appointment still in the chair and nothing to finish it (no token): a way out, so it never sticks.
+  const canMarkDone =
+    appointment?.status === "in_chair" && can("appointments.write") && visits.data?.items.some((v) => v.appointment_id === appointment.id && v.status === "closed") === true;
+  const moreItems: MenuItem<"edit" | "follow-up" | "complete">[] = [
+    ...(canMarkDone ? [{ id: "complete" as const, label: "Mark visit complete", icon: <CircleCheck aria-hidden="true" /> }] : []),
+    ...(can("patients.write") ? [{ id: "edit" as const, label: "Edit", icon: <Pencil aria-hidden="true" /> }] : []),
+    { id: "follow-up" as const, label: "Follow-up", icon: <CalendarPlus aria-hidden="true" /> },
+  ];
+  const onMore = (id: "edit" | "follow-up" | "complete") => {
+    if (id === "complete" && appointment !== undefined) {
+      setStatus.mutate({ id: appointment.id, change: { status: "completed" } });
+      return;
+    }
+    void navigate(id === "edit" ? `${patientPath(patient)}/edit` : `/calendar?book=1&patient=${patient.id}`);
+  };
   return (
     <div className="mk-panel">
       <Link to="/patients" className="mk-back" aria-label="Back to patients">
@@ -136,31 +153,8 @@ function PatientView({ patient }: { patient: Patient }) {
           </div>
         </div>
         <div className="mk-p360-actions">
-          {todayAppointment === undefined ? null : <AppointmentActionButton appointment={todayAppointment} />}
-          {can("patients.write") ? (
-            <button
-              type="button"
-              className="mk-btn mk-btn-ghost"
-              onClick={() => {
-                void navigate(`${patientPath(patient)}/edit`);
-              }}
-            >
-              <Pencil aria-hidden="true" /> Edit
-            </button>
-          ) : null}
-          {/* Messaging isn't built yet: disabled, not a button that pretends. */}
-          <button type="button" className="mk-btn mk-btn-ghost" disabled title="Coming soon">
-            <Mail aria-hidden="true" /> Message
-          </button>
-          <button
-            type="button"
-            className="mk-btn mk-btn-primary"
-            onClick={() => {
-              void navigate(`/calendar?book=1&patient=${patient.id}`);
-            }}
-          >
-            <CalendarPlus aria-hidden="true" /> Follow-up
-          </button>
+          <PatientNextStep patient={patient} />
+          <Menu label="More" items={moreItems} onSelect={onMore} />
         </div>
       </section>
       <AllergyBanner patientId={patient.id} />
@@ -190,6 +184,69 @@ function PatientView({ patient }: { patient: Patient }) {
         ]}
       />
     </div>
+  );
+}
+
+/**
+ * The one step the patient is at: Check in, Start visit, then Continue visit while one is open. Read from the real
+ * state (today's appointment and the patient's open visit), so a visit started on the phone shows here too.
+ */
+function PatientNextStep({ patient }: { patient: Patient }) {
+  const { can } = useClinic();
+  const navigate = useNavigate();
+  const canClinical = can("clinical.read") || can("clinical.write");
+  const visits = useVisits(canClinical ? patient.id : undefined);
+  const appointment = useOpenAppointment(patient.id);
+  const startVisit = useStartVisit(patient.id);
+  const startAppointmentVisit = useStartAppointmentVisit();
+  const [error, setError] = useState<string | undefined>(undefined);
+  const open = visits.data?.items.find((v) => v.status === "open");
+  const visitPage = (id: string) => `${patientPath(patient)}/visits/${encodeURIComponent(id)}`;
+  if (open !== undefined) {
+    return (
+      <>
+        <span className="mk-hint" role="status">
+          Visit in progress
+        </span>
+        <Link to={visitPage(open.id)} className="mk-btn mk-btn-primary">
+          <Stethoscope aria-hidden="true" /> Continue visit
+        </Link>
+      </>
+    );
+  }
+  if (visits.isPending && canClinical) return null;
+  const finished = appointment !== undefined && visits.data?.items.some((v) => v.appointment_id === appointment.id && v.status === "closed");
+  if (finished === true) {
+    return <span className="mk-hint">Visit finished, payment pending</span>;
+  }
+  // Checking in is the desk's step; and without clinical.write the desk's only step left is seating the patient.
+  if (appointment !== undefined && (appointment.status === "booked" || appointment.status === "confirmed" || !can("clinical.write"))) {
+    return <AppointmentActionButton appointment={appointment} />;
+  }
+  if (!can("clinical.write")) return null;
+  const start = () => {
+    setError(undefined);
+    const onError = (thrown: unknown) => {
+      setError(thrown instanceof StartBlocked ? thrown.message : (apiErrorOf(thrown)?.message ?? "Couldn't start a visit."));
+    };
+    if (appointment !== undefined) {
+      startAppointmentVisit.mutateAsync(appointment).then(() => undefined, onError);
+    } else {
+      startVisit.mutate({}, { onSuccess: (visit) => void navigate(visitPage(visit.id)), onError });
+    }
+  };
+  const pending = startVisit.isPending || startAppointmentVisit.isPending;
+  return (
+    <>
+      <button type="button" className="mk-btn mk-btn-primary" disabled={pending} onClick={start}>
+        <Stethoscope aria-hidden="true" /> {pending ? "Starting…" : "Start visit"}
+      </button>
+      {error === undefined ? null : (
+        <span role="alert" className="mk-hint" style={{ color: "var(--red)" }}>
+          {error}
+        </span>
+      )}
+    </>
   );
 }
 

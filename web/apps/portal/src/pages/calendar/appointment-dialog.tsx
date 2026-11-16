@@ -2,11 +2,13 @@ import { useState } from "react";
 
 import { apiErrorOf, type Appointment, type AppointmentStatus, type PractitionerPage, type RoomPage } from "@aarogyam/api-client";
 import { formatDateTime } from "@aarogyam/app-kit";
-import { Button, DateInput, Dialog, Field, Pill, Select, TextArea, TextInput, useToast, type Tone } from "@sakalya/ui";
+import { Button, DateInput, Dialog, Field, Pill, Select, Switch, TextArea, TextInput, useToast, type Tone } from "@sakalya/ui";
 
 import { ageSex, patientPath } from "../../lib/patients.js";
 import { localDateHour, localInstant } from "../../lib/time.js";
-import { useChangeAppointment, useMoveAppointment, useSetAppointmentStatus } from "../../queries.js";
+import { useAppointments, useChangeAppointment, useMoveAppointment, useSetAppointmentStatus } from "../../queries.js";
+import { PatientOverlapNotice, clashSentence, clashesFromServer, patientOverlaps } from "./patient-overlap.js";
+import { VisitKindTag } from "./visit-kind-tag.js";
 
 const STATUS_TONE: Readonly<Record<AppointmentStatus, Tone>> = {
   requested: "warning",
@@ -81,9 +83,20 @@ function AppointmentDetail({
   const start = localDateHour(appointment.starts_at, timeZone);
   const [editDate, setEditDate] = useState(start.date);
   const [editTime, setEditTime] = useState(formatHHMM(start.hour));
-  const [editRoomId, setEditRoomId] = useState(appointment.room_id ?? "");
+  const [assignChair, setAssignChair] = useState(appointment.room_id != null);
+  const [chosenRoomId, setEditRoomId] = useState(appointment.room_id ?? "");
+  const editRoomId = assignChair ? chosenRoomId : "";
   const [editPractitionerId, setEditPractitionerId] = useState(appointment.practitioner.id);
   const durationMinutes = Math.round((Date.parse(appointment.ends_at) - Date.parse(appointment.starts_at)) / 60_000);
+
+  // The same patient's other appointments that day, so a move into one of them is flagged before saving.
+  const dayList = useAppointments({ from: editDate, to: editDate });
+  const editStart = /^\d{1,2}:\d{2}$/.test(editTime) ? localInstant(editDate, editTime, timeZone) : undefined;
+  const editEnd = editStart === undefined ? undefined : new Date(Date.parse(editStart) + durationMinutes * 60_000).toISOString();
+  // Only once the time or doctor was changed, and only from fresh data for the chosen day.
+  const timeOrDoctorChanged = editDate !== start.date || editTime !== formatHHMM(start.hour) || editPractitionerId !== appointment.practitioner.id;
+  const overlaps = !timeOrDoctorChanged || dayList.isPending || dayList.isPlaceholderData ? [] : patientOverlaps(dayList.data?.items ?? [], appointment.patient.id, editStart, editEnd, appointment.id);
+  const moveLabel = requested ? "Move and confirm" : "Move appointment";
 
   const moveTo = (status: AppointmentStatus, reason?: string, doubleBook = false) => {
     setError(undefined);
@@ -119,8 +132,9 @@ function AppointmentDetail({
         to: { starts_at: localInstant(editDate, editTime, timeZone), ...(editPractitionerId === appointment.practitioner.id ? {} : { practitioner_id: editPractitionerId }) },
       },
       {
-        onSuccess: () => {
-          toast.show({ title: "Moved and confirmed", tone: "success" });
+        onSuccess: (moved) => {
+          const clashes = clashesFromServer(moved.patient_overlaps).map((c) => clashSentence(c, appointment.patient.full_name, timeZone));
+          toast.show({ title: clashes.length > 0 ? `Moved and confirmed. ${clashes.join(" ")}` : "Moved and confirmed", tone: clashes.length > 0 ? "warning" : "success" });
           onClose();
         },
         onError: (thrown) => {
@@ -146,10 +160,8 @@ function AppointmentDetail({
       },
       {
         onSuccess: (saved) => {
-          toast.show({
-            title: saved.warnings.length > 0 ? saved.warnings.map((w) => w.message).join(" ") : "Appointment moved",
-            tone: saved.warnings.length > 0 ? "warning" : "success",
-          });
+          const notes = [...saved.warnings.map((w) => w.message), ...clashesFromServer(saved.patient_overlaps).map((c) => clashSentence(c, appointment.patient.full_name, timeZone))];
+          toast.show({ title: notes.length > 0 ? notes.join(" ") : "Appointment moved", tone: notes.length > 0 ? "warning" : "success" });
           onClose();
         },
         onError: (thrown) => {
@@ -170,7 +182,10 @@ function AppointmentDetail({
             {appointment.patient.number} · {ageSex(appointment.patient.age_years, appointment.patient.sex)}
           </p>
         </div>
-        <Pill tone={STATUS_TONE[appointment.status]}>{STATUS_LABEL[appointment.status]}</Pill>
+        <div className="flex flex-col items-end gap-1">
+          <Pill tone={STATUS_TONE[appointment.status]}>{STATUS_LABEL[appointment.status]}</Pill>
+          <VisitKindTag kind={appointment.patient_type} timeZone={timeZone} />
+        </div>
       </div>
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <div>
@@ -220,9 +235,14 @@ function AppointmentDetail({
             <Field label="Doctor">
               <Select options={practitioners.map((p) => ({ value: p.id, label: p.display_name }))} value={editPractitionerId} onValueChange={setEditPractitionerId} />
             </Field>
-            <Field label="Chair" hint="Optional">
-              <Select options={rooms.map((r) => ({ value: r.id, label: r.name }))} value={editRoomId} onValueChange={setEditRoomId} placeholder="No chair assigned" />
-            </Field>
+            <div className="flex flex-col gap-2">
+              <Switch label="Assign a chair" checked={assignChair} onCheckedChange={setAssignChair} />
+              {assignChair ? (
+                <Field label="Chair" hideLabel>
+                  <Select options={rooms.map((r) => ({ value: r.id, label: r.name }))} value={chosenRoomId} onValueChange={setEditRoomId} placeholder="Choose a chair" />
+                </Field>
+              ) : null}
+            </div>
             <Field label="Date">
               <DateInput value={editDate} onValueChange={setEditDate} />
             </Field>
@@ -235,9 +255,12 @@ function AppointmentDetail({
               />
             </Field>
           </div>
+          <div className="mt-3">
+            <PatientOverlapNotice overlaps={overlaps} patientName={appointment.patient.full_name} timeZone={timeZone} action={`${moveLabel} anyway`} />
+          </div>
           <div className="mt-3 flex justify-end">
             <Button variant="secondary" onClick={requested ? moveRequest : saveReschedule} disabled={change.isPending || move.isPending}>
-              {change.isPending || move.isPending ? "Moving…" : requested ? "Move and confirm" : "Move appointment"}
+              {change.isPending || move.isPending ? "Moving…" : overlaps.length > 0 ? `${moveLabel} anyway` : moveLabel}
             </Button>
           </div>
         </div>

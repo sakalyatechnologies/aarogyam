@@ -38,7 +38,7 @@ function HeaderAction({ doctor }: { doctor: boolean }) {
   if (!can("appointments.write")) return null;
   if (doctor) {
     const target = day.data === undefined ? undefined : seeingOrder(day.data).find((a) => a.status !== "in_chair");
-    return target === undefined ? null : <AppointmentActionButton appointment={target} className="tv2-cta" label={(step) => (target.status === "arrived" ? "Start next visit" : step)} />;
+    return target === undefined ? null : <AppointmentActionButton appointment={target} className="tv2-cta" label={(step) => (target.status === "arrived" && can("clinical.write") ? "Start next visit" : step)} />;
   }
   return (
     <>

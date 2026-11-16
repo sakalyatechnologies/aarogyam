@@ -249,6 +249,27 @@ describe("createHttpClient requests", () => {
     expect(merged.ok && merged.value.appointments_moved).toBe(2);
   });
 
+  it("reads patient_overlaps on booking and on move, and accepts a warning code it doesn't know (a stale tab must not refuse a saved booking)", async () => {
+    const fixtures = createFixtures({ now: new Date("2026-10-03T05:30:00Z") });
+    const fake = createFakeBackend(fixtures).client({ host: "sunrise.localtest.me", getToken: () => fakeTokenFor({ id: "a1a1a1a1-0000-4000-8000-000000000003" }), now: () => new Date("2026-10-03T05:30:00Z") });
+    const appointment = (await unwrap(fake.listAppointments({ from: "2026-01-01", to: "2026-12-31" }))).items[0];
+    const make = (response: Response) => createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(response).fetch });
+    const input = { patient_id: patientId.parse("01a103b1-ea26-7120-ad93-41b6b4b4ebf2"), practitioner_id: practitionerId.parse("01a103b1-ea26-7120-ad93-41b6b4b4ebf3"), starts_at: "2026-10-05T04:30:00Z" };
+    const overlap = { appointment_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405170", starts_at: "2026-10-05T04:30:00Z", ends_at: "2026-10-05T05:00:00Z", practitioner_name: "Dr Dev", room_name: "Chair 2" };
+    const clash = await make(json(201, { appointment, warnings: [], patient_overlaps: [overlap] })).bookAppointment(input);
+    expect(clash.ok && clash.value.patient_overlaps?.[0]?.room_name).toBe("Chair 2");
+    const noRoom = await make(json(201, { appointment, warnings: [], patient_overlaps: [{ ...overlap, room_name: null }] })).bookAppointment(input);
+    expect(noRoom.ok).toBe(true);
+    const clean = await make(json(201, { appointment, warnings: [] })).bookAppointment(input);
+    expect(clean.ok && clean.value.patient_overlaps).toBeUndefined();
+    const moved = await make(json(200, { appointment, patient_overlaps: [overlap] })).moveAppointment(appointmentId.parse(appointment?.id), { starts_at: "2026-10-05T04:30:00Z" });
+    expect(moved.ok && moved.value.patient_overlaps?.length).toBe(1);
+    // A newer server may add a warning code; the booking was saved, so the answer must still parse.
+    const future = await make(json(201, { appointment, warnings: [{ code: "some_future_code", message: "Something new." }], extra_key: 1 })).bookAppointment(input);
+    expect(future.ok && future.value.warnings[0]?.code).toBe("some_future_code");
+    expect((await make(json(201, { appointment, warnings: [{ code: 5, message: "x" }] })).bookAppointment(input)).ok).toBe(false);
+  });
+
   it("sends purchase orders and the stock import to their own paths and checks each body against the contract", async () => {
     const order = {
       id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405180",

@@ -36,6 +36,7 @@ import { GalleryBlock } from "./images.js";
 import { Bento, CardTabs, Chip, Fold, type PillOption } from "./kit.js";
 import { ToothChartBlock } from "./tooth-chart/tooth-block.js";
 import { VisitDetail } from "./visit-detail.js";
+import { VitalsBlock } from "./vitals-block.js";
 import { splitNote } from "./note-lines.js";
 import { NOTE_SECTIONS, useVisitSession } from "./visit-session.js";
 import { Phone, Mail } from "lucide-react";
@@ -655,6 +656,7 @@ export function TodayBlock({ columns = false }: { columns?: boolean }) {
             {rx}
           </>
         )}
+        <VitalsBlock />
         <DoneTodayBlock />
       </div>
     </Bento>
@@ -667,6 +669,7 @@ export function TodayStageBlock() {
     <Bento level={2} title="Today">
       <div className="p360-today">
         <SaysBlock flat />
+        <VitalsBlock />
         <DoneTodayBlock />
       </div>
     </Bento>

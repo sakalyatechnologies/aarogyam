@@ -6,6 +6,7 @@ import { unwrap } from "@aarogyam/api-client";
 import { formatRupees } from "@aarogyam/app-kit";
 import { Dialog, Field, TextArea } from "@sakalya/ui";
 
+import { AppointmentActionButton } from "../../../components/appointment-action.js";
 import { useClinic } from "../../../clinic.js";
 import { useSetQueueStatus } from "../../../queries.js";
 import { usePrescriptions } from "../../prescriptions/queries.js";
@@ -88,7 +89,9 @@ export function VisitBar() {
   const [billError, setBillError] = useState<string | undefined>(undefined);
   if (!session.canWrite) return null;
 
-  const { visit, rx, ended, voice } = session;
+  const { visit, rx, ended, voice, appointment, finishedVisit } = session;
+  // Not checked in yet: the one step is Check in, then Start visit.
+  const checkingIn = visit === undefined && ended === undefined && finishedVisit === undefined && (appointment?.status === "booked" || appointment?.status === "confirmed");
   const latestIssued =
     rx.issued?.rx ?? [...(prescriptions.data?.items ?? [])].filter((r) => r.status === "issued").sort((a, b) => (b.issued_at ?? "").localeCompare(a.issued_at ?? ""))[0];
   const medicines = rx.draft?.items.length ?? 0;
@@ -137,9 +140,14 @@ export function VisitBar() {
           {online ? "Online" : "No connection. Nothing is saved until it returns."}
         </span>
         {visit === undefined || ended !== undefined ? (
-          <span className="p360-sum">{ended === undefined ? "No open visit" : "Visit ended"}</span>
+          <span className="p360-sum">
+            {ended !== undefined ? "Visit ended" : finishedVisit !== undefined ? "Visit finished, payment pending" : checkingIn ? "Not checked in yet" : "No open visit"}
+          </span>
         ) : (
-          <VisitTimer startedAt={visit.started_at} />
+          <>
+            <span className="p360-sum">Visit in progress</span>
+            <VisitTimer startedAt={visit.started_at} />
+          </>
         )}
         {ended === undefined && visit !== undefined && canBill && draft.ready && draft.total > 0 ? (
           <span className="p360-sum" aria-live="polite">
@@ -182,10 +190,25 @@ export function VisitBar() {
                 {sending ? "Sending…" : "Send for payment"}
               </PillButton>
             </>
+          ) : finishedVisit !== undefined ? (
+            canCollect ? (
+              <PillButton
+                icon={<Wallet aria-hidden="true" />}
+                onClick={() => {
+                  void navigate("/queue");
+                }}
+              >
+                Collect payment
+              </PillButton>
+            ) : null
           ) : visit === undefined ? (
-            <PillButton icon={<Stethoscope aria-hidden="true" />} disabled={session.starting || session.visitLoading} onClick={session.startVisit}>
-              {session.starting ? "Starting…" : "Start visit"}
-            </PillButton>
+            checkingIn ? (
+              <AppointmentActionButton appointment={appointment} className="mk-btn mk-btn-primary p360-pill-btn" />
+            ) : (
+              <PillButton icon={<Stethoscope aria-hidden="true" />} disabled={session.starting || session.visitLoading} onClick={session.startVisit}>
+                {session.starting ? "Starting…" : "Start visit"}
+              </PillButton>
+            )
           ) : (
             <PillButton
               icon={<Check aria-hidden="true" />}
@@ -208,7 +231,7 @@ export function VisitBar() {
           {billError}
         </p>
       )}
-      {session.error === undefined || session.visit === undefined ? null : (
+      {session.error === undefined ? null : (
         <p role="alert" className="mk-hint" style={{ color: "var(--red)", margin: 0 }}>
           {session.error}
         </p>

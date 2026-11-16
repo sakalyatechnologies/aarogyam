@@ -307,10 +307,12 @@ async fn a_doctor_deletes_their_account_and_the_clinic_keeps_its_records() {
     .unwrap();
     assert_eq!(queue, [("pending".to_owned(), 0, DOCTOR)]);
 
-    // The change history records the person as the actor of the membership change.
+    // The change history records the person as the actor of the membership change. Other updates
+    // to the membership (the name copy, say) are audited too, so pick the status change itself.
     let (actor, kind, changes): (Option<Uuid>, Option<String>, Option<String>) = sqlx::query_as(
         "select actor_user_id, actor_kind, changes::text from audit.audit_events
-         where table_name = 'aarogyam.memberships' and row_id = $1 and action = 'update'",
+         where table_name = 'aarogyam.memberships' and row_id = $1 and action = 'update'
+           and changes ? 'status'",
     )
     .bind(membership)
     .fetch_one(&app.owner)

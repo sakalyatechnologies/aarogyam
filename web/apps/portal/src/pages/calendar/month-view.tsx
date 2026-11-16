@@ -11,6 +11,8 @@ export interface MonthItem {
   label: string;
   /** Colour class from the status legend. */
   tone: string;
+  /** Doctor colour (`d0` to `d5`) for the chip's left bar. */
+  doctorTone?: number;
 }
 
 /** A person away on a day: the label ("Away · name") only, never the kind or the reason. */
@@ -53,7 +55,7 @@ export function MonthView({
   return (
     <div className="mk-month" role="group" aria-label={`Appointments in ${monthKey}`}>
       {WEEKDAYS.map((d) => (
-        <div key={d} className="mk-dh">
+        <div key={d} className={`mk-dh ${d === "Sat" || d === "Sun" ? "wknd" : ""}`}>
           {d}
         </div>
       ))}
@@ -62,7 +64,7 @@ export function MonthView({
         const more = day.length - SHOWN;
         const gone = awayByDay.get(date) ?? [];
         return (
-          <div key={date} className={`mk-mday ${date.startsWith(monthKey) ? "" : "out"} ${date === today ? "today" : ""}`}>
+          <div key={date} className={`mk-mday ${date.startsWith(monthKey) ? "" : "out"} ${date === today ? "today" : ""}`} {...(date === today ? { "aria-current": "date" as const } : {})}>
             <button
               type="button"
               className="mk-mnum"
@@ -87,7 +89,7 @@ export function MonthView({
               <button
                 key={item.id}
                 type="button"
-                className={`mk-evchip ${item.tone}`}
+                className={`mk-evchip ${item.tone}${item.doctorTone === undefined ? "" : ` d${String(item.doctorTone)}`}`}
                 title={item.label}
                 onClick={() => {
                   onSelect(item.id);

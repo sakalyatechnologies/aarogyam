@@ -18,8 +18,7 @@
 
 /* Time grid cards: a coloured status bar, the name always readable. */
 .mk-tg-ev { border-radius: 8px; min-height: 22px; padding: 2px 6px 2px 10px; justify-content: flex-start; box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
-.mk-tg-ev::before, .mk-month .mk-evchip::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--bar); }
-.mk-tg-ev b { font-size: 11.5px; }
+.mk-tg-ev::before, .mk-month .mk-evchip::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--doc, var(--bar)); }
 .mk-tg-ev.q::before, .mk-month .mk-evchip.q::before { background: repeating-linear-gradient(to bottom, var(--bar) 0 4px, transparent 4px 7px); }
 .mk-tg-col.current { background-color: color-mix(in srgb, var(--brand-soft) 45%, transparent); }
 .mk-tg-off { position: absolute; left: 0; right: 0; background: color-mix(in srgb, var(--muted) 9%, transparent); pointer-events: none; }
@@ -31,6 +30,46 @@
 .mk-tg-head .mk-dh { padding: 8px 4px; font-size: 11px; font-weight: 800; text-align: center; color: var(--muted); }
 .mk-tg-head .mk-dh b { display: block; font-size: 16px; color: var(--ink); }
 .mk-tg-head .mk-dh.today b { background: var(--brand); color: var(--sk-on-primary); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; margin: 2px auto; }
+
+/* Doctor colours: the left bar of every card and the swatch in the legend / doctor chips. Status keeps its tint and icon. */
+.d0, .mk-docdot.d0 { --doc: var(--brand); }
+.d1, .mk-docdot.d1 { --doc: var(--indigo); }
+.d2, .mk-docdot.d2 { --doc: color-mix(in srgb, var(--indigo) 50%, var(--red)); }
+.d3, .mk-docdot.d3 { --doc: color-mix(in srgb, var(--indigo) 45%, var(--green)); }
+.d4, .mk-docdot.d4 { --doc: color-mix(in srgb, var(--amber) 55%, var(--red)); }
+.d5, .mk-docdot.d5 { --doc: color-mix(in srgb, var(--ink2) 75%, var(--indigo)); }
+.mk-docdot { display: inline-block; width: 10px; height: 10px; border-radius: 4px; background: var(--doc); flex: none; }
+.mk-chipf:has(.mk-docdot) { display: inline-flex; align-items: center; gap: 7px; }
+.mk-legend-chip.doc { gap: 7px; }
+
+/* A card: name first (with the status icon and, later, a tag), then time and room or doctor. */
+.mk-tg-ev { gap: 0; padding: 3px 6px 3px 11px; line-height: 1.25; }
+.mk-tg-ev .mk-ev-top { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: inherit; opacity: 1; }
+.mk-tg-ev .mk-ev-top b { flex: 1 1 auto; min-width: 0; font-size: 12px; font-weight: 800; }
+.mk-tg-ev .mk-ev-ic { flex: none; width: 13px; height: 13px; stroke-width: 2.5; color: var(--bar); }
+.mk-tg-ev .mk-ev-tag { flex: none; max-width: 45%; font-size: 9.5px; font-weight: 800; opacity: 1; }
+.mk-tg-ev .mk-ev-sub { font-size: 11px; font-weight: 600; color: var(--ink2); opacity: 1; }
+.mk-tg-ev[data-cols="3"] .mk-ev-tag, .mk-tg-ev[data-cols="4"] .mk-ev-tag, .mk-tg-ev[data-cols="3"] .mk-ev-ic, .mk-tg-ev[data-cols="4"] .mk-ev-ic { display: none; }
+.mk-tg-ev[data-status="no_show"] .mk-ev-top b { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.mk-tg-ev[data-status="completed"] { opacity: .85; }
+
+/* Week and day headers: the date, how busy the day is, and which day is today. */
+.mk-tg-head .mk-dh small { display: block; font-size: 10.5px; font-weight: 700; color: var(--ink2); }
+.mk-tg-head .mk-dh small.none { color: var(--muted); font-weight: 600; }
+.mk-tg-head .mk-dh.today { box-shadow: inset 0 3px 0 var(--brand); }
+.mk-tg-head .mk-dh.today small { color: var(--brand-text, var(--brand2)); }
+.mk-tg-head > :first-child, .mk-tg-hours { position: sticky; left: 0; z-index: 3; background: inherit; }
+.mk-tg-hours { background: var(--surface); }
+.mk-tg-col.current { background-color: color-mix(in srgb, var(--brand-soft) 70%, transparent); box-shadow: inset 2px 0 0 color-mix(in srgb, var(--brand) 45%, transparent), inset -2px 0 0 color-mix(in srgb, var(--brand) 45%, transparent); }
+.mk-tg-off { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--muted) 12%, transparent) 0 8px, color-mix(in srgb, var(--muted) 6%, transparent) 8px 16px); }
+
+/* Now: a line across today's column, and the time on the hour gutter. */
+.mk-tg-nowtag { position: absolute; right: 4px; transform: translateY(-50%); font-style: normal; font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 999px; background: var(--sk-danger); color: var(--sk-on-primary); font-variant-numeric: tabular-nums; white-space: nowrap; z-index: 2; }
+
+/* Empty slots: hover (or arrow keys) shows "+ Book 10:30 am"; clicking (or Enter) books it. */
+.mk-tg-col.bookable { cursor: copy; }
+.mk-tg-col.bookable:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.mk-tg-ghost { position: absolute; left: 2px; right: 2px; z-index: 1; box-sizing: border-box; display: flex; align-items: center; padding: 0 8px; border: 1.5px dashed var(--brand); border-radius: 8px; background: color-mix(in srgb, var(--brand) 10%, transparent); color: var(--brand-text, var(--brand2)); font-size: 11.5px; font-weight: 800; white-space: nowrap; overflow: hidden; pointer-events: none; }
 
 /* Hover / focus details for short cards. */
 .mk-tip { position: absolute; display: none; z-index: 6; min-width: 160px; max-width: 240px; margin-top: 26px; padding: 8px 10px 8px 14px; border-radius: 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--rule); box-shadow: 0 8px 24px rgb(0 0 0 / .18); font-size: 12px; pointer-events: none; }
@@ -97,17 +136,19 @@
 .cal2-docs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .cal2-docs .mk-chipf { padding: 6px 14px; font-size: 12.5px; }
 .cal2 .mk-ptools { gap: 8px; }
-.cal2 .mk-tg { max-height: min(74vh, 780px); width: 100%; border-radius: 22px; border-color: var(--nl-line, var(--rule)); background: color-mix(in srgb, var(--bg) 55%, var(--surface)); }
+.cal2 .mk-tg { max-height: min(78vh, 840px); width: 100%; border-radius: 22px; border-color: var(--nl-line, var(--rule)); background: color-mix(in srgb, var(--bg) 55%, var(--surface)); }
 .cal2 .mk-tg-head { background: color-mix(in srgb, var(--bg) 55%, var(--surface)); padding: 8px 8px 6px; gap: 8px; }
 .cal2 .mk-tg-head .mk-dh { border-radius: 16px; background: var(--surface); font-size: 13px; color: var(--ink); }
 .cal2 .mk-tg-head .mk-dh b { font-size: 16px; }
 .cal2 .mk-tg-body { padding: 0 8px 8px; gap: 8px; }
 .cal2 .mk-tg-col { border-left: 0; border-radius: 18px; background-color: color-mix(in srgb, var(--surface) 70%, transparent); overflow: hidden; }
 .cal2 .mk-tg-col.current { background-color: color-mix(in srgb, var(--brand-soft) 55%, var(--surface)); }
-.cal2 .mk-tg-ev { border-radius: 14px; box-shadow: 0 1px 2px rgb(0 0 0 / .06); padding: 4px 8px 4px 14px; background: color-mix(in srgb, var(--bar) 15%, var(--surface)); color: var(--ink); }
+.cal2 .mk-tg-ev { border-radius: 12px; box-shadow: 0 1px 2px rgb(0 0 0 / .06); padding: 3px 8px 3px 15px; background: color-mix(in srgb, var(--bar) 18%, var(--surface)); color: var(--ink); }
 .cal2 .mk-tg-ev::before { left: 5px; top: 6px; bottom: 6px; width: 4px; border-radius: 4px; }
-.cal2 .mk-tg-ev b { font-size: 12px; }
 .cal2 .mk-tg-ev.q { background: transparent; border: 1.5px dashed var(--bar); }
+.cal2 .mk-tg-head .mk-dh.today { background: color-mix(in srgb, var(--brand-soft) 80%, var(--surface)); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--brand) 55%, transparent); }
+.cal2 .mk-tg-head .mk-dh { padding: 6px 4px; }
+.cal2 .mk-tg-hours, .cal2 .mk-tg-head > :first-child { background: color-mix(in srgb, var(--bg) 55%, var(--surface)); }
 .cal2 .mk-tg-ev:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgb(0 0 0 / .14); }
 .cal2 .mk-month { gap: 8px; width: 100%; }
 .cal2 .mk-mday { border-radius: 18px; border-color: var(--nl-line, var(--rule)); }
@@ -131,3 +172,34 @@
 .mk-rs-err { grid-column: 1 / -1; margin: 0; font-size: 12.5px; font-weight: 600; color: var(--sk-danger); }
 .mk-rs-sum { margin: 12px 0 0; font-size: 13px; font-weight: 700; }
 @media (max-width: 560px) { .mk-rs-row { grid-template-columns: minmax(0, 1fr); } .mk-rs-pick { justify-content: flex-start; } }
+
+/* Toolbar: navigation on the left, view controls on the right; wraps cleanly instead of crowding. */
+.cal-bar { justify-content: space-between; row-gap: 10px; }
+.cal-nav, .cal-view { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.cal-range { font-size: 15px; min-width: 9.5em; text-align: center; white-space: nowrap; }
+
+/* Month: weekends muted, today clearly marked, chips carry the doctor bar. */
+.mk-month > .mk-dh { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); padding: 2px 4px; }
+.mk-month > .mk-dh.wknd { opacity: .75; }
+.mk-mday.today { background: color-mix(in srgb, var(--brand-soft) 55%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--brand); }
+.mk-mday.today .mk-mnum { color: var(--brand-text, var(--brand2)); font-weight: 900; }
+.mk-mday .mk-mnum:focus-visible, .mk-mday .mk-evchip:focus-visible, .mk-mday .mk-more:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.mk-mday .mk-more { color: var(--ink2); }
+
+@media (max-width: 640px) {
+  .cal-bar { gap: 8px; }
+  .cal-nav, .cal-view { width: 100%; }
+  .cal-nav { justify-content: space-between; }
+  .cal-range { min-width: 0; flex: 1; }
+  /* The colour key scrolls sideways in one line rather than taking half the screen. */
+  .mk-card-h .mk-legend, .mk-legend { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 4px; scrollbar-width: thin; }
+  .mk-legend-chip { white-space: nowrap; flex: none; }
+  .cal2-docs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .cal2-docs .mk-chipf { flex: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal2 .mk-tg-ev:hover, .mk-evchip:hover, .mk-mday:hover { transform: none; }
+  .mk-mday, .mk-tg-ev, .mk-evchip { transition: none; }
+}
+@media (min-width: 900px) { .cal-view { flex-wrap: nowrap; } }

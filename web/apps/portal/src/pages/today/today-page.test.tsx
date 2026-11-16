@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { failure } from "@aarogyam/api-client";
+import { failure, type ApiClient } from "@aarogyam/api-client";
 import type { Fixtures } from "@aarogyam/api-client/fake";
 
 import { PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
@@ -158,38 +158,70 @@ function sunriseDay(fixtures: Fixtures, statuses: readonly Fixtures["appointment
 }
 const NOW_MS = Date.parse("2026-10-03T05:30:00Z");
 
+/** Counts the calls that start a visit, so a test can say exactly one went out and which route it took. */
+function countStarts() {
+  const calls = { fromQueue: 0, plain: 0 };
+  const wrap = (client: ApiClient): ApiClient => ({
+    ...client,
+    startVisitFromQueue: (...args) => {
+      calls.fromQueue += 1;
+      return client.startVisitFromQueue(...args);
+    },
+    startVisit: (...args) => {
+      calls.plain += 1;
+      return client.startVisit(...args);
+    },
+  });
+  return { calls, wrap };
+}
+
 const heroOf = () => screen.findByRole("region", { name: /(Next|Current) (consultation|arrival)/ });
 
 describe("The visit flow on Today's hero", () => {
-  it("offers Check in, then Start consultation, then Complete visit, and moves on to the next patient", async () => {
+  it("offers Check in, then Start visit, which opens the visit and lands on the patient with it in progress", async () => {
     const user = userEvent.setup();
     let first = "";
-    let second = "";
+    let firstId = "";
     const backend = fakeApi((fixtures) => {
       const { mine } = sunriseDay(fixtures, ["confirmed", "booked"]);
-      first = fixtures.patients.find((p) => p.id === mine[0]?.patient_id)?.full_name ?? "";
-      second = fixtures.patients.find((p) => p.id === mine[1]?.patient_id)?.full_name ?? "";
+      firstId = mine[0]?.patient_id ?? "";
+      first = fixtures.patients.find((p) => p.id === firstId)?.full_name ?? "";
     });
-    renderPortal("/today", { as: PEOPLE.asha, backend });
+    const { calls, wrap } = countStarts();
+    const { router } = renderPortal("/today", { as: PEOPLE.asha, backend, wrap });
     let hero = await heroOf();
     expect(within(hero).getByRole("heading", { name: first })).toBeTruthy();
     await user.click(within(hero).getByRole("button", { name: "Check in" }));
     await waitFor(() => {
-      expect(within(screen.getByRole("region", { name: /consultation/ })).getByRole("button", { name: "Start consultation" })).toBeTruthy();
+      expect(within(screen.getByRole("region", { name: /consultation/ })).getByRole("button", { name: "Start visit" })).toBeTruthy();
     });
     hero = await heroOf();
-    await user.click(within(hero).getByRole("button", { name: "Start consultation" }));
-    await waitFor(() => {
-      expect(within(screen.getByRole("region", { name: "Current consultation" })).getByRole("button", { name: "Complete visit" })).toBeTruthy();
+    await user.click(within(hero).getByRole("button", { name: "Start visit" }));
+    // It goes to that patient's page, where the visit shows as in progress with one way on, and no appointment "Complete visit".
+    await screen.findByRole("heading", { level: 1, name: first }, { timeout: 20_000 });
+    expect(router.state.location.pathname).toBe(`/patients/${firstId}`);
+    await screen.findByText("Visit in progress", undefined, { timeout: 20_000 });
+    expect(screen.getByRole("link", { name: "Continue visit" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Complete visit" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Start visit" })).toBeNull();
+    // One real visit was started, from the appointment's queue token (which links it to the appointment).
+    expect(calls).toEqual({ fromQueue: 1, plain: 0 });
+  });
+
+  it("opens the patient's page from their name on the hero", async () => {
+    const user = userEvent.setup();
+    let firstId = "";
+    let first = "";
+    const backend = fakeApi((fixtures) => {
+      const { mine } = sunriseDay(fixtures, ["confirmed"]);
+      firstId = mine[0]?.patient_id ?? "";
+      first = fixtures.patients.find((p) => p.id === firstId)?.full_name ?? "";
     });
-    hero = await heroOf();
-    expect(within(hero).queryByRole("button", { name: "Check in" })).toBeNull();
-    await user.click(within(hero).getByRole("button", { name: "Complete visit" }));
-    await waitFor(() => {
-      const next = screen.getByRole("region", { name: /consultation/ });
-      expect(within(next).getByRole("heading", { name: second })).toBeTruthy();
-      expect(within(next).getByRole("button", { name: "Check in" })).toBeTruthy();
-    });
+    const { router } = renderPortal("/today", { as: PEOPLE.asha, backend });
+    const hero = await heroOf();
+    await user.click(within(hero).getByRole("link", { name: first }));
+    await screen.findByRole("heading", { level: 1, name: first }, { timeout: 20_000 });
+    expect(router.state.location.pathname).toBe(`/patients/${firstId}`);
   });
 
   it("shows the change at once and puts it back when the API refuses", async () => {
@@ -215,23 +247,61 @@ describe("The visit flow on Today's hero", () => {
     const hero = await heroOf();
     await user.click(within(hero).getByRole("button", { name: "Check in" }));
     // Optimistic: the next step is already offered while the request is still out.
-    await within(await heroOf()).findByRole("button", { name: "Start consultation" });
+    await within(await heroOf()).findByRole("button", { name: "Start visit" });
     release();
     expect((await screen.findByRole("alert")).textContent).toBe("That appointment is already finished.");
     await within(await heroOf()).findByRole("button", { name: "Check in" });
   });
 
-  it("offers the same next step on Patient 360", async () => {
+  it("offers the same next step on the patient's page, and starts one visit only", async () => {
     const user = userEvent.setup();
+    let path = "";
+    let patientId = "";
+    const backend = fakeApi((fixtures) => {
+      const { mine } = sunriseDay(fixtures, ["arrived"]);
+      patientId = mine[0]?.patient_id ?? "";
+      path = `/patients/${patientId}`;
+    });
+    const { calls, wrap } = countStarts();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    await user.click(await screen.findByRole("button", { name: "Start visit" }));
+    await screen.findByText("Visit in progress", undefined, { timeout: 20_000 });
+    expect(screen.getByRole("link", { name: "Continue visit" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Start visit" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Complete visit" })).toBeNull();
+    expect(calls.fromQueue + calls.plain).toBe(1);
+    expect(patientId).not.toBe("");
+  });
+
+  it("does not offer to start a second visit when one is already open (started elsewhere)", async () => {
     let path = "";
     const backend = fakeApi((fixtures) => {
       const { mine } = sunriseDay(fixtures, ["arrived"]);
+      const appointment = mine[0];
+      path = `/patients/${appointment?.patient_id ?? ""}`;
+      const seeded = fixtures.visits.find((v) => v.status === "open") ?? fixtures.visits[0];
+      if (appointment !== undefined && seeded !== undefined) {
+        fixtures.visits.push({ ...seeded, id: "0192e3c4-0000-7000-8000-00000000f001", patient_id: appointment.patient_id, clinic_id: appointment.clinic_id, appointment_id: null, queue_token_id: null, status: "open", ended_at: null });
+      }
+    });
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await screen.findByText("Visit in progress", undefined, { timeout: 20_000 });
+    expect(screen.queryByRole("button", { name: "Start visit" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Continue visit" })).toBeTruthy();
+  });
+
+  it("keeps the patient page to one step per state, with the rest under More", async () => {
+    let path = "";
+    const backend = fakeApi((fixtures) => {
+      const { mine } = sunriseDay(fixtures, ["confirmed"]);
       path = `/patients/${mine[0]?.patient_id ?? ""}`;
     });
     renderPortal(path, { as: PEOPLE.asha, backend });
-    await user.click(await screen.findByRole("button", { name: "Start consultation" }));
-    await screen.findByRole("button", { name: "Complete visit" });
-    expect(screen.queryByRole("button", { name: "Start consultation" })).toBeNull();
+    const summary = await screen.findByRole("region", { name: "Patient summary" });
+    await within(summary).findByRole("button", { name: "Check in" });
+    expect(within(summary).queryByRole("button", { name: "Follow-up" })).toBeNull();
+    expect(within(summary).queryByRole("button", { name: "Message" })).toBeNull();
+    expect(within(summary).getByRole("button", { name: "More" })).toBeTruthy();
   });
 });
 

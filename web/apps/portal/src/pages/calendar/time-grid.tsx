@@ -1,6 +1,8 @@
-import { Fragment, useEffect, useRef } from "react";
+import { Armchair, CalendarCheck, CalendarClock, Check, CircleHelp, Hourglass, TriangleAlert, UserX } from "lucide-react";
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 
 import "./calendar.css";
+import { VisitKindTag, type VisitKind } from "./visit-kind-tag.js";
 
 import { clockLabel, offsetPercent, packColumns } from "../../lib/time-grid.js";
 import type { Span } from "../../lib/slots.js";
@@ -33,14 +35,56 @@ export interface GridEvent {
   endMin: number;
   title: string;
   subtitle?: string;
+  /** New patient or follow-up; shown as a tag in the hover card. */
+  visitKind?: VisitKind;
   /** Colour class from the status legend (`g`, `a`, `b`, `i`, `n`, `r`, or `q` for dashed requests). */
   tone: string;
   /** Accessible name; also the hover text. */
   label: string;
+  /** Status icon in the chip's corner, so status never rests on colour alone. */
+  status?: EventStatus;
+  /** Which doctor colour (0 to `DOCTOR_TONES - 1`) the chip's left bar takes. */
+  doctorTone?: number;
+  /** Room for a small tag (say "New patient" or "Follow-up") next to the name; shown when the chip is wide enough. */
+  tag?: ReactNode;
 }
 
+/** What the status icon on a chip says. */
+export type EventStatus = "requested" | "booked" | "confirmed" | "arrived" | "in_chair" | "completed" | "no_show" | "emergency";
+
+const STATUS_ICON: Readonly<Record<EventStatus, typeof Check>> = {
+  requested: CircleHelp,
+  booked: CalendarClock,
+  confirmed: CalendarCheck,
+  arrived: Hourglass,
+  in_chair: Armchair,
+  completed: Check,
+  no_show: UserX,
+  emergency: TriangleAlert,
+};
+
+/** Whether the element is focused the way a keyboard does it (not by a mouse press); true where the browser cannot tell. */
+function keyboardFocus(el: HTMLElement): boolean {
+  try {
+    return el.matches(":focus-visible");
+  } catch {
+    return true;
+  }
+}
+
+/** How many doctor colours (`.d0` to `.d5` in calendar.css) the calendar cycles through. */
+export const DOCTOR_TONES = 6;
+
+/** The empty slot someone chose to book: the column and the start minute (half-hour steps). */
+export interface BookSlot {
+  columnId: string;
+  startMin: number;
+}
+
+const SLOT_MINUTES = 30;
+
 /** Pixels per hour; half-hour lines sit at half of it. */
-export const HOUR_HEIGHT = 56;
+export const HOUR_HEIGHT = 72;
 
 
 /**
@@ -55,6 +99,7 @@ export function TimeGrid({
   nowMinute,
   workingMinutes,
   onSelect,
+  onBook,
   summary,
 }: {
   columns: readonly GridColumn[];
@@ -66,6 +111,8 @@ export function TimeGrid({
   /** The clinic's usual working span (minutes after midnight); time outside it is shaded. Ignored when a column has `working` spans. */
   workingMinutes?: { start: number; end: number };
   onSelect: (id: string) => void;
+  /** Choosing an empty slot (click, or arrow keys then Enter) asks to book it; without it the slots are not interactive. */
+  onBook?: (slot: BookSlot) => void;
   summary: string;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -75,18 +122,57 @@ export function TimeGrid({
   const showsNow = nowMinute !== undefined && columns.some((c) => c.showNow === true);
   const firstStart = events.reduce((min, e) => Math.min(min, e.startMin), Number.POSITIVE_INFINITY);
 
-  // Open on the current time (or the first visit), so the working day is in view rather than the grid's top edge.
+  // Open on the current time, else the first visit, else the clinic's opening hour, so the working day is in view.
   useEffect(() => {
     const el = scroller.current;
     if (el === null) return;
-    const focus = showsNow ? nowMinute : Number.isFinite(firstStart) ? firstStart : startHour * 60;
+    const opening = workingMinutes?.start ?? startHour * 60;
+    const focus = showsNow ? nowMinute : Number.isFinite(firstStart) ? Math.min(firstStart, opening + 120) : opening;
     const top = ((focus - startHour * 60) / 60) * HOUR_HEIGHT - el.clientHeight / 3;
     const target = Math.max(0, top);
-    if (typeof el.scrollTo === "function") el.scrollTo({ top: target, behavior: "smooth" });
+    const calm = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (typeof el.scrollTo === "function") el.scrollTo({ top: target, behavior: calm ? "auto" : "smooth" });
     else el.scrollTop = target;
     // Only on first show; later scrolling belongs to the person.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The empty slot under the pointer or the keyboard cursor, drawn as a "+ Book 10:30 am" ghost.
+  const [slot, setSlot] = useState<(BookSlot & { by: "pointer" | "key" }) | undefined>(undefined);
+  const ghost = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (slot?.by === "key" && typeof ghost.current?.scrollIntoView === "function") ghost.current.scrollIntoView({ block: "nearest" });
+  }, [slot]);
+  const slotAt = (clientY: number, el: HTMLElement): number => {
+    const index = Math.floor(((clientY - el.getBoundingClientRect().top) / HOUR_HEIGHT) * (60 / SLOT_MINUTES));
+    return Math.min(endHour * 60 - SLOT_MINUTES, Math.max(startHour * 60, startHour * 60 + index * SLOT_MINUTES));
+  };
+  const hoverSlot = (columnId: string, event: MouseEvent<HTMLElement>) => {
+    if (onBook === undefined) return;
+    if (event.target !== event.currentTarget) {
+      setSlot((prev) => (prev?.by === "pointer" ? undefined : prev));
+      return;
+    }
+    const startMin = slotAt(event.clientY, event.currentTarget);
+    setSlot((prev) => (prev?.columnId === columnId && prev.startMin === startMin && prev.by === "pointer" ? prev : { columnId, startMin, by: "pointer" }));
+  };
+  const first = startHour * 60;
+  const last = endHour * 60 - SLOT_MINUTES;
+  /** Where the keyboard cursor starts in a column: now when it is on show, else the clinic's opening time. */
+  const initialSlot = () => Math.min(last, Math.max(first, Math.floor((showsNow ? nowMinute : (workingMinutes?.start ?? first)) / SLOT_MINUTES) * SLOT_MINUTES));
+  const keySlot = (columnId: string, event: KeyboardEvent<HTMLElement>) => {
+    if (onBook === undefined || event.target !== event.currentTarget) return;
+    const current = slot?.columnId === columnId ? slot.startMin : initialSlot();
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const step = event.key === "ArrowDown" ? SLOT_MINUTES : -SLOT_MINUTES;
+      setSlot({ columnId, startMin: Math.min(last, Math.max(first, current + step)), by: "key" });
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onBook({ columnId, startMin: current });
+    }
+  };
+  const nowInView = showsNow && nowMinute >= startHour * 60 && nowMinute <= endHour * 60;
 
   function renderShading(column: GridColumn) {
     if (column.working !== undefined) {
@@ -138,12 +224,16 @@ export function TimeGrid({
     <div ref={scroller} className="mk-tg" role="group" aria-label={summary} tabIndex={-1}>
       <div className="mk-tg-head" style={{ gridTemplateColumns: template }}>
         <div />
-        {columns.map((c) => (
-          <div key={c.id} className={`mk-dh ${c.current === true ? "today" : ""}`}>
-            {c.label}
-            {c.dateLabel === undefined || c.dateLabel === "" ? null : <b>{c.dateLabel}</b>}
-          </div>
-        ))}
+        {columns.map((c) => {
+          const count = events.filter((e) => e.columnId === c.id).length;
+          return (
+            <div key={c.id} className={`mk-dh ${c.current === true ? "today" : ""}`}>
+              {c.label}
+              {c.dateLabel === undefined || c.dateLabel === "" ? null : <b>{c.dateLabel}</b>}
+              <small className={count === 0 ? "none" : ""}>{count === 0 ? "No visits" : `${String(count)} ${count === 1 ? "visit" : "visits"}`}</small>
+            </div>
+          );
+        })}
       </div>
       <div className="mk-tg-body" style={{ gridTemplateColumns: template, height }}>
         <div className="mk-tg-hours" aria-hidden="true">
@@ -152,11 +242,45 @@ export function TimeGrid({
               {clockLabel(h * 60)}
             </span>
           ))}
+          {nowInView ? (
+            <em className="mk-tg-nowtag" style={{ top: `${String(offsetPercent(nowMinute, startHour, endHour))}%` }}>
+              {clockLabel(nowMinute)}
+            </em>
+          ) : null}
         </div>
         {columns.map((c) => {
           const packed = packColumns(events.filter((e) => e.columnId === c.id));
           return (
-            <div key={c.id} className={`mk-tg-col ${c.current === true ? "current" : ""}`} style={{ backgroundSize: `100% ${String(HOUR_HEIGHT)}px` }}>
+            <div
+              key={c.id}
+              className={`mk-tg-col ${c.current === true ? "current" : ""} ${onBook === undefined ? "" : "bookable"}`}
+              style={{ backgroundSize: `100% ${String(HOUR_HEIGHT)}px` }}
+              {...(onBook === undefined
+                ? {}
+                : {
+                    role: "group",
+                    tabIndex: 0,
+                    "aria-label": `${c.label}${c.dateLabel === undefined || c.dateLabel === "" ? "" : ` ${c.dateLabel}`}: free time. Arrow keys choose a time, Enter books it.`,
+                    onMouseMove: (event: MouseEvent<HTMLElement>) => {
+                      hoverSlot(c.id, event);
+                    },
+                    onMouseLeave: () => {
+                      setSlot((prev) => (prev?.by === "pointer" ? undefined : prev));
+                    },
+                    onClick: (event: MouseEvent<HTMLElement>) => {
+                      if (event.target === event.currentTarget) onBook({ columnId: c.id, startMin: slotAt(event.clientY, event.currentTarget) });
+                    },
+                    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+                      keySlot(c.id, event);
+                    },
+                    onFocus: (event: React.FocusEvent<HTMLElement>) => {
+                      if (event.target === event.currentTarget && keyboardFocus(event.currentTarget)) setSlot({ columnId: c.id, startMin: initialSlot(), by: "key" });
+                    },
+                    onBlur: (event: React.FocusEvent<HTMLElement>) => {
+                      if (event.target === event.currentTarget) setSlot((prev) => (prev?.by === "key" ? undefined : prev));
+                    },
+                  })}
+            >
               {renderShading(c)}
               {(c.away ?? []).map((band, index, all) => {
                 const from = Math.max(band.startMin, startHour * 60);
@@ -183,12 +307,15 @@ export function TimeGrid({
               {packed.map(({ item, column, columns: span }) => {
                 const top = `${String(offsetPercent(item.startMin, startHour, endHour))}%`;
                 const left = `calc(${String((column / span) * 100)}% + 2px)`;
-                const roomy = item.endMin - item.startMin >= 40;
+                const roomy = item.endMin - item.startMin >= SLOT_MINUTES;
+                const Icon = item.status === undefined ? undefined : STATUS_ICON[item.status];
                 return (
                   <Fragment key={item.id}>
                     <button
                       type="button"
-                      className={`mk-tg-ev mk-evchip ${item.tone}`}
+                      className={`mk-tg-ev mk-evchip ${item.tone}${item.doctorTone === undefined ? "" : ` d${String(item.doctorTone % DOCTOR_TONES)}`}`}
+                      data-cols={span}
+                      data-status={item.status}
                       aria-label={item.label}
                       style={{
                         top,
@@ -200,16 +327,26 @@ export function TimeGrid({
                         onSelect(item.id);
                       }}
                     >
-                      <b>{item.title}</b>
-                      {roomy && item.subtitle !== undefined ? <span>{item.subtitle}</span> : null}
+                      <span className="mk-ev-top">
+                        <b>{item.title}</b>
+                        {item.tag === undefined ? null : <span className="mk-ev-tag">{item.tag}</span>}
+                        {Icon === undefined ? null : <Icon className="mk-ev-ic" aria-hidden="true" />}
+                      </span>
+                      {roomy && item.subtitle !== undefined ? <span className="mk-ev-sub">{item.subtitle}</span> : null}
                     </button>
                     <div className={`mk-tip ${item.tone}`} role="tooltip" aria-hidden="true" style={{ top, left }}>
                       <b>{item.title}</b>
                       {item.subtitle === undefined ? null : <span>{item.subtitle}</span>}
+                      {item.visitKind === undefined ? null : <VisitKindTag kind={item.visitKind} />}
                     </div>
                   </Fragment>
                 );
               })}
+              {slot?.columnId === c.id && onBook !== undefined ? (
+                <div ref={ghost} className="mk-tg-ghost" aria-hidden="true" style={{ top: `${String(offsetPercent(slot.startMin, startHour, endHour))}%`, height: `${String((SLOT_MINUTES / ((endHour - startHour) * 60)) * 100)}%` }}>
+                  + Book {clockLabel(slot.startMin)}
+                </div>
+              ) : null}
               {c.showNow === true && nowMinute !== undefined && nowMinute >= startHour * 60 && nowMinute <= endHour * 60 ? (
                 <div className="mk-tg-now" role="presentation" style={{ top: `${String(offsetPercent(nowMinute, startHour, endHour))}%` }} data-testid="now-line" />
               ) : null}

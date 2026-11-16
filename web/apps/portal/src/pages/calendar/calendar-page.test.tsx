@@ -65,9 +65,10 @@ describe("Calendar: booking", () => {
     await screen.findByRole("group", { name: "Appointments from 2026-09-28 to 2026-10-04" });
     await new Promise((resolve) => setTimeout(resolve, 100));
     await user.click(await screen.findByRole("button", { name: "Schedule an appointment" }));
-    await user.type(await screen.findByPlaceholderText("Name, clinic number or phone"), "SD-1");
+    await user.type(await screen.findByPlaceholderText("Name, clinic number or phone", {}, { timeout: 5000 }), "SD-1");
     await user.click(await screen.findByRole("button", { name: new RegExp(target.full_name) }));
     await chooseOption(user, screen.getByLabelText(/^Doctor/), "Dr Dev Rao");
+    await user.click(screen.getByRole("switch", { name: "Assign a chair" }));
     await chooseOption(user, screen.getByLabelText(/^Chair/), "Chair 1");
     const startTime = screen.getByLabelText(/^Start time/);
     await user.clear(startTime);

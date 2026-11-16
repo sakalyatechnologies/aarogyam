@@ -11,5 +11,7 @@ export default defineProject({
     setupFiles: ["./src/test/setup.ts"],
     // Linked sources import Base UI; run it through Vite so dedupe applies to its React import.
     server: { deps: { inline: [/@base-ui\/react/] } },
+    // Element waits are 15s (src/test/setup.ts), so a test needs more than the default 5s; 60s as in the portal.
+    testTimeout: 60_000,
   },
 });

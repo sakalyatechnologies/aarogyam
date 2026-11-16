@@ -21,8 +21,9 @@ import { useTimeOff } from "../../lib/time-off-queries.js";
 import { awayOn, isAway } from "./away.js";
 import { AppointmentDialog } from "./appointment-dialog.js";
 import { MonthView, type MonthAway, type MonthItem } from "./month-view.js";
-import { TimeGrid, type GridColumn, type GridEvent } from "./time-grid.js";
+import { DOCTOR_TONES, TimeGrid, type BookSlot, type EventStatus, type GridColumn, type GridEvent } from "./time-grid.js";
 import { BookingDialog } from "./booking-dialog.js";
+import { visitKindLabel } from "./visit-kind-tag.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 import { COPY } from "../today/v2/copy.js";
 
@@ -60,8 +61,8 @@ const LEGEND = [
   { tone: "q", label: "Awaiting confirmation" },
 ] as const;
 
-/** Colour key for the schedule cards. */
-function Legend() {
+/** Colour key for the schedule cards; the classic look also lists the doctors (the New look's doctor chips carry their colours). */
+function Legend({ doctors = [] }: { doctors?: readonly { id: string; name: string }[] }) {
   return (
     <ul className="mk-legend" aria-label="Colour key">
       {LEGEND.map((l) => (
@@ -70,9 +71,33 @@ function Legend() {
           {l.label}
         </li>
       ))}
+      {doctors.map((d, index) => (
+        <li key={d.id} className="mk-legend-chip doc">
+          <i className={`mk-docdot d${String(index % DOCTOR_TONES)}`} aria-hidden="true" />
+          {d.name}
+        </li>
+      ))}
     </ul>
   );
 }
+
+/** The status icon an appointment wears: requests and emergencies are told apart from their plain status. */
+function eventStatusOf(a: { status: AppointmentStatus; kind: string }): EventStatus {
+  if (a.status === "requested") return "requested";
+  if (a.kind === "emergency" && a.status !== "completed") return "emergency";
+  return a.status === "cancelled" ? "booked" : a.status;
+}
+
+const STATUS_WORD: Readonly<Record<EventStatus, string>> = {
+  requested: "awaiting confirmation",
+  booked: "booked",
+  confirmed: "confirmed",
+  arrived: "waiting",
+  in_chair: "in the chair",
+  completed: "done",
+  no_show: "no-show",
+  emergency: "emergency",
+};
 
 /** The days the view shows, which is exactly what is requested: a week, a day, or the month grid (at most 42 days). */
 export function visibleRange(view: View, anchor: string): { from: string; to: string } {
@@ -109,6 +134,8 @@ export function CalendarPage() {
   // `?patient=<id>` (Patient 360's Follow-up) prefills the booking form. The range sync below rewrites the URL, so keep it here.
   const [bookPatient, setBookPatient] = useState(() => searchParams.get("patient"));
   const [bookingOpen, setBookingOpen] = useState(searchParams.get("book") === "1");
+  // The day of an empty slot chosen on the grid; the form opens on it (until then it follows the range).
+  const [bookDate, setBookDate] = useState<string | undefined>(undefined);
   // The top bar's New appointment button arrives here as `?book=1`; open the form once per arrival.
   const bookParam = searchParams.get("book") === "1";
   const [bookSeen, setBookSeen] = useState(bookParam);
@@ -176,6 +203,7 @@ export function CalendarPage() {
               .filter((c) => !newLook || doctorId === undefined || c.id === doctorId)
         ).map((c) => ({ ...c, showNow: anchor === today }));
 
+  const doctorToneOf = (id: string) => Math.max(0, people.findIndex((p) => p.id === id)) % DOCTOR_TONES;
   const placed = items
     .filter((a) => a.status !== "cancelled")
     .flatMap((a): { event: GridEvent; startMin: number; endMin: number }[] => {
@@ -186,7 +214,8 @@ export function CalendarPage() {
       }
       const time = formatTime(a.starts_at, timeZone);
       const doctorAway = isAway(away, people.find((p) => p.id === a.practitioner.id), a.starts_at, a.ends_at);
-      const detail = a.status === "requested" ? "Requested online" : view === "week" ? `${a.practitioner.display_name}${a.room == null ? "" : ` · ${a.room}`}` : (a.room ?? a.practitioner.display_name);
+      // Day by chair: the chair is the column, so name the doctor; by doctor: name the chair. The week names both.
+      const detail = a.status === "requested" ? "Requested online" : view === "week" ? `${a.practitioner.display_name}${a.room == null ? "" : ` · ${a.room}`}` : lane === "chair" ? a.practitioner.display_name : (a.room ?? a.practitioner.display_name);
       return [
         {
           startMin: place.startMin,
@@ -197,9 +226,12 @@ export function CalendarPage() {
             startMin: place.startMin,
             endMin: place.endMin,
             title: `${a.status === "requested" ? "? " : ""}${a.patient.full_name}`,
-            subtitle: `${time} · ${detail}${doctorAway ? " · Doctor away" : ""}`,
+            subtitle: `${time} · ${a.reason == null || a.reason === "" ? "" : `${a.reason} · `}${detail}${doctorAway ? " · Doctor away" : ""}`,
             tone: toneOf(a),
-            label: `${a.status === "requested" ? "Requested: " : ""}${a.patient.full_name}, ${a.reason ?? "Consultation"} at ${time}, ${detail}${doctorAway ? ", doctor away" : ""}`,
+            status: eventStatusOf(a),
+            doctorTone: doctorToneOf(a.practitioner.id),
+            visitKind: a.patient_type,
+            label: `${a.status === "requested" ? "Requested: " : ""}${a.patient.full_name}, ${a.reason ?? "Consultation"} at ${time}, ${detail}${doctorAway ? ", doctor away" : ""}, ${visitKindLabel(a.patient_type).toLowerCase()}, ${STATUS_WORD[eventStatusOf(a)]}`,
           },
         },
       ];
@@ -208,10 +240,14 @@ export function CalendarPage() {
     .filter((a) => a.status !== "cancelled")
     .map((a) => {
       const place = placementOf(a.starts_at, a.ends_at, timeZone);
-      return { id: a.id, date: place.date, startMin: place.startMin, tone: toneOf(a), label: `${a.status === "requested" ? "? " : ""}${formatTime(a.starts_at, timeZone).replace(/ ?[ap]m$/i, "")} ${a.patient.full_name}` };
+      return { id: a.id, date: place.date, startMin: place.startMin, tone: toneOf(a), doctorTone: doctorToneOf(a.practitioner.id), label: `${a.status === "requested" ? "? " : ""}${formatTime(a.starts_at, timeZone).replace(/ ?[ap]m$/i, "")} ${a.patient.full_name}` };
     });
   const monthAway: MonthAway[] = view === "month" ? monthWeeks(anchor).flat().flatMap((date) => awayFor(date).map((band) => ({ id: band.id, date, name: band.name }))) : [];
   const events = placed.map((p) => p.event);
+  const bookSlot = ({ columnId }: BookSlot) => {
+    setBookDate(view === "week" ? columnId : anchor);
+    setBookingOpen(true);
+  };
   const hours = gridHours(placed);
   const nowOnClinicClock = nowMinutes(clock, timeZone);
 
@@ -238,7 +274,8 @@ export function CalendarPage() {
           ) : undefined
         }
       />
-      <div className="mk-ptools">
+      <div className="mk-ptools cal-bar">
+        <div className="cal-nav">
         <button
           type="button"
           className="mk-btn mk-btn-ghost"
@@ -249,7 +286,9 @@ export function CalendarPage() {
         >
           ‹
         </button>
-        <b style={{ fontSize: 15 }}>{rangeLabel}</b>
+        <b className="cal-range" aria-live="polite">
+          {rangeLabel}
+        </b>
         <button
           type="button"
           className="mk-btn mk-btn-ghost"
@@ -269,7 +308,9 @@ export function CalendarPage() {
         >
           Today
         </button>
-        <span role="group" aria-label="View" className="mk-seg" style={{ marginLeft: 8 }}>
+        </div>
+        <div className="cal-view">
+        <span role="group" aria-label="View" className="mk-seg">
           {(["day", "week", "month"] as const).map((v) => (
             <button
               key={v}
@@ -294,9 +335,11 @@ export function CalendarPage() {
             onValueChange={(value) => {
               setLane(value);
             }}
+            aria-label="Group columns by"
             className="max-w-40"
           />
         ) : null}
+        </div>
       </div>
       {newLook ? (
         <div className="cal2-docs" role="group" aria-label="Filter by doctor">
@@ -310,7 +353,7 @@ export function CalendarPage() {
           >
             All doctors
           </button>
-          {(practitioners.data?.items ?? []).map((p) => (
+          {(practitioners.data?.items ?? []).map((p, index) => (
             <button
               key={p.id}
               type="button"
@@ -320,12 +363,13 @@ export function CalendarPage() {
                 setDoctorId(p.id);
               }}
             >
+              <i className={`mk-docdot d${String(index % DOCTOR_TONES)}`} aria-hidden="true" />
               {p.display_name}
             </button>
           ))}
         </div>
       ) : null}
-      <MkCard title={view === "week" ? "Week view" : view === "month" ? "Month view" : "Day view"} action={<Legend />}>
+      <MkCard title={view === "week" ? "Week view" : view === "month" ? "Month view" : "Day view"} action={<Legend {...(newLook ? {} : { doctors: people.map((p) => ({ id: p.id, name: p.display_name })) })} />}>
         {appointments.isPending ? (
           <SkeletonRows count={8} tall label="Loading the schedule" />
         ) : appointments.isError ? (
@@ -369,6 +413,7 @@ export function CalendarPage() {
             workingMinutes={WORKING_MINUTES}
             summary={`Appointments from ${from} to ${to}`}
             onSelect={setSelectedId}
+            {...(canWrite ? { onBook: bookSlot } : {})}
           />
         )}
         {appointments.isSuccess && view !== "month" && columns.length > 0 && events.length === 0 ? (
@@ -382,12 +427,15 @@ export function CalendarPage() {
         open={bookingOpen}
         onOpenChange={(open) => {
           setBookingOpen(open);
-          if (!open) setBookPatient(null);
+          if (!open) {
+            setBookPatient(null);
+            setBookDate(undefined);
+          }
         }}
         timeZone={timeZone}
         rooms={rooms.data?.items ?? []}
         practitioners={practitioners.data?.items ?? []}
-        defaultDate={anchor}
+        defaultDate={bookDate ?? anchor}
         patientParam={bookPatient}
       />
       <AppointmentDialog

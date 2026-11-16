@@ -2,13 +2,11 @@ import { FileText, Paperclip, Scissors, Stethoscope } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 
-import { apiErrorOf, type PatientId, type TimelineEventKind } from "@aarogyam/api-client";
+import { type PatientId, type TimelineEventKind } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime } from "@aarogyam/app-kit";
-import { Button, useToast } from "@sakalya/ui";
 import { MkCard, Tag, statusTone, Empty } from "../../components/mk/index.js";
 
-import { useClinic } from "../../clinic.js";
-import { useStartVisit, useTimeline, useVisits } from "../../queries.js";
+import { useTimeline } from "../../queries.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 
 const EVENT_ICON: Readonly<Record<TimelineEventKind, ReactNode>> = {
@@ -18,43 +16,14 @@ const EVENT_ICON: Readonly<Record<TimelineEventKind, ReactNode>> = {
   attachment: <Paperclip aria-hidden="true" className="size-4" />,
 };
 
-/** Every visit, note and procedure, newest first, with a way to start a new visit. */
+/** Every visit, note and procedure, newest first. */
 export function VisitsPanel({ patientId }: { patientId: PatientId }) {
-  const { can } = useClinic();
   const navigate = useNavigate();
-  const toast = useToast();
   const timeline = useTimeline(patientId);
-  const visits = useVisits(patientId);
-  const startVisit = useStartVisit(patientId);
-  const openVisit = visits.data?.items.find((v) => v.status === "open");
-
-  const onStartVisit = () => {
-    if (openVisit !== undefined) {
-      void navigate(`/patients/${patientId}/visits/${openVisit.id}`);
-      return;
-    }
-    startVisit.mutate(
-      {},
-      {
-        onSuccess: (visit) => {
-          void navigate(`/patients/${patientId}/visits/${visit.id}`);
-        },
-        onError: (thrown) => {
-          toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't start a visit.", tone: "danger" });
-        },
-      },
-    );
-  };
 
   return (
     <div className="flex flex-col gap-4">
-      {can("clinical.write") ? (
-        <div className="flex justify-end">
-          <Button disabled={startVisit.isPending} onClick={onStartVisit}>
-            {openVisit !== undefined ? "Continue open visit" : startVisit.isPending ? "Starting…" : "Start visit"}
-          </Button>
-        </div>
-      ) : null}
+      {/* Starting and continuing a visit is the header's one next step (PatientNextStep), so the visit links to its appointment. */}
       {timeline.isPending ? (
         <SkeletonRows label="Loading visits" />
       ) : timeline.isError ? (

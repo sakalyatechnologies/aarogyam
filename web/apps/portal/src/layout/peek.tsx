@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import type { PatientId } from "@aarogyam/api-client";
 import { formatDate, formatRupees } from "@aarogyam/app-kit";
@@ -28,6 +28,31 @@ export function usePatientPeek(): (patient: PeekRef) => void {
 }
 
 const NOTHING = () => undefined;
+
+/** Whether a patient's name can be a link to their page: they may read patients, and the board is the live one, not the setup's preview. */
+export function useCanLinkPatient(): boolean {
+  const peek = usePatientPeek();
+  const { can } = useClinic();
+  return peek !== NOTHING && can("patients.read");
+}
+
+/**
+ * What clicking a patient's tile does: open their page (the quick look for a role that cannot read patients). In a board
+ * drawn outside the shell (the setup's preview) it opens nothing.
+ */
+export function useOpenPatient(): (patient: PeekRef) => void {
+  const peek = usePatientPeek();
+  const navigate = useNavigate();
+  const { can } = useClinic();
+  return useCallback(
+    (patient: PeekRef) => {
+      if (peek === NOTHING) return;
+      if (can("patients.read")) void navigate(patientPath(patient));
+      else peek(patient);
+    },
+    [peek, navigate, can],
+  );
+}
 
 /** For a board drawn outside the shell (the setup's preview): the quick look opens nothing. */
 export function InertPeekProvider({ children }: { children: ReactNode }) {

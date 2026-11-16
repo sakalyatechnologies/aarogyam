@@ -257,6 +257,7 @@ export type AppointmentChanges = Schemas["AppointmentChanges"];
 export type AppointmentList = Schemas["AppointmentList"];
 export type NewAppointmentBody = Schemas["NewAppointmentBody"];
 export type BookingWarning = Schemas["BookingWarning"];
+export type PatientOverlap = Schemas["PatientOverlap"];
 export type SavedAppointment = Schemas["SavedAppointment"];
 export type StatusChange = Schemas["StatusChange"];
 export type MoveRequest = Schemas["MoveRequest"];

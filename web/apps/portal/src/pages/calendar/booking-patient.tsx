@@ -5,13 +5,16 @@ import { apiErrorOf, type Patient } from "@aarogyam/api-client";
 import { Avatar, Button, Field, TextInput } from "@sakalya/ui";
 
 import { ageSex } from "../../lib/patients.js";
+import { useClinic } from "../../clinic.js";
 import { useCreatePatient, usePatients } from "../../queries.js";
+import { VisitKindTag, visitKindOf } from "./visit-kind-tag.js";
 
 /**
  * The booking dialog's patient step. Search by name, number or phone; a chosen patient shows as a chip with
  * "Change" (and "New patient" greys out); with no match, "New patient" registers one inline.
  */
 export function BookingPatient({ patient, onChange, canRegister }: { patient: Patient | undefined; onChange: (patient: Patient | undefined) => void; canRegister: boolean }) {
+  const { session } = useClinic();
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
   const search = usePatients(q);
@@ -43,6 +46,9 @@ export function BookingPatient({ patient, onChange, canRegister }: { patient: Pa
               <span className="block text-sm font-bold text-text">{patient.full_name}</span>
               <span className="block text-xs text-muted">
                 {patient.number} · {ageSex(patient.age_years, patient.sex)}
+              </span>
+              <span className="mt-1 block">
+                <VisitKindTag kind={visitKindOf(patient)} lastSeen={patient.last_visit_at} timeZone={session.clinic.timezone} />
               </span>
             </span>
           </span>

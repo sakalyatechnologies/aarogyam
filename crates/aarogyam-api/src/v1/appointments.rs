@@ -4,6 +4,7 @@ use aarogyam_app::Moved;
 use aarogyam_app::appointments::{
     self as app, AppointmentView, CalendarQuery, ChangeAppointment, NewAppointment, Saved,
 };
+use aarogyam_dal::appointments as dal;
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{AppointmentId, BranchId, PatientId, PractitionerId, RoomId};
 use aarogyam_domain::permission::require::{AppointmentsRead, AppointmentsWrite};
@@ -225,6 +226,34 @@ pub struct BookingWarning {
     pub message: String,
 }
 
+/// Another appointment of the same patient at the same time, with any doctor or chair.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PatientOverlap {
+    /// The other appointment.
+    #[schema(value_type = String)]
+    pub appointment_id: Uuid,
+    /// Its start (RFC 3339, UTC).
+    pub starts_at: String,
+    /// Its end (RFC 3339, UTC).
+    pub ends_at: String,
+    /// The doctor it is with.
+    pub practitioner_name: String,
+    /// The chair or room, if any.
+    pub room_name: Option<String>,
+}
+
+impl From<dal::PatientOverlap> for PatientOverlap {
+    fn from(row: dal::PatientOverlap) -> Self {
+        Self {
+            appointment_id: row.id,
+            starts_at: rfc3339(row.starts_at),
+            ends_at: rfc3339(row.ends_at),
+            practitioner_name: row.practitioner_name,
+            room_name: row.room_name,
+        }
+    }
+}
+
 /// An appointment after a booking or change.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SavedAppointment {
@@ -232,6 +261,11 @@ pub struct SavedAppointment {
     pub appointment: Appointment,
     /// Warnings; empty when all is well.
     pub warnings: Vec<BookingWarning>,
+    /// The patient's other active appointments overlapping this time, with any doctor or
+    /// chair. Left out when there are none, or when an edit changed neither time nor doctor.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub patient_overlaps: Vec<PatientOverlap>,
 }
 
 impl From<Saved> for SavedAppointment {
@@ -245,6 +279,11 @@ impl From<Saved> for SavedAppointment {
                     code: warning.code().to_owned(),
                     message: warning.message().to_owned(),
                 })
+                .collect(),
+            patient_overlaps: saved
+                .patient_overlaps
+                .into_iter()
+                .map(PatientOverlap::from)
                 .collect(),
         }
     }
@@ -281,8 +320,9 @@ fn optional_id(field: &str, text: Option<&str>) -> Result<Option<Uuid>, ApiFailu
 }
 
 /// Books an appointment. Two active bookings can't overlap in one chair (`409`); a doctor
-/// booked in another chair at the same time, on leave, or outside their hours is allowed, with
-/// `warnings`.
+/// booked in another chair at the same time, or outside their hours, is allowed, with
+/// `warnings`; so is a patient who already has an active appointment then, listed in
+/// `patient_overlaps`. A doctor on leave is refused.
 #[utoipa::path(
     post,
     path = "/api/v1/appointments",
@@ -458,6 +498,11 @@ pub struct StatusChanged {
     /// Its queue token, once the patient has arrived.
     #[schema(value_type = Option<String>)]
     pub queue_token_id: Option<Uuid>,
+    /// After a move: the patient's other active appointments overlapping the new time.
+    /// Left out when there are none.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub patient_overlaps: Vec<PatientOverlap>,
 }
 
 /// Moves an appointment along: booked → confirmed → arrived → in the chair → completed, or
@@ -527,6 +572,11 @@ impl From<app::StatusChanged> for StatusChanged {
         Self {
             appointment: changed.appointment.into(),
             queue_token_id: changed.token_id,
+            patient_overlaps: changed
+                .patient_overlaps
+                .into_iter()
+                .map(PatientOverlap::from)
+                .collect(),
         }
     }
 }

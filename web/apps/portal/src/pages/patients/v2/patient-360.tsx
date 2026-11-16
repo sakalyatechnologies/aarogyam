@@ -1,4 +1,4 @@
-import { CalendarPlus, ChevronLeft, MessageCircle, Pencil } from "lucide-react";
+import { CalendarPlus, ChevronLeft, CircleCheck, MessageCircle, Pencil } from "lucide-react";
 import { useEffect } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
@@ -6,13 +6,13 @@ import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
 import { Menu, type MenuItem } from "@sakalya/ui";
 
-import { AppointmentActionButton, isOpenAppointment } from "../../../components/appointment-action.js";
+import { AppointmentActionButton } from "../../../components/appointment-action.js";
 import { Initials, Skeleton, Tag } from "../../../components/mk/index.js";
 import { SkeletonRows } from "../../../components/skeleton-rows.js";
 import { useClinic } from "../../../clinic.js";
 import { ageSex, displayName, patientPath } from "../../../lib/patients.js";
 import { rememberPatient } from "../../../lib/recent-patients.js";
-import { useClinicalFlags, usePatient, useToday } from "../../../queries.js";
+import { useClinicalFlags, usePatient, useSetAppointmentStatus } from "../../../queries.js";
 import { NotFoundPage } from "../../not-found-page.js";
 import { ConsentLine } from "../patient-page.js";
 import { Celebration } from "./celebration.js";
@@ -74,20 +74,26 @@ function Patient360View({ patient }: { patient: Patient }) {
   // ?tab=prescriptions (the command palette and old links) lands on the past prescriptions.
   const [params] = useSearchParams();
   const showPastRx = params.get("tab") === "prescriptions" && canClinical;
-  const today = useToday(can("appointments.read"));
-  const todayAppointment = today.data?.appointments.find((a) => a.patient.id === patient.id && isOpenAppointment(a.status));
   useEffect(() => {
     rememberPatient(access.org_id, patient.id);
   }, [access.org_id, patient.id]);
 
+  // The desk has no visit bar (it needs clinical.write), so its step (Check in, Seat) sits in the header instead.
+  const appointment = session.appointment;
+  const setStatus = useSetAppointmentStatus();
+  // A visit that ended with its appointment still in the chair and nothing to finish it (no token): a way out, so it never sticks.
+  const canMarkDone = appointment?.status === "in_chair" && session.finishedVisit !== undefined && can("appointments.write");
+
   const phone = patient.phone ?? "";
-  const moreItems: MenuItem<"edit" | "message" | "follow-up">[] = [
+  const moreItems: MenuItem<"edit" | "message" | "follow-up" | "complete">[] = [
+    ...(canMarkDone ? [{ id: "complete" as const, label: "Mark visit complete", icon: <CircleCheck aria-hidden="true" /> }] : []),
     ...(can("patients.write") ? [{ id: "edit" as const, label: "Edit", icon: <Pencil aria-hidden="true" /> }] : []),
     ...(can("patients.contact") && phone !== "" ? [{ id: "message" as const, label: "Message", icon: <MessageCircle aria-hidden="true" /> }] : []),
     { id: "follow-up" as const, label: "Follow-up", icon: <CalendarPlus aria-hidden="true" /> },
   ];
-  const onMore = (id: "edit" | "message" | "follow-up") => {
-    if (id === "edit") void navigate(`${patientPath(patient)}/edit`);
+  const onMore = (id: "edit" | "message" | "follow-up" | "complete") => {
+    if (id === "complete" && appointment !== undefined) setStatus.mutate({ id: appointment.id, change: { status: "completed" } });
+    else if (id === "edit") void navigate(`${patientPath(patient)}/edit`);
     else if (id === "follow-up") void navigate(`/calendar?book=1&patient=${patient.id}`);
     else {
       const digits = phone.replace(/\D/g, "");
@@ -123,7 +129,7 @@ function Patient360View({ patient }: { patient: Patient }) {
           </div>
         </div>
         <div className="p360-head-actions">
-          {todayAppointment === undefined ? null : <AppointmentActionButton appointment={todayAppointment} />}
+          {!can("clinical.write") && appointment !== undefined ? <AppointmentActionButton appointment={appointment} /> : null}
           <Menu label="More" items={moreItems} onSelect={onMore} />
         </div>
         <PatientFacts patient={patient} />

@@ -658,10 +658,20 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       found.ended_at = clock().toISOString();
       const linked = state.queueTokens.find((t) => t.id === found.queue_token_id);
       if (linked !== undefined && (linked.status === "waiting" || linked.status === "called" || linked.status === "in_chair" || linked.status === "ready_to_bill")) {
+        const appointment = state.appointments.find((a) => a.id === linked.appointment_id);
+        // As the server does, the token moves with its appointment: when the appointment's table refuses the move, the token stays.
+        if (appointment !== undefined && queueStatus === "done" && appointment.status !== "arrived" && appointment.status !== "in_chair") {
+          return;
+        }
         linked.status = queueStatus;
         linked.called_at ??= found.ended_at;
         if (queueStatus === "done") {
           linked.done_at = found.ended_at;
+          // A token that is done completes its appointment (ready to bill leaves it in the chair until paid).
+          if (appointment !== undefined) {
+            appointment.status = "completed";
+            appointment.completed_at = found.ended_at;
+          }
         }
         notices.tokenMoved(noticeContext(caller), linked);
       } else if (linked === undefined && queueStatus === "ready_to_bill") {
@@ -2688,12 +2698,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             completed_at: null,
             token_number: null,
           };
+          const clashes = patientOverlaps(state, caller.clinic.id, input.patient_id, startsAt, endsAt, record.id);
           state.appointments.push(record);
           const wired = wireAppointment(record, state, clock());
           if (wired === undefined) {
             return notFound;
           }
-          return reply({ appointment: wired, warnings } satisfies C.SavedAppointment);
+          return reply({ appointment: wired, warnings, ...(clashes.length > 0 ? { patient_overlaps: clashes } : {}) } satisfies C.SavedAppointment);
         }),
 
       changeAppointment: (id, changes, opts) =>
@@ -2752,6 +2763,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return onLeaveRefusal;
           }
           const warnings = bookingWarnings(state, caller.clinic, nextPractitionerId, nextStart, nextEnd, id);
+          // A note-only edit moved nothing, so it doesn't warn again.
+          const moved = nextStart !== found.starts_at || nextEnd !== found.ends_at || nextPractitionerId !== found.practitioner_id;
+          const clashes = moved ? patientOverlaps(state, caller.clinic.id, found.patient_id, nextStart, nextEnd, id) : [];
           found.starts_at = nextStart;
           found.ends_at = nextEnd;
           found.room_id = nextRoomId;
@@ -2763,7 +2777,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (wired === undefined) {
             return notFound;
           }
-          return reply({ appointment: wired, warnings } satisfies C.SavedAppointment);
+          return reply({ appointment: wired, warnings, ...(clashes.length > 0 ? { patient_overlaps: clashes } : {}) } satisfies C.SavedAppointment);
         }),
 
       checkInAppointment: (id, input, opts) =>
@@ -2959,6 +2973,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (holdsTime(state, found, start.toISOString(), doctorId)) {
             return slotOccupiedRefusal;
           }
+          const clashes = patientOverlaps(state, caller.clinic.id, found.patient_id, start.toISOString(), endsAt, found.id);
           found.starts_at = start.toISOString();
           found.ends_at = endsAt;
           found.practitioner_id = doctorId;
@@ -2967,7 +2982,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (wired === undefined) {
             return notFound;
           }
-          return reply({ appointment: wired, queue_token_id: null } satisfies C.StatusChanged);
+          return reply({ appointment: wired, queue_token_id: null, ...(clashes.length > 0 ? { patient_overlaps: clashes } : {}) } satisfies C.StatusChanged);
         }),
 
       getConflictPolicy: (id, opts) =>
@@ -4061,10 +4076,11 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           if (input.appointment_id != null) {
             const clash = state.visits.some(
-              (v) => v.clinic_id === caller.clinic.id && v.appointment_id === input.appointment_id && v.status === "open",
+              (v) => v.clinic_id === caller.clinic.id && v.appointment_id === input.appointment_id,
             );
+            // One visit per appointment, open or closed (the unique index on visits.appointment_id).
             if (clash) {
-              return refuse(409, "conflict", "That appointment already has an open visit.");
+              return refuse(409, "conflict", "that appointment already has a visit");
             }
           }
           const now = clock();
@@ -9412,11 +9428,15 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (existing === undefined && token.status === "left") {
             return refuse(409, "conflict", "the patient left without being seen; issue a new token");
           }
-          if (token.status === "waiting") {
+          if (token.status === "waiting" || token.status === "called") {
+            const appt = state.appointments.find((a) => a.id === token.appointment_id);
+            // As the server: the appointment must be able to take the chair, or nothing moves.
+            if (appt !== undefined && appt.status !== "arrived" && appt.status !== "in_chair") {
+              return refuse(409, "conflict", "the appointment can't move to the chair from its status");
+            }
             token.status = "in_chair";
             token.called_at = now.toISOString();
             notices.tokenMoved(noticeContext(caller), token);
-            const appt = state.appointments.find((a) => a.id === token.appointment_id);
             if (appt !== undefined && appt.status === "arrived") {
               appt.status = "in_chair";
               appt.seated_at = now.toISOString();
@@ -10250,17 +10270,22 @@ function wireAppointment(appt: FakeAppointment, state: Fixtures, now: Date): C.A
     completed_at: appt.completed_at ?? null,
     cancel_reason: appt.cancel_reason ?? null,
     token_number: appt.token_number ?? null,
-    patient_type: state.appointments.some(
-      (other) =>
-        other.id !== appt.id &&
-        other.clinic_id === appt.clinic_id &&
-        other.patient_id === appt.patient_id &&
-        other.status === "completed" &&
-        other.starts_at < appt.starts_at,
-    )
-      ? "follow_up"
-      : "new",
+    patient_type: isFollowUp(state, appt, patient) ? "follow_up" : "new",
   };
+}
+
+/** Mirrors the API's `patient_type`: a completed appointment, a closed visit or an imported last visit before this one starts. */
+function isFollowUp(state: Fixtures, appt: FakeAppointment, patient: FakePatient): boolean {
+  const completedBefore = state.appointments.some(
+    (other) => other.id !== appt.id && other.clinic_id === appt.clinic_id && other.patient_id === appt.patient_id && other.status === "completed" && other.starts_at < appt.starts_at,
+  );
+  const closedBefore = state.visits.some(
+    (v) => v.clinic_id === appt.clinic_id && v.patient_id === appt.patient_id && v.status === "closed" && v.started_at < appt.starts_at && v.appointment_id !== appt.id,
+  );
+  const last = patient.last_visit_at ?? null;
+  // A last visit that no recorded visit of ours started at was imported with the patient.
+  const imported = last !== null && last < appt.starts_at && !state.visits.some((v) => v.clinic_id === appt.clinic_id && v.patient_id === appt.patient_id && v.started_at === last);
+  return completedBefore || closedBefore || imported;
 }
 
 function wireQueueToken(token: FakeQueueToken, state: Fixtures, now: Date): C.QueueToken | undefined {
@@ -10661,6 +10686,29 @@ function bookingWarnings(
     warnings.push({ code: "outside_working_hours", message: "This is outside the doctor's working hours." });
   }
   return warnings;
+}
+
+/** The patient's other active appointments overlapping a new time, with any doctor or chair (as the API's `patient_overlaps`). */
+function patientOverlaps(state: Fixtures, clinicId: string, patientId: string, startsAt: string, endsAt: string, excludeId: string): C.PatientOverlap[] {
+  return state.appointments
+    .filter(
+      (a) =>
+        a.id !== excludeId &&
+        a.clinic_id === clinicId &&
+        a.patient_id === patientId &&
+        a.status !== "cancelled" &&
+        a.status !== "no_show" &&
+        a.status !== "completed" &&
+        overlaps(a.starts_at, a.ends_at, startsAt, endsAt),
+    )
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+    .map((a) => ({
+      appointment_id: a.id,
+      starts_at: a.starts_at,
+      ends_at: a.ends_at,
+      practitioner_name: state.practitioners.find((p) => p.id === a.practitioner_id)?.display_name ?? "",
+      room_name: state.rooms.find((r) => r.id === a.room_id)?.name ?? null,
+    }));
 }
 
 /** A small CSV parser: commas, quoted fields (with escaped `""`), and `\n` or `\r\n` line endings. */

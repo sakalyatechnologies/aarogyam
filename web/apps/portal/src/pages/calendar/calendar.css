@@ -51,6 +51,11 @@
 .mk-tg-ev .mk-ev-sub { font-size: 11px; font-weight: 600; color: var(--ink2); opacity: 1; }
 .mk-tg-ev[data-cols="3"] .mk-ev-tag, .mk-tg-ev[data-cols="4"] .mk-ev-tag, .mk-tg-ev[data-cols="3"] .mk-ev-ic, .mk-tg-ev[data-cols="4"] .mk-ev-ic { display: none; }
 .mk-tg-ev[data-status="no_show"] .mk-ev-top b { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+/* Phone: a chip is too narrow for the name, a tag and a detail line, so the name gets two lines and the rest is a tap away. */
+@media (max-width: 640px) {
+  .mk-tg-ev .mk-ev-top b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+  .mk-tg-ev .mk-ev-sub, .mk-tg-ev .mk-ev-tag, .mk-tg-ev .mk-ev-ic { display: none; }
+}
 .mk-tg-ev[data-status="completed"] { opacity: .85; }
 
 /* Week and day headers: the date, how busy the day is, and which day is today. */
@@ -176,6 +181,9 @@
 /* Toolbar: navigation on the left, view controls on the right; wraps cleanly instead of crowding. */
 .cal-bar { justify-content: space-between; row-gap: 10px; }
 .cal-nav, .cal-view { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+/* Day, Week and Month stay on one line; the pickers beside them wrap instead. */
+.cal-view .mk-seg { flex-wrap: nowrap; flex: none; }
+.cal-view .mk-seg button { white-space: nowrap; }
 .cal-range { font-size: 15px; min-width: 9.5em; text-align: center; white-space: nowrap; }
 
 /* Month: weekends muted, today clearly marked, chips carry the doctor bar. */

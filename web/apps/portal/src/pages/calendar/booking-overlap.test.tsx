@@ -81,8 +81,9 @@ describe("Calendar: same-patient overlap warning", () => {
     await waitFor(async () => {
       expect(await appointmentsOf(api, seen)).toHaveLength(2);
     }, { timeout: 5000 });
-    // The toast carries the server's specific sentence, not a generic one.
+    // The toast says it was booked, then carries the server's specific sentence, not a generic one.
     expect(await screen.findByText(/already has an appointment 10:00 am–10:30 am with .*\(Chair 1\)/, {}, { timeout: 5000 })).toBeTruthy();
+    expect(screen.getByText("Appointment booked")).toBeTruthy();
   });
 
   it("shows the server's clash in the toast when this page could not see it", async () => {

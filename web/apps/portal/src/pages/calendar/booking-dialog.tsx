@@ -159,7 +159,8 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
           // The server's answer is the authority: it sees what this page couldn't (another desk, a narrower role).
           const notes = [...saved.warnings.map((w) => w.message), ...clashesFromServer(saved.patient_overlaps).map((c) => clashSentence(c, patient.full_name, timeZone))];
           if (notes.length > 0) {
-            toast.show({ title: notes.join(" "), tone: "warning" });
+            // Booked all the same: say so first, then what to look at.
+            toast.show({ title: "Appointment booked", description: notes.join(" "), tone: "warning" });
           } else {
             toast.show({ title: "Appointment booked", tone: "success" });
           }

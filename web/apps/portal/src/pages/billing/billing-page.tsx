@@ -78,12 +78,13 @@ function BillingClassic() {
   const canWrite = can("billing.write");
   const monthName = new Date(`${today}T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
   const upiShare = monthFigures?.by_method.find((m) => m.method === "upi")?.share_bps ?? 0;
-  const rows = invoices.data?.items ?? [];
+  const loaded = invoices.data?.items;
   // The twelve newest bills; a header click then reorders those. TODO: the invoices API has no sort parameter yet, so this sorts only the loaded bills.
   const newest = useMemo(
-    () => rows.toSorted((a, b) => (b.issued_at ?? b.created_at).localeCompare(a.issued_at ?? a.created_at)).slice(0, 12),
-    [rows],
+    () => (loaded ?? []).toSorted((a, b) => (b.issued_at ?? b.created_at).localeCompare(a.issued_at ?? a.created_at)).slice(0, 12),
+    [loaded],
   );
+  const rows = loaded ?? [];
   const sortable = useSortable(newest, SORT_COLUMNS);
   const weeks = (collections.data?.by_week ?? []).slice(-8);
 

@@ -62,9 +62,20 @@ test("Check in and Start on Home open the patient's page with the visit in progr
   await shot(page, "6-patient-after-reload-payment-next");
 });
 
+/**
+ * `minutes` from now, but kept on today in the clinic's time (Asia/Kolkata, UTC+5:30 all year): in the evening a booking
+ * hours ahead would fall on tomorrow and be missing from Today. Late at night it ends just before midnight, a little in the past.
+ */
+function laterToday(minutes: number): Date {
+  const IST = 330 * 60_000;
+  const now = Date.now();
+  const midnight = Math.floor((now + IST) / 86_400_000 + 1) * 86_400_000 - IST;
+  return new Date(Math.min(now + minutes * 60_000, midnight - 31 * 60_000));
+}
+
 test("a patient's tile on Home opens the patient's page", async ({ tenant, pageAs, clinicApi, unique }) => {
   const patient = await clinicApi.registerPatient(unique("Patient"));
-  await clinicApi.book(patient.id, new Date(Date.now() + 150 * 60_000));
+  await clinicApi.book(patient.id, laterToday(150));
   const page = await pageAs(tenant.doctor, { path: "/today" });
   const table = page.getByRole("table", { name: "Appointments" });
   await table.getByRole("button", { name: new RegExp(patient.fullName) }).click();

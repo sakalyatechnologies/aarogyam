@@ -72,8 +72,10 @@ export function CollectPanel({ finished, draft, onClose, onFinish }: { finished:
     mutationFn: async () => {
       const saved = await draft.save();
       const invoice = deskIssues ? await draft.issue(saved) : saved;
-      const due = typedPaise ?? invoice.balance_paise;
-      if (due <= 0 || due > invoice.balance_paise) throw new Error("amount");
+      // A draft has no balance until it is issued (the server reports 0); the payment issues it, so the whole total is owed.
+      const owed = invoice.status === "draft" ? invoice.total_paise : invoice.balance_paise;
+      const due = typedPaise ?? owed;
+      if (due <= 0 || due > owed) throw new Error("amount");
       const signature = `${invoice.id}|${method}|${String(due)}`;
       if (attempt.current?.signature !== signature) attempt.current = { signature, key: randomUuid() };
       return unwrap(api.recordPayment({ patient_id: patientId, method, amount_paise: due, allocations: [{ invoice_id: invoice.id, amount_paise: due }] }, attempt.current.key));

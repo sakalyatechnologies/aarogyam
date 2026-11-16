@@ -154,6 +154,9 @@
 .p360-voice-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .p360-voice-list li { display: flex; gap: 10px; font-size: 14px; line-height: 1.45; }
 .p360-voice-list time { flex: none; color: var(--muted); font-size: 12.5px; padding-top: 1px; }
+/* Edit and Delete on a line: finger-sized and apart, so a tap meant for one never hits the other. */
+.p360-line-btn { display: inline-grid; place-items: center; min-width: 36px; min-height: 36px; margin: -8px 0; border-radius: 10px; }
+.p360-line-btn:hover { background: color-mix(in srgb, var(--rule) 45%, transparent); }
 
 /* Images */
 .p360-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 12px; }

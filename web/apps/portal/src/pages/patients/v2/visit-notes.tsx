@@ -130,10 +130,10 @@ function Line({ line, editable }: { line: NoteLine; editable: boolean }) {
       <time className="mk-mono">{line.at}</time>
       <span className="flex-1">{line.text}</span>
       {editable ? (
-        <span className="flex gap-1">
+        <span className="flex gap-2">
           <button
             type="button"
-            className="mk-link"
+            className="mk-link p360-line-btn"
             aria-label={`Edit the note at ${line.at}`}
             disabled={busy}
             onClick={() => {
@@ -145,7 +145,7 @@ function Line({ line, editable }: { line: NoteLine; editable: boolean }) {
           </button>
           <button
             type="button"
-            className="mk-link"
+            className="mk-link p360-line-btn"
             aria-label={`Delete the note at ${line.at}`}
             disabled={busy}
             onClick={() => {

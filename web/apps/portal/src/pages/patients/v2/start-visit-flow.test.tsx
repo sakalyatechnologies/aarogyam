@@ -119,6 +119,23 @@ describe("Starting a visit from Home (new look)", () => {
     expect(await screen.findByRole("button", { name: "Start next visit" }, WAIT)).toBeTruthy();
   });
 
+  it("tells the desk on Home to collect once the doctor sends the patient to be billed, not 'With the doctor'", async () => {
+    let name = "";
+    const backend = fakeApi((fixtures) => {
+      ({ name } = sunriseDay(fixtures, ["in_chair"]));
+      const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+      const first = fixtures.appointments.filter((a) => a.clinic_id === sunrise?.id).sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
+      const token = fixtures.queueTokens.find((t) => t.appointment_id === first?.id) ?? fixtures.queueTokens.find((t) => t.clinic_id === sunrise?.id);
+      if (token === undefined || first === undefined) throw new Error("expected a Sunrise token");
+      Object.assign(token, { appointment_id: first.id, patient_id: first.patient_id, status: "ready_to_bill" });
+    });
+    renderPortal("/today", { as: PEOPLE.farah, backend });
+    const hero = await screen.findByRole("region", { name: "Next up" }, WAIT);
+    await within(hero).findByText(name, undefined, WAIT);
+    expect(await within(hero).findByRole("button", { name: /Collect payment/ }, WAIT)).toBeTruthy();
+    expect(within(hero).queryByText("With the doctor")).toBeNull();
+  });
+
   it("Open visit on the queue board goes to the patient's page with the visit in progress", async () => {
     const user = userEvent.setup();
     let who = { id: "", name: "" };

@@ -312,6 +312,37 @@ describe("Ending the visit and payment", () => {
     expect(within(drawer).getByText("₹250")).toBeTruthy();
   });
 
+  it("lets the doctor take the payment without billing.write: the draft's total is owed, and the payment issues it", async () => {
+    const user = userEvent.setup();
+    // The seeded doctor role, as on the server: clinical.write, billing.read and payments.collect, no billing.write.
+    const { path, backend, patientId } = patientWithBackend();
+    await seatPatient(backend, patientId);
+    const payments: NewPayment[] = [];
+    renderPortal(path, {
+      as: PEOPLE.dev,
+      backend,
+      wrap: (client) => ({
+        ...client,
+        recordPayment: (input, key, options) => {
+          payments.push(input);
+          return client.recordPayment(input, key, options);
+        },
+      }),
+    });
+    // Dev also visits Lotus, so the portal asks which clinic first.
+    await user.click(await screen.findByRole("button", { name: /Sunrise Dental/ }));
+    await user.click(await screen.findByRole("button", { name: "Start visit" }));
+    await doctorsDay(user);
+    await user.click(await screen.findByRole("button", { name: "Collect payment" }));
+    const drawer = await screen.findByRole("dialog", { name: "Collect payment" });
+    // The default consultation line from the price list, still a draft bill.
+    expect((await within(drawer).findByTestId("bill-total")).textContent).toBe("₹500");
+    await user.click(within(drawer).getByRole("button", { name: "Record payment" }));
+    expect(await within(drawer).findByText(/Paid in full/)).toBeTruthy();
+    expect(payments).toHaveLength(1);
+    expect(payments[0]).toMatchObject({ method: "cash", amount_paise: 50000 });
+  });
+
   it("hides Collect payment without billing.write or payments.collect, and still sends for payment", async () => {
     const user = userEvent.setup();
     const { path, backend, patientId } = patientWithBackend((fixtures) => {

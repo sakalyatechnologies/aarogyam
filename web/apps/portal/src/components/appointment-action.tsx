@@ -7,7 +7,7 @@ import { useToast } from "@sakalya/ui";
 
 import { useClinic } from "../clinic.js";
 import { useOpenPatient } from "../layout/peek.js";
-import { useSetAppointmentStatus, useToday, useVisits } from "../queries.js";
+import { useQueue, useSetAppointmentStatus, useToday, useVisits } from "../queries.js";
 import { useCheckIn } from "./check-in.js";
 import { StartBlocked, useStartAppointmentVisit } from "./start-appointment-visit.js";
 
@@ -74,7 +74,10 @@ export function AppointmentActionButton({
   // A patient in the chair whose visit is already finished is waiting on payment, not on the doctor.
   const visits = useVisits(next?.step === "continue" && canClinical ? appointment.patient.id : undefined);
   const items = visits.data?.items ?? [];
-  const finished = items.some((v) => v.appointment_id === appointment.id && v.status === "closed") && !items.some((v) => v.status === "open");
+  // The desk can't read visits; the queue says the same thing: the doctor sent the patient to be billed.
+  const queue = useQueue(undefined, { enabled: next?.step === "continue" && !canClinical && can("appointments.read") });
+  const sentToBill = queue.data?.items.some((t) => t.appointment_id === appointment.id && t.status === "ready_to_bill") ?? false;
+  const finished = sentToBill || (items.some((v) => v.appointment_id === appointment.id && v.status === "closed") && !items.some((v) => v.status === "open"));
   if (next === undefined || !can("appointments.write")) {
     return null;
   }

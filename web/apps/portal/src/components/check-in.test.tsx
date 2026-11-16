@@ -155,6 +155,48 @@ describe("Check in a booking", () => {
     expect(screen.getByRole("dialog", { name: "Check in Test" })).toBeTruthy();
   });
 
+  it("warns an online sign-up flagged as a duplicate to merge first, with a link, and still checks in", async () => {
+    const user = userEvent.setup();
+    const { checkIn, wrap } = spies();
+    let existingName = "";
+    const backend = fakeApi((fixtures) => {
+      existingName = seedOnlineSignup(fixtures).existing.full_name;
+    });
+    renderPortal("/queue", { as: PEOPLE.asha, backend, wrap });
+    await openList(user, "Test Signup");
+    await user.click(await screen.findByRole("button", { name: "Check in Test Signup" }));
+    const dialog = await screen.findByRole("dialog", { name: "Check in Test" });
+    const note = await within(dialog).findByRole("note");
+    expect(note.textContent).toContain(`Possible duplicate of ${existingName} (`);
+    expect(note.textContent).toContain("Merge them first");
+    expect(within(note).getByRole("link", { name: "Review possible duplicates" }).getAttribute("href")).toBe("/patients/duplicates");
+    await user.click(within(dialog).getByRole("button", { name: "Check in" }));
+    await waitFor(() => {
+      expect(checkIn).toHaveBeenCalledTimes(1);
+    });
+    expect(await screen.findByText("Test Signup checked in")).toBeTruthy();
+  });
+
+  it("shows no duplicate warning without a flag", async () => {
+    const user = userEvent.setup();
+    renderPortal("/queue", { as: PEOPLE.asha, backend: fakeApi(seedOnlineSignup) });
+    await openList(user, "Test Dated");
+    await user.click(await screen.findByRole("button", { name: "Check in Test Dated" }));
+    const dialog = await screen.findByRole("dialog", { name: "Check in Test" });
+    await within(dialog).findByRole("button", { name: "Male" });
+    expect(within(dialog).queryByRole("note")).toBeNull();
+  });
+
+  it("has no axe violations on the check-in form with the duplicate warning", async () => {
+    const user = userEvent.setup();
+    renderPortal("/queue", { as: PEOPLE.asha, backend: fakeApi(seedOnlineSignup) });
+    await openList(user, "Test Signup");
+    await user.click(await screen.findByRole("button", { name: "Check in Test Signup" }));
+    const dialog = await screen.findByRole("dialog", { name: "Check in Test" });
+    await within(dialog).findByRole("note");
+    expect(problems(await axe.run(document.body, AXE))).toEqual([]);
+  });
+
   it("has no axe violations on the check-in form", async () => {
     const user = userEvent.setup();
     renderPortal("/queue", { as: PEOPLE.asha, backend: fakeApi(seedOnlineSignup) });

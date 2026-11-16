@@ -28,7 +28,8 @@ export function StartVisitButton({ tokenId, variant = "primary", label = "Start 
       onClick={() => {
         start.mutate(tokenId, {
           onSuccess: ({ visit }) => {
-            void navigate(`${patientPath({ id: visit.patient_id })}/visits/${encodeURIComponent(visit.id)}`);
+            // The patient's page, where the open visit shows as in progress: the same place Home's Start goes.
+            void navigate(patientPath({ id: visit.patient_id }));
           },
           onError: (thrown) => {
             toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't start the visit.", tone: "danger" });

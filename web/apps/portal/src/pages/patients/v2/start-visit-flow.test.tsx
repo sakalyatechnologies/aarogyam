@@ -102,6 +102,43 @@ describe("Starting a visit from Home (new look)", () => {
     expect(router.state.location.pathname).toBe(`/patients/${who.id}`);
   });
 
+  it("shows one Start per patient: the header adds Start next visit only when the Next up card leads with someone else", async () => {
+    const backend = fakeApi((fixtures) => {
+      sunriseDay(fixtures, ["arrived"]);
+    });
+    renderPortal("/today", { as: PEOPLE.asha, backend });
+    const hero = await screen.findByRole("region", { name: "Next up" });
+    await within(hero).findByRole("button", { name: "Start" }, WAIT);
+    expect(screen.queryByRole("button", { name: "Start next visit" })).toBeNull();
+    cleanup();
+
+    const busy = fakeApi((fixtures) => {
+      sunriseDay(fixtures, ["in_chair", "arrived"]);
+    });
+    renderPortal("/today", { as: PEOPLE.asha, backend: busy });
+    expect(await screen.findByRole("button", { name: "Start next visit" }, WAIT)).toBeTruthy();
+  });
+
+  it("Open visit on the queue board goes to the patient's page with the visit in progress", async () => {
+    const user = userEvent.setup();
+    let who = { id: "", name: "" };
+    const backend = fakeApi((fixtures) => {
+      // A patient seated from the queue: their token is in the chair.
+      const token = fixtures.queueTokens.find((t) => t.clinic_id === fixtures.clinics.find((c) => c.slug === "sunrise")?.id);
+      if (token === undefined) throw new Error("expected a Sunrise queue token");
+      token.status = "in_chair";
+      const patient = fixtures.patients.find((p) => p.id === token.patient_id);
+      who = { id: patient?.id ?? "", name: patient?.full_name ?? "" };
+    });
+    const { router } = renderPortal("/queue", { as: PEOPLE.asha, backend });
+    const card = await screen.findByRole("listitem", { name: new RegExp(`, ${who.name}$`) }, WAIT);
+    await user.click(within(card).getByRole("button", { name: "Open visit" }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(`/patients/${who.id}`);
+    }, WAIT);
+    await screen.findByText("Visit in progress", undefined, WAIT);
+  });
+
   it("Start on a patient already in the chair with no visit opens it, and not twice", async () => {
     const user = userEvent.setup();
     let who = { id: "", name: "" };

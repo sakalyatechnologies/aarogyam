@@ -123,19 +123,23 @@ export function TimeGrid({
   const firstStart = events.reduce((min, e) => Math.min(min, e.startMin), Number.POSITIVE_INFINITY);
 
   // Open on the current time, else the first visit, else the clinic's opening hour, so the working day is in view.
+  // The visits often arrive after the grid shows, so place it again once, when they do.
+  const hasEvents = Number.isFinite(firstStart);
   useEffect(() => {
     const el = scroller.current;
     if (el === null) return;
     const opening = workingMinutes?.start ?? startHour * 60;
-    const focus = showsNow ? nowMinute : Number.isFinite(firstStart) ? Math.min(firstStart, opening + 120) : opening;
-    const top = ((focus - startHour * 60) / 60) * HOUR_HEIGHT - el.clientHeight / 3;
+    const focus = showsNow ? nowMinute : hasEvents ? Math.min(firstStart, opening + 120) : opening;
+    const offset = ((focus - startHour * 60) / 60) * HOUR_HEIGHT;
+    // The now line sits a third of the way down; a first visit sits half an hour below the column headers, never cut off.
+    const top = showsNow ? offset - Math.max(el.clientHeight / 3, HOUR_HEIGHT / 2) : offset - HOUR_HEIGHT / 2;
     const target = Math.max(0, top);
     const calm = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (typeof el.scrollTo === "function") el.scrollTo({ top: target, behavior: calm ? "auto" : "smooth" });
     else el.scrollTop = target;
-    // Only on first show; later scrolling belongs to the person.
+    // Only on first show and when the visits first arrive; later scrolling belongs to the person.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasEvents]);
 
   // The empty slot under the pointer or the keyboard cursor, drawn as a "+ Book 10:30 am" ghost.
   const [slot, setSlot] = useState<(BookSlot & { by: "pointer" | "key" }) | undefined>(undefined);

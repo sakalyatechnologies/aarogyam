@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -103,6 +103,18 @@ describe("TimeGrid booking an empty slot", () => {
   });
 });
 
+describe("TimeGrid opening scroll", () => {
+  it("places the first visit just below the headers, also when the visits arrive after the grid", () => {
+    const columns = [{ id: "d", label: "Mon", dateLabel: "16" }];
+    const { container, rerender } = render(<TimeGrid columns={columns} events={[]} startHour={8} endHour={18} onSelect={() => undefined} summary="Grid" />);
+    const scroller = container.querySelector<HTMLElement>(".mk-tg");
+    expect(scroller?.scrollTop).toBe(0);
+    rerender(<TimeGrid columns={columns} events={[event("A", 600, 660)]} startHour={8} endHour={18} onSelect={() => undefined} summary="Grid" />);
+    // 10:00 is two hours below 8:00; half an hour of room is kept above it.
+    expect(scroller?.scrollTop).toBe(2 * 72 - 36);
+  });
+});
+
 describe("Calendar page: booking from the grid and axe (New look)", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -117,6 +129,45 @@ describe("Calendar page: booking from the grid and axe (New look)", () => {
     const column = await screen.findByRole("group", { name: /^Thu 15: free time/ });
     fireEvent.click(column, { clientY: 100 });
     expect(await screen.findByRole("dialog", { name: "New appointment" })).toBeTruthy();
+  });
+
+  it("starts the booking form at the chosen slot's time", async () => {
+    const user = userEvent.setup();
+    renderPortal("/calendar?from=2026-10-12&to=2026-10-18", { as: PEOPLE.asha });
+    const column = await screen.findByRole("group", { name: /^Thu 15: free time/ });
+    column.focus();
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{Enter}");
+    const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+    expect(within(dialog).getByRole("button", { name: /Thu, 15 Oct/ })).toBeTruthy();
+    expect(within(dialog).getByLabelText<HTMLInputElement>(/^Start time/).value).toBe("10:30");
+  });
+
+  it("in the day view by chair, books the clicked chair", async () => {
+    const user = userEvent.setup();
+    renderPortal("/calendar?from=2026-10-12&to=2026-10-18", { as: PEOPLE.asha });
+    await user.click(await screen.findByRole("button", { name: "Day" }));
+    const [column] = await screen.findAllByRole("group", { name: /: free time/ });
+    if (column === undefined) throw new Error("expected a chair column");
+    const chair = column.getAttribute("aria-label")?.split(":")[0] ?? "";
+    column.focus();
+    await user.keyboard("{Enter}");
+    const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+    expect(within(dialog).getByRole("switch", { name: "Assign a chair" }).getAttribute("aria-checked")).toBe("true");
+    expect(within(dialog).getByRole("combobox", { name: /chair/i }).textContent).toContain(chair);
+  });
+
+  it("marks a new patient's visit on its chip", async () => {
+    renderPortal("/calendar?from=2026-09-28&to=2026-10-04", { as: PEOPLE.asha });
+    const grid = await screen.findByRole("group", { name: /Appointments from 2026-09-28/ });
+    await waitFor(() => {
+      expect(grid.querySelectorAll(".mk-tg-ev").length).toBeGreaterThan(0);
+    });
+    const chips = [...grid.querySelectorAll(".mk-tg-ev")];
+    expect(chips.some((chip) => chip.querySelector(".mk-ev-tag") !== null)).toBe(true);
+    for (const chip of chips) {
+      const isNew = /, new patient, /.test(chip.getAttribute("aria-label") ?? "");
+      expect(chip.querySelector(".mk-ev-tag")?.textContent ?? null).toBe(isNew ? "New" : null);
+    }
   });
 
   it("has no axe violations in the week view", async () => {

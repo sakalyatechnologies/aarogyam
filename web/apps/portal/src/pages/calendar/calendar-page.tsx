@@ -13,7 +13,7 @@ import { MkCard, EmptyState, PageHeader } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { useNewLook } from "../../lib/new-look.js";
 import { gridHours, nowMinutes, placementOf } from "../../lib/time-grid.js";
-import { shiftsOn } from "../../lib/slots.js";
+import { formatHm, shiftsOn } from "../../lib/slots.js";
 import { addDays, addMonths, mondayOf, monthStartOf, monthWeeks, todayIn } from "../../lib/time.js";
 import { formatTime } from "@aarogyam/app-kit";
 import { useAppointments, usePractitioners, useRooms, useWorkingHoursMany } from "../../queries.js";
@@ -136,6 +136,8 @@ export function CalendarPage() {
   const [bookingOpen, setBookingOpen] = useState(searchParams.get("book") === "1");
   // The day of an empty slot chosen on the grid; the form opens on it (until then it follows the range).
   const [bookDate, setBookDate] = useState<string | undefined>(undefined);
+  // The empty slot clicked on the grid: its start, and the doctor or chair column in the day view.
+  const [bookAt, setBookAt] = useState<{ time: string; practitionerId?: string; roomId?: string } | undefined>(undefined);
   // The top bar's New appointment button arrives here as `?book=1`; open the form once per arrival.
   const bookParam = searchParams.get("book") === "1";
   const [bookSeen, setBookSeen] = useState(bookParam);
@@ -231,6 +233,8 @@ export function CalendarPage() {
             status: eventStatusOf(a),
             doctorTone: doctorToneOf(a.practitioner.id),
             visitKind: a.patient_type,
+            // Follow-ups are the usual case, so only a first visit is marked on the chip.
+            ...(a.patient_type === "new" ? { tag: "New" } : {}),
             label: `${a.status === "requested" ? "Requested: " : ""}${a.patient.full_name}, ${a.reason ?? "Consultation"} at ${time}, ${detail}${doctorAway ? ", doctor away" : ""}, ${visitKindLabel(a.patient_type).toLowerCase()}, ${STATUS_WORD[eventStatusOf(a)]}`,
           },
         },
@@ -244,8 +248,13 @@ export function CalendarPage() {
     });
   const monthAway: MonthAway[] = view === "month" ? monthWeeks(anchor).flat().flatMap((date) => awayFor(date).map((band) => ({ id: band.id, date, name: band.name }))) : [];
   const events = placed.map((p) => p.event);
-  const bookSlot = ({ columnId }: BookSlot) => {
+  const bookSlot = ({ columnId, startMin }: BookSlot) => {
     setBookDate(view === "week" ? columnId : anchor);
+    setBookAt({
+      time: formatHm(startMin),
+      ...(view === "day" && lane === "doctor" ? { practitionerId: columnId } : {}),
+      ...(view === "day" && lane === "chair" ? { roomId: columnId } : {}),
+    });
     setBookingOpen(true);
   };
   const hours = gridHours(placed);
@@ -430,12 +439,16 @@ export function CalendarPage() {
           if (!open) {
             setBookPatient(null);
             setBookDate(undefined);
+            setBookAt(undefined);
           }
         }}
         timeZone={timeZone}
         rooms={rooms.data?.items ?? []}
         practitioners={practitioners.data?.items ?? []}
         defaultDate={bookDate ?? anchor}
+        defaultTime={bookAt?.time}
+        defaultPractitionerId={bookAt?.practitionerId}
+        defaultRoomId={bookAt?.roomId}
         patientParam={bookPatient}
       />
       <AppointmentDialog

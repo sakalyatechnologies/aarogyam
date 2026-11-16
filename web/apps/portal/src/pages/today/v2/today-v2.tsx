@@ -30,15 +30,19 @@ export function salutation(displayName: string, doctor: boolean): string {
   return doctor ? `Dr. ${plain}` : displayName.trim();
 }
 
-function HeaderAction({ doctor }: { doctor: boolean }) {
+/** `hero`: the board shows today's Next up card, which carries its own action for the patient it leads with. */
+function HeaderAction({ doctor, hero }: { doctor: boolean; hero: boolean }) {
   const { can } = useClinic();
   const day = useDayToday(undefined);
   const practitioners = usePractitioners();
   const [walkIn, setWalkIn] = useState(false);
   if (!can("appointments.write")) return null;
   if (doctor) {
-    const target = day.data === undefined ? undefined : seeingOrder(day.data).find((a) => a.status !== "in_chair");
-    return target === undefined ? null : <AppointmentActionButton appointment={target} className="tv2-cta" label={(step) => (target.status === "arrived" && can("clinical.write") ? "Start next visit" : step)} />;
+    const order = day.data === undefined ? [] : seeingOrder(day.data);
+    const target = order.find((a) => a.status !== "in_chair");
+    // One button per patient: when the Next up card already leads with this patient, the header adds nothing.
+    const duplicate = hero && order[0]?.id === target?.id;
+    return target === undefined || duplicate ? null : <AppointmentActionButton appointment={target} className="tv2-cta" label={(step) => (target.status === "arrived" && can("clinical.write") ? "Start next visit" : step)} />;
   }
   return (
     <>
@@ -96,7 +100,7 @@ export function TodayV2() {
           <h1>{now.data === undefined ? "Today" : `${greeting(now.data.as_of, timeZone)}, ${salutation(session.user.display_name, doctor)}`}</h1>
           <p>{now.data === undefined ? where : `${headerDate(now.data.as_of, timeZone)} · ${where}`}</p>
         </div>
-        <HeaderAction doctor={doctor} />
+        <HeaderAction doctor={doctor} hero={viewing === undefined && (layout.isPending || (layout.data?.layout.items.some((item) => item.key === "nextup" && item.zone !== "rail") ?? false))} />
       </header>
       {layout.isPending ? (
         <div role="status" aria-label="Loading your layout" style={{ display: "grid", gap: 16 }}>

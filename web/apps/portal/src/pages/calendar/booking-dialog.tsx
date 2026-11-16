@@ -32,12 +32,21 @@ export interface BookingDialogProps {
   practitioners: PractitionerPage["items"];
   /** The date the calendar is showing; the form starts on it. */
   defaultDate: string;
+  /** The empty slot someone clicked: its start ("10:30") and the doctor or chair column it was in. */
+  defaultTime?: string | undefined;
+  defaultPractitionerId?: string | undefined;
+  defaultRoomId?: string | undefined;
   /** `?patient=<id>`: book for this patient without searching. */
   patientParam?: string | null;
 }
 
 /** The dialog that books a new appointment: patient, doctor and chair, then a day and a free time. */
-export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitioners, defaultDate, patientParam = null }: BookingDialogProps) {
+export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitioners, defaultDate,
+  defaultTime,
+  defaultPractitionerId,
+  defaultRoomId,
+  patientParam = null,
+}: BookingDialogProps) {
   const { can } = useClinic();
   const [picked, setPicked] = useState<Patient | undefined>(undefined);
   const [cleared, setCleared] = useState(false);
@@ -48,15 +57,20 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
     setPicked(next);
     setCleared(next === undefined);
   };
-  const [practitionerId, setPractitionerId] = useState("");
-  const [assignChair, setAssignChair] = useState(false);
-  const [chosenRoomId, setRoomId] = useState("");
+  // Until the person picks, follow the slot they clicked on the calendar.
+  const [chosenPractitionerId, setPractitionerId] = useState<string | undefined>(undefined);
+  const practitionerId = chosenPractitionerId ?? defaultPractitionerId ?? "";
+  const [chosenAssign, setAssignChair] = useState<boolean | undefined>(undefined);
+  const assignChair = chosenAssign ?? defaultRoomId !== undefined;
+  const [pickedRoomId, setRoomId] = useState<string | undefined>(undefined);
+  const chosenRoomId = pickedRoomId ?? defaultRoomId ?? "";
   // A chair counts only while the switch is on.
   const roomId = assignChair ? chosenRoomId : "";
   // Until the person picks a day, follow the calendar's.
   const [chosenDate, setChosenDate] = useState<string | undefined>(undefined);
   const date = chosenDate ?? defaultDate;
-  const [startTime, setStartTime] = useState("09:00");
+  const [chosenTime, setStartTime] = useState<string | undefined>(undefined);
+  const startTime = chosenTime ?? defaultTime ?? "09:00";
   const [duration, setDuration] = useState<number>(30);
   const [kind, setKind] = useState<(typeof KINDS)[number]["value"]>("follow_up");
   const [reason, setReason] = useState("");
@@ -101,11 +115,11 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
   const reset = () => {
     setPicked(undefined);
     setCleared(false);
-    setPractitionerId("");
-    setRoomId("");
-    setAssignChair(false);
+    setPractitionerId(undefined);
+    setRoomId(undefined);
+    setAssignChair(undefined);
     setChosenDate(undefined);
-    setStartTime("09:00");
+    setStartTime(undefined);
     setDuration(30);
     setKind("follow_up");
     setReason("");

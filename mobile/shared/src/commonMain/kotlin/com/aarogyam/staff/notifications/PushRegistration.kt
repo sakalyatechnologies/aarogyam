@@ -11,6 +11,7 @@ import com.sakalya.mobile.core.DeviceId
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
@@ -80,7 +82,11 @@ class PushRegistration(
     suspend fun forget() {
         val app = api()
         if (app != null) {
-            val answer = withTimeoutOrNull(FORGET_TIMEOUT_MS) { app.forgetDevice(installationId) }
+            // On Dispatchers.Default so the cap is real time even under a test's virtual clock.
+            val answer =
+                withContext(Dispatchers.Default) {
+                    withTimeoutOrNull(FORGET_TIMEOUT_MS) { app.forgetDevice(installationId) }
+                }
             when (answer) {
                 is Outcome.Success -> log.info("push.forgotten")
                 is Outcome.Failure -> log.warn("push.forget_failed") { code("error", answer.error.code.value) }

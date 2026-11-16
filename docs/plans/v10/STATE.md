@@ -262,3 +262,15 @@ Done:
   - The pages /support, /account-deletion and /privacy.
 - **Open question to the founder:** the "ROCM … icon on the top right" request; is it a profile or role icon?
 - **The founder is viewing the app** on simulator "iPhone 18 Pro" (no worker uses it).
+
+### 15 Nov, evening: main e328a8e9 (full gate passed)
+- **Done and pushed:**
+  - Android T13 complete: desk, visit, patient, labs, chat, team, expenses, analytics, shell, Schedule, sign-in v7 with invites, password, Delete account. Checked on the Pixel_9a emulator against the local API (`adb reverse tcp:5173 tcp:5173`).
+  - iOS: analytics v11, push client, password, Delete account, the My tasks Close button, App Store screenshots (`mobile/fastlane/screenshots/ios/en-US`) with the demo seed `mobile/iosApp/scripts/store-seed.sh`.
+- **Next:**
+  1. When the backend's 0713/0714 are on prod: test push (needs the APNs key), password sign-in (review account) and Delete account (a throwaway account only).
+  2. Android push (FCM): it needs the founder's Firebase project and `google-services.json`.
+  3. Play screenshots from the emulator.
+  4. The first TestFlight and Play internal uploads once the founder adds the keys (`mobile/docs/release.md`).
+  5. Optional: retake iOS shot 2 (visit with Rx) cleaner.
+- **The founder's open question:** the "ROCM … icon on the top right".

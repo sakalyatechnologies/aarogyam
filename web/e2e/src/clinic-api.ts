@@ -111,4 +111,13 @@ export class ClinicApi {
     const body = await this.call("POST", `/api/v1/patients/${patientId}/visits`, { data: {} }, this.clinic.doctor);
     return text(body, "id");
   }
+
+  /** A finished visit with one signed SOAP note, as the doctor; returns the visit id. */
+  async pastVisitWithNote(patientId: string, subjective: string): Promise<string> {
+    const visitId = await this.startVisit(patientId);
+    const note = await this.call("POST", `/api/v1/visits/${visitId}/notes`, { data: { sections: { subjective } } }, this.clinic.doctor);
+    await this.call("POST", `/api/v1/notes/${text(note, "id")}/sign`, { data: {} }, this.clinic.doctor);
+    await this.call("POST", `/api/v1/visits/${visitId}/close`, { data: {} }, this.clinic.doctor);
+    return visitId;
+  }
 }

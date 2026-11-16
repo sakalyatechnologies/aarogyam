@@ -98,7 +98,7 @@ export function DoneTodayBlock() {
 export { splitNote } from "./note-lines.js";
 
 /** Today's notes: record voice notes (several per visit, each stamped with its start time) and see them together, in order. */
-export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean; /** Put the quick picks (complaints, findings, advice) above the recorder, so one section takes the whole note. */ withPicks?: boolean }) {
+export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean; /** Add the quick picks (complaints, findings, advice) below the recorder and today's note, so one section takes the whole note. */ withPicks?: boolean }) {
   const session = useVisitSession();
   const { visit, note, voice } = session;
   const parts = splitNote(note.values);
@@ -111,16 +111,6 @@ export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean
         <p className="mk-hint">You can read this visit's note but not change it.</p>
       ) : (
         <div className="flex flex-col gap-3">
-          {withPicks ? (
-            <>
-              <QuickPickBar patientId={session.patientId} visitId={visit.id} onPick={session.note.pick} />
-              {session.error === undefined ? null : (
-                <p role="alert" className="mk-hint" style={{ color: "var(--red)" }}>
-                  {session.error}
-                </p>
-              )}
-            </>
-          ) : null}
           <section aria-label="Voice recorder" className="p360-voice">
             <div className="flex flex-wrap items-end gap-2">
               <Field label="Language" className="w-40">
@@ -210,6 +200,16 @@ export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean
               ))}
             </div>
           )}
+          {withPicks ? (
+            <>
+              <QuickPickBar patientId={session.patientId} visitId={visit.id} onPick={session.note.pick} />
+              {session.error === undefined ? null : (
+                <p role="alert" className="mk-hint" style={{ color: "var(--red)" }}>
+                  {session.error}
+                </p>
+              )}
+            </>
+          ) : null}
           <Fold title="Edit the note" quiet>
             <NoteEditor />
           </Fold>

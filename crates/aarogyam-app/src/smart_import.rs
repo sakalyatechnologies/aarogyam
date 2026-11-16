@@ -1,21 +1,26 @@
 //! Smart import of patients from a clinic's own CSV or Excel file.
 //!
 //! 1. **Upload** reads the file, finds the header row, stores the rows in an import session
-//!    (never the file itself) and suggests a field for each column.
+//!    and the original file in file storage (the clinic may open and delete it) and suggests a
+//!    field for each column.
 //! 2. **Preview** reads every row through the clinic's mapping, leniently: what is readable is
 //!    kept, what isn't is reported and left empty, and duplicates (same phone and name, in the
 //!    clinic or earlier in the file) are found.
 //! 3. **Commit** imports in one transaction: new patients numbered from the clinic's sequence,
 //!    duplicates skipped or merged (filling only empty details), each row recorded against its
 //!    file, sheet and row, patients missing details put on the front desk's to-do list, and the
-//!    mapping remembered. Committing a session again returns the same result.
+//!    mapping remembered. A row with a balance above zero also gets one issued bill, "Opening
+//!    balance (imported)", when the committer may issue bills. Committing a session again
+//!    returns the same result and bills nothing more.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use aarogyam_dal::import_sessions::{self as dal, Finish, ImportedPatients, NewSession};
 use aarogyam_dal::imports;
 use aarogyam_domain::access::ClinicActor;
-use aarogyam_domain::ids::{ImportId, ImportSessionId, PatientGapId, PatientId};
+use aarogyam_domain::ids::{
+    AttachmentId, ClinicId, ImportId, ImportSessionId, PatientGapId, PatientId,
+};
 use aarogyam_domain::import::ImportField;
 use aarogyam_domain::import_map::{
     LenientRow, Missing, Suggestion, duplicate_key, find_header, header_key, map_rows,
@@ -29,9 +34,10 @@ use serde_json::{Value, json};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::billing::{self, DraftInvoice, LineInput};
 use crate::clock::{clinic_offset, clinic_today};
 use crate::error::AppError;
-use crate::files::sha256_hex;
+use crate::files::{DownloadRefusal, Files, LINK_LIFETIME, LinkRefusal, StorageKey, sha256_hex};
 use crate::scope::staff_scope as scope;
 use crate::tabular::{TableError, read_table};
 
@@ -41,6 +47,13 @@ pub const MAX_ROWS: usize = 5_000;
 const SAMPLE_ROWS: usize = 5;
 /// Most entries on the to-do list in one response.
 const GAP_PAGE: i64 = 500;
+/// Most opening-balance bills one commit makes. Each goes through the same use case as a bill
+/// made at the desk (create, number, issue, about sixteen statements), so a very large file
+/// would outlast a request.
+pub const MAX_OPENING_BILLS: usize = 300;
+/// The line printed on an opening-balance bill.
+const OPENING_BALANCE_LINE: &str = "Opening balance (imported)";
+const XLSX_MIME: &str = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 /// A file as uploaded.
 #[derive(Debug, Clone, Default)]
@@ -79,6 +92,21 @@ pub struct SessionView {
     pub suggestions: Vec<Suggestion>,
     /// When the session ends unless committed.
     pub expires_at: OffsetDateTime,
+    /// The original file kept for the clinic.
+    pub file: Option<ImportFileView>,
+}
+
+/// The original file of an import, as kept (never its bytes or storage key).
+#[derive(Debug, Clone)]
+pub struct ImportFileView {
+    /// The name it was uploaded with.
+    pub file_name: String,
+    /// Its size in bytes.
+    pub size_bytes: i64,
+    /// Its media type.
+    pub mime_type: String,
+    /// When it was stored.
+    pub stored_at: OffsetDateTime,
 }
 
 /// What to do with a row that matches an existing patient or an earlier row.
@@ -178,6 +206,10 @@ pub struct RowOutcome {
     pub patient_id: Option<PatientId>,
     /// Their number, on commit.
     pub number: Option<String>,
+    /// The opening balance in paise (rounded to the rupee, as billed): in a preview, the amount
+    /// the row carries; after a commit, the amount of the bill made. Only for members with
+    /// `billing.read`.
+    pub opening_balance_paise: Option<i64>,
 }
 
 /// A preview's or commit's result.
@@ -197,6 +229,10 @@ pub struct ImportOutcome {
     pub skipped: usize,
     /// Can't be imported.
     pub failed: usize,
+    /// Opening-balance bills: to be made (preview) or made (commit).
+    pub opening_bills: usize,
+    /// Their total in paise; only for members with `billing.read`.
+    pub opening_total_paise: Option<i64>,
     /// Notes about the whole file, such as a column we don't import.
     pub notes: Vec<String>,
     /// Every row, in file order.
@@ -239,6 +275,60 @@ fn hide_contact(field: Option<ImportField>, value: &str, contact: bool) -> Strin
     }
 }
 
+/// The media type of an uploaded file of this kind (`csv` or `xlsx`).
+fn mime_of(kind: &str) -> &'static str {
+    if kind == "csv" { "text/csv" } else { XLSX_MIME }
+}
+
+/// The first rows, one value per column, with contact details hidden from members who may not
+/// see them.
+fn sample_rows(
+    rows: &[Vec<String>],
+    suggestions: &[Suggestion],
+    width: usize,
+    contact: bool,
+) -> Vec<Vec<String>> {
+    rows.iter()
+        .take(SAMPLE_ROWS)
+        .map(|cells| {
+            (0..width)
+                .map(|column| {
+                    let value = cells.get(column).map_or("", String::as_str);
+                    hide_contact(suggestions[column].field, value, contact)
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// Stores the original file under its own id, then opens the session (which ends the clinic's
+/// expired ones and reads its remembered headers); if the session can't be saved the bytes go.
+async fn open_session(
+    db: &Db,
+    files: &Files,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    session: &NewSession<'_>,
+    header_keys: &[String],
+    bytes: &[u8],
+) -> Result<Vec<dal::Remembered>, AppError> {
+    let key = StorageKey::new(actor.clinic_id, AttachmentId::from_uuid(session.file_id));
+    files
+        .storage()
+        .put(key, bytes)
+        .await
+        .map_err(|_| AppError::Internal("could not store the file"))?;
+    let opened = db
+        .scoped(&scope(actor, request_id), async |tx| {
+            Ok::<_, AppError>(dal::open(tx.conn(), session, header_keys).await?)
+        })
+        .await;
+    if opened.is_err() {
+        let _ = files.storage().delete(key).await;
+    }
+    opened
+}
+
 /// Reads an upload, opens a session holding its rows and suggests a mapping.
 ///
 /// # Errors
@@ -246,6 +336,7 @@ fn hide_contact(field: Option<ImportField>, value: &str, contact: bool) -> Strin
 /// header; [`AppError::Db`] on failures.
 pub async fn upload(
     db: &Db,
+    files: &Files,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     upload: Upload,
@@ -258,8 +349,10 @@ pub async fn upload(
         sheet,
     } = upload;
     let size_bytes = i32::try_from(bytes.len()).map_err(|_| file_error(&TableError::TooLarge))?;
-    let (table, sha256) = tokio::task::spawn_blocking(move || {
-        read_table(&bytes, sheet.as_deref()).map(|table| (table, sha256_hex(&bytes)))
+    let bytes = std::sync::Arc::new(bytes);
+    let (table, sha256) = tokio::task::spawn_blocking({
+        let bytes = std::sync::Arc::clone(&bytes);
+        move || read_table(&bytes, sheet.as_deref()).map(|table| (table, sha256_hex(&bytes)))
     })
     .await
     .map_err(|_| AppError::Internal("file reader"))?
@@ -296,6 +389,14 @@ pub async fn upload(
     let id = ImportSessionId::new_v7();
     let file_name = clean_file_name(&file_name);
     let to_i32 = |n: usize| i32::try_from(n).map_err(|_| AppError::Internal("count"));
+    let file_id = AttachmentId::new_v7();
+    let mime_type = mime_of(table.kind.as_str());
+    let stored_file = ImportFileView {
+        file_name: file_name.clone(),
+        size_bytes: i64::from(size_bytes),
+        mime_type: mime_type.to_owned(),
+        stored_at: now,
+    };
     let session = NewSession {
         id: id.uuid(),
         file_name: &file_name,
@@ -308,12 +409,11 @@ pub async fn upload(
         headers: &headers,
         cells: &cells,
         row_count: to_i32(data.len())?,
+        file_id: file_id.uuid(),
+        mime_type,
     };
-    let remembered = db
-        .scoped(&scope(actor, request_id), async |tx| {
-            Ok::<_, AppError>(dal::open(tx.conn(), &session, &header_keys).await?)
-        })
-        .await?;
+    let remembered =
+        open_session(db, files, actor, request_id, &session, &header_keys, &bytes).await?;
     let saved: BTreeMap<String, ImportField> = remembered
         .into_iter()
         .filter_map(|row| Some((row.header_key, ImportField::from_key(&row.field)?)))
@@ -322,18 +422,7 @@ pub async fn upload(
     let rows: Vec<Vec<String>> = data.iter().map(|(_, cells)| cells.clone()).collect();
     let suggestions = suggest(&headers, &rows, &saved, today);
     let contact = actor.permissions.allows(Permission::PatientsContact);
-    let sample = rows
-        .iter()
-        .take(SAMPLE_ROWS)
-        .map(|cells| {
-            (0..width)
-                .map(|column| {
-                    let value = cells.get(column).map_or("", String::as_str);
-                    hide_contact(suggestions[column].field, value, contact)
-                })
-                .collect()
-        })
-        .collect();
+    let sample = sample_rows(&rows, &suggestions, width, contact);
     Ok(SessionView {
         id,
         file_name,
@@ -346,7 +435,149 @@ pub async fn upload(
         sample,
         suggestions,
         expires_at: now + time::Duration::hours(24),
+        file: Some(stored_file),
     })
+}
+
+/// A short-lived link to a session's original file.
+#[derive(Debug, Clone)]
+pub struct FileLink {
+    /// The session.
+    pub session: ImportSessionId,
+    /// The signed token, bound to the caller.
+    pub token: String,
+    /// When it stops working.
+    pub expires_at: OffsetDateTime,
+}
+
+/// Issues a five-minute link to the original file of an import session.
+///
+/// # Errors
+/// [`AppError::Denied`] without `patients.write` (the permission that runs imports);
+/// [`AppError::NotFound`] when the clinic has no such file (or it was deleted);
+/// [`AppError::Forbidden`] for Sakalya staff under a support grant.
+pub async fn file_link(
+    db: &Db,
+    files: &Files,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: ImportSessionId,
+    now: OffsetDateTime,
+) -> Result<FileLink, AppError> {
+    actor.require(Permission::PatientsWrite)?;
+    if actor.support_grant.is_some() {
+        return Err(AppError::Forbidden(
+            "Support access doesn't download files.",
+        ));
+    }
+    db.scoped(&scope(actor, request_id), async |tx| {
+        dal::file(tx.conn(), id.uuid())
+            .await?
+            .map(|_| ())
+            .ok_or(AppError::NotFound("file"))
+    })
+    .await?;
+    let expires_at = now + LINK_LIFETIME;
+    Ok(FileLink {
+        session: id,
+        token: files
+            .signer()
+            .sign_import_file(actor.clinic_id, id, actor.user_id, expires_at),
+        expires_at,
+    })
+}
+
+/// An original file to send.
+#[derive(Debug, Clone)]
+pub struct FileDownload {
+    /// The name it was uploaded with.
+    pub file_name: String,
+    /// Its media type.
+    pub mime_type: String,
+    /// The bytes.
+    pub bytes: Vec<u8>,
+}
+
+/// Opens an import file link on `clinic`'s host: checks signature and expiry, then reads the
+/// file under the member the link was issued to (row-level security keeps it to the clinic).
+///
+/// # Errors
+/// The [`DownloadRefusal`] that applies.
+pub async fn file_content(
+    db: &Db,
+    files: &Files,
+    clinic: ClinicId,
+    request_id: Option<Uuid>,
+    id: ImportSessionId,
+    token: &str,
+    now: OffsetDateTime,
+) -> Result<FileDownload, DownloadRefusal> {
+    let grant = files
+        .signer()
+        .verify_import_file(clinic, id, token, now)
+        .map_err(|refusal| match refusal {
+            LinkRefusal::Expired => DownloadRefusal::Expired,
+            LinkRefusal::Invalid => DownloadRefusal::NotFound,
+        })?;
+    let mut scope = sakalya_db::Scope::tenant(clinic.uuid())
+        .with_user(grant.user_id.uuid())
+        .with_actor_kind(crate::scope::STAFF);
+    if let Some(request) = request_id {
+        scope = scope.with_request_id(request);
+    }
+    let row = db
+        .scoped(&scope, async |tx| {
+            dal::file(tx.conn(), id.uuid())
+                .await?
+                .ok_or(AppError::NotFound("file"))
+        })
+        .await?;
+    let bytes = files
+        .storage()
+        .get(StorageKey::new(clinic, AttachmentId::from_uuid(row.id)))
+        .await
+        .map_err(|_| DownloadRefusal::Failed(AppError::Internal("could not read the file")))?;
+    Ok(FileDownload {
+        file_name: row.file_name,
+        mime_type: row.mime_type,
+        bytes,
+    })
+}
+
+/// Deletes the original file of an import session: its row and its bytes. The session and the
+/// patients it created stay. Deleting a file already deleted is fine.
+///
+/// # Errors
+/// [`AppError::Denied`] without `patients.write`; [`AppError::NotFound`] when the clinic has no
+/// such session; [`AppError::Internal`] (nothing is deleted) when the bytes can't be removed.
+pub async fn delete_file(
+    db: &Db,
+    files: &Files,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: ImportSessionId,
+) -> Result<bool, AppError> {
+    actor.require(Permission::PatientsWrite)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let (file, session_exists) = dal::delete_file(tx.conn(), id.uuid()).await?;
+        match file {
+            Some(file) => {
+                // Inside the transaction: if the bytes can't be removed, the row stays.
+                files
+                    .storage()
+                    .delete(StorageKey::new(
+                        actor.clinic_id,
+                        AttachmentId::from_uuid(file.id),
+                    ))
+                    .await
+                    .map_err(|_| AppError::Internal("could not remove the file"))?;
+                Ok(true)
+            }
+            None if session_exists => Ok(false),
+            None => Err(AppError::NotFound("import session")),
+        }
+    })
+    .await
 }
 
 /// Ends an open session and clears its rows.
@@ -669,20 +900,62 @@ fn usable(session: Option<dal::SessionRow>) -> Result<dal::SessionRow, AppError>
     Ok(session)
 }
 
-fn notes(choices: &Choices) -> Vec<String> {
+/// What the committer may do about balances.
+#[derive(Debug, Clone, Copy)]
+struct Billing {
+    /// `billing.read`: amounts are shown.
+    read: bool,
+    /// `billing.write`, which issuing a bill needs: opening-balance bills are made.
+    write: bool,
+}
+
+impl Billing {
+    fn of(actor: &ClinicActor) -> Self {
+        Self {
+            read: actor.require(Permission::BillingRead).is_ok(),
+            write: actor.require(Permission::BillingWrite).is_ok(),
+        }
+    }
+}
+
+/// Whether a row will have (or had) an opening-balance bill: a new or merged patient with an
+/// amount owed.
+fn owes(p: &Planned) -> bool {
+    matches!(p.action, RowAction::Import | RowAction::Merge) && p.row.balance_paise.is_some()
+}
+
+fn notes(choices: &Choices, planned: &[Planned], bill: Billing) -> Result<Vec<String>, AppError> {
     let mut notes = Vec::new();
     if choices.mapping.contains_key(&ImportField::Balance) {
-        notes.push(
-            "balance: amounts owed are not imported; record opening balances in Billing".to_owned(),
-        );
+        let owing = planned.iter().filter(|p| owes(p)).count();
+        if owing > 0 && bill.write {
+            if owing > MAX_OPENING_BILLS {
+                return Err(AppError::invalid(
+                    "balance",
+                    format!(
+                        "more than {MAX_OPENING_BILLS} rows have an amount owed; import the file in parts"
+                    ),
+                ));
+            }
+            notes.push(
+                "balance: each amount owed becomes one issued bill, \"Opening balance (imported)\", for the patient"
+                    .to_owned(),
+            );
+        } else if owing > 0 {
+            notes.push(
+                "balance: no opening-balance bills will be made, because issuing bills needs billing.write; the patients are still imported"
+                    .to_owned(),
+            );
+        }
     }
-    notes
+    Ok(notes)
 }
 
 fn outcome(
     planned: &[Planned],
     contact: bool,
     committed: bool,
+    bill: Billing,
     notes: Vec<String>,
 ) -> ImportOutcome {
     let count = |action: RowAction| planned.iter().filter(|p| p.action == action).count();
@@ -706,11 +979,23 @@ fn outcome(
             },
             patient_id: None,
             number: None,
+            // A commit fills in the bills it made.
+            opening_balance_paise: (!committed && bill.read && owes(p))
+                .then_some(p.row.balance_paise)
+                .flatten(),
         })
         .collect();
+    let to_bill: Vec<&Planned> = planned.iter().filter(|p| owes(p)).collect();
     ImportOutcome {
         import_id: None,
         total: planned.len(),
+        opening_bills: if committed || !bill.write {
+            0
+        } else {
+            to_bill.len()
+        },
+        opening_total_paise: (!committed && bill.read && bill.write)
+            .then(|| to_bill.iter().filter_map(|p| p.row.balance_paise).sum()),
         imported: count(RowAction::Import),
         incomplete: rows
             .iter()
@@ -741,6 +1026,7 @@ pub async fn preview(
     actor.require(Permission::PatientsWrite)?;
     let today = clinic_today(&actor.timezone, now);
     let contact = actor.permissions.allows(Permission::PatientsContact);
+    let bill = Billing::of(actor);
     db.scoped(&scope(actor, request_id), async |tx| {
         let session = usable(dal::find(tx.conn(), id.uuid()).await?)?;
         if session.status == "committed" {
@@ -749,7 +1035,8 @@ pub async fn preview(
         let rows = read_session(&session, &choices.mapping, today)?;
         let found = existing(tx, &rows).await?;
         let planned = plan(rows, &found, choices);
-        Ok(outcome(&planned, contact, false, notes(choices)))
+        let notes = notes(choices, &planned, bill)?;
+        Ok(outcome(&planned, contact, false, bill, notes))
     })
     .await
 }
@@ -770,15 +1057,17 @@ pub async fn commit(
     actor.require(Permission::PatientsWrite)?;
     let today = clinic_today(&actor.timezone, now);
     let prefix = NumberPrefix::parse(&actor.number_prefix).map_err(AppError::patient)?;
+    let bill = Billing::of(actor);
     db.scoped(&scope(actor, request_id), async |tx| {
         let session = usable(dal::lock(tx.conn(), id.uuid()).await?)?;
         if let Some(import_id) = session.import_id {
-            return recorded(tx, ImportId::from_uuid(import_id)).await;
+            return recorded(tx, ImportId::from_uuid(import_id), bill).await;
         }
         let rows = read_session(&session, &choices.mapping, today)?;
         let found = existing(tx, &rows).await?;
         let planned = plan(rows, &found, choices);
-        let mut result = outcome(&planned, false, true, notes(choices));
+        let notes = notes(choices, &planned, bill)?;
+        let mut result = outcome(&planned, false, true, bill, notes);
         let import_id = ImportId::new_v7();
         save(
             tx,
@@ -789,6 +1078,8 @@ pub async fn commit(
             &planned,
             &mut result,
             import_id,
+            bill,
+            now,
         )
         .await?;
         result.import_id = Some(import_id);
@@ -798,11 +1089,16 @@ pub async fn commit(
 }
 
 /// The result recorded for a committed import.
-async fn recorded(tx: &mut ScopedTx, import_id: ImportId) -> Result<ImportOutcome, AppError> {
-    let rows = dal::recorded_rows(tx.conn(), import_id.uuid()).await?;
-    let incomplete = rows.iter().filter(|row| row.incomplete).count();
-    let rows: Vec<RowOutcome> = rows
-        .into_iter()
+async fn recorded(
+    tx: &mut ScopedTx,
+    import_id: ImportId,
+    bill: Billing,
+) -> Result<ImportOutcome, AppError> {
+    let recorded = dal::recorded_rows(tx.conn(), import_id.uuid()).await?;
+    let incomplete = recorded.iter().filter(|row| row.incomplete).count();
+    let rows: Vec<RowOutcome> = recorded
+        .iter()
+        .cloned()
         .map(|row| RowOutcome {
             line: usize::try_from(row.row_number).unwrap_or_default(),
             action: RowAction::parse_recorded(&row.status),
@@ -813,12 +1109,19 @@ async fn recorded(tx: &mut ScopedTx, import_id: ImportId) -> Result<ImportOutcom
             values: BTreeMap::new(),
             patient_id: row.patient_id.map(PatientId::from_uuid),
             number: row.number,
+            opening_balance_paise: row.opening_paise.filter(|_| bill.read),
         })
         .collect();
     let count = |action: RowAction| rows.iter().filter(|r| r.action == action).count();
+    let billed: Vec<i64> = recorded
+        .iter()
+        .filter_map(|row| row.opening_paise)
+        .collect();
     Ok(ImportOutcome {
         import_id: Some(import_id),
         total: rows.len(),
+        opening_bills: billed.len(),
+        opening_total_paise: bill.read.then(|| billed.iter().sum()),
         imported: count(RowAction::Import),
         incomplete,
         merged: count(RowAction::Merge),
@@ -880,6 +1183,8 @@ async fn save(
     planned: &[Planned],
     result: &mut ImportOutcome,
     import_id: ImportId,
+    bill: Billing,
+    now: OffsetDateTime,
 ) -> Result<(), AppError> {
     let offset = clinic_offset(&actor.timezone);
     let to_i32 = |n: usize| i32::try_from(n).map_err(|_| AppError::Internal("count"));
@@ -968,6 +1273,7 @@ async fn save(
         ),
         ..Finish::default()
     };
+    let (mut opening_bills, mut opening_total) = (0_usize, 0_i64);
     for (p, row) in planned.iter().zip(result.rows.iter_mut()) {
         let patient = ids_by_line.get(&p.row.line).cloned();
         if let Some((id, number)) = &patient {
@@ -982,6 +1288,32 @@ async fn save(
         } else {
             p.action
         };
+        // One issued bill per row with an amount owed, keyed to this import's row (the import
+        // is once per session, so a repeated commit never gets here).
+        let mut opening = None;
+        if bill.write
+            && matches!(action, RowAction::Import | RowAction::Merge)
+            && let (Some(paise), Some((patient_id, _))) = (p.row.balance_paise, &patient)
+        {
+            let (invoice, total) = opening_balance_bill(
+                tx,
+                actor,
+                *patient_id,
+                paise,
+                &session.file_name,
+                p.row.line,
+                now,
+            )
+            .await?;
+            opening = Some((invoice, total));
+            row.opening_balance_paise = bill.read.then_some(total);
+            opening_bills += 1;
+            opening_total += total;
+        }
+        finish
+            .opening_invoices
+            .push(opening.map(|(invoice, _)| invoice));
+        finish.opening_paise.push(opening.map(|(_, total)| total));
         finish.row_numbers.push(to_i32(p.row.line)?);
         finish.statuses.push(action.as_str(true).to_owned());
         finish.errors.push(
@@ -1007,6 +1339,8 @@ async fn save(
             }
         }
     }
+    result.opening_bills = opening_bills;
+    result.opening_total_paise = bill.read.then_some(opening_total);
     let count = |action: RowAction| result.rows.iter().filter(|r| r.action == action).count();
     result.merged = count(RowAction::Merge);
     result.skipped = count(RowAction::Skip);
@@ -1028,6 +1362,45 @@ async fn save(
     }
     dal::finish(tx.conn(), &finish).await?;
     Ok(())
+}
+
+/// Makes and issues one bill for what a patient owed before Aarogyam: a single line, no GST or
+/// procedure, dated now (the import day), noting the file and row it came from. It goes through
+/// the same use cases as a bill made at the desk, so it is numbered, snapshotted and audited
+/// like one. Returns the bill and its total in paise.
+async fn opening_balance_bill(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    patient: PatientId,
+    paise: i64,
+    file_name: &str,
+    line: usize,
+    now: OffsetDateTime,
+) -> Result<(Uuid, i64), AppError> {
+    let notes = format!("Imported from {file_name}, row {line}");
+    let draft = billing::create_in(
+        tx,
+        DraftInvoice {
+            patient_id: patient,
+            encounter_id: None,
+            place_of_supply: None,
+            notes: Some(notes.clone()),
+            items: vec![LineInput {
+                description: Some(OPENING_BALANCE_LINE.to_owned()),
+                quantity: Some(1),
+                unit_price_paise: Some(paise),
+                discount_paise: Some(0),
+                gst_rate: Some(0),
+                ..LineInput::default()
+            }],
+            replaces_invoice_id: None,
+        },
+        None,
+        Some(&notes),
+    )
+    .await?;
+    let issued = billing::issue_in(tx, actor, draft.id, now).await?;
+    Ok((issued.id.uuid(), issued.amounts.total.get()))
 }
 
 /// A patient on the to-do list.

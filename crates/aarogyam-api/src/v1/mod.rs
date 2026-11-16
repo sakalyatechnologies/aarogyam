@@ -199,6 +199,18 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/imports/sessions/{id}", delete(smart_import::discard))
         .route(
+            "/imports/sessions/{id}/file",
+            delete(smart_import::delete_file),
+        )
+        .route(
+            "/imports/sessions/{id}/file/download",
+            get(smart_import::file_link),
+        )
+        .route(
+            "/imports/sessions/{id}/file/content",
+            get(smart_import::file_content),
+        )
+        .route(
             "/imports/sessions/{id}/preview",
             post(smart_import::preview),
         )

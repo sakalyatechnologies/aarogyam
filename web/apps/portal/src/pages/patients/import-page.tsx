@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, CopyCheck, FileSpreadsheet, FileUp, ListTodo, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CopyCheck, Download, FileSpreadsheet, FileUp, ListTodo, Trash2, XCircle } from "lucide-react";
 import { useRef, useState } from "react";
 import { Link } from "react-router";
 
@@ -7,6 +7,7 @@ import {
   importFieldKey,
   type ColumnSuggestion,
   type ImportChoices,
+  type ImportFile,
   type ImportFieldKey,
   type ImportSession,
   type RowChoice,
@@ -14,10 +15,11 @@ import {
   type SmartImportRow,
 } from "@aarogyam/api-client";
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, DataTable, Field, Pill, RadioGroup, Select, StatCard, TextArea, useToast, type DataTableColumn, type Tone } from "@sakalya/ui";
+import { Button, Card, DataTable, Dialog, Field, Pill, RadioGroup, Select, StatCard, TextArea, useToast, type DataTableColumn, type Tone } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
-import { useCommitImport, useDiscardImport, usePreviewImport, useUploadImportFile } from "../../queries.js";
+import { rupeesText } from "../../lib/money.js";
+import { useCommitImport, useDeleteImportFile, useDiscardImport, useImportFileLink, usePreviewImport, useUploadImportFile } from "../../queries.js";
 import { EmptyState, PageHeader } from "../../components/mk/index.js";
 
 /** Our fields, as the mapping step names them. */
@@ -33,7 +35,7 @@ export const FIELD_LABELS: Readonly<Record<ImportFieldKey, string>> = {
   file_number: "File number",
   legacy_id: "Old software ID",
   preferred_language: "Preferred language",
-  balance: "Balance (not imported)",
+  balance: "Balance owed (billed as an opening balance)",
 };
 
 const MISSING_LABELS: Readonly<Record<string, string>> = { phone: "phone", sex: "sex", date_of_birth: "date of birth" };
@@ -55,6 +57,90 @@ function choicesOf(mapping: Mapping, duplicates: "skip" | "merge", rows: Readonl
     duplicates,
     rows: Object.entries(rows).map(([row, choice]) => ({ row: Number(row), choice })),
   };
+}
+
+function sizeText(bytes: number): string {
+  return bytes < 1024 * 1024 ? `${String(Math.max(1, Math.round(bytes / 1024)))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** "Original file: register.xlsx · Download · Delete": the clinic's copy of what it uploaded, which it may open and delete. */
+function OriginalFile({ id, file, onDeleted }: { id: ImportSession["id"]; file: ImportFile; onDeleted: () => void }) {
+  const toast = useToast();
+  const link = useImportFileLink();
+  const remove = useDeleteImportFile();
+  const [asking, setAsking] = useState(false);
+  const download = () => {
+    link.mutate(id, {
+      onSuccess: (opened) => {
+        window.open(opened.url, "_blank", "noopener,noreferrer");
+      },
+      onError: (thrown) => {
+        toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't open that file.", tone: "danger" });
+      },
+    });
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-sm">
+      <span>
+        Original file: <span className="font-medium">{file.file_name}</span> <span className="text-muted">({sizeText(file.size_bytes)})</span>
+      </span>
+      <Button variant="ghost" icon={<Download aria-hidden="true" className="size-4" />} disabled={link.isPending} onClick={download}>
+        Download
+      </Button>
+      <Button
+        variant="ghost"
+        icon={<Trash2 aria-hidden="true" className="size-4" />}
+        onClick={() => {
+          setAsking(true);
+        }}
+      >
+        Delete
+      </Button>
+      {asking ? (
+        <Dialog
+          open
+          onOpenChange={() => {
+            setAsking(false);
+          }}
+          title="Delete the original file?"
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setAsking(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={remove.isPending}
+                onClick={() => {
+                  remove.mutate(id, {
+                    onSuccess: () => {
+                      setAsking(false);
+                      onDeleted();
+                      toast.show({ title: "Original file deleted", tone: "success" });
+                    },
+                    onError: (thrown) => {
+                      setAsking(false);
+                      toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't delete that file.", tone: "danger" });
+                    },
+                  });
+                }}
+              >
+                {remove.isPending ? "Deleting…" : "Delete file"}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm">
+            {file.file_name} is deleted for good; you can't open it again. The patients already imported, and their bills, are not affected.
+          </p>
+        </Dialog>
+      ) : null}
+    </div>
+  );
 }
 
 function confidenceOf(s: ColumnSuggestion): { tone: Tone; label: string } {
@@ -151,6 +237,10 @@ function ImportWizard() {
     setError(undefined);
   };
 
+  const dropFile = () => {
+    setSession((prev) => (prev === undefined ? prev : { ...prev, file: null }));
+  };
+
   const nameMapped = Object.values(mapping).includes("full_name");
   const chosenFields = new Set(Object.values(mapping));
 
@@ -235,6 +325,11 @@ function ImportWizard() {
               </Button>
             </div>
           )}
+          {session?.file == null || committed !== undefined ? null : (
+            <div className="mt-3">
+              <OriginalFile id={session.id} file={session.file} onDeleted={dropFile} />
+            </div>
+          )}
         </Card>
 
         {error === undefined ? null : (
@@ -315,7 +410,7 @@ function ImportWizard() {
           />
         )}
 
-        {committed === undefined ? null : <DoneStep result={committed} />}
+        {committed === undefined || session === undefined ? null : <DoneStep result={committed} session={session} onFileDeleted={dropFile} />}
       </div>
     </>
   );
@@ -373,6 +468,16 @@ function PreviewStep({ preview, duplicates, rowChoices, busy, onDuplicates, onRo
         return <Pill tone={status.tone}>{status.label}</Pill>;
       },
     },
+    ...(preview.rows.some((r) => r.opening_balance_paise != null)
+      ? [
+          {
+            id: "opening",
+            header: "Opening balance",
+            cell: (r: SmartImportRow) =>
+              r.opening_balance_paise == null ? "—" : `Opening balance: ${rupeesText(r.opening_balance_paise)}${preview.opening_bills > 0 ? " will be billed" : " (not billed)"}`,
+          },
+        ]
+      : []),
     { id: "details", header: "Details", cell: details },
     {
       id: "choice",
@@ -422,6 +527,12 @@ function PreviewStep({ preview, duplicates, rowChoices, busy, onDuplicates, onRo
             />
           )}
           <p className="text-sm text-muted">Nothing is guessed: values we can't read are left empty, and patients missing details go on a to-do list for the front desk.</p>
+          {preview.opening_bills > 0 ? (
+            <p className="text-sm font-medium">
+              {String(preview.opening_bills)} opening-balance {preview.opening_bills === 1 ? "bill" : "bills"} will be made
+              {preview.opening_total_paise == null ? "" : `, ${rupeesText(preview.opening_total_paise)} in all`}.
+            </p>
+          ) : null}
           <DataTable caption="Import preview" columns={columns} rows={preview.rows} rowKey={(r) => String(r.row)} pageSize={25} />
           <div className="flex justify-end">
             <Button disabled={preview.imported + preview.merged === 0 || busy} onClick={onCommit}>
@@ -434,7 +545,7 @@ function PreviewStep({ preview, duplicates, rowChoices, busy, onDuplicates, onRo
   );
 }
 
-function DoneStep({ result }: { result: SmartImportResult }) {
+function DoneStep({ result, session, onFileDeleted }: { result: SmartImportResult; session: ImportSession; onFileDeleted: () => void }) {
   const columns: readonly DataTableColumn<SmartImportRow>[] = [
     { id: "row", header: "Row", cell: (r) => String(r.row) },
     {
@@ -453,6 +564,18 @@ function DoneStep({ result }: { result: SmartImportResult }) {
         <p className="text-sm">
           {String(result.imported)} new patients, {String(result.merged)} merged, {String(result.skipped)} skipped, {String(result.failed)} not imported.
         </p>
+        {result.opening_bills > 0 ? (
+          <p className="text-sm font-medium">
+            {String(result.opening_bills)} opening-balance {result.opening_bills === 1 ? "bill" : "bills"} made
+            {result.opening_total_paise == null ? "" : `, ${rupeesText(result.opening_total_paise)} in all`}. The front desk collects against them like any bill.
+          </p>
+        ) : null}
+        {result.notes.map((note) => (
+          <p key={note} className="text-sm text-muted">
+            {note}
+          </p>
+        ))}
+        {session.file == null ? null : <OriginalFile id={session.id} file={session.file} onDeleted={onFileDeleted} />}
         {result.incomplete > 0 ? (
           <div className="flex flex-wrap items-center gap-3 rounded-xl bg-warning-soft px-4 py-3 text-sm">
             <ListTodo aria-hidden="true" className="size-5" />

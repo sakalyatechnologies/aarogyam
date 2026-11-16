@@ -706,6 +706,18 @@ export function useDiscardImport() {
   return useMutation({ mutationFn: (id: ImportSessionId) => unwrap(api.discardImport(id)) });
 }
 
+/** A short-lived link to the clinic's original file of an import. */
+export function useImportFileLink() {
+  const { api } = useClinic();
+  return useMutation({ mutationFn: (id: ImportSessionId) => unwrap(api.getImportFileDownloadLink(id)) });
+}
+
+/** Deletes the original file of an import; the session and its patients stay. */
+export function useDeleteImportFile() {
+  const { api } = useClinic();
+  return useMutation({ mutationFn: (id: ImportSessionId) => unwrap(api.deleteImportFile(id)) });
+}
+
 /** Imported patients still missing details; kept fresh because the front desk works through it. */
 export function useIncompletePatients() {
   const { api, access } = useClinic();

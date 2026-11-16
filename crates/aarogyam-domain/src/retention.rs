@@ -23,6 +23,10 @@ text_value! {
         ShareLinks => "share_links",
         /// Spreadsheets uploaded to import patients, kept as cell contents.
         ImportSessions => "import_sessions",
+        /// The original file a clinic uploaded to import patients, kept so the clinic can open
+        /// it again; it holds names and phones. The clinic can delete it at any time (the bytes
+        /// go with the row).
+        ImportFiles => "import_files",
         /// Who viewed a patient's record.
         AccessLog => "access_log",
         /// Who changed a record.
@@ -96,6 +100,7 @@ impl Class {
             | Self::ClinicApplications
             | Self::ChatMessages
             | Self::ChatAttachments
+            | Self::ImportFiles
             | Self::LabContacts
             | Self::MessageTemplates
             | Self::Campaigns
@@ -114,7 +119,9 @@ impl Class {
             Self::Outbox => "when the message was sent or abandoned",
             Self::Messages => "when the message was queued",
             Self::ShareLinks | Self::ConsentRequests => "when the link expired",
-            Self::ImportSessions | Self::StockImports => "when the upload was made",
+            Self::ImportSessions | Self::ImportFiles | Self::StockImports => {
+                "when the upload was made"
+            }
             Self::AccessLog | Self::AuditEvents => "when the entry was written",
             Self::ClinicApplications => "when the request was decided (or made, if undecided)",
             Self::ChatMessages => "when the message was posted",

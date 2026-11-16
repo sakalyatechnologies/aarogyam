@@ -51,6 +51,7 @@ pub async fn report(
             Class::Messages => dal::messages(db.pool(), cutoff, sample).await?,
             Class::ShareLinks => dal::share_links(db.pool(), cutoff, sample).await?,
             Class::ImportSessions => dal::import_sessions(db.pool(), cutoff, sample).await?,
+            Class::ImportFiles => dal::import_files(db.pool(), cutoff, sample).await?,
             Class::AccessLog => dal::access_log(db.pool(), cutoff, sample).await?,
             Class::AuditEvents => dal::audit_events(db.pool(), cutoff, sample).await?,
             Class::ClinicApplications => {

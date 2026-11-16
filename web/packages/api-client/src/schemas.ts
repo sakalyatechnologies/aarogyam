@@ -1092,6 +1092,15 @@ export type ColumnSuggestion = z.output<typeof columnSuggestion>;
 export const importSessionId = z.uuid().brand<"ImportSessionId">();
 export type ImportSessionId = z.output<typeof importSessionId>;
 
+/** The clinic's original file of an import, kept until it deletes it. */
+const importFile = z.object({
+  file_name: z.string(),
+  size_bytes: count,
+  mime_type: z.string(),
+  stored_at: timestamp,
+}) satisfies z.ZodType<C.ImportFile>;
+export type ImportFile = z.output<typeof importFile>;
+
 export const importSession = z.object({
   id: importSessionId,
   file_name: z.string(),
@@ -1104,6 +1113,8 @@ export const importSession = z.object({
   sample: z.array(z.array(z.string())),
   suggestions: z.array(columnSuggestion),
   expires_at: timestamp,
+  /** Absent or null once the clinic has deleted the file. */
+  file: importFile.nullable().exactOptional(),
 }) satisfies z.ZodType<C.ImportSession>;
 export type ImportSession = z.output<typeof importSession>;
 
@@ -1135,6 +1146,8 @@ const smartImportRow = z.object({
   values: z.record(z.string(), z.string()),
   patient_id: patientId.nullable().exactOptional(),
   number: patientNumber.nullable().exactOptional(),
+  /** Paise as billed; only with billing.read. */
+  opening_balance_paise: count.nullable().exactOptional(),
 }) satisfies z.ZodType<C.SmartImportRow>;
 export type SmartImportRow = z.output<typeof smartImportRow>;
 
@@ -1146,6 +1159,10 @@ export const smartImportResult = z.object({
   merged: count,
   skipped: count,
   failed: count,
+  /** Opening-balance bills to be made (preview) or made (commit). */
+  opening_bills: count,
+  /** Their total in paise; only with billing.read. */
+  opening_total_paise: count.nullable().exactOptional(),
   notes: z.array(z.string()),
   rows: z.array(smartImportRow),
 }) satisfies z.ZodType<C.SmartImportResult>;

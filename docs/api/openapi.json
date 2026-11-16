@@ -3672,7 +3672,7 @@
         "tags": [
           "patients"
         ],
-        "summary": "Uploads a clinic's patient file (`multipart/form-data`, field `file`, optional `sheet`).\nThe header row is found automatically and each column gets a suggested field from its\nheader (English, Hindi or Marathi), its values, and what the clinic chose last time.",
+        "summary": "Uploads a clinic's patient file (`multipart/form-data`, field `file`, optional `sheet`).\nThe header row is found automatically and each column gets a suggested field from its\nheader (English, Hindi or Marathi), its values, and what the clinic chose last time. The\noriginal file is kept (in India, in the clinic's file storage) until the clinic deletes it.",
         "operationId": "uploadImportFile",
         "requestBody": {
           "content": {
@@ -3758,7 +3758,7 @@
         "tags": [
           "patients"
         ],
-        "summary": "Imports the session in one transaction: new patients numbered from the clinic's sequence,\nduplicates skipped or merged (filling only empty details), each row recorded with its file,\nsheet and row, and patients missing details put on the to-do list. The mapping is\nremembered for the next file. Sending it again returns the same result.",
+        "summary": "Imports the session in one transaction: new patients numbered from the clinic's sequence,\nduplicates skipped or merged (filling only empty details), each row recorded with its file,\nsheet and row, and patients missing details put on the to-do list. A row with an amount in\nthe balance column gets one issued bill, \"Opening balance (imported)\", when the caller has\n`billing.write` (at most 300 per file); without it the patients are imported and no bills\nare made. The mapping is remembered for the next file. Sending it again returns the same\nresult and bills nothing more.",
         "operationId": "commitImport",
         "parameters": [
           {
@@ -3792,7 +3792,7 @@
             }
           },
           "400": {
-            "description": "The mapping or a choice can't be used; the message says why"
+            "description": "The mapping or a choice can't be used (or more than 300 rows have a balance); the message says why"
           },
           "401": {
             "description": "Not signed in"
@@ -3805,6 +3805,130 @@
           },
           "409": {
             "description": "The session has ended"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/imports/sessions/{id}/file": {
+      "delete": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Deletes the original file of an import session: its record and its stored copy. The\nsession and the patients it imported stay. Needs `patients.write`; recorded in the change\nhistory.",
+        "operationId": "deleteImportFile",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The import session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted (or already deleted)"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such import session in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/imports/sessions/{id}/file/content": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Streams the original file through a signed link from\n`GET /imports/sessions/{id}/file/download`. The link is the proof of access; it works on the\nclinic's own host for five minutes.",
+        "operationId": "getImportFileContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The import session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "The signed token from the download link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, as an attachment"
+          },
+          "403": {
+            "description": "The link has expired; ask for a new one"
+          },
+          "404": {
+            "description": "Not a valid link for this file on this host"
+          }
+        }
+      }
+    },
+    "/api/v1/imports/sessions/{id}/file/download": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Issues a five-minute download link for the original file of an import session. Needs the\npermission that runs imports (`patients.write`).",
+        "operationId": "getImportFileDownloadLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The import session",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such file in this clinic (or it was deleted)"
           }
         },
         "security": [
@@ -24334,7 +24458,7 @@
           },
           "mapping": {
             "type": "object",
-            "description": "Our field to the column index (from 0). `full_name` is required. Fields: `full_name`,\n`sex`, `date_of_birth`, `age_years`, `phone`, `email`, `preferred_language`,\n`file_number`, `legacy_id`, `address`, `last_visit`, `balance` (recognised, not\nimported).",
+            "description": "Our field to the column index (from 0). `full_name` is required. Fields: `full_name`,\n`sex`, `date_of_birth`, `age_years`, `phone`, `email`, `preferred_language`,\n`file_number`, `legacy_id`, `address`, `last_visit`, `balance` (an amount above zero\nbecomes one issued \"Opening balance (imported)\" bill when the caller has\n`billing.write`).",
             "additionalProperties": {
               "type": "integer",
               "minimum": 0
@@ -24349,6 +24473,35 @@
               "$ref": "#/components/schemas/RowDecision"
             },
             "description": "Choices for particular rows, overriding `duplicates`."
+          }
+        }
+      },
+      "ImportFile": {
+        "type": "object",
+        "description": "The original file of an import, kept for the clinic until it deletes it (and past 365 days\nthe retention report lists it).",
+        "required": [
+          "file_name",
+          "size_bytes",
+          "mime_type",
+          "stored_at"
+        ],
+        "properties": {
+          "file_name": {
+            "type": "string",
+            "description": "The name it was uploaded with."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "`text/csv` or the `.xlsx` media type."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Its size in bytes."
+          },
+          "stored_at": {
+            "type": "string",
+            "description": "When it was stored (RFC 3339)."
           }
         }
       },
@@ -24458,6 +24611,17 @@
           "expires_at": {
             "type": "string",
             "description": "When the session ends unless imported (RFC 3339)."
+          },
+          "file": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ImportFile",
+                "description": "The original file, kept for the clinic: open it with\n`GET /imports/sessions/{id}/file/download`, delete it with\n`DELETE /imports/sessions/{id}/file`. Absent once deleted."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "file_name": {
             "type": "string",
@@ -37320,6 +37484,7 @@
           "merged",
           "skipped",
           "failed",
+          "opening_bills",
           "notes",
           "rows"
         ],
@@ -37357,6 +37522,19 @@
               "type": "string"
             },
             "description": "Notes about the whole file."
+          },
+          "opening_bills": {
+            "type": "integer",
+            "description": "Opening-balance bills: to be made (preview, `0` without `billing.write`) or made\n(commit).",
+            "minimum": 0
+          },
+          "opening_total_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Their total in paise. Only with `billing.read`."
           },
           "rows": {
             "type": "array",
@@ -37424,6 +37602,14 @@
               "null"
             ],
             "description": "Their number, on commit."
+          },
+          "opening_balance_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The opening balance in paise, as it is billed (rounded to the rupee): the amount the\nrow carries in a preview, the bill made on commit. Only with `billing.read`."
           },
           "patient_id": {
             "type": [

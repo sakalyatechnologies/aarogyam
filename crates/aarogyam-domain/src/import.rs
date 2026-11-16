@@ -71,8 +71,12 @@ pub enum ImportField {
     Address,
     /// The date of the last visit.
     LastVisit,
-    /// An amount the patient owes; recognised so it isn't mistaken for another field, not
-    /// imported (opening balances are entered in billing).
+    /// An amount the patient owes ("Baki", "Balance", "Due"). A positive amount becomes one
+    /// issued bill, "Opening balance (imported)", when the file is committed by someone who may
+    /// issue bills (`billing.write`); zero, empty and negative amounts bill nothing, and a
+    /// negative one (an advance) only warns. Unreadable amounts are left out with a warning
+    /// that never repeats the value. See `docs/decisions.md`, "The import keeps its file and
+    /// brings in balances".
     Balance,
 }
 
@@ -389,10 +393,117 @@ pub fn loose_age(text: &str) -> Option<u16> {
     (unit_ok && age <= 130).then_some(age)
 }
 
+/// The most one imported balance may be: 10 crore rupees, far above any real dues, so a stray
+/// number (a phone in the wrong column) is refused instead of billed.
+const MAX_AMOUNT_RUPEES: i64 = 100_000_000;
+
+/// Reads an amount in paise (negative for a credit): `1200`, `1,200`, `1,20,000.50`, `₹1200`,
+/// `Rs 500`, `Rs. 500/-`, `INR 75`, `-300`, `(300)`. More than two decimals, other text and
+/// amounts above 10 crore rupees are refused, never guessed.
+#[must_use]
+pub fn loose_amount(text: &str) -> Option<i64> {
+    let mut rest = text.trim().to_lowercase();
+    // One sign at most: before or after the currency mark, or brackets.
+    let mut negative: Option<bool> = None;
+    if let Some(inner) = rest.strip_prefix('(').and_then(|r| r.strip_suffix(')')) {
+        negative = Some(true);
+        rest = inner.trim().to_owned();
+    }
+    let sign = |rest: &mut String, negative: &mut Option<bool>| {
+        if let Some(after) = rest.strip_prefix(['-', '\u{2212}']) {
+            if negative.is_some() {
+                return false;
+            }
+            *negative = Some(true);
+            *rest = after.trim_start().to_owned();
+        }
+        true
+    };
+    if !sign(&mut rest, &mut negative) {
+        return None;
+    }
+    for currency in ["₹", "rs.", "rs", "inr"] {
+        if let Some(after) = rest.strip_prefix(currency) {
+            rest = after.trim_start().to_owned();
+            break;
+        }
+    }
+    if !sign(&mut rest, &mut negative) {
+        return None;
+    }
+    let rest = rest
+        .trim_end()
+        .trim_end_matches("/-")
+        .trim_end_matches("/=")
+        .trim_end();
+    let (whole, fraction) = rest.split_once('.').unwrap_or((rest, ""));
+    let groups_ok = !whole.is_empty()
+        && whole
+            .split(',')
+            .all(|group| !group.is_empty() && group.bytes().all(|b| b.is_ascii_digit()));
+    if !groups_ok || fraction.len() > 2 || !fraction.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let rupees: i64 = whole.replace(',', "").parse().ok()?;
+    if rupees > MAX_AMOUNT_RUPEES {
+        return None;
+    }
+    let paise: i64 = match fraction.len() {
+        0 => 0,
+        1 => fraction.parse::<i64>().ok()? * 10,
+        _ => fraction.parse().ok()?,
+    };
+    let amount = rupees * 100 + paise;
+    Some(if negative == Some(true) {
+        -amount
+    } else {
+        amount
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use time::macros::date;
+
+    #[test]
+    fn amounts_are_read_in_paise_or_refused() {
+        for (text, paise) in [
+            ("1200", 120_000),
+            ("1,200", 120_000),
+            ("1,20,000.50", 12_000_050),
+            ("₹1200", 120_000),
+            ("₹ 1,200", 120_000),
+            ("Rs 500", 50_000),
+            ("Rs. 500/-", 50_000),
+            ("INR 75.5", 7_550),
+            ("1200.50", 120_050),
+            ("0", 0),
+            ("0.00", 0),
+            ("-300", -30_000),
+            ("(300)", -30_000),
+            ("₹-300", -30_000),
+        ] {
+            assert_eq!(loose_amount(text), Some(paise), "{text}");
+        }
+        for text in [
+            "",
+            "abc",
+            "12 abc",
+            "1,,200",
+            ",200",
+            "1.234",
+            "1.2.3",
+            "12e3",
+            "Rs",
+            "--5",
+            "999999999999",
+            "1200 Cr",
+            "+91 98765 43210",
+        ] {
+            assert_eq!(loose_amount(text), None, "{text}");
+        }
+    }
 
     fn mapping(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         pairs

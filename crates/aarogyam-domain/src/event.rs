@@ -96,6 +96,8 @@ pub enum Event {
     QueueTokenIssued,
     /// Patients were imported from a file.
     PatientsImported,
+    /// A clinic deleted the original file of a patient import.
+    ImportFileDeleted,
     /// A self-registered patient record was merged into an existing patient.
     PatientsMerged,
     /// A clinic published a new version of its privacy notice.
@@ -289,6 +291,7 @@ impl Event {
             Self::AppointmentStatusChanged => "appointment.status_changed",
             Self::QueueTokenIssued => "queue_token.issued",
             Self::PatientsImported => "patients.imported",
+            Self::ImportFileDeleted => "import_file.deleted",
             Self::PatientsMerged => "patients.merged",
             Self::ConsentNoticePublished => "consent_notice.published",
             Self::RegistrationCompleted => "registration.completed",

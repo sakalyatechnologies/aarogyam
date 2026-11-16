@@ -33,6 +33,10 @@ pub struct NewSession<'a> {
     pub cells: &'a Value,
     /// How many data rows.
     pub row_count: i32,
+    /// The stored original file's identifier (also its name in storage).
+    pub file_id: Uuid,
+    /// Its media type.
+    pub mime_type: &'a str,
 }
 
 /// A remembered header: its key and the field it meant.
@@ -66,6 +70,10 @@ pub async fn open(
                 header_row, headers, cells, row_count)
              values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
              returning id
+           ), stored as (
+             insert into aarogyam.import_files (id, session_id, file_name, mime_type, size_bytes, sha256)
+             values ($13, $1, $2, $14, $5, $4)
+             returning id
            )
            select m.header_key as "header_key!", m.field as "field!"
            from aarogyam.import_column_memory m
@@ -81,7 +89,9 @@ pub async fn open(
         session.headers,
         session.cells,
         session.row_count,
-        header_keys
+        header_keys,
+        session.file_id,
+        session.mime_type
     )
     .fetch_all(conn)
     .await?;
@@ -336,6 +346,10 @@ pub struct Finish {
     pub errors: Vec<Option<String>>,
     /// The patient a row became or was merged into.
     pub patient_ids: Vec<Option<Uuid>>,
+    /// The opening-balance bill a row made.
+    pub opening_invoices: Vec<Option<Uuid>>,
+    /// Its amount in paise.
+    pub opening_paise: Vec<Option<i64>>,
     /// Patients with missing details.
     pub gap_patients: Vec<Uuid>,
     /// Their rows.
@@ -363,9 +377,12 @@ pub async fn finish(conn: &mut PgConnection, finish: &Finish) -> Result<(), DbEr
              values ($1, 'patients', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
              returning id
            ), recorded as (
-             insert into aarogyam.import_rows (import_id, row_number, raw, status, error, patient_id)
-             select (select id from created), r.n, '{}'::jsonb, r.status, r.error, r.patient_id
-             from unnest($13::int[], $14::text[], $15::text[], $16::uuid[]) as r(n, status, error, patient_id)
+             insert into aarogyam.import_rows
+               (import_id, row_number, raw, status, error, patient_id, opening_invoice_id, opening_paise)
+             select (select id from created), r.n, '{}'::jsonb, r.status, r.error, r.patient_id,
+                    r.invoice_id, r.paise
+             from unnest($13::int[], $14::text[], $15::text[], $16::uuid[], $22::uuid[], $23::bigint[])
+               as r(n, status, error, patient_id, invoice_id, paise)
            ), gaps as (
              insert into aarogyam.patient_gaps (patient_id, import_id, row_number, missing)
              select g.patient_id, (select id from created), g.n, string_to_array(g.missing, ',')
@@ -398,7 +415,9 @@ pub async fn finish(conn: &mut PgConnection, finish: &Finish) -> Result<(), DbEr
         &finish.gap_rows,
         &finish.gap_missing,
         &finish.memory_keys,
-        &finish.memory_fields
+        &finish.memory_fields,
+        &finish.opening_invoices as &[Option<Uuid>],
+        &finish.opening_paise as &[Option<i64>]
     )
     .execute(conn)
     .await?;
@@ -420,6 +439,8 @@ pub struct RecordedRow {
     pub number: Option<String>,
     /// Whether the patient was imported with details missing.
     pub incomplete: bool,
+    /// The amount in paise of the opening-balance bill the row made.
+    pub opening_paise: Option<i64>,
 }
 
 /// The rows of an import, in file order.
@@ -433,6 +454,7 @@ pub async fn recorded_rows(
     let rows = sqlx::query_as!(
         RecordedRow,
         r#"select r.row_number, r.status, r.error, r.patient_id, p.number as "number?",
+                  r.opening_paise,
                   exists (select 1 from aarogyam.patient_gaps g
                           where g.import_id = r.import_id and g.row_number = r.row_number) as "incomplete!"
            from aarogyam.import_rows r
@@ -541,4 +563,88 @@ pub async fn dismiss_gap(conn: &mut PgConnection, id: Uuid) -> Result<bool, DbEr
     .fetch_one(conn)
     .await?;
     Ok(found)
+}
+
+/// The original file of a session, as stored (never its bytes or storage key).
+#[derive(Debug, Clone)]
+pub struct FileRow {
+    /// Identifier, also the name of the bytes in storage.
+    pub id: Uuid,
+    /// The session it came with.
+    pub session_id: Uuid,
+    /// The name it was uploaded with.
+    pub file_name: String,
+    /// Its media type.
+    pub mime_type: String,
+    /// Its size.
+    pub size_bytes: i64,
+    /// When it was stored.
+    pub stored_at: OffsetDateTime,
+}
+
+/// The original file of a session, if still kept.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn file(conn: &mut PgConnection, session_id: Uuid) -> Result<Option<FileRow>, DbError> {
+    let row = sqlx::query_as!(
+        FileRow,
+        r#"select id, session_id, file_name, mime_type, size_bytes, created_at as stored_at
+           from aarogyam.import_files where session_id = $1"#,
+        session_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Deletes the original file's row, returning it so its bytes can be removed. `Ok(None)` with
+/// `session_exists` true means it was already gone.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn delete_file(
+    conn: &mut PgConnection,
+    session_id: Uuid,
+) -> Result<(Option<FileRow>, bool), DbError> {
+    let row = sqlx::query!(
+        r#"with gone as (
+             delete from aarogyam.import_files where session_id = $1
+             returning id, session_id, file_name, mime_type, size_bytes, created_at
+           )
+           select g.id as "id?", g.session_id as "session_id?", g.file_name as "file_name?",
+                  g.mime_type as "mime_type?", g.size_bytes as "size_bytes?",
+                  g.created_at as "stored_at?",
+                  exists (select 1 from aarogyam.import_sessions where id = $1) as "session_exists!"
+           from (select 1) one left join gone g on true"#,
+        session_id
+    )
+    .fetch_one(conn)
+    .await?;
+    let file = match (
+        row.id,
+        row.session_id,
+        row.file_name,
+        row.mime_type,
+        row.size_bytes,
+        row.stored_at,
+    ) {
+        (
+            Some(id),
+            Some(session_id),
+            Some(file_name),
+            Some(mime_type),
+            Some(size_bytes),
+            Some(stored_at),
+        ) => Some(FileRow {
+            id,
+            session_id,
+            file_name,
+            mime_type,
+            size_bytes,
+            stored_at,
+        }),
+        _ => None,
+    };
+    Ok((file, row.session_exists))
 }

@@ -333,6 +333,7 @@ export type ImportResult = Schemas["ImportResult"];
 export type ImportRow = Schemas["ImportRow"];
 export type ImportMode = "preview" | "commit";
 export type ImportSession = Schemas["ImportSession"];
+export type ImportFile = Schemas["ImportFile"];
 export type ColumnSuggestion = Schemas["ColumnSuggestion"];
 export type ImportChoices = Schemas["ImportChoices"];
 export type RowDecision = Schemas["RowDecision"];

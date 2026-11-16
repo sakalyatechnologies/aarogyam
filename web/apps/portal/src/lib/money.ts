@@ -10,3 +10,8 @@ export function compactRupees(paise: number): string {
   }
   return `₹${String(Math.round(rupees))}`;
 }
+
+/** `₹1,200`, `₹1,20,000`, `₹1,200.50`: an amount in full, Indian digit grouping. */
+export function rupeesText(paise: number): string {
+  return `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}

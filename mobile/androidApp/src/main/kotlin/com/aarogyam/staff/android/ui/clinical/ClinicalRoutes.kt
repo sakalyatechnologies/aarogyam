@@ -31,7 +31,6 @@ object ClinicalRoutes {
 
 fun NavController.openExpenses() = navigate(ClinicalRoutes.EXPENSES)
 
-/** Analytics waits for the rebuilt iOS version (T13 handoff); until then it shows the coming-soon page. */
 fun NavController.openAnalytics() = navigate(ClinicalRoutes.ANALYTICS)
 
 fun NavController.openLabs() = navigate(ClinicalRoutes.LABS)
@@ -79,18 +78,7 @@ fun NavGraphBuilder.clinicalDestinations(
         ExpensesScreen(rememberHolder { graph.expenses(open, it) }, onBack = nav::popBackStack)
     }
     composable(ClinicalRoutes.ANALYTICS) {
-        Column(Modifier.fillMaxSize()) {
-            SkTopBar(
-                title = stringResource(R.string.cn_c_analytics_title),
-                navigation = {
-                    BarAction(
-                        stringResource(R.string.back),
-                        SkTheme.colors.onBrandDark.color,
-                        nav::popBackStack,
-                    )
-                },
-            )
-            ComingSoon(R.string.cn_c_analytics_title)
-        }
+        val open = clinic() ?: return@composable
+        AnalyticsScreen(graph, open, rememberHolder { graph.analytics(open, it) }, onBack = nav::popBackStack)
     }
 }

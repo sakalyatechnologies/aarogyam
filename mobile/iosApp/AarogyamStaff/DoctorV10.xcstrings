@@ -1037,6 +1037,29 @@
         }
       }
     },
+    "dv10.waiting.more": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%@ more waiting"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%@ और प्रतीक्षा में"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%@ आणखी वाट पाहत आहेत"
+          }
+        }
+      }
+    },
     "dv10.waiting.title": {
       "extractionState": "manual",
       "localizations": {

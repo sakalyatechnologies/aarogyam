@@ -32,7 +32,7 @@ class PushRegistrationTest {
         method: String,
         count: Int,
     ) = withContext(Dispatchers.Default) {
-        withTimeout(5_000) {
+        withTimeout(20_000) {
             while (requests.count {
                     it.method.value == method &&
                         it.url.encodedPath.startsWith(

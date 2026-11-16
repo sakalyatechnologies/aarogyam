@@ -50,7 +50,7 @@ struct TodayV7Screen: View {
         .sheet(isPresented: $qr) {
             ClinicQRSheet(url: TodayV7.bookingURL(origin: clinic.api.origin), clinicName: clinic.session.clinic.name)
         }
-        .sheet(isPresented: $bell) { NotificationsSheet(holder: notifications, state: notificationsState) }
+        .sheet(isPresented: $bell) { NotificationsSheet(holder: notifications, state: notificationsState).closableSheet() }
         .sheet(isPresented: $avatars) {
             AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large])
         }

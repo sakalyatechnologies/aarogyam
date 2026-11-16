@@ -11,22 +11,20 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.minus
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
 
 sealed interface AnalyticsState {
     data class Loading(
-        val period: AnalyticsPeriod,
+        val range: AnalyticsRange,
     ) : AnalyticsState
 
     /** The role lacks `analytics.view` (owner only by default). */
     data object NotAllowed : AnalyticsState
 
     data class Failed(
-        val period: AnalyticsPeriod,
+        val range: AnalyticsRange,
         val error: ScreenError,
     ) : AnalyticsState
 
@@ -36,8 +34,10 @@ sealed interface AnalyticsState {
 }
 
 /**
- * The Analytics page: one `GET /reports/analytics` per period, covering the bars plus the window
- * before them so every number has a delta. Periods already loaded are kept until [refresh].
+ * The Analytics page: `GET /reports/analytics` for the range (buckets, breakdowns and heat maps all
+ * cover exactly those days), then once more for the range of the same length before it, which only
+ * feeds the deltas: the page shows at once and the deltas fill in. Ranges already loaded are kept
+ * until [refresh].
  */
 class AnalyticsStateHolder(
     private val clinic: ClinicContext,
@@ -45,85 +45,95 @@ class AnalyticsStateHolder(
     private val log: Logger = Logger("aarogyam.analytics"),
     private val today: () -> LocalDate = { Clock.System.todayIn(clinic.timeZone) },
 ) {
-    private val mutableState = MutableStateFlow<AnalyticsState>(AnalyticsState.Loading(AnalyticsPeriod.Week))
+    private val mutableState =
+        MutableStateFlow<AnalyticsState>(AnalyticsState.Loading(AnalyticsRange.of(AnalyticsPreset.Week, today())))
     val state: StateFlow<AnalyticsState> = mutableState.asStateFlow()
-    private val cache = mutableMapOf<AnalyticsPeriod, AnalyticsView>()
+    private val cache = mutableMapOf<AnalyticsRange, AnalyticsView>()
     private var job: Job? = null
 
+    /** The picker's bounds: the newest day and the longest span. */
+    val latestDay: LocalDate get() = today()
+    val maxDays: Int get() = AnalyticsRange.MAX_DAYS
+
     init {
-        if (ANALYTICS_VIEW in
-            clinic.permissions
-        ) {
-            show(AnalyticsPeriod.Week)
+        if (ANALYTICS_VIEW in clinic.permissions) {
+            show(AnalyticsPreset.Week)
         } else {
             mutableState.value = AnalyticsState.NotAllowed
         }
     }
 
-    fun show(period: AnalyticsPeriod) {
+    /** Shows a preset ending today ([AnalyticsPreset.Custom] shows the year until dates are picked). */
+    fun show(preset: AnalyticsPreset) {
         if (mutableState.value == AnalyticsState.NotAllowed) return
-        cache[period]?.let {
-            mutableState.value = AnalyticsState.Loaded(it)
-            return
-        }
-        load(period)
+        open(AnalyticsRange.of(preset, today()))
+    }
+
+    /** Shows the days between the two dates, in either order, trimmed to today and to 731 days. */
+    fun showCustom(
+        first: LocalDate,
+        second: LocalDate,
+    ) {
+        if (mutableState.value == AnalyticsState.NotAllowed) return
+        open(AnalyticsRange.custom(first, second, today()))
     }
 
     fun refresh() {
         if (mutableState.value == AnalyticsState.NotAllowed) return
+        val range = currentRange()
         cache.clear()
-        load(currentPeriod())
+        load(range)
     }
 
-    private fun currentPeriod(): AnalyticsPeriod =
+    private fun open(range: AnalyticsRange) {
+        cache[range]?.let {
+            job?.cancel()
+            mutableState.value = AnalyticsState.Loaded(it)
+            return
+        }
+        load(range)
+    }
+
+    private fun currentRange(): AnalyticsRange =
         when (val s = mutableState.value) {
-            is AnalyticsState.Loading -> s.period
-            is AnalyticsState.Failed -> s.period
-            is AnalyticsState.Loaded -> s.view.period
-            AnalyticsState.NotAllowed -> AnalyticsPeriod.Week
+            is AnalyticsState.Loading -> s.range
+            is AnalyticsState.Failed -> s.range
+            is AnalyticsState.Loaded -> s.view.range
+            AnalyticsState.NotAllowed -> AnalyticsRange.of(AnalyticsPreset.Week, today())
         }
 
-    private fun load(period: AnalyticsPeriod) {
+    private fun load(range: AnalyticsRange) {
         job?.cancel()
-        mutableState.value = AnalyticsState.Loading(period)
+        mutableState.value = AnalyticsState.Loading(range)
         job =
             scope.launch {
-                val (bucket, from) = rangeOf(period, today())
-                mutableState.value =
-                    when (val answer = clinic.api.analytics(bucket, from, today())) {
-                        is Outcome.Success -> {
-                            AnalyticsState.Loaded(answer.value.toView(period).also { cache[period] = it })
-                        }
+                when (val answer = clinic.api.analytics(range.bucket.wire, range.from, range.to)) {
+                    is Outcome.Failure -> {
+                        log.warn("analytics.load_failed") { code("error", answer.error.code.value) }
+                        mutableState.value = AnalyticsState.Failed(range, ScreenError.of(answer.error))
+                    }
 
-                        is Outcome.Failure -> {
-                            log.warn("analytics.load_failed") { code("error", answer.error.code.value) }
-                            AnalyticsState.Failed(period, ScreenError.of(answer.error))
+                    is Outcome.Success -> {
+                        val now = answer.value
+                        val first = now.toView(range, null).also { cache[range] = it }
+                        mutableState.value = AnalyticsState.Loaded(first)
+                        val before = range.previous()
+                        when (val older = clinic.api.analytics(before.bucket.wire, before.from, before.to)) {
+                            is Outcome.Success -> {
+                                val full = now.toView(range, older.value).also { cache[range] = it }
+                                mutableState.value = AnalyticsState.Loaded(full)
+                            }
+
+                            is Outcome.Failure -> {
+                                log.warn("analytics.previous_failed") { code("error", older.error.code.value) }
+                            }
                         }
                     }
+                }
             }
     }
 
     internal companion object {
         const val ANALYTICS_VIEW = "analytics.view"
-
-        /** The bucket and first day for [period], ending [today]: the bars plus the window before them. */
-        fun rangeOf(
-            period: AnalyticsPeriod,
-            today: LocalDate,
-        ): Pair<String, LocalDate> {
-            val buckets = barsOf(period) + if (period == AnalyticsPeriod.Year) 0 else windowOf(period)
-            return when (period) {
-                AnalyticsPeriod.Week -> {
-                    val monday = today.minus(DatePeriod(days = today.dayOfWeek.ordinal))
-                    "week" to monday.minus(DatePeriod(days = DAYS_PER_WEEK * (buckets - 1)))
-                }
-
-                AnalyticsPeriod.Month, AnalyticsPeriod.Year -> {
-                    "month" to LocalDate(today.year, today.month, 1).minus(DatePeriod(months = buckets - 1))
-                }
-            }
-        }
-
-        private const val DAYS_PER_WEEK = 7
     }
 }

@@ -2,39 +2,27 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// All the cards of one period, top to bottom.
+/// All the cards of one range, top to bottom: numbers, money, patients, chairs, then the mix.
 struct AnalyticsCards: View {
     let view: AnalyticsView
     let onAddExpense: (() -> Void)?
-    @State private var selectedBar: Int?
 
     var body: some View {
-        let bars = view.bars
-        let selected = selectedBar ?? max(bars.count - 1, 0)
         KpiGrid(view: view)
-        ChartCard(title: CL("c.analytics.patients"), sub: CL("c.analytics.tap_bar")) {
-            if bars.isEmpty {
-                Text("c.analytics.no_data", tableName: "ClinicalV7").font(.system(size: 13))
-            } else {
-                let monthly = view.period != .week
-                let labels = bars.map { ClinicalFormat.barLabel(iso: $0.start.isoText, monthly: monthly, narrow: bars.count > 12) }
-                SkBarChart(
-                    values: bars.map { Double($0.patientVisits) }, labels: labels, selectedIndex: selected,
-                    tooltip: { CLf("c.analytics.tip", Int(bars[$0].patientVisits), Int(bars[$0].newPatients)) },
-                    describe: { CLf("c.analytics.bar.a11y", labels[$0], Int(bars[$0].patientVisits)) },
-                    onSelect: { selectedBar = $0 }
-                )
-            }
+        if view.revenue != nil {
+            MoneyChartCard(view: view)
+            ExpenseCategoryCard(view: view, onAdd: onAddExpense)
         }
-        ChairCard(view: view)
-        PreviewCard(title: CL("c.analytics.chair_split"), sub: CL("c.analytics.chair_split.sub"))
-        PreviewCard(title: CL("c.analytics.booked_walkin"), sub: CL("c.analytics.booked_walkin.sub"))
-        MixCard(view: view)
-        PreviewCard(title: CL("c.analytics.procedures"), sub: CL("c.analytics.procedures.sub"))
+        PatientsTrendCard(view: view)
+        ChairsCard(view: view)
+        ChairTimeCard(view: view)
         HeatCard(view: view)
+        SourcesCard(view: view)
+        ProceduresCard(view: view)
+        MixCard(view: view)
         AgeCard(view: view)
-        PreviewCard(title: CL("c.analytics.sex"), sub: CL("c.analytics.sex.sub"))
-        if view.expenses != nil { SpendCard(view: view, onAdd: onAddExpense) }
+        SexCard(view: view)
+        LabCard(view: view)
     }
 }
 
@@ -62,13 +50,15 @@ struct ChartCard<Content: View>: View {
     }
 }
 
-/// A chart the server cannot fill yet: its title and the Preview marker, no invented numbers.
-struct PreviewCard: View {
-    let title: String
-    let sub: String
+/// One quiet line inside a card, for a range that has none of that data.
+struct CardNote: View {
+    let text: String
+    @Environment(\.skTheme) private var theme
+
+    init(_ text: String) { self.text = text }
 
     var body: some View {
-        ChartCard(title: title, sub: sub) { PreviewNotice() }
+        Text(text).font(.system(size: 13)).foregroundStyle(theme.roles.onSurfaceVariant.color)
     }
 }
 
@@ -76,21 +66,25 @@ private struct KpiGrid: View {
     let view: AnalyticsView
 
     var body: some View {
-        let against = view.period.against
+        let versus = a11f("a11.vs", Int(view.range.days))
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 8, alignment: .top), GridItem(.flexible(), spacing: 8, alignment: .top)], spacing: 8) {
-            KpiCard(label: CL("c.analytics.kpi.patients"), value: "\(view.patientVisits.value)", delta: view.patientVisits.deltaPercent?.intValue, note: against)
-            if let revenue = view.revenue {
-                KpiCard(
-                    label: CL("c.analytics.kpi.revenue"), value: ClinicalFormat.compactRupees(paise: revenue.value), delta: revenue.deltaPercent?.intValue,
-                    note: view.expenses.map { CLf("c.analytics.kpi.expenses", ClinicalFormat.compactRupees(paise: $0.value)) } ?? against
-                )
+            KpiCard(label: a11("a11.kpi.visits"), value: "\(view.patientVisits.value)", delta: view.patientVisits.deltaPercent?.intValue, note: versus)
+            KpiCard(label: a11("a11.kpi.new"), value: "\(view.newPatients.value)", delta: view.newPatients.deltaPercent?.intValue, note: a11("a11.kpi.new.note"))
+            if let revenue = view.revenue, let expenses = view.expenses {
+                KpiCard(label: a11("a11.kpi.revenue"), value: AnalyticsFormat.rupees(paise: revenue.value), delta: revenue.deltaPercent?.intValue, note: versus)
+                KpiCard(label: a11("a11.kpi.expenses"), value: AnalyticsFormat.rupees(paise: expenses.value), delta: expenses.deltaPercent?.intValue, note: versus, goodWhenDown: true)
+                if let net = view.netPaise {
+                    KpiCard(label: a11("a11.kpi.net"), value: AnalyticsFormat.rupees(paise: net.int64Value), delta: nil, note: a11("a11.kpi.net.note"))
+                }
+                if let payments = view.payments {
+                    KpiCard(label: a11("a11.kpi.payments"), value: "\(payments.int64Value)", delta: nil, note: a11("a11.kpi.payments.note"))
+                }
             }
-            KpiCard(label: CL("c.analytics.kpi.new"), value: "\(view.newPatients.value)", delta: view.newPatients.deltaPercent?.intValue, note: CL("c.analytics.kpi.new.note"))
             KpiCard(
-                label: CL("c.analytics.kpi.chair"),
-                value: view.avgChairMinutes.map { CLf("c.analytics.minutes", $0.intValue) } ?? "–",
-                delta: nil, note: CL("c.analytics.kpi.chair.note")
+                label: a11("a11.kpi.chair"), value: view.avgChairMinutes.map { a11f("a11.minutes", $0.intValue) } ?? "–",
+                delta: nil, note: a11("a11.kpi.chair.note")
             )
+            KpiCard(label: a11("a11.kpi.util"), value: "\(Int((Double(view.chairUtilization) * 100).rounded()))%", delta: nil, note: a11("a11.kpi.util.note"))
         }
     }
 }
@@ -100,41 +94,26 @@ private struct KpiCard: View {
     let value: String
     let delta: Int?
     let note: String
+    var goodWhenDown = false
     @Environment(\.skTheme) private var theme
 
     var body: some View {
         let r = theme.roles
+        let bad = goodWhenDown ? (delta ?? 0) > 0 : (delta ?? 0) < 0
         VStack(alignment: .leading, spacing: 4) {
             Text(label).font(.system(size: 12, weight: .semibold)).foregroundStyle(r.onSurfaceVariant.color)
             Text(value).font(.system(size: 25, weight: .heavy)).monospacedDigit().foregroundStyle(r.onSurface.color).minimumScaleFactor(0.6).lineLimit(1)
             if let text = ClinicalFormat.delta(delta) {
                 Text(text).font(.system(size: 10.5, weight: .heavy)).padding(.horizontal, 7).padding(.vertical, 3)
-                    .foregroundStyle((delta ?? 0) < 0 ? r.onErrorContainer.color : r.onPrimaryContainer.color)
-                    .background(((delta ?? 0) < 0 ? r.errorContainer : r.primaryContainer).color, in: Capsule())
+                    .foregroundStyle(bad ? r.onErrorContainer.color : r.onPrimaryContainer.color)
+                    .background((bad ? r.errorContainer : r.primaryContainer).color, in: Capsule())
             }
             Text(note).font(.system(size: 11, weight: .semibold)).foregroundStyle(r.onSurfaceVariant.color).fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(r.card.color, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// Booked over open chair minutes, as the half-circle gauge.
-private struct ChairCard: View {
-    let view: AnalyticsView
-    @Environment(\.skTheme) private var theme
-
-    var body: some View {
-        let used = Double(min(max(view.chairUtilization, 0), 1))
-        let percent = Int((Double(view.chairUtilization) * 100).rounded())
-        ChartCard(title: CL("c.analytics.chair"), sub: CL("c.analytics.chair.sub")) {
-            SkGauge(
-                values: [used, 1 - used], colors: [theme.roles.primary.color, theme.roles.surface3.color],
-                total: "\(percent)%", caption: CL("c.analytics.chair.caption"), description: CLf("c.analytics.chair.a11y", percent)
-            )
-            .frame(maxWidth: 260).frame(maxWidth: .infinity)
-        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(a11f("a11.kpi.a11y", label, value, [AnalyticsFormat.deltaSpeech(delta), note].filter { !$0.isEmpty }.joined(separator: ", ")))
     }
 }

@@ -1295,6 +1295,7 @@ Visits, notes, vitals, diagnoses, prescriptions, procedures, treatment plans, fi
 erDiagram
   encounters ||--o{ clinical_notes : "encounter_id"
   clinical_notes |o--o{ clinical_notes : "conflicts_with_id"
+  clinical_notes |o--o{ clinical_notes : "supersedes_id"
   clinical_notes ||--o{ note_addenda : "note_id"
   encounters |o--o{ observations : "encounter_id"
   observations |o--o{ observations : "supersedes_id"
@@ -1402,14 +1403,15 @@ Doctor and intake notes. Signed notes never change.
 | `signed_at` | `timestamptz?` |  |
 | `signed_by` | `uuid?` | → `memberships`. the author; only they may sign |
 | `conflicts_with_id` | `uuid?` | → `clinical_notes`. the version this one collided with during sync |
+| `supersedes_id` | `uuid?` | → `clinical_notes`. the signed note this one corrects, in the same visit (migration 0719); at most one live correction per note |
 | `error_reason` | `text?` | required when marked entered_in_error |
 | `error_at` | `timestamptz?` |  |
 | `error_by` | `uuid?` | → `memberships` |
 | `row_version` | `bigint` | starts at 1 and goes up when the record changes; sent as the ETag, checked against If-Match on edits |
 
-Drafts are edited by their author only. Signing freezes the note: app.freeze_when() lets a signed or conflict note only move to entered_in_error (with a reason) and nothing else on it change. Never merged automatically: if a change synced from a device collides with a note already signed on the server, it is kept as a separate note with status conflict, linked by conflicts_with_id, and its author resolves it by marking one version entered_in_error. Corrections go in note_addenda.
+Drafts are edited by their author only. Signing freezes the note: app.freeze_when() lets a signed or conflict note only move to entered_in_error (with a reason) and nothing else on it change. Never merged automatically: if a change synced from a device collides with a note already signed on the server, it is kept as a separate note with status conflict, linked by conflicts_with_id, and its author resolves it by marking one version entered_in_error. A correction of a signed note is a new signed note with supersedes_id (POST /notes/{id}/amend): the original stays exactly as signed, and readers list only the note nothing live replaces; a correction marked entered_in_error stops replacing it. Additions go in note_addenda.
 
-Referenced by: `attachments.note_id`, `clinical_notes.conflicts_with_id`, `note_addenda.note_id`, `voice_notes.draft_note_id`
+Referenced by: `attachments.note_id`, `clinical_notes.conflicts_with_id`, `clinical_notes.supersedes_id`, `note_addenda.note_id`, `voice_notes.draft_note_id`
 
 ### `patient_notes`
 
@@ -1423,7 +1425,7 @@ One summary note per patient, kept up to date by clinicians outside any single v
 | `body` | `text` | a strict Markdown subset (headings, lists, bold, italic), validated on save |
 | `row_version` | `bigint` | starts at 1 and goes up when the text changes; sent as the ETag, checked against If-Match on edits |
 
-Edited by any member with clinical.write whose scope reaches the patient; every change is audited. Visit notes stay in clinical_notes and signed ones change only through addenda.
+Edited by any member with clinical.write whose scope reaches the patient; every change is audited. Visit notes stay in clinical_notes; a signed one changes only through addenda or a correction that keeps the original.
 
 ### `note_addenda` (★ foundation)
 

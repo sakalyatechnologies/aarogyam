@@ -3878,7 +3878,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           const stored = (state.summaryNotes ?? []).find((s) => s.clinic_id === caller.clinic.id && s.patient_id === id);
           const visitNotes = state.notes
-            .filter((n) => n.clinic_id === caller.clinic.id)
+            .filter((n) => n.clinic_id === caller.clinic.id && !isReplaced(state, n.id))
             .flatMap((n): C.VisitNote[] => {
               const visit = state.visits.find((v) => v.id === n.visit_id && v.patient_id === id);
               const author = memberRefOf(state, n.author_membership_id);
@@ -3963,7 +3963,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               amount_paise: null,
             });
           }
-          for (const n of state.notes.filter((entry) => entry.clinic_id === caller.clinic.id && entry.status === "signed")) {
+          for (const n of state.notes.filter((entry) => entry.clinic_id === caller.clinic.id && entry.status === "signed" && !isReplaced(state, entry.id))) {
             const parentVisit = state.visits.find((v) => v.id === n.visit_id && v.patient_id === id);
             if (parentVisit === undefined) {
               continue;
@@ -4048,7 +4048,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return notFound;
           }
           const notes = state.notes
-            .filter((n) => n.visit_id === id)
+            .filter((n) => n.visit_id === id && !isReplaced(state, n.id))
             .flatMap((n) => {
               const wired = wireNote(n, state);
               return wired === undefined ? [] : [wired];
@@ -4442,6 +4442,12 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (found.status !== "draft") {
             return refuse(409, "conflict", "A signed note can't be changed; add an addendum.");
           }
+          if (state.visits.find((v) => v.id === found.visit_id)?.status === "closed") {
+            return refuse(409, "conflict", "The visit is closed.");
+          }
+          if (isReplaced(state, found.id)) {
+            return refuse(409, "conflict", "This note was corrected; change the latest version instead.");
+          }
           found.sections = {
             subjective: content.sections?.subjective ?? null,
             objective: content.sections?.objective ?? null,
@@ -4512,6 +4518,99 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return notFound;
           }
           return reply(wired satisfies C.Note);
+        }),
+
+      amendNote: (id, input, opts) =>
+        respond(S.note, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.notes.find((n) => n.id === id && n.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const closed = state.visits.find((v) => v.id === found.visit_id)?.status === "closed";
+          if (found.status === "entered_in_error") {
+            return refuse(409, "conflict", "The note is already marked entered in error.");
+          }
+          if (found.status === "conflict" || (found.status === "draft" && !closed)) {
+            return refuse(409, "conflict", "Only a signed note can be corrected; edit the draft instead.");
+          }
+          if (found.status === "draft" && found.author_membership_id !== caller.membership.id) {
+            return refuse(403, "forbidden", "Only the author may correct their own draft.");
+          }
+          if (isReplaced(state, found.id)) {
+            return refuse(409, "conflict", "This note was already corrected; correct the latest version.");
+          }
+          const kindParsed = S.noteKind.safeParse(input.kind ?? found.kind);
+          if (!kindParsed.success) {
+            return invalid("kind", "unknown note kind");
+          }
+          // A retry with the same id returns the correction that exists.
+          const again = input.id == null ? undefined : state.notes.find((n) => n.id === input.id);
+          if (again !== undefined) {
+            if (again.supersedes_id !== found.id) {
+              return refuse(409, "id_conflict", "That id belongs to a different record.");
+            }
+            const wiredAgain = wireNote(again, state);
+            return wiredAgain === undefined ? notFound : reply(wiredAgain satisfies C.Note);
+          }
+          const trimmed = (text: string | null | undefined) => (text == null || text.trim() === "" ? null : text.trim());
+          const sections = {
+            subjective: trimmed(input.sections?.subjective),
+            objective: trimmed(input.sections?.objective),
+            assessment: trimmed(input.sections?.assessment),
+            plan: trimmed(input.sections?.plan),
+          };
+          if (Object.values(sections).every((section) => section === null)) {
+            return refuse(409, "conflict", "Write at least one section before signing.");
+          }
+          const now = clock().toISOString();
+          const record: FakeNote = {
+            id: input.id ?? fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            visit_id: found.visit_id,
+            author_membership_id: caller.membership.id,
+            kind: kindParsed.data,
+            source: "typed",
+            status: "signed",
+            sections,
+            addenda: [],
+            supersedes_id: found.id,
+            signed_at: now,
+            created_at: now,
+            updated_at: now,
+          };
+          state.notes.push(record);
+          const wired = wireNote(record, state);
+          if (wired === undefined) {
+            return notFound;
+          }
+          return reply(wired satisfies C.Note);
+        }),
+
+      listNoteVersions: (id, opts) =>
+        respond(S.noteVersions, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.notes.find((n) => n.id === id && n.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const items: C.Note[] = [];
+          let before = state.notes.find((n) => n.id === found.supersedes_id);
+          while (before !== undefined) {
+            const wired = wireNote(before, state);
+            if (wired !== undefined) {
+              items.push(wired);
+            }
+            const previous: string | null | undefined = before.supersedes_id;
+            before = state.notes.find((n) => n.id === previous);
+          }
+          return reply({ items } satisfies C.NoteVersions);
         }),
 
       recordObservations: (visitIdValue, input, opts) =>
@@ -10386,6 +10485,11 @@ function wireSummary(s: FakeSummaryNote, state: Fixtures): C.SummaryNote {
   };
 }
 
+/** Whether a live correction replaced the note: one marked entered in error no longer counts. */
+function isReplaced(state: Fixtures, noteIdValue: string): boolean {
+  return state.notes.some((n) => n.supersedes_id === noteIdValue && n.status !== "entered_in_error");
+}
+
 function wireNote(n: FakeNote, state: Fixtures): C.Note | undefined {
   const author = memberRefOf(state, n.author_membership_id);
   if (author === undefined) {
@@ -10407,6 +10511,7 @@ function wireNote(n: FakeNote, state: Fixtures): C.Note | undefined {
     addenda,
     error_reason: n.error_reason ?? null,
     conflicts_with_id: n.conflicts_with_id ?? null,
+    ...(n.supersedes_id == null ? {} : { supersedes_id: n.supersedes_id }),
     signed_at: n.signed_at ?? null,
     created_at: n.created_at,
     updated_at: n.updated_at,

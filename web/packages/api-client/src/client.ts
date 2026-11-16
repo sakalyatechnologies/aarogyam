@@ -121,6 +121,8 @@ import type {
   NewAppointmentBody,
   NewBooking,
   NewAddendum,
+  NoteCorrection,
+  NoteVersions,
   NewChartEntries,
   NewDentalTerm,
   NewPlan,
@@ -768,6 +770,12 @@ export interface ApiClient {
 
   /** Clinic host: adds an addendum to a signed note; addenda are never edited or removed. Needs `clinical.write`. */
   addAddendum(id: NoteId, input: NewAddendum, options?: RequestOptions): Promise<ApiResult<Note>>;
+
+  /** Clinic host: corrects a note and keeps the original: saves the whole corrected text as a new signed note that replaces it (`supersedes_id`). Works in a closed visit. Needs `clinical.write`. */
+  amendNote(id: NoteId, input: NoteCorrection, options?: RequestOptions): Promise<ApiResult<Note>>;
+
+  /** Clinic host: the earlier versions of a note that corrections replaced, newest first. Visits and patient notes list only the current note. Needs `clinical.read`. */
+  listNoteVersions(id: NoteId, options?: RequestOptions): Promise<ApiResult<NoteVersions>>;
 
   /** Clinic host: records vital signs together. Needs `clinical.write`. */
   recordObservations(visitId: VisitId, input: NewReadings, options?: RequestOptions): Promise<ApiResult<ObservationPage>>;

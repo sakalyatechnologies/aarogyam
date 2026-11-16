@@ -381,6 +381,8 @@ pub struct NoteRow {
     pub signed_by: Option<Uuid>,
     /// The note it collided with during sync.
     pub conflicts_with_id: Option<Uuid>,
+    /// The signed note this one corrects.
+    pub supersedes_id: Option<Uuid>,
     /// Why it was marked entered in error.
     pub error_reason: Option<String>,
     /// When it was marked.
@@ -422,7 +424,7 @@ pub async fn insert_note(conn: &mut PgConnection, new: &NewNote<'_>) -> Result<N
         r#"insert into aarogyam.clinical_notes (id, encounter_id, patient_id, author_id, kind, source, body)
            values ($1, $2, $3, $4, $5, $6, $7)
            returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version"#,
+                     signed_by, conflicts_with_id, supersedes_id, error_reason, error_at, created_at, updated_at, row_version"#,
         new.id,
         new.encounter_id,
         new.patient_id,
@@ -432,6 +434,52 @@ pub async fn insert_note(conn: &mut PgConnection, new: &NewNote<'_>) -> Result<N
         new.body
     )
     .fetch_one(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Inserts a signed note that corrects `supersedes_id`, in the same visit.
+///
+/// # Errors
+/// [`DbError`] on a database failure; the unique index refuses a second correction of one note.
+pub async fn insert_correction(
+    conn: &mut PgConnection,
+    new: &NewNote<'_>,
+    supersedes_id: Uuid,
+    at: OffsetDateTime,
+) -> Result<NoteRow, DbError> {
+    let row = sqlx::query_as!(
+        NoteRow,
+        r#"insert into aarogyam.clinical_notes
+             (id, encounter_id, patient_id, author_id, kind, source, body, status, signed_at, signed_by, supersedes_id)
+           values ($1, $2, $3, $4, $5, $6, $7, 'signed', $8, $4, $9)
+           returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
+                     signed_by, conflicts_with_id, supersedes_id, error_reason, error_at, created_at, updated_at, row_version"#,
+        new.id,
+        new.encounter_id,
+        new.patient_id,
+        new.author_id,
+        new.kind,
+        new.source,
+        new.body,
+        at,
+        supersedes_id
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(row)
+}
+
+/// The note that corrects `id`, when there is one.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn correction_of(conn: &mut PgConnection, id: Uuid) -> Result<Option<Uuid>, DbError> {
+    let row = sqlx::query_scalar!(
+        "select id from aarogyam.clinical_notes where supersedes_id = $1 and status <> 'entered_in_error'",
+        id
+    )
+    .fetch_optional(conn)
     .await?;
     Ok(row)
 }
@@ -448,7 +496,7 @@ pub async fn get_note_for_update(
     let row = sqlx::query_as!(
         NoteRow,
         r#"select id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                  signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version
+                  signed_by, conflicts_with_id, supersedes_id, error_reason, error_at, created_at, updated_at, row_version
            from aarogyam.clinical_notes
            where id = $1 and app.clinical_in_reach(author_id, created_by, encounter_id, $2)
            for update"#,
@@ -485,8 +533,12 @@ pub async fn list_notes(
     let rows = sqlx::query_as!(
         NoteRow,
         r#"select id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                  signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version
-           from aarogyam.clinical_notes where encounter_id = $1
+                  signed_by, conflicts_with_id, supersedes_id, error_reason, error_at, created_at, updated_at, row_version
+           from aarogyam.clinical_notes n
+           where encounter_id = $1
+             and not exists (select 1 from aarogyam.clinical_notes s
+                             where s.org_id = n.org_id and s.supersedes_id = n.id
+                               and s.status <> 'entered_in_error')
            order by created_at, id"#,
         encounter_id
     )
@@ -495,7 +547,9 @@ pub async fn list_notes(
     Ok(rows)
 }
 
-/// Replaces a draft's sections. The freeze trigger refuses it once the note is signed.
+/// Replaces a draft's sections, in one statement that also checks the visit is still open and no
+/// live correction replaced the note. `None` when either check fails (the caller says which). The
+/// freeze trigger refuses it once the note is signed.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -504,17 +558,24 @@ pub async fn update_note_body(
     id: Uuid,
     kind: &str,
     body: &serde_json::Value,
-) -> Result<NoteRow, DbError> {
+) -> Result<Option<NoteRow>, DbError> {
     let row = sqlx::query_as!(
         NoteRow,
-        r#"update aarogyam.clinical_notes set kind = $2, body = $3 where id = $1
-           returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version"#,
+        r#"update aarogyam.clinical_notes n set kind = $2, body = $3
+           where n.id = $1
+             and exists (select 1 from aarogyam.encounters e
+                         where e.org_id = n.org_id and e.id = n.encounter_id and e.status = 'open')
+             and not exists (select 1 from aarogyam.clinical_notes s
+                             where s.org_id = n.org_id and s.supersedes_id = n.id
+                               and s.status <> 'entered_in_error')
+           returning n.id, n.encounter_id, n.patient_id, n.author_id, n.kind, n.body, n.source, n.status, n.signed_at,
+                     n.signed_by, n.conflicts_with_id, n.supersedes_id, n.error_reason, n.error_at, n.created_at,
+                     n.updated_at, n.row_version"#,
         id,
         kind,
         body
     )
-    .fetch_one(conn)
+    .fetch_optional(conn)
     .await?;
     Ok(row)
 }
@@ -534,7 +595,7 @@ pub async fn sign_note(
         r#"update aarogyam.clinical_notes set status = 'signed', signed_at = $3, signed_by = $2
            where id = $1
            returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version"#,
+                     signed_by, conflicts_with_id, supersedes_id, error_reason, error_at, created_at, updated_at, row_version"#,
         id,
         signed_by,
         at
@@ -561,7 +622,7 @@ pub async fn mark_note_in_error(
            set status = 'entered_in_error', error_reason = $3, error_at = $4, error_by = $2
            where id = $1
            returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,
-                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version"#,
+                     signed_by, conflicts_with_id, supersedes_id, error_reason, error_at, created_at, updated_at, row_version"#,
         id,
         by,
         reason,
@@ -727,7 +788,7 @@ pub async fn get_note_bundle(
 ) -> Result<Option<NoteBundle>, DbError> {
     let row = sqlx::query!(
         r#"select n.id, n.encounter_id, n.patient_id, n.author_id, n.kind, n.body, n.source,
-                  n.status, n.signed_at, n.signed_by, n.conflicts_with_id, n.error_reason,
+                  n.status, n.signed_at, n.signed_by, n.conflicts_with_id, n.supersedes_id, n.error_reason,
                   n.error_at, n.created_at, n.updated_at, n.row_version,
                   (select coalesce(jsonb_agg(jsonb_build_object(
                               'id', a.id, 'note_id', a.note_id, 'author_id', a.author_id,
@@ -761,6 +822,7 @@ pub async fn get_note_bundle(
             signed_at: row.signed_at,
             signed_by: row.signed_by,
             conflicts_with_id: row.conflicts_with_id,
+            supersedes_id: row.supersedes_id,
             error_reason: row.error_reason,
             error_at: row.error_at,
             created_at: row.created_at,

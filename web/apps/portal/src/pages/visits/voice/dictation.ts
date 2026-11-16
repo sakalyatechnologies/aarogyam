@@ -13,6 +13,9 @@ export function recordingLanguage(language: string): string | undefined {
 
 export type DictationLanguage = (typeof DICTATION_LANGUAGES)[number]["value"];
 
+/** Said wherever voice typing is missing: Firefox has no speech recognition, and Safari and Brave only partly. */
+export const NO_VOICE_TYPING = "Voice typing needs Chrome or Edge. You can still record audio and type notes.";
+
 /** The longest recording, in seconds. The API refuses anything longer. */
 export const MAX_RECORDING_SECONDS = 600;
 

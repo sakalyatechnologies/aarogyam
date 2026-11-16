@@ -2064,6 +2064,12 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             format!("/api/v1/notes/{note}/addenda"),
             Some(json!({ "body": "x" })),
         ),
+        (Method::GET, format!("/api/v1/notes/{note}/versions"), None),
+        (
+            Method::POST,
+            format!("/api/v1/notes/{note}/amend"),
+            Some(json!({ "sections": { "subjective": "corrected" } })),
+        ),
         (
             Method::POST,
             format!("/api/v1/notes/{note}/entered-in-error"),
@@ -2266,6 +2272,442 @@ async fn every_clinical_route_is_checked() {
     checked.dedup();
     assert_eq!(checked, documented);
     app.finish().await;
+}
+
+/// Starts a visit with one note and signs it; returns (patient, visit, note).
+async fn signed_note(app: &TestApp, token: &str) -> (String, String, String) {
+    let patient = register(app, ALPHA, token, "Meera Shah").await;
+    let visit = start_visit(app, token, &patient).await;
+    let (status, note) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}/notes"),
+            Some(token),
+            Some(json!({ "sections": { "subjective": "[10:05] pain in 36", "plan": "RCT" } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{note}");
+    let note_id = note["id"].as_str().unwrap().to_owned();
+    let sign = format!("/api/v1/notes/{note_id}/sign");
+    assert_eq!(
+        status_of(app, Method::POST, ALPHA, &sign, token, None).await,
+        StatusCode::OK
+    );
+    (patient, visit, note_id)
+}
+
+/// After a correction, every list of notes returns exactly one note, and it is `current`.
+async fn only_current(app: &TestApp, token: &str, patient: &str, visit: &str, current: &str) {
+    let (_, detail) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}"),
+            Some(token),
+            None,
+        )
+        .await;
+    let notes = detail["notes"].as_array().unwrap();
+    assert_eq!(notes.len(), 1, "visit detail: {detail}");
+    assert_eq!(notes[0]["id"], current);
+    let (_, summary) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/notes"),
+            Some(token),
+            None,
+        )
+        .await;
+    let listed = summary["visit_notes"].as_array().unwrap();
+    assert_eq!(listed.len(), 1, "patient notes: {summary}");
+    assert_eq!(listed[0]["id"], current);
+    let (_, timeline) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/timeline"),
+            Some(token),
+            None,
+        )
+        .await;
+    let signed: Vec<&Value> = timeline["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["kind"] == "note")
+        .collect();
+    assert_eq!(signed.len(), 1, "timeline: {timeline}");
+    assert_eq!(signed[0]["id"], current);
+}
+
+/// A correction keeps the original: a new signed note replaces it, nothing is overwritten, a
+/// closed visit allows only corrections, every list returns only the current note, and the
+/// writes are audited.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn corrections_keep_the_original_and_work_in_closed_visits() {
+    let app = TestApp::start().await;
+    add_doctor(&app).await;
+    let owner = app.token(ALPHA_OWNER);
+    let doctor = app.token(ALPHA_DOCTOR);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let beta = app.token(BETA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let visit = start_visit(&app, &owner, &patient).await;
+    let (_, note) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}/notes"),
+            Some(&owner),
+            Some(json!({ "sections": { "subjective": "[10:05] pain in 36", "plan": "RCT" } })),
+        )
+        .await;
+    let note_id = note["id"].as_str().unwrap().to_owned();
+    let amend = format!("/api/v1/notes/{note_id}/amend");
+    let fixed = json!({ "sections": { "subjective": "[10:05] pain in 46", "plan": "RCT" } });
+
+    // An open visit's draft is edited in place, so there is nothing to correct yet.
+    assert_eq!(
+        status_of(
+            &app,
+            Method::POST,
+            ALPHA,
+            &amend,
+            &owner,
+            Some(fixed.clone())
+        )
+        .await,
+        StatusCode::CONFLICT
+    );
+    let sign = format!("/api/v1/notes/{note_id}/sign");
+    assert_eq!(
+        status_of(&app, Method::POST, ALPHA, &sign, &owner, None).await,
+        StatusCode::OK
+    );
+
+    // Refusals: no permission, another clinic, an empty text.
+    assert_eq!(
+        status_of(
+            &app,
+            Method::POST,
+            ALPHA,
+            &amend,
+            &assistant,
+            Some(fixed.clone())
+        )
+        .await,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        status_of(&app, Method::POST, BETA, &amend, &beta, Some(fixed.clone())).await,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        status_of(
+            &app,
+            Method::POST,
+            ALPHA,
+            &amend,
+            &doctor,
+            Some(json!({ "sections": {} }))
+        )
+        .await,
+        StatusCode::CONFLICT
+    );
+
+    // The visit closes; the signed note can still be corrected, by another doctor.
+    let close = format!("/api/v1/visits/{visit}/close");
+    assert_eq!(
+        status_of(&app, Method::POST, ALPHA, &close, &owner, None).await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        status_of(
+            &app,
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}/notes"),
+            &owner,
+            Some(json!({ "sections": { "plan": "new" } }))
+        )
+        .await,
+        StatusCode::CONFLICT,
+        "a closed visit takes no new note"
+    );
+    let (status, correction) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &amend,
+            Some(&doctor),
+            Some(fixed.clone()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{correction}");
+    assert_eq!(correction["status"], "signed");
+    assert_eq!(correction["supersedes_id"], note_id.as_str());
+    assert_eq!(correction["author"]["name"], "Dev Doctor");
+    assert_eq!(correction["sections"]["subjective"], "[10:05] pain in 46");
+    let correction_id = correction["id"].as_str().unwrap().to_owned();
+
+    // Every list returns only the current note, so no client shows both versions.
+    only_current(&app, &owner, &patient, &visit, &correction_id).await;
+    // The original is exactly as it was signed, and is read from its own route.
+    let versions_path = format!("/api/v1/notes/{correction_id}/versions");
+    let (status, versions) = app
+        .send(Method::GET, ALPHA, &versions_path, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{versions}");
+    let items = versions["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["id"], note_id.as_str());
+    assert_eq!(items[0]["sections"]["subjective"], "[10:05] pain in 36");
+    assert_eq!(items[0]["status"], "signed");
+    assert!(items[0].get("supersedes_id").is_none());
+    // Signing the corrected original again is only a repeat.
+    assert_eq!(
+        status_of(&app, Method::POST, ALPHA, &sign, &owner, None).await,
+        StatusCode::OK,
+        "signing again is a repeat"
+    );
+
+    // A note is corrected once; the next correction is of the new version, which chains.
+    assert_eq!(
+        status_of(&app, Method::POST, ALPHA, &amend, &doctor, Some(fixed)).await,
+        StatusCode::CONFLICT
+    );
+    let (status, third) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/notes/{correction_id}/amend"),
+            Some(&owner),
+            Some(json!({ "sections": { "subjective": "[10:05] pain in 47" } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{third}");
+    assert_eq!(third["supersedes_id"], correction_id.as_str());
+    let third_id = third["id"].as_str().unwrap().to_owned();
+    only_current(&app, &owner, &patient, &visit, &third_id).await;
+    let (_, chain) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/notes/{third_id}/versions"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    let ids: Vec<&Value> = chain["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| &n["id"])
+        .collect();
+    assert_eq!(ids, [&json!(correction_id), &json!(note_id)]);
+
+    // Corrections are audited like other clinical writes.
+    let (inserts,): (i64,) = sqlx::query_as(
+        "select count(*) from audit.audit_events
+         where table_name = 'aarogyam.clinical_notes' and action = 'insert'",
+    )
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(inserts, 3);
+    app.finish().await;
+}
+
+/// In-place edits are the open visit's draft only: a closed visit and a corrected note refuse them
+/// at the server, and only the author corrects their own unsigned draft.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn in_place_edits_are_refused_once_closed_or_corrected() {
+    let app = TestApp::start().await;
+    add_doctor(&app).await;
+    let owner = app.token(ALPHA_OWNER);
+    let doctor = app.token(ALPHA_DOCTOR);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let visit = start_visit(&app, &owner, &patient).await;
+    let (_, draft) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}/notes"),
+            Some(&owner),
+            Some(json!({ "sections": { "subjective": "pain" } })),
+        )
+        .await;
+    let draft_id = draft["id"].as_str().unwrap().to_owned();
+    let path = format!("/api/v1/notes/{draft_id}");
+    let edit = json!({ "sections": { "subjective": "pain, 36" } });
+    // The visit closes with the draft unsigned (the closing doctor's own drafts are signed by
+    // finish, not by close).
+    assert_eq!(
+        status_of(
+            &app,
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}/close"),
+            &owner,
+            None
+        )
+        .await,
+        StatusCode::OK
+    );
+    // Closed visit: no in-place edit, even by the author.
+    assert_eq!(
+        status_of(
+            &app,
+            Method::PATCH,
+            ALPHA,
+            &path,
+            &owner,
+            Some(edit.clone())
+        )
+        .await,
+        StatusCode::CONFLICT
+    );
+    // Only the author corrects their own unsigned draft; someone else may not.
+    let amend = format!("{path}/amend");
+    assert_eq!(
+        status_of(
+            &app,
+            Method::POST,
+            ALPHA,
+            &amend,
+            &doctor,
+            Some(edit.clone())
+        )
+        .await,
+        StatusCode::FORBIDDEN
+    );
+    let (status, fixed) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &amend,
+            Some(&owner),
+            Some(edit.clone()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{fixed}");
+    // The draft was replaced: it can't be edited or signed any more.
+    assert_eq!(
+        status_of(
+            &app,
+            Method::POST,
+            ALPHA,
+            &format!("{path}/sign"),
+            &owner,
+            None
+        )
+        .await,
+        StatusCode::CONFLICT
+    );
+    // And a signed note of an open visit can't be edited in place either.
+    let (_, _, signed) = signed_note(&app, &owner).await;
+    assert_eq!(
+        status_of(
+            &app,
+            Method::PATCH,
+            ALPHA,
+            &format!("/api/v1/notes/{signed}"),
+            &owner,
+            Some(edit)
+        )
+        .await,
+        StatusCode::CONFLICT
+    );
+    app.finish().await;
+}
+
+/// A correction marked entered in error stops replacing the note: the original is current again
+/// and can be corrected anew.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_correction_entered_in_error_makes_the_original_current_again() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (patient, visit, note_id) = signed_note(&app, &owner).await;
+    let amend = format!("/api/v1/notes/{note_id}/amend");
+    let (status, first) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &amend,
+            Some(&owner),
+            Some(json!({ "sections": { "subjective": "wrong correction" } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{first}");
+    let first_id = first["id"].as_str().unwrap().to_owned();
+    only_current(&app, &owner, &patient, &visit, &first_id).await;
+
+    let (status, voided) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/notes/{first_id}/entered-in-error"),
+            Some(&owner),
+            Some(json!({ "reason": "typed in the wrong note" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{voided}");
+    // The original is current again: it is listed (beside the withdrawn correction, marked) and
+    // appears on the timeline and the patient's notes.
+    let (_, detail) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    let listed: Vec<(&str, &str)> = detail["notes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| (n["id"].as_str().unwrap(), n["status"].as_str().unwrap()))
+        .collect();
+    assert!(listed.contains(&(note_id.as_str(), "signed")), "{detail}");
+    assert!(
+        listed.contains(&(first_id.as_str(), "entered_in_error")),
+        "{detail}"
+    );
+    let (_, timeline) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/timeline"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert!(
+        timeline["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["kind"] == "note" && e["id"] == note_id.as_str()),
+        "{timeline}"
+    );
+    // It can be corrected anew.
+    let (status, second) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &amend,
+            Some(&owner),
+            Some(json!({ "sections": { "subjective": "right correction" } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{second}");
+    assert_eq!(second["supersedes_id"], note_id.as_str());
 }
 
 /// Every clinical route answers 404 to another clinic's member for this clinic's records.

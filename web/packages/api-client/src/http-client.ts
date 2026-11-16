@@ -73,6 +73,7 @@ import {
   metricsResponse,
   mySessionsResponse,
   note,
+  noteVersions,
   observationList,
   patient,
   patientList,
@@ -579,6 +580,12 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     addAddendum: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/notes/${encodeURIComponent(id)}/addenda`, schema: note, body: input, signal: opts?.signal }),
+
+    amendNote: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/notes/${encodeURIComponent(id)}/amend`, schema: note, body: input, signal: opts?.signal }),
+
+    listNoteVersions: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/notes/${encodeURIComponent(id)}/versions`, schema: noteVersions, signal: opts?.signal }),
 
     recordObservations: (visitId, input, opts) =>
       call({

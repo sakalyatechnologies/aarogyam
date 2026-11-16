@@ -55,6 +55,9 @@ pub async fn events(
                     n.status, n.author_id, null
              from aarogyam.clinical_notes n
              where n.patient_id = $1 and n.signed_at is not null
+               and not exists (select 1 from aarogyam.clinical_notes s
+                               where s.org_id = n.org_id and s.supersedes_id = n.id
+                                 and s.status <> 'entered_in_error')
                and app.clinical_in_reach(n.author_id, n.created_by, n.encounter_id, $4)
              union all
              select 'procedure', p.id, coalesce(p.performed_at, p.created_at), p.encounter_id, p.name,

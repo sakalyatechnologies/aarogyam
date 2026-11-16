@@ -2,6 +2,23 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-11-16: Visit notes: typed and spoken together, and corrections that keep the original
+
+**Decision.** The open visit's notes take typed lines beside spoken ones, and a past visit's notes can be edited by a doctor: in place while the note is an unsigned draft of an open visit, otherwise as a correction that keeps the original. Built (migration 0719, `POST /api/v1/notes/{id}/amend`).
+
+**One transcript, spoken and typed.**
+- **Stored the same way.** A typed line and a spoken line are both `[HH:MM] text` lines in the note's subjective section. No source marker is added: the phone app and older portal tabs read exactly this format, and a marker would show there as stray text; the note's own `source` already says voice or typed. The screen shows the lines in time order (a recording is saved when it stops but is stamped with when it began), and each line of a draft in an open visit can be edited or removed.
+- **Why the transcript went missing.** Words still "interim" when Save was pressed were thrown away with the recogniser, so a short phrase saved as "Voice note (no transcript)"; and the reason dictation had stopped or was unavailable (a blocked or unsupported browser) was never shown. Interim words are now kept when recording stops, pauses or the browser ends a session, and the screen says "Voice typing needs Chrome or Edge. You can still record audio and type notes." where there is no speech recognition.
+
+**Editing a past visit's notes (corrections).**
+- **Options weighed.** An addendum is free text added beneath a note, so it can't replace the note's text and the old text would still read as the note. Editing the signed row in place breaks "never silently overwrite clinical history" (and the freeze trigger refuses it). So a correction is a new note.
+- **Model.** `clinical_notes.supersedes_id` (new, nullable, unique per clinic: a note is corrected once, and the next correction is of the new version) points at the note it replaces. `POST /notes/{id}/amend` takes the whole corrected text and inserts a new note, signed by the caller, in the same visit, even when the visit is closed. The original is never touched. Any member with `clinical.write` may correct, as with addenda and entered-in-error. It works on a signed note, and on an unsigned draft only once its visit is closed (a draft of an open visit is edited in place, `PATCH /notes/{id}`, author only). A note entered in error can't be corrected.
+- **Reading.** A visit's current note is the one nothing replaces. The drawer shows it with "Edited 16 Nov by Dr Dev" and lists the earlier versions read-only under "See earlier versions". The patient timeline and the advice a patient sees (`app.visit_advice`) skip a replaced note, so neither shows both versions.
+- **Audit.** The new row is written inside the request's scoped transaction, so the existing audit trigger records it like any clinical write, with the actor and request; the API logs `note_amended`. No new route skips the access rules: clinic scope and `clinical.write` are checked before anything is read, and another clinic's note is a 404.
+- **Compatibility.** Additive only: the `Note` answer gains an optional `supersedes_id` (absent unless it is a correction), no enum changed, and an old portal tab that doesn't know the field still reads every note.
+
+**Also.** The patient's Records timeline shows one entry per visit, folding its note, recordings, images and procedures under that visit with small counts, instead of one row each.
+
 ## 2026-11-15: The import keeps its file and brings in balances
 
 **Decision.** Two founder decisions amend "Bringing in a clinic's existing records" (2026-10-06): the clinic's original file is now kept, where the clinic can open and delete it, and the balance column ("Baki") becomes an opening balance the patient owes. Both are built (migration 0717).

@@ -8182,7 +8182,7 @@
             "description": "No such note in this clinic"
           },
           "409": {
-            "description": "The note is signed; add an addendum instead"
+            "description": "The note is signed, the visit is closed, or a correction replaced it; correct it with `amend` or add an addendum instead"
           },
           "412": {
             "description": "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`"
@@ -8247,6 +8247,76 @@
           },
           "409": {
             "description": "The note isn't signed, or `id_conflict`: the id belongs to a different addendum"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notes/{id}/amend": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Corrects a note and keeps the original. Writes the corrected text as a new note, signed by\nthe caller, that replaces the original in readers' eyes (`supersedes_id`); the original stays\nin the record exactly as it was signed. Works in a closed visit. A note can be corrected\nonce: correct the latest version next time. Use an addendum to add to a note instead.",
+        "operationId": "amendNote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The note to correct",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteCorrection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The new, signed version",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The `row_version` in quotes"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such note in this clinic"
+          },
+          "409": {
+            "description": "The note is an unsigned draft in an open visit (edit it), is entered in error, was already corrected, the text is empty, or `id_conflict`: the id belongs to a different note"
           }
         },
         "security": [
@@ -8363,6 +8433,51 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notes/{id}/versions": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Reads the earlier versions of a note that corrections replaced, newest first. Visits and\npatient notes list only the current note; this is where the originals are read. Reading them\nwrites the access record.",
+        "operationId": "listNoteVersions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The current note",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteVersions"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such note in this clinic"
           }
         },
         "security": [
@@ -30311,6 +30426,13 @@
             "type": "string",
             "description": "`draft`, `signed`, `conflict` (collided with a signed note during sync) or `entered_in_error`."
           },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "For a correction: the note it replaces. The earlier note stays in the record, unchanged,\nbut visits and patient notes list only the current note; read the earlier versions with\n`GET /notes/{id}/versions`."
+          },
           "updated_at": {
             "type": "string",
             "description": "When it last changed (RFC 3339)."
@@ -30335,6 +30457,30 @@
           "sections": {
             "$ref": "#/components/schemas/NoteSections",
             "description": "The sections, each up to 10,000 characters."
+          }
+        }
+      },
+      "NoteCorrection": {
+        "type": "object",
+        "description": "A corrected note.",
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A version 7 UUID the client made. A retry with the same `id` and the same content returns the correction that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out."
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`soap`, `progress`, `procedure`, `intake` or `front_desk`; the note's own kind when left out."
+          },
+          "sections": {
+            "$ref": "#/components/schemas/NoteSections",
+            "description": "The whole corrected text, each section up to 10,000 characters. At least one section."
           }
         }
       },
@@ -30369,6 +30515,22 @@
               "null"
             ],
             "description": "What the patient reports."
+          }
+        }
+      },
+      "NoteVersions": {
+        "type": "object",
+        "description": "The earlier versions of a note.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Note"
+            },
+            "description": "The versions the note replaced, newest first. Empty when it was never corrected."
           }
         }
       },

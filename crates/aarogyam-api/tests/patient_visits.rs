@@ -246,6 +246,34 @@ async fn the_patient_app_shows_own_closed_visits_only() {
     assert_eq!(status, StatusCode::OK, "{one}");
     assert_eq!(one["id"], closed);
     assert_eq!(one["advice"], "Rinse with warm salt water");
+    // A correction replaces the note: the patient sees only the corrected plan, never both.
+    let (_, detail) = send(
+        &app,
+        Method::GET,
+        ALPHA,
+        Some(&owner),
+        &format!("/api/v1/visits/{closed}"),
+        None,
+    )
+    .await;
+    let signed = detail["notes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["status"] == "signed")
+        .unwrap();
+    let (status, fixed) = send(
+        &app,
+        Method::POST,
+        ALPHA,
+        Some(&owner),
+        &format!("/api/v1/notes/{}/amend", id_of(signed)),
+        Some(json!({ "sections": { "plan": "Rinse with cold water" } })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{fixed}");
+    let (_, again) = send(&app, Method::GET, APP, Some(&ravi), &path, None).await;
+    assert_eq!(again["advice"], "Rinse with cold water", "{again}");
     // An open visit of their own, another patient's, another clinic's, and an unlinked
     // account: all 404.
     for id in [&open, &other_visit, &beta_visit] {

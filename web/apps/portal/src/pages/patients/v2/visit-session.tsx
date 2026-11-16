@@ -88,6 +88,8 @@ export interface VisitSession {
     noteId: NoteId | undefined;
     /** Adds one `[HH:MM] text` line to the subjective section (starting the note first), saves, and returns the note's ID. */
     addVoice: (startedAt: Date, text: string) => Promise<NoteId | undefined>;
+    /** Rewrites one section of the draft from its latest saved text (a line edited or removed; `undefined` means it no longer fits) and saves it, in turn with other note writes. */
+    rewrite: (key: SectionKey, change: (current: string) => string | undefined) => Promise<void>;
   };
   /** Recording, pausing and saving voice notes. It keeps going while drawers and tabs change. */
   voice: VoiceNotes;
@@ -312,8 +314,18 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
     [draftRx, createRx, editRx, prescriptions.data, visit?.id],
   );
 
+  // Writes to the draft go one at a time, each built from what the one before saved, so a voice save landing while a
+  // line is deleted (or two quick edits) can't overwrite each other.
+  const writes = useRef<Promise<unknown>>(Promise.resolve());
+  const enqueue = useCallback(<T,>(task: () => Promise<T>): Promise<T> => {
+    const run = writes.current.then(task, task);
+    writes.current = run.catch(() => undefined);
+    return run;
+  }, []);
+
   const addVoice = useCallback(
-    async (startedAt: Date, text: string): Promise<NoteId | undefined> => {
+    (startedAt: Date, text: string): Promise<NoteId | undefined> =>
+      enqueue(async (): Promise<NoteId | undefined> => {
       if (visit === undefined) return undefined;
       const noteId = draftNote?.id ?? (await createNote.mutateAsync(visit.id)).id;
       const current = valuesRef.current;
@@ -327,8 +339,26 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
       valuesRef.current = next;
       setEdits({ noteId, values: next });
       return noteId;
-    },
-    [visit, draftNote, createNote, editNote],
+      }),
+    [visit, draftNote, createNote, editNote, enqueue],
+  );
+  const rewrite = useCallback(
+    (key: SectionKey, change: (current: string) => string | undefined): Promise<void> =>
+      enqueue(async (): Promise<void> => {
+        if (draftNote === undefined) return;
+        // Built from the latest saved text, after any write queued before this one.
+        const value = change(valuesRef.current[key]);
+        if (value === undefined) throw new Error("The note changed since you opened it. Please try again.");
+        const next: NoteValues = { ...valuesRef.current, [key]: value };
+        const sections: Record<string, string> = {};
+        for (const { key: section } of NOTE_SECTIONS) {
+          if (next[section].trim() !== "") sections[section] = next[section].trim();
+        }
+        await editNote.mutateAsync({ id: draftNote.id, content: { sections } });
+        valuesRef.current = next;
+        setEdits({ noteId: draftNote.id, values: next });
+      }),
+    [draftNote, editNote, enqueue],
   );
   const voice = useVoiceNotes({ patientId, visitId: visit?.id, addVoice });
 
@@ -418,6 +448,7 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
       },
       noteId: draftNote?.id,
       addVoice,
+      rewrite,
     },
     voice,
     rx: {

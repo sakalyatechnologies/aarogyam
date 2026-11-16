@@ -172,6 +172,12 @@ pub struct Note {
     /// For a conflict: the signed note it collided with.
     #[schema(value_type = Option<String>)]
     pub conflicts_with_id: Option<Uuid>,
+    /// For a correction: the note it replaces. The earlier note stays in the record, unchanged,
+    /// but visits and patient notes list only the current note; read the earlier versions with
+    /// `GET /notes/{id}/versions`.
+    #[schema(value_type = Option<String>, required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supersedes_id: Option<Uuid>,
     /// Why it was marked entered in error.
     pub error_reason: Option<String>,
     /// When it was written (RFC 3339).
@@ -202,6 +208,7 @@ impl From<NoteView> for Note {
             author: view.author.into(),
             signed_at: view.signed_at.map(rfc3339),
             conflicts_with_id: view.conflicts_with_id.map(ClinicalNoteId::uuid),
+            supersedes_id: view.supersedes_id.map(ClinicalNoteId::uuid),
             error_reason: view.error_reason,
             created_at: rfc3339(view.created_at),
             updated_at: rfc3339(view.updated_at),
@@ -745,7 +752,7 @@ pub(crate) async fn create_note(
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write, or the note is someone else's"),
         (status = 404, description = "No such note in this clinic"),
-        (status = 409, description = "The note is signed; add an addendum instead"),
+        (status = 409, description = "The note is signed, the visit is closed, or a correction replaced it; correct it with `amend` or add an addendum instead"),
         (status = 412, description = "`stale_version`: the record changed since the `If-Match` version; the current version is in `ETag`")
     )
 )]
@@ -858,6 +865,114 @@ pub(crate) async fn add_addendum(
     )
     .await?;
     tracing::info!(event = Event::NoteAmended.as_str(), note_id = %id, "note amended");
+    Ok((
+        StatusCode::CREATED,
+        with_etag(view.row_version, view.into()),
+    ))
+}
+
+/// The earlier versions of a note.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NoteVersions {
+    /// The versions the note replaced, newest first. Empty when it was never corrected.
+    pub items: Vec<Note>,
+}
+
+/// Reads the earlier versions of a note that corrections replaced, newest first. Visits and
+/// patient notes list only the current note; this is where the originals are read. Reading them
+/// writes the access record.
+#[utoipa::path(
+    get,
+    path = "/api/v1/notes/{id}/versions",
+    operation_id = "listNoteVersions",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The current note")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = NoteVersions),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.read"),
+        (status = 404, description = "No such note in this clinic")
+    )
+)]
+pub(crate) async fn note_versions(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalRead>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Json<NoteVersions>, ApiFailure> {
+    let versions = app::note_versions(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        ClinicalNoteId::from_uuid(id),
+    )
+    .await?;
+    Ok(Json(NoteVersions {
+        items: versions.into_iter().map(Note::from).collect(),
+    }))
+}
+
+/// A corrected note.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NoteCorrection {
+    /// A version 7 UUID the client made. A retry with the same `id` and the same content returns the correction that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out.
+    pub id: Option<String>,
+    /// `soap`, `progress`, `procedure`, `intake` or `front_desk`; the note's own kind when left out.
+    pub kind: Option<String>,
+    /// The whole corrected text, each section up to 10,000 characters. At least one section.
+    #[serde(default)]
+    pub sections: NoteSections,
+}
+
+/// Corrects a note and keeps the original. Writes the corrected text as a new note, signed by
+/// the caller, that replaces the original in readers' eyes (`supersedes_id`); the original stays
+/// in the record exactly as it was signed. Works in a closed visit. A note can be corrected
+/// once: correct the latest version next time. Use an addendum to add to a note instead.
+#[utoipa::path(
+    post,
+    path = "/api/v1/notes/{id}/amend",
+    operation_id = "amendNote",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The note to correct")),
+    request_body = NoteCorrection,
+    security(("bearer" = [])),
+    responses(
+        (status = 201, body = Note, description = "The new, signed version", headers(("ETag" = String, description = "The `row_version` in quotes"))),
+        (status = 400, description = "Invalid input; the message names the field"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write"),
+        (status = 404, description = "No such note in this clinic"),
+        (status = 409, description = "The note is an unsigned draft in an open visit (edit it), is entered in error, was already corrected, the text is empty, or `id_conflict`: the id belongs to a different note")
+    )
+)]
+pub(crate) async fn amend_note(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<NoteCorrection>,
+) -> Result<(StatusCode, WithEtag<Note>), ApiFailure> {
+    let new_id = body
+        .id
+        .as_deref()
+        .map(|text| client_id("id", text))
+        .transpose()?;
+    let view = app::amend_note(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        ClinicalNoteId::from_uuid(id),
+        new_id,
+        NoteInput {
+            kind: body.kind,
+            subjective: body.sections.subjective,
+            objective: body.sections.objective,
+            assessment: body.sections.assessment,
+            plan: body.sections.plan,
+        },
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    tracing::info!(event = Event::NoteCorrected.as_str(), note_id = %id, "note corrected");
     Ok((
         StatusCode::CREATED,
         with_etag(view.row_version, view.into()),

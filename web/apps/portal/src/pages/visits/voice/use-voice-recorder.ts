@@ -76,6 +76,8 @@ export function useVoiceRecorder(onFinalText: (text: string) => void): VoiceReco
   const chunks = useRef<Blob[]>([]);
   const recognition = useRef<Recognition | undefined>(undefined);
   const wantDictation = useRef(false);
+  // Words heard but not yet final. Stopping or pausing keeps them: a short phrase may never become final before Save.
+  const interimText = useRef("");
   const audioContext = useRef<AudioContext | undefined>(undefined);
   const frame = useRef<number | undefined>(undefined);
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
@@ -100,6 +102,15 @@ export function useVoiceRecorder(onFinalText: (text: string) => void): VoiceReco
     setInterim("");
   }, []);
 
+  /** Adds what is still only interim to the transcript, so pressing Save right after speaking loses nothing. */
+  const keepInterim = useCallback(() => {
+    const heard = interimText.current.trim();
+    interimText.current = "";
+    if (heard !== "") {
+      onFinal.current(heard);
+    }
+  }, []);
+
   const startDictation = useCallback(() => {
     const next = newRecognition();
     if (next === undefined) {
@@ -110,8 +121,9 @@ export function useVoiceRecorder(onFinalText: (text: string) => void): VoiceReco
     next.interimResults = true;
     const reader = createResultReader();
     next.onresult = (event) => {
-      const { finalText, interimText } = reader.read(event);
-      setInterim(interimText);
+      const { finalText, interimText: heard } = reader.read(event);
+      interimText.current = heard;
+      setInterim(heard);
       if (finalText !== "") {
         onFinal.current(finalText);
       }
@@ -121,14 +133,19 @@ export function useVoiceRecorder(onFinalText: (text: string) => void): VoiceReco
         return;
       }
       wantDictation.current = false;
+      keepInterim();
       setInterim("");
       setDictationNote(
         event.error === "not-allowed" || event.error === "service-not-allowed"
           ? "Dictation is blocked in this browser. Recording carries on; type the note yourself."
-          : "Dictation stopped. Recording carries on; type the note yourself.",
+          : event.error === "network"
+            ? "Voice typing couldn't reach the speech service (check the internet, or this browser may block it). Recording carries on; you can type notes instead."
+            : "Dictation stopped. Recording carries on; type the note yourself.",
       );
     };
     next.onend = () => {
+      // The browser ended this session (a silence): what was heard but not made final is kept before it clears.
+      keepInterim();
       setInterim("");
       reader.reset();
       // Browsers end recognition after a silence; start it again while the doctor is still recording.
@@ -148,7 +165,7 @@ export function useVoiceRecorder(onFinalText: (text: string) => void): VoiceReco
       wantDictation.current = false;
       setDictationNote("Dictation couldn't start. Recording carries on; type the note yourself.");
     }
-  }, []);
+  }, [keepInterim]);
 
   const stopMeter = useCallback(() => {
     if (frame.current !== undefined) {
@@ -221,9 +238,10 @@ export function useVoiceRecorder(onFinalText: (text: string) => void): VoiceReco
       return;
     }
     stopTimer();
+    keepInterim();
     stopDictation();
     current.stop();
-  }, [stopDictation, stopTimer]);
+  }, [keepInterim, stopDictation, stopTimer]);
 
   const startTimer = useCallback(() => {
     lastTick.current = Date.now();
@@ -317,9 +335,10 @@ export function useVoiceRecorder(onFinalText: (text: string) => void): VoiceReco
     recorder.current.pause();
     stopTimer();
     elapsedMs.current += Date.now() - lastTick.current;
+    keepInterim();
     stopDictation();
     setPhase("paused");
-  }, [stopDictation, stopTimer]);
+  }, [keepInterim, stopDictation, stopTimer]);
 
   const resume = useCallback(() => {
     if (recorder.current?.state !== "paused") {

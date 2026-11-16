@@ -19,6 +19,7 @@ import { usePrescriptions } from "../../prescriptions/queries.js";
 import { RecordingPlayer } from "../../visits/voice/recording-player.js";
 import { ImageGrid, isGalleryFile } from "./images.js";
 import { splitNote } from "./note-lines.js";
+import { VisitNotes } from "./note-history.js";
 import { VitalChips } from "./vitals-block.js";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -148,33 +149,7 @@ export function VisitDetail({ patientId, visit, onClose }: { patientId: PatientI
               )}
             </Section>
             <Section title="Notes">
-              {noted.length === 0 ? (
-                <p className="mk-hint">No notes in this visit.</p>
-              ) : (
-                noted.map(({ note, parts }) => (
-                  <div key={note.id} className="p360-vd-note">
-                    <p className="mk-hint" style={{ margin: "0 0 4px" }}>
-                      {note.author.name} · {note.status === "signed" ? "Signed" : "Draft"}
-                    </p>
-                    {parts.voice.length === 0 ? null : (
-                      <ol aria-label="Voice notes" className="p360-voice-list">
-                        {parts.voice.map((line, index) => (
-                          <li key={`${line.at}-${String(index)}`}>
-                            <time className="mk-mono">{line.at}</time>
-                            <span>{line.text}</span>
-                          </li>
-                        ))}
-                      </ol>
-                    )}
-                    {parts.other.map(({ label, text }) => (
-                      <p key={label} className="p360-vd-text">
-                        <b>{label}: </b>
-                        {text}
-                      </p>
-                    ))}
-                  </div>
-                ))
-              )}
+              <VisitNotes notes={detail.data.notes} visit={visit} canWrite={can("clinical.write")} />
               {recordings.length === 0 ? null : (
                 <ul aria-label="Voice recordings" className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
                   {recordings.map((recording) => (

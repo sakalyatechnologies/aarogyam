@@ -194,6 +194,8 @@ pub struct NoteView {
     pub signed_at: Option<OffsetDateTime>,
     /// The note it collided with during sync.
     pub conflicts_with_id: Option<ClinicalNoteId>,
+    /// The signed note this one corrects.
+    pub supersedes_id: Option<ClinicalNoteId>,
     /// Why it was marked entered in error.
     pub error_reason: Option<String>,
     /// When it was written.
@@ -221,12 +223,80 @@ fn note_view(
         author: names.member(row.author_id),
         signed_at: row.signed_at,
         conflicts_with_id: row.conflicts_with_id.map(ClinicalNoteId::from_uuid),
+        supersedes_id: row.supersedes_id.map(ClinicalNoteId::from_uuid),
         error_reason: row.error_reason,
         created_at: row.created_at,
         updated_at: row.updated_at,
         row_version: row.row_version,
         addenda,
     })
+}
+
+fn bundle_view(bundle: visits::NoteBundle) -> Result<NoteView, AppError> {
+    let names = Names(bundle.names.into_iter().collect());
+    let addenda = bundle
+        .addenda
+        .into_iter()
+        .map(|a| AddendumView {
+            id: NoteAddendumId::from_uuid(a.id),
+            author: names.member(a.author_id),
+            body: a.body,
+            created_at: a.created_at,
+        })
+        .collect();
+    note_view(bundle.note, addenda, &names)
+}
+
+/// The versions a note replaced, newest first: the note it corrects, the one that corrected, and
+/// so on back to the original. The visit and patient lists show only the current note; this is
+/// where the earlier ones are read. Opening them is written to the access record.
+///
+/// # Errors
+/// [`AppError::NotFound`] when the note isn't in this clinic.
+pub async fn note_versions(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    note_id: ClinicalNoteId,
+) -> Result<Vec<NoteView>, AppError> {
+    actor.require(Permission::ClinicalRead)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let reach = actor.reach(Permission::ClinicalRead).member();
+        let first = visits::get_note_bundle(tx.conn(), note_id.uuid(), reach)
+            .await?
+            .ok_or(AppError::NotFound("note"))?;
+        record_access(
+            tx,
+            actor,
+            request_id,
+            first.note.patient_id,
+            "note",
+            Some(first.note.id),
+            "view",
+        )
+        .await?;
+        let mut versions = Vec::new();
+        let mut next = first.note.supersedes_id;
+        while let Some(id) = next {
+            let Some(bundle) = visits::get_note_bundle(tx.conn(), id, reach).await? else {
+                break;
+            };
+            next = bundle.note.supersedes_id;
+            versions.push(bundle_view(bundle)?);
+        }
+        Ok(versions)
+    })
+    .await
+}
+
+/// Refuses a change to a note that a live correction has replaced: the correction is the note now.
+async fn ensure_not_corrected(tx: &mut ScopedTx, note_id: Uuid) -> Result<(), AppError> {
+    if visits::correction_of(tx.conn(), note_id).await?.is_some() {
+        return Err(AppError::Conflict(
+            "this note was corrected; change the latest version instead",
+        ));
+    }
+    Ok(())
 }
 
 /// Loads a visit's notes with their addenda and authors' names.
@@ -673,7 +743,24 @@ pub async fn edit_note(
         AppError::check_version(expected_version, row.row_version)?;
         state.check_edit(actor.membership_id).map_err(refused)?;
         let kind = kind.map_or(row.kind.clone(), |k| k.as_str().to_owned());
-        let row = visits::update_note_body(tx.conn(), row.id, &kind, &body).await?;
+        // One statement writes only into an open visit's note that no live correction replaced.
+        let Some(row) = visits::update_note_body(tx.conn(), row.id, &kind, &body).await? else {
+            // A closed visit's notes are corrected, never edited in place.
+            let visit = visits::get_encounter(
+                tx.conn(),
+                row.encounter_id,
+                false,
+                actor.reach(Permission::ClinicalWrite).member(),
+            )
+            .await?
+            .ok_or(AppError::NotFound("visit"))?;
+            if visit.status != EncounterStatus::Open.as_str() {
+                return Err(refused(NoteRefusal::VisitClosed));
+            }
+            return Err(AppError::Conflict(
+                "this note was corrected; change the latest version instead",
+            ));
+        };
         one_note(tx, row).await
     })
     .await
@@ -718,6 +805,7 @@ pub async fn sign_note(
         let body: NoteBody = serde_json::from_value(row.body.clone()).unwrap_or_default();
         match state.check_sign(actor.membership_id, &body) {
             Ok(Signing::Sign) => {
+                ensure_not_corrected(tx, row.id).await?;
                 let row =
                     visits::sign_note(tx.conn(), row.id, actor.membership_id.uuid(), now).await?;
                 Ok(Moved::Done(one_note(tx, row).await?))
@@ -775,6 +863,97 @@ pub async fn add_addendum(
         )
         .await?;
         one_note(tx, row).await
+    })
+    .await
+}
+
+/// Corrects a note without changing it: writes the corrected text as a new note, signed by the
+/// caller, that points at the one it replaces. The original stays exactly as it was; readers show
+/// the latest version and list the earlier ones. Works in a closed visit, and on a draft only
+/// once its visit is closed. Any member who may write clinical notes can correct, like an
+/// addendum. A note is corrected once: the next correction is of the new version. A retry with
+/// the same client-chosen `id` and content returns the correction that exists.
+///
+/// # Errors
+/// [`AppError::NotFound`] when the note isn't in this clinic; [`AppError::Conflict`] when the
+/// note can't be corrected, was corrected already, or the text is empty;
+/// [`AppError::IdConflict`] when the id belongs to a different note; [`AppError::Invalid`] for
+/// bad input.
+pub async fn amend_note(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    note_id: ClinicalNoteId,
+    id: Option<ClinicalNoteId>,
+    input: NoteInput,
+    now: OffsetDateTime,
+) -> Result<NoteView, AppError> {
+    actor.require(Permission::ClinicalWrite)?;
+    let content = input.body()?;
+    if content.is_empty() {
+        return Err(refused(NoteRefusal::Empty));
+    }
+    let body = body_json(&content)?;
+    let kind = input
+        .kind
+        .as_deref()
+        .map(NoteKind::parse)
+        .transpose()
+        .map_err(invalid("kind"))?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let reach = actor.reach(Permission::ClinicalWrite);
+        if let Some(id) = id {
+            visits::lock_client_id(tx.conn(), id.uuid()).await?;
+            if let Some(row) =
+                visits::get_note_for_update(tx.conn(), id.uuid(), reach.member()).await?
+            {
+                let same = row.supersedes_id == Some(note_id.uuid())
+                    && row.author_id == actor.membership_id.uuid()
+                    && row.body == body;
+                return if same {
+                    one_note(tx, row).await
+                } else {
+                    Err(AppError::IdConflict)
+                };
+            }
+        }
+        let (row, state) = note_for_change(tx, actor, note_id).await?;
+        let visit = visits::get_encounter(tx.conn(), row.encounter_id, false, reach.member())
+            .await?
+            .ok_or(AppError::NotFound("visit"))?;
+        state
+            .check_correction(
+                actor.membership_id,
+                visit.status != EncounterStatus::Open.as_str(),
+            )
+            .map_err(|refusal| match refusal {
+                NoteRefusal::NotSigned => AppError::Conflict(
+                    "only a signed note can be corrected; edit the draft instead",
+                ),
+                other => refused(other),
+            })?;
+        if visits::correction_of(tx.conn(), row.id).await?.is_some() {
+            return Err(AppError::Conflict(
+                "this note was already corrected; correct the latest version",
+            ));
+        }
+        let kind = kind.map_or(row.kind.clone(), |k| k.as_str().to_owned());
+        let created = visits::insert_correction(
+            tx.conn(),
+            &visits::NewNote {
+                id: id.unwrap_or_else(ClinicalNoteId::new_v7).uuid(),
+                encounter_id: row.encounter_id,
+                patient_id: row.patient_id,
+                author_id: actor.membership_id.uuid(),
+                kind: &kind,
+                source: NoteSource::Typed.as_str(),
+                body: &body,
+            },
+            row.id,
+            now,
+        )
+        .await?;
+        one_note(tx, created).await
     })
     .await
 }

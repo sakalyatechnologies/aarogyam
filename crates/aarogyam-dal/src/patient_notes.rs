@@ -102,6 +102,9 @@ pub async fn overview(
                           left join aarogyam.memberships m on m.org_id = n.org_id and m.id = n.author_id
                           left join aarogyam.users au on au.id = m.user_id
                           where n.patient_id = $1
+                            and not exists (select 1 from aarogyam.clinical_notes s
+                                            where s.org_id = n.org_id and s.supersedes_id = n.id
+                                              and s.status <> 'entered_in_error')
                             and app.clinical_in_reach(n.author_id, n.created_by, n.encounter_id, $2)
                           order by n.created_at desc, n.id desc limit $3) v
                   ), '[]'::jsonb) as "notes!: Json<Vec<VisitNoteRow>>""#,

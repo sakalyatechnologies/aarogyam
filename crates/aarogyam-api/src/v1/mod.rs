@@ -402,6 +402,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/notes/{id}", patch(visits::edit_note))
         .route("/notes/{id}/sign", post(visits::sign_note))
         .route("/notes/{id}/addenda", post(visits::add_addendum))
+        .route("/notes/{id}/amend", post(visits::amend_note))
+        .route("/notes/{id}/versions", get(visits::note_versions))
         .route("/notes/{id}/entered-in-error", post(visits::note_in_error))
         .route("/visits/{id}/observations", post(vitals::record))
         .route(

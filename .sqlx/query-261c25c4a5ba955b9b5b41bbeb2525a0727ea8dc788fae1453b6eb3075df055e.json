@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update aarogyam.clinical_notes set kind = $2, body = $3 where id = $1\n           returning id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,\n                     signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version",
+  "query": "select id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,\n                  signed_by, conflicts_with_id, supersedes_id, error_reason, error_at, created_at, updated_at, row_version\n           from aarogyam.clinical_notes\n           where id = $1 and app.clinical_in_reach(author_id, created_by, encounter_id, $2)\n           for update",
   "describe": {
     "columns": [
       {
@@ -126,6 +126,17 @@
       },
       {
         "ordinal": 11,
+        "name": "supersedes_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinical_notes",
+            "name": "supersedes_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "error_reason",
         "type_info": "Text",
         "origin": {
@@ -136,7 +147,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "error_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -147,7 +158,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -158,7 +169,7 @@
         }
       },
       {
-        "ordinal": 14,
+        "ordinal": 15,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -169,7 +180,7 @@
         }
       },
       {
-        "ordinal": 15,
+        "ordinal": 16,
         "name": "row_version",
         "type_info": "Int8",
         "origin": {
@@ -183,8 +194,7 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Text",
-        "Jsonb"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -201,10 +211,11 @@
       true,
       true,
       true,
+      true,
       false,
       false,
       false
     ]
   },
-  "hash": "602b9f75948a9c49ae04ca4b8f67be8935dfc0a32d840797d337b5dd4f2e06fc"
+  "hash": "261c25c4a5ba955b9b5b41bbeb2525a0727ea8dc788fae1453b6eb3075df055e"
 }

@@ -407,6 +407,8 @@ export type NoteStatus = "draft" | "signed" | "conflict" | "entered_in_error";
 export type NoteSource = "typed" | "voice" | "ai_draft";
 export type Addendum = Schemas["Addendum"];
 export type NewAddendum = Schemas["NewAddendum"];
+export type NoteCorrection = Schemas["NoteCorrection"];
+export type NoteVersions = Schemas["NoteVersions"];
 export type EnteredInError = Schemas["EnteredInError"];
 
 export type ObservationKind = "bp_systolic" | "bp_diastolic" | "pulse" | "temperature" | "spo2" | "weight" | "height" | "blood_sugar";

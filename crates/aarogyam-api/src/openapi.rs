@@ -152,6 +152,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::visits::edit_note,
         crate::v1::visits::sign_note,
         crate::v1::visits::add_addendum,
+        crate::v1::visits::amend_note,
+        crate::v1::visits::note_versions,
         crate::v1::visits::note_in_error,
         crate::v1::vitals::record,
         crate::v1::vitals::in_error,

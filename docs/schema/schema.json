@@ -3988,7 +3988,7 @@
    "partitioned": false,
    "lifecycle": "finalizable",
    "schema": "aarogyam",
-   "notes": "Drafts are edited by their author only. Signing freezes the note: app.freeze_when() lets a signed or conflict note only move to entered_in_error (with a reason) and nothing else on it change. Never merged automatically: if a change synced from a device collides with a note already signed on the server, it is kept as a separate note with status conflict, linked by conflicts_with_id, and its author resolves it by marking one version entered_in_error. Corrections go in note_addenda.",
+   "notes": "Drafts are edited by their author only. Signing freezes the note: app.freeze_when() lets a signed or conflict note only move to entered_in_error (with a reason) and nothing else on it change. Never merged automatically: if a change synced from a device collides with a note already signed on the server, it is kept as a separate note with status conflict, linked by conflicts_with_id, and its author resolves it by marking one version entered_in_error. A correction of a signed note is a new signed note with supersedes_id (POST /notes/{id}/amend): the original stays exactly as signed, and readers list only the note nothing live replaces; a correction marked entered_in_error stops replacing it. Additions go in note_addenda.",
    "cols": [
     {
      "name": "encounter_id",
@@ -4061,6 +4061,13 @@
      "note": "the version this one collided with during sync"
     },
     {
+     "name": "supersedes_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "clinical_notes",
+     "note": "the signed note this one corrects, in the same visit (migration 0719); at most one live correction per note"
+    },
+    {
      "name": "error_reason",
      "type": "text",
      "nullable": true,
@@ -4092,6 +4099,7 @@
    "referenced_by": [
     "attachments.note_id",
     "clinical_notes.conflicts_with_id",
+    "clinical_notes.supersedes_id",
     "note_addenda.note_id",
     "voice_notes.draft_note_id"
    ],
@@ -4107,7 +4115,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Edited by any member with clinical.write whose scope reaches the patient; every change is audited. Visit notes stay in clinical_notes and signed ones change only through addenda.",
+   "notes": "Edited by any member with clinical.write whose scope reaches the patient; every change is audited. Visit notes stay in clinical_notes; a signed one changes only through addenda or a correction that keeps the original.",
    "cols": [
     {
      "name": "patient_id",

@@ -481,6 +481,31 @@ impl NoteState {
         }
     }
 
+    /// Whether a correction (a new signed version that keeps this one) may be made. A signed
+    /// note can always be corrected; a draft only once its visit is closed, because then it can
+    /// no longer be edited in place or signed with the rest of the visit; only its author may,
+    /// as only they could have signed it.
+    ///
+    /// # Errors
+    /// [`NoteRefusal::NotSigned`] for a draft in an open visit or a conflict;
+    /// [`NoteRefusal::NotAuthor`] for someone else's draft;
+    /// [`NoteRefusal::AlreadyInError`] for a note withdrawn.
+    pub fn check_correction(
+        self,
+        actor: MembershipId,
+        visit_closed: bool,
+    ) -> Result<(), NoteRefusal> {
+        match self.status {
+            NoteStatus::Signed => Ok(()),
+            NoteStatus::Draft if visit_closed && self.author != actor => {
+                Err(NoteRefusal::NotAuthor)
+            }
+            NoteStatus::Draft if visit_closed => Ok(()),
+            NoteStatus::EnteredInError => Err(NoteRefusal::AlreadyInError),
+            NoteStatus::Draft | NoteStatus::Conflict => Err(NoteRefusal::NotSigned),
+        }
+    }
+
     /// Whether `actor` may mark the note entered in error. A draft is withdrawn by its author;
     /// a signed or conflicting note may be marked by any member who records clinical notes, so
     /// a departed doctor's mistake can still be corrected.
@@ -543,6 +568,16 @@ mod tests {
         assert_eq!(signed.check_sign(author, &body), Ok(Signing::AlreadySigned));
         assert_eq!(signed.check_sign(other, &body), Err(NoteRefusal::NotDraft));
         assert_eq!(signed.check_addendum(), Ok(()));
+        assert_eq!(signed.check_correction(other, false), Ok(()));
+        assert_eq!(
+            draft.check_correction(author, false),
+            Err(NoteRefusal::NotSigned)
+        );
+        assert_eq!(draft.check_correction(author, true), Ok(()));
+        assert_eq!(
+            draft.check_correction(other, true),
+            Err(NoteRefusal::NotAuthor)
+        );
         assert_eq!(signed.check_entered_in_error(other), Ok(()));
         assert_eq!(
             draft.check_entered_in_error(other),

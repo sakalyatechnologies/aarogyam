@@ -335,6 +335,7 @@ export interface FakeNote {
   addenda: { id: string; author_membership_id: string; body: string; created_at: string }[];
   error_reason?: string | null;
   conflicts_with_id?: string | null;
+  supersedes_id?: string | null;
   signed_at?: string | null;
   created_at: string;
   updated_at: string;

@@ -2676,6 +2676,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notes/{id}/amend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Corrects a note and keeps the original. Writes the corrected text as a new note, signed by
+         *     the caller, that replaces the original in readers' eyes (`supersedes_id`); the original stays
+         *     in the record exactly as it was signed. Works in a closed visit. A note can be corrected
+         *     once: correct the latest version next time. Use an addendum to add to a note instead.
+         */
+        post: operations["amendNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notes/{id}/entered-in-error": {
         parameters: {
             query?: never;
@@ -2710,6 +2732,27 @@ export interface paths {
          *     already signed changes nothing and returns it again, so a retry after a lost answer is safe.
          */
         post: operations["signNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notes/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reads the earlier versions of a note that corrections replaced, newest first. Visits and
+         *     patient notes list only the current note; this is where the originals are read. Reading them
+         *     writes the access record.
+         */
+        get: operations["listNoteVersions"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10571,6 +10614,12 @@ export interface components {
             source: string;
             /** @description `draft`, `signed`, `conflict` (collided with a signed note during sync) or `entered_in_error`. */
             status: string;
+            /**
+             * @description For a correction: the note it replaces. The earlier note stays in the record, unchanged,
+             *     but visits and patient notes list only the current note; read the earlier versions with
+             *     `GET /notes/{id}/versions`.
+             */
+            supersedes_id?: string | null;
             /** @description When it last changed (RFC 3339). */
             updated_at: string;
             /** @description The visit. */
@@ -10583,6 +10632,15 @@ export interface components {
             /** @description The sections, each up to 10,000 characters. */
             sections?: components["schemas"]["NoteSections"];
         };
+        /** @description A corrected note. */
+        NoteCorrection: {
+            /** @description A version 7 UUID the client made. A retry with the same `id` and the same content returns the correction that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out. */
+            id?: string | null;
+            /** @description `soap`, `progress`, `procedure`, `intake` or `front_desk`; the note's own kind when left out. */
+            kind?: string | null;
+            /** @description The whole corrected text, each section up to 10,000 characters. At least one section. */
+            sections?: components["schemas"]["NoteSections"];
+        };
         /** @description A note's sections. Each may be empty while drafting; signing needs at least one. */
         NoteSections: {
             /** @description The clinician's assessment. */
@@ -10593,6 +10651,11 @@ export interface components {
             plan?: string | null;
             /** @description What the patient reports. */
             subjective?: string | null;
+        };
+        /** @description The earlier versions of a note. */
+        NoteVersions: {
+            /** @description The versions the note replaced, newest first. Empty when it was never corrected. */
+            items: components["schemas"]["Note"][];
         };
         /** @description A notification as the caller sees it. */
         Notification: {
@@ -23222,7 +23285,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The note is signed; add an addendum instead */
+            /** @description The note is signed, the visit is closed, or a correction replaced it; correct it with `amend` or add an addendum instead */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -23291,6 +23354,70 @@ export interface operations {
                 content?: never;
             };
             /** @description The note isn't signed, or `id_conflict`: the id belongs to a different addendum */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    amendNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The note to correct */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteCorrection"];
+            };
+        };
+        responses: {
+            /** @description The new, signed version */
+            201: {
+                headers: {
+                    /** @description The `row_version` in quotes */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such note in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The note is an unsigned draft in an open visit (edit it), is entered in error, was already corrected, the text is empty, or `id_conflict`: the id belongs to a different note */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -23409,6 +23536,49 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MoveRefused"];
                 };
+            };
+        };
+    };
+    listNoteVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The current note */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteVersions"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such note in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

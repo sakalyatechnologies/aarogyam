@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,\n                  signed_by, conflicts_with_id, error_reason, error_at, created_at, updated_at, row_version\n           from aarogyam.clinical_notes where encounter_id = $1\n           order by created_at, id",
+  "query": "select id, encounter_id, patient_id, author_id, kind, body, source, status, signed_at,\n                  signed_by, conflicts_with_id, supersedes_id, error_reason, error_at, created_at, updated_at, row_version\n           from aarogyam.clinical_notes n\n           where encounter_id = $1\n             and not exists (select 1 from aarogyam.clinical_notes s\n                             where s.org_id = n.org_id and s.supersedes_id = n.id\n                               and s.status <> 'entered_in_error')\n           order by created_at, id",
   "describe": {
     "columns": [
       {
@@ -126,6 +126,17 @@
       },
       {
         "ordinal": 11,
+        "name": "supersedes_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.clinical_notes",
+            "name": "supersedes_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "error_reason",
         "type_info": "Text",
         "origin": {
@@ -136,7 +147,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "error_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -147,7 +158,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -158,7 +169,7 @@
         }
       },
       {
-        "ordinal": 14,
+        "ordinal": 15,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -169,7 +180,7 @@
         }
       },
       {
-        "ordinal": 15,
+        "ordinal": 16,
         "name": "row_version",
         "type_info": "Int8",
         "origin": {
@@ -199,10 +210,11 @@
       true,
       true,
       true,
+      true,
       false,
       false,
       false
     ]
   },
-  "hash": "b614f97b0cccb0323ef4fab1022e009522bbeac8febe793ce71c5a90bf144abe"
+  "hash": "b1249ff844e8b4345839010c95ed517beaa9cc957ebe13cdaa52c6c2c6657f74"
 }

@@ -1587,11 +1587,16 @@ export const note = z.object({
   addenda: z.array(addendum),
   error_reason: optionalText,
   conflicts_with_id: noteId.nullable().exactOptional(),
+  /** For a correction: the note it replaces, which stays in the record unchanged. */
+  supersedes_id: noteId.nullable().exactOptional(),
   signed_at: optionalTimestamp,
   created_at: timestamp,
   updated_at: timestamp,
 }) satisfies z.ZodType<C.Note>;
 export type Note = z.output<typeof note>;
+
+export const noteVersions = z.object({ items: z.array(note) }) satisfies z.ZodType<C.NoteVersions>;
+export type NoteVersions = z.output<typeof noteVersions>;
 
 export const summaryNote = z.object({
   /** A strict Markdown subset; render it with `Markdown`, never as HTML. */
@@ -1680,6 +1685,8 @@ export type SummaryContent = C.SummaryContent;
 export type NoteContent = C.NoteContent;
 /** Body of `POST /api/v1/notes/{id}/addenda`. */
 export type NewAddendum = C.NewAddendum;
+/** Body of `POST /api/v1/notes/{id}/amend`: the whole corrected text. */
+export type NoteCorrection = C.NoteCorrection;
 /** Body of every `.../entered-in-error` action. */
 export type EnteredInError = C.EnteredInError;
 

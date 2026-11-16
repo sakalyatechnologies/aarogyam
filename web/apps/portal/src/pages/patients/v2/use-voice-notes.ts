@@ -34,6 +34,8 @@ export interface VoiceNotes {
   busy: boolean;
   saving: boolean;
   error: string | undefined;
+  /** Why voice typing is off or stopped while the audio still records (an unsupported or blocked browser); shown beside the recorder. */
+  dictationNote: string | undefined;
   start: () => void;
   pause: () => void;
   resume: () => void;
@@ -144,6 +146,7 @@ export function useVoiceNotes({
     busy: phase === "starting" || phase === "recording" || phase === "paused" || saving,
     saving,
     error: error ?? recorder.error,
+    dictationNote: recorder.dictationNote,
     start,
     pause: recorder.pause,
     resume: recorder.resume,

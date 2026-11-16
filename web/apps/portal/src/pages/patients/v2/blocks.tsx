@@ -11,7 +11,7 @@ import { apiErrorOf, type Patient, type Visit } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees } from "@aarogyam/app-kit";
 import { Button, Field, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
 
-import { Empty, Tag, Timeline, statusTone } from "../../../components/mk/index.js";
+import { Empty, Tag, statusTone } from "../../../components/mk/index.js";
 import { SkeletonRows } from "../../../components/skeleton-rows.js";
 import { useClinic } from "../../../clinic.js";
 import { languageLabel, formatPhone, maskEmail, maskPhone } from "../../../lib/patients.js";
@@ -22,7 +22,7 @@ import { usePrescriptions } from "../../prescriptions/queries.js";
 import { TreatmentPlansCard } from "../../treatment-plans/treatment-plans-card.js";
 import { ProceduresCard } from "../../visits/visit-page.js";
 import { QuickPickBar } from "../../visits/quick-pick-bar.js";
-import { DICTATION_LANGUAGES, clock, type DictationLanguage } from "../../visits/voice/dictation.js";
+import { DICTATION_LANGUAGES, NO_VOICE_TYPING, clock, type DictationLanguage } from "../../visits/voice/dictation.js";
 import { ClinicalFlagsPanel } from "../clinical-flags-panel.js";
 import { ConsentPanel } from "../consent-panel.js";
 import { FilesPanel } from "../files-panel.js";
@@ -38,6 +38,8 @@ import { ToothChartBlock } from "./tooth-chart/tooth-block.js";
 import { VisitDetail } from "./visit-detail.js";
 import { VitalsBlock } from "./vitals-block.js";
 import { splitNote } from "./note-lines.js";
+import { VisitTimeline } from "./visit-timeline.js";
+import { TranscriptLines, TypeNote } from "./visit-notes.js";
 import { NOTE_SECTIONS, useVisitSession } from "./visit-session.js";
 import { Phone, Mail } from "lucide-react";
 
@@ -170,7 +172,7 @@ export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean
                 {voice.interim === "" ? null : <span className="p360-interim"> {voice.interim}</span>}
                 {voice.transcript === "" && voice.interim === "" ? (
                   <span className="mk-hint" style={{ margin: 0 }}>
-                    {voice.dictationSupported ? "Listening…" : "Live text isn't available in this browser. The audio is still kept; type the note yourself, or use Chrome or Edge."}
+                    {voice.dictationSupported ? "Listening…" : "Recording the audio only."}
                   </span>
                 ) : null}
               </p>
@@ -180,6 +182,16 @@ export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean
                 {voice.error}
               </p>
             )}
+            {!voice.dictationSupported ? (
+              <p className="mk-hint" style={{ margin: 0 }}>
+                {NO_VOICE_TYPING}
+              </p>
+            ) : voice.dictationNote === undefined || voice.phase === "idle" ? null : (
+              <p role="status" className="mk-hint" style={{ margin: 0 }}>
+                {voice.dictationNote}
+              </p>
+            )}
+            <TypeNote />
           </section>
           {parts.voice.length === 0 && parts.other.length === 0 ? (
             <p className="mk-hint" style={{ margin: 0 }}>
@@ -187,16 +199,7 @@ export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean
             </p>
           ) : (
             <div aria-label="In today's note" role="group" className="flex flex-col gap-2">
-              {parts.voice.length === 0 ? null : (
-                <ol aria-label="Voice notes" className="p360-voice-list">
-                  {parts.voice.map((line, index) => (
-                    <li key={`${line.at}-${String(index)}`}>
-                      <time className="mk-mono">{line.at}</time>
-                      <span>{line.text}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
+              {parts.voice.length === 0 ? null : <TranscriptLines lines={parts.voice} />}
               {parts.other.map(({ label, text }) => (
                 <p key={label} className="m-0 text-sm">
                   <span className="mk-hint" style={{ margin: 0 }}>
@@ -441,32 +444,7 @@ export function HistoryBlock({ limit = 8 }: { limit?: number }) {
             Visits, notes, procedures and files appear here as they are recorded.
           </Empty>
         ) : (
-          <Timeline
-            label="Clinical history"
-            items={timeline.data.items.slice(0, limit).map((event) => ({
-              id: event.id,
-              when: formatDate(event.at),
-              // An event that belongs to a visit opens that visit, so "Visit closed" is never a dead end.
-              title: (() => {
-                const owner = event.visit_id == null ? undefined : visits.data?.items.find((v) => v.id === event.visit_id);
-                return owner === undefined ? (
-                  event.title
-                ) : (
-                  <button
-                    type="button"
-                    className="mk-link p360-visitlink"
-                    aria-label={`Show what was done: ${event.title}, visit ${owner.number}`}
-                    onClick={() => {
-                      setDetail(owner);
-                    }}
-                  >
-                    {event.title}
-                  </button>
-                );
-              })(),
-              detail: [event.detail, event.by?.name].filter((part) => part != null && part !== "").join(" · ") || undefined,
-            }))}
-          />
+          <VisitTimeline events={timeline.data.items} visits={visits.data?.items ?? []} limit={limit} onOpen={setDetail} />
         )}
       </div>
       {detail === undefined ? null : (

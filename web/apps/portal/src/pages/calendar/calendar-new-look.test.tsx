@@ -54,6 +54,15 @@ describe("Calendar (New look)", () => {
     expect(doctor.getAttribute("aria-pressed")).toBe("false");
   });
 
+  it("has one way to book on the calendar: the page's Book, not also the top bar's New appointment", async () => {
+    renderPortal("/calendar", { as: PEOPLE.asha });
+    expect(await screen.findByRole("button", { name: "Book" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Schedule an appointment" })).toBeNull();
+    cleanup();
+    renderPortal("/patients", { as: PEOPLE.asha });
+    expect(await screen.findByRole("button", { name: "Schedule an appointment" })).toBeTruthy();
+  });
+
   it("Book opens the existing booking dialog", async () => {
     const user = userEvent.setup();
     renderPortal("/calendar", { as: PEOPLE.asha });

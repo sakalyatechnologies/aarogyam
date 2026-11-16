@@ -34,6 +34,10 @@ describe("Calendar: booking dialog", () => {
   it("opens on the visible date with details collapsed and Date, Start time and Duration together", async () => {
     const user = userEvent.setup();
     const { dialog } = await openDialog(user);
+    // Keyboard and screen-reader users start inside the form, not on the page behind it.
+    await waitFor(() => {
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    });
     expect(within(dialog).getByRole("button", { name: /Mon, 28 Sep/ })).toBeTruthy();
     const row = within(dialog).getByLabelText(/^Start time/).closest(".mk-bk-grid3");
     expect(row).not.toBeNull();

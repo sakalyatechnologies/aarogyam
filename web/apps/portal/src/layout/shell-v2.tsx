@@ -2,7 +2,7 @@ import { Bell, ChevronsLeft, ChevronsRight, Menu as MenuIcon, Plus, Search, X } 
 import { m, useReducedMotion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 
 import { LegalLinks } from "../components/legal-links.js";
 import { unwrap } from "@aarogyam/api-client";
@@ -96,6 +96,8 @@ function AccountFace() {
 function FrameV2() {
   const { can, session, api, access } = useClinic();
   const navigate = useNavigate();
+  // The calendar has its own Book, which keeps the week in view; this one would jump back to this week.
+  const onCalendar = useLocation().pathname === "/calendar";
   const { workspace, system, activeId, palettePages } = useShellNav();
   const [collapsed, setCollapsed] = useStoredFlag(COLLAPSED_KEY, true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -245,7 +247,7 @@ function FrameV2() {
                 Finish setup <b>{`${String(setup.done)}/${String(setup.total)}`}</b>
               </Link>
             )}
-            {can("appointments.write") ? (
+            {can("appointments.write") && !onCalendar ? (
               <button
                 type="button"
                 className="mk-btn mk-btn-primary"

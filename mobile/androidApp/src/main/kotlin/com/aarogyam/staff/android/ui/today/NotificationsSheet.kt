@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.LoadingIndicator
+import com.aarogyam.staff.android.ui.desk.DeskAlert
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.tasks.TasksFormat
 import com.aarogyam.staff.art.Icons
@@ -85,7 +86,7 @@ fun NotificationsSheet(
 @Composable
 private fun NotificationKindRow(row: AlertRow) {
     val p = SkTheme.palette
-    val detail = alertDetail(row.tokenNumber, row.patientNumber, row.doctor)
+    val detail = DeskAlert.detail(row.tokenNumber, row.patientNumber, row.doctor)
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -99,13 +100,6 @@ private fun NotificationKindRow(row: AlertRow) {
         }
     }
 }
-
-/** `#7 · SC-1042 · Dr. Patil`: the token and the clinic number, never the patient's name. */
-internal fun alertDetail(
-    token: Int?,
-    number: String?,
-    doctor: String?,
-): String? = token?.let { listOfNotNull("#$it", number, doctor).joinToString(" · ") }
 
 /** The title string for a kind; an unknown kind is the generic "New notification". */
 private fun kindLabel(kind: String): Int =

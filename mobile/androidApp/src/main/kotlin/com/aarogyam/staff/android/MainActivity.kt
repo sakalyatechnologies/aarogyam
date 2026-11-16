@@ -1,5 +1,6 @@
 package com.aarogyam.staff.android
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.WindowManager
@@ -9,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import com.aarogyam.staff.AppForeground
 import com.aarogyam.staff.android.ui.AppRoot
+import com.aarogyam.staff.android.ui.auth.PendingInvite
 
 /** The single activity; every screen is Compose. AppCompat applies the in-app language. */
 class MainActivity : AppCompatActivity() {
@@ -21,7 +23,13 @@ class MainActivity : AppCompatActivity() {
         }
         // Every screen but sign-in opens with a dark brand header: light status bar icons.
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT))
+        PendingInvite.handle(intent)
         setContent { AppRoot((application as AarogyamApp).graph) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        PendingInvite.handle(intent)
     }
 
     // Polls run only while the app is on screen (AppForeground); stopped means in the background.

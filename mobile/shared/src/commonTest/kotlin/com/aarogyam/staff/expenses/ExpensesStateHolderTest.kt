@@ -106,7 +106,7 @@ class ExpensesStateHolderTest {
         }
 
     @Test
-    fun a_failed_save_keeps_the_draft_and_is_not_retried() =
+    fun a_failed_save_keeps_the_draft_and_saving_again_reuses_its_key() =
         runTest {
             val backend = FakeBackend()
             backend.on(
@@ -137,6 +137,20 @@ class ExpensesStateHolderTest {
                         it.url.encodedPath == "/api/v1/expenses"
                 },
             )
+            // Save again: the same key, so a lost answer can't record it twice; an edit starts a new one.
+            holder.save()
+            holder.state.first { !it.draft.saving && it.draft.error != null }
+            holder.setRupees("460")
+            holder.save()
+            holder.state.first { !it.draft.saving && it.draft.error != null && it.draft.rupees == "460" }
+            val keys =
+                backend.requests
+                    .filter { it.method.value == "POST" && it.url.encodedPath == "/api/v1/expenses" }
+                    .map { it.headers["Idempotency-Key"] }
+            assertEquals(3, keys.size)
+            assertTrue(keys.all { it != null })
+            assertEquals(keys[0], keys[1])
+            assertTrue(keys[2] != keys[1])
         }
 
     @Test

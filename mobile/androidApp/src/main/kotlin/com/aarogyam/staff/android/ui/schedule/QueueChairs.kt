@@ -32,6 +32,7 @@ import com.aarogyam.staff.android.ui.patient.v7
 import com.aarogyam.staff.queue.QueueRow
 import com.aarogyam.staff.queue.QueueState
 import com.aarogyam.staff.queue.QueueStateHolder
+import com.aarogyam.staff.queue.TokenStatus
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.color
 
@@ -40,19 +41,21 @@ private val CARD_RADIUS = 22.dp
 /** "Now serving": chairs in use, then the empty ones with "Seat next". */
 @Composable
 internal fun ChairRow(
-    inChair: List<QueueRow>,
-    free: Int,
     s: QueueState.Loaded,
     holder: QueueStateHolder,
-    waiting: List<QueueRow>,
     onOpenPatient: (String) -> Unit,
 ) {
+    val waiting = s.rows.filter { it.status == TokenStatus.Waiting }
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        inChair.forEach { row ->
-            ChairCard(row, s.canMove, { onOpenPatient(row.patientId) }) { holder.done(row.id) }
-        }
-        repeat(free) {
-            FreeChairCard(s.canMove && waiting.isNotEmpty()) { waiting.firstOrNull()?.let { holder.seat(it.id) } }
+        s.board.forEach { slot ->
+            val row = slot.occupant
+            val chair = slot.chair
+            if (row != null) {
+                ChairCard(row, chair?.name, s.canMove, { onOpenPatient(row.patientId) }) { holder.done(row.id) }
+            } else {
+                val canSeat = s.canMove && waiting.any { chair == null || it.branchId == chair.branchId }
+                FreeChairCard(chair?.name, canSeat) { holder.seatNextIn(chair?.id) }
+            }
         }
     }
 }
@@ -62,6 +65,7 @@ private val kicker = v7(10.5f, FontWeight.Bold).copy(fontFamily = FontFamily.Mon
 @Composable
 private fun ChairCard(
     row: QueueRow,
+    chair: String?,
     canMove: Boolean,
     onOpen: () -> Unit,
     onDone: () -> Unit,
@@ -77,7 +81,16 @@ private fun ChairCard(
             .padding(11.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(stringResource(R.string.sh_s_q_in_chair, row.tokenNumber), style = kicker, color = ink.copy(alpha = 0.8f))
+        val kick =
+            chair?.let { stringResource(R.string.sh_s_q_chair_token, it, row.tokenNumber) }
+                ?: stringResource(R.string.sh_s_q_in_chair, row.tokenNumber)
+        Text(
+            kick.uppercase(),
+            style = kicker,
+            color = ink.copy(alpha = 0.8f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Text(row.name, style = v7(13f, FontWeight.Bold), color = ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
         row.doctor?.let {
             Text(it, style = v7(11f), color = ink.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -100,6 +113,7 @@ private fun ChairCard(
 
 @Composable
 private fun FreeChairCard(
+    chair: String?,
     canSeat: Boolean,
     onSeat: () -> Unit,
 ) {
@@ -131,7 +145,13 @@ private fun FreeChairCard(
             .padding(11.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(stringResource(R.string.sh_s_q_free_chair), style = kicker, color = p.onSurface.color.copy(alpha = 0.8f))
+        Text(
+            (chair ?: stringResource(R.string.sh_s_q_free_chair)).uppercase(),
+            style = kicker,
+            color = p.onSurface.color.copy(alpha = 0.8f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Text(stringResource(R.string.sh_s_q_free), style = v7(13f, FontWeight.Bold), color = p.onSurface.color)
         if (canSeat) {
             Text(

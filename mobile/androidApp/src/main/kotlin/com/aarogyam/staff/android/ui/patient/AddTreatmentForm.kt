@@ -67,7 +67,6 @@ private fun TreatmentBlock.message(): String =
             TreatmentBlock.NoTreatment -> R.string.pv_block_no_treatment
             TreatmentBlock.NeedsVisit -> R.string.pv_block_needs_visit
             TreatmentBlock.NoChartMark -> R.string.pv_block_no_chart_mark
-            TreatmentBlock.SurfaceChangePreview -> R.string.pv_block_surface_change
         },
     )
 

@@ -192,6 +192,51 @@ class ChartStateHolderTest {
         }
 
     @Test
+    fun correcting_an_entry_onto_another_surface_names_it_once_in_supersedes_id() =
+        runTest {
+            val backend = FakeBackend()
+            var posted: String? = null
+            backend.serve(onPost = { request ->
+                posted = (request.body as TextContent).text
+                HttpStatusCode.OK to
+                    chart(
+                        listOf(
+                            entry("e1", 46, "root_canal"),
+                            entry("e2", 36, "caries", "O"),
+                            entry("e5", 36, "filled", "D"),
+                        ),
+                    )
+            })
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, readWrite)
+            val chart = graph.chart(clinic, "p1", backgroundScope)
+            chart.loaded()
+            chart.select(36, Surface.M)
+            val sheet = graph.toothSheet(clinic, chart, null, backgroundScope)
+            val filling = TermView("filling", TermKind.Procedure, "Filling", own = false)
+            val wrong =
+                HistoryEntryView(
+                    "e3",
+                    Finding.Filled,
+                    Surface.M,
+                    EntryStatus.Current,
+                    null,
+                    null,
+                    procedure = "Filling",
+                )
+            sheet.startEdit(wrong, listOf(filling))
+            sheet.toggleSurface(Surface.M)
+            sheet.toggleSurface(Surface.D)
+            sheet.toggleSurface(Surface.L)
+            assertIs<TreatmentCheck.Ok>(sheet.form.value.check, "moving the surface is allowed now")
+            sheet.save(36)
+            chart.loaded { !it.saving }
+            val body = posted.orEmpty()
+            assertEquals(1, Regex(""""supersedes_id":"e3"""").findAll(body).count(), body)
+            assertTrue(""""surface":"D"""" in body && """"surface":"L"""" in body && """"surface":"M"""" !in body, body)
+        }
+
+    @Test
     fun several_teeth_and_surfaces_are_recorded_in_one_request_with_procedure_and_material() =
         runTest {
             val backend = FakeBackend()

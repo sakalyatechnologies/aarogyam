@@ -86,7 +86,10 @@ class ToothSheetStateHolder(
 
     fun setNote(text: String) = edit { it.copy(note = text.take(MAX_NOTE)) }
 
-    /** Opens the form on [entry] to correct it; the same surface supersedes it as usual. */
+    /**
+     * Opens the form on [entry] to correct it. The same surface supersedes it as usual; another
+     * surface names it in `supersedes_id`, so the old mark goes and the new one replaces it.
+     */
     fun startEdit(
         entry: HistoryEntryView,
         terms: List<TermView>,
@@ -108,7 +111,12 @@ class ToothSheetStateHolder(
         val plan = (f.check as? TreatmentCheck.Ok)?.plan ?: return
         if (f.saving) return
         val surfaces = f.surfaces.sortedBy { it.ordinal }
-        plan.finding?.let { chart.record(it, surfaces, f.treatment, f.material, f.note) }
+        val moved =
+            f.editing?.takeIf { e ->
+                e.surface != null && f.surfaces.isNotEmpty() &&
+                    f.surfaces != setOf(e.surface)
+            }
+        plan.finding?.let { chart.record(it, surfaces, f.treatment, f.material, f.note, moved?.id) }
         val status = plan.procedureStatus
         val visit = visitId
         if (status == null || visit == null || f.treatment == null) {
@@ -166,10 +174,15 @@ class ToothSheetStateHolder(
     private fun edit(change: (TreatmentFormState) -> TreatmentFormState) =
         mutableForm.update { change(it).copy(saved = false, error = null).checked() }
 
-    private fun TreatmentFormState.checked(): TreatmentFormState {
-        val changed = editing?.surface?.let { s -> surfaces.isNotEmpty() && surfaces != setOf(s) } == true
-        return copy(check = planTreatment(status, treatment, visitId != null, changed))
-    }
+    private fun TreatmentFormState.checked(): TreatmentFormState =
+        copy(
+            check =
+                planTreatment(
+                    status,
+                    treatment,
+                    visitId != null,
+                ),
+        )
 
     private companion object {
         const val MAX_NOTE = 1000

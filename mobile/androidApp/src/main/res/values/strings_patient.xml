@@ -149,7 +149,6 @@
     <string name="pv_block_needs_visit">Planned treatments are added inside a visit. Start the visit first.</string>
     <string name="pv_block_no_chart_mark">This treatment leaves no mark on the chart. Add it inside a visit.</string>
     <string name="pv_block_no_treatment">Pick a treatment first.</string>
-    <string name="pv_block_surface_change">Preview: changing the surface of an earlier entry needs server support.</string>
     <string name="pv_book_cta">Book %1$s</string>
     <string name="pv_book_done">Booked</string>
     <string name="pv_book_free">%1$s · free slots</string>

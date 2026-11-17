@@ -40,6 +40,9 @@ data class QueueRow(
     val doctor: String?,
     /** A move or Start visit for this row is in flight. */
     val busy: Boolean = false,
+    val branchId: String = "",
+    /** The chair the patient sits in, once seated in one. */
+    val roomId: String? = null,
 )
 
 /** A visit started from the queue; the screen opens the patient there. */
@@ -69,9 +72,14 @@ sealed interface QueueState {
         val canStartVisit: Boolean,
         val refreshing: Boolean = false,
         val actionError: ScreenError? = null,
+        /** The clinic's active chairs; empty until loaded, or when it lists none. */
+        val chairs: List<QueueChair> = emptyList(),
     ) : QueueState {
         val waiting: List<QueueRow> get() = rows.filter { it.status.active }
         val finished: List<QueueRow> get() = rows.filter { !it.status.active }
+
+        /** Every chair with its patient, then anyone seated in a chair the board doesn't know. */
+        val board: List<ChairSlot> get() = chairBoard(rows, chairs)
     }
 }
 
@@ -87,4 +95,6 @@ internal fun QueueToken.toRow() =
         status = TokenStatus.of(status),
         waitMinutes = waitMinutes,
         doctor = practitioner?.displayName,
+        branchId = branchId,
+        roomId = roomId,
     )

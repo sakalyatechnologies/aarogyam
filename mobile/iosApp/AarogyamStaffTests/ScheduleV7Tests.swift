@@ -3,17 +3,6 @@ import XCTest
 @testable import AarogyamStaff
 
 final class ScheduleV7Tests: XCTestCase {
-    func test_free_chairs_are_the_capacity_minus_the_occupied() {
-        XCTAssertEqual(QueueBoard.freeChairs(chairs: 3, occupied: 1, waiting: 2), 2)
-        XCTAssertEqual(QueueBoard.freeChairs(chairs: 3, occupied: 3, waiting: 2), 0)
-        XCTAssertEqual(QueueBoard.freeChairs(chairs: 2, occupied: 4, waiting: 0), 0)
-    }
-
-    func test_free_chair_is_offered_when_capacity_is_unknown_and_somebody_waits() {
-        XCTAssertEqual(QueueBoard.freeChairs(chairs: 0, occupied: 0, waiting: 3), 1)
-        XCTAssertEqual(QueueBoard.freeChairs(chairs: 0, occupied: 0, waiting: 0), 0)
-    }
-
     func test_wait_timers_count_on_from_the_server_reading() {
         XCTAssertEqual(QueueBoard.waitMinutes(base: 12, elapsed: 0), 12)
         XCTAssertEqual(QueueBoard.waitMinutes(base: 12, elapsed: 59), 12)

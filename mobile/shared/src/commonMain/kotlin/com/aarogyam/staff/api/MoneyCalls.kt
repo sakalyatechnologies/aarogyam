@@ -7,8 +7,10 @@ import com.aarogyam.staff.api.model.ExpenseList
 import com.aarogyam.staff.api.model.Invoice
 import com.aarogyam.staff.api.model.NewExpense
 import com.sakalya.mobile.core.ApiError
+import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.http.call
+import com.sakalya.mobile.http.idempotencyKey
 import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
@@ -29,11 +31,15 @@ suspend fun ClinicApi.expenses(
         parameter("to", to.toString())
     }
 
-/** `POST /api/v1/expenses` (`recordExpense`): records one expense. Not retried automatically (no idempotency key yet, BK-6). */
-suspend fun ClinicApi.recordExpense(expense: NewExpense): Outcome<Expense, ApiError> =
+/** `POST /api/v1/expenses` (`recordExpense`): records one expense; the same [key] again returns it instead of a second one. */
+suspend fun ClinicApi.recordExpense(
+    expense: NewExpense,
+    key: IdempotencyKey,
+): Outcome<Expense, ApiError> =
     client.call {
         method = HttpMethod.Post
         url("api/v1/expenses")
+        idempotencyKey(key)
         contentType(ContentType.Application.Json)
         setBody(expense)
     }

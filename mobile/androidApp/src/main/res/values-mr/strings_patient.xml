@@ -149,7 +149,6 @@
     <string name="pv_block_needs_visit">नियोजित उपचार भेटीत जोडले जातात. आधी भेट सुरू करा.</string>
     <string name="pv_block_no_chart_mark">या उपचाराची चार्टवर खूण राहत नाही. ते भेटीत जोडा.</string>
     <string name="pv_block_no_treatment">आधी उपचार निवडा.</string>
-    <string name="pv_block_surface_change">प्रीव्ह्यू: जुन्या नोंदीचा पृष्ठभाग बदलण्यासाठी सर्व्हर सहाय्य हवे.</string>
     <string name="pv_book_cta">%1$s बुक करा</string>
     <string name="pv_book_done">बुक झाले</string>
     <string name="pv_book_free">%1$s · मोकळे स्लॉट</string>

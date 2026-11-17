@@ -22,9 +22,6 @@ enum class TreatmentBlock {
 
     /** This treatment leaves no mark on the chart (scaling, pulpotomy), so it needs a visit. */
     NoChartMark,
-
-    /** Changing the surface of an earlier entry needs server support (BK-1). */
-    SurfaceChangePreview,
 }
 
 /**
@@ -67,10 +64,8 @@ fun planTreatment(
     status: TreatmentStatus,
     treatment: TermView?,
     inVisit: Boolean,
-    surfaceChanged: Boolean = false,
-): TreatmentCheck {
-    if (surfaceChanged) return TreatmentCheck.Blocked(TreatmentBlock.SurfaceChangePreview)
-    return when (status) {
+): TreatmentCheck =
+    when (status) {
         TreatmentStatus.Watch -> {
             TreatmentCheck.Ok(TreatmentPlan(Finding.Watch, null))
         }
@@ -84,15 +79,14 @@ fun planTreatment(
         }
 
         TreatmentStatus.Completed -> {
-            if (treatment == null) return TreatmentCheck.Blocked(TreatmentBlock.NoTreatment)
-            val finding = ProcedureFindings.of(treatment)
+            val finding = treatment?.let { ProcedureFindings.of(it) }
             when {
+                treatment == null -> TreatmentCheck.Blocked(TreatmentBlock.NoTreatment)
                 finding == null && !inVisit -> TreatmentCheck.Blocked(TreatmentBlock.NoChartMark)
                 else -> TreatmentCheck.Ok(TreatmentPlan(finding, if (inVisit) "done" else null))
             }
         }
     }
-}
 
 /** A plan, or the reason there is none. */
 sealed interface TreatmentCheck {

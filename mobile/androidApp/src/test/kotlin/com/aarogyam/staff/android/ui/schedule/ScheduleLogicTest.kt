@@ -8,14 +8,6 @@ import org.junit.Test
 
 class ScheduleLogicTest {
     @Test
-    fun freeChairsUsesCapacityOrOffersOne() {
-        assertEquals(1, QueueBoard.freeChairs(chairs = 0, occupied = 0, waiting = 2))
-        assertEquals(0, QueueBoard.freeChairs(chairs = 0, occupied = 0, waiting = 0))
-        assertEquals(2, QueueBoard.freeChairs(chairs = 4, occupied = 2, waiting = 0))
-        assertEquals(0, QueueBoard.freeChairs(chairs = 2, occupied = 3, waiting = 1))
-    }
-
-    @Test
     fun waitGrowsWithElapsedTime() {
         assertEquals(12, QueueBoard.waitMinutes(base = 10, elapsedMillis = 125_000))
         assertEquals(0, QueueBoard.waitMinutes(base = -3, elapsedMillis = -5))

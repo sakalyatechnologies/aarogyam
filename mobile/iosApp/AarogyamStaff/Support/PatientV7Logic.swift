@@ -88,7 +88,6 @@ extension TreatmentBlock {
         case .noTreatment: pv("pv.block.no_treatment")
         case .needsVisit: pv("pv.block.needs_visit")
         case .noChartMark: pv("pv.block.no_chart_mark")
-        case .surfaceChangePreview: pv("pv.block.surface_change")
         }
     }
 }

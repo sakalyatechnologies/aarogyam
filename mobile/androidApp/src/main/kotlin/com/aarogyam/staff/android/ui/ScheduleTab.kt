@@ -82,7 +82,6 @@ fun ScheduleTab(
                 ScheduleSegment.Queue -> {
                     QueueV7(
                         holder.queue,
-                        clinic,
                         onWalkIn,
                         { opened -> onOpenPatient(opened.patientId) },
                         onOpenPatient,

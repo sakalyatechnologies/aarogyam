@@ -49,7 +49,23 @@ class QueueStateHolder(
         load()
     }
 
-    fun seat(id: String) = move(id, TokenStatus.InChair)
+    /** Seats the patient in the first free chair of their branch, or with no chair when none is free. */
+    fun seat(id: String) {
+        val shown = mutableState.value as? QueueState.Loaded ?: return
+        val row = shown.rows.firstOrNull { it.id == id } ?: return
+        move(id, TokenStatus.InChair, freeChairFor(row, shown.board)?.id)
+    }
+
+    /** "Seat next" on a free chair: the longest-waiting patient of that chair's branch sits in it. */
+    fun seatNextIn(chairId: String?) {
+        val shown = mutableState.value as? QueueState.Loaded ?: return
+        val chair = shown.chairs.firstOrNull { it.id == chairId }
+        val next =
+            shown.rows.firstOrNull {
+                it.status == TokenStatus.Waiting && !it.busy && (chair == null || it.branchId == chair.branchId)
+            } ?: return
+        move(next.id, TokenStatus.InChair, chair?.id)
+    }
 
     fun done(id: String) = move(id, TokenStatus.Done)
 
@@ -78,16 +94,26 @@ class QueueStateHolder(
     private fun move(
         id: String,
         to: TokenStatus,
+        roomId: String? = null,
     ) {
         val shown = mutableState.value as? QueueState.Loaded ?: return
         if (!shown.canMove || !markBusy(id)) return
         scope.launch {
-            when (val result = clinic.api.setTokenStatus(id, to.wire)) {
+            when (val result = clinic.api.setTokenStatus(id, to.wire, roomId)) {
                 is Outcome.Success -> replace(result.value.toRow())
                 is Outcome.Failure -> failed("queue.move_failed", result.error)
             }
         }
     }
+
+    /** The clinic's active chairs, from the cached rooms; none when they can't be read. */
+    private suspend fun chairs(): List<QueueChair> =
+        (clinic.reference.rooms() as? Outcome.Success)
+            ?.value
+            .orEmpty()
+            .filter { it.kind == CHAIR && it.active }
+            .sortedBy { it.sortOrder }
+            .map { QueueChair(it.id, it.name, it.branchId) }
 
     private fun load() {
         scope.launch {
@@ -101,6 +127,7 @@ class QueueStateHolder(
                             canMove = APPOINTMENTS_WRITE in clinic.permissions,
                             canStartVisit = CLINICAL_WRITE in clinic.permissions,
                             actionError = actionError,
+                            chairs = chairs(),
                         )
                 }
 
@@ -176,5 +203,6 @@ class QueueStateHolder(
         const val APPOINTMENTS_READ = "appointments.read"
         const val APPOINTMENTS_WRITE = "appointments.write"
         const val CLINICAL_WRITE = "clinical.write"
+        const val CHAIR = "chair"
     }
 }

@@ -69,6 +69,8 @@ internal fun recordPlan(
     procedure: TermView?,
     material: TermView?,
     note: String?,
+    /** An entry this one corrects, on any tooth or surface; it goes on the first new entry. */
+    supersedes: String? = null,
 ): Pair<Map<Int, ToothView>, List<NewChartEntry>> {
     val on: List<Surface?> = if (finding.wholeTooth || surfaces.isEmpty()) listOf(null) else surfaces.distinct()
     val detail = finding != Finding.Sound
@@ -86,6 +88,7 @@ internal fun recordPlan(
                     note = text,
                     procedure = procedure?.id?.takeIf { detail },
                     surface = surface?.name,
+                    supersedesId = supersedes.takeIf { entries.isEmpty() },
                 )
         }
     }

@@ -101,12 +101,14 @@ data class CountedDetail(
 suspend fun ClinicApi.setTokenStatus(
     id: String,
     status: String,
+    /** With `in_chair` only: the chair to seat the patient in. */
+    roomId: String? = null,
 ): Outcome<QueueToken, ApiError> =
     client.call {
         method = HttpMethod.Post
         url("api/v1/queue/${id.encodeURLPathPart()}/status")
         contentType(ContentType.Application.Json)
-        setBody(TokenStatusChange(status = status))
+        setBody(TokenStatusChange(status = status, roomId = roomId))
     }
 
 /**

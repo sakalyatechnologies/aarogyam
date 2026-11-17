@@ -166,12 +166,14 @@ class ChartStateHolder(
         procedure: TermView? = null,
         material: TermView? = null,
         note: String? = null,
+        /** The current entry this corrects, when the correction moves it to another surface. */
+        supersedes: String? = null,
     ) {
         val current = model ?: return
         val teeth = current.group.takeIf { current.several && it.isNotEmpty() } ?: listOfNotNull(current.selected)
         if (teeth.isEmpty() || !canRecord || current.saving) return
         val before = current.teeth
-        val (drawn, entries) = recordPlan(before, teeth, finding, surfaces, procedure, material, note)
+        val (drawn, entries) = recordPlan(before, teeth, finding, surfaces, procedure, material, note, supersedes)
         publish(current.copy(teeth = drawn, saving = true, recordError = null))
         scope.launch {
             when (val result = clinic.api.recordDentalChart(patientId, NewChartEntries(entries))) {

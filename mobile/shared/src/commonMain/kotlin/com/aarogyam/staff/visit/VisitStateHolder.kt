@@ -142,11 +142,13 @@ class VisitStateHolder(
 
                         is DictationEvent.Failed -> {
                             log.warn("visit.dictation_failed") { code("reason", event.reason.name) }
+                            keepLiveText()
                             update { it.copy(listening = null, liveText = null) }
                             listenJob?.cancel()
                         }
 
                         DictationEvent.Ended -> {
+                            keepLiveText()
                             update { it.copy(listening = null, liveText = null) }
                             listenJob?.cancel()
                         }
@@ -158,6 +160,11 @@ class VisitStateHolder(
     }
 
     fun stopListening() = dictation.stop()
+
+    /** Words still being recognised when listening stops become a bullet rather than being lost. */
+    private fun keepLiveText() {
+        open()?.liveText?.let { addBullet(BulletKind.Dictated, it) }
+    }
 
     /** Saves now, then signs the note. */
     fun sign() {

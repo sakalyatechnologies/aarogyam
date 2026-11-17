@@ -7,6 +7,7 @@ import com.aarogyam.staff.api.model.ExpenseCategory
 import com.aarogyam.staff.api.model.NewExpense
 import com.aarogyam.staff.api.recordExpense
 import com.aarogyam.staff.clinic.ClinicContext
+import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
@@ -85,8 +86,9 @@ data class ExpensesState(
 )
 
 /**
- * The month's expenses (`GET /expenses`) and the Add expense sheet (`POST /expenses`). A failed
- * save is never retried automatically: without an idempotency key (BK-6) a retry could double it.
+ * The month's expenses (`GET /expenses`) and the Add expense sheet (`POST /expenses`). A save
+ * carries an `Idempotency-Key` kept until the draft changes or is saved, so tapping Save again
+ * after a lost answer returns the same expense instead of recording it twice.
  */
 class ExpensesStateHolder(
     private val clinic: ClinicContext,
@@ -103,6 +105,9 @@ class ExpensesStateHolder(
             ),
         )
     val state: StateFlow<ExpensesState> = mutableState.asStateFlow()
+
+    /** The key for the draft on screen; a new one once it changes or is saved. */
+    private var key = IdempotencyKey.generate()
 
     init {
         if (mutableState.value.allowed) refresh()
@@ -161,9 +166,10 @@ class ExpensesStateHolder(
                     amountPaise = d.amountPaise,
                     note = d.note.trim().ifEmpty { null },
                 )
-            when (val answer = clinic.api.recordExpense(body)) {
+            when (val answer = clinic.api.recordExpense(body, key)) {
                 is Outcome.Success -> {
                     log.info("expense.recorded")
+                    key = IdempotencyKey.generate()
                     val row = answer.value.toRow()
                     mutableState.update { st ->
                         st.copy(
@@ -183,8 +189,11 @@ class ExpensesStateHolder(
     }
 
     /** An edit by the person: clears the last result. */
-    private fun draft(change: (ExpenseDraft) -> ExpenseDraft) =
+    private fun draft(change: (ExpenseDraft) -> ExpenseDraft) {
+        val before = mutableState.value.draft
         mutableState.update { it.copy(draft = change(it.draft).copy(saved = false, error = null)) }
+        if (mutableState.value.draft != before.copy(saved = false, error = null)) key = IdempotencyKey.generate()
+    }
 
     private fun setDraft(change: (ExpenseDraft) -> ExpenseDraft) =
         mutableState.update { it.copy(draft = change(it.draft)) }

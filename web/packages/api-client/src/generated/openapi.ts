@@ -30968,6 +30968,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Supabase could not create the sign-in account */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     updateStaffMember: {

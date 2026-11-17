@@ -5,13 +5,16 @@ import com.aarogyam.staff.api.model.ChatMessage
 import com.aarogyam.staff.api.model.ChatMessageList
 import com.aarogyam.staff.api.model.ConversationList
 import com.aarogyam.staff.api.model.ConversationStarted
+import com.aarogyam.staff.api.model.CreatedInvitation
 import com.aarogyam.staff.api.model.InboxList
 import com.aarogyam.staff.api.model.ItemList
 import com.aarogyam.staff.api.model.MarkedRead
 import com.aarogyam.staff.api.model.NewChatMessageBody
 import com.aarogyam.staff.api.model.NewConversationBody
+import com.aarogyam.staff.api.model.NewInvitation
 import com.aarogyam.staff.api.model.NotificationList
 import com.aarogyam.staff.api.model.ReadUpTo
+import com.aarogyam.staff.api.model.Roles
 import com.aarogyam.staff.api.model.Staff
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Outcome
@@ -26,6 +29,22 @@ import io.ktor.http.encodeURLPathPart
 
 /** `GET /api/v1/staff` (`listStaff`): members and pending invitations; needs `staff.manage`. */
 suspend fun ClinicApi.staff(): Outcome<Staff, ApiError> = client.call { url("api/v1/staff") }
+
+/** `GET /api/v1/roles` (`listRoles`): the clinic's roles, standard ones first, for choosing a role. */
+suspend fun ClinicApi.roles(): Outcome<Roles, ApiError> = client.call { url("api/v1/roles") }
+
+/**
+ * `POST /api/v1/staff/invitations` (`inviteStaff`): creates the invitee's sign-in account and
+ * emails the link; needs `staff.manage`, and only owners may invite owners. The answer's
+ * `invite_token` is a secret the caller drops.
+ */
+suspend fun ClinicApi.inviteStaff(body: NewInvitation): Outcome<CreatedInvitation, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/staff/invitations")
+        contentType(ContentType.Application.Json)
+        setBody(body)
+    }
 
 /** `GET /api/v1/stock/low` (`lowStock`): items at or below their reorder level, worst first. */
 suspend fun ClinicApi.lowStock(): Outcome<ItemList, ApiError> = client.call { url("api/v1/stock/low") }

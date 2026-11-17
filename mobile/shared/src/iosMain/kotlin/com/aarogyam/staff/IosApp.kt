@@ -38,6 +38,7 @@ import com.aarogyam.staff.team.BadgesStateHolder
 import com.aarogyam.staff.team.ChatListStateHolder
 import com.aarogyam.staff.team.ChatThreadStateHolder
 import com.aarogyam.staff.team.InboxStateHolder
+import com.aarogyam.staff.team.InviteStaffStateHolder
 import com.aarogyam.staff.team.NotificationsStateHolder
 import com.aarogyam.staff.team.StockStateHolder
 import com.aarogyam.staff.team.TeamStateHolder
@@ -296,6 +297,12 @@ fun AppGraph.team(
     clinic: ClinicContext,
     screen: ScreenScope,
 ): TeamStateHolder = team(clinic, screen.scope)
+
+/** The invite sheet, living as long as [screen]. */
+fun AppGraph.inviteStaff(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): InviteStaffStateHolder = inviteStaff(clinic, screen.scope)
 
 /** Low stock, living as long as [screen]. */
 fun AppGraph.stock(

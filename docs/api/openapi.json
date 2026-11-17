@@ -15931,6 +15931,9 @@
           },
           "404": {
             "description": "Not a clinic, or not a member of it"
+          },
+          "503": {
+            "description": "Supabase could not create the sign-in account"
           }
         },
         "security": [

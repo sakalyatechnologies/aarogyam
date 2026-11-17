@@ -8,8 +8,12 @@ struct TeamPage: View {
     let holder: TeamStateHolder
     let state: ListState
     let canChat: Bool
+    let graph: AppGraph
+    let clinic: ClinicContext
     @Binding var path: [MoreRoute]
     @State private var chattingWith = ""
+    @State private var inviting = false
+    @State private var pending: [PendingInviteRow] = []
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -37,6 +41,7 @@ struct TeamPage: View {
                         }
                         .buttonStyle(.skPressable)
                     }
+                    if !pending.isEmpty { pendingList }
                 }
             }
             .padding(.horizontal, SkSpacing.l)
@@ -45,6 +50,17 @@ struct TeamPage: View {
         .background(r.background.color)
         .navigationTitle(CL("c.team.title"))
         .refreshable { holder.refresh() }
+        .toolbar {
+            if clinic.permissions.contains("staff.manage") {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(CL("c.team.invite")) { inviting = true }
+                }
+            }
+        }
+        .sheet(isPresented: $inviting, onDismiss: { holder.refresh() }) {
+            InviteStaffSheet(graph: graph, clinic: clinic) { _ in inviting = false }
+        }
+        .task { for await rows in holder.pending { pending = rows } }
         .task {
             for await opened in holder.opened {
                 guard let id = opened else { continue }
@@ -52,6 +68,33 @@ struct TeamPage: View {
                 path.append(.thread(id: id, title: chattingWith.isEmpty ? CL("c.chat.direct") : chattingWith))
             }
         }
+    }
+
+    /// Invitations neither accepted nor expired: who, the role and until when.
+    private var pendingList: some View {
+        let r = theme.roles
+        return VStack(alignment: .leading, spacing: 3) {
+            Text(CL("c.team.pending")).v7Text(12.5, .bold).foregroundStyle(r.onSurfaceVariant.color)
+                .padding(.top, SkSpacing.l).padding(.bottom, SkSpacing.xs)
+            ForEach(Array(pending.enumerated()), id: \.element.id) { index, row in
+                HStack(spacing: 10) {
+                    SkAvatar(row.email ?? "?", tone: .neutral, size: 38, shape: .rounded)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(row.email ?? CL("c.team.pending_no_email")).font(.system(size: 13.5, weight: .bold)).foregroundStyle(r.onSurface.color)
+                        Text(pendingSubtitle(row)).font(.system(size: 11.5)).foregroundStyle(r.onSurfaceVariant.color)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 9).padding(.horizontal, 11)
+                .background(r.card.color, in: UnevenRoundedRectangle(cornerRadii: MoreSizes.listRadii(index, of: pending.count), style: .continuous))
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+
+    private func pendingSubtitle(_ row: PendingInviteRow) -> String {
+        guard let until = row.expires else { return row.roleName }
+        return String(format: CL("c.team.pending_until %@ %@"), row.roleName, ClinicFormat.date(iso: until.date.isoText))
     }
 
     private var chatsRow: some View {

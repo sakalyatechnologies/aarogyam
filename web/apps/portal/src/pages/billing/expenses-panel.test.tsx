@@ -1,9 +1,10 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { ROLES } from "@aarogyam/api-client/fake";
 
+import { pickDate } from "../../test/date-picker.js";
 import { PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
 
 /** Farah with finance.view but not expenses.write: she sees and voids expenses, but can't add them. */
@@ -22,7 +23,7 @@ describe("Billing → Expenses", () => {
     expect(screen.queryByRole("heading", { name: "Rent" })).toBeNull();
 
     // The fake's clock is 3 October; the form defaults to the real today.
-    fireEvent.change(within(form).getByLabelText(/day paid/i), { target: { value: "2026-10-02" } });
+    await pickDate(user, "Day paid", "2026-10-02");
     await user.type(within(form).getByLabelText(/amount/i), "1,250");
     await user.type(within(form).getByLabelText(/note/i), "Parking shed");
     await user.click(within(form).getByRole("button", { name: "Add expense" }));

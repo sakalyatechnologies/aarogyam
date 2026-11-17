@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { apiErrorOf, EXPENSE_CATEGORIES } from "@aarogyam/api-client";
-import { Button, DateInput, Field, Select, TextInput, useToast } from "@sakalya/ui";
+import { Button, Field, Select, TextInput, useToast } from "@sakalya/ui";
 
+import { DatePicker } from "../../components/mk/date-picker.js";
 import { AlertBanner } from "../../components/mk/index.js";
 import { CATEGORY_LABEL } from "../../lib/expenses.js";
 import { useTodayDate } from "../../lib/patients.js";
@@ -72,8 +73,12 @@ export function ExpenseForm({ onSaved }: { onSaved?: (day: string) => void }) {
       <Field label="Category" error={errors.category?.message} required>
         <Select options={OPTIONS} {...form.register("category")} />
       </Field>
-      <Field label="Day paid" error={errors.spentOn?.message} required>
-        <DateInput {...form.register("spentOn")} max={today} min="2000-01-01" />
+      <Field label="Day paid" error={errors.spentOn?.message} required id="ex-day">
+        <Controller
+          control={form.control}
+          name="spentOn"
+          render={({ field }) => <DatePicker id="ex-day" label="Day paid" value={field.value} min="2000-01-01" max={today} today={today} onChange={field.onChange} />}
+        />
       </Field>
       <Field label="Amount (₹)" error={errors.rupees?.message} required>
         <TextInput inputMode="decimal" autoComplete="off" placeholder="0" {...form.register("rupees")} />

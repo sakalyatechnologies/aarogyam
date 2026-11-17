@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import type userEvent from "@testing-library/user-event";
 
 /**
@@ -14,7 +14,9 @@ export async function pickDate(user: ReturnType<typeof userEvent.setup>, label: 
       return;
     }
     const shown = document.querySelector<HTMLElement>('[role="gridcell"]')?.dataset["date"] ?? value;
-    await user.click(screen.getByRole("button", { name: value < shown ? "Previous month" : "Next month" }));
+    // Within the open grid: the page may have its own month buttons (billing's month switcher).
+    const grid = screen.getByRole("dialog", { name: "Choose a date" });
+    await user.click(within(grid).getByRole("button", { name: value < shown ? "Previous month" : "Next month" }));
   }
   throw new Error(`couldn't reach ${value} in the ${label} picker`);
 }

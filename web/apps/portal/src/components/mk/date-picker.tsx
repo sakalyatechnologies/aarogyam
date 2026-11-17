@@ -21,6 +21,8 @@ export interface DatePickerProps {
   today: string;
   /** The id of the trigger button, so a `Field` label points at it. */
   id?: string | undefined;
+  /** What the date is, for the button's spoken name ("Due back, Mon 12 Oct"); "Date" by default. Match the field's label. */
+  label?: string | undefined;
   className?: string | undefined;
 }
 
@@ -28,7 +30,7 @@ export interface DatePickerProps {
  * A date field that opens a month grid: today ringed, the chosen day filled, days before `min` disabled.
  * Arrow keys move by day and week, PageUp/PageDown by month, Home/End to the week's ends, Enter picks, Escape closes.
  */
-export function DatePicker({ value, onChange, min, today, id, className = "" }: DatePickerProps) {
+export function DatePicker({ value, onChange, min, today, id, label = "Date", className = "" }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(value);
   const root = useRef<HTMLDivElement>(null);
@@ -117,7 +119,7 @@ export function DatePicker({ value, onChange, min, today, id, className = "" }: 
 
   return (
     <div ref={root} className={`mk-dp ${className}`}>
-      <button ref={trigger} id={id} type="button" aria-label={`Date, ${longDate(value)}`} className="mk-dp-trigger" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? gridId : undefined} onClick={open ? close : show}>
+      <button ref={trigger} id={id} type="button" aria-label={`${label}, ${longDate(value)}`} className="mk-dp-trigger" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? gridId : undefined} onClick={open ? close : show}>
         <CalendarDays aria-hidden="true" className="size-4" />
         <span>{longDate(value)}</span>
       </button>

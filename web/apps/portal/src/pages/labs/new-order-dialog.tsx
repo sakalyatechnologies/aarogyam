@@ -2,7 +2,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { apiErrorOf, type Patient } from "@aarogyam/api-client";
-import { Button, Dialog, DateInput, Field, Select, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, Select, TextInput, useToast } from "@sakalya/ui";
+import { DatePicker } from "../../components/mk/date-picker.js";
 
 import { useClinic } from "../../clinic.js";
 import { PatientPicker } from "../../components/patient-picker.js";
@@ -280,8 +281,8 @@ export function NewOrderDialog({ open, onClose, initialPatient }: { open: boolea
           </Button>
         </fieldset>
         <div className="lb-two">
-          <Field label="Due back" required>
-            <DateInput value={dueOn} min={today} onValueChange={setDue} />
+          <Field label="Due back" required id="lab-due">
+            <DatePicker id="lab-due" label="Due back" value={dueOn} min={today} today={today} onChange={setDue} />
           </Field>
           <Field label="Instructions">
             <TextInput

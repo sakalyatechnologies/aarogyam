@@ -256,6 +256,11 @@ describe("Lab work: sending work", () => {
     const second = within(within(dialog).getByRole("group", { name: "Item 2" }));
     await user.clear(second.getByRole("combobox", { name: /Work/ }));
     await user.type(second.getByRole("combobox", { name: /Work/ }), "Night guard");
+    // Due back: the calendar picker, named for its field.
+    await user.click(within(dialog).getByRole("button", { name: /^Due back, / }));
+    const proposed = (await screen.findAllByRole("gridcell", { selected: true }))[0]?.getAttribute("data-date") ?? "";
+    await user.keyboard("{ArrowRight}{Enter}");
+    const dayAfter = new Date(Date.parse(`${proposed}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
     await user.click(within(dialog).getByRole("button", { name: "Send to lab" }));
 
     await waitFor(() => {
@@ -266,7 +271,7 @@ describe("Lab work: sending work", () => {
     expect(sent.items.map((i) => i.work_type)).toEqual(["Zirconia crown", "Night guard"]);
     expect(sent.items[0]).toMatchObject({ teeth: [36], shade: "A2" });
     expect(sent.send).toBe(true);
-    expect(sent.due_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(sent.due_on).toBe(dayAfter);
     const made = await card("LAB-16");
     expect(within(made).getByText(/· 2 items/)).toBeTruthy();
     expect(within(made).getByText(patient.full_name)).toBeTruthy();

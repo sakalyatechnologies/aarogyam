@@ -214,7 +214,7 @@ Review prompts are in `~/project/ux-review/ux-review-prompts.md` (outside the re
 - **Not yet:** the portal (its i18n layer is part C4 of the walk-in plan), patient-facing text (prescriptions, the patient app), and a check that fails the build when a string has no Marathi or Hindi version on iOS (Android lint already does).
 
 ## Mobile v7 gaps (9 Oct 2026, from the native v7 plan)
-The staff apps build these screens fully but show "Preview: needs server support" until the backend lands (`docs/plans/mobile-v7-plan.md`). As of 17 Nov 2026 the apps still show previews for BK-5 (bill photo), BK-15/16 (Today extras) and BK-17 (no-shows).
+The staff apps build these screens fully but show "Preview: needs server support" until the backend lands (`docs/plans/mobile-v7-plan.md`). As of 17 Nov 2026 the apps still show previews for BK-5 (bill photo) and BK-15/16 (Today extras).
 - ~~**BK-1** Chart edit when the surface changes~~: done 17 Nov 2026. Both apps put `supersedes_id` on the first new entry.
 - **BK-2** Labs: vendors, cases, WhatsApp updates (planned as T1 in `docs/handoff.md`), plus a future lab app.
 - **BK-3** Staff chat: team group and direct messages (T2 in `docs/handoff.md`).
@@ -231,7 +231,7 @@ The staff apps build these screens fully but show "Preview: needs server support
 - ~~**BK-14** Seat a queued patient in a chosen chair~~: done 17 Nov 2026. The queue board shows each chair's patient by the token's `room_id`; Seat and "Seat next" send `room_id` with `in_chair`.
 - **BK-15** Monthly revenue target for the clinic.
 - **BK-16** Me-card extras: sterilisation cycles, estimated end of day.
-- **BK-17** Queue summary (average wait, no-shows) if `/queue` and `/today` can't provide it.
+- ~~**BK-17** Queue summary (no-shows)~~: done 17 Nov 2026. The apps read `/today` `counts.no_shows` beside `/queue`; average wait is still not shown.
 - **BK-18** In-app support chat with Sakalya.
 - **BK-19** Analytics: booked vs walk-in split.
 

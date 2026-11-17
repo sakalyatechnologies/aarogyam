@@ -865,6 +865,7 @@ Pending invites to join a clinic.
 |---|---|---|
 | `phone_e164` | `text?` |  |
 | `email` | `text?` |  |
+| `display_name` | `text?` | the invitee's name; their display name when they join without typing one |
 | `role_id` | `uuid` | → `roles` |
 | `invited_by` | `uuid` | → `users` |
 | `token_hash` | `text` |  |

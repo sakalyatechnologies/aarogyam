@@ -216,6 +216,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     id: string;
     clinicId: string;
     email: string;
+    /** The name the clinic gave them; their display name when they join without typing one. */
+    displayName?: string;
     /** `"owner"` for a clinic-creation invite; a role key for a staff invite. */
     roleKey: string;
     createdAt: string;
@@ -1296,7 +1298,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return refuse(409, "conflict", "this invitation is for a different email");
           }
           if (known === undefined) {
-            state.users.push({ id: who.id, display_name: input.display_name ?? email, email, description: "Joined by invitation." });
+            state.users.push({ id: who.id, display_name: input.display_name ?? invitation.displayName ?? email, email, description: "Joined by invitation." });
           }
           invitation.used = true;
           const membership: FakeMembership = {
@@ -5412,7 +5414,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             .sort((a, b) => Number(b.status === "active") - Number(a.status === "active") || a.display_name.localeCompare(b.display_name));
           const pending = [...invitations.entries()]
             .filter(([, inv]) => inv.clinicId === caller.clinic.id && !inv.used && inv.expiresAt > clock().toISOString())
-            .map(([, inv]): C.PendingInvitation => ({ id: inv.id, email: inv.email, role_key: inv.roleKey, created_at: inv.createdAt, expires_at: inv.expiresAt }))
+            .map(([, inv]): C.PendingInvitation => ({ id: inv.id, email: inv.email, ...(inv.displayName === undefined ? {} : { display_name: inv.displayName }), role_key: inv.roleKey, created_at: inv.createdAt, expires_at: inv.expiresAt }))
             .sort((a, b) => b.created_at.localeCompare(a.created_at));
           return reply({ members, invitations: pending } satisfies C.Staff);
         }),
@@ -5426,6 +5428,15 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!EMAIL.test(input.email)) {
             return invalid("email", "invalid email address");
           }
+          // As the server: 1 to 200 characters of name, and a phone that is E.164 or 10 Indian digits.
+          const displayName = input.display_name?.trim() ?? "";
+          if (displayName.length > 200) {
+            return invalid("display_name", "is longer than 200 characters");
+          }
+          const phoneDigits = input.phone?.replace(/[\s-]/g, "") ?? "";
+          if (phoneDigits !== "" && !/^(\+[1-9]\d{7,14}|[6-9]\d{9})$/.test(phoneDigits)) {
+            return invalid("phone", "is not a phone number");
+          }
           const role = roleByKey(input.role_key, caller.clinic.id);
           if (role === undefined) {
             return invalid("role_key", "unknown role");
@@ -5437,7 +5448,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           const id = fakeUuid(random, now);
           const expiresAt = new Date(now.getTime() + 7 * 86_400_000).toISOString();
           const token = random.hex(32);
-          invitations.set(token, { id, clinicId: caller.clinic.id, email: input.email, roleKey: role.key, createdAt: now.toISOString(), expiresAt, used: false });
+          invitations.set(token, { id, clinicId: caller.clinic.id, email: input.email, ...(displayName === "" ? {} : { displayName }), roleKey: role.key, createdAt: now.toISOString(), expiresAt, used: false });
           return reply({ id, email: input.email, role_key: role.key, expires_at: expiresAt, invite_token: token } satisfies C.CreatedInvitation);
         }),
 

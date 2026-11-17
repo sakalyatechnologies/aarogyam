@@ -4,10 +4,9 @@ import { Link } from "react-router";
 
 import { apiErrorOf, type MemberChanges, type MembershipId, type Role } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate } from "@aarogyam/app-kit";
-import { Avatar, Button, Card, DataTable, Dialog, Field, Menu, Pill, Select, TextInput, useToast, type DataTableColumn, type MenuItem } from "@sakalya/ui";
+import { Avatar, Button, Card, DataTable, Dialog, Field, Menu, PhoneInput, Pill, Select, TextInput, useToast, type DataTableColumn, type MenuItem } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
-import { useNewLook } from "../../lib/new-look.js";
 import { useChangeStaffMember, useInviteStaff, useRoles, useStaff } from "../../queries.js";
 import { RolesPanel } from "./roles-panel.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
@@ -94,7 +93,8 @@ function StaffPanel() {
               <li key={invitation.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                 <span className="flex items-center gap-2 font-semibold text-text">
                   <Mail aria-hidden="true" className="size-4 text-muted" />
-                  {invitation.email ?? "Invited"}
+                  {invitation.display_name ?? invitation.email ?? "Invited"}
+                  {invitation.display_name != null && invitation.email != null ? <span className="font-normal text-muted">{invitation.email}</span> : null}
                 </span>
                 <span className="text-muted">
                   {roles.data?.items.find((role) => role.key === invitation.role_key)?.name ?? invitation.role_key} · expires {formatDate(invitation.expires_at)}
@@ -144,10 +144,17 @@ function MemberMenu({ member, selfId }: { member: { id: MembershipId; display_na
   return <Menu label={`Actions for ${member.display_name}`} icon={<MoreVertical aria-hidden="true" className="size-4" />} items={items} onSelect={onSelect} />;
 }
 
-/** A phone number (digits, spaces, dashes, an optional leading +) rather than an email. */
-export function looksLikePhone(value: string): boolean {
-  const v = value.trim();
-  return v !== "" && !v.includes("@") && /^\+?[\d\s-]{7,16}$/.test(v);
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** What's wrong with each invite field, or nothing. `phone` is the 10 national digits (`+91` is fixed). */
+export function inviteProblems(values: { name: string; phone: string; email: string; roleKey: string }) {
+  const name = values.name.trim();
+  return {
+    name: name.length < 2 ? "Enter their full name." : name.length > 200 ? "Keep the name under 200 characters." : undefined,
+    phone: /^[6-9]\d{9}$/.test(values.phone) ? undefined : "Enter a 10-digit mobile number.",
+    email: EMAIL.test(values.email.trim()) ? undefined : "Enter an email address, such as name@example.com.",
+    roleKey: values.roleKey === "" ? "Choose a role." : undefined,
+  };
 }
 
 /** The join link for a fresh invitation. The token rides in the fragment, which browsers never send to a server. */
@@ -155,41 +162,44 @@ function joinLink(token: string): string {
   return `${window.location.origin}/invite#${token}`;
 }
 
+type InviteField = "name" | "phone" | "email" | "roleKey";
+
 function InviteDialog({ open, onOpenChange, roles }: { open: boolean; onOpenChange: (open: boolean) => void; roles: readonly Role[] }) {
   const invite = useInviteStaff();
-  const toast = useToast();
-  const [newLook] = useNewLook();
-  const [contact, setContact] = useState("");
-  const [phoneEmail, setPhoneEmail] = useState("");
-  const [roleKey, setRoleKey] = useState("");
+  const [values, setValues] = useState({ name: "", phone: "", email: "", roleKey: "" });
+  const [left, setLeft] = useState<ReadonlySet<InviteField>>(new Set());
   const [error, setError] = useState<string | undefined>(undefined);
-  const [sent, setSent] = useState<{ link: string; phone: string; email: string } | undefined>(undefined);
-
-  // New look: one "Phone or email" box. The API signs people in by email, so a phone invite also takes the email
-  // and hands back a link to send on WhatsApp. The old look keeps its email-only form.
-  const byPhone = newLook && looksLikePhone(contact);
-  const email = byPhone ? phoneEmail.trim() : contact.trim();
+  const [sent, setSent] = useState<{ link: string; phone: string; email: string; name: string } | undefined>(undefined);
+  const problems = inviteProblems(values);
+  const valid = Object.values(problems).every((problem) => problem === undefined);
+  // A field's problem shows once the person has left it, so typing isn't interrupted.
+  const shown = (field: InviteField) => (left.has(field) ? problems[field] : undefined);
+  const leave = (field: InviteField) => () => {
+    setLeft((was) => new Set(was).add(field));
+  };
+  const set = (field: InviteField) => (value: string) => {
+    setValues((was) => ({ ...was, [field]: value }));
+  };
 
   const close = () => {
     onOpenChange(false);
-    setContact("");
-    setPhoneEmail("");
-    setRoleKey("");
+    setValues({ name: "", phone: "", email: "", roleKey: "" });
+    setLeft(new Set());
     setError(undefined);
     setSent(undefined);
   };
 
   const submit = () => {
+    if (!valid) {
+      setLeft(new Set<InviteField>(["name", "phone", "email", "roleKey"]));
+      return;
+    }
+    const phone = `+91${values.phone}`;
     invite.mutate(
-      { email, role_key: roleKey },
+      { email: values.email.trim(), role_key: values.roleKey, display_name: values.name.trim(), phone },
       {
         onSuccess: (created) => {
-          if (byPhone) {
-            setSent({ link: joinLink(created.invite_token), phone: contact.replace(/\D/g, ""), email: created.email });
-            return;
-          }
-          toast.show({ title: `Invited ${created.email}`, tone: "success" });
-          close();
+          setSent({ link: joinLink(created.invite_token), phone: phone.slice(1), email: created.email, name: values.name.trim() });
         },
         onError: (thrown) => {
           setError(apiErrorOf(thrown)?.message ?? "Couldn't send the invitation. Please try again.");
@@ -199,20 +209,21 @@ function InviteDialog({ open, onOpenChange, roles }: { open: boolean; onOpenChan
   };
 
   if (sent !== undefined) {
-    const message = `You're invited to join our clinic on Aarogyam. Open this link to join: ${sent.link}`;
+    const message = `Hi ${sent.name}, you're invited to join our clinic on Aarogyam. Open this link and sign in with ${sent.email}: ${sent.link}`;
     return (
       <Dialog
         open={open}
         onOpenChange={onOpenChange}
-        title="Invite ready"
-        description={`${sent.email} can join with this link. It is shown only once.`}
+        title="Invitation sent"
+        description={`We emailed ${sent.email}. They open the link and sign in with a code we email them; no password needed.`}
         footer={<Button onClick={close}>Done</Button>}
       >
         <div className="flex flex-col gap-3">
           <TextInput readOnly aria-label="Invite link" value={sent.link} />
           <a className="mk-link text-sm font-semibold" href={`https://wa.me/${sent.phone}?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer">
-            Send on WhatsApp
+            Also send on WhatsApp
           </a>
+          <p className="text-xs text-muted">The link is shown only once.</p>
         </div>
       </Dialog>
     );
@@ -223,44 +234,36 @@ function InviteDialog({ open, onOpenChange, roles }: { open: boolean; onOpenChan
       open={open}
       onOpenChange={onOpenChange}
       title="Invite someone"
-      description={newLook ? "Use their phone or email. They join with a link." : "They'll get an email with a link to join."}
+      description="We email them a link to join. They sign in with that email."
       footer={
         <>
           <Button variant="secondary" onClick={close}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={invite.isPending || email === "" || roleKey === ""}>
-            {invite.isPending ? "Sending…" : byPhone ? "Create invite" : "Send invite"}
+          <Button onClick={submit} disabled={invite.isPending || !valid}>
+            {invite.isPending ? "Sending…" : "Send invite"}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label={newLook ? "Phone or email" : "Email"} required>
-          <TextInput
-            type={newLook ? "text" : "email"}
-            value={contact}
-            onChange={(event) => {
-              setContact(event.target.value);
-            }}
-          />
+        <Field label="Full name" required error={shown("name")}>
+          <TextInput autoComplete="off" value={values.name} maxLength={200} onChange={(event) => { set("name")(event.target.value); }} onBlur={leave("name")} />
         </Field>
-        {byPhone ? (
-          <Field label="Their email" required hint="They sign in with it. We give you a link to send on WhatsApp.">
-            <TextInput
-              type="email"
-              value={phoneEmail}
-              onChange={(event) => {
-                setPhoneEmail(event.target.value);
-              }}
-            />
-          </Field>
-        ) : null}
-        <Field label="Role" required>
+        <Field label="Mobile" required error={shown("phone")}>
+          <PhoneInput autoComplete="off" value={values.phone} onValueChange={set("phone")} onBlur={leave("phone")} />
+        </Field>
+        <Field label="Email" required hint="They sign in with this address." error={shown("email")}>
+          <TextInput type="email" autoComplete="off" autoCapitalize="none" spellCheck={false} value={values.email} onChange={(event) => { set("email")(event.target.value); }} onBlur={leave("email")} />
+        </Field>
+        <Field label="Role" required error={shown("roleKey")}>
           <Select
             options={roles.map((role) => ({ value: role.key, label: role.name }))}
-            value={roleKey}
-            onValueChange={setRoleKey}
+            value={values.roleKey}
+            onValueChange={(value) => {
+              set("roleKey")(value);
+              leave("roleKey")();
+            }}
             placeholder="Choose a role"
           />
         </Field>

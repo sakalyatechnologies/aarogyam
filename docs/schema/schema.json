@@ -2381,6 +2381,13 @@
      "note": ""
     },
     {
+     "name": "display_name",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the invitee's name; their display name when they join without typing one"
+    },
+    {
      "name": "role_id",
      "type": "uuid",
      "nullable": false,

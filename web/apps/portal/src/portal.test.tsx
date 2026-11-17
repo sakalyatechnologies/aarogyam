@@ -341,11 +341,16 @@ describe("Settings", () => {
     renderPortal("/settings", { as: PEOPLE.asha });
     await user.click(await screen.findByRole("tab", { name: "Team & roles" }));
     await user.click(await screen.findByRole("button", { name: "Invite" }));
-    await user.type(await within(await screen.findByRole("dialog")).findByLabelText(/^email/i), "new.doctor@example.com");
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.type(dialog.getByLabelText(/Full name/), "Ravi Kulkarni");
+    await user.type(dialog.getByLabelText(/Mobile/), "9876500111");
+    await user.type(dialog.getByLabelText(/^email/i), "new.doctor@example.com");
     await screen.findByRole("option", { name: "Doctor" });
-    await user.selectOptions(within(screen.getByRole("dialog")).getByLabelText(/^role/i), "doctor");
+    await user.selectOptions(dialog.getByLabelText(/^role/i), "doctor");
     await user.click(screen.getByRole("button", { name: "Send invite" }));
-    expect(await screen.findByText("new.doctor@example.com")).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: "Done" }));
+    expect(await screen.findByText("Ravi Kulkarni")).toBeTruthy();
+    expect(screen.getByText("new.doctor@example.com")).toBeTruthy();
   });
 
   it("revokes another session, which disappears from the list", async () => {

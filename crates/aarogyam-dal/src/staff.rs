@@ -244,6 +244,9 @@ pub struct InvitationRow {
     pub id: Uuid,
     /// Who was invited.
     pub email: Option<String>,
+    /// The name the clinic gave them, if any.
+    #[serde(default)]
+    pub display_name: Option<String>,
     /// Role key they will get.
     pub role_key: String,
     /// When it expires.
@@ -283,7 +286,7 @@ pub async fn members_and_invitations(
                   ), '[]'::jsonb) as "members!: sqlx::types::Json<Vec<MemberRow>>",
                   coalesce((
                     select jsonb_agg(to_jsonb(y) order by y.created_at desc)
-                    from (select i.id, i.email, r.key as role_key, i.expires_at, i.created_at
+                    from (select i.id, i.email, i.display_name, r.key as role_key, i.expires_at, i.created_at
                           from aarogyam.invitations i
                           join aarogyam.roles r on r.org_id = i.org_id and r.id = i.role_id
                           where i.accepted_at is null and i.expires_at > now()) y
@@ -301,7 +304,7 @@ pub async fn members_and_invitations(
 pub async fn pending_invitations(conn: &mut PgConnection) -> Result<Vec<InvitationRow>, DbError> {
     let rows = sqlx::query_as!(
         InvitationRow,
-        r#"select i.id, i.email, r.key as role_key, i.expires_at, i.created_at
+        r#"select i.id, i.email, i.display_name, r.key as role_key, i.expires_at, i.created_at
            from aarogyam.invitations i
            join aarogyam.roles r on r.org_id = i.org_id and r.id = i.role_id
            where i.accepted_at is null and i.expires_at > now()
@@ -319,6 +322,10 @@ pub struct NewInvitation<'a> {
     pub id: Uuid,
     /// Who is invited (lower case).
     pub email: &'a str,
+    /// Their name, which becomes their display name when they join.
+    pub display_name: Option<&'a str>,
+    /// Their mobile number, E.164.
+    pub phone_e164: Option<&'a str>,
     /// The role they will get.
     pub role_id: Uuid,
     /// The member inviting them.
@@ -338,14 +345,17 @@ pub async fn insert_invitation(
     invitation: &NewInvitation<'_>,
 ) -> Result<(), DbError> {
     sqlx::query!(
-        r#"insert into aarogyam.invitations (id, email, role_id, invited_by, token_hash, expires_at)
-           values ($1, $2, $3, $4, $5, $6)"#,
+        r#"insert into aarogyam.invitations (id, email, role_id, invited_by, token_hash, expires_at,
+                                             display_name, phone_e164)
+           values ($1, $2, $3, $4, $5, $6, $7, $8)"#,
         invitation.id,
         invitation.email,
         invitation.role_id,
         invitation.invited_by,
         invitation.token_hash,
-        invitation.expires_at
+        invitation.expires_at,
+        invitation.display_name,
+        invitation.phone_e164
     )
     .execute(conn)
     .await?;

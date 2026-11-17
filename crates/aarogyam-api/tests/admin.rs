@@ -861,6 +861,14 @@ async fn bad_or_foreign_invitations_are_refused() {
             json!({ "email": "x@alpha.test", "role_key": "wizard" }),
             "role_key",
         ),
+        (
+            json!({ "email": "x@alpha.test", "role_key": "doctor", "phone": "12345" }),
+            "phone",
+        ),
+        (
+            json!({ "email": "x@alpha.test", "role_key": "doctor", "display_name": "n".repeat(201) }),
+            "display_name",
+        ),
     ] {
         let (status, error) = app
             .send(
@@ -1025,5 +1033,68 @@ async fn review_account_makes_an_active_owner_and_off_ends_it_without_showing_th
         .await
         .unwrap_err();
     assert!(!format!("{error}").contains(secret));
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn an_invitation_carries_the_name_and_phone_and_the_name_is_used_on_joining() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let invite = json!({
+        "email": "neha@alpha.test",
+        "role_key": "front_desk",
+        "display_name": "  Neha Joshi ",
+        "phone": "98765 43210"
+    });
+    let (status, created) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/staff/invitations",
+            Some(&owner),
+            Some(invite),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    let (phone,): (Option<String>,) = sqlx::query_as(
+        "select phone_e164 from aarogyam.invitations where email = 'neha@alpha.test'",
+    )
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(phone.as_deref(), Some("+919876543210"));
+    let (_, staff) = app
+        .send(Method::GET, ALPHA, "/api/v1/staff", Some(&owner), None)
+        .await;
+    assert_eq!(staff["invitations"][0]["display_name"], "Neha Joshi");
+
+    // She joins without typing a name: the clinic's name for her is used.
+    let neha = app
+        .tokens
+        .mint_with_email(uuid::Uuid::now_v7(), Some("neha@alpha.test"))
+        .unwrap();
+    let token = created["invite_token"].as_str().unwrap();
+    let (status, _) = app
+        .send(
+            Method::POST,
+            "app.localtest.me",
+            "/api/v1/invitations/accept",
+            Some(&neha),
+            Some(json!({ "token": token })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, staff) = app
+        .send(Method::GET, ALPHA, "/api/v1/staff", Some(&owner), None)
+        .await;
+    assert!(
+        staff["members"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|member| member["display_name"] == "Neha Joshi"),
+        "{staff}"
+    );
     app.finish().await;
 }

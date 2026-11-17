@@ -230,6 +230,7 @@ export type Member = z.output<typeof member>;
 export const pendingInvitation = z.object({
   id: invitationId,
   email: optionalText,
+  display_name: optionalText,
   role_key: z.string(),
   created_at: timestamp,
   expires_at: timestamp,

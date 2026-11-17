@@ -453,6 +453,8 @@ pub(crate) async fn invite(
         aarogyam_app::staff::InviteStaff {
             email: body.email,
             role_key: body.role_key,
+            display_name: None,
+            phone: None,
         },
         request.request_id,
         OffsetDateTime::now_utc(),

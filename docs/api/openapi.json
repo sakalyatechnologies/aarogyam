@@ -29403,9 +29403,23 @@
           "role_key"
         ],
         "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name, 1 to 200 characters; their display name when they join without typing one."
+          },
           "email": {
             "type": "string",
             "description": "Their email; they sign in with it to accept."
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their mobile number, such as `+919876543210` (10 digits are taken as Indian)."
           },
           "role_key": {
             "type": "string",
@@ -33251,6 +33265,13 @@
           "created_at": {
             "type": "string",
             "description": "When it was sent (RFC 3339)."
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name the clinic gave them, when it gave one."
           },
           "email": {
             "type": [

@@ -313,6 +313,7 @@ pub async fn invite(
     now: OffsetDateTime,
 ) -> Result<ConsoleInvited, AppError> {
     let email = Email::parse(&input.email).map_err(|error| AppError::invalid("email", error))?;
+    let details = input.details()?;
     let role_key = input.role_key.trim();
     if role_key.is_empty() {
         return Err(AppError::invalid("role_key", "is required"));
@@ -358,6 +359,7 @@ pub async fn invite(
         &scope,
         staff.user_id.uuid(),
         email,
+        &details,
         role_key.to_owned(),
         now,
     )

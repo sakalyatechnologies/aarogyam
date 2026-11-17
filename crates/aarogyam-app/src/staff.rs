@@ -9,6 +9,7 @@ use aarogyam_domain::patient::Email;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::staff::{MemberState, StaffRefusal, check_change, check_invite};
 use sakalya_db::Db;
+use sakalya_types::{CallingCode, PhoneE164};
 use serde_json::json;
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
@@ -89,6 +90,44 @@ pub struct InviteStaff {
     pub email: String,
     /// The role they will get.
     pub role_key: String,
+    /// Their name, which becomes their display name when they join; 1 to 200 characters.
+    pub display_name: Option<String>,
+    /// Their mobile number; a 10-digit number is taken as Indian.
+    pub phone: Option<String>,
+}
+
+/// The checked name and phone of an invitee.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct InviteeDetails {
+    display_name: Option<String>,
+    phone: Option<PhoneE164>,
+}
+
+impl InviteStaff {
+    /// Checks the optional name and phone.
+    pub(crate) fn details(&self) -> Result<InviteeDetails, AppError> {
+        let display_name = match self.display_name.as_deref().map(str::trim) {
+            None | Some("") => None,
+            Some(name) if name.chars().count() > 200 => {
+                return Err(AppError::invalid(
+                    "display_name",
+                    "is longer than 200 characters",
+                ));
+            }
+            Some(name) => Some(name.to_owned()),
+        };
+        let phone = match self.phone.as_deref().map(str::trim) {
+            None | Some("") => None,
+            Some(phone) => Some(
+                PhoneE164::parse_with_default(phone, CallingCode::INDIA)
+                    .map_err(|_| AppError::invalid("phone", "is not a phone number"))?,
+            ),
+        };
+        Ok(InviteeDetails {
+            display_name,
+            phone,
+        })
+    }
 }
 
 /// An invitation just created. The token is shown once and emailed; only its hash is stored.
@@ -126,6 +165,7 @@ pub async fn invite(
 ) -> Result<Invited, AppError> {
     actor.require(Permission::StaffManage)?;
     let email = Email::parse(&input.email).map_err(|error| AppError::invalid("email", error))?;
+    let details = input.details()?;
     let role_key = input.role_key.trim().to_owned();
     check_invite(&actor.role_key, &role_key)?;
     let scope = staff_scope(actor, request_id);
@@ -144,7 +184,16 @@ pub async fn invite(
         }
         accounts.ensure_user(&email).await?;
     }
-    invite_in_scope(db, &scope, actor.user_id.uuid(), email, role_key, now).await
+    invite_in_scope(
+        db,
+        &scope,
+        actor.user_id.uuid(),
+        email,
+        &details,
+        role_key,
+        now,
+    )
+    .await
 }
 
 /// Creates an invitation and queues its email in one transaction in `scope`'s clinic. The
@@ -154,6 +203,7 @@ pub(crate) async fn invite_in_scope(
     scope: &sakalya_db::Scope,
     invited_by: Uuid,
     email: Email,
+    details: &InviteeDetails,
     role_key: String,
     now: OffsetDateTime,
 ) -> Result<Invited, AppError> {
@@ -175,6 +225,8 @@ pub(crate) async fn invite_in_scope(
             &dal::NewInvitation {
                 id: id.uuid(),
                 email: email.as_str(),
+                display_name: details.display_name.as_deref(),
+                phone_e164: details.phone.as_ref().map(PhoneE164::as_e164),
                 role_id,
                 invited_by,
                 token_hash: &token_hash,

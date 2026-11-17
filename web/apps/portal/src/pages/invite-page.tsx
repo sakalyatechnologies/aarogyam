@@ -42,7 +42,12 @@ export function InvitePage() {
         auth.kind === "dev" ? (
           <JoinAsNewPerson auth={auth} />
         ) : (
-          <SignInPanel auth={auth} showSteps={false} />
+          <>
+            <p className="rounded-xl bg-info-soft px-4 py-3 text-sm text-info-text">
+              First time here? Choose <b>Email me a code</b>. You don't need a password; you can set one after you join.
+            </p>
+            <SignInPanel auth={auth} showSteps={false} />
+          </>
         )
       ) : (
         <Accept token={token} defaultName={state.user.displayName ?? ""} />

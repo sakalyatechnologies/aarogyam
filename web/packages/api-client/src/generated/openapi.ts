@@ -10236,8 +10236,12 @@ export interface components {
         };
         /** @description Someone to invite. */
         NewInvitation: {
+            /** @description Their name, 1 to 200 characters; their display name when they join without typing one. */
+            display_name?: string | null;
             /** @description Their email; they sign in with it to accept. */
             email: string;
+            /** @description Their mobile number, such as `+919876543210` (10 digits are taken as Indian). */
+            phone?: string | null;
             /** @description The role they will get, such as `doctor`. */
             role_key: string;
         };
@@ -11771,6 +11775,8 @@ export interface components {
         PendingInvitation: {
             /** @description When it was sent (RFC 3339). */
             created_at: string;
+            /** @description The name the clinic gave them, when it gave one. */
+            display_name?: string | null;
             /** @description Who was invited. */
             email?: string | null;
             /** @description When it expires (RFC 3339). */

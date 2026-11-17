@@ -93,6 +93,10 @@ pub struct PendingInvitation {
     pub id: Uuid,
     /// Who was invited.
     pub email: Option<String>,
+    /// The name the clinic gave them, when it gave one.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     /// The role they will get.
     pub role_key: String,
     /// When it was sent (RFC 3339).
@@ -141,6 +145,7 @@ pub(crate) async fn list(
             .map(|row| PendingInvitation {
                 id: row.id,
                 email: row.email,
+                display_name: row.display_name,
                 role_key: row.role_key,
                 created_at: rfc3339(row.created_at),
                 expires_at: rfc3339(row.expires_at),
@@ -156,6 +161,12 @@ pub struct NewInvitation {
     pub email: String,
     /// The role they will get, such as `doctor`.
     pub role_key: String,
+    /// Their name, 1 to 200 characters; their display name when they join without typing one.
+    #[serde(default)]
+    pub display_name: Option<String>,
+    /// Their mobile number, such as `+919876543210` (10 digits are taken as Indian).
+    #[serde(default)]
+    pub phone: Option<String>,
 }
 
 /// An invitation just sent. `invite_token` is shown once; only its hash is stored.
@@ -206,6 +217,8 @@ pub(crate) async fn invite(
         InviteStaff {
             email: body.email,
             role_key: body.role_key,
+            display_name: body.display_name,
+            phone: body.phone,
         },
         OffsetDateTime::now_utc(),
     )

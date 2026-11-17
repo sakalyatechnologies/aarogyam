@@ -4,6 +4,7 @@ import { unwrap, type ApiClient, type DashboardLayout, type DashboardLayoutView,
 
 import { useClinic } from "../../../clinic.js";
 import { REFERENCE, SCHEDULE } from "../../../lib/cache-policy.js";
+import { QUEUE_POLL_MS } from "../../../queries.js";
 import { adoptTemplates } from "./layout-model.js";
 
 /** A clinic day's board data. `date` is `YYYY-MM-DD`; left out it is the current day, and refreshes by itself. */
@@ -14,7 +15,8 @@ export function useDayToday(date: string | undefined) {
     queryKey: ["today", access.org_id, "day", date ?? "now"],
     queryFn: ({ signal }) => unwrap(api.getToday(date === undefined ? { signal } : { signal, date })),
     ...SCHEDULE,
-    refetchInterval: date === undefined ? 60_000 : false,
+    // As often as the queue board, so the doctor sees a check-in at the desk without reloading.
+    refetchInterval: date === undefined ? QUEUE_POLL_MS : false,
     placeholderData: keepPreviousData,
   });
 }

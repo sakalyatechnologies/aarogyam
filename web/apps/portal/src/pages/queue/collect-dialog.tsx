@@ -2,7 +2,8 @@
  * Collect at the front desk or from the bell: the bill's summary (`GET /invoices/{id}/collect-summary`, open to anyone who
  * collects payments, with or without billing access), the method, and for UPI the QR from the summary's link. Recording is
  * one `POST /payments` with an idempotency key made once per attempt, so a retry after a dropped connection never charges
- * twice; a draft bill is issued by the payment itself. From the queue, "Mark done" then closes the token.
+ * twice; a draft bill is issued by the payment itself. Paid in full on its visit's bill, the server finishes the token;
+ * otherwise "Mark done" closes it from the queue.
  *
  * The bill is named by the bell's row, or found from the token: through the patient's open bills for someone who may read
  * billing, otherwise through the token's "collect payment" notice.
@@ -19,6 +20,7 @@ import { QrCode } from "../../components/qr-code.js";
 import { useRefreshVisitData } from "../../lib/visit-refresh.js";
 import { useNotifications } from "../../lib/notifications-query.js";
 import { useInvoices, useRecordPayment } from "../billing/queries.js";
+import { useQueue } from "../../queries.js";
 
 const METHODS = [
   { value: "cash", label: "Cash" },
@@ -84,6 +86,10 @@ function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; o
   const { api, access, can } = useClinic();
   const refresh = useRefreshVisitData();
   const token = target.token;
+  // The token as the queue has it now: a payment in full on its visit's bill finishes it on the server.
+  const queue = useQueue(undefined, { enabled: token !== undefined });
+  const live = token === undefined ? undefined : queue.data?.items.find((t) => t.id === token.id);
+  const tokenOpen = live === undefined || (live.status !== "done" && live.status !== "left");
   const bill = useBillToCollect(target);
   const [method, setMethod] = useState<Method>("cash");
   const [error, setError] = useState<string | undefined>(undefined);
@@ -186,7 +192,8 @@ function CollectBody({ target, onMarkDone, onClose }: { target: CollectTarget; o
             <span>{paid < balance ? "Part payment recorded" : "Paid in full"}</span>
             <b>{formatRupees(paid)}</b>
           </p>
-          {token !== undefined && onMarkDone !== undefined ? (
+          {/* Once the server has finished the token (paid in full on its visit's bill) there is nothing left to mark. */}
+          {token !== undefined && onMarkDone !== undefined && tokenOpen ? (
             <Button
               onClick={() => {
                 onMarkDone(token);

@@ -8073,6 +8073,24 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               bill.issued_at = now.toISOString();
             }
             notices.invoiceSettled(noticeContext(caller), bill);
+            // As the API: a bill paid in full finishes its visit's token (ready_to_bill -> done) and completes the booking.
+            const visit = bill.encounter_id == null ? undefined : state.visits.find((v) => v.id === bill.encounter_id && v.clinic_id === bill.clinic_id);
+            const token =
+              visit === undefined || invoiceMoney(bill, state).balance_paise > 0
+                ? undefined
+                : state.queueTokens.find(
+                    (t) => t.clinic_id === bill.clinic_id && t.status === "ready_to_bill" && (t.id === visit.queue_token_id || (t.appointment_id != null && t.appointment_id === visit.appointment_id)),
+                  );
+            if (token !== undefined) {
+              token.status = "done";
+              token.done_at = now.toISOString();
+              notices.tokenMoved(noticeContext(caller), token);
+              const appt = token.appointment_id == null ? undefined : state.appointments.find((x) => x.id === token.appointment_id);
+              if (appt !== undefined && appt.status !== "completed") {
+                appt.status = "completed";
+                appt.completed_at = now.toISOString();
+              }
+            }
           }
           return reply(wirePayment(paymentRecord, state) satisfies C.Payment);
         }),

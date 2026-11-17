@@ -237,7 +237,42 @@ describe("Front desk (New look)", () => {
     expect(paid[0]?.allocations[0]?.invoice_id).toBe(issued.value.id);
     expect(paid[0]?.key).toMatch(/^[0-9a-f-]{36}$/);
 
+    // A bill not made from the token's visit: the payment leaves the token to the desk.
     await user.click(within(dialog).getByRole("button", { name: "Mark done" }));
+    await waitFor(() => {
+      expect(columnOf(waiting.patient.full_name)).toMatch(/^Done/);
+    });
+  });
+
+  it("Collect in full on the visit's own bill finishes the token by itself: no Mark done", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi();
+    const client = asha(backend);
+    const waiting = (await tokens(backend)).find((t) => t.status === "waiting");
+    if (waiting === undefined) throw new Error("expected a waiting token");
+    const started = await client.startVisitFromQueue(waiting.id);
+    if (!started.ok) throw new Error("expected a visit");
+    const draft = await client.createInvoice({ patient_id: waiting.patient.id, encounter_id: started.value.visit.id, items: [{ description: "Consultation", quantity: 1, unit_price_paise: 50000 }] });
+    if (!draft.ok) throw new Error("expected a draft bill");
+    if (!(await client.issueInvoice(draft.value.id)).ok) throw new Error("expected an issued bill");
+    await client.setQueueStatus(waiting.id, { status: "ready_to_bill" });
+
+    renderPortal("/queue", { as: PEOPLE.asha, backend });
+    await screen.findByRole("heading", { name: "Front desk" });
+    await waitFor(() => {
+      expect(columnOf(waiting.patient.full_name)).toMatch(/^Ready to bill/);
+    });
+    await user.click(within(cardOf(waiting.patient.full_name)).getByRole("button", { name: "Collect" }));
+    const dialog = await screen.findByRole("dialog", { name: "Collect payment" });
+    await user.click(await within(dialog).findByRole("button", { name: /^Record/ }));
+    await within(dialog).findByText("Paid in full");
+    // The board behind the dialog has the token done; the dialog offers only Close.
+    await waitFor(() => {
+      expect(within(dialog).queryByRole("button", { name: "Mark done" })).toBeNull();
+    });
+    const close = within(dialog).getAllByRole("button", { name: "Close" }).find((b) => b.textContent === "Close");
+    if (close === undefined) throw new Error("expected the Close button");
+    await user.click(close);
     await waitFor(() => {
       expect(columnOf(waiting.patient.full_name)).toMatch(/^Done/);
     });

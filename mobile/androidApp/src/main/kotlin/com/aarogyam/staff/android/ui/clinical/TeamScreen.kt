@@ -153,7 +153,7 @@ private fun PendingItem(row: PendingInviteRow) {
     val until = row.expires?.date?.display()
     Box(Modifier.clip(RoundedCornerShape(16.dp)).background(SkTheme.colors.card.color)) {
         SkListRow(
-            title = row.email ?: stringResource(R.string.cn_c_team_pending_no_email),
+            title = row.name ?: row.email ?: stringResource(R.string.cn_c_team_pending_no_email),
             subtitle =
                 until?.let {
                     stringResource(
@@ -162,7 +162,7 @@ private fun PendingItem(row: PendingInviteRow) {
                         it,
                     )
                 } ?: row.roleName,
-            leading = { SkAvatar(row.email ?: "?", tone = SkTone.Neutral, size = 38.dp) },
+            leading = { SkAvatar(row.name ?: row.email ?: "?", tone = SkTone.Neutral, size = 38.dp) },
         )
     }
 }

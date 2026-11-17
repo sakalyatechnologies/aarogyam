@@ -51,6 +51,8 @@ data class MemberRow(
 data class PendingInviteRow(
     val id: String,
     val email: String?,
+    /** The name the inviter typed, if any. */
+    val name: String? = null,
     val roleName: String,
     val expires: ClinicMoment?,
 )
@@ -147,6 +149,7 @@ class TeamStateHolder(
                         PendingInviteRow(
                             it.id,
                             it.email,
+                            it.displayName?.trim()?.ifEmpty { null },
                             names[it.roleKey] ?: it.roleKey.replace('_', ' ').replaceFirstChar(Char::uppercase),
                             moment(it.expiresAt, clinic.timeZone),
                         )

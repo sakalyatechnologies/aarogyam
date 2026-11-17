@@ -26,15 +26,24 @@ data class StaffInviteState(
     val roles: List<RoleChoice> = emptyList(),
     val loadingRoles: Boolean = false,
     val email: String = "",
+    /** Optional: becomes their display name when they join without typing one. */
+    val name: String = "",
+    /** Optional mobile number: 10 Indian digits or `+` and the country code. */
+    val phone: String = "",
     val roleKey: String? = null,
     val sending: Boolean = false,
     /** Set once sent: who the invitation went to. */
     val sentTo: String? = null,
     /** The email doesn't look like one; shown under the field once something is typed. */
     val emailInvalid: Boolean = false,
+    /** The phone isn't 10 digits or `+` and 8 to 15 digits; shown once something is typed. */
+    val phoneInvalid: Boolean = false,
     val error: ScreenError? = null,
 ) {
-    val canSend: Boolean get() = allowed && !sending && sentTo == null && roleKey != null && looksLikeEmail(email)
+    val canSend: Boolean
+        get() =
+            allowed && !sending && sentTo == null && roleKey != null && looksLikeEmail(email) &&
+                (phone.isEmpty() || looksLikePhone(phone))
 }
 
 /**
@@ -84,6 +93,14 @@ class InviteStaffStateHolder(
             it.copy(email = email, emailInvalid = email.isNotEmpty() && !looksLikeEmail(email), error = null)
         }
 
+    fun setName(text: String) = mutableState.update { it.copy(name = text.take(MAX_NAME), error = null) }
+
+    fun setPhone(text: String) =
+        mutableState.update {
+            val phone = text.filter { c -> c.isDigit() || c == '+' }.take(MAX_PHONE)
+            it.copy(phone = phone, phoneInvalid = phone.isNotEmpty() && !looksLikePhone(phone), error = null)
+        }
+
     fun chooseRole(key: String) = mutableState.update { it.copy(roleKey = key, error = null) }
 
     fun send() {
@@ -92,7 +109,14 @@ class InviteStaffStateHolder(
         if (!s.canSend) return
         mutableState.update { it.copy(sending = true, error = null) }
         scope.launch {
-            when (val answer = clinic.api.inviteStaff(NewInvitation(email = s.email, roleKey = role))) {
+            val body =
+                NewInvitation(
+                    email = s.email,
+                    roleKey = role,
+                    displayName = s.name.trim().ifEmpty { null },
+                    phone = s.phone.ifEmpty { null },
+                )
+            when (val answer = clinic.api.inviteStaff(body)) {
                 is Outcome.Success -> {
                     log.info("invite.sent") { code("role", role) }
                     mutableState.update { it.copy(sending = false, sentTo = s.email) }
@@ -108,15 +132,33 @@ class InviteStaffStateHolder(
     }
 
     /** Clears the sheet for the next person, keeping the role. */
-    fun another() = mutableState.update { it.copy(email = "", sentTo = null, emailInvalid = false, error = null) }
+    fun another() =
+        mutableState.update {
+            it.copy(
+                email = "",
+                name = "",
+                phone = "",
+                sentTo = null,
+                emailInvalid = false,
+                phoneInvalid = false,
+                error = null,
+            )
+        }
 
     private companion object {
         const val STAFF_MANAGE = "staff.manage"
         const val OWNER = "owner"
         const val MAX_EMAIL = 254
+        const val MAX_NAME = 200
+        const val MAX_PHONE = 16
     }
 }
 
 private val EMAIL = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 
 internal fun looksLikeEmail(text: String): Boolean = EMAIL.matches(text)
+
+private val PHONE = Regex("^(\\d{10}|\\+\\d{8,15})$")
+
+/** What the server takes: 10 digits (read as Indian) or E.164. */
+internal fun looksLikePhone(text: String): Boolean = PHONE.matches(text)

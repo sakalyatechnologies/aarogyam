@@ -117,6 +117,9 @@
     <string name="cn_c_team_invite_hint">त्यांना साइन-इन कोडसह ईमेल मिळेल. याच पत्त्याने साइन इन केल्यावर ते सामील होतील.</string>
     <string name="cn_c_team_invite_email">ईमेल</string>
     <string name="cn_c_team_invite_email_invalid">पूर्ण ईमेल पत्ता लिहा</string>
+    <string name="cn_c_team_invite_name">नाव (ऐच्छिक)</string>
+    <string name="cn_c_team_invite_phone">मोबाईल (ऐच्छिक)</string>
+    <string name="cn_c_team_invite_phone_invalid">10 अंक लिहा, किंवा + आणि देशाचा कोड</string>
     <string name="cn_c_team_invite_role">भूमिका</string>
     <string name="cn_c_team_invite_send">आमंत्रण पाठवा</string>
     <string name="cn_c_team_invite_sent">%1$s यांना आमंत्रण पाठवले</string>

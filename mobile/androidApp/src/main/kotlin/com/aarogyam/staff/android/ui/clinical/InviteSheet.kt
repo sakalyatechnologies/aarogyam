@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -73,7 +74,27 @@ internal fun InviteSheet(
             Modifier.fillMaxWidth(),
             supportingText = if (state.emailInvalid) stringResource(R.string.cn_c_team_invite_email_invalid) else null,
             isError = state.emailInvalid,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+        )
+        SkTextField(
+            state.name,
+            holder::setName,
+            stringResource(R.string.cn_c_team_invite_name),
+            Modifier.fillMaxWidth(),
+            keyboardOptions =
+                KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Next,
+                ),
+        )
+        SkTextField(
+            state.phone,
+            holder::setPhone,
+            stringResource(R.string.cn_c_team_invite_phone),
+            Modifier.fillMaxWidth(),
+            supportingText = if (state.phoneInvalid) stringResource(R.string.cn_c_team_invite_phone_invalid) else null,
+            isError = state.phoneInvalid,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
         )
         Text(
             stringResource(R.string.cn_c_team_invite_role),

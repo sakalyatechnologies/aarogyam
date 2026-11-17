@@ -78,9 +78,9 @@ struct TeamPage: View {
                 .padding(.top, SkSpacing.l).padding(.bottom, SkSpacing.xs)
             ForEach(Array(pending.enumerated()), id: \.element.id) { index, row in
                 HStack(spacing: 10) {
-                    SkAvatar(row.email ?? "?", tone: .neutral, size: 38, shape: .rounded)
+                    SkAvatar(row.name ?? row.email ?? "?", tone: .neutral, size: 38, shape: .rounded)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(row.email ?? CL("c.team.pending_no_email")).font(.system(size: 13.5, weight: .bold)).foregroundStyle(r.onSurface.color)
+                        Text(row.name ?? row.email ?? CL("c.team.pending_no_email")).font(.system(size: 13.5, weight: .bold)).foregroundStyle(r.onSurface.color)
                         Text(pendingSubtitle(row)).font(.system(size: 11.5)).foregroundStyle(r.onSurfaceVariant.color)
                     }
                     Spacer(minLength: 0)

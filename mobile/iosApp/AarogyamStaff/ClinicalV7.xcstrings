@@ -3084,6 +3084,75 @@
         }
       }
     },
+    "c.team.invite_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name (optional)"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नाम (वैकल्पिक)"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नाव (ऐच्छिक)"
+          }
+        }
+      }
+    },
+    "c.team.invite_phone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mobile (optional)"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मोबाइल (वैकल्पिक)"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मोबाईल (ऐच्छिक)"
+          }
+        }
+      }
+    },
+    "c.team.invite_phone_invalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter 10 digits, or + and the country code"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 अंक लिखें, या + और देश का कोड"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 अंक लिहा, किंवा + आणि देशाचा कोड"
+          }
+        }
+      }
+    },
     "c.team.invite_role": {
       "extractionState": "manual",
       "localizations": {

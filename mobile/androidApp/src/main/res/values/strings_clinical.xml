@@ -117,6 +117,9 @@
     <string name="cn_c_team_invite_hint">They get an email with a sign-in code, and join when they sign in with this address.</string>
     <string name="cn_c_team_invite_email">Email</string>
     <string name="cn_c_team_invite_email_invalid">Enter a full email address</string>
+    <string name="cn_c_team_invite_name">Name (optional)</string>
+    <string name="cn_c_team_invite_phone">Mobile (optional)</string>
+    <string name="cn_c_team_invite_phone_invalid">Enter 10 digits, or + and the country code</string>
     <string name="cn_c_team_invite_role">Role</string>
     <string name="cn_c_team_invite_send">Send invitation</string>
     <string name="cn_c_team_invite_sent">Invitation sent to %1$s</string>

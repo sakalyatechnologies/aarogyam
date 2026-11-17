@@ -48,15 +48,22 @@ class InviteStaffTest {
             assertFalse(holder.state.value.canSend)
             holder.setEmail(" new@example.test ")
             holder.chooseRole("front_desk")
+            holder.setPhone("98765")
+            assertTrue(holder.state.value.phoneInvalid)
+            assertFalse(holder.state.value.canSend, "a bad phone blocks sending")
+            holder.setPhone("+91 98765 43210")
+            holder.setName("  Farah Shaikh  ")
             assertTrue(holder.state.value.canSend)
             holder.send()
             assertEquals("new@example.test", holder.state.first { it.sentTo != null }.sentTo)
             val body =
                 (backend.requests.last { it.url.encodedPath == "/api/v1/staff/invitations" }.body as TextContent).text
             assertTrue(""""email":"new@example.test"""" in body && """"role_key":"front_desk"""" in body, body)
+            assertTrue(""""display_name":"Farah Shaikh"""" in body && """"phone":"+919876543210"""" in body, body)
             assertFalse(holder.state.value.canSend, "a sent sheet cannot send again")
             holder.another()
             assertEquals("", holder.state.value.email)
+            assertEquals("", holder.state.value.name + holder.state.value.phone)
             assertEquals("front_desk", holder.state.value.roleKey)
         }
 
@@ -76,6 +83,10 @@ class InviteStaffTest {
             holder.chooseRole("doctor")
             holder.send()
             val failed = holder.state.first { it.error != null }
+            val sent =
+                (backend.requests.last { it.url.encodedPath == "/api/v1/staff/invitations" }.body as TextContent)
+                    .text
+            assertFalse("display_name" in sent || "phone" in sent, sent)
             assertEquals(ScreenError.Server, failed.error)
             assertTrue(failed.canSend)
         }
@@ -100,7 +111,7 @@ class InviteStaffTest {
                     json(
                         """{"members":[{"id":"m1","user_id":"u1","display_name":"Dr. Rao","role_key":"doctor",
                            "role_name":"Dentist","status":"active","branches":[]}],
-                           "invitations":[{"id":"i1","email":"a@example.test","role_key":"doctor",
+                           "invitations":[{"id":"i1","email":"a@example.test","role_key":"doctor","display_name":" Dr. Iyer ",
                            "created_at":"2026-11-17T04:00:00Z","expires_at":"2026-11-24T04:00:00Z"},
                            {"id":"i2","role_key":"front_desk","created_at":"2026-11-17T04:00:00Z",
                            "expires_at":"2026-11-24T04:00:00Z"}]}""",
@@ -113,5 +124,6 @@ class InviteStaffTest {
             val pending = team.pending.value
             assertEquals(listOf("Dentist", "Front desk"), pending.map { it.roleName })
             assertEquals(listOf("a@example.test", null), pending.map { it.email })
+            assertEquals(listOf("Dr. Iyer", null), pending.map { it.name })
         }
 }

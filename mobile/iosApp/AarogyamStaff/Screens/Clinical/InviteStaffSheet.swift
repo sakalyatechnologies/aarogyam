@@ -37,6 +37,21 @@ struct InviteStaffSheet: View {
             contentType: .emailAddress,
             keyboard: .emailAddress
         )
+        SkField(
+            CL("c.team.invite_name"),
+            text: Binding(get: { state.name }, set: { holder.setName(text: $0) }),
+            error: nil,
+            contentType: .name,
+            keyboard: .default
+        )
+        SkField(
+            CL("c.team.invite_phone"),
+            text: Binding(get: { state.phone }, set: { holder.setPhone(text: $0) }),
+            placeholder: "98765 43210",
+            error: state.phoneInvalid ? CL("c.team.invite_phone_invalid") : nil,
+            contentType: .telephoneNumber,
+            keyboard: .phonePad
+        )
         Text(CL("c.team.invite_role")).v7Text(12.5, .bold).foregroundStyle(r.onSurfaceVariant.color)
         FlowLayout(spacing: 8) {
             ForEach(state.roles, id: \.key) { role in

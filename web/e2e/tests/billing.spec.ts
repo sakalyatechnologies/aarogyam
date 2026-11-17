@@ -54,9 +54,15 @@ test("a bill is issued, paid in cash, receipted, and voided after its payment", 
   await expect(voidDialog.getByRole("alert")).toHaveText("void the payments towards this bill first");
   await button(voidDialog, "Cancel").click();
 
-  // The portal has no screen to void a payment yet (docs/e2e.md), so the owner does it through the API.
-  await clinicApi.call("POST", `/api/v1/payments/${paymentId}/void`, { data: { reason: "Refunded in cash" } }, tenant.owner);
-  await page.reload();
+  // The desk voids the payment on the bill's receipt, with a reason; it stays listed as Void.
+  await button(page, `Void receipt ${receiptNumber}`).click();
+  const voidPayment = dialog(page, `Void receipt ${receiptNumber}`);
+  await field(voidPayment, "Reason").fill("Refunded in cash");
+  const paymentVoided = waitForApi(page, { method: "POST", path: `/api/v1/payments/${paymentId}/void` });
+  await button(voidPayment, "Void payment").click();
+  await paymentVoided;
+  await expect(page.getByText("Refunded in cash")).toBeVisible();
+  await expect(button(page, "Record payment")).toBeVisible();
   await button(page, "Void").click();
   await field(voidDialog, "Reason").fill("Billed to the wrong patient");
   const voided = waitForApi(page, { method: "POST", path: `/api/v1/invoices/${invoiceId}/void` });

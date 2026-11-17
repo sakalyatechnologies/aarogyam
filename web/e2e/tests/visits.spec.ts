@@ -29,17 +29,21 @@ test("a booked patient is checked in at the front desk and the doctor starts the
   await expect(doctor.getByRole("timer", { name: "Visit time" })).toBeVisible();
 });
 
-// App bug (docs/e2e.md, "Product bugs the journeys found"): GET /api/v1/queue sends "welcome_status": null for a
-// token with no welcome message, and the api-client's queueToken schema (autoMessageStatus.exactOptional())
-// rejects null, so the board shows "Couldn't load the queue" as soon as one token exists.
-test.fixme("the queue board lists the checked-in patient and seats them", async ({ tenant, pageAs, clinicApi, unique }) => {
+test("the queue board lists the checked-in patient and seats them in the chair picked", async ({ tenant, pageAs, clinicApi, unique }) => {
   const patient = await clinicApi.registerPatient(unique("Patient"));
   await clinicApi.book(patient.id, new Date(Date.now() + 15 * 60_000));
   const desk = await pageAs(tenant.frontDesk, { path: "/queue" });
   await checkIn(desk, patient.fullName);
+  await desk.keyboard.press("Escape");
   await expect(dialog(desk, `${patient.fullName} checked in`)).toBeHidden();
   const card = desk.getByRole("listitem", { name: new RegExp(patient.fullName) });
   await button(card, "To chair").click();
+  const seated = waitForApi(desk, { method: "POST", path: /\/api\/v1\/queue\/[^/]+\/status$/ });
+  await button(dialog(desk, "Which chair?").getByRole("group", { name: "Chairs" }), /Chair 2/).click();
+  await seated;
+  const column = desk.locator("section").filter({ has: card });
+  await expect(column.getByRole("heading", { level: 2 })).toHaveText(/^In (the )?chair/i);
+  await expect(card).toContainText("Chair 2");
 });
 
 test("a signed note takes an addendum and is never edited", async ({ tenant, pageAs, clinicApi, unique }) => {

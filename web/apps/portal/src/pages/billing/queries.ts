@@ -145,14 +145,16 @@ export function useRecordPayment() {
   });
 }
 
-export function useVoidPayment(id: PaymentId) {
+export function useVoidPayment() {
   const { api, access } = useClinic();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (reason: string) => unwrap(api.voidPayment(id, { reason })),
+    mutationFn: ({ id, reason }: { id: PaymentId; reason: string }) => unwrap(api.voidPayment(id, { reason })),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["payments", access.org_id] });
-      void queryClient.invalidateQueries({ queryKey: ["invoices", access.org_id] });
+      // The bills it paid show their balance again, and the day's takings drop.
+      for (const key of ["payments", "invoices", "invoice", "collections", "pending"]) {
+        void queryClient.invalidateQueries({ queryKey: [key, access.org_id] });
+      }
     },
   });
 }

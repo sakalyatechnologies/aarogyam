@@ -36,8 +36,8 @@ scripts/e2e-stack.sh down
 
 - The payment dialog's stale amount (above).
 - The printed prescription's QR code opened the API's JSON (`/api/v1/verify/prescriptions/…`) instead of the portal's "Genuine prescription" page; `verify_path` now names the page.
-- **The queue board never loads once a token exists (open).** `GET /api/v1/queue` sends `"welcome_status": null` (and `thanks_status`) for a token with no welcome message; the api-client's `queueToken` schema (`autoMessageStatus.exactOptional()` in `web/packages/api-client/src/schemas.ts`) rejects null, so the Front desk page shows "Couldn't load the queue". To reproduce: book a patient for later today, open `/queue`, Add to queue, Check in a booking, Check in. The board step in `visits.spec.ts` is `test.fixme` until the schema accepts null.
-- The portal has no screen to void a payment, though the API and a `useVoidPayment` hook exist; a paid bill can only be voided after the payment is voided through the API.
+- The queue board never loaded once a token existed: the api-client rejected `"welcome_status": null`. Fixed (the schema takes null); `visits.spec.ts` now checks a patient in at the board and seats them in a chosen chair.
+- The portal had no screen to void a payment. A bill's Receipts now have "Void" (billing.write, with a reason); the receipt stays listed as Void with its reason and the bill owes the amount again.
 
 ## The new look
 

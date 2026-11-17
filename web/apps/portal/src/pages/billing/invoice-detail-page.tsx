@@ -2,12 +2,12 @@ import { Printer } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
-import { apiErrorOf, randomUuid, invoiceId as invoiceIdSchema, type Invoice, type InvoiceLineInput, type PaymentMethod } from "@aarogyam/api-client";
+import { apiErrorOf, randomUuid, invoiceId as invoiceIdSchema, type Invoice, type InvoiceLineInput, type Payment, type PaymentMethod } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, Card, DataTable, Dialog, Field, Link, Pill, Select, Skeleton, TextArea, TextInput, useToast, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
-import { useEditInvoice, useInvoice, useIssueInvoice, usePayments, usePriceItems, useRecordPayment, useVoidInvoice } from "./queries.js";
+import { useEditInvoice, useInvoice, useIssueInvoice, usePayments, usePriceItems, useRecordPayment, useVoidInvoice, useVoidPayment } from "./queries.js";
 import { PageHeader } from "../../components/mk/index.js";
 import { INVOICE_STATUS_TONE, invoiceStatus } from "../../lib/invoice-status.js";
 
@@ -508,7 +508,76 @@ function PaymentDialog({ open, invoice, onClose }: { open: boolean; invoice: Inv
   );
 }
 
+/** Voids one receipt, with a reason: it stays on record marked Void, and the bills it paid owe their balance again. */
+function VoidPaymentDialog({ payment, onClose }: { payment: Payment | undefined; onClose: () => void }) {
+  const toast = useToast();
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | undefined>(undefined);
+  const voiding = useVoidPayment();
+  const close = () => {
+    setReason("");
+    setError(undefined);
+    onClose();
+  };
+  return (
+    <Dialog
+      open={payment !== undefined}
+      onOpenChange={(next) => {
+        if (!next) close();
+      }}
+      title={`Void receipt ${payment?.number ?? ""}`}
+      description={payment === undefined ? undefined : `${formatRupees(payment.amount_paise)} stays on record, marked Void; the bill owes it again. Record the right payment after.`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            variant="secondary"
+            className="border-danger text-danger-text hover:bg-danger-soft"
+            disabled={voiding.isPending || reason.trim().length < 3}
+            onClick={() => {
+              if (payment === undefined) return;
+              setError(undefined);
+              voiding.mutate({ id: payment.id, reason: reason.trim() }, {
+                onSuccess: (voided) => {
+                  toast.show({ title: `Receipt ${voided.number} voided`, tone: "success" });
+                  close();
+                },
+                onError: (thrown) => {
+                  setError(apiErrorOf(thrown)?.message ?? "Couldn't void this payment. Please try again.");
+                },
+              });
+            }}
+          >
+            {voiding.isPending ? "Voiding…" : "Void payment"}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field label="Reason" required hint="Say what went wrong, such as the wrong amount or method.">
+          <TextArea
+            rows={3}
+            value={reason}
+            onChange={(event) => {
+              setReason(event.currentTarget.value);
+            }}
+          />
+        </Field>
+        {error === undefined ? null : (
+          <p role="alert" className="text-sm font-medium text-danger-text">
+            {error}
+          </p>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
 function ReceiptsCard({ invoiceId }: { invoiceId: Invoice["id"] }) {
+  const { can } = useClinic();
+  const [voiding, setVoiding] = useState<Payment | undefined>(undefined);
   const payments = usePayments();
   const receipts = (payments.data?.items ?? []).filter((p) => p.allocations.some((a) => a.invoice_id === invoiceId));
   if (receipts.length === 0) {
@@ -527,12 +596,38 @@ function ReceiptsCard({ invoiceId }: { invoiceId: Invoice["id"] }) {
                 {METHODS.find((m) => m.value === payment.method)?.label ?? payment.method} · {formatDateTime(payment.received_at)}
               </span>
             </span>
-            <span className="font-semibold text-text">
-              {payment.status === "void" ? <Pill tone="danger">Void</Pill> : formatRupees(payment.amount_paise)}
+            <span className="flex items-center gap-3 font-semibold text-text">
+              {payment.status === "void" ? (
+                <span className="flex flex-col items-end gap-0.5">
+                  <Pill tone="danger">Void</Pill>
+                  {payment.void_reason == null ? null : <span className="text-xs font-normal text-muted">{payment.void_reason}</span>}
+                </span>
+              ) : (
+                <>
+                  {formatRupees(payment.amount_paise)}
+                  {can("billing.write") ? (
+                    <Button
+                      variant="ghost"
+                      aria-label={`Void receipt ${payment.number}`}
+                      onClick={() => {
+                        setVoiding(payment);
+                      }}
+                    >
+                      Void
+                    </Button>
+                  ) : null}
+                </>
+              )}
             </span>
           </li>
         ))}
       </ul>
+      <VoidPaymentDialog
+        payment={voiding}
+        onClose={() => {
+          setVoiding(undefined);
+        }}
+      />
     </Card>
   );
 }

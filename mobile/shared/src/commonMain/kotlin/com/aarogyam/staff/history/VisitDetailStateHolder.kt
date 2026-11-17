@@ -123,6 +123,8 @@ class VisitDetailStateHolder(
                             b.value?.items.forVisit(visitId),
                             money,
                             clinic.timeZone,
+                            clinic.session.membership.id
+                                .takeIf { CLINICAL_WRITE in clinic.permissions },
                         ),
                     )
                 }

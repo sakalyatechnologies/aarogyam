@@ -72,6 +72,15 @@
     <string name="p9_note_o">Finding</string>
     <string name="p9_note_p">Advice</string>
     <string name="p9_note_s">Complaint</string>
+    <string name="p9_note_correct">Correct note</string>
+    <string name="p9_note_correct_of">Correct note · %1$s</string>
+    <string name="p9_note_corrected">Corrected</string>
+    <string name="p9_note_versions">Earlier version</string>
+    <string name="p9_note_correct_hint">The original stays in the record. The correction is signed in your name.</string>
+    <string name="p9_note_correct_save">Sign correction</string>
+    <string name="p9_note_correct_stale">This note was corrected meanwhile. Close and reopen the visit to see the latest version.</string>
+    <string name="p9_note_versions_title">Earlier versions</string>
+    <string name="p9_note_versions_none">No earlier versions</string>
     <string name="p9_offline">You are offline. Connect and try again.</string>
     <string name="p9_offline_stale">You are offline. This may be out of date.</string>
     <string name="p9_outbox_badge">Saved, will send · %1$d</string>

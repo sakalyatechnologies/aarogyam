@@ -185,6 +185,8 @@ val apiModels =
         "Note",
         "Observation",
         "NoteContent",
+        "NoteCorrection",
+        "NoteVersions",
         "Notification",
         "NotificationList",
         "NotifiedAppointment",

@@ -8,6 +8,7 @@ import com.sakalya.mobile.core.Outcome
 
 internal const val PATIENTS_READ = "patients.read"
 internal const val CLINICAL_READ = "clinical.read"
+internal const val CLINICAL_WRITE = "clinical.write"
 internal const val BILLING_READ = "billing.read"
 
 /**

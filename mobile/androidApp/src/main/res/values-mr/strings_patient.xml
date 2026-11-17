@@ -72,6 +72,15 @@
     <string name="p9_note_o">निष्कर्ष</string>
     <string name="p9_note_p">सल्ला</string>
     <string name="p9_note_s">तक्रार</string>
+    <string name="p9_note_correct">नोंद दुरुस्त करा</string>
+    <string name="p9_note_correct_of">नोंद दुरुस्त करा · %1$s</string>
+    <string name="p9_note_corrected">दुरुस्त केलेली</string>
+    <string name="p9_note_versions">आधीची आवृत्ती</string>
+    <string name="p9_note_correct_hint">मूळ नोंद रेकॉर्डमध्ये राहते. दुरुस्तीवर तुमच्या नावाने सही होते.</string>
+    <string name="p9_note_correct_save">दुरुस्तीवर सही करा</string>
+    <string name="p9_note_correct_stale">दरम्यान ही नोंद दुरुस्त झाली. नवी आवृत्ती पाहण्यासाठी भेट पुन्हा उघडा.</string>
+    <string name="p9_note_versions_title">आधीच्या आवृत्त्या</string>
+    <string name="p9_note_versions_none">आधीची आवृत्ती नाही</string>
     <string name="p9_offline">तुम्ही ऑफलाइन आहात. जोडा आणि पुन्हा प्रयत्न करा.</string>
     <string name="p9_offline_stale">तुम्ही ऑफलाइन आहात. ही माहिती जुनी असू शकते.</string>
     <string name="p9_outbox_badge">Saved, will send · %1$d</string>

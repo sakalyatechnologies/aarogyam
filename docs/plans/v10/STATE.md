@@ -275,7 +275,7 @@ Done:
   5. Optional: retake iOS shot 2 (visit with Rx) cleaner.
 - **The founder's open question:** the "ROCM … icon on the top right".
 
-### 17 Nov: main 8242db1a and after
+### 17 Nov: main 57007ce3 and before
 - **Polish (both apps):** jaw teeth are spaced evenly along the arch for the real box size, so 17/18 and 37/38 no longer overlap. The folded "Waiting for you" line shows the count and a chevron. Android Visit has a status bar scrim.
 - **Correct note (both apps):** on a past visit, "Correct note" (clinical.write) edits the four parts and signs a correction (`POST /notes/{id}/amend`). "Corrected" and "Earlier version" read `GET /notes/{id}/versions`. The rule mirrors the server: signed notes, or my own draft once the visit is closed.
 - **Dictation:** words still being recognised when listening stops or fails become a bullet instead of being dropped (the Android error path used to lose them; iOS already kept them). This matches the web fix in 3f50a98e.
@@ -285,6 +285,7 @@ Done:
   - A stale crash report in `/tmp/android-<user>/emu-crash-*.db` blocks boot on "Showing crashdialog to get consent". `emu-boot.sh` now passes `-crash-report-mode never`.
   - `-memory 2048` starves the system on this image (System UI and launcher "not responding"); boot without it.
   - Other sessions' node jobs still starve adb at times, so take shots when the load is under about 20.
+- **Backend support now used (previews gone):** a real chair board (BK-14: `room_id` on in_chair; shared `chairBoard`, Seat next per chair), chart correction onto another surface (BK-1: `supersedes_id` on the first new entry), and an Idempotency-Key on expense saves (BK-6). Still a preview: expense bill photo (BK-5), the queue no-shows chip (BK-17), the Today month target and sterilisation extras (BK-15/16). Call in on the Today hero isn't wired (the hero is an appointment; doctors use Send in on "Waiting for you").
 - **Gate script:** gradle runs with `--no-watch-fs`, after the file watcher missed new strings and left the resources "up to date".
 
 ### 16 Nov, early: main 1a2f6305

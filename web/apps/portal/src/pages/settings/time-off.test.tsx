@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -42,8 +42,19 @@ async function axeViolations(): Promise<string[]> {
   return result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
 }
 
-function setDay(label: string, value: string) {
-  fireEvent.change(screen.getByLabelText(new RegExp(`^${label}`)), { target: { value } });
+/** Picks `value` (YYYY-MM-DD) in the calendar picker named `label`, turning months until that day shows. */
+async function setDay(user: ReturnType<typeof userEvent.setup>, label: string, value: string) {
+  await user.click(screen.getByRole("button", { name: new RegExp(`^${label}, `) }));
+  for (let turns = 0; turns < 36; turns += 1) {
+    const cell = document.querySelector<HTMLElement>(`[role="gridcell"][data-date="${value}"]`);
+    if (cell !== null) {
+      await user.click(cell);
+      return;
+    }
+    const shown = document.querySelector<HTMLElement>('[role="gridcell"]')?.dataset["date"] ?? value;
+    await user.click(screen.getByRole("button", { name: value < shown ? "Previous month" : "Next month" }));
+  }
+  throw new Error(`couldn't reach ${value} in the ${label} picker`);
 }
 
 describe("Settings: Time off", () => {
@@ -54,8 +65,8 @@ describe("Settings: Time off", () => {
     renderPortal("/settings?tab=time-off", { as: PEOPLE.farah, backend });
     await user.click(await screen.findByRole("button", { name: "Request time off" }));
     const dialog = await screen.findByRole("dialog", { name: "Request time off" });
-    setDay("First day", "2026-10-20");
-    setDay("Last day", "2026-10-21");
+    await setDay(user, "First day", "2026-10-20");
+    await setDay(user, "Last day", "2026-10-21");
     await user.type(within(dialog).getByLabelText(/^Reason/), "Family wedding");
     await user.click(within(dialog).getByRole("button", { name: "Send request" }));
     const mine = await screen.findByRole("list", { name: "My time off" });
@@ -129,8 +140,8 @@ describe("Settings: Time off", () => {
     await user.click(await screen.findByRole("button", { name: "Add time off" }));
     const dialog = await screen.findByRole("dialog", { name: "Add time off" });
     await user.selectOptions(within(dialog).getByLabelText(/^Who/), dev);
-    setDay("First day", DAY);
-    setDay("Last day", DAY);
+    await setDay(user, "First day", DAY);
+    await setDay(user, "Last day", DAY);
     await user.click(within(dialog).getByRole("button", { name: "Add time off" }));
     await waitFor(() => {
       expect(saved).toHaveLength(1);

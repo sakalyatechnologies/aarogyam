@@ -3,7 +3,8 @@ import { useState } from "react";
 
 import { apiErrorOf, type AffectedAppointment, type NewTimeOff, type TimeOff, type TimeOffKind } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatTime } from "@aarogyam/app-kit";
-import { Button, DateInput, Dialog, Field, Pill, Select, Skeleton, Switch, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, Pill, Select, Skeleton, Switch, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { DatePicker } from "../../components/mk/date-picker.js";
 
 import { EmptyState, MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
@@ -431,11 +432,11 @@ function RequestDialog({ manage, timeZone, onOpenChange, onSaved }: { manage: bo
           </Field>
         ) : null}
         <div className="grid grid-cols-2 gap-4">
-          <Field label="First day" required>
-            <DateInput value={first} onValueChange={(value) => { setFirst(value); if (last < value) setLast(value); }} />
+          <Field label="First day" required id="off-first">
+            <DatePicker id="off-first" label="First day" value={first} today={today} onChange={(value) => { setFirst(value); if (last < value) setLast(value); }} />
           </Field>
-          <Field label="Last day" required>
-            <DateInput value={last} min={first} onValueChange={setLast} />
+          <Field label="Last day" required id="off-last">
+            <DatePicker id="off-last" label="Last day" value={last} min={first} today={today} onChange={setLast} />
           </Field>
         </div>
         <Switch label="All day" checked={allDay} onCheckedChange={setAllDay} />

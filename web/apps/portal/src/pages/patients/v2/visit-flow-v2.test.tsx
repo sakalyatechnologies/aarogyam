@@ -214,7 +214,9 @@ describe("Ending the visit and payment", () => {
     expect(await screen.findByRole("button", { name: "Collect payment" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "End visit" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Send for payment" }));
-    await screen.findByRole("dialog", { name: "Visit completed" });
+    const done = await screen.findByRole("dialog", { name: "Visit completed" });
+    // A consultation with nothing else done doesn't list "0 procedures · 0 medicines".
+    expect(done.textContent).not.toMatch(/\b0 (procedures|medicines)/);
     expect(await statusOf()).toBe("ready_to_bill");
   });
 

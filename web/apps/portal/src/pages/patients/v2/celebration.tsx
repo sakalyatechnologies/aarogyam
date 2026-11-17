@@ -98,7 +98,14 @@ export function Celebration({ finished, patient, onClose }: { finished: Finished
         </span>
         <h2>Visit complete</h2>
         <p>
-          {displayName(patient.full_name)} · {finished.procedures} {finished.procedures === 1 ? "procedure" : "procedures"} · {medicines} {medicines === 1 ? "medicine" : "medicines"}
+          {[
+            displayName(patient.full_name),
+            // Only what happened: "0 procedures · 0 medicines" after a consultation reads like something went missing.
+            finished.procedures === 0 ? undefined : `${String(finished.procedures)} ${finished.procedures === 1 ? "procedure" : "procedures"}`,
+            medicines === 0 ? undefined : `${String(medicines)} ${medicines === 1 ? "medicine" : "medicines"}`,
+          ]
+            .filter((part) => part !== undefined)
+            .join(" · ")}
           {follow === null ? "" : ` · follow-up in ${follow.label}`}
         </p>
         <span className="p360-cele-ok" role="status">

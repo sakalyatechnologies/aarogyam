@@ -2969,6 +2969,282 @@
         }
       }
     },
+    "c.team.invite": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आमंत्रित करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आमंत्रित करा"
+          }
+        }
+      }
+    },
+    "c.team.invite_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite to the team"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टीम में आमंत्रित करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टीममध्ये आमंत्रित करा"
+          }
+        }
+      }
+    },
+    "c.team.invite_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "They get an email with a sign-in code, and join when they sign in with this address."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उन्हें साइन-इन कोड वाला ईमेल मिलेगा. इसी पते से साइन इन करते ही वे जुड़ जाएँगे."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "त्यांना साइन-इन कोडसह ईमेल मिळेल. याच पत्त्याने साइन इन केल्यावर ते सामील होतील."
+          }
+        }
+      }
+    },
+    "c.team.invite_email": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ईमेल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ईमेल"
+          }
+        }
+      }
+    },
+    "c.team.invite_email_invalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a full email address"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पूरा ईमेल पता लिखें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पूर्ण ईमेल पत्ता लिहा"
+          }
+        }
+      }
+    },
+    "c.team.invite_role": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Role"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भूमिका"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भूमिका"
+          }
+        }
+      }
+    },
+    "c.team.invite_send": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send invitation"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आमंत्रण भेजें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आमंत्रण पाठवा"
+          }
+        }
+      }
+    },
+    "c.team.invite_sent %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitation sent to %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ को आमंत्रण भेजा गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ यांना आमंत्रण पाठवले"
+          }
+        }
+      }
+    },
+    "c.team.invite_another": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite someone else"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "किसी और को आमंत्रित करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आणखी कोणाला आमंत्रित करा"
+          }
+        }
+      }
+    },
+    "c.team.pending": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invited, not joined yet"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आमंत्रित, अभी जुड़े नहीं"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आमंत्रित, अजून सामील नाहीत"
+          }
+        }
+      }
+    },
+    "c.team.pending_until %@ %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · until %2$@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ तक"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ पर्यंत"
+          }
+        }
+      }
+    },
+    "c.team.pending_no_email": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitation"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आमंत्रण"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आमंत्रण"
+          }
+        }
+      }
+    },
     "c.team.not_allowed.message": {
       "extractionState": "manual",
       "localizations": {

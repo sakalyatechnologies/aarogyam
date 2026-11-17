@@ -68,6 +68,7 @@ fun NavGraphBuilder.clinicalDestinations(
         TeamScreen(
             rememberHolder { graph.team(open, it) },
             canChat = "chat.use" in open.permissions,
+            invite = if ("staff.manage" in open.permissions) ({ graph.inviteStaff(open, it) }) else null,
             onBack = nav::popBackStack,
             onChats = nav::openChats,
             onOpenChat = nav::openChat,

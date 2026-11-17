@@ -19,7 +19,7 @@ enum ClinicalRoutes {
             }
         case .team:
             ScreenHost(make: { graph.team(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
-                TeamPage(holder: holder, state: state, canChat: clinic.permissions.contains("chat.use"), path: path)
+                TeamPage(holder: holder, state: state, canChat: clinic.permissions.contains("chat.use"), graph: graph, clinic: clinic, path: path)
             }
         case .chats:
             ScreenHost(make: { graph.chatList(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in

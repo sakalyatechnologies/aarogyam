@@ -10,6 +10,8 @@ import com.aarogyam.staff.api.readAllNotifications
 import com.aarogyam.staff.api.staff
 import com.aarogyam.staff.api.startConversation
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.patients.ClinicMoment
+import com.aarogyam.staff.patients.moment
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
@@ -43,6 +45,14 @@ data class MemberRow(
     val active: Boolean,
     /** This is the signed-in person. */
     val me: Boolean,
+)
+
+/** An invitation not yet accepted. [roleName] is the clinic's name for the role when a member holds it. */
+data class PendingInviteRow(
+    val id: String,
+    val email: String?,
+    val roleName: String,
+    val expires: ClinicMoment?,
 )
 
 /** One low-stock line. */
@@ -116,6 +126,10 @@ class TeamStateHolder(
     log: Logger = Logger("aarogyam.team"),
 ) : SimpleListHolder<MemberRow>(clinic, scope, STAFF_MANAGE, log, "team.load_failed") {
     private val mutableOpened = MutableStateFlow<String?>(null)
+    private val mutablePending = MutableStateFlow<List<PendingInviteRow>>(emptyList())
+
+    /** Invitations neither accepted nor expired, newest first; loaded with the members. */
+    val pending: StateFlow<List<PendingInviteRow>> = mutablePending.asStateFlow()
 
     /** The direct conversation just opened with [message], for the screen to show. */
     val opened: StateFlow<String?> = mutableOpened.asStateFlow()
@@ -127,6 +141,16 @@ class TeamStateHolder(
     override suspend fun fetch() =
         when (val answer = clinic.api.staff()) {
             is Outcome.Success -> {
+                val names = answer.value.members.associate { it.roleKey to it.roleName }
+                mutablePending.value =
+                    answer.value.invitations.map {
+                        PendingInviteRow(
+                            it.id,
+                            it.email,
+                            names[it.roleKey] ?: it.roleKey.replace('_', ' ').replaceFirstChar(Char::uppercase),
+                            moment(it.expiresAt, clinic.timeZone),
+                        )
+                    }
                 Outcome.Success(
                     answer.value.members.map {
                         MemberRow(

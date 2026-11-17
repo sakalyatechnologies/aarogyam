@@ -69,6 +69,7 @@ import com.aarogyam.staff.team.BadgesStateHolder
 import com.aarogyam.staff.team.ChatListStateHolder
 import com.aarogyam.staff.team.ChatThreadStateHolder
 import com.aarogyam.staff.team.InboxStateHolder
+import com.aarogyam.staff.team.InviteStaffStateHolder
 import com.aarogyam.staff.team.NotificationsStateHolder
 import com.aarogyam.staff.team.StockStateHolder
 import com.aarogyam.staff.team.TeamStateHolder
@@ -440,6 +441,11 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): TeamStateHolder = TeamStateHolder(clinic, scope, logger("aarogyam.team"))
+
+    fun inviteStaff(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): InviteStaffStateHolder = InviteStaffStateHolder(clinic, scope, logger("aarogyam.invite"))
 
     fun stock(
         clinic: ClinicContext,

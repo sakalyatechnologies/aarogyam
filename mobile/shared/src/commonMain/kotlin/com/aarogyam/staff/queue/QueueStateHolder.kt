@@ -9,6 +9,7 @@ import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -117,7 +118,11 @@ class QueueStateHolder(
 
     private fun load() {
         scope.launch {
-            when (val result = clinic.api.queue()) {
+            // No-shows are appointments, not tokens: they come from the day's counts, read alongside.
+            val today = async { (clinic.api.today() as? Outcome.Success)?.value?.counts?.noShows }
+            val queue = clinic.api.queue()
+            val noShows = today.await()
+            when (val result = queue) {
                 is Outcome.Success -> {
                     // A failed action that triggered this reload keeps its message on screen.
                     val actionError = (mutableState.value as? QueueState.Loaded)?.actionError
@@ -128,6 +133,7 @@ class QueueStateHolder(
                             canStartVisit = CLINICAL_WRITE in clinic.permissions,
                             actionError = actionError,
                             chairs = chairs(),
+                            noShows = noShows,
                         )
                 }
 

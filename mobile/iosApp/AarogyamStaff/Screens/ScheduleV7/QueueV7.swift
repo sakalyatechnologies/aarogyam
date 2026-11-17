@@ -88,7 +88,7 @@ struct QueueV7Screen: View {
         ForEach(toBill, id: \.id) { row in
             ticket(row, loaded, elapsed: 0)
         }
-        summary(rows)
+        summary(rows, noShows: loaded.noShows?.intValue)
     }
 
     private func ticket(_ row: QueueRow, _ loaded: QueueStateLoaded, elapsed: TimeInterval) -> some View {
@@ -109,12 +109,13 @@ struct QueueV7Screen: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func summary(_ rows: [QueueRow]) -> some View {
+    private func summary(_ rows: [QueueRow], noShows: Int?) -> some View {
         let s = QueueSummary.companion.of(rows: rows)
         let r = theme.roles
         var chips = [String(format: String(localized: "t7.queue.done_today", table: "TodayV7"), Int(s.done))]
         if let average = s.averageWaitMinutes { chips.append(String(format: String(localized: "t7.queue.avg_wait", table: "TodayV7"), average.intValue)) }
         if s.left > 0 { chips.append(String(format: String(localized: "t7.queue.left", table: "TodayV7"), Int(s.left))) }
+        if let noShows, noShows > 0 { chips.append(String(format: String(localized: "t7.queue.no_shows", table: "TodayV7"), noShows)) }
         return VStack(alignment: .leading, spacing: 6) {
             FlowLayout(spacing: 6) {
                 ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
@@ -124,7 +125,6 @@ struct QueueV7Screen: View {
                         .background((index == 0 ? r.primaryContainer : r.surface3).color, in: Capsule())
                 }
             }
-            PreviewNotice(text: String(localized: "t7.queue.no_shows_preview", table: "TodayV7"))
         }
         .padding(.top, 6)
     }

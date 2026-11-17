@@ -147,7 +147,10 @@
         <item quantity="one">%1$d न दाखवता गेले</item>
         <item quantity="other">%1$d न दाखवता गेले</item>
     </plurals>
-    <string name="sh_s_q_no_shows">नो-शो: प्रीव्ह्यू, सर्व्हर सपोर्ट हवा</string>
+    <plurals name="sh_s_q_no_shows">
+        <item quantity="one">%1$d आले नाहीत</item>
+        <item quantity="other">%1$d आले नाहीत</item>
+    </plurals>
     <string name="sh_s_day_unassigned">चेअर नाही</string>
     <string name="sh_s_week_busiest">सर्वात व्यस्त: %1$s</string>
     <string name="sh_s_week_open_slots">भरण्यासारखे रिकामे स्लॉट</string>

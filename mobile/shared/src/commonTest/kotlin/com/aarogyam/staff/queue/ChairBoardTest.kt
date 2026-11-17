@@ -114,4 +114,27 @@ class ChairBoardTest {
             val next = backend.requests.last { it.url.encodedPath == "/api/v1/queue/t3/status" }
             assertTrue(""""room_id":"c2"""" in next.body.toByteArray().decodeToString())
         }
+
+    @Test
+    fun no_shows_come_from_the_days_counts_and_stay_null_when_they_cant_be_read() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/queue", { json("""{"date":"2026-10-08","items":[${tokenJson("t1", 1)}]}""") })
+            backend.on("$SUNRISE/api/v1/today", {
+                json(
+                    com.aarogyam.staff
+                        .todayBody()
+                        .replace("\"no_shows\":0", "\"no_shows\":2"),
+                )
+            })
+            val graph = testGraph(backend, backgroundScope)
+            val holder = graph.queue(openClinic(backend, graph, this, listOf("appointments.read")), backgroundScope)
+            assertEquals(2, (holder.state.first { it is QueueState.Loaded } as QueueState.Loaded).noShows)
+
+            val quiet = FakeBackend()
+            quiet.on("$SUNRISE/api/v1/queue", { json("""{"date":"2026-10-08","items":[]}""") })
+            val g2 = testGraph(quiet, backgroundScope)
+            val h2 = g2.queue(openClinic(quiet, g2, this, listOf("appointments.read")), backgroundScope)
+            assertEquals(null, (h2.state.first { it is QueueState.Loaded } as QueueState.Loaded).noShows)
+        }
 }

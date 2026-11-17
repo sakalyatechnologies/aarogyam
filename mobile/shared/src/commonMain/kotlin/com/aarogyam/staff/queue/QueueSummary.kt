@@ -1,8 +1,8 @@
 package com.aarogyam.staff.queue
 
 /**
- * The queue's summary chips, worked out from the tokens already loaded (no extra request).
- * No-shows are appointments, not tokens, so they are a preview here (BK-17).
+ * The queue's summary chips, worked out from the tokens already loaded. No-shows are
+ * appointments, not tokens; they come with the queue state (`QueueState.Loaded.noShows`).
  */
 data class QueueSummary(
     val waiting: Int,
@@ -34,8 +34,5 @@ data class QueueSummary(
                 longestWaitMinutes = waiting.maxOfOrNull { it.waitMinutes }?.toInt(),
             )
         }
-
-        /** Shown as "needs server support" beside the chips. */
-        const val NO_SHOWS_PREVIEW: Boolean = true
     }
 }

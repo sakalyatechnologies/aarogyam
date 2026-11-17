@@ -147,7 +147,10 @@
         <item quantity="one">%1$d बिना दिखाए चले गए</item>
         <item quantity="other">%1$d बिना दिखाए चले गए</item>
     </plurals>
-    <string name="sh_s_q_no_shows">नो-शो: प्रीव्यू, सर्वर सपोर्ट चाहिए</string>
+    <plurals name="sh_s_q_no_shows">
+        <item quantity="one">%1$d नहीं आए</item>
+        <item quantity="other">%1$d नहीं आए</item>
+    </plurals>
     <string name="sh_s_day_unassigned">चेयर नहीं</string>
     <string name="sh_s_week_busiest">सबसे व्यस्त: %1$s</string>
     <string name="sh_s_week_open_slots">भरने लायक खाली स्लॉट</string>

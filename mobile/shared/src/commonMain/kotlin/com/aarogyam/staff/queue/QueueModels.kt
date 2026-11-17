@@ -74,6 +74,8 @@ sealed interface QueueState {
         val actionError: ScreenError? = null,
         /** The clinic's active chairs; empty until loaded, or when it lists none. */
         val chairs: List<QueueChair> = emptyList(),
+        /** Booked patients who didn't come today, from `/today`; null when it couldn't be read. */
+        val noShows: Int? = null,
     ) : QueueState {
         val waiting: List<QueueRow> get() = rows.filter { it.status.active }
         val finished: List<QueueRow> get() = rows.filter { !it.status.active }

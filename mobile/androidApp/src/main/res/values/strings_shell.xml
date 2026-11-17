@@ -148,7 +148,10 @@
         <item quantity="one">%1$d left without being seen</item>
         <item quantity="other">%1$d left without being seen</item>
     </plurals>
-    <string name="sh_s_q_no_shows">No-shows: Preview, needs server support</string>
+    <plurals name="sh_s_q_no_shows">
+        <item quantity="one">%1$d no-show</item>
+        <item quantity="other">%1$d no-shows</item>
+    </plurals>
     <string name="sh_s_day_unassigned">No chair</string>
     <string name="sh_s_week_busiest">Busiest: %1$s</string>
     <string name="sh_s_week_open_slots">Open slots worth filling</string>

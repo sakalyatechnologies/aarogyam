@@ -135,7 +135,7 @@ private fun Board(
         waiting.forEach { Ticket(it, s, holder, now - readAt) }
         toBill.forEach { Ticket(it, s, holder, 0) }
     }
-    Summary(s.rows)
+    Summary(s.rows, s.noShows)
 }
 
 @Composable
@@ -198,7 +198,10 @@ private fun TokenStatus.badge(): Int =
     }
 
 @Composable
-private fun Summary(rows: List<QueueRow>) {
+private fun Summary(
+    rows: List<QueueRow>,
+    noShows: Int?,
+) {
     val s = QueueSummary.of(rows)
     val p = SkTheme.palette
     val chips =
@@ -206,6 +209,7 @@ private fun Summary(rows: List<QueueRow>) {
             pluralStringResource(R.plurals.sh_s_q_done_today, s.done, s.done),
             s.averageWaitMinutes?.let { pluralStringResource(R.plurals.sh_s_q_avg_wait, it, it) },
             if (s.left > 0) pluralStringResource(R.plurals.sh_s_q_left, s.left, s.left) else null,
+            noShows?.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.sh_s_q_no_shows, it, it) },
         )
     Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         androidx.compose.foundation.layout.FlowRow(
@@ -225,6 +229,5 @@ private fun Summary(rows: List<QueueRow>) {
                 )
             }
         }
-        PreviewNotice(text = stringResource(R.string.sh_s_q_no_shows))
     }
 }

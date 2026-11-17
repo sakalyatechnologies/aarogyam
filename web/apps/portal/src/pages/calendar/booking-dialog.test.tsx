@@ -13,12 +13,10 @@ function isDisabled(element: HTMLElement): boolean {
   return element.disabled;
 }
 
-async function openDialog(user: ReturnType<typeof userEvent.setup>, path = "/calendar?from=2026-09-28&to=2026-10-04") {
+async function openDialog(path = "/calendar?from=2026-09-28&to=2026-10-04") {
   const backend = fakeApi();
-  renderPortal(path, { as: PEOPLE.farah, backend });
-  await screen.findByRole("group", { name: /Appointments from/ });
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  await user.click(await screen.findByRole("button", { name: "Schedule an appointment" }));
+  // The top bar's button arrives as `?book=1`; opening it from the URL avoids racing the page's own URL rewrite.
+  renderPortal(`${path}&book=1`, { as: PEOPLE.farah, backend });
   const dialog = await screen.findByRole("dialog", { name: "New appointment" });
   return { backend, dialog };
 }
@@ -32,8 +30,7 @@ describe("Calendar: booking dialog", () => {
   });
 
   it("opens on the visible date with details collapsed and Date, Start time and Duration together", async () => {
-    const user = userEvent.setup();
-    const { dialog } = await openDialog(user);
+    const { dialog } = await openDialog();
     // Keyboard and screen-reader users start inside the form, not on the page behind it.
     await waitFor(() => {
       expect(dialog.contains(document.activeElement)).toBe(true);
@@ -48,7 +45,7 @@ describe("Calendar: booking dialog", () => {
 
   it("shows a chosen patient as a chip with Change, and greys out New patient meanwhile", async () => {
     const user = userEvent.setup();
-    const { backend, dialog } = await openDialog(user);
+    const { backend, dialog } = await openDialog();
     const client = backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.farah }), now: () => NOW });
     const patients = await client.listPatients();
     if (!patients.ok) throw new Error("expected patients");
@@ -65,7 +62,7 @@ describe("Calendar: booking dialog", () => {
 
   it("registers a new patient inline when nothing matches, then selects them", async () => {
     const user = userEvent.setup();
-    const { dialog } = await openDialog(user);
+    const { dialog } = await openDialog();
     await user.type(within(dialog).getByPlaceholderText("Name, clinic number or phone"), "Zed Newcomer");
     await user.click(await within(dialog).findByRole("button", { name: /Register “Zed Newcomer”/ }, { timeout: 15_000 }));
     await user.type(within(dialog).getByLabelText(/^Age/), "34");
@@ -76,7 +73,7 @@ describe("Calendar: booking dialog", () => {
 
   it("lists free times for the chosen doctor and fills the start time from one", async () => {
     const user = userEvent.setup();
-    const { dialog } = await openDialog(user, "/calendar?from=2027-03-01&to=2027-03-07");
+    const { dialog } = await openDialog("/calendar?from=2027-03-01&to=2027-03-07");
     expect(within(dialog).getByText(/Choose a doctor to see/)).toBeTruthy();
     const doctor = within(dialog).getByLabelText(/^Doctor/);
     await waitFor(() => {

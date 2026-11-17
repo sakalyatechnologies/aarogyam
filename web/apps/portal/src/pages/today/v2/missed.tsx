@@ -2,10 +2,11 @@ import { useState } from "react";
 
 import { apiErrorOf, type AppointmentId, type MissedListPage } from "@aarogyam/api-client";
 import { formatTime } from "@aarogyam/app-kit";
-import { DateInput, TextInput, useToast } from "@sakalya/ui";
+import { TextInput, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
-import { localInstant } from "../../../lib/time.js";
+import { localInstant, todayIn } from "../../../lib/time.js";
+import { DatePicker } from "../../../components/mk/date-picker.js";
 import { useCheckIn } from "../../../components/check-in.js";
 import { useChangeAppointment } from "../../../queries.js";
 import { useSendMissedReminder } from "../../queue/desk-queries.js";
@@ -118,7 +119,7 @@ function Reschedule({ item, known, zone, onDone }: { item: Missed; known: Appoin
   };
   return (
     <div className="tv2-resched">
-      <DateInput value={date} onValueChange={setDate} aria-label="New date" />
+      <DatePicker className="mk-dp-compact" label="New date" placeholder="New date" value={date} min={todayIn(zone)} today={todayIn(zone)} onChange={setDate} />
       <TextInput
         value={time}
         aria-label="New start time (24-hour, HH:MM)"

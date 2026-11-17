@@ -33,10 +33,8 @@ async function setup() {
 
 async function openBooking(backend: ReturnType<typeof fakeApi>) {
   const user = userEvent.setup();
-  renderPortal(WEEK, { as: PEOPLE.farah, backend });
-  await screen.findByRole("group", { name: /Appointments from/ });
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  await user.click(await screen.findByRole("button", { name: "Schedule an appointment" }));
+  // Opened from the URL (`?book=1`, what the top bar's button navigates to), so nothing races the page's URL rewrite.
+  renderPortal(`${WEEK}&book=1`, { as: PEOPLE.farah, backend });
   const dialog = await screen.findByRole("dialog", { name: "New appointment" }, { timeout: 15_000 });
   return { user, dialog };
 }

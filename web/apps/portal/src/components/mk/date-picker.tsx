@@ -3,6 +3,7 @@ import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 
 import { addDays, addMonths, monthWeeks } from "../../lib/time.js";
+import "./date-picker.css";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -12,11 +13,15 @@ export function longDate(iso: string): string {
 }
 
 export interface DatePickerProps {
-  /** `YYYY-MM-DD`. */
+  /** `YYYY-MM-DD`, or "" for no date yet (the button shows `placeholder`; the grid opens on today). */
   value: string;
   onChange: (date: string) => void;
   /** Earliest choosable day (`YYYY-MM-DD`); earlier days are disabled. */
   min?: string | undefined;
+  /** Latest choosable day (`YYYY-MM-DD`), such as today for a payment already made; later days are disabled. */
+  max?: string | undefined;
+  /** Shown while `value` is empty. */
+  placeholder?: string | undefined;
   /** Highlighted as today. */
   today: string;
   /** The id of the trigger button, so a `Field` label points at it. */
@@ -30,16 +35,16 @@ export interface DatePickerProps {
  * A date field that opens a month grid: today ringed, the chosen day filled, days before `min` disabled.
  * Arrow keys move by day and week, PageUp/PageDown by month, Home/End to the week's ends, Enter picks, Escape closes.
  */
-export function DatePicker({ value, onChange, min, today, id, label = "Date", className = "" }: DatePickerProps) {
+export function DatePicker({ value, onChange, min, max, today, id, label = "Date", placeholder = "Choose a date", className = "" }: DatePickerProps) {
   const [open, setOpen] = useState(false);
-  const [cursor, setCursor] = useState(value);
+  const [cursor, setCursor] = useState(value === "" ? today : value);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const grid = useRef<HTMLDivElement>(null);
   const gridId = useId();
   const pop = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<CSSProperties>();
-  const disabled = (date: string) => min !== undefined && date < min;
+  const disabled = (date: string) => (min !== undefined && date < min) || (max !== undefined && date > max);
 
   useEffect(() => {
     if (!open) return;
@@ -80,7 +85,7 @@ export function DatePicker({ value, onChange, min, today, id, label = "Date", cl
   }, [open, cursor]);
 
   const show = () => {
-    setCursor(value);
+    setCursor(value === "" ? today : value);
     setOpen(true);
   };
   const close = () => {
@@ -119,9 +124,9 @@ export function DatePicker({ value, onChange, min, today, id, label = "Date", cl
 
   return (
     <div ref={root} className={`mk-dp ${className}`}>
-      <button ref={trigger} id={id} type="button" aria-label={`${label}, ${longDate(value)}`} className="mk-dp-trigger" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? gridId : undefined} onClick={open ? close : show}>
+      <button ref={trigger} id={id} type="button" aria-label={value === "" ? `${label}, ${placeholder}` : `${label}, ${longDate(value)}`} className="mk-dp-trigger" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? gridId : undefined} onClick={open ? close : show}>
         <CalendarDays aria-hidden="true" className="size-4" />
-        <span>{longDate(value)}</span>
+        <span className={value === "" ? "mk-dp-placeholder" : undefined}>{value === "" ? placeholder : longDate(value)}</span>
       </button>
       {open ? (
         <div ref={pop} id={gridId} className="mk-dp-pop" style={place} role="dialog" aria-label="Choose a date">

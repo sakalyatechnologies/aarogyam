@@ -39,7 +39,7 @@ function open(items: StaffSupportGrant[] | "fail") {
 
 describe("Support access", () => {
   it("lists active grants with reason, time left, granter and a read-only link to the clinic's host", async () => {
-    open([grant("sunrise", "Sunrise Dental", 3 * HOUR + 5000)]);
+    open([grant("sunrise", "Sunrise Dental", 3.5 * HOUR)]);
     const list = await screen.findByRole("list", { name: "Active grants" });
     expect(within(list).getByText("Sunrise Dental")).toBeTruthy();
     expect(within(list).getByText("Synthetic reason for Sunrise Dental")).toBeTruthy();

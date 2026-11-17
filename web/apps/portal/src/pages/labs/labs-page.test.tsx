@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +9,7 @@ import { ROLES, createFixtures } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../../lib/new-look.js";
 import { NOW, PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
+import { pickDate } from "../../test/date-picker.js";
 
 // The page sits behind a fake API with latency, and a busy machine makes drawers and dialogs slow to settle.
 vi.setConfig({ testTimeout: 60_000 });
@@ -353,7 +354,7 @@ describe("Lab work: payments", () => {
 
     await user.type(within(panel).getByRole("textbox", { name: /Amount/ }), "1000");
     // The fake clinic's clock is fixed at 3 Oct 2026; the page's own date is today's.
-    fireEvent.change(within(panel).getByLabelText("Paid on"), { target: { value: "2026-10-02" } });
+    await pickDate(user, "Paid on", "2026-10-02");
     await user.click(within(panel).getByRole("button", { name: "Record payment" }));
     await waitFor(() => {
       expect(within(panel).getByRole("list", { name: "Payments so far" }).textContent).toContain("₹1,000");
@@ -793,7 +794,7 @@ describe("Lab work: the payment method", () => {
 
     await user.type(within(panel).getByRole("textbox", { name: /Amount/ }), "1000");
     // The fake clinic's clock is fixed at 3 Oct 2026; the page's own date is today's.
-    fireEvent.change(within(panel).getByLabelText("Paid on"), { target: { value: "2026-10-02" } });
+    await pickDate(user, "Paid on", "2026-10-02");
     await user.selectOptions(method, "upi");
     await user.click(within(panel).getByRole("button", { name: "Record payment" }));
     await waitFor(() => {
@@ -805,7 +806,7 @@ describe("Lab work: the payment method", () => {
     expect(within(panel).getByRole("combobox", { name: "Paid by" })).toHaveProperty("value", "none");
 
     await user.type(within(panel).getByRole("textbox", { name: /Amount/ }), "250");
-    fireEvent.change(within(panel).getByLabelText("Paid on"), { target: { value: "2026-10-02" } });
+    await pickDate(user, "Paid on", "2026-10-02");
     await user.click(within(panel).getByRole("button", { name: "Record payment" }));
     await waitFor(() => {
       expect(recorded).toHaveBeenCalledTimes(2);
@@ -830,7 +831,7 @@ describe("Lab work: a payment's proof", () => {
   async function fillPayment(user: ReturnType<typeof userEvent.setup>, panel: HTMLElement, rupees: string) {
     await user.type(within(panel).getByRole("textbox", { name: /Amount/ }), rupees);
     // The fake clinic's clock is fixed at 3 Oct 2026; the page's own date is today's.
-    fireEvent.change(within(panel).getByLabelText("Paid on"), { target: { value: "2026-10-02" } });
+    await pickDate(user, "Paid on", "2026-10-02");
   }
   const watch = (calls: string[]) => (client: ApiClient): ApiClient => ({
     ...client,

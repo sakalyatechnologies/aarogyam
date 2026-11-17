@@ -3,7 +3,8 @@ import { useRef, useState } from "react";
 
 import { apiErrorOf, type LabPayment } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatRupees } from "@aarogyam/app-kit";
-import { Button, DateInput, Field, Select, TextInput, useToast } from "@sakalya/ui";
+import { Button, Field, Select, TextInput, useToast } from "@sakalya/ui";
+import { DatePicker } from "../../components/mk/date-picker.js";
 
 import { Skeleton, Tag } from "../../components/mk/index.js";
 import { useTodayDate } from "../../lib/patients.js";
@@ -199,8 +200,8 @@ export function PaymentsPanel({ vendorId }: { vendorId: string }) {
           <Field label="Amount (₹)" required>
             <TextInput inputMode="decimal" value={rupees} autoComplete="off" onChange={(event) => { setRupees(event.currentTarget.value); }} />
           </Field>
-          <Field label="Paid on">
-            <DateInput value={paidOn === "" ? today : paidOn} max={today} onValueChange={setPaidOn} />
+          <Field label="Paid on" id="lab-paid-on">
+            <DatePicker id="lab-paid-on" label="Paid on" value={paidOn === "" ? today : paidOn} max={today} today={today} onChange={setPaidOn} />
           </Field>
         </div>
         <div className="lb-two">

@@ -43,6 +43,19 @@ describe("DatePicker", () => {
     expect(screen.queryByRole("grid")).toBeNull();
   });
 
+  it("starts empty with a placeholder, opens on today, names itself by its label, and stops at max", async () => {
+    const user = userEvent.setup();
+    const picked = vi.fn();
+    render(<DatePicker value="" label="Paid on" placeholder="Pick the day" today="2026-10-05" max="2026-10-05" onChange={picked} />);
+    const button = screen.getByRole("button", { name: "Paid on, Pick the day" });
+    expect(button.textContent).toContain("Pick the day");
+    await user.click(button);
+    expect(screen.getByRole("gridcell", { name: /Mon, 5 Oct/ }).getAttribute("aria-current")).toBe("date");
+    expect(screen.getByRole("gridcell", { name: /Tue, 6 Oct/ })).toHaveProperty("disabled", true);
+    await user.click(screen.getByRole("gridcell", { name: /Fri, 2 Oct/ }));
+    expect(picked).toHaveBeenCalledWith("2026-10-02");
+  });
+
   it("moves by keyboard: arrows by day and week, Enter picks, Escape closes", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

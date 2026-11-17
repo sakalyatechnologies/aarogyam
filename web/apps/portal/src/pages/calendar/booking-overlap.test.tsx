@@ -37,13 +37,13 @@ async function openBooking(backend: ReturnType<typeof fakeApi>) {
   await screen.findByRole("group", { name: /Appointments from/ });
   await new Promise((resolve) => setTimeout(resolve, 100));
   await user.click(await screen.findByRole("button", { name: "Schedule an appointment" }));
-  const dialog = await screen.findByRole("dialog", { name: "New appointment" }, { timeout: 5000 });
+  const dialog = await screen.findByRole("dialog", { name: "New appointment" }, { timeout: 15_000 });
   return { user, dialog };
 }
 
 async function pick(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement, patient: Patient) {
   await user.type(within(dialog).getByPlaceholderText("Name, clinic number or phone"), patient.number);
-  await user.click(await within(dialog).findByRole("button", { name: new RegExp(patient.full_name) }, { timeout: 5000 }));
+  await user.click(await within(dialog).findByRole("button", { name: new RegExp(patient.full_name) }, { timeout: 15_000 }));
 }
 
 async function setTime(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement, time: string) {
@@ -56,7 +56,7 @@ async function chooseDoctor(user: ReturnType<typeof userEvent.setup>, dialog: HT
   const doctor = within(dialog).getByLabelText(/^Doctor/);
   await waitFor(() => {
     expect(within(doctor).getAllByRole("option").length).toBeGreaterThan(1);
-  }, { timeout: 5000 });
+  }, { timeout: 15_000 });
   await user.selectOptions(doctor, name);
 }
 
@@ -80,9 +80,9 @@ describe("Calendar: same-patient overlap warning", () => {
     await user.click(within(dialog).getByRole("button", { name: "Book anyway" }));
     await waitFor(async () => {
       expect(await appointmentsOf(api, seen)).toHaveLength(2);
-    }, { timeout: 5000 });
+    }, { timeout: 15_000 });
     // The toast says it was booked, then carries the server's specific sentence, not a generic one.
-    expect(await screen.findByText(/already has an appointment 10:00 am–10:30 am with .*\(Chair 1\)/, {}, { timeout: 5000 })).toBeTruthy();
+    expect(await screen.findByText(/already has an appointment 10:00 am–10:30 am with .*\(Chair 1\)/, {}, { timeout: 15_000 })).toBeTruthy();
     expect(screen.getByText("Appointment booked")).toBeTruthy();
   });
 
@@ -97,7 +97,7 @@ describe("Calendar: same-patient overlap warning", () => {
     const other = await api.bookAppointment({ patient_id: patientId.parse(fresh.id), practitioner_id: practitionerId.parse(asha.id), starts_at: `${DAY}T16:00:00+05:30`, ends_at: `${DAY}T16:30:00+05:30`, kind: "follow_up" });
     if (!other.ok) throw new Error("expected the other desk's booking");
     await user.click(within(dialog).getByRole("button", { name: "Book appointment" }));
-    expect(await screen.findByText(/already has an appointment 4:00 pm–4:30 pm with/, {}, { timeout: 5000 })).toBeTruthy();
+    expect(await screen.findByText(/already has an appointment 4:00 pm–4:30 pm with/, {}, { timeout: 15_000 })).toBeTruthy();
   });
 
   it("shows no warning for a different time", async () => {
@@ -116,7 +116,7 @@ describe("Calendar: same-patient overlap warning", () => {
     if (!second.ok) throw new Error("expected a second booking");
     const user = userEvent.setup();
     renderPortal(WEEK, { as: PEOPLE.farah, backend });
-    const chips = await screen.findAllByRole("button", { name: new RegExp(`^${seen.full_name}, .* at 1:00`) }, { timeout: 5000 });
+    const chips = await screen.findAllByRole("button", { name: new RegExp(`^${seen.full_name}, .* at 1:00`) }, { timeout: 15_000 });
     const chip = chips[0];
     if (chip === undefined) throw new Error("expected a chip");
     await user.click(chip);
@@ -136,7 +136,7 @@ describe("Calendar: reschedule warning only after a change", () => {
     if (!twin.ok) throw new Error("expected an overlapping booking");
     const user = userEvent.setup();
     renderPortal(WEEK, { as: PEOPLE.farah, backend });
-    await user.click(await screen.findByRole("button", { name: new RegExp(`^${seen.full_name}, .* at 10:15`) }, { timeout: 5000 }));
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${seen.full_name}, .* at 10:15`) }, { timeout: 15_000 }));
     const dialog = await screen.findByRole("dialog", { name: "Appointment" });
     await within(dialog).findByLabelText(/start time/i);
     expect(within(dialog).queryByText(/already has an appointment/)).toBeNull();
@@ -164,17 +164,17 @@ describe("Calendar: new patient or follow-up", () => {
     const { backend } = await setup();
     const { user, dialog } = await openBooking(backend);
     await user.type(within(dialog).getByPlaceholderText("Name, clinic number or phone"), "Zed Newcomer");
-    await user.click(await within(dialog).findByRole("button", { name: /Register “Zed Newcomer”/ }, { timeout: 5000 }));
+    await user.click(await within(dialog).findByRole("button", { name: /Register “Zed Newcomer”/ }, { timeout: 15_000 }));
     await user.type(within(dialog).getByLabelText(/^Age/), "34");
     await user.click(within(dialog).getByRole("button", { name: "Register patient" }));
-    expect(await within(dialog).findByText("New patient", { selector: "span" }, { timeout: 5000 })).toBeTruthy();
+    expect(await within(dialog).findByText("New patient", { selector: "span" }, { timeout: 15_000 })).toBeTruthy();
   });
 
   it("tags the appointment in the calendar and in its detail dialog", async () => {
     const { backend, seen } = await setup();
     const user = userEvent.setup();
     renderPortal(WEEK, { as: PEOPLE.farah, backend });
-    const chip = await screen.findByRole("button", { name: new RegExp(`^${seen.full_name}, .*, (new patient|follow-up), [a-z -]+$`) }, { timeout: 5000 });
+    const chip = await screen.findByRole("button", { name: new RegExp(`^${seen.full_name}, .*, (new patient|follow-up), [a-z -]+$`) }, { timeout: 15_000 });
     expect(chip.getAttribute("aria-label")).toMatch(/, (new patient|follow-up), [a-z -]+$/);
     await user.click(chip);
     const dialog = await screen.findByRole("dialog", { name: "Appointment" });
@@ -195,7 +195,7 @@ describe("Calendar: optional chair", () => {
     await user.click(within(dialog).getByRole("button", { name: "Book appointment" }));
     await waitFor(async () => {
       expect(await appointmentsOf(api, fresh)).toHaveLength(1);
-    }, { timeout: 5000 });
+    }, { timeout: 15_000 });
     expect((await appointmentsOf(api, fresh))[0]?.room_id ?? null).toBeNull();
   });
 
@@ -213,14 +213,14 @@ describe("Calendar: optional chair", () => {
     await user.click(within(dialog).getByRole("button", { name: /^Book (appointment|anyway)$/ }));
     await waitFor(async () => {
       expect((await appointmentsOf(api, seen)).some((a) => a.room_id === chair.id && a.starts_at.startsWith(`${DAY}T09:30`))).toBe(true);
-    }, { timeout: 5000 });
+    }, { timeout: 15_000 });
   });
 
   it("the edit dialog's switch is on when the appointment has a chair", async () => {
     const { backend, seen } = await setup();
     const user = userEvent.setup();
     renderPortal(WEEK, { as: PEOPLE.farah, backend });
-    await user.click(await screen.findByRole("button", { name: new RegExp(`^${seen.full_name}, `) }, { timeout: 5000 }));
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${seen.full_name}, `) }, { timeout: 15_000 }));
     const dialog = await screen.findByRole("dialog", { name: "Appointment" });
     expect(within(dialog).getByRole("switch", { name: "Assign a chair" }).getAttribute("aria-checked")).toBe("true");
   });

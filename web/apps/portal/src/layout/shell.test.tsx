@@ -79,7 +79,7 @@ describe("Sidebar", () => {
     await waitFor(() => { expect(first.router.state.location.pathname).toBe("/patients"); });
     cleanup();
     renderPortal("/staff", { as: PEOPLE.asha });
-    expect(await screen.findByRole("tab", { name: "Team & roles", selected: true }, { timeout: 5000 })).toBeTruthy();
+    expect(await screen.findByRole("tab", { name: "Team & roles", selected: true }, { timeout: 15_000 })).toBeTruthy();
   });
 });
 

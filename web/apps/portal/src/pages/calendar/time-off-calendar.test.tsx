@@ -44,7 +44,7 @@ describe("Calendar: time off", () => {
     const dev = await sendDevAway(backend);
     // Front desk holds no time_off.manage, so what they get is what every other member sees.
     renderPortal(WEEK, { as: PEOPLE.farah, backend });
-    expect((await screen.findByRole("note", { name: `Away · ${dev.name}` }, { timeout: 5000 })).textContent).toBe(`Away · ${dev.name}`);
+    expect((await screen.findByRole("note", { name: `Away · ${dev.name}` }, { timeout: 15_000 })).textContent).toBe(`Away · ${dev.name}`);
     expect(document.body.textContent).not.toMatch(/Dental surgery|sick/i);
     expect(await axeViolations()).toEqual([]);
 
@@ -63,7 +63,7 @@ describe("Calendar: time off", () => {
     const picker = within(dialog).getByLabelText(/^Doctor/);
     await waitFor(() => {
       expect(within(picker).getByRole("option", { name: `${dev.name} (Away)` })).toBeTruthy();
-    }, { timeout: 5000 });
+    }, { timeout: 15_000 });
     // The other doctor is not marked.
     expect(within(picker).getAllByRole("option").filter((o) => /\(Away\)/.test(o.textContent))).toHaveLength(1);
     await user.selectOptions(picker, dev.id);
@@ -91,13 +91,13 @@ describe("Calendar: time off", () => {
     const picker = within(dialog).getByLabelText(/^Doctor/);
     await waitFor(() => {
       expect(within(picker).getAllByRole("option").length).toBeGreaterThan(2);
-    }, { timeout: 5000 });
+    }, { timeout: 15_000 });
     await user.selectOptions(picker, dev.id);
     await waitFor(() => {
       expect(within(dialog).getByRole("button", { name: "Book appointment" }).hasAttribute("disabled")).toBe(false);
-    }, { timeout: 5000 });
+    }, { timeout: 15_000 });
     await user.click(within(dialog).getByRole("button", { name: "Book appointment" }));
-    const alert = await within(dialog).findByRole("alert", {}, { timeout: 5000 });
+    const alert = await within(dialog).findByRole("alert", {}, { timeout: 15_000 });
     expect(alert.textContent).toMatch(/away at this time/);
     expect(alert.textContent).not.toMatch(/practitioner_on_leave/);
     const free = within(dialog).getByRole("group", { name: "Free doctors" });

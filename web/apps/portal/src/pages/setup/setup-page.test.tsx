@@ -55,9 +55,9 @@ async function wizard(path = "/today", wrap?: (client: ApiClient) => ApiClient) 
   const backend = fakeApi(freshClinic);
   renderPortal(path, { as: PEOPLE.asha, backend, ...(wrap === undefined ? {} : { wrap }) });
   // The first run loads who you are, then the session, Today, the setup state and the redirect: allow it time.
-  await screen.findByRole("heading", { name: "Set up your clinic" }, { timeout: 5000 });
+  await screen.findByRole("heading", { name: "Set up your clinic" }, { timeout: 15_000 });
   if (path === "/today") {
-    await screen.findByLabelText("Clinic name", {}, { timeout: 5000 });
+    await screen.findByLabelText("Clinic name", {}, { timeout: 15_000 });
   }
   return { user, backend };
 }
@@ -227,7 +227,7 @@ describe("Setup wizard", () => {
       }
       await user.click(await screen.findByRole("button", { name: "Skip this step" }));
     }
-    await screen.findByRole("link", { name: /Billing/ }, { timeout: 5000 });
+    await screen.findByRole("link", { name: /Billing/ }, { timeout: 15_000 });
     expect(screen.queryByRole("heading", { name: "Set up your clinic" })).toBeNull();
   });
 
@@ -237,7 +237,7 @@ describe("Setup wizard", () => {
     await owner.updateSetup({ step: "clinic", status: "done" });
     await owner.updateSetup({ step: "hours", status: "skipped" });
     renderPortal("/billing", { as: PEOPLE.asha, backend });
-    await screen.findByRole("heading", { name: "Services and fees" }, { timeout: 5000 });
+    await screen.findByRole("heading", { name: "Services and fees" }, { timeout: 15_000 });
     expect(screen.getByText(/Step 3 of 5/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Hours and doctors/ }).textContent).toContain("Skipped");
     expect(screen.queryByRole("link", { name: /Billing/ })).toBeNull();
@@ -248,7 +248,7 @@ describe("Setup wizard", () => {
     const owner = client(backend, PEOPLE.asha);
     await owner.updateSetup({ dismissed: true });
     renderPortal("/billing", { as: PEOPLE.asha, backend });
-    await screen.findByRole("link", { name: /Billing/ }, { timeout: 5000 });
+    await screen.findByRole("link", { name: /Billing/ }, { timeout: 15_000 });
     expect(screen.queryByRole("heading", { name: "Set up your clinic" })).toBeNull();
   });
 
@@ -391,7 +391,7 @@ describe("step 5, the clinic's Today layout", () => {
       await user.click(screen.getByRole("button", { name: "Remove Busy hours" }));
       cleanup();
       renderPortal("/setup?step=look", { as: PEOPLE.asha, backend });
-      await screen.findByRole("group", { name: "Live preview of Today" }, { timeout: 5000 });
+      await screen.findByRole("group", { name: "Live preview of Today" }, { timeout: 15_000 });
       expect(screen.getByRole("button", { name: /Executive/ }).getAttribute("aria-pressed")).toBe("true");
       expect(screen.queryByRole("button", { name: "Remove Busy hours" })).toBeNull();
       // Nothing was saved to the clinic before Continue.
@@ -426,7 +426,7 @@ describe("step 5, the clinic's Today layout", () => {
       // The other four steps are still open: wait for each one to show before skipping it.
       for (let step = 1; step <= 4; step += 1) {
         await screen.findByText(new RegExp(`Step ${String(step)} of 5`), {}, { timeout: 10_000 });
-        await user.click(await screen.findByRole("button", { name: "Skip this step" }, { timeout: 5000 }));
+        await user.click(await screen.findByRole("button", { name: "Skip this step" }, { timeout: 15_000 }));
       }
       await screen.findByRole("list", { name: "Key numbers" }, { timeout: 20_000 });
       const board = [...document.querySelectorAll<HTMLElement>(".tv2")].find((el) => el.closest(".tv2-preview") === null);

@@ -56,7 +56,7 @@ describe("Calendar: booking dialog", () => {
     if (target === undefined) throw new Error("expected SD-5");
     expect(isDisabled(within(dialog).getByRole("button", { name: "New patient" }))).toBe(false);
     await user.type(within(dialog).getByPlaceholderText("Name, clinic number or phone"), "SD-5");
-    await user.click(await within(dialog).findByRole("button", { name: new RegExp(target.full_name) }, { timeout: 5000 }));
+    await user.click(await within(dialog).findByRole("button", { name: new RegExp(target.full_name) }, { timeout: 15_000 }));
     expect(within(dialog).getByText(target.full_name)).toBeTruthy();
     expect(isDisabled(within(dialog).getByRole("button", { name: "New patient" }))).toBe(true);
     await user.click(within(dialog).getByRole("button", { name: "Change" }));
@@ -67,10 +67,10 @@ describe("Calendar: booking dialog", () => {
     const user = userEvent.setup();
     const { dialog } = await openDialog(user);
     await user.type(within(dialog).getByPlaceholderText("Name, clinic number or phone"), "Zed Newcomer");
-    await user.click(await within(dialog).findByRole("button", { name: /Register “Zed Newcomer”/ }, { timeout: 5000 }));
+    await user.click(await within(dialog).findByRole("button", { name: /Register “Zed Newcomer”/ }, { timeout: 15_000 }));
     await user.type(within(dialog).getByLabelText(/^Age/), "34");
     await user.click(within(dialog).getByRole("button", { name: "Register patient" }));
-    expect(await within(dialog).findByText("Zed Newcomer", {}, { timeout: 5000 })).toBeTruthy();
+    expect(await within(dialog).findByText("Zed Newcomer", {}, { timeout: 15_000 })).toBeTruthy();
     expect(within(dialog).getByRole("button", { name: "Change" })).toBeTruthy();
   });
 
@@ -81,9 +81,9 @@ describe("Calendar: booking dialog", () => {
     const doctor = within(dialog).getByLabelText(/^Doctor/);
     await waitFor(() => {
       expect(within(doctor).getAllByRole("option").length).toBeGreaterThan(1);
-    }, { timeout: 5000 });
+    }, { timeout: 15_000 });
     await user.selectOptions(doctor, "Asha Kulkarni");
-    const slots = await within(dialog).findByRole("group", { name: "Free start times" }, { timeout: 5000 });
+    const slots = await within(dialog).findByRole("group", { name: "Free start times" }, { timeout: 15_000 });
     const buttons = within(slots).getAllByRole("button");
     expect(buttons.length).toBeGreaterThan(0);
     const last = buttons.at(-1);

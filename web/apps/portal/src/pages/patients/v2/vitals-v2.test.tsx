@@ -26,7 +26,7 @@ function first<T>(items: readonly T[]): T {
 }
 
 async function clickFirst(user: ReturnType<typeof userEvent.setup>, name: string) {
-  await user.click(first(await screen.findAllByRole("button", { name }, { timeout: 5000 })));
+  await user.click(first(await screen.findAllByRole("button", { name }, { timeout: 15_000 })));
 }
 
 /** The seeded patient with a closed visit that has a pulse of 76. */

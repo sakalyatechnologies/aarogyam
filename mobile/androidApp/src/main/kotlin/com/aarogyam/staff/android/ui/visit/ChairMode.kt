@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -41,6 +42,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.newCameraTarget
 import com.aarogyam.staff.android.ui.resizeToJpeg
 import com.aarogyam.staff.clinic.ClinicContext
@@ -115,8 +117,13 @@ internal fun ChairMode(
     }
     val properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     Dialog(onDismissRequest = onClose, properties = properties) {
+        StatusBarTone.DialogLightPage()
         Column(
-            Modifier.fillMaxSize().background(colors.background.color).padding(Spacing.L.dp),
+            Modifier
+                .fillMaxSize()
+                .background(colors.background.color)
+                .systemBarsPadding()
+                .padding(Spacing.L.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.L.dp),
         ) {
             Row(

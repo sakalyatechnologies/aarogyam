@@ -7,6 +7,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 
 /**
@@ -22,6 +23,20 @@ object StatusBarTone {
         DisposableEffect(Unit) {
             darkHeaders.intValue++
             onDispose { darkHeaders.intValue-- }
+        }
+    }
+
+    /**
+     * Inside a full-screen dialog over a light page (Chair mode): the dialog has its own window, so
+     * its status bar icons are set here, dark over the page and light in dark mode.
+     */
+    @Composable
+    fun DialogLightPage() {
+        val view = LocalView.current
+        val dark = isSystemInDarkTheme()
+        LaunchedEffect(dark) {
+            val window = (view.parent as? DialogWindowProvider)?.window ?: return@LaunchedEffect
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !dark
         }
     }
 

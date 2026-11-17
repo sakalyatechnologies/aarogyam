@@ -2,10 +2,15 @@ package com.aarogyam.staff.android.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +45,7 @@ import com.sakalya.mobile.designcompose.SkNavDestination
 import com.sakalya.mobile.designcompose.SkNavRail
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTransitions
+import com.sakalya.mobile.designcompose.color
 
 /** Windows at least this wide get the rail instead of the floating bar. */
 private val RAIL_FROM = 600.dp
@@ -98,6 +104,15 @@ fun MainScreen(
                     label = "tab",
                 ) { shown ->
                     TabContent(shown, navModel, graph, clinic, nav, onWalkIn, onSwitchClinic) { select(it.name) }
+                }
+                // Today and More are light pages with no top bar: scrolled content stops at the status bar.
+                if (tab in LIGHT_TOP) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .windowInsetsTopHeight(WindowInsets.statusBars)
+                            .background(SkTheme.colors.background.color),
+                    )
                 }
                 if (!wide) {
                     SkFloatingNavBar(
@@ -204,3 +219,6 @@ private val Tab.icon: String
             Tab.Expenses -> "wallet"
             Tab.More -> "grid"
         }
+
+/** Tabs whose page runs up to the status bar without a dark header of its own. */
+private val LIGHT_TOP = setOf(Tab.Today, Tab.More)

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,7 +57,8 @@ fun ScheduleTab(
     val segment by holder.segment.collectAsStateWithLifecycle()
     var booking by rememberSaveable { mutableStateOf(false) }
     val reduced = SkTheme.reducedMotion
-    Column(Modifier.fillMaxSize()) {
+    // No top bar here: the segments start below the status bar.
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(
             Modifier.padding(horizontal = Spacing.L.dp, vertical = Spacing.S.dp),
             verticalAlignment = Alignment.CenterVertically,

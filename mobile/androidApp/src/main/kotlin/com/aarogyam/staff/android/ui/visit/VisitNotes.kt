@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -54,6 +57,9 @@ internal fun VisitNotes(
 ) {
     val colors = SkTheme.colors
     var writing by remember { mutableStateOf(false) }
+    val field = remember { FocusRequester() }
+    // Write opens the field ready to type.
+    LaunchedEffect(writing) { if (writing) field.requestFocus() }
     var language by remember { mutableStateOf(DictationLanguage.English) }
     var draft by remember { mutableStateOf("") }
     val locked = view.save == NoteSave.Signed
@@ -132,7 +138,8 @@ internal fun VisitNotes(
                                 Modifier
                                     .weight(
                                         1f,
-                                    ).clip(
+                                    ).focusRequester(field)
+                                    .clip(
                                         RoundedCornerShape(Spacing.ML.dp),
                                     ).background(colors.inset.color)
                                     .padding(horizontal = Spacing.ML.dp),

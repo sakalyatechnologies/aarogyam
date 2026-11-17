@@ -827,3 +827,41 @@ async fn the_console_sees_how_the_owners_invitation_email_went() {
     assert!(body["queued_at"].is_null());
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_clinic_invitation_makes_the_sign_in_account_first() {
+    let accounts = Arc::new(FakeAccounts::default());
+    let app = start(&accounts).await;
+    let owner = app.token(ALPHA_OWNER);
+
+    // Sign-ups are off, so without an account the invitee's emailed code never arrives.
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/staff/invitations",
+            Some(&owner),
+            Some(json!({ "email": "desk.new@alpha.test", "role_key": "no_such_role" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(accounts.calls.load(Ordering::SeqCst), 0);
+
+    let (status, created) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/staff/invitations",
+            Some(&owner),
+            Some(json!({ "email": "Desk.New@alpha.test", "role_key": "front_desk" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    assert_eq!(accounts.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        *accounts.emails.lock().unwrap(),
+        vec!["desk.new@alpha.test".to_owned()]
+    );
+    app.finish().await;
+}

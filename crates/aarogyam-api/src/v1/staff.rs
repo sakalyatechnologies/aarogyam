@@ -189,7 +189,8 @@ pub struct CreatedInvitation {
         (status = 400, description = "Invalid email or unknown role"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks staff.manage, or a non-owner invited an owner"),
-        (status = 404, description = "Not a clinic, or not a member of it")
+        (status = 404, description = "Not a clinic, or not a member of it"),
+        (status = 503, description = "Supabase could not create the sign-in account")
     )
 )]
 pub(crate) async fn invite(
@@ -200,6 +201,7 @@ pub(crate) async fn invite(
     let invited = app::invite(
         state.db(),
         &request.actor,
+        state.accounts(),
         request.request_id,
         InviteStaff {
             email: body.email,

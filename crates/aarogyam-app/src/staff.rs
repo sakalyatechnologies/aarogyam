@@ -13,6 +13,7 @@ use serde_json::json;
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::accounts::SignInAccounts;
 use crate::clock::clinic_offset;
 use crate::error::AppError;
 use crate::outbox::{StaffEmail, enqueue_staff_email};
@@ -108,15 +109,17 @@ pub struct Invited {
 }
 
 /// Invites someone to the clinic's staff and queues the invitation email in the same
-/// transaction.
+/// transaction. With `accounts`, the invitee's sign-in account is made first, as the console
+/// does: sign-ups are off, so without it the emailed code never arrives.
 ///
 /// # Errors
 /// [`AppError::Denied`] without `staff.manage`; [`AppError::Invalid`] for a bad email or an
-/// unknown role; [`AppError::Forbidden`] when a non-owner invites an owner; [`AppError::Db`]
-/// on database failures.
+/// unknown role; [`AppError::Forbidden`] when a non-owner invites an owner;
+/// [`AppError::Accounts`] when Supabase fails; [`AppError::Db`] on database failures.
 pub async fn invite(
     db: &Db,
     actor: &ClinicActor,
+    accounts: Option<&dyn SignInAccounts>,
     request_id: Option<Uuid>,
     input: InviteStaff,
     now: OffsetDateTime,
@@ -125,15 +128,23 @@ pub async fn invite(
     let email = Email::parse(&input.email).map_err(|error| AppError::invalid("email", error))?;
     let role_key = input.role_key.trim().to_owned();
     check_invite(&actor.role_key, &role_key)?;
-    invite_in_scope(
-        db,
-        &staff_scope(actor, request_id),
-        actor.user_id.uuid(),
-        email,
-        role_key,
-        now,
-    )
-    .await
+    let scope = staff_scope(actor, request_id);
+    if let Some(accounts) = accounts {
+        // The role is checked before an account is made for someone who can't be invited.
+        let role_known = db
+            .scoped(&scope, async |tx| {
+                Ok::<_, AppError>(dal::role_by_key(tx.conn(), &role_key).await?.is_some())
+            })
+            .await?;
+        if !role_known {
+            return Err(AppError::invalid(
+                "role_key",
+                "is not a role in this clinic",
+            ));
+        }
+        accounts.ensure_user(&email).await?;
+    }
+    invite_in_scope(db, &scope, actor.user_id.uuid(), email, role_key, now).await
 }
 
 /// Creates an invitation and queues its email in one transaction in `scope`'s clinic. The

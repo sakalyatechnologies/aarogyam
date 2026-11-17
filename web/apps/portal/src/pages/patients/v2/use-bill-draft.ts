@@ -50,13 +50,13 @@ export function useBillDraft(input: {
   useEffect(() => {
     if (!on || stage !== "ended") return;
     let live = true;
-    void Promise.all([queryClient.invalidateQueries({ queryKey: ["invoices", access.org_id] }), queryClient.invalidateQueries({ queryKey: ["invoice", access.org_id] }), queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] })]).then(() => {
+    void Promise.all([queryClient.invalidateQueries({ queryKey: ["invoices", access.org_id] }), queryClient.invalidateQueries({ queryKey: ["invoice", access.org_id] }), queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] }), queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] })]).then(() => {
       if (live) setFreshFor(scope);
     });
     return () => {
       live = false;
     };
-  }, [on, stage, scope, queryClient, access.org_id, patientId]);
+  }, [on, stage, scope, queryClient, access.org_id, patientId, visitId]);
 
   const ready = on && invoices.isSuccess && (listed === undefined || detail.isSuccess || detail.isError) && prices.isSuccess && (chart.isSuccess || chart.isError || !can("clinical.read")) && (stage === "active" || freshFor === scope) && input.procedures !== undefined;
   const seeded = (() => {

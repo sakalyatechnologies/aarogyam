@@ -30,7 +30,7 @@ export function salutation(displayName: string, doctor: boolean): string {
   return doctor ? `Dr. ${plain}` : displayName.trim();
 }
 
-/** `hero`: the board shows today's Next up card, which carries its own action for the patient it leads with. */
+/** `hero`: the board shows today's Next up (the card, or the side column's list), with its own action for the patient it leads with. */
 function HeaderAction({ doctor, hero }: { doctor: boolean; hero: boolean }) {
   const { can } = useClinic();
   const day = useDayToday(undefined);
@@ -100,7 +100,7 @@ export function TodayV2() {
           <h1>{now.data === undefined ? "Today" : `${greeting(now.data.as_of, timeZone)}, ${salutation(session.user.display_name, doctor)}`}</h1>
           <p>{now.data === undefined ? where : `${headerDate(now.data.as_of, timeZone)} · ${where}`}</p>
         </div>
-        <HeaderAction doctor={doctor} hero={viewing === undefined && (layout.isPending || (layout.data?.layout.items.some((item) => item.key === "nextup" && item.zone !== "rail") ?? false))} />
+        <HeaderAction doctor={doctor} hero={viewing === undefined && (layout.isPending || (layout.data?.layout.items.some((item) => item.key === "nextup") ?? false))} />
       </header>
       {layout.isPending ? (
         <div role="status" aria-label="Loading your layout" style={{ display: "grid", gap: 16 }}>

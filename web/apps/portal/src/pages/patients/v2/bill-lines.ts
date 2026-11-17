@@ -135,7 +135,7 @@ export function seedLines(input: {
     lines.push(item === undefined ? { key: newKey(), ...base, qty: 1, price: "", gstRate: 0 } : lineFromPrice(item, base));
   }
   // Saving a treatment makes a chart entry or a procedure, never both, so neither is billed twice.
-  for (const done of (input.procedures ?? []).filter((p) => p.status === "done")) {
+  for (const done of (input.procedures ?? []).filter((p) => p.status === "done" && p.name.trim() !== "")) {
     const label = done.name.trim().toLowerCase();
     const item = priceList.find((p) => p.active && (p.name.toLowerCase().includes(label) || label.includes(p.name.toLowerCase())));
     const base = { description: `${done.name.charAt(0).toUpperCase()}${done.name.slice(1)}`, ...(done.tooth == null ? {} : { tooth: done.tooth }) };

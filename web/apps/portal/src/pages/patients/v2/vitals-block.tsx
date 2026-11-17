@@ -59,12 +59,12 @@ function VitalsForm({ visitId, onDone }: { visitId: VisitId; onDone: () => void 
         onSuccess: onDone,
         onError: (thrown) => {
           const message = apiErrorOf(thrown)?.message ?? "Couldn't record the vitals.";
-          // The API names the reading first: "Pulse: must be between 20 and 250 /min".
-          const kind = OBSERVATION_KINDS.find((k) => message.startsWith(`${k.label}: `));
+          // The API names the reading by its kind first: "Bp_systolic: must be between 60 and 260 mmHg".
+          const kind = OBSERVATION_KINDS.find((k) => message.toLowerCase().startsWith(`${k.value}: `));
           if (kind === undefined) {
             setError(message);
           } else {
-            setFieldErrors({ [kind.value]: message.slice(kind.label.length + 2) });
+            setFieldErrors({ [kind.value]: message.slice(kind.value.length + 2) });
           }
         },
       },

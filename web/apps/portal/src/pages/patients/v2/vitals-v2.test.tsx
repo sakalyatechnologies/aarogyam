@@ -113,7 +113,12 @@ describe("Vitals in a running visit", () => {
       backend,
       wrap: (client) => ({
         ...client,
-        recordObservations: () => Promise.resolve({ ok: false, error: { status: 400, code: "invalid", message: "Pulse: must be between 20 and 250 /min" } }),
+        // As the api-client words the server's reply: the reading's kind first, capitalised.
+        recordObservations: (_visit, input) =>
+          Promise.resolve({
+            ok: false,
+            error: { status: 400, code: "invalid", message: input.readings.some((r) => r.kind === "bp_systolic") ? "Bp_systolic: must be between 60 and 260 mmHg" : "Pulse: must be between 20 and 250 /min" },
+          }),
       }),
     });
     await clickFirst(user, "Start visit");
@@ -133,6 +138,15 @@ describe("Vitals in a running visit", () => {
     await user.click(screen.getByRole("button", { name: "Save vitals" }));
     expect(pulse.getAttribute("aria-invalid")).toBe("true");
     expect(screen.getByRole("form", { name: "Add vitals" }).textContent).toContain("Must be a number");
+    // A reading whose kind isn't its label (bp_systolic, spo2, blood_sugar) lands under its field too.
+    await user.clear(pulse);
+    const systolic = screen.getByLabelText(/^BP systolic|^Systolic/);
+    await user.type(systolic, "400");
+    await user.click(screen.getByRole("button", { name: "Save vitals" }));
+    await waitFor(() => {
+      expect(systolic.getAttribute("aria-invalid")).toBe("true");
+    });
+    expect(screen.getByRole("form", { name: "Add vitals" }).textContent).not.toContain("Bp_systolic");
   });
 
   it("does not block End visit when no vitals were entered", async () => {

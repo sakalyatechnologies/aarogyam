@@ -139,11 +139,13 @@ export function useRecordPayment() {
         void queryClient.invalidateQueries({ queryKey: ["invoice", access.org_id, allocation.invoice_id] });
       }
       void queryClient.invalidateQueries({ queryKey: ["invoices", access.org_id] });
-      void queryClient.invalidateQueries({ queryKey: ["pending-report", access.org_id] });
-      void queryClient.invalidateQueries({ queryKey: ["collections", access.org_id] });
+      for (const key of MONEY_VIEWS) void queryClient.invalidateQueries({ queryKey: [key, access.org_id] });
     },
   });
 }
+
+/** What a payment or a void changes beyond the bills: dues, takings, Home's money tiles and the Collect summaries. */
+const MONEY_VIEWS = ["pending-report", "collections", "today-money", "collections-weeks", "collect-summary"] as const;
 
 export function useVoidPayment() {
   const { api, access } = useClinic();
@@ -152,7 +154,7 @@ export function useVoidPayment() {
     mutationFn: ({ id, reason }: { id: PaymentId; reason: string }) => unwrap(api.voidPayment(id, { reason })),
     onSuccess: () => {
       // The bills it paid show their balance again, and the day's takings drop.
-      for (const key of ["payments", "invoices", "invoice", "collections", "pending"]) {
+      for (const key of ["payments", "invoices", "invoice", ...MONEY_VIEWS]) {
         void queryClient.invalidateQueries({ queryKey: [key, access.org_id] });
       }
     },

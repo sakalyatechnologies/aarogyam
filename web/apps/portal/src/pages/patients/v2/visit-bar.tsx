@@ -88,7 +88,8 @@ export function VisitBar() {
   const billVisitId = (session.ended?.visit ?? session.visit)?.id;
   // Once the visit is ended the session no longer holds it, so read what was done from the visit itself.
   const billVisit = useVisit(session.ended === undefined ? undefined : billVisitId);
-  const procedures = session.ended === undefined ? session.procedures : billVisit.data?.procedures;
+  // A visit that can't be read bills what was charted rather than waiting for ever.
+  const procedures = session.ended === undefined ? session.procedures : billVisit.isError ? [] : billVisit.data?.procedures;
   const draft = useBillDraft({ patientId: session.patientId, visitId: billVisitId, stage: session.ended === undefined ? "active" : "ended", enabled: session.canWrite && canBill, procedures });
   const [billError, setBillError] = useState<string | undefined>(undefined);
   if (!session.canWrite) return null;

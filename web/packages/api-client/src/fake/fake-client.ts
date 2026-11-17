@@ -8079,7 +8079,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               visit === undefined || invoiceMoney(bill, state).balance_paise > 0
                 ? undefined
                 : state.queueTokens.find(
-                    (t) => t.clinic_id === bill.clinic_id && t.status === "ready_to_bill" && (t.id === visit.queue_token_id || (t.appointment_id != null && t.appointment_id === visit.appointment_id)),
+                    (t) => t.clinic_id === bill.clinic_id && t.status === "ready_to_bill" && t.id === visit.queue_token_id,
                   );
             if (token !== undefined) {
               token.status = "done";

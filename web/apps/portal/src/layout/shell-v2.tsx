@@ -97,7 +97,7 @@ function FrameV2() {
   const { can, session, api, access } = useClinic();
   const navigate = useNavigate();
   // The calendar has its own Book, which keeps the week in view; this one would jump back to this week.
-  const onCalendar = useLocation().pathname === "/calendar";
+  const onCalendar = useLocation().pathname.replace(/\/$/, "") === "/calendar";
   const { workspace, system, activeId, palettePages } = useShellNav();
   const [collapsed, setCollapsed] = useStoredFlag(COLLAPSED_KEY, true);
   const [menuOpen, setMenuOpen] = useState(false);

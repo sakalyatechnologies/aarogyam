@@ -275,6 +275,18 @@ Done:
   5. Optional: retake iOS shot 2 (visit with Rx) cleaner.
 - **The founder's open question:** the "ROCM … icon on the top right".
 
+### 18 Nov: main 91a7daeb
+- **Play screenshots: done (5).** In `mobile/fastlane/metadata/android/en-US/images/phoneScreenshots`: 1 Today with "Waiting for you", 2 Patient, 3 History, 4 Schedule queue with the chair board, 5 Visit with tagged notes. All 1080×1920 from the store seed (`iosApp/scripts/store-seed.sh`). Analytics was left out: the synthetic money looks wrong (negative net, 0% chair use).
+- **Fixed while shooting (Android):**
+  - Chair mode (a dialog window) sat under the clock with white icons; it now pads for the bars and sets its own icons.
+  - The Schedule segments overlapped the clock.
+  - Today and More get a page-coloured scrim under the status bar.
+  - Write focuses the note field.
+- **No-shows (BK-17):** real, from `/today` `counts.no_shows`, read alongside `/queue`.
+- **Invite name and phone (0720):** optional on both apps; pending invites show the name.
+- **Emulator recipe:** boot with `scratchpad/emu-boot.sh` (`-crash-report-mode never`, no `-memory`). After boot, tap Wait on the first "System UI isn't responding" dialog, then give it 30 s. uiautomator dumps hang, so navigate by screencap and coordinates. Taps right after a launch are lost; wait about 12 s.
+- **Local data:** two blank 16 Nov walk-in visits for Meera Joshi (SD-29) were closed through the API; they still show as "Walk-in visit" in her history.
+
 ### 17 Nov: main 57007ce3 and before
 - **Polish (both apps):** jaw teeth are spaced evenly along the arch for the real box size, so 17/18 and 37/38 no longer overlap. The folded "Waiting for you" line shows the count and a chevron. Android Visit has a status bar scrim.
 - **Correct note (both apps):** on a past visit, "Correct note" (clinical.write) edits the four parts and signs a correction (`POST /notes/{id}/amend`). "Corrected" and "Earlier version" read `GET /notes/{id}/versions`. The rule mirrors the server: signed notes, or my own draft once the visit is closed.

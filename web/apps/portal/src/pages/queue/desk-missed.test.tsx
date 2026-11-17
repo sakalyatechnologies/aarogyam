@@ -2,7 +2,7 @@ import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { success, toCollectList, type ApiClient } from "@aarogyam/api-client";
+import { messagesQueued, success, toCollectList, type ApiClient } from "@aarogyam/api-client";
 import { fakeTokenFor } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../../lib/new-look.js";
@@ -60,6 +60,28 @@ describe("Missed today (Today queue)", () => {
       expect(setStatus).toHaveBeenCalledWith(expect.any(String), "arrived");
     });
     expect(await screen.findByText("Checked in")).toBeTruthy();
+  });
+});
+
+describe("Send reminder tells the truth about who can be reached", () => {
+  const answers = [
+    ["queued", { queued: 1, already_queued: 0 }, "Reminder on its way"],
+    ["already_queued", { queued: 0, already_queued: 1 }, "A reminder was already sent"],
+    ["no_address", { queued: 0, already_queued: 0, no_address: 1 }, "Not sent: no email on file"],
+    ["no_consent", { queued: 0, already_queued: 0, no_consent: 1 }, "Not sent: this patient hasn't agreed to reminders"],
+  ] as const;
+  it.each(answers)("%s", async (_name, counts, title) => {
+    const user = userEvent.setup();
+    renderPortal("/today", {
+      as: PEOPLE.asha,
+      wrap: (client: ApiClient) => ({
+        ...client,
+        sendMessages: () => Promise.resolve(success(messagesQueued.parse({ batch_id: "b-1", requested: 1, ...counts }))),
+      }),
+    });
+    const missed = await screen.findByRole("list", { name: "Missed today" });
+    await user.click(within(missed).getByRole("button", { name: /^Send reminder to/ }));
+    expect(await screen.findByText(title)).toBeTruthy();
   });
 });
 

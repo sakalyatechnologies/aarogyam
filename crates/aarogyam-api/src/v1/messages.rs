@@ -55,9 +55,29 @@ pub struct MessagesQueued {
     pub queued: i64,
     /// Messages an earlier try of the same batch already queued.
     pub already_queued: i64,
+    /// Patients with no email address on file; nothing was queued for them. Left out when 0.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "is_zero")]
+    pub no_address: i64,
+    /// Patients who haven't consented to the template's purpose (`care` is allowed unless
+    /// withdrawn; reminders and promotions need a consent); nothing was queued for them. Left
+    /// out when 0.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "is_zero")]
+    pub no_consent: i64,
 }
 
-/// Queues a message to each patient. Messages go out when the outbox job next runs, after the
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde's skip_serializing_if passes a reference"
+)]
+fn is_zero(count: &i64) -> bool {
+    *count == 0
+}
+
+/// Queues a message to each patient who can be reached. A patient with no email address, or
+/// without the consent the template's purpose needs, gets nothing queued and is counted in
+/// `no_address` or `no_consent`. Queued messages go out when the outbox job next runs, after the
 /// send-time checks: consent for the template's purpose, opt-outs, quiet hours for reminders and
 /// promotional messages, and the provider's daily budget.
 #[utoipa::path(
@@ -118,6 +138,8 @@ pub(crate) async fn send(
             requested: sent.requested,
             queued: sent.queued,
             already_queued: sent.already_queued,
+            no_address: sent.no_address,
+            no_consent: sent.no_consent,
         }),
     ))
 }

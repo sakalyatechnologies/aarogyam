@@ -3521,6 +3521,8 @@ export const messagesQueued = z.object({
   requested: count,
   queued: count,
   already_queued: count,
+  no_address: count.exactOptional(),
+  no_consent: count.exactOptional(),
 }) satisfies z.ZodType<C.MessagesQueued>;
 export type MessagesQueued = z.output<typeof messagesQueued>;
 

@@ -1,0 +1,51 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with found as (\n             select p.id, p.org_id,\n                    (case $3 when 'email' then p.email else p.phone_e164 end is not null)\n                      as has_address\n             from aarogyam.patients p\n             where p.id = any($1::uuid[]) and p.deleted_at is null\n               and app.patient_in_reach(p.id, $2)\n           ),\n           sortable as (\n             select f.id, f.has_address,\n                    f.has_address and app.may_contact(f.org_id, f.id, $4) as allowed\n             from found f\n           ),\n           queued as (\n             insert into aarogyam.messages (patient_id, channel, kind, purpose, template_key,\n                                            variables, body, dedupe_key)\n             select s.id, $3, 'clinic.message', $4, $5, $6, $7,\n                    'manual:' || $8::uuid::text || ':' || s.id::text\n             from sortable s\n             where s.allowed\n               and (select count(*) from found) = cardinality($1::uuid[])\n             on conflict (org_id, dedupe_key) do nothing\n             returning 1\n           )\n           select (select count(*) from found) as \"found!\",\n                  (select count(*) from queued) as \"queued!\",\n                  (select count(*) from sortable where not has_address) as \"no_address!\",\n                  (select count(*) from sortable where has_address and not allowed) as \"no_consent!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "queued!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "no_address!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "no_consent!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "506228713be64b86707ea3b9a999090fe46c100dc6a07b43ce904b44251aca66"
+}

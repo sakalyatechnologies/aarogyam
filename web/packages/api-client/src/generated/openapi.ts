@@ -2586,7 +2586,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Queues a message to each patient. Messages go out when the outbox job next runs, after the
+         * Queues a message to each patient who can be reached. A patient with no email address, or
+         *     without the consent the template's purpose needs, gets nothing queued and is counted in
+         *     `no_address` or `no_consent`. Queued messages go out when the outbox job next runs, after the
          *     send-time checks: consent for the template's purpose, opt-outs, quiet hours for reminders and
          *     promotional messages, and the provider's daily budget.
          */
@@ -9861,6 +9863,18 @@ export interface components {
             already_queued: number;
             /** @description The batch; send it again to retry safely. */
             batch_id: string;
+            /**
+             * Format: int64
+             * @description Patients with no email address on file; nothing was queued for them. Left out when 0.
+             */
+            no_address?: number;
+            /**
+             * Format: int64
+             * @description Patients who haven't consented to the template's purpose (`care` is allowed unless
+             *     withdrawn; reminders and promotions need a consent); nothing was queued for them. Left
+             *     out when 0.
+             */
+            no_consent?: number;
             /**
              * Format: int64
              * @description Messages queued now.

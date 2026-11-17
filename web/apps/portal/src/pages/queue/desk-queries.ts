@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { apiErrorOf, unwrap, type PatientId } from "@aarogyam/api-client";
+import { apiErrorOf, unwrap, type MessagesQueued, type PatientId } from "@aarogyam/api-client";
 import { useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
@@ -47,18 +47,22 @@ export function useMarkRecallDone() {
   });
 }
 
-/** Sends the "we missed you" email to one patient; the server enforces consent and its refusal is shown as it is. */
+/** What the server did with a one-patient reminder; it says up front who it could not queue. */
+function reminderToast(sent: MessagesQueued): { title: string; tone: "success" | "warning" } {
+  if (sent.queued > 0) return { title: "Reminder on its way", tone: "success" };
+  if ((sent.no_address ?? 0) > 0) return { title: "Not sent: no email on file", tone: "warning" };
+  if ((sent.no_consent ?? 0) > 0) return { title: "Not sent: this patient hasn't agreed to reminders", tone: "warning" };
+  return { title: "A reminder was already sent", tone: "warning" };
+}
+
+/** Sends the "we missed you" email to one patient; the server reports a patient it can't reach, and the toast says so. */
 export function useSendMissedReminder() {
   const { api } = useClinic();
   const toast = useToast();
   return useMutation({
     mutationFn: (patientId: PatientId) => unwrap(api.sendMessages({ patient_ids: [patientId], channel: "email", template_key: "reminder.missed_visit" })),
     onSuccess: (sent) => {
-      toast.show(
-        sent.queued > 0
-          ? { title: "Reminder on its way", tone: "success" }
-          : { title: sent.already_queued > 0 ? "A reminder was already sent" : "Couldn't send: no email on file", tone: "warning" },
-      );
+      toast.show(reminderToast(sent));
     },
     onError: (thrown) => {
       toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't send that reminder.", tone: "danger" });

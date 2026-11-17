@@ -118,6 +118,10 @@ pub struct Sent {
     pub queued: i64,
     /// Copies an earlier try of this batch had queued.
     pub already_queued: i64,
+    /// Patients with no address on the channel; nothing was queued for them.
+    pub no_address: i64,
+    /// Patients who haven't consented to the template's purpose; nothing was queued for them.
+    pub no_consent: i64,
 }
 
 /// Queues a message to each patient, all or none. Needs `messages.send`; the patients must be in
@@ -197,7 +201,9 @@ pub async fn send(
         batch_id,
         requested,
         queued: queued.queued,
-        already_queued: queued.found - queued.queued,
+        already_queued: queued.found - queued.queued - queued.no_address - queued.no_consent,
+        no_address: queued.no_address,
+        no_consent: queued.no_consent,
     })
 }
 

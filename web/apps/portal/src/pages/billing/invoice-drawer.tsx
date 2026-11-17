@@ -310,7 +310,15 @@ function ShareBar({ invoice }: { invoice: Invoice }) {
       unwrap(api.sendMessages({ patient_ids: [invoice.patient.id], channel: "email", template_key: "care.note", batch_id: batch.current, body: text, variables: { subject: `Your bill ${invoice.number ?? ""}`.trim() } })),
     onSuccess: (queued) => {
       batch.current = randomUuid();
-      toast.show({ title: queued.queued > 0 ? "Bill queued to email" : "Not sent: the patient has no email address", tone: queued.queued > 0 ? "success" : "danger" });
+      const title =
+        queued.queued > 0
+          ? "Bill queued to email"
+          : (queued.no_consent ?? 0) > 0
+            ? "Not sent: the patient has declined messages from the clinic"
+            : (queued.no_address ?? 0) > 0
+              ? "Not sent: the patient has no email address"
+              : "The bill was already emailed";
+      toast.show({ title, tone: queued.queued > 0 ? "success" : "danger" });
     },
     onError: (thrown) => {
       toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't email the bill.", tone: "danger" });

@@ -78,7 +78,7 @@ function DirectPanel({ mode }: { mode: "one" | "broadcast" }) {
   const [templateKey, setTemplateKey] = useState("");
   const [subject, setSubject] = useState("");
   const [text, setText] = useState("");
-  const [result, setResult] = useState<{ queued: number; requested: number; already: number; ids: { id: string; name: string }[] } | null>(null);
+  const [result, setResult] = useState<{ queued: number; requested: number; already: number; noAddress: number; noConsent: number; ids: { id: string; name: string }[] } | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const batch = useRef(randomUuid());
   const ids = { search: useId(), template: useId(), subject: useId(), text: useId() };
@@ -113,12 +113,16 @@ function DirectPanel({ mode }: { mode: "one" | "broadcast" }) {
       ),
     onSuccess: (queued) => {
       setFailure(null);
-      setResult({ queued: queued.queued, requested: queued.requested, already: queued.already_queued, ids: picked.slice(0, BROADCAST_CAP).map((id) => ({ id, name: shown.find((p) => p.id === id)?.full_name ?? "Patient" })) });
+      setResult({ queued: queued.queued, requested: queued.requested, already: queued.already_queued, noAddress: queued.no_address ?? 0, noConsent: queued.no_consent ?? 0, ids: picked.slice(0, BROADCAST_CAP).map((id) => ({ id, name: shown.find((p) => p.id === id)?.full_name ?? "Patient" })) });
       batch.current = randomUuid();
       setText("");
       setSubject("");
       void queryClient.invalidateQueries({ queryKey: ["messages", access.org_id, "patient"] });
-      toast.show({ title: `Queued ${String(queued.queued)} message${queued.queued === 1 ? "" : "s"}`, tone: "success" });
+      toast.show(
+        queued.queued > 0
+          ? { title: `Queued ${String(queued.queued)} message${queued.queued === 1 ? "" : "s"}`, tone: "success" }
+          : { title: "Nothing was queued", tone: "warning" },
+      );
     },
     onError: (thrown) => {
       setFailure(why(thrown));
@@ -227,7 +231,8 @@ function DirectPanel({ mode }: { mode: "one" | "broadcast" }) {
               Queued {result.queued} of {result.requested}
             </b>
             {result.already > 0 ? ` · ${String(result.already)} already queued` : ""}
-            {result.queued < result.requested - result.already ? ` · ${String(result.requested - result.already - result.queued)} not queued` : ""}
+            {result.noAddress > 0 ? ` · ${String(result.noAddress)} ${result.noAddress === 1 ? "has" : "have"} no email` : ""}
+            {result.noConsent > 0 ? ` · ${String(result.noConsent)} ${result.noConsent === 1 ? "hasn't" : "haven't"} agreed to this kind of message` : ""}
             {mode === "broadcast" ? <RecipientStatus ids={result.ids} /> : null}
           </div>
         ) : null}

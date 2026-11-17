@@ -113,7 +113,7 @@ const hash = (text: string): string => {
   return h.toString(16);
 };
 
-/** Every fifth patient has not agreed to promotional messages: a send skips them. */
+/** Every fifth patient has not agreed to promotional messages or reminders: a send leaves them out. */
 const hasPromotionalConsent = (state: MessagingStore, patient: FakePatient): boolean => {
   const mine = state.patients.filter((p) => p.clinic_id === patient.clinic_id);
   return mine.indexOf(patient) % 5 !== 4;
@@ -171,17 +171,26 @@ export function sendMessages(state: MessagingStore, who: Who, input: C.SendMessa
   state.sentMessages ??= [];
   const batch = input.batch_id ?? sortableId(state, "00000001");
   const before = state.sentMessages.filter((m) => m.batch_id === batch && m.clinic_id === who.clinic_id);
-  const purpose = input.template_key === "promo.offer" ? "promotional" : input.template_key === "reminder.follow_up" ? "reminders" : "care";
+  const purpose = input.template_key === "promo.offer" ? "promotional" : input.template_key.startsWith("reminder.") ? "reminders" : "care";
   let queued = 0;
   let already = 0;
+  let noAddress = 0;
+  let noConsent = 0;
   for (const patient of patients) {
     if (patient === undefined) continue;
+    // As the server does: no address or no consent is counted, not queued; care needs no consent row.
+    if ((patient.email ?? "") === "") {
+      noAddress += 1;
+      continue;
+    }
+    if (purpose !== "care" && !hasPromotionalConsent(state, patient)) {
+      noConsent += 1;
+      continue;
+    }
     if (before.some((m) => m.patient_id === patient.id)) {
       already += 1;
       continue;
     }
-    const skip =
-      purpose === "promotional" && !hasPromotionalConsent(state, patient) ? "no_consent" : (patient.email ?? "") === "" ? "no_address" : null;
     state.sentMessages.push({
       id: sortableId(state, "00000002"),
       clinic_id: who.clinic_id,
@@ -191,11 +200,18 @@ export function sendMessages(state: MessagingStore, who: Who, input: C.SendMessa
       channel: input.channel,
       purpose,
       created_at: now.toISOString(),
-      skip_reason: skip,
+      skip_reason: null,
     });
     queued += 1;
   }
-  return { batch_id: batch, requested: ids.length, queued, already_queued: already };
+  return {
+    batch_id: batch,
+    requested: ids.length,
+    queued,
+    already_queued: already,
+    ...(noAddress > 0 ? { no_address: noAddress } : {}),
+    ...(noConsent > 0 ? { no_consent: noConsent } : {}),
+  };
 }
 
 /** A queued message is sent a few seconds later, as the outbox job would. */

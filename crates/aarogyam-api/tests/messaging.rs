@@ -298,23 +298,105 @@ async fn consent_is_checked_when_sending_not_only_when_queuing() {
     );
     assert_eq!(sent(&drain(&app).await), 0);
 
-    // Queued with no consent at all: the send-time check skips it.
-    send(&app, offer(&[&ravi])).await;
-    let report = drain(&app).await;
+    // No consent at all: nothing is queued, and the answer says so.
+    let (status, refused) = send(&app, offer(&[&ravi])).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{refused}");
     assert_eq!(
-        (sent(&report), report["messages_skipped"].as_i64()),
-        (0, Some(1))
+        (refused["queued"].as_i64(), refused["no_consent"].as_i64()),
+        (Some(0), Some(1))
     );
-    assert_eq!(
-        outcomes(&app, &ravi).await[1].1.as_deref(),
-        Some("no_consent")
-    );
+    assert_eq!(sent(&drain(&app).await), 0);
+    assert_eq!(outcomes(&app, &ravi).await.len(), 1);
 
     // Consenting again restores it; a care note needs no consent row.
     consent(&app, &ravi, "promotional").await;
     send(&app, offer(&[&ravi])).await;
     send(&app, note(&[&ravi])).await;
     assert_eq!(sent(&drain(&app).await), 2);
+    app.finish().await;
+}
+
+fn reminder(patients: &[&str]) -> Value {
+    json!({
+        "patient_ids": patients, "channel": "email", "template_key": "reminder.missed_visit"
+    })
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn sending_says_up_front_who_cannot_be_reached() {
+    let app = TestApp::start().await;
+    never_quiet(&app).await;
+    let (status, made) = call(
+        &app,
+        ALPHA,
+        ALPHA_OWNER,
+        Method::POST,
+        "/api/v1/patients",
+        Some(json!({ "full_name": "Mohan P" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{made}");
+    let mohan = made["id"].as_str().unwrap().to_owned();
+    let sita = patient(&app, "Sita R", "sita@example.test").await;
+    let gopal = patient(&app, "Gopal T", "gopal@example.test").await;
+    consent(&app, &sita, "reminders").await;
+
+    // No email: counted, not queued (even with the consent).
+    consent(&app, &mohan, "reminders").await;
+    let (status, none) = send(&app, reminder(&[&mohan])).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{none}");
+    assert_eq!(
+        (
+            none["queued"].as_i64(),
+            none["no_address"].as_i64(),
+            none["no_consent"].as_i64()
+        ),
+        (Some(0), Some(1), None)
+    );
+
+    // An email but no reminders consent: counted as no consent.
+    let (_, unasked) = send(&app, reminder(&[&gopal])).await;
+    assert_eq!(
+        (
+            unasked["queued"].as_i64(),
+            unasked["no_consent"].as_i64(),
+            unasked["no_address"].as_i64()
+        ),
+        (Some(0), Some(1), None)
+    );
+
+    // Consented with an email: queued; the same batch again is a repeat, not a refusal.
+    let mut body = reminder(&[&sita, &gopal, &mohan]);
+    body["batch_id"] = json!(Uuid::now_v7().to_string());
+    let (_, mixed) = send(&app, body.clone()).await;
+    assert_eq!(
+        (
+            mixed["requested"].as_i64(),
+            mixed["queued"].as_i64(),
+            mixed["no_address"].as_i64(),
+            mixed["no_consent"].as_i64()
+        ),
+        (Some(3), Some(1), Some(1), Some(1))
+    );
+    let (_, again) = send(&app, body).await;
+    assert_eq!(
+        (again["queued"].as_i64(), again["already_queued"].as_i64()),
+        (Some(0), Some(1))
+    );
+    assert_eq!(sent(&drain(&app).await), 1);
+
+    // Care is allowed without a consent row; a patient with no email still has no address.
+    let (_, care) = send(&app, note(&[&gopal])).await;
+    assert_eq!(
+        (care["queued"].as_i64(), care["no_consent"].as_i64()),
+        (Some(1), None)
+    );
+    let (_, nowhere) = send(&app, note(&[&mohan])).await;
+    assert_eq!(
+        (nowhere["queued"].as_i64(), nowhere["no_address"].as_i64()),
+        (Some(0), Some(1))
+    );
     app.finish().await;
 }
 

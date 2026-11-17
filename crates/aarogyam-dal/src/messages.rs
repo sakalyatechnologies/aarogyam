@@ -93,12 +93,18 @@ pub struct Batch<'a> {
 pub struct Queued {
     /// Patients found in the clinic and in reach.
     pub found: i64,
-    /// Copies queued now; the rest were queued by an earlier try of the same batch.
+    /// Copies queued now.
     pub queued: i64,
+    /// Patients with no address on the channel (the email column for `email`); not queued.
+    pub no_address: i64,
+    /// Patients with an address whom `app.may_contact` refuses for the purpose; not queued.
+    pub no_consent: i64,
 }
 
-/// Queues one copy per patient in one statement, all or none: when a patient isn't in the
-/// clinic or in reach, nothing is queued and `found` says fewer than asked.
+/// Queues one copy per reachable patient in one statement. All or none for who is in the clinic
+/// and in reach: when one isn't, nothing is queued and `found` says fewer than asked. Patients
+/// with no address or no consent are not queued but counted. Quiet hours are the worker's.
+/// What is left of `found` after the three counts was queued by an earlier try of the batch.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -106,21 +112,33 @@ pub async fn enqueue_batch(conn: &mut PgConnection, batch: &Batch<'_>) -> Result
     let row = sqlx::query_as!(
         Queued,
         r#"with found as (
-             select p.id from aarogyam.patients p
+             select p.id, p.org_id,
+                    (case $3 when 'email' then p.email else p.phone_e164 end is not null)
+                      as has_address
+             from aarogyam.patients p
              where p.id = any($1::uuid[]) and p.deleted_at is null
                and app.patient_in_reach(p.id, $2)
+           ),
+           sortable as (
+             select f.id, f.has_address,
+                    f.has_address and app.may_contact(f.org_id, f.id, $4) as allowed
+             from found f
            ),
            queued as (
              insert into aarogyam.messages (patient_id, channel, kind, purpose, template_key,
                                             variables, body, dedupe_key)
-             select f.id, $3, 'clinic.message', $4, $5, $6, $7,
-                    'manual:' || $8::uuid::text || ':' || f.id::text
-             from found f
-             where (select count(*) from found) = cardinality($1::uuid[])
+             select s.id, $3, 'clinic.message', $4, $5, $6, $7,
+                    'manual:' || $8::uuid::text || ':' || s.id::text
+             from sortable s
+             where s.allowed
+               and (select count(*) from found) = cardinality($1::uuid[])
              on conflict (org_id, dedupe_key) do nothing
              returning 1
            )
-           select (select count(*) from found) as "found!", (select count(*) from queued) as "queued!""#,
+           select (select count(*) from found) as "found!",
+                  (select count(*) from queued) as "queued!",
+                  (select count(*) from sortable where not has_address) as "no_address!",
+                  (select count(*) from sortable where has_address and not allowed) as "no_consent!""#,
         batch.patient_ids,
         batch.member,
         batch.channel,

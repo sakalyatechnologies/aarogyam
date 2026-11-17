@@ -1,17 +1,7 @@
 /* The calendar date picker, wherever it is used (booking, appointments, labs, time off). It was in the calendar
-   page's stylesheet, so elsewhere it showed unstyled until the calendar had been opened. */
+   page's stylesheet, so elsewhere it showed unstyled until the calendar had been opened. Its colour names (--surface,
+   --ink...) come from mockup.css, which defines them in .mk-app and in dialogs. */
 .mk-dp { position: relative; }
-/* Inside a dialog (portalled outside .mk-app) the portal's colour names are undefined, which left the pop-up see-through;
-   define them here from the design tokens they stand for in mockup.css. */
-.mk-dp {
-  --brand: var(--sk-primary);
-  --brand2: var(--mk-brand2, color-mix(in srgb, var(--sk-primary) 72%, #000));
-  --surface: var(--sk-surface);
-  --ink: var(--sk-text);
-  --muted: var(--sk-text-muted);
-  --rule: var(--sk-border);
-  --hover: color-mix(in srgb, var(--sk-primary) 4%, var(--sk-surface));
-}
 .mk-dp-trigger { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 2.75rem; padding: 0 12px; border: 1px solid var(--sk-border, var(--rule)); border-radius: 14px; background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
 .mk-dp-trigger:hover { border-color: var(--brand); }
 .mk-dp-trigger:focus-visible, .mk-dp-day:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }

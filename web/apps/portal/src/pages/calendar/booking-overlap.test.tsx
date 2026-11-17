@@ -253,3 +253,31 @@ describe("Calendar: changing an appointment's details", () => {
     expect(saved === undefined ? undefined : [(Date.parse(saved.ends_at) - Date.parse(saved.starts_at)) / 60_000, saved.kind, saved.reason]).toEqual([45, "procedure", "Crown fitting"]);
   });
 });
+
+describe("Calendar: the appointment window's phone", () => {
+  it("shows the patient's phone masked, and in full on asking", async () => {
+    const { backend, api, asha } = await setup();
+    const listed = await api.listPatients();
+    if (!listed.ok) throw new Error("expected patients");
+    let full: Patient | undefined;
+    for (const p of listed.value.items) {
+      const one = await api.getPatient(patientId.parse(p.id));
+      if (one.ok && one.value.phone != null) {
+        full = one.value;
+        break;
+      }
+    }
+    if (full?.phone == null) throw new Error("expected a patient with a phone");
+    const booked = await api.bookAppointment({ patient_id: patientId.parse(full.id), practitioner_id: practitionerId.parse(asha.id), starts_at: `${DAY}T15:00:00+05:30`, ends_at: `${DAY}T15:30:00+05:30`, kind: "follow_up" });
+    if (!booked.ok) throw new Error("expected a booking");
+    const user = userEvent.setup();
+    renderPortal(WEEK, { as: PEOPLE.farah, backend });
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${full.full_name}, .* at 3:00`) }, { timeout: 15_000 }));
+    const dialog = await screen.findByRole("dialog", { name: "Appointment" });
+    const show = await within(dialog).findByRole("button", { name: "Show phone" });
+    const digits = full.phone.replace(/\D/g, "");
+    expect(within(dialog).getByText("Phone").parentElement?.textContent.replace(/\D/g, "")).not.toContain(digits.slice(-10));
+    await user.click(show);
+    expect(within(dialog).getByText("Phone").parentElement?.textContent.replace(/\D/g, "")).toContain(digits.slice(-10));
+  });
+});

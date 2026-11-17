@@ -4,9 +4,10 @@ import { apiErrorOf, type Appointment, type AppointmentStatus, type Practitioner
 import { formatDateTime } from "@aarogyam/app-kit";
 import { Button, DateInput, Dialog, Field, Pill, Select, Switch, TextArea, TextInput, useToast, type Tone } from "@sakalya/ui";
 
-import { ageSex, patientPath } from "../../lib/patients.js";
+import { ageSex, formatPhone, maskPhone, patientPath } from "../../lib/patients.js";
+import { useClinic } from "../../clinic.js";
 import { localDateHour, localInstant } from "../../lib/time.js";
-import { useAppointments, useChangeAppointment, useMoveAppointment, useSetAppointmentStatus } from "../../queries.js";
+import { useAppointments, useChangeAppointment, useMoveAppointment, usePatient, useSetAppointmentStatus } from "../../queries.js";
 import { PatientOverlapNotice, clashSentence, clashesFromServer, patientOverlaps } from "./patient-overlap.js";
 import { VisitKindTag } from "./visit-kind-tag.js";
 import { DURATIONS, KINDS } from "./booking-dialog.js";
@@ -45,6 +46,36 @@ export interface AppointmentDialogProps {
 }
 
 /** An appointment's details: reschedule it, or move its status along (confirm, arrive, cancel…). */
+/** The patient's phone, to call about the booking: masked until asked (screens at a front desk are seen by others). */
+function PatientPhone({ patientId }: { patientId: Appointment["patient"]["id"] }) {
+  const { can } = useClinic();
+  const patient = usePatient(can("patients.read") ? patientId : undefined);
+  const [shown, setShown] = useState(false);
+  const phone = patient.data?.phone;
+  if (phone == null) return null;
+  const revealable = can("patients.contact");
+  return (
+    <div>
+      <dt className="text-xs text-muted">Phone</dt>
+      <dd className="flex flex-wrap items-center gap-2 font-semibold text-text">
+        <span style={{ fontVariantNumeric: "tabular-nums" }}>{revealable && shown ? formatPhone(phone) : maskPhone(phone)}</span>
+        {revealable ? (
+          <button
+            type="button"
+            className="mk-link text-xs"
+            aria-pressed={shown}
+            onClick={() => {
+              setShown(!shown);
+            }}
+          >
+            {shown ? "Hide phone" : "Show phone"}
+          </button>
+        ) : null}
+      </dd>
+    </div>
+  );
+}
+
 export function AppointmentDialog({ appointment, onOpenChange, timeZone, rooms, practitioners, canWrite }: AppointmentDialogProps) {
   return (
     <Dialog open={appointment !== undefined} onOpenChange={onOpenChange} title="Appointment" size="lg">
@@ -215,6 +246,7 @@ function AppointmentDetail({
           <dt className="text-xs text-muted">Reason</dt>
           <dd className="font-semibold text-text">{appointment.reason ?? "Consultation"}</dd>
         </div>
+        <PatientPhone patientId={appointment.patient.id} />
       </dl>
       {appointment.status === "requested" ? (
         <p className="rounded-xl bg-warning-soft px-4 py-3 text-sm font-medium text-warning-text">

@@ -96,7 +96,7 @@ Founder testing: a patient booked online from the clinic website and the booking
 **Related fixes found in the same test (planned)**
 - **Appointment window:** reason, visit kind and length are editable in its Change panel (16 Nov 2026), saved with the time, doctor and chair in one request ("Save changes" when only the details change). Still open:
   - fields out of line (hints above some boxes but not others)
-  - no patient phone or email
+  - the patient's phone shows, masked until "Show phone" (patients.contact); email not shown
 - **Online sign-ups:** backend built 8 Oct 2026 (`POST /appointments/{id}/check-in`, `registration_incomplete`, `GET /patient-duplicates`, merge and dismiss; `decisions.md`, "Online sign-ups"). Still to build: the portal check-in form at Mark arrived and the duplicates screen.
 - **Appointment edits:** backend already edits chair alone, reason, kind and length (tests 8 Oct 2026); the portal must send the chair with every save, not only Move appointment.
 - **Date and time fields:** the shared `sakalya-web` date field is the browser default (US order, no shortcuts) and time is typed as text. Build a proper date picker and slot-based time picker there, then use it everywhere.

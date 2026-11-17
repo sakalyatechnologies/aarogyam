@@ -3,14 +3,14 @@ import SakalyaUI
 import SwiftUI
 
 /// The Queue view of the v7 Schedule: the chair board, "Waiting" tickets with live timers and the
-/// day's summary chips. Seat and Start visit are real moves; the chair choice is a preview.
+/// day's summary chips. Each chair shows its patient; "Seat next" on a free chair seats the next
+/// patient in that chair.
 struct QueueV7Screen: View {
     let holder: QueueStateHolder
     let state: QueueState
     let clinic: ClinicContext
     let onOpenPatient: (String) -> Void
     let onWalkIn: () -> Void
-    @State private var chairs = 0
     @State private var readAt = Date()
     @Environment(\.skTheme) private var theme
 
@@ -24,7 +24,6 @@ struct QueueV7Screen: View {
         }
         .scrollIndicators(.hidden)
         .refreshable { holder.refresh() }
-        .task { chairs = await chairCount() }
         .onChange(of: waitSignature) { readAt = Date() }
         .task {
             for await opened in holder.opened { onOpenPatient(opened.patientId) }
@@ -51,29 +50,26 @@ struct QueueV7Screen: View {
 
     @ViewBuilder private func board(_ loaded: QueueStateLoaded) -> some View {
         let rows = loaded.rows
-        let inChair = rows.filter { $0.status == .inChair }
         let waiting = rows.filter { $0.status == .waiting || $0.status == .called }
         let toBill = rows.filter { $0.status == .readyToBill }
-        let free = QueueBoard.freeChairs(chairs: chairs, occupied: inChair.count, waiting: waiting.count)
         if let error = loaded.actionError {
             Text(error.message).skTextStyle(SkTypeScale.footnote).foregroundStyle(theme.roles.error.color).padding(.top, 4)
         }
         TodaySectionHeader(title: String(localized: "t7.queue.now_serving", table: "TodayV7"))
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(inChair, id: \.id) { row in
-                    ChairCard(row: row, canMove: loaded.canMove) { onOpenPatient(row.patientId) } onDone: { holder.done(id: row.id) }
-                }
-                ForEach(0..<free, id: \.self) { _ in
-                    FreeChairCard(canSeat: loaded.canMove && !waiting.isEmpty) {
-                        if let next = waiting.first { holder.seat(id: next.id) }
+                ForEach(Array(loaded.board.enumerated()), id: \.offset) { _, slot in
+                    if let row = slot.occupant {
+                        ChairCard(row: row, chair: slot.chair?.name, canMove: loaded.canMove) { onOpenPatient(row.patientId) } onDone: { holder.done(id: row.id) }
+                    } else {
+                        let canSeat = loaded.canMove && rows.contains { $0.status == .waiting && (slot.chair == nil || $0.branchId == slot.chair?.branchId) }
+                        FreeChairCard(chair: slot.chair?.name, canSeat: canSeat) { holder.seatNextIn(chairId: slot.chair?.id) }
                     }
                 }
             }
             .padding(.horizontal, SkSpacing.l)
         }
         .padding(.horizontal, -SkSpacing.l)
-        PreviewNotice(text: String(localized: "t7.queue.chair_preview", table: "TodayV7")).padding(.top, 8)
         TodaySectionHeader(
             title: String(format: String(localized: "t7.queue.waiting", table: "TodayV7"), waiting.count),
             action: String(localized: "t7.queue.walk_in", table: "TodayV7"), onAction: onWalkIn
@@ -133,17 +129,12 @@ struct QueueV7Screen: View {
         .padding(.top, 6)
     }
 
-    /// The clinic's chair count, from the cached reference data.
-    private func chairCount() async -> Int {
-        guard let result = try? await clinic.reference.rooms(), case .success(let ok) = onEnum(of: result),
-              let rooms = ok.value as? [Room] else { return 0 }
-        return rooms.filter { $0.kind == "chair" && $0.active }.count
-    }
 }
 
 /// A chair with a patient in it: the filled card (`.chairc.busy`); a tap opens the record.
 private struct ChairCard: View {
     let row: QueueRow
+    let chair: String?
     let canMove: Bool
     let onOpen: () -> Void
     let onDone: () -> Void
@@ -153,8 +144,8 @@ private struct ChairCard: View {
         let r = theme.roles
         Button(action: onOpen) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(String(format: String(localized: "t7.queue.in_chair", table: "TodayV7"), Int(row.tokenNumber)))
-                    .font(.system(size: 10.5, weight: .bold, design: .monospaced)).tracking(0.6).opacity(0.8)
+                Text(kicker)
+                    .font(.system(size: 10.5, weight: .bold, design: .monospaced)).tracking(0.6).opacity(0.8).lineLimit(1)
                 Text(row.name).font(.system(size: 13, weight: .bold)).lineLimit(2).multilineTextAlignment(.leading)
                 if let doctor = row.doctor { Text(doctor).font(.system(size: 11)).opacity(0.8).lineLimit(1) }
                 if canMove {
@@ -173,10 +164,17 @@ private struct ChairCard: View {
         .buttonStyle(.skPressable)
         .disabled(row.busy)
     }
+
+    /// "CHAIR 2 · #7", or "IN CHAIR · #7" for a patient seated with no chair.
+    private var kicker: String {
+        if let chair { return "\(chair.uppercased()) · #\(row.tokenNumber)" }
+        return String(format: String(localized: "t7.queue.in_chair", table: "TodayV7"), Int(row.tokenNumber))
+    }
 }
 
 /// An empty chair: the dashed card with "Seat next" (`.chairc.free`).
 private struct FreeChairCard: View {
+    let chair: String?
     let canSeat: Bool
     let onSeat: () -> Void
     @Environment(\.skTheme) private var theme
@@ -185,7 +183,8 @@ private struct FreeChairCard: View {
         let r = theme.roles
         Button(action: onSeat) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("t7.queue.free_chair", tableName: "TodayV7").font(.system(size: 10.5, weight: .bold, design: .monospaced)).tracking(0.6)
+                Text(chair?.uppercased() ?? String(localized: "t7.queue.free_chair", table: "TodayV7"))
+                    .font(.system(size: 10.5, weight: .bold, design: .monospaced)).tracking(0.6).lineLimit(1)
                     .foregroundStyle(r.onSurface.color).opacity(0.8)
                 Text("t7.queue.free", tableName: "TodayV7").font(.system(size: 13, weight: .bold)).foregroundStyle(r.onSurface.color)
                 if canSeat {

@@ -121,7 +121,6 @@
     <string name="sh_v7_tile_stock_sub">कम सामान</string>
     <string name="sh_v7_tile_team_sub">लोग · चैट</string>
     <string name="sh_s_q_now">अभी चेयर पर</string>
-    <string name="sh_s_q_chair_preview">चेयर चुनना: प्रीव्यू, सर्वर सपोर्ट चाहिए</string>
     <plurals name="sh_s_q_waiting">
         <item quantity="one">प्रतीक्षा में · %1$d</item>
         <item quantity="other">प्रतीक्षा में · %1$d</item>

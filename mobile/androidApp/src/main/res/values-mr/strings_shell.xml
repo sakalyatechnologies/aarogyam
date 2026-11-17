@@ -121,7 +121,6 @@
     <string name="sh_outbox_signout_stay">साइन इन राहा</string>
     <string name="sh_outbox_signout_title">अजून पाठवलेले नाहीत: %1$d. तरीही साइन आउट करायचे?</string>
     <string name="sh_s_q_now">आता चेअरवर</string>
-    <string name="sh_s_q_chair_preview">चेअर निवडणे: प्रीव्ह्यू, सर्व्हर सपोर्ट हवा</string>
     <plurals name="sh_s_q_waiting">
         <item quantity="one">प्रतीक्षेत · %1$d</item>
         <item quantity="other">प्रतीक्षेत · %1$d</item>

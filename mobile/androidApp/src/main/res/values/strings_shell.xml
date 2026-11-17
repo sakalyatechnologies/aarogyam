@@ -121,7 +121,6 @@
     <string name="sh_v7_tile_stock_sub">low items</string>
     <string name="sh_v7_tile_team_sub">people · chat</string>
     <string name="sh_s_q_now">Now serving</string>
-    <string name="sh_s_q_chair_preview">Choosing the chair: Preview, needs server support</string>
     <plurals name="sh_s_q_waiting">
         <item quantity="one">Waiting · %1$d</item>
         <item quantity="other">Waiting · %1$d</item>
@@ -133,6 +132,7 @@
         <item quantity="other">⏱ %1$d min</item>
     </plurals>
     <string name="sh_s_q_in_chair">IN CHAIR · #%1$d</string>
+    <string name="sh_s_q_chair_token" translatable="false">%1$s · #%2$d</string>
     <string name="sh_s_q_free_chair">CHAIR</string>
     <string name="sh_s_q_free">Free</string>
     <string name="sh_s_q_seat_next">Seat next →</string>

@@ -7,27 +7,8 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
 import kotlin.math.max
 
-/** The Queue view's chair maths (iOS `QueueBoard`). */
+/** The Queue view's timer maths (iOS `QueueBoard`); the chair board itself is shared (`chairBoard`). */
 object QueueBoard {
-    /**
-     * Chairs with nobody in them. The clinic's chair list is the capacity; when it is not known,
-     * one free chair is offered while somebody waits so "Seat next" stays reachable.
-     */
-    fun freeChairs(
-        chairs: Int,
-        occupied: Int,
-        waiting: Int,
-    ): Int =
-        if (chairs <= 0) {
-            if (waiting > 0) {
-                1
-            } else {
-                0
-            }
-        } else {
-            max(chairs - occupied, 0)
-        }
-
     /** A ticket's wait now: the minutes the server reported plus the time since they were read. */
     fun waitMinutes(
         base: Int,

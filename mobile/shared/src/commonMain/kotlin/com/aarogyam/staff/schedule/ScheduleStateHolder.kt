@@ -13,9 +13,6 @@ enum class ScheduleSegment { Queue, Day, Week }
 enum class SchedulePreview {
     /** Telling a waiting patient to come in (no call-in endpoint). */
     CallIn,
-
-    /** Choosing the chair when seating the next patient (BK-14). */
-    ChairChoice,
 }
 
 /**

@@ -15,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -29,7 +28,6 @@ import com.aarogyam.staff.android.ui.label
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.patient.v7
 import com.aarogyam.staff.android.ui.today.SectionHeader
-import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.Sex
 import com.aarogyam.staff.queue.QueueRow
 import com.aarogyam.staff.queue.QueueState
@@ -53,14 +51,12 @@ private const val TICK_MILLIS = 30_000L
 @Composable
 fun QueueV7(
     holder: QueueStateHolder,
-    clinic: ClinicContext,
     onWalkIn: () -> Unit,
     onOpenVisit: (VisitOpened) -> Unit,
     onOpenPatient: (String) -> Unit,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     LaunchedEffect(holder) { holder.opened.collect(onOpenVisit) }
-    val chairs = chairCount(clinic)
     val loaded = state as? QueueState.Loaded
     PullToRefreshBox(loaded?.refreshing == true, holder::refresh, Modifier.fillMaxSize()) {
         Column(
@@ -92,7 +88,7 @@ fun QueueV7(
                 }
 
                 is QueueState.Loaded -> {
-                    Board(s, holder, chairs, onWalkIn, onOpenPatient)
+                    Board(s, holder, onWalkIn, onOpenPatient)
                 }
             }
         }
@@ -100,27 +96,14 @@ fun QueueV7(
 }
 
 @Composable
-private fun chairCount(clinic: ClinicContext): Int {
-    var chairs by remember { mutableStateOf(0) }
-    LaunchedEffect(clinic) {
-        val rooms = (clinic.reference.rooms() as? com.sakalya.mobile.core.Outcome.Success)?.value.orEmpty()
-        chairs = rooms.count { it.kind == "chair" && it.active }
-    }
-    return chairs
-}
-
-@Composable
 private fun Board(
     s: QueueState.Loaded,
     holder: QueueStateHolder,
-    chairs: Int,
     onWalkIn: () -> Unit,
     onOpenPatient: (String) -> Unit,
 ) {
-    val inChair = s.rows.filter { it.status == TokenStatus.InChair }
     val waiting = s.rows.filter { it.status == TokenStatus.Waiting || it.status == TokenStatus.Called }
     val toBill = s.rows.filter { it.status == TokenStatus.ReadyToBill }
-    val free = QueueBoard.freeChairs(chairs, inChair.size, waiting.size)
     s.actionError?.let {
         Text(
             stringResource(it.message()),
@@ -130,8 +113,7 @@ private fun Board(
         )
     }
     SectionHeader(stringResource(R.string.sh_s_q_now))
-    ChairRow(inChair, free, s, holder, waiting, onOpenPatient)
-    PreviewNotice(Modifier.padding(top = 8.dp), stringResource(R.string.sh_s_q_chair_preview))
+    ChairRow(s, holder, onOpenPatient)
     SectionHeader(
         pluralStringResource(R.plurals.sh_s_q_waiting, waiting.size, waiting.size),
         stringResource(R.string.sh_s_q_walk_in),

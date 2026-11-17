@@ -149,7 +149,6 @@
     <string name="pv_block_needs_visit">योजनाबद्ध उपचार विज़िट के अंदर जुड़ते हैं। पहले विज़िट शुरू करें।</string>
     <string name="pv_block_no_chart_mark">इस उपचार का चार्ट पर कोई निशान नहीं रहता। इसे विज़िट के अंदर जोड़ें।</string>
     <string name="pv_block_no_treatment">पहले उपचार चुनें।</string>
-    <string name="pv_block_surface_change">प्रीव्यू: पुरानी प्रविष्टि की सतह बदलने के लिए सर्वर सहायता चाहिए।</string>
     <string name="pv_book_cta">%1$s बुक करें</string>
     <string name="pv_book_done">बुक हो गया</string>
     <string name="pv_book_free">%1$s · खाली स्लॉट</string>

@@ -59,9 +59,5 @@ class TreatmentFormTest {
             TreatmentCheck.Ok(TreatmentPlan(Finding.Watch, null)),
             planTreatment(TreatmentStatus.Watch, null, false),
         )
-        assertEquals(
-            TreatmentCheck.Blocked(TreatmentBlock.SurfaceChangePreview),
-            planTreatment(TreatmentStatus.Watch, null, false, surfaceChanged = true),
-        )
     }
 }

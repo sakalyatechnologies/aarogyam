@@ -301,29 +301,6 @@
         }
       }
     },
-    "pv.block.surface_change": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview: changing the surface of an earlier entry needs server support."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "प्रीव्यू: पुरानी प्रविष्टि की सतह बदलने के लिए सर्वर सहायता चाहिए।"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "प्रीव्ह्यू: जुन्या नोंदीचा पृष्ठभाग बदलण्यासाठी सर्व्हर सहाय्य हवे."
-          }
-        }
-      }
-    },
     "pv.book.cta": {
       "extractionState": "manual",
       "localizations": {

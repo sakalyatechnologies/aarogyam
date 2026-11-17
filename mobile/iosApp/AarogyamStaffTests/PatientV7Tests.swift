@@ -99,7 +99,7 @@ final class PatientV7Tests: XCTestCase {
     }
 
     func test_every_block_reason_has_copy() {
-        for reason in [TreatmentBlock.noTreatment, .needsVisit, .noChartMark, .surfaceChangePreview] {
+        for reason in [TreatmentBlock.noTreatment, .needsVisit, .noChartMark] {
             XCTAssertFalse(reason.message.isEmpty)
             XCTAssertNotEqual(reason.message, "pv.block.no_treatment")
         }

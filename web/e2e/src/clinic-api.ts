@@ -112,6 +112,11 @@ export class ClinicApi {
     return text(body, "id");
   }
 
+  /** Records a treatment as done in an open visit, as the doctor ("Done today"). */
+  async recordProcedure(visitId: string, name: string): Promise<void> {
+    await this.call("POST", `/api/v1/visits/${visitId}/procedures`, { data: { name, status: "done" } }, this.clinic.doctor);
+  }
+
   /** A finished visit with one signed SOAP note, as the doctor; returns the visit id. */
   async pastVisitWithNote(patientId: string, subjective: string): Promise<string> {
     const visitId = await this.startVisit(patientId);

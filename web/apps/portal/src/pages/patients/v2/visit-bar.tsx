@@ -8,7 +8,7 @@ import { Dialog, Field, TextArea } from "@sakalya/ui";
 
 import { AppointmentActionButton } from "../../../components/appointment-action.js";
 import { useClinic } from "../../../clinic.js";
-import { useSetQueueStatus } from "../../../queries.js";
+import { useSetQueueStatus, useVisit } from "../../../queries.js";
 import { usePrescriptions } from "../../prescriptions/queries.js";
 import { CollectPanel } from "./collect-panel.js";
 import { PillButton } from "./kit.js";
@@ -85,7 +85,11 @@ export function VisitBar() {
   const canBill = can("billing.write") || can("clinical.write");
   const canCollect = can("billing.write") || can("payments.collect");
   // The bill's lines, shared by the suggested total below, Send for payment and the Collect panel.
-  const draft = useBillDraft({ patientId: session.patientId, visitId: (session.ended?.visit ?? session.visit)?.id, stage: session.ended === undefined ? "active" : "ended", enabled: session.canWrite && canBill });
+  const billVisitId = (session.ended?.visit ?? session.visit)?.id;
+  // Once the visit is ended the session no longer holds it, so read what was done from the visit itself.
+  const billVisit = useVisit(session.ended === undefined ? undefined : billVisitId);
+  const procedures = session.ended === undefined ? session.procedures : billVisit.data?.procedures;
+  const draft = useBillDraft({ patientId: session.patientId, visitId: billVisitId, stage: session.ended === undefined ? "active" : "ended", enabled: session.canWrite && canBill, procedures });
   const [billError, setBillError] = useState<string | undefined>(undefined);
   if (!session.canWrite) return null;
 

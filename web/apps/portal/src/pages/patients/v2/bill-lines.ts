@@ -2,7 +2,7 @@
  * The bill for a visit, as editable lines: Consultation, then a line for each treatment done today with its price from the
  * clinic's price list. The screen edits these; `invoiceItems` turns them into what `POST /invoices` and `PATCH /invoices/{id}` take.
  */
-import type { ChartEntry, Invoice, InvoiceLineInput, PriceItem } from "@aarogyam/api-client";
+import type { ChartEntry, Invoice, InvoiceLineInput, PriceItem, Procedure } from "@aarogyam/api-client";
 
 export interface BillLine {
   /** Stable while editing. */
@@ -98,9 +98,16 @@ export function lineFromPrice(item: PriceItem, extra: Partial<BillLine> = {}): B
 
 /**
  * The lines to start from. A draft that already has more than the fee's one Consultation line (saved by Send for payment) is
- * taken as it is; otherwise Consultation plus a line for each treatment done today, priced from the list.
+ * taken as it is; otherwise Consultation plus a line for each treatment done today, priced from the list: what was charted
+ * on a tooth, and what was recorded as done (a procedure), at the fee it was recorded with or else the list price.
  */
-export function seedLines(input: { entries: readonly ChartEntry[]; visitId: string; priceList: readonly PriceItem[]; draft: Invoice | undefined }): { lines: BillLine[]; discount: string } {
+export function seedLines(input: {
+  entries: readonly ChartEntry[];
+  visitId: string;
+  priceList: readonly PriceItem[];
+  draft: Invoice | undefined;
+  procedures?: readonly Pick<Procedure, "name" | "tooth" | "status" | "price_paise">[];
+}): { lines: BillLine[]; discount: string } {
   const { draft, priceList } = input;
   const drafted = draft?.status === "draft" ? draft.items : [];
   const discount = drafted.reduce((sum, line) => sum + line.discount_paise, 0);
@@ -126,6 +133,17 @@ export function seedLines(input: { entries: readonly ChartEntry[]; visitId: stri
     const suffix = treatment.finding === "root_canal" && treatment.sitting != null ? ` (sitting ${String(treatment.sitting)})` : "";
     const base = { description: `${name.charAt(0).toUpperCase()}${name.slice(1)}${suffix}`, tooth: treatment.tooth };
     lines.push(item === undefined ? { key: newKey(), ...base, qty: 1, price: "", gstRate: 0 } : lineFromPrice(item, base));
+  }
+  // Saving a treatment makes a chart entry or a procedure, never both, so neither is billed twice.
+  for (const done of (input.procedures ?? []).filter((p) => p.status === "done")) {
+    const label = done.name.trim().toLowerCase();
+    const item = priceList.find((p) => p.active && (p.name.toLowerCase().includes(label) || label.includes(p.name.toLowerCase())));
+    const base = { description: `${done.name.charAt(0).toUpperCase()}${done.name.slice(1)}`, ...(done.tooth == null ? {} : { tooth: done.tooth }) };
+    if (done.price_paise != null) {
+      lines.push({ key: newKey(), ...base, qty: 1, price: rupeeText(done.price_paise), priceItemId: item?.id, listPrice: item === undefined ? undefined : rupeeText(item.price_paise), gstRate: item?.taxable === true ? item.gst_rate : 0 });
+    } else {
+      lines.push(item === undefined ? { key: newKey(), ...base, qty: 1, price: "", gstRate: 0 } : lineFromPrice(item, base));
+    }
   }
   return { lines, discount: discountText };
 }

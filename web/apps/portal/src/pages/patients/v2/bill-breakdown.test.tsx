@@ -4,7 +4,7 @@ import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { fakeTokenFor } from "@aarogyam/api-client/fake";
-import { chartEntry, patientId as toPatientId, priceItem, type InvoiceEdit, type NewInvoice, type NewPayment } from "@aarogyam/api-client";
+import { chartEntry, paise, patientId as toPatientId, priceItem, type InvoiceEdit, type NewInvoice, type NewPayment } from "@aarogyam/api-client";
 
 import { NEW_LOOK_KEY } from "../../../lib/new-look.js";
 import { NOW, PEOPLE, fakeApi, renderPortal } from "../../../test/render.js";
@@ -84,6 +84,28 @@ describe("bill lines", () => {
     expect(lines.map((l) => [l.description, l.tooth, l.price])).toEqual([
       ["Consultation", undefined, "500"],
       ["Composite filling", 36, "1800"],
+    ]);
+  });
+
+  it("bills what was recorded as done today too: at its own fee, else the list price, else a price to type", () => {
+    const { lines } = seedLines({
+      entries: [],
+      visitId: VISIT,
+      priceList: priceList,
+      draft: undefined,
+      procedures: [
+        { name: "composite filling", tooth: 26, status: "done", price_paise: null },
+        { name: "Scaling", tooth: null, status: "done", price_paise: paise.parse(120_000) },
+        { name: "Night guard fitting", tooth: null, status: "done", price_paise: null },
+        { name: "Extraction", tooth: 48, status: "entered_in_error", price_paise: paise.parse(90_000) },
+        { name: "Crown", tooth: 16, status: "planned", price_paise: paise.parse(500_000) },
+      ],
+    });
+    expect(lines.map((l) => [l.description, l.tooth, l.price])).toEqual([
+      ["Consultation", undefined, "500"],
+      ["Composite filling", 26, "1800"],
+      ["Scaling", undefined, "1200"],
+      ["Night guard fitting", undefined, ""],
     ]);
   });
 

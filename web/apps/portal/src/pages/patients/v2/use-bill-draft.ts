@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { unwrap, type Invoice, type PatientId } from "@aarogyam/api-client";
+import { unwrap, type Invoice, type PatientId, type Procedure } from "@aarogyam/api-client";
 
 import { useClinic } from "../../../clinic.js";
 import { REFERENCE } from "../../../lib/cache-policy.js";
@@ -14,7 +14,15 @@ import { invoiceItems, problemWith, seedLines, totalOf, type BillLine } from "./
  * The lines start from today's chart entries and the price list (or the visit's draft bill) and stay as the doctor edits them.
  * `save` writes them to the visit's draft bill, making the bill when there is none; issuing is the caller's step.
  */
-export function useBillDraft(input: { patientId: PatientId; visitId: string | undefined; /** `active` while the visit is open (a suggestion), `ended` once it is closed (the bill itself). */ stage: "active" | "ended"; enabled: boolean }) {
+export function useBillDraft(input: {
+  patientId: PatientId;
+  visitId: string | undefined;
+  /** `active` while the visit is open (a suggestion), `ended` once it is closed (the bill itself). */
+  stage: "active" | "ended";
+  enabled: boolean;
+  /** The visit's recorded procedures ("Done today"), billed beside what was charted; undefined while they load. */
+  procedures: readonly Procedure[] | undefined;
+}) {
   const { api, access, can } = useClinic();
   const queryClient = useQueryClient();
   const { patientId, visitId, stage } = input;
@@ -50,10 +58,10 @@ export function useBillDraft(input: { patientId: PatientId; visitId: string | un
     };
   }, [on, stage, scope, queryClient, access.org_id, patientId]);
 
-  const ready = on && invoices.isSuccess && (listed === undefined || detail.isSuccess || detail.isError) && prices.isSuccess && (chart.isSuccess || chart.isError || !can("clinical.read")) && (stage === "active" || freshFor === scope);
+  const ready = on && invoices.isSuccess && (listed === undefined || detail.isSuccess || detail.isError) && prices.isSuccess && (chart.isSuccess || chart.isError || !can("clinical.read")) && (stage === "active" || freshFor === scope) && input.procedures !== undefined;
   const seeded = (() => {
     if (!ready) return undefined;
-    return seedLines({ entries: chart.data?.current ?? [], visitId, priceList: prices.data.items, draft: bill });
+    return seedLines({ entries: chart.data?.current ?? [], visitId, priceList: prices.data.items, draft: bill, procedures: input.procedures ?? [] });
   })();
   // Seeded once per visit: a refetch (after a save) must not replace what the doctor typed or re-key the lines.
   const [snapshot, setSnapshot] = useState<{ scope: string; value: ReturnType<typeof seedLines> | undefined }>({ scope: "", value: undefined });

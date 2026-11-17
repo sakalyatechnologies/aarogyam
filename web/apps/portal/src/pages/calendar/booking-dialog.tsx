@@ -16,8 +16,8 @@ import { useAppointments, useBookAppointment, usePatient, useWorkingHours } from
 import { BookingPatient } from "./booking-patient.js";
 import { PatientOverlapNotice, clashSentence, clashesFromServer, patientOverlaps } from "./patient-overlap.js";
 
-const DURATIONS = [15, 20, 30, 45, 60, 90] as const;
-const KINDS = [
+export const DURATIONS = [15, 20, 30, 45, 60, 90] as const;
+export const KINDS = [
   { value: "new", label: "New patient" },
   { value: "follow_up", label: "Follow-up" },
   { value: "procedure", label: "Procedure" },

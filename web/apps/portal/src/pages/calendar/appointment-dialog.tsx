@@ -9,6 +9,7 @@ import { localDateHour, localInstant } from "../../lib/time.js";
 import { useAppointments, useChangeAppointment, useMoveAppointment, useSetAppointmentStatus } from "../../queries.js";
 import { PatientOverlapNotice, clashSentence, clashesFromServer, patientOverlaps } from "./patient-overlap.js";
 import { VisitKindTag } from "./visit-kind-tag.js";
+import { DURATIONS, KINDS } from "./booking-dialog.js";
 
 const STATUS_TONE: Readonly<Record<AppointmentStatus, Tone>> = {
   requested: "warning",
@@ -87,7 +88,12 @@ function AppointmentDetail({
   const [chosenRoomId, setEditRoomId] = useState(appointment.room_id ?? "");
   const editRoomId = assignChair ? chosenRoomId : "";
   const [editPractitionerId, setEditPractitionerId] = useState(appointment.practitioner.id);
-  const durationMinutes = Math.round((Date.parse(appointment.ends_at) - Date.parse(appointment.starts_at)) / 60_000);
+  const bookedMinutes = Math.round((Date.parse(appointment.ends_at) - Date.parse(appointment.starts_at)) / 60_000);
+  // Length, visit kind and reason change here too, not only the time, doctor and chair.
+  const [durationMinutes, setDurationMinutes] = useState(bookedMinutes);
+  const [editKind, setEditKind] = useState<string>(appointment.kind);
+  const [editReason, setEditReason] = useState(appointment.reason ?? "");
+  const lengths = DURATIONS.some((d) => d === bookedMinutes) ? DURATIONS : [...DURATIONS, bookedMinutes].sort((a, b) => a - b);
 
   // The same patient's other appointments that day, so a move into one of them is flagged before saving.
   const dayList = useAppointments({ from: editDate, to: editDate });
@@ -96,7 +102,9 @@ function AppointmentDetail({
   // Only once the time or doctor was changed, and only from fresh data for the chosen day.
   const timeOrDoctorChanged = editDate !== start.date || editTime !== formatHHMM(start.hour) || editPractitionerId !== appointment.practitioner.id;
   const overlaps = !timeOrDoctorChanged || dayList.isPending || dayList.isPlaceholderData ? [] : patientOverlaps(dayList.data?.items ?? [], appointment.patient.id, editStart, editEnd, appointment.id);
-  const moveLabel = requested ? "Move and confirm" : "Move appointment";
+  const detailsChanged = durationMinutes !== bookedMinutes || editKind !== appointment.kind || editReason.trim() !== (appointment.reason ?? "");
+  const chairChanged = editRoomId !== (appointment.room_id ?? "");
+  const moveLabel = requested ? "Move and confirm" : timeOrDoctorChanged || chairChanged || !detailsChanged ? "Move appointment" : "Save changes";
 
   const moveTo = (status: AppointmentStatus, reason?: string, doubleBook = false) => {
     setError(undefined);
@@ -156,12 +164,15 @@ function AppointmentDetail({
           ends_at: endsAt,
           practitioner_id: editPractitionerId,
           room_id: editRoomId,
+          ...(editKind === appointment.kind ? {} : { kind: editKind }),
+          ...(editReason.trim() === (appointment.reason ?? "") ? {} : { reason: editReason.trim() }),
         },
       },
       {
         onSuccess: (saved) => {
           const notes = [...saved.warnings.map((w) => w.message), ...clashesFromServer(saved.patient_overlaps).map((c) => clashSentence(c, appointment.patient.full_name, timeZone))];
-          toast.show({ title: notes.length > 0 ? notes.join(" ") : "Appointment moved", tone: notes.length > 0 ? "warning" : "success" });
+          const done = timeOrDoctorChanged || chairChanged ? "Appointment moved" : "Appointment updated";
+          toast.show(notes.length > 0 ? { title: done, description: notes.join(" "), tone: "warning" } : { title: done, tone: "success" });
           onClose();
         },
         onError: (thrown) => {
@@ -230,7 +241,7 @@ function AppointmentDetail({
 
       {editable && (!requested || moving) ? (
         <div className="rounded-2xl border border-border p-4">
-          <p className="mb-3 text-sm font-bold text-text">{requested ? "Move and confirm" : "Reschedule"}</p>
+          <p className="mb-3 text-sm font-bold text-text">{requested ? "Move and confirm" : "Change"}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Doctor">
               <Select options={practitioners.map((p) => ({ value: p.id, label: p.display_name }))} value={editPractitionerId} onValueChange={setEditPractitionerId} />
@@ -254,6 +265,33 @@ function AppointmentDetail({
                 }}
               />
             </Field>
+            {requested ? null : (
+              <>
+                <Field label="Length">
+                  <Select
+                    options={lengths.map((d) => ({ value: String(d), label: `${String(d)} min` }))}
+                    value={String(durationMinutes)}
+                    onValueChange={(value) => {
+                      setDurationMinutes(Number(value));
+                    }}
+                  />
+                </Field>
+                <Field label="Visit kind">
+                  <Select options={KINDS.map((k) => ({ value: k.value, label: k.label }))} value={editKind} onValueChange={setEditKind} />
+                </Field>
+                <div className="sm:col-span-2">
+                  <Field label="Reason">
+                    <TextInput
+                      value={editReason}
+                      placeholder="Consultation"
+                      onChange={(event) => {
+                        setEditReason(event.target.value);
+                      }}
+                    />
+                  </Field>
+                </div>
+              </>
+            )}
           </div>
           <div className="mt-3">
             <PatientOverlapNotice overlaps={overlaps} patientName={appointment.patient.full_name} timeZone={timeZone} action={`${moveLabel} anyway`} />

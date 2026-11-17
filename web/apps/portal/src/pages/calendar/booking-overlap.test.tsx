@@ -234,3 +234,22 @@ describe("Calendar: optional chair", () => {
     expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   });
 });
+
+describe("Calendar: changing an appointment's details", () => {
+  it("changes the length, visit kind and reason without moving it", async () => {
+    const { backend, api, seen } = await setup();
+    const user = userEvent.setup();
+    renderPortal(WEEK, { as: PEOPLE.farah, backend });
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${seen.full_name}, .* at 10:00`) }, { timeout: 15_000 }));
+    const dialog = await screen.findByRole("dialog", { name: "Appointment" });
+    await user.selectOptions(within(dialog).getByLabelText(/^Length/), "45 min");
+    await user.selectOptions(within(dialog).getByLabelText(/^Visit kind/), "Procedure");
+    await user.type(within(dialog).getByLabelText(/^Reason/), "Crown fitting");
+    await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText("Appointment updated")).toBeTruthy();
+    const list = await api.listAppointments({ from: DAY, to: DAY });
+    if (!list.ok) throw new Error("expected appointments");
+    const saved = list.value.items.find((a) => a.patient.id === seen.id && a.starts_at.includes("04:30:00"));
+    expect(saved === undefined ? undefined : [(Date.parse(saved.ends_at) - Date.parse(saved.starts_at)) / 60_000, saved.kind, saved.reason]).toEqual([45, "procedure", "Crown fitting"]);
+  });
+});

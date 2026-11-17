@@ -94,10 +94,8 @@ Founder testing: a patient booked online from the clinic website and the booking
 - Respects scopes: a doctor limited to their own patients sees only their bookings.
 
 **Related fixes found in the same test (planned)**
-- **Appointment window:**
+- **Appointment window:** reason, visit kind and length are editable in its Change panel (16 Nov 2026), saved with the time, doctor and chair in one request ("Save changes" when only the details change). Still open:
   - fields out of line (hints above some boxes but not others)
-  - the chair change is lost unless you press Move appointment
-  - reason, visit kind and length can't be edited
   - no patient phone or email
 - **Online sign-ups:** backend built 8 Oct 2026 (`POST /appointments/{id}/check-in`, `registration_incomplete`, `GET /patient-duplicates`, merge and dismiss; `decisions.md`, "Online sign-ups"). Still to build: the portal check-in form at Mark arrived and the duplicates screen.
 - **Appointment edits:** backend already edits chair alone, reason, kind and length (tests 8 Oct 2026); the portal must send the chair with every save, not only Move appointment.

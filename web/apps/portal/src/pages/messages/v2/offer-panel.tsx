@@ -5,7 +5,9 @@ import { useId, useState } from "react";
 import { unwrap, type AudienceFilter, type Campaign } from "@aarogyam/api-client";
 import { useToast } from "@sakalya/ui";
 
+import { DatePicker } from "../../../components/mk/date-picker.js";
 import { Empty, MkCard, Tag } from "../../../components/mk/index.js";
+import { useTodayDate } from "../../../lib/patients.js";
 import { useClinic } from "../../../clinic.js";
 import { useAudiencePreview, useCampaigns, useDebounced, useTemplates, why } from "./queries.js";
 import { StatusTag } from "./status.js";
@@ -63,6 +65,7 @@ export function OfferPanel() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft>({ kind: "all_active", before: sixMonthsAgo(), month: String(new Date().getMonth() + 1), min: "", max: "", sex: "female" });
   const [name, setName] = useState("");
+  const today = useTodayDate();
   const [offer, setOffer] = useState("");
   const [failure, setFailure] = useState<string | null>(null);
   const ids = { kind: useId(), date: useId(), month: useId(), min: useId(), max: useId(), sex: useId(), name: useId(), offer: useId() };
@@ -135,7 +138,7 @@ export function OfferPanel() {
             <label className="mk-flabel" htmlFor={ids.date}>
               Last visit before
             </label>
-            <input id={ids.date} type="date" className="mk-tin" value={draft.before} onChange={(e) => { set({ before: e.target.value }); }} />
+            <DatePicker id={ids.date} label="Last visit before" value={draft.before} max={today} today={today} onChange={(before) => { set({ before }); }} />
           </>
         ) : null}
         {draft.kind === "birthday_month" ? (

@@ -11,7 +11,7 @@ import {
   type RxItem,
 } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, useDebouncedValue, useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, Card, DateInput, Dialog, Field, FormActions, Pill as StatusPill, Select, Skeleton, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { Button, Card, Dialog, Field, FormActions, Pill as StatusPill, Select, Skeleton, TextArea, TextInput, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import {
@@ -22,8 +22,9 @@ import {
   useIssuePrescription,
   usePrescription,
 } from "./queries.js";
+import { DatePicker } from "../../components/mk/date-picker.js";
 import { PageHeader } from "../../components/mk/index.js";
-import { patientPath } from "../../lib/patients.js";
+import { patientPath, useTodayDate } from "../../lib/patients.js";
 import { joinParts } from "../../lib/text.js";
 import { MedicineSets } from "./medicine-sets.js";
 
@@ -262,6 +263,7 @@ export function DraftEditor({ rx, onIssued, handle }: { rx: Prescription; onIssu
   const [diagnosis, setDiagnosis] = useState(rx.diagnosis_text ?? "");
   const [advice, setAdvice] = useState(rx.advice ?? "");
   const [followUp, setFollowUp] = useState(rx.follow_up_on ?? "");
+  const today = useTodayDate();
   const [query, setQuery] = useState("");
   const [blockedAlerts, setBlockedAlerts] = useState<Alert[]>();
   const [overrideReason, setOverrideReason] = useState("");
@@ -464,13 +466,8 @@ export function DraftEditor({ rx, onIssued, handle }: { rx: Prescription; onIssu
           }}
         />
       </Field>
-      <Field label="Follow-up date" hint="Optional">
-        <DateInput
-          value={followUp}
-          onChange={(event) => {
-            setFollowUp(event.currentTarget.value);
-          }}
-        />
+      <Field label="Follow-up date" hint="Optional" id="rx-follow-up">
+        <DatePicker id="rx-follow-up" label="Follow-up date" placeholder="No follow-up" clearable value={followUp} min={today} today={today} onChange={setFollowUp} />
       </Field>
 
       {error === undefined ? null : (

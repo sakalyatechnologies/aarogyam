@@ -3,10 +3,12 @@ import { useState } from "react";
 
 import { apiErrorOf, type LabContactLogEntry, type LabOrder, type LabVendor } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime } from "@aarogyam/app-kit";
-import { Button, DateInput, Drawer, Field, Select, TextInput, useToast } from "@sakalya/ui";
+import { Button, Drawer, Field, Select, TextInput, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
+import { DatePicker } from "../../components/mk/date-picker.js";
 import { Skeleton, Timeline } from "../../components/mk/index.js";
+import { useTodayDate } from "../../lib/patients.js";
 import { ItemsSection } from "./item-editor.js";
 import { OrderStatusTags, Tracker } from "./order-card.js";
 import { useLabOrderById, useLabVendors, useLogLabContact, useMoveLabOrder, useRemindLab, useSetLabOrderStatus } from "./queries.js";
@@ -273,6 +275,7 @@ function ContactSection({ order, vendor, canWrite }: { order: LabOrder; vendor: 
   const [outcome, setOutcome] = useState<NonNullable<LabContactLogEntry["outcome"]>>("reached");
   const [note, setNote] = useState("");
   const [promised, setPromised] = useState("");
+  const today = useTodayDate();
   const [error, setError] = useState<string>();
   const person = contacts.find((c) => c.id === who);
   const phone = person?.phone ?? order.contact_phone ?? order.vendor_phone ?? null;
@@ -349,8 +352,8 @@ function ContactSection({ order, vendor, canWrite }: { order: LabOrder; vendor: 
             </Field>
           </div>
           {outcome === "promised_date" ? (
-            <Field label="Promised date" hint="Becomes the due date and restarts reminders" required>
-              <DateInput value={promised} onValueChange={setPromised} />
+            <Field label="Promised date" hint="Becomes the due date and restarts reminders" required id="lab-promised">
+              <DatePicker id="lab-promised" label="Promised date" value={promised} min={today} today={today} onChange={setPromised} />
             </Field>
           ) : null}
           <Field label="Note">

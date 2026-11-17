@@ -3,9 +3,10 @@ import { useState } from "react";
 
 import { apiErrorOf, type Leave, type Practitioner, type PractitionerId, type Room, type WorkingHours } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDateTime } from "@aarogyam/app-kit";
-import { Button, Card, DataTable, DateInput, Dialog, Field, Menu, Pill, Select, Skeleton, Switch, TextArea, TextInput, useToast, type DataTableColumn, type MenuItem } from "@sakalya/ui";
+import { Button, Card, DataTable, Dialog, Field, Menu, Pill, Select, Skeleton, Switch, TextArea, TextInput, useToast, type DataTableColumn, type MenuItem } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
+import { DatePicker } from "../../components/mk/date-picker.js";
 import { useTodayDate } from "../../lib/patients.js";
 import { addDays, localInstant } from "../../lib/time.js";
 import {
@@ -629,11 +630,11 @@ function AddLeaveDialog({
           <Select options={practitioners.map((p) => ({ value: p.id, label: p.display_name }))} value={practitionerId} onValueChange={setPractitionerId} placeholder="Choose a doctor" />
         </Field>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="From">
-            <DateInput value={startDate} onValueChange={setStartDate} />
+          <Field label="From" id="leave-from">
+            <DatePicker id="leave-from" label="From" value={startDate} today={today} onChange={(value) => { setStartDate(value); if (endDate < value) setEndDate(value); }} />
           </Field>
-          <Field label="To">
-            <DateInput value={endDate} onValueChange={setEndDate} />
+          <Field label="To" id="leave-to">
+            <DatePicker id="leave-to" label="To" value={endDate} min={startDate} today={today} onChange={setEndDate} />
           </Field>
         </div>
         <Field label="Reason">

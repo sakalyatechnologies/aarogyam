@@ -4,9 +4,10 @@ import { useId, useState } from "react";
 
 import { apiErrorOf, taskId, taskStatus, unwrap, type ApiClient, type Task, type TaskId, type TaskOccurrence, type TaskSchedule } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
-import { Button, ChipFilterGroup, DateInput, Dialog, Field, Select, Switch, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { Button, ChipFilterGroup, Dialog, Field, Select, Switch, TextArea, TextInput, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
+import { DatePicker } from "../../components/mk/date-picker.js";
 import { Empty, MkCard, Segments, StatusChip, Toggle, type ChipTone } from "../../components/mk/index.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 import { SortHeader } from "../../components/sort-header.js";
@@ -715,11 +716,13 @@ function TaskDialog({ dialog, timeZone, onClose }: { dialog: { task?: Task } | u
           ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             {values.kind === "once" ? (
-              <Field label="Date">
-                <DateInput
+              <Field label="Date" id="task-date">
+                <DatePicker
+                  id="task-date"
                   min={today}
+                  today={today}
                   value={values.date}
-                  onValueChange={(date) => {
+                  onChange={(date) => {
                     set({ date });
                   }}
                 />

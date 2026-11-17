@@ -6,10 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiClient, LabRemindersRequest, LabVendorValues, NewLabOrder, NewLabPayment, Permission } from "@aarogyam/api-client";
 import { failure, parseApiError } from "@aarogyam/api-client";
 import { ROLES, createFixtures } from "@aarogyam/api-client/fake";
+import { formatDate } from "@aarogyam/app-kit";
 
 import { NEW_LOOK_KEY } from "../../lib/new-look.js";
 import { NOW, PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
 import { pickDate } from "../../test/date-picker.js";
+import { addDays } from "../../lib/time.js";
 
 // The page sits behind a fake API with latency, and a busy machine makes drawers and dialogs slow to settle.
 vi.setConfig({ testTimeout: 60_000 });
@@ -212,7 +214,9 @@ describe("Lab work: the order drawer", () => {
       expect(section.getByRole("link", { name: /^Call Rahul Deshmukh/ }).getAttribute("href")).toBe("tel:+919876500101");
     });
     await user.selectOptions(section.getByRole("combobox", { name: /What came of it/ }), "Lab promised a date");
-    await user.type(section.getByLabelText(/Promised date/), "2026-10-20");
+    // The picker blocks past days against the real clock, so the promise is ten days out.
+    const promised = addDays(new Date().toISOString().slice(0, 10), 10);
+    await pickDate(user, "Promised date", promised);
     await user.type(section.getByRole("textbox", { name: "Note" }), "Said Friday");
     await user.click(section.getByRole("button", { name: "Log call" }));
     await waitFor(() => {
@@ -220,7 +224,7 @@ describe("Lab work: the order drawer", () => {
     });
     expect(within(panel).getByText("Due date changed")).toBeTruthy();
     await waitFor(() => {
-      expect(within(panel).getAllByText(/due 20 Oct 2026/).length).toBeGreaterThan(0);
+      expect(within(panel).getAllByText(new RegExp(`due ${formatDate(promised)}`)).length).toBeGreaterThan(0);
     });
   });
 });

@@ -28,6 +28,8 @@ export interface DatePickerProps {
   id?: string | undefined;
   /** What the date is, for the button's spoken name ("Due back, Mon 12 Oct"); "Date" by default. Match the field's label. */
   label?: string | undefined;
+  /** Offers "Clear" under the grid while a date is set, for an optional date such as an expiry. */
+  clearable?: boolean | undefined;
   className?: string | undefined;
 }
 
@@ -35,7 +37,7 @@ export interface DatePickerProps {
  * A date field that opens a month grid: today ringed, the chosen day filled, days before `min` disabled.
  * Arrow keys move by day and week, PageUp/PageDown by month, Home/End to the week's ends, Enter picks, Escape closes.
  */
-export function DatePicker({ value, onChange, min, max, today, id, label = "Date", placeholder = "Choose a date", className = "" }: DatePickerProps) {
+export function DatePicker({ value, onChange, min, max, today, id, label = "Date", placeholder = "Choose a date", clearable = false, className = "" }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(value === "" ? today : value);
   const root = useRef<HTMLDivElement>(null);
@@ -166,6 +168,18 @@ export function DatePicker({ value, onChange, min, max, today, id, label = "Date
             ))}
           </div>
           <div className="mk-dp-foot">
+            {clearable && value !== "" ? (
+              <button
+                type="button"
+                className="mk-dp-link"
+                onClick={() => {
+                  onChange("");
+                  close();
+                }}
+              >
+                Clear
+              </button>
+            ) : null}
             <button
               type="button"
               className="mk-dp-link"

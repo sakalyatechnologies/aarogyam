@@ -2,9 +2,11 @@ import { useState } from "react";
 
 import { apiErrorOf, type InventoryItemId, type StockBatch } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, formatNumber, formatRupees } from "@aarogyam/app-kit";
-import { Button, DataTable, DateInput, Dialog, Field, Select, Skeleton, TextInput, useToast, type DataTableColumn } from "@sakalya/ui";
+import { Button, DataTable, Dialog, Field, Select, Skeleton, TextInput, useToast, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
+import { DatePicker } from "../../components/mk/date-picker.js";
+import { useTodayDate } from "../../lib/patients.js";
 import { useNewLook } from "../../lib/new-look.js";
 import { AlertSettings } from "./alert-settings.js";
 import { ItemSettings } from "./item-settings.js";
@@ -158,6 +160,7 @@ function StockForm({ itemId }: { itemId: InventoryItemId }) {
   const [action, setAction] = useState<Action>("receive");
   const [quantity, setQuantity] = useState("");
   const [expiry, setExpiry] = useState("");
+  const todayDate = useTodayDate();
   const [batchNo, setBatchNo] = useState("");
   const [cost, setCost] = useState("");
   const [supplier, setSupplier] = useState("");
@@ -258,8 +261,8 @@ function StockForm({ itemId }: { itemId: InventoryItemId }) {
                 }}
               />
             </Field>
-            <Field label="Expiry date" hint="Leave empty when it doesn't expire">
-              <DateInput value={expiry} onValueChange={setExpiry} />
+            <Field label="Expiry date" hint="Leave empty when it doesn't expire" id="stock-expiry">
+              <DatePicker id="stock-expiry" label="Expiry date" placeholder="No expiry" clearable value={expiry} today={todayDate} onChange={setExpiry} />
             </Field>
             <Field label="Cost of one unit (₹)">
               <TextInput

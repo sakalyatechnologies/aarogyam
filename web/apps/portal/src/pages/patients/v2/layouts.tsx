@@ -63,9 +63,12 @@ function MoreFolds({ patient, canClinical, nested = false }: { patient: LayoutPr
 
 /** Console: the chart and Records on the left; Today and Wrap up on a sticky rail; the rarely used folded below. */
 export function ConsoleLayout({ patient, canClinical, showPastRx }: LayoutProps) {
+  const session = useVisitSession();
+  // In one column (phone, tablet, small laptop) an open visit puts Today, its notes and vitals, above the chart.
+  const live = canClinical && session.visit !== undefined;
   return (
     <>
-      <div className="p360-console">
+      <div className={`p360-console${live ? " live" : ""}`}>
         <div className="p360-stack">
           {canClinical ? (
             <ToothBlock patientId={patient.id} />

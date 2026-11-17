@@ -56,6 +56,9 @@
   .p360-console { grid-template-columns: minmax(0, 1.6fr) minmax(340px, 1fr); }
   .p360-console > .p360-rail { position: sticky; top: 92px; align-self: start; max-height: calc(100vh - 8rem); overflow-y: auto; padding-right: 4px; }
 }
+@media (max-width: 1279px) {
+  .p360-console.live > .p360-rail { order: -1; }
+}
 .p360-rail { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .p360-folds { display: grid; gap: 8px; align-items: start; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 1024px) { .p360-folds { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -217,6 +220,8 @@
 .p360-head { align-items: flex-start; }
 .p360-facts { flex: 1 0 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 20px; margin: 4px 0 0; padding: 12px 0 0; border-top: 1px solid color-mix(in srgb, var(--rule) 60%, transparent); }
 .p360-fact { min-width: 0; margin: 0; }
+/* A phone fits two facts a row; one a row made the header taller than the screen. */
+@media (max-width: 480px) { .p360-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; } }
 .p360-fact.wide { grid-column: span 2; }
 @media (max-width: 520px) { .p360-fact.wide { grid-column: auto; } }
 .p360-fact dt { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }

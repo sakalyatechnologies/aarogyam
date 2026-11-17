@@ -35,6 +35,19 @@ test("a typed note joins the visit's transcript and is still there after a reloa
   await shot(page, "2-after-reload");
 });
 
+test("on a phone, an open visit's notes come before the dental chart", async ({ tenant, pageAs, clinicApi, unique }) => {
+  const patient = await clinicApi.registerPatient(unique("Patient"));
+  await clinicApi.startVisit(patient.id);
+  const page = await pageAs(tenant.doctor, { path: `/patients/${patient.id}` });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const note = page.getByRole("textbox", { name: "Type a note" });
+  const chart = page.getByRole("heading", { name: "Dental chart" });
+  await expect(note).toBeVisible();
+  const [noteBox, chartBox] = await Promise.all([note.boundingBox(), chart.boundingBox()]);
+  expect(noteBox?.y ?? Infinity).toBeLessThan(chartBox?.y ?? 0);
+  await shot(page, "5-phone-visit");
+});
+
 test("editing a past visit's notes saves a correction, keeps the original, and the visit stays one entry", async ({ tenant, pageAs, clinicApi, unique }) => {
   const patient = await clinicApi.registerPatient(unique("Patient"));
   await clinicApi.pastVisitWithNote(patient.id, "Pain on the right side");

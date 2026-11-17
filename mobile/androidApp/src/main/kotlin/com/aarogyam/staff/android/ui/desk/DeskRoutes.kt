@@ -23,6 +23,7 @@ import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
 import com.aarogyam.staff.android.ui.LoadingIndicator
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.api.queue
 import com.aarogyam.staff.clinic.ClinicContext
@@ -101,6 +102,7 @@ fun NavGraphBuilder.deskDestinations(
         val open = clinic() ?: return@composable
         val phone = entry.arguments?.getString("phone")?.takeIf { it.isNotBlank() }
         Column(Modifier.fillMaxSize()) {
+            StatusBarTone.DarkHeader()
             SkTopBar(
                 title = stringResource(R.string.dk_iv_title),
                 actions = {
@@ -151,6 +153,7 @@ private fun DeskPaymentScreen(
         value = token?.let { DeskPayTarget(it.patient.id, it.patient.fullName, invoiceId = invoiceId) }
     }
     Column(Modifier.fillMaxSize().imePadding()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = stringResource(R.string.dk_d9_pay_title),
             subtitle = target?.name,

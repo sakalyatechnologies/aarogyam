@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
 import com.aarogyam.staff.android.ui.LoadingIndicator
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.rupees
 import com.aarogyam.staff.expenses.ExpenseRow
@@ -59,6 +60,7 @@ fun ExpensesScreen(
     val state by holder.state.collectAsStateWithLifecycle()
     var adding by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = stringResource(R.string.cn_c_expenses_title),
             navigation = {

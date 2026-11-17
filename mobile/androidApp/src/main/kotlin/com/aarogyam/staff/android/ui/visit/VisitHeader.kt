@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.label
 import com.aarogyam.staff.android.ui.today.InitialsAvatar
 import com.aarogyam.staff.patients.Patient360State
@@ -118,6 +119,7 @@ internal fun VisitHeader(
     val colors = SkTheme.colors
     val ink = colors.onBrandDark.color
     val person = (patient as? Patient360State.Loaded)?.view
+    StatusBarTone.DarkHeader()
     Column(
         Modifier
             .fillMaxWidth()

@@ -24,6 +24,7 @@ import androidx.navigation.NavController
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.patient.openPatient
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.clinic.ClinicContext
@@ -69,6 +70,7 @@ fun DeskBoardScreen(
         }
     }
     Column(Modifier.fillMaxSize()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = stringResource(R.string.dk_d9_board_title),
             actions = {

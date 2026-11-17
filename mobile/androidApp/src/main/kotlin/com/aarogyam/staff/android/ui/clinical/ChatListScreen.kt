@@ -31,6 +31,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
 import com.aarogyam.staff.android.ui.LoadingIndicator
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.team.ChatListStateHolder
 import com.aarogyam.staff.team.ConversationRow
@@ -66,6 +67,7 @@ fun ChatListScreen(
         }
     }
     Column(Modifier.fillMaxSize()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = stringResource(R.string.cn_c_chat_title),
             navigation = { BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack) },

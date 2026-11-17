@@ -275,11 +275,17 @@ Done:
   5. Optional: retake iOS shot 2 (visit with Rx) cleaner.
 - **The founder's open question:** the "ROCM … icon on the top right".
 
-### 17 Nov: main after 0ad1a46c
+### 17 Nov: main 8242db1a and after
 - **Polish (both apps):** jaw teeth are spaced evenly along the arch for the real box size, so 17/18 and 37/38 no longer overlap. The folded "Waiting for you" line shows the count and a chevron. Android Visit has a status bar scrim.
 - **Correct note (both apps):** on a past visit, "Correct note" (clinical.write) edits the four parts and signs a correction (`POST /notes/{id}/amend`). "Corrected" and "Earlier version" read `GET /notes/{id}/versions`. The rule mirrors the server: signed notes, or my own draft once the visit is closed.
 - **Dictation:** words still being recognised when listening stops or fails become a bullet instead of being dropped (the Android error path used to lose them; iOS already kept them). This matches the web fix in 3f50a98e.
-- **Play screenshots:** still 3 of 7. The emulator crashed at boot under load and hung the setup script on `adb wait-for-device` for a day while it held the build lock. The boot script (`scratchpad/emu-boot.sh`) now gives up after 10 minutes. Take the shots only when the load is under about 40.
+- **Team invite (both apps):** Invite on Team (staff.manage), with an email and a role from GET /roles; non-owners don't see owner. POST /staff/invitations; the invite token is dropped. Pending invitations are listed under the members. Next: send `display_name` and `phone` once 0720's NewInvitation is in the spec on main.
+- **Android status bar:** icons were dark on every dark brand header (`SystemBarStyle.auto` in light mode). `ui/StatusBarTone.kt` counts dark headers on screen (each SkTopBar and the visit header) and sets light icons while any is shown. **The 3 Play shots taken before this fix (Patient and History especially) need retaking.**
+- **Play screenshots:** still to do (and retakes of the 3, above). Emulator lessons:
+  - A stale crash report in `/tmp/android-<user>/emu-crash-*.db` blocks boot on "Showing crashdialog to get consent". `emu-boot.sh` now passes `-crash-report-mode never`.
+  - `-memory 2048` starves the system on this image (System UI and launcher "not responding"); boot without it.
+  - Other sessions' node jobs still starve adb at times, so take shots when the load is under about 20.
+- **Gate script:** gradle runs with `--no-watch-fs`, after the file watcher missed new strings and left the resources "up to date".
 
 ### 16 Nov, early: main 1a2f6305
 - **Booking overlap:** both booking sheets (iOS and Android, Schedule and Patient) show "This patient is also booked 10:00–10:30 with Dr. Rao, Chair 2" from `patient_overlaps` (backend e641c5fa). Strings in en/hi/mr. The app never moves appointments, so the /move overlaps don't apply.

@@ -28,6 +28,7 @@ import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
 import com.aarogyam.staff.android.ui.LoadingIndicator
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.clinic.ClinicContext
@@ -98,6 +99,7 @@ fun PatientPage(
         seen = true
     }
     Column(Modifier.fillMaxSize()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = loaded?.view?.name ?: stringResource(R.string.patient_title),
             navigation = { BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack) },

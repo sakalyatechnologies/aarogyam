@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
 import com.aarogyam.staff.android.ui.LoadingIndicator
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.display
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.rememberHolder
@@ -72,6 +73,7 @@ fun TeamScreen(
     }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
+            StatusBarTone.DarkHeader()
             SkTopBar(
                 title = stringResource(R.string.cn_c_team_title),
                 navigation = { BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack) },

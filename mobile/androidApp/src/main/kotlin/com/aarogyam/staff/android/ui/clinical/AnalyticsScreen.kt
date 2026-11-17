@@ -26,6 +26,7 @@ import com.aarogyam.staff.analytics.AnalyticsStateHolder
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
 import com.aarogyam.staff.android.ui.LoadingIndicator
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.analytics.AnalyticsCards
 import com.aarogyam.staff.android.ui.analytics.RangeControls
 import com.aarogyam.staff.android.ui.message
@@ -49,6 +50,7 @@ fun AnalyticsScreen(
     val state by holder.state.collectAsStateWithLifecycle()
     var adding by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = stringResource(R.string.cn_c_analytics_title),
             navigation = { BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack) },

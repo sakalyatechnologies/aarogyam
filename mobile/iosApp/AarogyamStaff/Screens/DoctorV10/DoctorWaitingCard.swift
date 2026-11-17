@@ -42,14 +42,31 @@ private struct DoctorWaitingPresenter: View {
     let holder: DoctorWaitingHolder
     let state: WaitingState
     let onStart: (VisitRoute) -> Void
+    @Environment(\.skTheme) private var theme
     @State private var collapsed = false
     @State private var known: Set<String>?
 
     var body: some View {
         Group {
             if collapsed {
-                Button(dv10("dv10.waiting.title")) { collapsed = false }
-                    .v7Text(15, .bold).frame(maxWidth: .infinity, minHeight: SkSpacing.minTouchTarget)
+                // Folded away: the title, how many wait, and a chevron, so it reads as something to open.
+                Button { collapsed = false } label: {
+                    HStack(spacing: SkSpacing.s) {
+                        Text(dv10("dv10.waiting.title")).v7Text(15, .bold).foregroundStyle(theme.roles.onSurface.color)
+                        Spacer()
+                        if !state.rows.isEmpty {
+                            Text("\(state.rows.count)").v7Text(13, .bold).foregroundStyle(theme.roles.onPrimary.color)
+                                .padding(.horizontal, SkSpacing.s).padding(.vertical, 2)
+                                .background(theme.roles.primary.color, in: Capsule())
+                        }
+                        V7Icon(name: "chev", size: 18, tint: theme.roles.onSurfaceVariant.color).rotationEffect(.degrees(90))
+                    }
+                    .padding(.horizontal, SkSpacing.l).frame(minHeight: SkSpacing.minTouchTarget).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(dv10f("dv10.waiting.show", "\(state.rows.count)"))
+                .accessibilityAddTraits(.isButton)
             } else if state.loaded && state.rows.isEmpty {
                 // Nobody waiting: one quiet line, so Today keeps the screen.
                 HStack {

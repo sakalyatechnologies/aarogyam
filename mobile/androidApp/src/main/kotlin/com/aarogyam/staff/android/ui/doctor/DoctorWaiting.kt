@@ -3,6 +3,7 @@ package com.aarogyam.staff.android.ui.doctor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -31,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.WaitingPatient
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.patient.V7Icon
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.doctorWaiting
@@ -53,6 +56,9 @@ object WaitingForMe {
         held.value = value
     }
 }
+
+/** The right-pointing chevron turned to point down: "open this". */
+private const val QUARTER_TURN = 90f
 
 /** Inline on Today: whole cards only, the first rows and then "+N more waiting". */
 private const val MAX_ROWS = 3
@@ -110,17 +116,32 @@ private fun WaitingHost(
     val title = stringResource(R.string.sh_dv10_waiting_title)
     when {
         collapsed -> {
-            Text(
-                title,
-                style = SkTypography.bodyStrong,
-                color = p.onSurface.color,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = Spacing.MIN_TOUCH_TARGET.dp)
-                        .clickable(role = Role.Button) { collapsed = false }
-                        .padding(horizontal = Spacing.L.dp, vertical = Spacing.S.dp),
-            )
+            // Folded away: the title, how many wait, and a chevron, so it reads as something to open.
+            val show = stringResource(R.string.sh_dv10_waiting_show, state.rows.size.toString())
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = Spacing.MIN_TOUCH_TARGET.dp)
+                    .clickable(role = Role.Button) { collapsed = false }
+                    .semantics(mergeDescendants = true) { contentDescription = show }
+                    .padding(horizontal = Spacing.L.dp, vertical = Spacing.S.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.S.dp),
+            ) {
+                Text(title, style = SkTypography.bodyStrong, color = p.onSurface.color, modifier = Modifier.weight(1f))
+                if (state.rows.isNotEmpty()) {
+                    Text(
+                        state.rows.size.toString(),
+                        style = SkTypography.label,
+                        color = p.onPrimary.color,
+                        modifier =
+                            Modifier
+                                .background(p.primary.color, RoundedCornerShape(50))
+                                .padding(horizontal = Spacing.S.dp, vertical = 2.dp),
+                    )
+                }
+                Box(Modifier.rotate(QUARTER_TURN)) { V7Icon("chev", p.onSurfaceVariant.color, 18.dp) }
+            }
         }
 
         state.loaded && state.rows.isEmpty() && !state.failed -> {

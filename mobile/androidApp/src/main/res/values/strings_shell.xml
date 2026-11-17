@@ -28,6 +28,7 @@
     <string name="sh_dv10_waiting_offline">Could not refresh the list</string>
     <string name="sh_dv10_waiting_row_a11y">Token %1$s, %2$s, waiting %3$s minutes. %4$s</string>
     <string name="sh_dv10_waiting_title">Waiting for you</string>
+    <string name="sh_dv10_waiting_show">Waiting for you: %1$s. Show the list</string>
     <string name="sh_lv10_collect">Token %1$d is ready to pay</string>
     <string name="sh_lv10_collect_nonumber">A patient is ready to pay</string>
     <string name="sh_lv10_dismiss">Tap to dismiss</string>

@@ -28,6 +28,7 @@
     <string name="sh_dv10_waiting_offline">यादी रिफ्रेश करता आली नाही</string>
     <string name="sh_dv10_waiting_row_a11y">टोकन %1$s, %2$s, %3$s मिनिटे वाट पाहत आहे. %4$s</string>
     <string name="sh_dv10_waiting_title">तुमच्यासाठी वाट पाहत आहेत</string>
+    <string name="sh_dv10_waiting_show">तुमच्यासाठी वाट पाहत आहेत: %1$s. यादी दाखवा</string>
     <string name="sh_lv10_collect">टोकन %1$d पैसे भरण्यासाठी तयार आहे</string>
     <string name="sh_lv10_collect_nonumber">एक रुग्ण पैसे भरण्यासाठी तयार आहे</string>
     <string name="sh_lv10_dismiss">बंद करण्यासाठी टॅप करा</string>

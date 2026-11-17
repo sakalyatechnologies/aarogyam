@@ -43,14 +43,15 @@ struct JawChart: View {
         let tilt = reduceMotion ? 0 : (picked.isEmpty ? Self.restingTilt : Self.pickedTilt)
         GeometryReader { proxy in
             let w = proxy.size.width, h = proxy.size.height
-            let size = min(30, w * 0.084)
+            let aspect = h > 0 ? Double(w / h) : JawGeometry.shared.PHONE_ASPECT
+            let size = min(30, w * CGFloat(JawGeometry.shared.toothShare(dentition: dentition, aspect: aspect)))
             ZStack {
                 Ellipse()
                     .stroke(gum(r), lineWidth: 18)
                     .opacity(0.55)
                     .frame(width: w * 0.84, height: h * 0.92)
                     .position(x: w / 2, y: h / 2)
-                ForEach(JawGeometry.shared.spots(dentition: dentition), id: \.tooth) { spot in
+                ForEach(JawGeometry.shared.spots(dentition: dentition, aspect: aspect), id: \.tooth) { spot in
                     if let tooth = teeth[Int32(spot.tooth)] {
                         JawTooth(tooth: tooth, size: size, picked: picked.contains(tooth.number)) { onSelect(tooth.number) }
                             .position(x: w * spot.x, y: h * spot.y)

@@ -73,10 +73,33 @@ class ArtTest {
         val first = adult.first()
         assertEquals(18, first.tooth)
         assertTrue(first.x < 0.1 && first.y > 0.4 && first.y < 0.5, first.toString())
-        val middle = adult.first { it.tooth == 11 }
-        assertTrue(abs(middle.y - (0.5 - 0.4 * 0.98 * kotlin.math.sin(kotlin.math.PI * (1 - 7.5 / 16)))) < 1e-9)
+        // The two middle teeth sit either side of the top of the arch, at the same height.
+        val (left, right) = adult.first { it.tooth == 11 } to adult.first { it.tooth == 21 }
+        assertTrue(abs(left.y - right.y) < 1e-6 && left.y < 0.15 && abs(left.x + right.x - 1) < 1e-6)
         assertTrue(adult.filter { !it.upper }.all { it.y > 0.5 })
         assertEquals(20, JawGeometry.spots(Dentition.Child).size)
+    }
+
+    @Test
+    fun neighbouring_teeth_never_touch_even_at_the_molars_on_a_wide_box() {
+        for (aspect in listOf(1.2, 1.57, 1.7, 2.4)) {
+            for (dentition in listOf(Dentition.Adult, Dentition.Child)) {
+                val size = JawGeometry.toothShare(dentition, aspect)
+                val spots = JawGeometry.spots(dentition, aspect)
+
+                // Distance in box widths: y shares are scaled down by the aspect.
+                fun apart(
+                    a: JawSpot,
+                    b: JawSpot,
+                ) = kotlin.math.hypot(a.x - b.x, (a.y - b.y) / aspect)
+                val pairs =
+                    spots.filter { it.upper }.zipWithNext() + spots.filter { !it.upper }.zipWithNext() +
+                        listOf(spots.first() to spots.first { !it.upper }, spots.last { it.upper } to spots.last())
+                pairs.forEach { (a, b) ->
+                    assertTrue(apart(a, b) >= size, "$aspect ${a.tooth}/${b.tooth}: ${apart(a, b)} < $size")
+                }
+            }
+        }
     }
 
     @Test

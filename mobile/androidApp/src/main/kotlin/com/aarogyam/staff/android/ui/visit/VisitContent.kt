@@ -1,13 +1,18 @@
 package com.aarogyam.staff.android.ui.visit
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -34,6 +39,8 @@ import com.aarogyam.staff.visit.VisitView
 import com.sakalya.mobile.design.Spacing
 import com.sakalya.mobile.designcompose.SkButton
 import com.sakalya.mobile.designcompose.SkButtonVariant
+import com.sakalya.mobile.designcompose.SkTheme
+import com.sakalya.mobile.designcompose.color
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 
@@ -194,6 +201,13 @@ internal fun VisitContent(
             }
         }
     }
+    // Edge to edge: once the header scrolls away, the cards would show through the status bar.
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .windowInsetsTopHeight(WindowInsets.statusBars)
+            .background(SkTheme.colors.brandDark.color),
+    )
 }
 
 /** The two doctor entry points on the open visit: Chair mode (full screen) and Wrap up (sheet). */

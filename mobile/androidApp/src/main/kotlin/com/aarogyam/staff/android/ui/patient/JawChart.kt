@@ -116,7 +116,6 @@ private fun JawTone.title(): String =
 private const val TILT = 24f
 private val JAW_HEIGHT = 250.dp
 private const val MAX_TOOTH = 30f
-private const val TOOTH_SHARE = 0.084f
 
 /**
  * Both arches of one dentition as the mockup's 2.5D jaw: teeth placed from the shared `JawGeometry`
@@ -149,7 +148,8 @@ internal fun JawChart(
     BoxWithConstraints(Modifier.fillMaxWidth().height(JAW_HEIGHT).padding(vertical = 4.dp)) {
         val w = maxWidth
         val h = maxHeight
-        val size = minOf(MAX_TOOTH.dp, w * TOOTH_SHARE)
+        val aspect = (w / h).toDouble()
+        val size = minOf(MAX_TOOTH.dp, w * JawGeometry.toothShare(dentition, aspect).toFloat())
         val density = LocalDensity.current
         Box(
             Modifier
@@ -171,7 +171,7 @@ internal fun JawChart(
                     style = Stroke(stroke),
                 )
             }
-            JawGeometry.spots(dentition).forEach { spot ->
+            JawGeometry.spots(dentition, aspect).forEach { spot ->
                 val tooth = teeth[spot.tooth] ?: return@forEach
                 JawTooth(
                     tooth,

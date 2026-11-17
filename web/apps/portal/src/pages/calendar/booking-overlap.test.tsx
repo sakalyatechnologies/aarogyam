@@ -242,6 +242,8 @@ describe("Calendar: changing an appointment's details", () => {
     renderPortal(WEEK, { as: PEOPLE.farah, backend });
     await user.click(await screen.findByRole("button", { name: new RegExp(`^${seen.full_name}, .* at 10:00`) }, { timeout: 15_000 }));
     const dialog = await screen.findByRole("dialog", { name: "Appointment" });
+    // The date is the shared calendar picker, day first, as in booking.
+    expect(within(dialog).getByRole("button", { name: /Mon, 5 Oct/ })).toBeTruthy();
     await user.selectOptions(within(dialog).getByLabelText(/^Length/), "45 min");
     await user.selectOptions(within(dialog).getByLabelText(/^Visit kind/), "Procedure");
     await user.type(within(dialog).getByLabelText(/^Reason/), "Crown fitting");

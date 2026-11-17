@@ -2,11 +2,12 @@ import { useState } from "react";
 
 import { apiErrorOf, type Appointment, type AppointmentStatus, type PractitionerPage, type RoomPage } from "@aarogyam/api-client";
 import { formatDateTime } from "@aarogyam/app-kit";
-import { Button, DateInput, Dialog, Field, Pill, Select, Switch, TextArea, TextInput, useToast, type Tone } from "@sakalya/ui";
+import { Button, Dialog, Field, Pill, Select, Switch, TextArea, TextInput, useToast, type Tone } from "@sakalya/ui";
 
 import { ageSex, formatPhone, maskPhone, patientPath } from "../../lib/patients.js";
 import { useClinic } from "../../clinic.js";
-import { localDateHour, localInstant } from "../../lib/time.js";
+import { localDateHour, localInstant, todayIn } from "../../lib/time.js";
+import { DatePicker } from "../../components/mk/date-picker.js";
 import { useAppointments, useChangeAppointment, useMoveAppointment, usePatient, useSetAppointmentStatus } from "../../queries.js";
 import { PatientOverlapNotice, clashSentence, clashesFromServer, patientOverlaps } from "./patient-overlap.js";
 import { VisitKindTag } from "./visit-kind-tag.js";
@@ -286,8 +287,9 @@ function AppointmentDetail({
                 </Field>
               ) : null}
             </div>
-            <Field label="Date">
-              <DateInput value={editDate} onValueChange={setEditDate} />
+            {/* The same calendar picker as booking (day-first, today marked), not the browser's own date box. */}
+            <Field label="Date" id="apt-date">
+              <DatePicker id="apt-date" value={editDate} onChange={setEditDate} today={todayIn(timeZone)} />
             </Field>
             {/* No hint above this box: it put the time out of line with the date beside it. */}
             <Field label="Start time">

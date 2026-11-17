@@ -289,9 +289,12 @@ function AppointmentDetail({
             <Field label="Date">
               <DateInput value={editDate} onValueChange={setEditDate} />
             </Field>
-            <Field label="Start time" hint="24-hour, HH:MM">
+            {/* No hint above this box: it put the time out of line with the date beside it. */}
+            <Field label="Start time">
               <TextInput
                 value={editTime}
+                placeholder="HH:MM, 24-hour"
+                inputMode="numeric"
                 onChange={(event) => {
                   setEditTime(event.target.value);
                 }}

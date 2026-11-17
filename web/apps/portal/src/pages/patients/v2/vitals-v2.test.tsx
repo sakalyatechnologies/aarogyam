@@ -105,6 +105,36 @@ describe("Vitals in a running visit", () => {
     expect(screen.queryByRole("form", { name: "Add vitals" })).toBeNull();
   });
 
+  it("puts the API's message for one reading under that field, and a non-number under its field", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = visited();
+    renderPortal(path, {
+      as: PEOPLE.asha,
+      backend,
+      wrap: (client) => ({
+        ...client,
+        recordObservations: () => Promise.resolve({ ok: false, error: { status: 400, code: "invalid", message: "Pulse: must be between 20 and 250 /min" } }),
+      }),
+    });
+    await clickFirst(user, "Start visit");
+    await user.click(await screen.findByRole("button", { name: "Add vitals" }));
+    const pulse = screen.getByLabelText("Pulse (/min)");
+    await user.type(pulse, "400");
+    await user.click(screen.getByRole("button", { name: "Save vitals" }));
+    await waitFor(() => {
+      expect(pulse.getAttribute("aria-invalid")).toBe("true");
+    });
+    expect(screen.getByRole("form", { name: "Add vitals" }).textContent).toContain("must be between 20 and 250 /min");
+    // Typing in the field clears its message.
+    await user.type(pulse, "{Backspace}");
+    expect(pulse.getAttribute("aria-invalid")).not.toBe("true");
+    await user.clear(pulse);
+    await user.type(pulse, "fast");
+    await user.click(screen.getByRole("button", { name: "Save vitals" }));
+    expect(pulse.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByRole("form", { name: "Add vitals" }).textContent).toContain("Must be a number");
+  });
+
   it("does not block End visit when no vitals were entered", async () => {
     const user = userEvent.setup();
     const { path, backend } = visited();

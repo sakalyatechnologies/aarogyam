@@ -34,24 +34,38 @@ function VitalsForm({ visitId, onDone }: { visitId: VisitId; onDone: () => void 
   const record = useRecordObservations(visitId);
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | undefined>(undefined);
+  // A message under the reading it is about, so the doctor sees which field to fix.
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const save = () => {
     const typed = OBSERVATION_KINDS.map((k) => ({ kind: k.value, text: values[k.value] ?? "" })).filter((r) => r.text.trim() !== "");
-    const readings = typed.flatMap((r) => {
-      const value = parseValue(r.text);
-      return value === undefined ? [] : [{ kind: r.kind, value }];
-    });
-    if (readings.length === 0 || readings.length !== typed.length) {
-      setError(readings.length === 0 && typed.length === 0 ? "Type at least one reading." : "Readings must be numbers.");
+    const notNumbers = typed.filter((r) => parseValue(r.text) === undefined);
+    if (typed.length === 0) {
+      setFieldErrors({});
+      setError("Type at least one reading.");
       return;
     }
+    if (notNumbers.length > 0) {
+      setFieldErrors(Object.fromEntries(notNumbers.map((r) => [r.kind, "Must be a number"])));
+      setError(undefined);
+      return;
+    }
+    setFieldErrors({});
     setError(undefined);
+    const readings = typed.map((r) => ({ kind: r.kind, value: parseValue(r.text) ?? 0 }));
     record.mutate(
       { readings },
       {
         onSuccess: onDone,
         onError: (thrown) => {
-          setError(apiErrorOf(thrown)?.message ?? "Couldn't record the vitals.");
+          const message = apiErrorOf(thrown)?.message ?? "Couldn't record the vitals.";
+          // The API names the reading first: "Pulse: must be between 20 and 250 /min".
+          const kind = OBSERVATION_KINDS.find((k) => message.startsWith(`${k.label}: `));
+          if (kind === undefined) {
+            setError(message);
+          } else {
+            setFieldErrors({ [kind.value]: message.slice(kind.label.length + 2) });
+          }
         },
       },
     );
@@ -67,12 +81,13 @@ function VitalsForm({ visitId, onDone }: { visitId: VisitId; onDone: () => void 
       }}
     >
       {OBSERVATION_KINDS.map((k) => (
-        <Field key={k.value} label={`${k.label} (${k.unit})`} className="w-28">
+        <Field key={k.value} label={`${k.label} (${k.unit})`} className="w-28" error={fieldErrors[k.value]}>
           <TextInput
             inputMode="decimal"
             value={values[k.value] ?? ""}
             onChange={(event) => {
               setValues((prev) => ({ ...prev, [k.value]: event.target.value }));
+              setFieldErrors((prev) => Object.fromEntries(Object.entries(prev).filter(([kind]) => kind !== k.value)));
             }}
           />
         </Field>

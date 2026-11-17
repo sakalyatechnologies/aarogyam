@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.config.caps.ServerCaps
 import com.aarogyam.staff.desk.DeskLookupState
@@ -56,6 +57,7 @@ fun DeskLookupScreen(
         holder.search(DeskPhone.digits(typed))
     }
     Column(Modifier.fillMaxSize().imePadding()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = stringResource(R.string.dk_d9_lookup_title),
             subtitle = stringResource(R.string.dk_d9_lookup_subtitle),

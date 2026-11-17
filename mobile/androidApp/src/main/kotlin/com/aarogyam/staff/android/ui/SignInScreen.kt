@@ -1,8 +1,6 @@
 package com.aarogyam.staff.android.ui
 
-import android.app.Activity
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,16 +14,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.signin.SignInError
@@ -49,14 +44,6 @@ fun SignInScreen(
     onInvite: () -> Unit = {},
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
-    // The sign-in screen has no dark header, so the status bar icons follow the page.
-    val view = LocalView.current
-    val darkTheme = isSystemInDarkTheme()
-    DisposableEffect(darkTheme) {
-        val controller = (view.context as? Activity)?.window?.let { WindowCompat.getInsetsController(it, view) }
-        controller?.isAppearanceLightStatusBars = !darkTheme
-        onDispose { controller?.isAppearanceLightStatusBars = false }
-    }
     val back =
         when (state.step) {
             SignInStep.Code -> holder::changeEmail

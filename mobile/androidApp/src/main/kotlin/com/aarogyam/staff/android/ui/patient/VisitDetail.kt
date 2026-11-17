@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.display
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.android.ui.rupees
@@ -76,6 +77,7 @@ fun VisitDetailScreen(
     // A recorded payment changes the bill on this page.
     LaunchedEffect(billLoaded?.receipt) { if (billLoaded?.receipt != null) holder.refresh() }
     Column(Modifier.fillMaxSize().background(SkTheme.palette.background.color)) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = stringResource(R.string.p9_visit_title),
             navigation = { BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack) },

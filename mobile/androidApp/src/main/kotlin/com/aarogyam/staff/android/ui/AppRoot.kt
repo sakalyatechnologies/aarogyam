@@ -54,6 +54,7 @@ private object Routes {
 @Composable
 fun AppRoot(graphState: StateFlow<GraphState>) {
     val state by graphState.collectAsStateWithLifecycle()
+    StatusBarTone.Apply()
     when (val current = state) {
         GraphState.Starting -> {
             Themed(ClinicBranding.Default) { LoadingIndicator() }

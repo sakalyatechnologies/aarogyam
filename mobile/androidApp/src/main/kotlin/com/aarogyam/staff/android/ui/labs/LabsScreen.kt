@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.clinical.ChoiceChips
 import com.aarogyam.staff.android.ui.clinical.ClinicalFormat
 import com.aarogyam.staff.android.ui.clinical.openLink
@@ -69,6 +70,7 @@ fun LabsScreen(
     }
     val today = ClinicalFormat.today(clinic.session.clinic.timezone)
     Column(Modifier.fillMaxSize()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = stringResource(R.string.cn_pv_labs_title),
             navigation = { BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack) },

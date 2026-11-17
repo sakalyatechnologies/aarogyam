@@ -68,6 +68,7 @@ fun PatientsScreen(
     val state by holder.state.collectAsStateWithLifecycle()
     var filter by rememberSaveable { mutableStateOf(PatientFilter.All) }
     Column(Modifier.fillMaxSize().imePadding()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = stringResource(R.string.patients_title),
             actions = { BarAction(stringResource(R.string.walk_in_add), SkTheme.colors.onBrandDark.color, onWalkIn) },

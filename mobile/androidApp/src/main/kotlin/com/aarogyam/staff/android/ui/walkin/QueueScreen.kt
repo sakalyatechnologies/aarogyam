@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
 import com.aarogyam.staff.android.ui.LoadingIndicator
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.queue.QueueState
 import com.aarogyam.staff.queue.QueueStateHolder
@@ -41,6 +42,7 @@ fun QueueScreen(
     val state by holder.state.collectAsStateWithLifecycle()
     LaunchedEffect(holder) { holder.opened.collect(onOpenVisit) }
     Column(Modifier.fillMaxSize()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = stringResource(R.string.queue_title),
             actions = { BarAction(stringResource(R.string.walk_in_add), SkTheme.colors.onBrandDark.color, onWalkIn) },

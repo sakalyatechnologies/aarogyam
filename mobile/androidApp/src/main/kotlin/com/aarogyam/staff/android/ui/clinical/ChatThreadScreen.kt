@@ -39,6 +39,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
 import com.aarogyam.staff.android.ui.LoadingIndicator
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.team.AttachmentLink
 import com.aarogyam.staff.team.ChatThreadStateHolder
@@ -95,6 +96,7 @@ fun ChatThreadScreen(
         holder.closeLink()
     }
     Column(Modifier.fillMaxSize()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(title = title, navigation = {
             BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack)
         })

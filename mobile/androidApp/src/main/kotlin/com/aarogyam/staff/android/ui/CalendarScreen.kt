@@ -62,6 +62,7 @@ fun CalendarScreen(
     var detail by rememberSaveable { mutableStateOf<String?>(null) }
     val loaded = state as? CalendarState.Loaded
     Column(Modifier.fillMaxSize()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(title = stringResource(R.string.calendar_title))
         if (state == CalendarState.NotAllowed) {
             SkEmptyState(

@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
+import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.walkin.WalkInForm
 import com.aarogyam.staff.walkin.WalkInProblem
@@ -42,6 +43,7 @@ fun WalkInScreen(
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().imePadding()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(
             title = stringResource(R.string.walk_in_title),
             subtitle = stringResource(R.string.walk_in_subtitle),

@@ -38,6 +38,7 @@ fun ClinicPickerScreen(
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize()) {
+        StatusBarTone.DarkHeader()
         SkTopBar(stringResource(R.string.clinics_title), actions = {
             BarAction(stringResource(R.string.sign_out), SkTheme.colors.onBrandDark.color, onSignOut)
         })

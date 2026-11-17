@@ -231,7 +231,7 @@ The staff apps build these screens fully but show "Preview: needs server support
 - ~~**BK-14** Seat a queued patient in a chosen chair~~: done 17 Nov 2026. The queue board shows each chair's patient by the token's `room_id`; Seat and "Seat next" send `room_id` with `in_chair`.
 - **BK-15** Monthly revenue target for the clinic.
 - **BK-16** Me-card extras: sterilisation cycles, estimated end of day.
-- ~~**BK-17** Queue summary (no-shows)~~: done 17 Nov 2026. The apps read `/today` `counts.no_shows` beside `/queue`; average wait is still not shown.
+- ~~**BK-17** Queue summary (average wait, no-shows)~~: done 17 Nov 2026. Average wait comes from the loaded tokens' `wait_minutes`; no-shows from `/today` `counts.no_shows`.
 - **BK-18** In-app support chat with Sakalya.
 - **BK-19** Analytics: booked vs walk-in split.
 

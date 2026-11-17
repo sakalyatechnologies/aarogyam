@@ -80,7 +80,7 @@ export function PeekProvider({ children }: { children: ReactNode }) {
 
 function PatientPeekDrawer({ patient, open, onClose }: { patient: PeekRef | undefined; open: boolean; onClose: () => void }) {
   return (
-    <MkDrawer open={open} onClose={onClose} eyebrow="PATIENT 360" title={patient === undefined ? "Patient" : displayName(patient.name)} meta={patient?.number}>
+    <MkDrawer open={open} onClose={onClose} eyebrow="Patient" title={patient === undefined ? "Patient" : displayName(patient.name)} meta={patient?.number}>
       {patient === undefined ? null : <PeekBody patient={patient} onNavigate={onClose} />}
     </MkDrawer>
   );

@@ -31,6 +31,21 @@ data class VisitNotes(
     val isEmpty: Boolean get() = subjective.isEmpty() && objective.isEmpty() && assessment.isEmpty() && plan.isEmpty()
 }
 
+/**
+ * A note this person may correct from the visit sheet (`POST /notes/{id}/amend`): any signed note,
+ * or their own draft once the visit is closed. Empty sections are empty strings.
+ */
+data class CorrectableNote(
+    val id: String,
+    val author: String,
+    val subjective: String,
+    val objective: String,
+    val assessment: String,
+    val plan: String,
+    /** Whether this note is itself a correction, so earlier versions can be read. */
+    val corrected: Boolean,
+)
+
 data class VisitRxItem(
     val name: String?,
     val strength: String?,
@@ -79,6 +94,8 @@ data class VisitDetailView(
     val files: List<VisitFile>,
     val bill: VisitBill?,
     val moneyVisible: Boolean,
+    /** Empty without `clinical.write`. */
+    val correctable: List<CorrectableNote> = emptyList(),
 )
 
 private const val ERROR_STATUS = "entered_in_error"
@@ -92,6 +109,8 @@ internal fun toDetailView(
     bill: Invoice?,
     moneyVisible: Boolean,
     zone: TimeZone,
+    /** The signed-in membership, when it may write clinical notes; null leaves nothing to correct. */
+    corrector: String? = null,
 ) = VisitDetailView(
     id = visit.id,
     number = visit.number,
@@ -113,7 +132,29 @@ internal fun toDetailView(
             null
         },
     moneyVisible = moneyVisible,
+    correctable = corrector?.let { correctableNotes(notes, visit.status == "open", it) }.orEmpty(),
 )
+
+/** Mirrors the server's rule: signed notes, and the person's own drafts once the visit is closed. */
+internal fun correctableNotes(
+    notes: List<Note>,
+    visitOpen: Boolean,
+    me: String,
+): List<CorrectableNote> =
+    notes
+        .filter { it.status == "signed" || (it.status == "draft" && !visitOpen && it.author.id == me) }
+        .map {
+            val s = it.sections
+            CorrectableNote(
+                it.id,
+                it.author.name,
+                s.subjective.orEmpty().trim(),
+                s.objective.orEmpty().trim(),
+                s.assessment.orEmpty().trim(),
+                s.plan.orEmpty().trim(),
+                corrected = it.supersedesId != null,
+            )
+        }
 
 internal fun groupNotes(notes: List<Note>): VisitNotes {
     val live = notes.filter { it.status != ERROR_STATUS }

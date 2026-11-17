@@ -1060,6 +1060,29 @@
         }
       }
     },
+    "dv10.waiting.show": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for you: %@. Show the list"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपके लिए प्रतीक्षा में: %@. सूची दिखाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमच्यासाठी वाट पाहत आहेत: %@. यादी दाखवा"
+          }
+        }
+      }
+    },
     "dv10.waiting.title": {
       "extractionState": "manual",
       "localizations": {

@@ -36,6 +36,8 @@ private struct V9VisitDetailBody: View {
     let billing: BillingStateHolder
     let billingState: BillingState
     @State private var sendRx: VisitRxRef?
+    @State private var correcting: CorrectableNote?
+    @State private var versionsOf: NoteVersionsRef?
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -61,6 +63,13 @@ private struct V9VisitDetailBody: View {
         .sheet(item: $sendRx) { ref in
             V9SendRxSheet(graph: graph, clinic: clinic, patientId: patientId, visitId: visitId, rx: ref, phone: phone) { sendRx = nil }
         }
+        .sheet(item: $correcting) { note in
+            V9NoteCorrectionSheet(graph: graph, clinic: clinic, note: note) { saved in
+                correcting = nil
+                if saved { holder.refresh() }
+            }
+        }
+        .sheet(item: $versionsOf) { ref in V9NoteVersionsSheet(graph: graph, clinic: clinic, noteId: ref.id) }
     }
 
     private var billLoaded: BillingStateLoaded? {
@@ -165,7 +174,20 @@ private struct V9VisitDetailBody: View {
                         }
                     }
                 }
+                ForEach(view.correctable) { note in correctRow(note, named: view.correctable.count > 1) }
             }
+        }
+    }
+
+    /// Under the notes: "Corrected · Earlier version" when it is a correction, and Correct note.
+    private func correctRow(_ note: CorrectableNote, named: Bool) -> some View {
+        HStack(spacing: 8) {
+            if note.corrected {
+                V7Pill(text: p9("p9.note.corrected"), kind: .neutral)
+                SkPillButton(p9("p9.note.versions"), variant: .ghost) { versionsOf = NoteVersionsRef(id: note.id) }
+            }
+            Spacer(minLength: 0)
+            SkPillButton(named ? p9f("p9.note.correct.of", note.author) : p9("p9.note.correct"), variant: .tonal) { correcting = note }
         }
     }
 

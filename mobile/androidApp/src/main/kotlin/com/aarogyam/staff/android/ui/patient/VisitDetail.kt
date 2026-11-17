@@ -4,7 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -20,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -35,9 +38,12 @@ import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.android.ui.rupees
 import com.aarogyam.staff.billing.BillingState
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.history.CorrectableNote
 import com.aarogyam.staff.history.VisitDetailState
 import com.aarogyam.staff.history.VisitDetailView
 import com.sakalya.mobile.design.Spacing
+import com.sakalya.mobile.designcompose.SkPillButton
+import com.sakalya.mobile.designcompose.SkPillVariant
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTopBar
 import com.sakalya.mobile.designcompose.color
@@ -65,6 +71,8 @@ fun VisitDetailScreen(
     val billingState by billing.state.collectAsStateWithLifecycle()
     val billLoaded = billingState as? BillingState.Loaded
     var sendRx by remember { mutableStateOf<VisitRxRef?>(null) }
+    var correcting by remember { mutableStateOf<CorrectableNote?>(null) }
+    var versionsOf by remember { mutableStateOf<String?>(null) }
     // A recorded payment changes the bill on this page.
     LaunchedEffect(billLoaded?.receipt) { if (billLoaded?.receipt != null) holder.refresh() }
     Column(Modifier.fillMaxSize().background(SkTheme.palette.background.color)) {
@@ -102,7 +110,13 @@ fun VisitDetailScreen(
 
                     is VisitDetailState.Loaded -> {
                         current.error?.let { ErrorLine(it) }
-                        Detail(current.view, clinic, billing, billLoaded) { sendRx = it }
+                        Detail(
+                            current.view,
+                            clinic,
+                            billing,
+                            billLoaded,
+                            NoteActions({ correcting = it }, { versionsOf = it }),
+                        ) { sendRx = it }
                     }
                 }
             }
@@ -110,6 +124,13 @@ fun VisitDetailScreen(
     }
     billLoaded?.form?.let { PaymentSheet(billing, it) }
     sendRx?.let { ref -> SendRxSheet(graph, clinic, patientId, visitId, ref) { sendRx = null } }
+    correcting?.let { note ->
+        NoteCorrectionSheet(graph, clinic, note) { saved ->
+            correcting = null
+            if (saved) holder.refresh()
+        }
+    }
+    versionsOf?.let { id -> NoteVersionsSheet(graph, clinic, id) { versionsOf = null } }
 }
 
 @Composable
@@ -118,6 +139,7 @@ private fun Detail(
     clinic: ClinicContext,
     billing: com.aarogyam.staff.billing.BillingStateHolder,
     billLoaded: BillingState.Loaded?,
+    notes: NoteActions,
     onSendRx: (VisitRxRef) -> Unit,
 ) {
     val p = SkTheme.palette
@@ -133,7 +155,7 @@ private fun Detail(
     }
     Summary(view)
     TreatmentCard(view)
-    NotesCard(view)
+    NotesCard(view, notes)
     RxCard(view, "prescriptions.issue" in clinic.permissions, onSendRx)
     FilesCard(view)
     BillCard(view, billing, billLoaded)
@@ -194,8 +216,17 @@ private fun TreatmentCard(view: VisitDetailView) {
     }
 }
 
+/** Correct a note, or read the versions a correction replaced. */
+private class NoteActions(
+    val correct: (CorrectableNote) -> Unit,
+    val versions: (String) -> Unit,
+)
+
 @Composable
-private fun NotesCard(view: VisitDetailView) {
+private fun NotesCard(
+    view: VisitDetailView,
+    actions: NoteActions,
+) {
     val p = SkTheme.palette
     val notes = view.notes
     val groups =
@@ -234,6 +265,43 @@ private fun NotesCard(view: VisitDetailView) {
                     }
                 }
             }
+            view.correctable.forEach { note -> CorrectRow(note, view.correctable.size > 1, actions) }
         }
+    }
+}
+
+/** Under the notes: "Corrected · Earlier version" when it is a correction, and Correct note. */
+@Composable
+private fun CorrectRow(
+    note: CorrectableNote,
+    named: Boolean,
+    actions: NoteActions,
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (note.corrected) {
+            V7Pill(stringResource(R.string.p9_note_corrected), PillKind.Neutral)
+            SkPillButton(
+                stringResource(R.string.p9_note_versions),
+                { actions.versions(note.id) },
+                variant = SkPillVariant.Ghost,
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        SkPillButton(
+            if (named) {
+                stringResource(
+                    R.string.p9_note_correct_of,
+                    note.author,
+                )
+            } else {
+                stringResource(R.string.p9_note_correct)
+            },
+            { actions.correct(note) },
+            variant = SkPillVariant.Tonal,
+        )
     }
 }

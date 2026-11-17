@@ -6,6 +6,8 @@ import com.aarogyam.staff.api.model.NewNote
 import com.aarogyam.staff.api.model.NewVisit
 import com.aarogyam.staff.api.model.Note
 import com.aarogyam.staff.api.model.NoteContent
+import com.aarogyam.staff.api.model.NoteCorrection
+import com.aarogyam.staff.api.model.NoteVersions
 import com.aarogyam.staff.api.model.Visit
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Outcome
@@ -62,6 +64,26 @@ suspend fun ClinicApi.signNote(noteId: String): Outcome<Note, ApiError> =
         method = HttpMethod.Post
         url("api/v1/notes/${noteId.encodeURLPathPart()}/sign")
     }
+
+/**
+ * `POST /api/v1/notes/{id}/amend` (`amendNote`): the whole corrected text as a new note signed by the
+ * caller, which replaces the original for readers; the original stays in the record. Works in a
+ * closed visit; a note is corrected once. The client id in [correction] makes a retry safe.
+ */
+suspend fun ClinicApi.amendNote(
+    noteId: String,
+    correction: NoteCorrection,
+): Outcome<Note, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/notes/${noteId.encodeURLPathPart()}/amend")
+        contentType(ContentType.Application.Json)
+        setBody(correction)
+    }
+
+/** `GET /api/v1/notes/{id}/versions` (`listNoteVersions`): the versions corrections replaced, newest first. */
+suspend fun ClinicApi.noteVersions(noteId: String): Outcome<NoteVersions, ApiError> =
+    client.call { url("api/v1/notes/${noteId.encodeURLPathPart()}/versions") }
 
 /**
  * `POST /api/v1/visits/{id}/finish` (`finishVisit`). [body] plans a follow-up (needs

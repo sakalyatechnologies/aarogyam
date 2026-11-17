@@ -23,6 +23,9 @@ import com.aarogyam.staff.device.MemoryPreferences
 import com.aarogyam.staff.device.Preferences
 import com.aarogyam.staff.expenses.ExpensesStateHolder
 import com.aarogyam.staff.files.FilesStateHolder
+import com.aarogyam.staff.history.CorrectableNote
+import com.aarogyam.staff.history.NoteCorrectionStateHolder
+import com.aarogyam.staff.history.NoteVersionsStateHolder
 import com.aarogyam.staff.history.VisitDetailStateHolder
 import com.aarogyam.staff.history.VisitHistoryStateHolder
 import com.aarogyam.staff.labs.LabsStateHolder
@@ -287,6 +290,18 @@ class AppGraph private constructor(
         scope: CoroutineScope,
     ): VisitDetailStateHolder =
         VisitDetailStateHolder(clinic, visitId, patientId, scope, logger("aarogyam.visit_detail"))
+
+    fun noteCorrection(
+        clinic: ClinicContext,
+        note: CorrectableNote,
+        scope: CoroutineScope,
+    ): NoteCorrectionStateHolder = NoteCorrectionStateHolder(clinic, note, scope, logger("aarogyam.note_correction"))
+
+    fun noteVersions(
+        clinic: ClinicContext,
+        noteId: String,
+        scope: CoroutineScope,
+    ): NoteVersionsStateHolder = NoteVersionsStateHolder(clinic, noteId, scope, logger("aarogyam.note_versions"))
 
     fun files(
         clinic: ClinicContext,

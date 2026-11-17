@@ -72,6 +72,15 @@
     <string name="p9_note_o">निष्कर्ष</string>
     <string name="p9_note_p">सलाह</string>
     <string name="p9_note_s">शिकायत</string>
+    <string name="p9_note_correct">नोट सुधारें</string>
+    <string name="p9_note_correct_of">नोट सुधारें · %1$s</string>
+    <string name="p9_note_corrected">सुधारा गया</string>
+    <string name="p9_note_versions">पिछला संस्करण</string>
+    <string name="p9_note_correct_hint">मूल नोट रिकॉर्ड में रहता है. सुधार आपके नाम से साइन होता है.</string>
+    <string name="p9_note_correct_save">सुधार पर साइन करें</string>
+    <string name="p9_note_correct_stale">इस बीच यह नोट सुधारा गया. नया संस्करण देखने के लिए विज़िट फिर से खोलें.</string>
+    <string name="p9_note_versions_title">पिछले संस्करण</string>
+    <string name="p9_note_versions_none">कोई पिछला संस्करण नहीं</string>
     <string name="p9_offline">आप ऑफ़लाइन हैं। जुड़ें और फिर कोशिश करें।</string>
     <string name="p9_offline_stale">आप ऑफ़लाइन हैं। यह जानकारी पुरानी हो सकती है।</string>
     <string name="p9_outbox_badge">सहेजा गया, भेजा जाएगा · %1$d</string>

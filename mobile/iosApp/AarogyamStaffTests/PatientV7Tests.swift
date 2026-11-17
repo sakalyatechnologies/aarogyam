@@ -76,9 +76,10 @@ final class PatientV7Tests: XCTestCase {
     }
 
     func test_the_jaw_places_every_tooth_of_both_dentitions() {
-        XCTAssertEqual(JawGeometry.shared.spots(dentition: .adult).count, 32)
-        XCTAssertEqual(JawGeometry.shared.spots(dentition: .child).count, 20)
-        let spots = JawGeometry.shared.spots(dentition: .adult)
+        let aspect = JawGeometry.shared.PHONE_ASPECT
+        XCTAssertEqual(JawGeometry.shared.spots(dentition: .adult, aspect: aspect).count, 32)
+        XCTAssertEqual(JawGeometry.shared.spots(dentition: .child, aspect: aspect).count, 20)
+        let spots = JawGeometry.shared.spots(dentition: .adult, aspect: aspect)
         XCTAssertTrue(spots.allSatisfy { (0...1).contains($0.x) && (0...1).contains($0.y) })
         XCTAssertTrue(spots.filter(\.upper).allSatisfy { $0.y < 0.5 })
     }

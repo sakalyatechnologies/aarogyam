@@ -28,6 +28,7 @@
     <string name="sh_dv10_waiting_offline">सूची ताज़ा नहीं हो सकी</string>
     <string name="sh_dv10_waiting_row_a11y">टोकन %1$s, %2$s, %3$s मिनट से प्रतीक्षा में। %4$s</string>
     <string name="sh_dv10_waiting_title">आपके लिए प्रतीक्षा में</string>
+    <string name="sh_dv10_waiting_show">आपके लिए प्रतीक्षा में: %1$s. सूची दिखाएँ</string>
     <string name="sh_lv10_collect">टोकन %1$d भुगतान के लिए तैयार है</string>
     <string name="sh_lv10_collect_nonumber">एक मरीज़ भुगतान के लिए तैयार है</string>
     <string name="sh_lv10_dismiss">बंद करने के लिए टैप करें</string>

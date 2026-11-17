@@ -275,6 +275,12 @@ Done:
   5. Optional: retake iOS shot 2 (visit with Rx) cleaner.
 - **The founder's open question:** the "ROCM … icon on the top right".
 
+### 17 Nov: main after 0ad1a46c
+- **Polish (both apps):** jaw teeth are spaced evenly along the arch for the real box size, so 17/18 and 37/38 no longer overlap. The folded "Waiting for you" line shows the count and a chevron. Android Visit has a status bar scrim.
+- **Correct note (both apps):** on a past visit, "Correct note" (clinical.write) edits the four parts and signs a correction (`POST /notes/{id}/amend`). "Corrected" and "Earlier version" read `GET /notes/{id}/versions`. The rule mirrors the server: signed notes, or my own draft once the visit is closed.
+- **Dictation:** words still being recognised when listening stops or fails become a bullet instead of being dropped (the Android error path used to lose them; iOS already kept them). This matches the web fix in 3f50a98e.
+- **Play screenshots:** still 3 of 7. The emulator crashed at boot under load and hung the setup script on `adb wait-for-device` for a day while it held the build lock. The boot script (`scratchpad/emu-boot.sh`) now gives up after 10 minutes. Take the shots only when the load is under about 40.
+
 ### 16 Nov, early: main 1a2f6305
 - **Booking overlap:** both booking sheets (iOS and Android, Schedule and Patient) show "This patient is also booked 10:00–10:30 with Dr. Rao, Chair 2" from `patient_overlaps` (backend e641c5fa). Strings in en/hi/mr. The app never moves appointments, so the /move overlaps don't apply.
 - **Note corrections (0719):** nothing to change. The app never edits a note after End visit (edits stop once the visit is closed or the note is signed, and the outbox sends a queued close only after that visit's note writes), so the new PATCH 409 is safe. The note lists now return the current version only. An "Amend note" action in visit history is possible later via `POST /notes/{id}/amend`.

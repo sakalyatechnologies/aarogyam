@@ -119,6 +119,31 @@ class VisitStateHolderTest {
         }
 
     @Test
+    fun words_still_being_recognised_are_kept_when_listening_stops_or_fails() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/patients/p1/visits", { json(visit, HttpStatusCode.Created) })
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("clinical.write"))
+            val dictation = FakeDictation()
+            val holder = VisitStateHolder(clinic, "p1", null, null, dictation, backgroundScope)
+            holder.state.first { it is VisitState.Open }
+            holder.listen(DictationLanguage.English)
+            runCurrent()
+            dictation.say("pain on biting")
+            dictation.stop()
+            runCurrent()
+            holder.listen(DictationLanguage.English)
+            runCurrent()
+            dictation.say("sensitive to cold")
+            dictation.fail(com.aarogyam.staff.device.DictationFailure.Network)
+            runCurrent()
+            val view = (holder.state.value as VisitState.Open).view
+            assertEquals(listOf("pain on biting", "sensitive to cold"), view.bullets.map { it.text })
+            assertEquals(null, view.liveText)
+        }
+
+    @Test
     fun a_failed_save_is_shown_and_close_waits_for_it() =
         runTest {
             val backend = FakeBackend()

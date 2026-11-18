@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into aarogyam.specialty_records\n             (id, patient_id, encounter_id, module, kind, schema_version, data, supersedes_id,\n              effective_at, source, verified_by, verified_at, client_id, request_hash)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), $12, $13)\n           returning id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by",
+  "query": "select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,\n                  source\n           from aarogyam.specialty_records\n           where encounter_id = $1 and module = 'dental' and kind = 'tooth'\n           order by effective_at, id",
   "describe": {
     "columns": [
       {
@@ -90,23 +90,22 @@
             "name": "verified_by"
           }
         }
+      },
+      {
+        "ordinal": 8,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "source"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Uuid",
-        "Uuid",
-        "Text",
-        "Text",
-        "Int4",
-        "Jsonb",
-        "Uuid",
-        "Timestamptz",
-        "Text",
-        "Uuid",
-        "Uuid",
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -117,8 +116,9 @@
       false,
       true,
       false,
-      true
+      true,
+      false
     ]
   },
-  "hash": "5575d0c0bd902f20804cf6989ce92c689254000f3176113b62a5db1ce4c33a8d"
+  "hash": "c546884205a97a49532ffb7bd4c3ecab127585cfd2aca2ec0d31a7513cba1b6a"
 }

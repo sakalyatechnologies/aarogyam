@@ -437,6 +437,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(chart::get).post(chart::record),
         )
         .route(
+            "/patients/{id}/dental-chart/teeth/{tooth}/status",
+            put(chart::set_status).delete(chart::clear_status),
+        )
+        .route(
             "/dental-terms",
             get(dental_terms::list).post(chart::add_term),
         )

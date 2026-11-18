@@ -1,8 +1,10 @@
 //! The dental chart: current state per tooth, one tooth's history, and new findings.
 
 use aarogyam_app::chart::{
-    self as app, Canal, ChartEntryView, DentalChart as ChartView, EntryInput, RecordChart, TermView,
+    self as app, Canal, ChartEntryView, DentalChart as ChartView, EntryInput, RecordChart,
+    SetToothStatus, TermView, ToothStatusView,
 };
+use aarogyam_domain::dental::ToothHealth as Health;
 use aarogyam_domain::ids::{EncounterId, MembershipId, PatientId, SpecialtyRecordId};
 use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite};
 use axum::Json;
@@ -83,6 +85,15 @@ pub struct ChartEntry {
     pub sitting: Option<u8>,
     /// The treatment is started but not finished (for example a root canal between sittings).
     pub in_progress: bool,
+    /// The work was done by another dentist ("done elsewhere"). Left out when false.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub elsewhere: bool,
+    /// Where the entry came from when not a clinician in the app, such as `import`. Left out
+    /// for a clinician's entry.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 impl From<ChartEntryView> for ChartEntry {
@@ -103,6 +114,67 @@ impl From<ChartEntryView> for ChartEntry {
             canals: view.canals.into_iter().map(RootCanal::from).collect(),
             sitting: view.sitting,
             in_progress: view.in_progress,
+            elsewhere: view.elsewhere,
+            source: (view.source != "clinician").then_some(view.source),
+        }
+    }
+}
+
+/// How a tooth is, as the doctor judges it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ToothHealth {
+    /// Nothing to do.
+    Healthy,
+    /// Look again at the next visit.
+    Watch,
+    /// Needs treatment.
+    NeedsTreatment,
+}
+
+impl From<Health> for ToothHealth {
+    fn from(health: Health) -> Self {
+        match health {
+            Health::Healthy => Self::Healthy,
+            Health::Watch => Self::Watch,
+            Health::NeedsTreatment => Self::NeedsTreatment,
+        }
+    }
+}
+
+/// A doctor's judgement of a tooth. It overrides the health the chart's findings suggest
+/// (sound or finished work: healthy; `watch`: watch; caries or fractured: needs treatment).
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ToothStatus {
+    /// FDI tooth number.
+    pub tooth: u8,
+    /// `healthy`, `watch` or `needs_treatment`.
+    pub health: ToothHealth,
+    /// The doctor's one-line note.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    /// The doctor advises treatment within this many months: 1, 3, 6 or 12.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub treat_within_months: Option<u8>,
+    /// The member who set it.
+    #[schema(required = false, value_type = Option<String>)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recorded_by: Option<Uuid>,
+    /// When it was set (RFC 3339).
+    pub recorded_at: String,
+}
+
+impl From<ToothStatusView> for ToothStatus {
+    fn from(view: ToothStatusView) -> Self {
+        Self {
+            tooth: view.tooth.number(),
+            health: view.health.into(),
+            note: view.note,
+            treat_within_months: view.treat_within_months,
+            recorded_by: view.recorded_by.map(MembershipId::uuid),
+            recorded_at: rfc3339(view.recorded_at),
         }
     }
 }
@@ -144,6 +216,11 @@ pub struct DentalChart {
     /// The procedures and materials to offer: the seeded vocabulary, then the clinic's own.
     /// Filter it as the clinician types; it changes only when someone adds a term.
     pub terms: Vec<DentalTerm>,
+    /// The doctor's current health status of each tooth that has one, by tooth. Left out when
+    /// none; a tooth without one takes the health its findings suggest.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub statuses: Vec<ToothStatus>,
 }
 
 impl From<ChartView> for DentalChart {
@@ -152,6 +229,7 @@ impl From<ChartView> for DentalChart {
             current: view.current.into_iter().map(ChartEntry::from).collect(),
             history: view.history.into_iter().map(ChartEntry::from).collect(),
             terms: view.terms.into_iter().map(DentalTerm::from).collect(),
+            statuses: view.statuses.into_iter().map(ToothStatus::from).collect(),
         }
     }
 }
@@ -227,6 +305,10 @@ pub struct NewChartEntry {
     /// The treatment is started but not finished. Defaults to false; ignored with `sound`.
     #[serde(default)]
     pub in_progress: bool,
+    /// The work was done by another dentist. Defaults to false; only on `filled`, `crown`,
+    /// `implant`, `root_canal`, `bridge` or `missing`, and never with `in_progress`.
+    #[serde(default)]
+    pub elsewhere: bool,
 }
 
 /// Findings recorded together.
@@ -289,6 +371,7 @@ pub(crate) async fn record(
                 canals: entry.canals.into_iter().map(Canal::from).collect(),
                 sitting: entry.sitting,
                 in_progress: entry.in_progress,
+                elsewhere: entry.elsewhere,
             })
             .collect(),
     };
@@ -302,6 +385,105 @@ pub(crate) async fn record(
     )
     .await?;
     Ok(Json(view.into()))
+}
+
+/// A tooth's health status to set.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NewToothStatus {
+    /// An id the client made for this request, any UUID. A retry with the same `client_id` and
+    /// body returns the status it set; the same `client_id` for anything else is `id_conflict`
+    /// (`409`). Shares its id space with chart batches.
+    #[schema(value_type = Option<String>)]
+    pub client_id: Option<Uuid>,
+    /// `healthy`, `watch` or `needs_treatment`. Anything else is a `400` naming `health`.
+    #[schema(value_type = ToothHealth)]
+    pub health: String,
+    /// A one-line note, up to 500 characters.
+    pub note: Option<String>,
+    /// Advise treatment within 1, 3, 6 or 12 months; only with `watch` or `needs_treatment`.
+    pub treat_within_months: Option<i64>,
+}
+
+/// Sets a tooth's health status. It supersedes the tooth's current status (the history keeps
+/// it) and joins the open visit when there is one; no visit is needed. Returns the status.
+#[utoipa::path(
+    put,
+    path = "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/status",
+    operation_id = "setToothStatus",
+    tag = "clinical",
+    params(
+        ("id" = String, Path, description = "The patient"),
+        ("tooth" = i64, Path, description = "FDI tooth number")
+    ),
+    request_body = NewToothStatus,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = ToothStatus),
+        (status = 400, description = "A bad tooth, health, note or treat_within_months"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write"),
+        (status = 404, description = "No such patient in this clinic"),
+        (status = 409, description = "The tooth changed at the same moment, or `id_conflict`: the client_id made something else")
+    )
+)]
+pub(crate) async fn set_status(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath((id, tooth)): ApiPath<(Uuid, i64)>,
+    ApiJson(body): ApiJson<NewToothStatus>,
+) -> Result<Json<ToothStatus>, ApiFailure> {
+    let view = app::set_status(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PatientId::from_uuid(id),
+        tooth,
+        SetToothStatus {
+            client_id: body.client_id,
+            health: body.health,
+            note: body.note,
+            treat_within_months: body.treat_within_months,
+        },
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(view.into()))
+}
+
+/// Clears a tooth's health status, so its findings suggest the health again. The status is
+/// superseded, not deleted; a tooth without one answers `204` too.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/status",
+    operation_id = "clearToothStatus",
+    tag = "clinical",
+    params(
+        ("id" = String, Path, description = "The patient"),
+        ("tooth" = i64, Path, description = "FDI tooth number")
+    ),
+    security(("bearer" = [])),
+    responses(
+        (status = 204, description = "Cleared"),
+        (status = 400, description = "Not an FDI tooth number"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.write"),
+        (status = 404, description = "No such patient in this clinic")
+    )
+)]
+pub(crate) async fn clear_status(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<ClinicalWrite>,
+    ApiPath((id, tooth)): ApiPath<(Uuid, i64)>,
+) -> Result<StatusCode, ApiFailure> {
+    app::clear_status(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PatientId::from_uuid(id),
+        tooth,
+    )
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// A procedure or material to add to the clinic's list.

@@ -3375,6 +3375,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Sets a tooth's health status. It supersedes the tooth's current status (the history keeps
+         *     it) and joins the open visit when there is one; no visit is needed. Returns the status.
+         */
+        put: operations["setToothStatus"];
+        post?: never;
+        /**
+         * Clears a tooth's health status, so its findings suggest the health again. The status is
+         *     superseded, not deleted; a tooth without one answers `204` too.
+         */
+        delete: operations["clearToothStatus"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/family": {
         parameters: {
             query?: never;
@@ -6991,6 +7015,8 @@ export interface components {
             canals: components["schemas"]["RootCanal"][];
             /** @description When the finding was made (RFC 3339). */
             effective_at: string;
+            /** @description The work was done by another dentist ("done elsewhere"). Left out when false. */
+            elsewhere?: boolean;
             /** @description `sound`, `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`. */
             finding: string;
             /** @description Identifier. */
@@ -7008,6 +7034,11 @@ export interface components {
              * @description For a root canal: which sitting (visit) of the treatment this entry belongs to.
              */
             sitting?: number | null;
+            /**
+             * @description Where the entry came from when not a clinician in the app, such as `import`. Left out
+             *     for a clinician's entry.
+             */
+            source?: string | null;
             /** @description `current`, `superseded` or `entered_in_error`. */
             status: string;
             /** @description The entry it replaced. */
@@ -8030,6 +8061,11 @@ export interface components {
             current: components["schemas"]["ChartEntry"][];
             /** @description Every entry of the requested tooth, newest first; empty unless `tooth` was given. */
             history: components["schemas"]["ChartEntry"][];
+            /**
+             * @description The doctor's current health status of each tooth that has one, by tooth. Left out when
+             *     none; a tooth without one takes the health its findings suggest.
+             */
+            statuses?: components["schemas"]["ToothStatus"][];
             /**
              * @description The procedures and materials to offer: the seeded vocabulary, then the clinic's own.
              *     Filter it as the clinician types; it changes only when someone adds a term.
@@ -10335,6 +10371,11 @@ export interface components {
         NewChartEntry: {
             /** @description Only with `root_canal`: 1 to 8 canals, each with a name and an optional working length. */
             canals?: components["schemas"]["RootCanal"][];
+            /**
+             * @description The work was done by another dentist. Defaults to false; only on `filled`, `crown`,
+             *     `implant`, `root_canal`, `bridge` or `missing`, and never with `in_progress`.
+             */
+            elsewhere?: boolean;
             /** @description `sound` (clears an earlier finding), `caries`, `filled`, `crown`, `missing`, `implant`, `root_canal`, `bridge`, `fractured` or `watch`. */
             finding: string;
             /** @description The treatment is started but not finished. Defaults to false; ignored with `sound`. */
@@ -10837,6 +10878,24 @@ export interface components {
             reason?: string | null;
             /** @description Start (RFC 3339), with `ends_at`. */
             starts_at?: string | null;
+        };
+        /** @description A tooth's health status to set. */
+        NewToothStatus: {
+            /**
+             * @description An id the client made for this request, any UUID. A retry with the same `client_id` and
+             *     body returns the status it set; the same `client_id` for anything else is `id_conflict`
+             *     (`409`). Shares its id space with chart batches.
+             */
+            client_id?: string | null;
+            /** @description `healthy`, `watch` or `needs_treatment`. Anything else is a `400` naming `health`. */
+            health: components["schemas"]["ToothHealth"];
+            /** @description A one-line note, up to 500 characters. */
+            note?: string | null;
+            /**
+             * Format: int64
+             * @description Advise treatment within 1, 3, 6 or 12 months; only with `watch` or `needs_treatment`.
+             */
+            treat_within_months?: number | null;
         };
         /** @description A visit to start. */
         NewVisit: {
@@ -13580,6 +13639,8 @@ export interface components {
         SharedChartEntry: {
             /** @description When the finding was made. */
             effective_at: string;
+            /** @description The work was done by another dentist: show it as "done elsewhere". Left out when false. */
+            elsewhere?: boolean;
             /** @description The finding, such as `caries`. */
             finding?: string | null;
             /** @description The note. */
@@ -14962,6 +15023,35 @@ export interface components {
              *     leave while waiting or called.
              */
             status: string;
+        };
+        /**
+         * @description How a tooth is, as the doctor judges it.
+         * @enum {string}
+         */
+        ToothHealth: "healthy" | "watch" | "needs_treatment";
+        /**
+         * @description A doctor's judgement of a tooth. It overrides the health the chart's findings suggest
+         *     (sound or finished work: healthy; `watch`: watch; caries or fractured: needs treatment).
+         */
+        ToothStatus: {
+            /** @description `healthy`, `watch` or `needs_treatment`. */
+            health: components["schemas"]["ToothHealth"];
+            /** @description The doctor's one-line note. */
+            note?: string | null;
+            /** @description When it was set (RFC 3339). */
+            recorded_at: string;
+            /** @description The member who set it. */
+            recorded_by?: string | null;
+            /**
+             * Format: int32
+             * @description FDI tooth number.
+             */
+            tooth: number;
+            /**
+             * Format: int32
+             * @description The doctor advises treatment within this many months: 1, 3, 6 or 12.
+             */
+            treat_within_months?: number | null;
         };
         /** @description The bell's number. */
         UnreadCount: {
@@ -25908,6 +25998,120 @@ export interface operations {
             };
             /** @description The visit is closed, the corrected entry is no longer current, the chart changed at the same moment, or `id_conflict`: the client_id made other entries */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setToothStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description FDI tooth number */
+                tooth: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewToothStatus"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToothStatus"];
+                };
+            };
+            /** @description A bad tooth, health, note or treat_within_months */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The tooth changed at the same moment, or `id_conflict`: the client_id made something else */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    clearToothStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description FDI tooth number */
+                tooth: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cleared */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not an FDI tooth number */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

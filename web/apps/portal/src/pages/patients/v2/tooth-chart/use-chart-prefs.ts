@@ -3,15 +3,18 @@ import { useCallback, useState } from "react";
 /** Rows and the 3D arch are the quick views; Classic is the odontogram with its five surfaces. */
 export type ChartLook = "rows" | "arch" | "classic";
 export type ChartDentition = "adult" | "child";
+/** Treatment paints what was done; Health paints three colours: healthy, watch, needs treatment. */
+export type ChartView = "treatment" | "health";
 export interface ChartPrefs {
   look: ChartLook;
   dentition: ChartDentition;
+  view: ChartView;
 }
 
 /** One key per person, like the layout choice, so two staff sharing a browser keep their own. */
 export const chartPrefsKey = (userId: string): string => `aarogyam.portal.tooth-chart.${userId}`;
 
-const DEFAULTS: ChartPrefs = { look: "rows", dentition: "adult" };
+const DEFAULTS: ChartPrefs = { look: "rows", dentition: "adult", view: "treatment" };
 
 function read(userId: string): ChartPrefs {
   try {
@@ -19,13 +22,14 @@ function read(userId: string): ChartPrefs {
     if (typeof parsed !== "object" || parsed === null) return DEFAULTS;
     const look = "look" in parsed ? parsed.look : undefined;
     const dentition = "dentition" in parsed ? parsed.dentition : undefined;
-    return { look: look === "arch" || look === "classic" ? look : "rows", dentition: dentition === "child" ? "child" : "adult" };
+    const view = "view" in parsed ? parsed.view : undefined;
+    return { look: look === "arch" || look === "classic" ? look : "rows", dentition: dentition === "child" ? "child" : "adult", view: view === "health" ? "health" : "treatment" };
   } catch {
     return DEFAULTS;
   }
 }
 
-/** The look (Rows, 3D arch or Classic) and dentition (adult 32 or child 20) this person last chose, remembered in this browser. */
+/** The look (Rows, 3D arch or Classic), dentition (adult 32 or child 20) and view (Treatment or Health) this person last chose, remembered in this browser. */
 export function useChartPrefs(userId: string): [ChartPrefs, (patch: Partial<ChartPrefs>) => void] {
   const [prefs, setPrefs] = useState<ChartPrefs>(() => read(userId));
   const update = useCallback(

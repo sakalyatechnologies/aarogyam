@@ -43,6 +43,7 @@ import {
   createdClinic,
   createdInvitation,
   dentalChart,
+  toothStatus,
   dashboardLayoutView,
   dentalTerm,
   devTokenResponse,
@@ -637,6 +638,16 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         body: input,
         signal: opts?.signal,
       }),
+    setToothStatus: (id, tooth, input, opts) =>
+      call({
+        method: "PUT",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/status`,
+        schema: toothStatus,
+        body: input,
+        signal: opts?.signal,
+      }),
+    clearToothStatus: (id, tooth, opts) =>
+      call({ method: "DELETE", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/status`, schema: voidResponse, signal: opts?.signal }),
     addDentalTerm: (input, opts) => call({ method: "POST", path: "/api/v1/dental-terms", schema: dentalTerm, body: input, signal: opts?.signal }),
     listOwnDentalTerms: (opts) => call({ method: "GET", path: "/api/v1/dental-terms", schema: ownDentalTermList, signal: opts?.signal }),
     renameDentalTerm: (id, input, opts) =>

@@ -1,10 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 
 import type { ChartEntry, PlanItem } from "@aarogyam/api-client";
 
 import { ARCHES, FINDING_ORDER, FINDING_STYLE, describeTooth, EMPTY_STATE, headline, kindOf, toothStates, treatmentsByTooth } from "../../../visits/odontogram/model.js";
-import { inProgressTeeth } from "./model.js";
-import type { ChartDentition, ChartLook } from "./use-chart-prefs.js";
+import { HEALTHS, elsewhereTeeth, healthByTooth, healthLabel, inProgressTeeth, type Health, type StatusLike, type ToothHealthView } from "./model.js";
+import type { ChartDentition, ChartLook, ChartView } from "./use-chart-prefs.js";
 import "./tooth-chart.css";
 
 export const LOOKS = [
@@ -16,27 +16,54 @@ export const DENTITIONS = [
   { value: "adult", label: "Adult" },
   { value: "child", label: "Child" },
 ] as const satisfies readonly { value: ChartDentition; label: string }[];
+export const VIEWS = [
+  { value: "treatment", label: "Treatment" },
+  { value: "health", label: "Health" },
+] as const satisfies readonly { value: ChartView; label: string }[];
+
+/** How long a press on a tooth lasts before it starts dictating a note. */
+export const LONG_PRESS_MS = 500;
+
+const GLYPH: Readonly<Record<ToothHealthView, string>> = { healthy: "✓", watch: "!", needs_treatment: "✕", none: "", unassessed: "" };
 
 interface Props {
   look: ChartLook;
   dentition: ChartDentition;
+  /** Treatment paints findings (work done elsewhere dashed); Health paints three colours with a glyph each. */
+  view?: ChartView;
   current: readonly ChartEntry[];
+  statuses?: readonly StatusLike[];
   planItems: readonly PlanItem[];
   selected: number | undefined;
   onSelect: (tooth: number) => void;
+  /** A long press (touch or mouse) on a tooth: select it and dictate its note. */
+  onLongPress?: (tooth: number) => void;
+  /** Keys 1, 2 and 3 on a focused tooth: healthy, watch, needs treatment. */
+  onHealthKey?: ((tooth: number, health: Health) => void) | undefined;
 }
 
 /** The chart: rows or a 3D arch, adult or child teeth. Tapping a tooth selects it; recording happens in the panel beside it. */
-export function ToothChart({ look, dentition, current, planItems, selected, onSelect }: Props) {
+export function ToothChart({ look, dentition, view = "treatment", current, statuses = [], planItems, selected, onSelect, onLongPress, onHealthKey }: Props) {
   const states = useMemo(() => toothStates(current, treatmentsByTooth(planItems)), [current, planItems]);
   const progress = useMemo(() => inProgressTeeth(current), [current]);
+  const healths = useMemo(() => healthByTooth(current, statuses), [current, statuses]);
+  const away = useMemo(() => elsewhereTeeth(current), [current]);
   const arches = ARCHES[dentition];
+  const press = useRef<{ timer: ReturnType<typeof setTimeout> | undefined; fired: boolean }>({ timer: undefined, fired: false });
+  const endPress = () => {
+    clearTimeout(press.current.timer);
+    press.current.timer = undefined;
+  };
+  const health = view === "health";
 
   const tooth = (n: number, style?: React.CSSProperties, className = "tc-tooth") => {
     const state = states.get(n) ?? EMPTY_STATE(n);
     const finding = headline(state);
     const planned = state.treatments.some((t) => t.state === "planned");
     const busy = progress.has(n);
+    const level = healths.get(n) ?? "unassessed";
+    const elsewhere = !health && away.has(n);
+    const label = health ? `${describeTooth(state)}, ${healthLabel(level)}` : `${describeTooth(state)}${busy ? ", treatment in progress" : ""}${elsewhere ? ", done elsewhere" : ""}`;
     return (
       <button
         key={n}
@@ -44,17 +71,52 @@ export function ToothChart({ look, dentition, current, planItems, selected, onSe
         className={className}
         style={style}
         data-finding={state.whole === "missing" ? "missing" : finding}
-        data-planned={planned || undefined}
-        data-progress={busy || undefined}
+        data-planned={(!health && planned) || undefined}
+        data-progress={(!health && busy) || undefined}
+        data-elsewhere={elsewhere || undefined}
+        data-health={health ? level : undefined}
         data-kind={kindOf(n)}
         aria-pressed={selected === n}
-        aria-label={`${describeTooth(state)}${busy ? ", treatment in progress" : ""}`}
+        aria-label={label}
+        onPointerDown={() => {
+          if (onLongPress === undefined) return;
+          endPress();
+          press.current.fired = false;
+          press.current.timer = setTimeout(() => {
+            press.current.fired = true;
+            press.current.timer = undefined;
+            onLongPress(n);
+          }, LONG_PRESS_MS);
+        }}
+        onPointerUp={endPress}
+        onPointerLeave={endPress}
+        onPointerCancel={endPress}
+        onContextMenu={(event) => {
+          // A long press on a phone opens the browser's menu; the press already did its job.
+          if (press.current.fired) event.preventDefault();
+        }}
+        onKeyDown={(event) => {
+          const picked = HEALTHS.find((h) => h.key === event.key);
+          if (picked === undefined || onHealthKey === undefined || event.ctrlKey || event.metaKey || event.altKey) return;
+          event.preventDefault();
+          onHealthKey(n, picked.value);
+        }}
         onClick={() => {
+          // A long press already selected the tooth and started dictation; its release is not a second tap.
+          if (press.current.fired) {
+            press.current.fired = false;
+            return;
+          }
           onSelect(n);
         }}
       >
         <span className="tc-num">{n}</span>
-        {className === "tc-tooth" ? <ToothShape finding={state.whole === "missing" ? "missing" : finding} planned={planned} busy={busy} upper={n < 30 || (n >= 50 && n < 70)} /> : null}
+        {className === "tc-tooth" ? <ToothShape finding={state.whole === "missing" ? "missing" : finding} planned={!health && planned} busy={!health && busy} upper={n < 30 || (n >= 50 && n < 70)} /> : null}
+        {health && GLYPH[level] !== "" ? (
+          <span className="tc-glyph" aria-hidden="true">
+            {GLYPH[level]}
+          </span>
+        ) : null}
       </button>
     );
   };
@@ -84,7 +146,7 @@ export function ToothChart({ look, dentition, current, planItems, selected, onSe
   };
 
   return (
-    <div className="odo tc">
+    <div className="odo tc" data-view={view}>
       {look === "arch" ? (
         arch()
       ) : (
@@ -101,7 +163,25 @@ export function ToothChart({ look, dentition, current, planItems, selected, onSe
 }
 
 /** What the colours and marks mean. It sits behind a "Key" button, so the chart itself stays clear. */
-export function ChartKey() {
+export function ChartKey({ view = "treatment" }: { view?: ChartView }) {
+  if (view === "health") {
+    return (
+      <div className="odo tc" data-view="health">
+        <ul className="tc-legend" aria-label="Legend">
+          {HEALTHS.map((h) => (
+            <li key={h.value}>
+              <i data-health={h.value}>{h.glyph}</i>
+              {h.label}
+            </li>
+          ))}
+          <li>
+            <i data-health="unassessed" />
+            Not assessed
+          </li>
+        </ul>
+      </div>
+    );
+  }
   return (
     <div className="odo tc">
       <ul className="tc-legend" aria-label="Legend">
@@ -118,6 +198,10 @@ export function ChartKey() {
         <li>
           <i data-progress />
           In progress
+        </li>
+        <li>
+          <i data-elsewhere />
+          dashed = done elsewhere
         </li>
       </ul>
     </div>

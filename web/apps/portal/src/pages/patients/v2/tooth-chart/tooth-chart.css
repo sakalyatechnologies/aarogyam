@@ -93,3 +93,45 @@
 /* One label style across the form: the Field labels match the section labels. */
 .tc-form label { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .tc-form .tc-hint { color: var(--muted); font-size: 12px; }
+
+/* Work done elsewhere: the same tooth in its own finding colour, outlined dashed. */
+.tc-tooth[data-elsewhere] .tc-shape path:first-child { stroke-dasharray: 3 2; stroke-width: 2; }
+.tc-bead[data-elsewhere] { border-style: dashed; border-width: 2px; border-color: var(--tc); }
+.tc-legend i[data-elsewhere] { background: transparent; border: 1.5px dashed var(--odo-muted); }
+
+/* Health view: three colours and a glyph each, so it reads without colour. Unassessed is an empty grey outline. */
+.tc [data-health="healthy"] { --tc: var(--odo-success); }
+.tc [data-health="watch"] { --tc: var(--odo-warning); }
+.tc [data-health="needs_treatment"] { --tc: var(--odo-danger); }
+.tc [data-health="none"], .tc [data-health="unassessed"] { --tc: var(--odo-muted); }
+.tc-tooth[data-health] .tc-shape path:first-child { fill: color-mix(in srgb, var(--tc) 38%, var(--odo-surface)); stroke: var(--tc); stroke-dasharray: none; opacity: 1; }
+.tc-bead[data-health] { background: radial-gradient(circle at 35% 30%, var(--odo-surface), color-mix(in srgb, var(--tc) 45%, var(--odo-surface)) 70%); border-style: solid; }
+.tc-tooth[data-health="unassessed"] .tc-shape path:first-child { fill: transparent; stroke: var(--odo-border); }
+.tc-tooth[data-health="none"] .tc-shape path:first-child { fill: transparent; stroke: var(--odo-muted); stroke-dasharray: 3 3; opacity: .7; }
+.tc-bead[data-health="unassessed"] { background: var(--odo-surface); border: 1.5px solid var(--odo-border); box-shadow: none; }
+.tc-bead[data-health="none"] { background: transparent; border-style: dashed; box-shadow: none; }
+.tc-tooth[data-health] .tc-ink { display: none; }
+.tc-glyph { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -30%); font-size: 12px; font-weight: 800; line-height: 1; color: var(--tc); pointer-events: none; }
+.tc-bead .tc-glyph { top: auto; bottom: -2px; transform: translateX(-50%); font-size: 10px; }
+.tc-legend i[data-health] { display: inline-grid; place-items: center; width: 15px; height: 15px; font-size: 10px; font-style: normal; font-weight: 800; color: var(--odo-surface); }
+.tc-legend i[data-health="unassessed"] { background: transparent; border: 1.5px solid var(--odo-border); }
+
+/* Health row in the panel. */
+.tc-health { display: grid; gap: 8px; }
+.tc-health-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tc-health-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1.5px solid color-mix(in srgb, var(--tc) 55%, var(--odo-border)); background: var(--odo-surface); color: var(--odo-text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.tc-health-chip b { color: var(--tc); }
+.tc-health-chip[aria-pressed="true"] { background: color-mix(in srgb, var(--tc) 18%, var(--odo-surface)); border-color: var(--tc); }
+.tc-health-chip[data-suggested] { border-style: dashed; }
+.tc-health-chip:focus-visible { outline: 2px solid var(--odo-focus); outline-offset: 2px; }
+.tc-health-chip:disabled { cursor: default; opacity: .6; }
+.tc-note { display: flex; gap: 6px; align-items: center; }
+.tc-note input { flex: 1; min-width: 0; min-height: 40px; padding: 6px 12px; border-radius: 12px; border: 1px solid var(--odo-border); background: var(--odo-surface); color: var(--odo-text); font: inherit; font-size: 14px; }
+.tc-note input:focus-visible { outline: 2px solid var(--odo-focus); outline-offset: 1px; }
+.tc-mic { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--odo-border); background: var(--odo-surface); cursor: pointer; font-size: 16px; }
+.tc-mic[aria-pressed="true"] { background: color-mix(in srgb, var(--odo-danger) 16%, var(--odo-surface)); border-color: var(--odo-danger); }
+.tc-mic:focus-visible { outline: 2px solid var(--odo-focus); outline-offset: 2px; }
+.tc-within { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--odo-muted); }
+.tc-progress { margin: 0 0 8px; font-size: 13px; color: var(--odo-muted); }
+.tc-progress strong { color: var(--odo-text); font-weight: 600; }
+.tc-switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }

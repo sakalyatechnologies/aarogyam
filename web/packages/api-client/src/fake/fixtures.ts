@@ -429,6 +429,26 @@ export interface FakeChartEntry {
   sitting?: number | null;
   /** Started but not finished. */
   in_progress?: boolean;
+  /** Work done by another dentist. */
+  elsewhere?: boolean;
+  /** Where it came from when not a clinician in the app, such as `import`. */
+  source?: string;
+}
+
+/** A tooth's health status: one current per tooth, superseded by the next. */
+export interface FakeToothStatus {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  tooth: number;
+  health: C.ToothHealth;
+  note?: string | null;
+  treat_within_months?: number | null;
+  status: "current" | "superseded";
+  recorded_by: string;
+  recorded_at: string;
+  client_id?: string | null;
+  fingerprint?: string | null;
 }
 
 export interface FakeAttachment {
@@ -709,6 +729,8 @@ export interface Fixtures {
   observations: FakeObservation[];
   procedures: FakeProcedure[];
   chartEntries: FakeChartEntry[];
+  /** Tooth health statuses, made on first use. */
+  toothStatuses?: FakeToothStatus[];
   /** Procedures and materials clinics added, made on first use. */
   dentalTerms?: import("./dental-terms.js").FakeDentalTerm[];
   /** Support grants clinics gave Sakalya staff, made on first use; the console lists a staff member's own. */

@@ -1,7 +1,7 @@
 import { Pencil, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { apiErrorOf, randomUuid, visitId as visitIdSchema, type DentalTerm, type ToothSurface, type PatientId, type PlanItem, type Procedure, type VisitId } from "@aarogyam/api-client";
+import { apiErrorOf, randomUuid, visitId as visitIdSchema, type ChartEntry, type DentalTerm, type ToothStatus, type ToothSurface, type PatientId, type PlanItem, type Procedure, type VisitId } from "@aarogyam/api-client";
 import { formatDate } from "@aarogyam/app-kit";
 import { Button, useToast } from "@sakalya/ui";
 
@@ -12,6 +12,7 @@ import { useToothHistory } from "../../../visits/queries.js";
 import { surfaceLabel } from "../../../visits/odontogram/model.js";
 import { PillButton } from "../kit.js";
 import { allowsSurfaces, blankDraft, buildEntries, defaultMaterial, buildPlan, correctionBatch, draftFromRow, historyRows, toothName, treatmentOf, type Draft, type HistoryRow, type RowStatus } from "./model.js";
+import { HealthRow } from "./health-row.js";
 import { TreatmentForm } from "./treatment-form.js";
 
 const TONE: Readonly<Record<RowStatus, "success" | "info" | "warning" | "neutral" | "danger">> = {
@@ -39,7 +40,17 @@ interface Props {
   procedures: readonly Procedure[];
   who: (id: string | null | undefined) => string | undefined;
   onClose: () => void;
+  /** The tooth's current chart entries, for the health the chart suggests. */
+  entries?: readonly ChartEntry[];
+  /** The doctor's current status of the tooth, if any. */
+  status?: ToothStatus | undefined;
+  /** Start dictating the tooth's note (a long press on it). */
+  dictate?: boolean;
+  onDictateStarted?: () => void;
 }
+
+const NO_ENTRIES: readonly ChartEntry[] = [];
+const noop = () => undefined;
 
 /** The tooth's side panel: its history (each current row can be edited as a correction) and the Add treatment form. */
 export function ToothPanel(props: Props) {
@@ -55,7 +66,7 @@ export function ToothPanel(props: Props) {
   return <SelectedTooth key={tooth} {...props} tooth={tooth} />;
 }
 
-function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, planItems, procedures, who, onClose }: Props & { tooth: number }) {
+function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, planItems, procedures, who, onClose, entries = NO_ENTRIES, status, dictate = false, onDictateStarted = noop }: Props & { tooth: number }) {
   const history = useToothHistory(patientId, tooth);
   const [mode, setMode] = useState<"view" | "form">("view");
   const [editing, setEditing] = useState<HistoryRow | undefined>(undefined);
@@ -63,6 +74,8 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, pl
   const [error, setError] = useState<string | undefined>(undefined);
   // One id per save attempt: a retry after a lost response is the same request, not a second treatment.
   const attempt = useRef(randomUuid());
+  // Done elsewhere is remembered while the panel stays on this tooth: recording old work at a first visit is the common case.
+  const elsewhere = useRef(false);
   const toast = useToast();
   const record = useRecordChartEntries(patientId);
   const createPlan = useCreatePlan(patientId);
@@ -78,7 +91,7 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, pl
     // Start where most records start: Completed, the only material that fits chosen, and a surface picked on the chart.
     const start = blankDraft();
     const first = treatmentOf(start.tx);
-    setDraft({ ...start, material: defaultMaterial(first, terms), surfaces: surface != null && allowsSurfaces(first, start.status) ? [surface] : [] });
+    setDraft({ ...start, elsewhere: elsewhere.current, material: defaultMaterial(first, terms), surfaces: surface != null && allowsSurfaces(first, start.status) ? [surface] : [] });
     setError(undefined);
     setMode("form");
   };
@@ -139,6 +152,7 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, pl
 
       {mode === "view" ? (
         <>
+          <HealthRow patientId={patientId} tooth={tooth} entries={entries} status={status} canWrite={canWrite} who={who} dictate={dictate} onDictateStarted={onDictateStarted} />
           {history.isPending ? <p className="tc-meta">Loading history…</p> : null}
           {history.isError ? (
             <p role="alert" className="tc-meta">
@@ -151,7 +165,10 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, pl
               <li key={row.key} className="tc-card" data-old={row.status === "Superseded" || row.status === "Entered in error" ? "" : undefined}>
                 <div className="tc-card-top">
                   <strong>{row.sitting === undefined || row.treatment !== "root_canal" ? row.label : `${row.label}, sitting ${String(row.sitting)}`}</strong>
-                  <Tag tone={statusTone(TONE[row.status])}>{row.status}</Tag>
+                  <span className="tc-tags">
+                    {row.elsewhere === true ? <Tag>Done elsewhere</Tag> : null}
+                    <Tag tone={statusTone(TONE[row.status])}>{row.status}</Tag>
+                  </span>
                 </div>
                 <p className="tc-meta">{[row.date === undefined ? "Not done yet" : formatDate(row.date), row.material, row.recordedBy].filter((p) => p !== undefined).join(" · ")}</p>
                 {row.surfaces.length + row.canals.length === 0 ? null : (
@@ -213,7 +230,10 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, pl
         <TreatmentForm
           tooth={tooth}
           draft={draft}
-          onChange={setDraft}
+          onChange={(next) => {
+            elsewhere.current = next.elsewhere;
+            setDraft(next);
+          }}
           terms={terms}
           editing={editing !== undefined && editing.kind === "chart"}
           planned={editing?.kind === "plan"}

@@ -375,6 +375,14 @@ fn colleague_writes(w: &World) -> Vec<(Method, String, Value)> {
             format!("/api/v1/patients/{}", w.patient_b),
             json!({ "full_name": "X Y" }),
         ),
+        (
+            Method::PUT,
+            format!(
+                "/api/v1/patients/{}/dental-chart/teeth/36/status",
+                w.patient_b
+            ),
+            json!({ "health": "watch" }),
+        ),
     ]
 }
 

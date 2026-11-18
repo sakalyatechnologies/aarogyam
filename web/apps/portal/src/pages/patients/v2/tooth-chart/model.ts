@@ -85,9 +85,11 @@ export interface Draft {
   sitting: number;
   /** Working length in mm as typed ("21", "21 mm"). */
   length: string;
+  /** Finished work done by another dentist (only offered for Completed work findings). */
+  elsewhere: boolean;
 }
 
-export const blankDraft = (): Draft => ({ tx: "filling", material: "", surfaces: [], status: "Completed", note: "", canals: [], sitting: 1, length: "" });
+export const blankDraft = (): Draft => ({ tx: "filling", material: "", surfaces: [], status: "Completed", note: "", canals: [], sitting: 1, length: "", elsewhere: false });
 
 /** A working length typed as "21", "21 mm" or "20,5": a number from 0 (exclusive) to 40, or undefined when empty or not valid. */
 export function parseLength(text: string): number | undefined {
@@ -117,6 +119,7 @@ export function buildEntries(tooth: number, d: Draft): NewChartEntry[] {
     ...(d.material === "" ? {} : { material: d.material }),
     ...(d.note.trim() === "" ? {} : { note: d.note.trim() }),
     ...(d.status === "In progress" ? { in_progress: true } : {}),
+    ...(d.elsewhere && allowsElsewhere(d) ? { elsewhere: true } : {}),
     ...(rootCanal ? { sitting: d.sitting, ...(d.canals.length === 0 ? {} : { canals: d.canals.map((name): RootCanal => ({ name, ...(length === undefined ? {} : { working_length_mm: length }) })) }) } : {}),
   };
   const surfaces = allowsSurfaces(tx, d.status) ? SURFACES.filter((s) => d.surfaces.includes(s)) : [];
@@ -186,6 +189,8 @@ export interface HistoryRow {
   /** Edit is offered for current chart rows and open plan items. */
   readonly editable: boolean;
   readonly treatment: TreatmentKey | undefined;
+  /** Work done by another dentist. */
+  readonly elsewhere?: boolean;
 }
 
 const byProcedure = (id: string | undefined): Treatment | undefined => (id === undefined ? undefined : TREATMENTS.find((t) => t.procedure === id));
@@ -226,7 +231,7 @@ export function groupEntries(history: readonly ChartEntry[], who: (id: string | 
   for (const entry of history) {
     // `sound` entries only clear a finding; the row they clear already says so.
     if (entry.finding === "sound") continue;
-    const key = [entry.effective_at, entry.finding, entry.procedure?.id, entry.material?.id, entry.note, entry.status, entry.in_progress ? 1 : 0, entry.sitting].join("|");
+    const key = [entry.effective_at, entry.finding, entry.procedure?.id, entry.material?.id, entry.note, entry.status, entry.in_progress ? 1 : 0, entry.elsewhere === true ? 1 : 0, entry.sitting].join("|");
     rows.set(key, [...(rows.get(key) ?? []), entry]);
   }
   return [...rows.entries()].flatMap(([key, entries]): HistoryRow[] => {
@@ -250,6 +255,7 @@ export function groupEntries(history: readonly ChartEntry[], who: (id: string | 
       planItem: undefined,
       editable: first.status === "current" && tx !== undefined,
       treatment: tx?.key,
+      elsewhere: first.elsewhere === true,
     }];
   });
 }
@@ -329,6 +335,7 @@ export function draftFromRow(row: HistoryRow): Draft {
     canals: row.canals.map((c) => c.name),
     sitting: row.sitting ?? 1,
     length: length == null ? "" : String(length),
+    elsewhere: first?.elsewhere === true,
   };
 }
 
@@ -347,4 +354,151 @@ export function toothName(tooth: number): string {
   const position = tooth % 10;
   const name = isPrimary(tooth) ? PRIMARY[position] : PERMANENT[position];
   return `${quadrant} ${isPrimary(tooth) ? "primary " : ""}${name ?? ""}`.replace(/\s+/g, " ").trim();
+}
+
+// Health ------------------------------------------------------------------------------------------
+
+/** The three health levels a doctor sets, as the API names them. */
+export type Health = "healthy" | "watch" | "needs_treatment";
+/** A tooth's health on the chart: one of the three, `none` for a missing tooth, or `unassessed` when nothing is recorded. */
+export type ToothHealthView = Health | "none" | "unassessed";
+
+export const HEALTHS: readonly { value: Health; label: string; glyph: string; key: string }[] = [
+  { value: "healthy", label: "Healthy", glyph: "✓", key: "1" },
+  { value: "watch", label: "Watch", glyph: "!", key: "2" },
+  { value: "needs_treatment", label: "Needs treatment", glyph: "✕", key: "3" },
+];
+
+/** The months a doctor may advise treating within. */
+export const TREAT_WITHIN: readonly number[] = [1, 3, 6, 12];
+
+/** A tooth's current status as the chart carries it (the API's `statuses[]` item). */
+export interface StatusLike {
+  readonly tooth: number;
+  readonly health: Health;
+  readonly note?: string | null;
+  readonly treat_within_months?: number | null;
+  readonly recorded_by?: string | null;
+  readonly recorded_at: string;
+}
+
+const RANK: Readonly<Record<Health, number>> = { healthy: 0, watch: 1, needs_treatment: 2 };
+
+/** The health a finding suggests: sound and finished work are healthy, `watch` is watch, caries and fractured need treatment. */
+function findingHealth(finding: ChartFinding): Health | "none" {
+  switch (finding) {
+    case "watch":
+      return "watch";
+    case "caries":
+    case "fractured":
+      return "needs_treatment";
+    case "missing":
+      return "none";
+    default:
+      return "healthy";
+  }
+}
+
+/** The health the tooth's current entries suggest; the worst surface wins, a missing tooth has none, and no entries is unassessed. */
+export function derivedHealth(entries: readonly ChartEntry[]): ToothHealthView {
+  const healths = entries.filter((e) => e.status === "current").map((e) => findingHealth(e.finding));
+  if (healths.length === 0) return "unassessed";
+  if (healths.includes("none")) return "none";
+  return healths.reduce<Health>((worst, h) => (h !== "none" && RANK[h] > RANK[worst] ? h : worst), "healthy");
+}
+
+/** A tooth's health: the doctor's status when there is one, otherwise what its findings suggest. */
+export function healthOf(entries: readonly ChartEntry[], status?: Pick<StatusLike, "health">): ToothHealthView {
+  return status?.health ?? derivedHealth(entries);
+}
+
+/** Each tooth's health for the Health view, from the current entries and the statuses. */
+export function healthByTooth(current: readonly ChartEntry[], statuses: readonly StatusLike[]): ReadonlyMap<number, ToothHealthView> {
+  const byTooth = new Map<number, ChartEntry[]>();
+  for (const entry of current) byTooth.set(entry.tooth, [...(byTooth.get(entry.tooth) ?? []), entry]);
+  const result = new Map<number, ToothHealthView>();
+  for (const [tooth, entries] of byTooth) result.set(tooth, derivedHealth(entries));
+  for (const status of statuses) result.set(status.tooth, status.health);
+  return result;
+}
+
+export const healthLabel = (health: ToothHealthView): string =>
+  health === "none" ? "Missing" : health === "unassessed" ? "Not assessed" : (HEALTHS.find((h) => h.value === health)?.label ?? health);
+
+/** The teeth whose current work was done by another dentist, for the dashed outline. */
+export function elsewhereTeeth(current: readonly ChartEntry[]): ReadonlySet<number> {
+  return new Set(current.filter((e) => e.status === "current" && e.elsewhere === true).map((e) => e.tooth));
+}
+
+/** Done elsewhere is offered only for finished work: the API refuses it on caries, watch, fractured or sound, and in progress. */
+export function allowsElsewhere(d: Draft): boolean {
+  const finding = findingOf(d);
+  return d.status === "Completed" && finding !== undefined && ELSEWHERE_FINDINGS.includes(finding);
+}
+const ELSEWHERE_FINDINGS: readonly ChartFinding[] = ["filled", "crown", "implant", "root_canal", "bridge", "missing"];
+
+// Progress ----------------------------------------------------------------------------------------
+
+export interface TreatmentCount {
+  readonly key: TreatmentKey;
+  /** Distinct teeth treated this way. */
+  readonly teeth: number;
+}
+
+export interface Progress {
+  /** Distinct teeth with work done here. */
+  readonly here: number;
+  /** Work done here, by treatment, most first. */
+  readonly byTreatment: readonly TreatmentCount[];
+  /** Distinct teeth with work from elsewhere (or imported from earlier records). */
+  readonly before: number;
+}
+
+const PLURAL: Readonly<Record<TreatmentKey, readonly [string, string]>> = {
+  filling: ["filling", "fillings"],
+  root_canal: ["root canal", "root canals"],
+  crown: ["crown", "crowns"],
+  extraction: ["extraction", "extractions"],
+  implant: ["implant", "implants"],
+  bridge: ["bridge", "bridges"],
+  scaling: ["cleaning", "cleanings"],
+  sealant: ["sealant", "sealants"],
+  veneer: ["veneer", "veneers"],
+};
+
+export const countLabel = (c: TreatmentCount): string => `${String(c.teeth)} ${PLURAL[c.key][c.teeth === 1 ? 0 : 1]}`;
+
+/**
+ * What the clinic has done: distinct teeth, not surface rows. Current and superseded entries count, never `entered_in_error`,
+ * `sound` or `watch` (no work). Here means neither `elsewhere` nor imported; before is either. Cleanings come from done scaling
+ * procedures, not the chart.
+ */
+export function progress(history: readonly ChartEntry[], procedures: readonly Procedure[] = []): Progress {
+  const here = new Set<number>();
+  const before = new Set<number>();
+  const byKey = new Map<TreatmentKey, Set<number>>();
+  const add = (key: TreatmentKey, tooth: number) => {
+    byKey.set(key, (byKey.get(key) ?? new Set<number>()).add(tooth));
+  };
+  for (const entry of history) {
+    if (entry.status === "entered_in_error" || entry.finding === "sound" || entry.finding === "watch") continue;
+    const tx = treatmentOfEntry(entry);
+    if (tx === undefined) continue;
+    if (entry.elsewhere === true || entry.source === "import") {
+      before.add(entry.tooth);
+    } else {
+      here.add(entry.tooth);
+      add(tx.key, entry.tooth);
+    }
+  }
+  for (const p of procedures) {
+    if (p.status !== "done" || !/^scaling/i.test(p.name)) continue;
+    // A full-mouth cleaning names no tooth; it still counts once.
+    add("scaling", p.tooth ?? 0);
+  }
+  const order = (key: TreatmentKey) => TREATMENTS.findIndex((t) => t.key === key);
+  const byTreatment = [...byKey.entries()]
+    .map(([key, teeth]): TreatmentCount => ({ key, teeth: teeth.size }))
+    .sort((a, b) => b.teeth - a.teeth || order(a.key) - order(b.key));
+  return { here: here.size, byTreatment, before: before.size };
 }

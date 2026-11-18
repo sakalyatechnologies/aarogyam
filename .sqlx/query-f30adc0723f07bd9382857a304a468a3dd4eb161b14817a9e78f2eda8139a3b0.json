@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by\n           from aarogyam.specialty_records\n           where encounter_id = $1 and module = 'dental' and kind = 'tooth'\n           order by effective_at, id",
+  "query": "select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,\n                  source\n           from aarogyam.specialty_records\n           where patient_id = $1 and module = 'dental' and kind = 'tooth_status' and tooth = $2\n             and status = 'current'\n           for update",
   "describe": {
     "columns": [
       {
@@ -90,11 +90,23 @@
             "name": "verified_by"
           }
         }
+      },
+      {
+        "ordinal": 8,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "source"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Int2"
       ]
     },
     "nullable": [
@@ -105,8 +117,9 @@
       false,
       true,
       false,
-      true
+      true,
+      false
     ]
   },
-  "hash": "bd710668295f4663b58ca0412487c64669686ecaec876d3119f0664c0683fd13"
+  "hash": "f30adc0723f07bd9382857a304a468a3dd4eb161b14817a9e78f2eda8139a3b0"
 }

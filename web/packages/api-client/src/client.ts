@@ -125,6 +125,8 @@ import type {
   NoteCorrection,
   NoteVersions,
   NewChartEntries,
+  NewToothStatus,
+  ToothStatus,
   NewDentalTerm,
   NewPlan,
   NewClinic,
@@ -811,6 +813,10 @@ export interface ApiClient {
   getDentalChart(id: PatientId, tooth?: number, options?: RequestOptions): Promise<ApiResult<DentalChart>>;
   /** Clinic host: records chart findings. Needs `clinical.write`. */
   recordChartEntries(id: PatientId, input: NewChartEntries, options?: RequestOptions): Promise<ApiResult<DentalChart>>;
+  /** Clinic host: sets a tooth's health status (it supersedes the current one; no visit needed). Needs `clinical.write`; 409 when the client_id made something else. */
+  setToothStatus(id: PatientId, tooth: number, input: NewToothStatus, options?: RequestOptions): Promise<ApiResult<ToothStatus>>;
+  /** Clinic host: clears a tooth's health status so its findings suggest it again (superseded, never deleted). Needs `clinical.write`. */
+  clearToothStatus(id: PatientId, tooth: number, options?: RequestOptions): Promise<ApiResult<undefined>>;
   /** Clinic host: adds a procedure or material to the clinic's list; a label already there (or seeded) returns that term. Needs `clinical.write`. */
   addDentalTerm(input: NewDentalTerm, options?: RequestOptions): Promise<ApiResult<DentalTerm>>;
   /** Clinic host: the clinic's own terms, retired ones included, by kind then label. Needs `clinical.read` or `settings.manage`. */

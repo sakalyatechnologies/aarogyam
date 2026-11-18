@@ -1,13 +1,15 @@
-import { cleanup, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { ApiClient, NewChartEntries, NewPlan } from "@aarogyam/api-client";
+import type { ApiClient, NewChartEntries, NewPlan, NewToothStatus } from "@aarogyam/api-client";
+import type { FakeChartEntry, Fixtures } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../../../../lib/new-look.js";
 import { PEOPLE, fakeApi, renderPortal } from "../../../../test/render.js";
 import { layoutKey, type P360Layout } from "../use-layout.js";
+import { FakeRecognition, installVoiceDoubles, removeVoiceDoubles } from "../../../visits/voice/test-doubles.js";
 import { chartPrefsKey } from "./use-chart-prefs.js";
 
 const LAYOUTS: readonly P360Layout[] = ["console", "stage", "tabs"];
@@ -83,7 +85,7 @@ describe("the chart", () => {
 
     await user.click(screen.getByRole("radio", { name: "3D arch" }));
     expect(document.querySelector(".tc-arch")).not.toBeNull();
-    expect(JSON.parse(localStorage.getItem(chartPrefsKey(PEOPLE.asha)) ?? "null")).toEqual({ look: "arch", dentition: "child" });
+    expect(JSON.parse(localStorage.getItem(chartPrefsKey(PEOPLE.asha)) ?? "null")).toEqual({ look: "arch", dentition: "child", view: "treatment" });
 
     cleanup();
     renderPortal(path, { as: PEOPLE.asha, backend });
@@ -214,7 +216,7 @@ describe("the tooth panel", () => {
     const row = await within(panel).findByText("Root canal, sitting 2");
     expect(row).toBeTruthy();
     expect(within(panel).getByText("MB1 20 mm")).toBeTruthy();
-    expect(within(panel).queryByRole("form")).toBeNull();
+    expect(within(panel).queryByRole("form", { name: /treatment for tooth/ })).toBeNull();
 
     // Edit: a correction that supersedes the entry it replaces; the old row stays in the history.
     await user.click(within(panel).getByRole("button", { name: /^Edit Root canal/ }));
@@ -375,5 +377,244 @@ describe("the tooth panel title, buttons and root canal alignment", () => {
     await user.click(within(panel).getByRole("button", { name: "Root canal" }));
     const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
     expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+  });
+});
+
+/** A patient whose chart is only `seed`'s entries; returns the path, the backend and the calls to the status endpoints. */
+function seeded(seed: (patientId: string, clinicId: string) => Omit<FakeChartEntry, "clinic_id" | "patient_id" | "status" | "effective_at">[] = () => []) {
+  let path = "";
+  const backend = fakeApi((fixtures: Fixtures) => {
+    const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+    const visit = fixtures.visits.find((v) => v.clinic_id === sunrise?.id);
+    const patientId = visit?.patient_id ?? "";
+    const clinicId = sunrise?.id ?? "";
+    path = `/patients/${patientId}`;
+    fixtures.procedures = fixtures.procedures.filter((p) => p.patient_id !== patientId);
+    fixtures.chartEntries = [
+      ...fixtures.chartEntries.filter((c) => c.patient_id !== patientId),
+      ...seed(patientId, clinicId).map((e): FakeChartEntry => ({ ...e, clinic_id: clinicId, patient_id: patientId, status: "current", effective_at: "2026-10-01T09:00:00Z" })),
+    ];
+  });
+  const statuses: { tooth: number; input: NewToothStatus }[] = [];
+  const cleared: number[] = [];
+  const chart: NewChartEntries[] = [];
+  const wrap = (client: ApiClient): ApiClient => ({
+    ...client,
+    setToothStatus: (id, tooth, input, options) => {
+      statuses.push({ tooth, input });
+      return client.setToothStatus(id, tooth, input, options);
+    },
+    clearToothStatus: (id, tooth, options) => {
+      cleared.push(tooth);
+      return client.clearToothStatus(id, tooth, options);
+    },
+    recordChartEntries: (id, input, options) => {
+      chart.push(input);
+      return client.recordChartEntries(id, input, options);
+    },
+  });
+  return { path, backend, wrap, statuses, cleared, chart };
+}
+
+const uuid = (n: number) => `0190a7c2-0000-7000-8000-${String(n).padStart(12, "0")}`;
+
+/** Picks a tooth without starting a visit: health needs none. */
+async function pickTooth(user: ReturnType<typeof userEvent.setup>, n: number) {
+  await ready();
+  await user.click(tooth(n));
+  return screen.findByRole("complementary", { name: `Tooth ${String(n)} panel` });
+}
+
+describe("tooth health and a quick note", () => {
+  afterEach(() => {
+    removeVoiceDoubles();
+  });
+
+  it("suggests the health from the chart, saves an override in one tap without a visit, and undoes it", async () => {
+    const user = userEvent.setup();
+    const { path, backend, wrap, statuses, cleared } = seeded(() => [{ id: uuid(1), tooth: 16, finding: "caries", surface: "O" }]);
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const panel = await pickTooth(user, 16);
+    const health = within(panel).getByRole("group", { name: "Health" });
+    expect(within(panel).getByText("Needs treatment, suggested from the chart.")).toBeTruthy();
+    expect(within(health).getByRole("button", { name: /Needs treatment/ }).hasAttribute("data-suggested")).toBe(true);
+
+    await user.click(within(health).getByRole("button", { name: /Watch/ }));
+    await waitFor(() => {
+      expect(statuses.map((s) => [s.tooth, s.input.health])).toEqual([[16, "watch"]]);
+    });
+    expect(within(health).getByRole("button", { name: /Watch/ }).getAttribute("aria-pressed")).toBe("true");
+    // The doctor may advise how soon to treat it.
+    const within3 = within(within(panel).getByRole("group", { name: "Advise treatment within" })).getByRole("button", { name: "3 mo" });
+    await user.click(within3);
+    await waitFor(() => {
+      expect(statuses.at(-1)?.input).toMatchObject({ health: "watch", treat_within_months: 3 });
+    });
+    await user.click(await within(panel).findByRole("button", { name: "Undo" }));
+    await waitFor(() => {
+      expect(statuses.at(-1)?.input).toMatchObject({ health: "watch" });
+    });
+    expect(cleared).toEqual([]);
+  });
+
+  it("clears the override on Undo when there was none before", async () => {
+    const user = userEvent.setup();
+    const { path, backend, wrap, cleared } = seeded();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const panel = await pickTooth(user, 21);
+    expect(within(panel).getByText("Not assessed yet.")).toBeTruthy();
+    await user.click(within(panel).getByRole("button", { name: /Healthy/ }));
+    await user.click(await within(panel).findByRole("button", { name: "Undo" }));
+    await waitFor(() => {
+      expect(cleared).toEqual([21]);
+    });
+  });
+
+  it("saves the note on Enter and when dictation stops, never on blur", async () => {
+    installVoiceDoubles();
+    const user = userEvent.setup();
+    const { path, backend, wrap, statuses } = seeded(() => [{ id: uuid(2), tooth: 26, finding: "watch" }]);
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const panel = await pickTooth(user, 26);
+    const note = within(panel).getByRole("textbox", { name: "Quick note" });
+    await user.type(note, "Recheck in 3 months");
+    await user.tab();
+    expect(statuses).toEqual([]);
+    await user.click(note);
+    await user.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(statuses.map((s) => [s.tooth, s.input.health, s.input.note])).toEqual([[26, "watch", "Recheck in 3 months"]]);
+    });
+
+    await user.click(within(panel).getByRole("button", { name: "Dictate the note" }));
+    const recogniser = FakeRecognition.instances.at(-1);
+    expect(recogniser?.started).toBe(1);
+    recogniser?.say("distal caries", true);
+    await user.click(within(panel).getByRole("button", { name: "Stop dictating" }));
+    await waitFor(() => {
+      expect(statuses.at(-1)?.input).toMatchObject({ note: "Recheck in 3 months distal caries" });
+    });
+  });
+
+  it("starts dictating on a long press, while a click stays a plain select", async () => {
+    installVoiceDoubles();
+    const user = userEvent.setup();
+    const { path, backend, wrap } = seeded();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    await ready();
+    await user.click(tooth(15));
+    await screen.findByRole("complementary", { name: "Tooth 15 panel" });
+    expect(FakeRecognition.instances).toHaveLength(0);
+
+    fireEvent.pointerDown(tooth(14));
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    fireEvent.pointerUp(tooth(14));
+    fireEvent.click(tooth(14));
+    const panel = await screen.findByRole("complementary", { name: "Tooth 14 panel" });
+    await waitFor(() => {
+      expect(FakeRecognition.instances.at(-1)?.started).toBe(1);
+    });
+    expect(within(panel).getByRole("button", { name: "Stop dictating" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("sets the health with keys 1, 2 and 3 on a focused tooth", async () => {
+    const user = userEvent.setup();
+    const { path, backend, wrap, statuses } = seeded();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    await ready();
+    tooth(36).focus();
+    await user.keyboard("3");
+    await waitFor(() => {
+      expect(statuses.map((s) => [s.tooth, s.input.health])).toEqual([[36, "needs_treatment"]]);
+    });
+    await screen.findByRole("complementary", { name: "Tooth 36 panel" });
+  });
+
+  it("paints the Health view in three colours with glyphs, unassessed as an outline, and remembers it", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = seeded(() => [
+      { id: uuid(3), tooth: 16, finding: "caries", surface: "O" },
+      { id: uuid(4), tooth: 26, finding: "filled", surface: "O" },
+      { id: uuid(5), tooth: 11, finding: "watch" },
+    ]);
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await ready();
+    expect(tooth(16).hasAttribute("data-health")).toBe(false);
+    await user.click(screen.getByRole("radio", { name: "Health" }));
+    expect(tooth(16).getAttribute("data-health")).toBe("needs_treatment");
+    expect(tooth(16).querySelector(".tc-glyph")?.textContent).toBe("✕");
+    expect(tooth(16).getAttribute("aria-label")).toMatch(/Needs treatment$/);
+    expect(tooth(26).querySelector(".tc-glyph")?.textContent).toBe("✓");
+    expect(tooth(11).querySelector(".tc-glyph")?.textContent).toBe("!");
+    expect(tooth(18).getAttribute("data-health")).toBe("unassessed");
+    expect(tooth(18).querySelector(".tc-glyph")).toBeNull();
+    expect(JSON.parse(localStorage.getItem(chartPrefsKey(PEOPLE.asha)) ?? "null")).toMatchObject({ view: "health" });
+    await user.click(screen.getByRole("button", { name: "Key" }));
+    expect(within(screen.getByRole("list", { name: "Legend" })).getByText("Not assessed")).toBeTruthy();
+  });
+
+  it("has no axe violations with the health row and the Health view", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = seeded(() => [{ id: uuid(6), tooth: 16, finding: "caries", surface: "O" }]);
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await ready();
+    await user.click(screen.getByRole("radio", { name: "Health" }));
+    await pickTooth(user, 16);
+    const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+  });
+});
+
+describe("work done elsewhere, and progress", () => {
+  it("offers Done elsewhere for completed work only, sends it, draws it dashed and remembers it on the tooth", async () => {
+    const user = userEvent.setup();
+    const { path, backend, wrap, chart } = seeded();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const panel = await openTooth(user, 46);
+    await user.click(within(panel).getByRole("button", { name: "Add treatment" }));
+    await user.click(within(panel).getByRole("button", { name: "Crown" }));
+    const away = within(panel).getByRole("switch", { name: "Done elsewhere" });
+    await user.click(within(panel).getByRole("button", { name: "In progress" }));
+    expect(within(panel).queryByRole("switch", { name: "Done elsewhere" })).toBeNull();
+    await user.click(within(panel).getByRole("button", { name: "Completed" }));
+    await user.click(within(panel).getByRole("switch", { name: "Done elsewhere" }));
+    expect(away).toBeTruthy();
+    await user.click(within(panel).getByRole("button", { name: "Save treatment" }));
+    await waitFor(() => {
+      expect(chart.at(-1)?.entries.map((e) => [e.tooth, e.finding, e.elsewhere])).toEqual([[46, "crown", true]]);
+    });
+    await waitFor(() => {
+      expect(tooth(46).hasAttribute("data-elsewhere")).toBe(true);
+    });
+    expect(tooth(46).getAttribute("aria-label")).toMatch(/done elsewhere/);
+    expect(await within(panel).findByText("Done elsewhere")).toBeTruthy();
+    // The next treatment on this tooth starts with the switch on.
+    await user.click(within(panel).getByRole("button", { name: "Add treatment" }));
+    await user.click(within(panel).getByRole("button", { name: "Crown" }));
+    expect(within(panel).getByRole("switch", { name: "Done elsewhere" }).getAttribute("aria-checked")).toBe("true");
+    await user.click(screen.getByRole("button", { name: "Key" }));
+    expect(within(screen.getByRole("list", { name: "Legend" })).getByText("dashed = done elsewhere")).toBeTruthy();
+  });
+
+  it("shows progress since joining: teeth treated here by treatment, and work from before", async () => {
+    const { path, backend } = seeded(() => [
+      { id: uuid(7), tooth: 36, finding: "filled", surface: "O", procedure: "filling" },
+      { id: uuid(8), tooth: 36, finding: "filled", surface: "D", procedure: "filling" },
+      { id: uuid(9), tooth: 46, finding: "root_canal", procedure: "root_canal" },
+      { id: uuid(10), tooth: 26, finding: "crown", elsewhere: true },
+      { id: uuid(11), tooth: 47, finding: "filled", source: "import" },
+    ]);
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await ready();
+    const line = await screen.findByLabelText("Progress");
+    expect(line.textContent).toMatch(/2 teeth treated here — 1 filling, 1 root canal\./);
+    expect(line.textContent).toMatch(/Before: 2 teeth with work from elsewhere\./);
+  });
+
+  it("hides the progress line when there is nothing to say", async () => {
+    const { path, backend } = seeded();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await ready();
+    expect(screen.queryByLabelText("Progress")).toBeNull();
   });
 });

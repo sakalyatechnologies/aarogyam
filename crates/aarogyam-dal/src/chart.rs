@@ -1,5 +1,6 @@
-//! The dental chart, stored as `specialty_records` rows of module `dental`, kind `tooth`.
-//! Entries are never edited: a new entry supersedes the current one for its tooth and surface.
+//! The dental chart, stored as `specialty_records` rows of module `dental`, kind `tooth`, and
+//! each tooth's health status, kind `tooth_status` (no surface). Rows are never edited: a new
+//! one supersedes the current one for its tooth and surface (or tooth, for a status).
 
 use sakalya_db::DbError;
 
@@ -27,6 +28,8 @@ pub struct ChartRow {
     pub effective_at: OffsetDateTime,
     /// The member who recorded it.
     pub verified_by: Option<Uuid>,
+    /// Where it came from: `clinician`, `import`...
+    pub source: String,
 }
 
 /// Values for a new entry.
@@ -60,7 +63,8 @@ pub struct NewChartRow<'a> {
     pub request_hash: Option<&'a str>,
 }
 
-/// The chart entry the client's id made, if any, in this clinic.
+/// The dental row (a chart entry or a tooth status) the client's id made, if any, in this
+/// clinic. Both kinds share the id space, so an id reused across them is a conflict.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -71,7 +75,7 @@ pub async fn by_client_id(
     let row = sqlx::query!(
         r#"select id, patient_id, request_hash as "request_hash!"
            from aarogyam.specialty_records
-           where client_id = $1 and module = 'dental' and kind = 'tooth'"#,
+           where client_id = $1 and module = 'dental'"#,
         client_id
     )
     .fetch_optional(conn)
@@ -94,7 +98,8 @@ pub async fn current_for_tooth(
 ) -> Result<Vec<ChartRow>, DbError> {
     let rows = sqlx::query_as!(
         ChartRow,
-        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                  source
            from aarogyam.specialty_records
            where patient_id = $1 and module = 'dental' and kind = 'tooth' and tooth = $2
              and status = 'current'
@@ -119,7 +124,8 @@ pub async fn entry_for_update(
 ) -> Result<Option<ChartRow>, DbError> {
     let row = sqlx::query_as!(
         ChartRow,
-        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                  source
            from aarogyam.specialty_records
            where id = $1 and patient_id = $2 and module = 'dental' and kind = 'tooth'
            for update"#,
@@ -158,7 +164,8 @@ pub async fn insert(conn: &mut PgConnection, new: &NewChartRow<'_>) -> Result<Ch
              (id, patient_id, encounter_id, module, kind, schema_version, data, supersedes_id,
               effective_at, source, verified_by, verified_at, client_id, request_hash)
            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), $12, $13)
-           returning id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by"#,
+           returning id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                     source"#,
         new.id,
         new.patient_id,
         new.encounter_id,
@@ -185,7 +192,8 @@ pub async fn insert(conn: &mut PgConnection, new: &NewChartRow<'_>) -> Result<Ch
 pub async fn current(conn: &mut PgConnection, patient_id: Uuid) -> Result<Vec<ChartRow>, DbError> {
     let rows = sqlx::query_as!(
         ChartRow,
-        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                  source
            from aarogyam.specialty_records
            where patient_id = $1 and module = 'dental' and kind = 'tooth' and status = 'current'
            order by tooth, surface nulls first"#,
@@ -207,7 +215,8 @@ pub async fn history(
 ) -> Result<Vec<ChartRow>, DbError> {
     let rows = sqlx::query_as!(
         ChartRow,
-        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                  source
            from aarogyam.specialty_records
            where patient_id = $1 and module = 'dental' and kind = 'tooth' and tooth = $2
            order by effective_at desc, id desc"#,
@@ -229,7 +238,8 @@ pub async fn of_encounter(
 ) -> Result<Vec<ChartRow>, DbError> {
     let rows = sqlx::query_as!(
         ChartRow,
-        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                  source
            from aarogyam.specialty_records
            where encounter_id = $1 and module = 'dental' and kind = 'tooth'
            order by effective_at, id"#,
@@ -238,4 +248,76 @@ pub async fn of_encounter(
     .fetch_all(conn)
     .await?;
     Ok(rows)
+}
+
+/// The tooth's current status, locked until the transaction ends.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn current_status_for_tooth(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    tooth: i16,
+) -> Result<Option<ChartRow>, DbError> {
+    let row = sqlx::query_as!(
+        ChartRow,
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                  source
+           from aarogyam.specialty_records
+           where patient_id = $1 and module = 'dental' and kind = 'tooth_status' and tooth = $2
+             and status = 'current'
+           for update"#,
+        patient_id,
+        tooth
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// The patient's current tooth statuses, by tooth.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn current_statuses(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+) -> Result<Vec<ChartRow>, DbError> {
+    let rows = sqlx::query_as!(
+        ChartRow,
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                  source
+           from aarogyam.specialty_records
+           where patient_id = $1 and module = 'dental' and kind = 'tooth_status'
+             and status = 'current'
+           order by tooth"#,
+        patient_id
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// One of the patient's tooth statuses by id, whatever its state; none when it isn't this
+/// patient's.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn status_by_id(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    id: Uuid,
+) -> Result<Option<ChartRow>, DbError> {
+    let row = sqlx::query_as!(
+        ChartRow,
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                  source
+           from aarogyam.specialty_records
+           where id = $1 and patient_id = $2 and module = 'dental' and kind = 'tooth_status'"#,
+        id,
+        patient_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
 }

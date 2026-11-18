@@ -192,6 +192,10 @@ pub struct SharedChartEntry {
     pub finding: Option<String>,
     /// The note.
     pub note: Option<String>,
+    /// The work was done by another dentist: show it as "done elsewhere". Left out when false.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub elsewhere: bool,
     /// When the finding was made.
     pub effective_at: String,
 }
@@ -266,6 +270,7 @@ fn shared(token: &str, records: app::Records) -> SharedRecords {
                     surface: line.surface,
                     finding: line.finding,
                     note: line.note,
+                    elsewhere: line.elsewhere,
                     effective_at: rfc3339(line.effective_at),
                 })
                 .collect()

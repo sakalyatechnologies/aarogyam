@@ -23,6 +23,8 @@ import {
   type MembershipId,
   type NewAppointmentBody,
   type NewChartEntries,
+  type NewToothStatus,
+  type ToothStatus,
   type NewDentalTerm,
   type InvitationId,
   type NewInvitation,
@@ -934,6 +936,59 @@ export function useRecordChartEntries(patientId: PatientId) {
   return useMutation({
     mutationFn: (input: NewChartEntries) => unwrap(api.recordChartEntries(patientId, input)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] }),
+  });
+}
+
+/** Puts a tooth's status into every cached chart of the patient (or takes it out), so the chip and the Health view change at once. */
+function withStatus(chart: DentalChart | undefined, tooth: number, status: ToothStatus | undefined): DentalChart | undefined {
+  if (chart === undefined) return chart;
+  const others = (chart.statuses ?? []).filter((s) => s.tooth !== tooth);
+  const statuses = status === undefined ? others : [...others, status].sort((a, b) => a.tooth - b.tooth);
+  const { current, history, terms } = chart;
+  return statuses.length === 0 ? { current, history, terms } : { current, history, terms, statuses };
+}
+
+/**
+ * Sets a tooth's health status, optimistically: the cached chart shows it before the server answers and goes back if it
+ * refuses. `status` is how the chart should show it meanwhile.
+ */
+export function useSetToothStatus(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  const key = ["dental-chart", access.org_id, patientId];
+  return useMutation({
+    mutationFn: ({ tooth, input }: { tooth: number; input: NewToothStatus; status: ToothStatus }) => unwrap(api.setToothStatus(patientId, tooth, input)),
+    onMutate: async ({ tooth, status }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const before = queryClient.getQueriesData<DentalChart>({ queryKey: key });
+      queryClient.setQueriesData<DentalChart>({ queryKey: key }, (chart) => withStatus(chart, tooth, status));
+      return { before };
+    },
+    onError: (_error, _input, context) => {
+      for (const [queryKey, chart] of context?.before ?? []) queryClient.setQueryData(queryKey, chart);
+    },
+    onSuccess: (saved, { tooth }) => {
+      queryClient.setQueriesData<DentalChart>({ queryKey: key }, (chart) => withStatus(chart, tooth, saved));
+    },
+  });
+}
+
+/** Clears a tooth's health status (superseded on the server), optimistically. */
+export function useClearToothStatus(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  const key = ["dental-chart", access.org_id, patientId];
+  return useMutation({
+    mutationFn: (tooth: number) => unwrap(api.clearToothStatus(patientId, tooth)),
+    onMutate: async (tooth) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const before = queryClient.getQueriesData<DentalChart>({ queryKey: key });
+      queryClient.setQueriesData<DentalChart>({ queryKey: key }, (chart) => withStatus(chart, tooth, undefined));
+      return { before };
+    },
+    onError: (_error, _tooth, context) => {
+      for (const [queryKey, chart] of context?.before ?? []) queryClient.setQueryData(queryKey, chart);
+    },
   });
 }
 

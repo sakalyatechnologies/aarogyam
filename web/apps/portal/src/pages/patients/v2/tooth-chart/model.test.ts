@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { chartEntryId, paise, type ChartEntry, type DentalTerm, type PlanItem } from "@aarogyam/api-client";
+import { chartEntryId, paise, procedure, type ChartEntry, type DentalTerm, type PlanItem } from "@aarogyam/api-client";
 
-import { blankDraft, buildEntries, buildPlan, canalOptions, correctionBatch, draftFromRow, groupEntries, historyRows, lengthProblem, materialChoices, parseLength, statusesFor, treatmentOf } from "./model.js";
+import { allowsElsewhere, blankDraft, buildEntries, buildPlan, canalOptions, correctionBatch, countLabel, derivedHealth, draftFromRow, elsewhereTeeth, groupEntries, healthByTooth, healthOf, historyRows, lengthProblem, materialChoices, parseLength, progress, statusesFor, treatmentOf } from "./model.js";
 
 const term = (kind: DentalTerm["kind"], id: string, label: string, own = false): DentalTerm => ({ id, kind, label, own, retired: false });
 const entry = (over: Partial<Omit<ChartEntry, "id">> & Pick<ChartEntry, "tooth" | "finding"> & { id: string }): ChartEntry => ({ status: "current", effective_at: "2026-10-01T09:00:00Z", canals: [], in_progress: false, ...over, id: chartEntryId.parse(over.id) });
@@ -151,5 +151,70 @@ describe("the tooth's history", () => {
   it("starts the edit form from the row, and does not offer Planned again for a planned item", () => {
     const [row] = groupEntries([filling("a", "M", { in_progress: true, note: "shade A2" })]);
     expect(row && draftFromRow(row)).toMatchObject({ tx: "filling", material: "composite", surfaces: ["M"], status: "In progress", note: "shade A2" });
+  });
+});
+
+describe("tooth health", () => {
+  it("is derived from the findings, the worst surface winning, and an explicit status overrides it", () => {
+    expect(healthOf([])).toBe("unassessed");
+    expect(healthOf([entry({ id: "s", tooth: 16, finding: "sound" })])).toBe("healthy");
+    for (const finding of ["filled", "crown", "implant", "root_canal", "bridge"] as const) {
+      expect(derivedHealth([entry({ id: finding, tooth: 16, finding })])).toBe("healthy");
+    }
+    expect(healthOf([entry({ id: "w", tooth: 16, finding: "watch" })])).toBe("watch");
+    expect(healthOf([entry({ id: "f", tooth: 16, finding: "fractured" })])).toBe("needs_treatment");
+    expect(healthOf([entry({ id: "m", tooth: 16, finding: "missing" })])).toBe("none");
+    const mixed = [entry({ id: "o", tooth: 36, surface: "O", finding: "filled" }), entry({ id: "d", tooth: 36, surface: "D", finding: "caries" })];
+    expect(healthOf(mixed)).toBe("needs_treatment");
+    expect(healthOf(mixed, { health: "healthy" })).toBe("healthy");
+    // Only current entries count.
+    expect(healthOf([entry({ id: "old", tooth: 36, finding: "caries", status: "superseded" })])).toBe("unassessed");
+  });
+
+  it("maps every tooth for the Health view, statuses winning", () => {
+    const map = healthByTooth([entry({ id: "a", tooth: 16, finding: "caries" }), entry({ id: "b", tooth: 26, finding: "crown" })], [{ tooth: 26, health: "watch", recorded_at: "2026-11-01T09:00:00Z" }, { tooth: 11, health: "healthy", recorded_at: "2026-11-01T09:00:00Z" }]);
+    expect([...map.entries()].sort((x, y) => x[0] - y[0])).toEqual([[11, "healthy"], [16, "needs_treatment"], [26, "watch"]]);
+  });
+
+  it("offers Done elsewhere only for completed work, and sends it only then", () => {
+    expect(allowsElsewhere({ ...blankDraft(), tx: "crown" })).toBe(true);
+    expect(allowsElsewhere({ ...blankDraft(), tx: "crown", status: "In progress" })).toBe(false);
+    expect(allowsElsewhere({ ...blankDraft(), status: "Watch" })).toBe(false);
+    expect(allowsElsewhere({ ...blankDraft(), tx: "scaling" })).toBe(false);
+    expect(buildEntries(16, { ...blankDraft(), tx: "crown", elsewhere: true })).toEqual([{ tooth: 16, finding: "crown", procedure: "crown", elsewhere: true }]);
+    expect(buildEntries(16, { ...blankDraft(), tx: "crown", status: "In progress", elsewhere: true })).toEqual([{ tooth: 16, finding: "crown", procedure: "crown", in_progress: true }]);
+    expect([...elsewhereTeeth([entry({ id: "e", tooth: 26, finding: "crown", elsewhere: true }), entry({ id: "h", tooth: 16, finding: "crown" })])]).toEqual([26]);
+  });
+});
+
+describe("progress", () => {
+  it("counts distinct teeth, not surfaces; keeps superseded work; skips errors, sound and watch", () => {
+    const counted = progress([
+      entry({ id: "1", tooth: 36, surface: "O", finding: "filled" }),
+      entry({ id: "2", tooth: 36, surface: "D", finding: "filled" }),
+      entry({ id: "3", tooth: 46, finding: "root_canal", status: "superseded" }),
+      entry({ id: "4", tooth: 46, finding: "crown" }),
+      entry({ id: "5", tooth: 11, finding: "filled", status: "entered_in_error" }),
+      entry({ id: "6", tooth: 21, finding: "sound" }),
+      entry({ id: "7", tooth: 22, finding: "watch" }),
+    ]);
+    expect(counted.here).toBe(2);
+    expect(counted.before).toBe(0);
+    expect(counted.byTreatment.map(countLabel)).toEqual(["1 filling", "1 root canal", "1 crown"]);
+  });
+
+  it("counts elsewhere and imported work as before, and cleanings from procedures", () => {
+    const scaling = procedure.parse({ id: "p1", visit_id: "v1", clinician: { id: "m1", name: "Dr A" }, name: "Scaling", surfaces: [], status: "done", created_at: "2026-11-01T09:00:00Z" });
+    const counted = progress(
+      [
+        entry({ id: "a", tooth: 26, finding: "crown", elsewhere: true }),
+        entry({ id: "b", tooth: 47, finding: "filled", source: "import" }),
+        entry({ id: "c", tooth: 16, finding: "filled", surface: "O" }),
+        entry({ id: "d", tooth: 17, finding: "filled", surface: "M" }),
+      ],
+      [scaling],
+    );
+    expect(counted).toMatchObject({ here: 2, before: 2 });
+    expect(counted.byTreatment.map(countLabel)).toEqual(["2 fillings", "1 cleaning"]);
   });
 });

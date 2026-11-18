@@ -1955,6 +1955,8 @@ export const visitDetail = z.object({
       canals: z.array(rootCanal).default([]),
       sitting: count.nullable().exactOptional(),
       in_progress: z.boolean().default(false),
+      elsewhere: z.boolean().exactOptional(),
+      source: z.string().nullable().exactOptional(),
     }),
   ),
   attachments: z.array(attachment),
@@ -1999,19 +2001,41 @@ export const chartEntry = z.object({
   sitting: count.nullable().exactOptional(),
   /** Started but not finished; older servers don't send it. */
   in_progress: z.boolean().default(false),
+  /** Work done by another dentist ("done elsewhere"); absent when done here. */
+  elsewhere: z.boolean().exactOptional(),
+  /** Where the entry came from when not a clinician in the app, such as `import`. */
+  source: z.string().nullable().exactOptional(),
 }) satisfies z.ZodType<C.ChartEntry>;
 export type ChartEntry = z.output<typeof chartEntry>;
+
+export const toothHealth = z.enum(["healthy", "watch", "needs_treatment"]) satisfies z.ZodType<C.ToothHealth>;
+export type ToothHealth = z.output<typeof toothHealth>;
+
+/** A doctor's judgement of a tooth; it overrides the health its findings suggest. */
+export const toothStatus = z.object({
+  tooth: count,
+  health: toothHealth,
+  note: z.string().nullable().exactOptional(),
+  treat_within_months: count.nullable().exactOptional(),
+  recorded_by: membershipId.nullable().exactOptional(),
+  recorded_at: timestamp,
+}) satisfies z.ZodType<C.ToothStatus>;
+export type ToothStatus = z.output<typeof toothStatus>;
 
 export const dentalChart = z.object({
   current: z.array(chartEntry),
   history: z.array(chartEntry),
   terms: z.array(dentalTerm),
+  /** Each tooth's current status; absent when none (and from older servers). */
+  statuses: z.array(toothStatus).exactOptional(),
 }) satisfies z.ZodType<C.DentalChart>;
 export type DentalChart = z.output<typeof dentalChart>;
 
 /** Body of `POST /api/v1/patients/{id}/dental-chart`. */
 export type NewChartEntries = C.NewChartEntries;
 export type NewChartEntry = C.NewChartEntry;
+/** Body of `PUT /api/v1/patients/{id}/dental-chart/teeth/{tooth}/status`. */
+export type NewToothStatus = C.NewToothStatus;
 
 // Patient files (M4) ------------------------------------------------------------------------------
 

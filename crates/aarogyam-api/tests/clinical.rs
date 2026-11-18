@@ -846,6 +846,186 @@ async fn dental_chart_entries_supersede_and_keep_history() {
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+async fn tooth_statuses_override_keep_history_and_replay() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let chart_path = format!("/api/v1/patients/{patient}/dental-chart");
+    let path = format!("{chart_path}/teeth/36/status");
+    let put = async |body: Value| {
+        app.send(Method::PUT, ALPHA, &path, Some(&owner), Some(body))
+            .await
+    };
+    let rows = async |status: &str| -> i64 {
+        sqlx::query_scalar(
+            "select count(*) from aarogyam.specialty_records
+             where patient_id = $1::uuid and kind = 'tooth_status' and status = $2",
+        )
+        .bind(&patient)
+        .bind(status)
+        .fetch_one(&app.owner)
+        .await
+        .unwrap()
+    };
+
+    // No visit is needed: an assessment can happen at a consult.
+    let client_id = Uuid::now_v7();
+    let body = json!({
+        "health": "needs_treatment", "note": "  Deep caries distal  ",
+        "treat_within_months": 3, "client_id": client_id,
+    });
+    let (status, first) = put(body.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{first}");
+    assert_eq!(first["tooth"], 36);
+    assert_eq!(first["health"], "needs_treatment");
+    assert_eq!(first["note"], "Deep caries distal");
+    assert_eq!(first["treat_within_months"], 3);
+    assert!(first["recorded_by"].is_string());
+    assert!(first["recorded_at"].is_string());
+
+    // A retry returns the same status; the same id for another body is refused.
+    let (status, again) = put(body).await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(again, first);
+    assert_eq!(rows("current").await, 1);
+    let (status, refused) = put(json!({ "health": "watch", "client_id": client_id })).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{refused}");
+
+    // The chart carries it; chart readers of kind `tooth` never see it.
+    let (status, chart) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("{chart_path}?tooth=36"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert_eq!(chart["statuses"].as_array().unwrap().len(), 1);
+    assert_eq!(chart["statuses"][0]["health"], "needs_treatment");
+    assert_eq!(chart["current"], json!([]));
+    assert_eq!(chart["history"], json!([]));
+
+    // An override supersedes; the history keeps the first.
+    let (status, healthy) = put(json!({ "health": "healthy" })).await;
+    assert_eq!(status, StatusCode::OK, "{healthy}");
+    assert_eq!(healthy["health"], "healthy");
+    assert!(healthy.get("note").is_none());
+    assert_eq!((rows("current").await, rows("superseded").await), (1, 1));
+    let (_, chart) = app
+        .send(Method::GET, ALPHA, &chart_path, Some(&owner), None)
+        .await;
+    assert_eq!(chart["statuses"][0]["health"], "healthy");
+
+    // Validation names the field.
+    for (body, field) in [
+        (json!({ "health": "critical" }), "health"),
+        (
+            json!({ "health": "watch", "treat_within_months": 2 }),
+            "treat_within_months",
+        ),
+        (
+            json!({ "health": "healthy", "treat_within_months": 3 }),
+            "treat_within_months",
+        ),
+        (
+            json!({ "health": "watch", "note": "x".repeat(501) }),
+            "note",
+        ),
+    ] {
+        let (status, error) = put(body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{error}");
+        assert!(error.to_string().contains(field), "{error}");
+    }
+    let (status, error) = app
+        .send(
+            Method::PUT,
+            ALPHA,
+            &format!("{chart_path}/teeth/19/status"),
+            Some(&owner),
+            Some(json!({ "health": "watch" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{error}");
+
+    // During an open visit the status joins it; the visit's chart entries stay chart entries.
+    let visit = start_visit(&app, &owner, &patient).await;
+    let (status, _) = put(json!({ "health": "watch" })).await;
+    assert_eq!(status, StatusCode::OK);
+    let in_visit: i64 = sqlx::query_scalar(
+        "select count(*) from aarogyam.specialty_records
+         where encounter_id = $1::uuid and kind = 'tooth_status' and status = 'current'",
+    )
+    .bind(&visit)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(in_visit, 1);
+    let (status, detail) = app
+        .send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/visits/{visit}"),
+            Some(&owner),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{detail}");
+    assert_eq!(detail["chart_entries"], json!([]));
+
+    // Clearing supersedes, never deletes; clearing again is a no-op.
+    for _ in 0..2 {
+        let (status, _) = app
+            .send(Method::DELETE, ALPHA, &path, Some(&owner), None)
+            .await;
+        assert_eq!(status, StatusCode::NO_CONTENT);
+    }
+    assert_eq!((rows("current").await, rows("superseded").await), (0, 3));
+    let (_, chart) = app
+        .send(Method::GET, ALPHA, &chart_path, Some(&owner), None)
+        .await;
+    assert!(chart.get("statuses").is_none(), "{chart}");
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn work_done_elsewhere_is_only_finished_work() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let path = format!("/api/v1/patients/{patient}/dental-chart");
+    let record = async |entry: Value| {
+        app.send(
+            Method::POST,
+            ALPHA,
+            &path,
+            Some(&owner),
+            Some(json!({ "entries": [entry] })),
+        )
+        .await
+    };
+    let (status, chart) =
+        record(json!({ "tooth": 46, "finding": "crown", "elsewhere": true })).await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert_eq!(chart["current"][0]["elsewhere"], true);
+    let (status, chart) = record(json!({ "tooth": 36, "finding": "filled", "surface": "O" })).await;
+    assert_eq!(status, StatusCode::OK, "{chart}");
+    assert!(chart["current"][0].get("elsewhere").is_none(), "{chart}");
+    for entry in [
+        json!({ "tooth": 36, "finding": "caries", "surface": "O", "elsewhere": true }),
+        json!({ "tooth": 46, "finding": "crown", "elsewhere": true, "in_progress": true }),
+    ] {
+        let (status, error) = record(entry).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{error}");
+        assert!(error.to_string().contains("elsewhere"), "{error}");
+    }
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
 async fn procedures_carry_out_accepted_plan_items() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);
@@ -2186,6 +2366,16 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Some(json!({ "entries": [{ "tooth": 36, "surface": "O", "finding": "caries" }] })),
         ),
         (
+            Method::PUT,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/36/status"),
+            Some(json!({ "health": "watch", "note": "Recheck" })),
+        ),
+        (
+            Method::DELETE,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/36/status"),
+            None,
+        ),
+        (
             Method::GET,
             format!("/api/v1/patients/{patient}/timeline"),
             None,
@@ -2221,11 +2411,12 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
     ]
 }
 
-/// A path with every UUID segment (or `{name}` placeholder) replaced by `{}`.
+/// A path with every UUID or number segment (or `{name}` placeholder) replaced by `{}`.
 fn template(path: &str) -> String {
     path.split('/')
         .map(|part| {
-            if Uuid::try_parse(part).is_ok() || part.starts_with('{') {
+            if Uuid::try_parse(part).is_ok() || part.starts_with('{') || part.parse::<u32>().is_ok()
+            {
                 "{}"
             } else {
                 part

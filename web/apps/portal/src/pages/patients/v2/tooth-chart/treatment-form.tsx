@@ -2,11 +2,11 @@ import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 
 import type { DentalTerm, ToothSurface } from "@aarogyam/api-client";
-import { Button, Field, Select, TextInput } from "@sakalya/ui";
+import { Button, Field, Select, Switch, TextInput } from "@sakalya/ui";
 
 import { SURFACES, surfaceLabel } from "../../../visits/odontogram/model.js";
 import { Chip } from "../kit.js";
-import { TREATMENTS, allowsSurfaces, defaultMaterial, canalOptions, lengthProblem, materialChoices, statusesFor, treatmentOf, type Draft, type TreatmentKey, type TxStatus } from "./model.js";
+import { TREATMENTS, allowsElsewhere, allowsSurfaces, defaultMaterial, canalOptions, lengthProblem, materialChoices, statusesFor, treatmentOf, type Draft, type TreatmentKey, type TxStatus } from "./model.js";
 
 const NO_MATERIAL = "none";
 
@@ -218,6 +218,15 @@ export function TreatmentForm({
           </Chip>
         ))}
       </div>
+      {allowsElsewhere(draft) ? (
+        <Switch
+          label="Done elsewhere"
+          checked={draft.elsewhere}
+          onCheckedChange={(checked) => {
+            onChange({ ...draft, elsewhere: checked });
+          }}
+        />
+      ) : null}
       {draft.status === "Planned" ? <p className="tc-meta">Adds the treatment to the patient's plan with no estimate yet.</p> : null}
       {planned ? <p className="tc-meta">Saving records this planned treatment as work on the tooth.</p> : null}
 

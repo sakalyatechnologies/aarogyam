@@ -14,6 +14,12 @@ pub const KIND: &str = "tooth";
 /// The version of [`ChartEntry`]'s JSON shape. Version 2 added the procedure and material;
 /// version 3 added a root canal's canals and sitting. Older entries read as having none.
 pub const SCHEMA_VERSION: i32 = 3;
+/// The record kind of a tooth's health status: one current per tooth, superseded by the next.
+pub const STATUS_KIND: &str = "tooth_status";
+/// The version of [`ToothStatus`]'s JSON shape.
+pub const STATUS_SCHEMA_VERSION: i32 = 1;
+/// The months a doctor may advise treating a tooth within.
+pub const TREAT_WITHIN_MONTHS: [u8; 4] = [1, 3, 6, 12];
 
 /// Most canals one root canal entry lists (an upper molar has four or five).
 pub const MAX_CANALS: usize = 8;
@@ -71,6 +77,23 @@ pub enum ChartError {
     /// A sitting outside 1 to 20.
     #[error("sitting must be 1 to 20")]
     Sitting,
+    /// Done elsewhere on a finding that isn't work (sound, caries, watch, fractured).
+    #[error(
+        "elsewhere applies only to work: filled, crown, implant, root_canal, bridge or missing"
+    )]
+    Elsewhere,
+    /// Done elsewhere together with in progress: work from elsewhere arrives finished.
+    #[error("elsewhere can't be in progress; record finished work from elsewhere")]
+    ElsewhereInProgress,
+    /// Not a tooth health.
+    #[error("health must be healthy, watch or needs_treatment")]
+    Health,
+    /// Advice outside 1, 3, 6 or 12 months.
+    #[error("treat_within_months must be 1, 3, 6 or 12")]
+    TreatWithin,
+    /// Advice on a healthy tooth.
+    #[error("treat_within_months goes with watch or needs_treatment, not healthy")]
+    TreatWithinHealthy,
 }
 
 impl Tooth {
@@ -192,6 +215,21 @@ impl Finding {
     pub const fn replaces_surfaces(self) -> bool {
         matches!(self, Self::Crown | Self::Missing | Self::Implant)
     }
+
+    /// Whether the finding is work a dentist did (a missing tooth counts as extracted), so it
+    /// may have been done elsewhere.
+    #[must_use]
+    pub const fn is_work(self) -> bool {
+        matches!(
+            self,
+            Self::Filled
+                | Self::Crown
+                | Self::Implant
+                | Self::RootCanal
+                | Self::Bridge
+                | Self::Missing
+        )
+    }
 }
 
 /// One canal of a root canal treatment: its name and, once measured, its working length.
@@ -252,6 +290,7 @@ pub struct ChartEntry {
     canals: Vec<Canal>,
     sitting: Option<u8>,
     in_progress: bool,
+    elsewhere: bool,
 }
 
 /// What else an entry says besides tooth, surface and finding: procedure and material ids
@@ -270,6 +309,8 @@ pub struct Detail<'a> {
     pub sitting: Option<i64>,
     /// The treatment is started but not finished (a root canal between sittings, a crown in the lab).
     pub in_progress: bool,
+    /// The work was done by another dentist, before or outside this clinic.
+    pub elsewhere: bool,
 }
 
 /// The JSON shape stored in `specialty_records.data` (schema version 3).
@@ -300,6 +341,9 @@ pub struct ChartData {
     /// Treatment started, not finished (additive, no version bump: absent reads as finished).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub in_progress: bool,
+    /// Work done by another dentist (additive, no version bump: absent reads as done here).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub elsewhere: bool,
 }
 
 impl ChartEntry {
@@ -335,6 +379,12 @@ impl ChartEntry {
             return Err(ChartError::SoundWithDetail);
         }
         let note = optional_text(detail.note, 500).map_err(|_: ClinicalError| ChartError::Note)?;
+        if detail.elsewhere && !finding.is_work() {
+            return Err(ChartError::Elsewhere);
+        }
+        if detail.elsewhere && detail.in_progress {
+            return Err(ChartError::ElsewhereInProgress);
+        }
         if finding != Finding::RootCanal && (!detail.canals.is_empty() || detail.sitting.is_some())
         {
             return Err(ChartError::RootCanalOnly);
@@ -363,6 +413,7 @@ impl ChartEntry {
             canals,
             sitting,
             in_progress: detail.in_progress && finding != Finding::Sound,
+            elsewhere: detail.elsewhere,
         })
     }
 
@@ -396,6 +447,12 @@ impl ChartEntry {
         self.in_progress
     }
 
+    /// Whether the work was done by another dentist.
+    #[must_use]
+    pub const fn elsewhere(&self) -> bool {
+        self.elsewhere
+    }
+
     /// The tooth.
     #[must_use]
     pub const fn tooth(&self) -> Tooth {
@@ -427,6 +484,7 @@ impl ChartEntry {
             canals: self.canals.clone(),
             sitting: self.sitting,
             in_progress: self.in_progress,
+            elsewhere: self.elsewhere,
         }
     }
 
@@ -435,6 +493,106 @@ impl ChartEntry {
     #[must_use]
     pub fn replaces(&self, surface: Option<Surface>) -> bool {
         surface == self.surface || (self.surface.is_none() && self.finding.replaces_surfaces())
+    }
+}
+
+text_enum!(
+    /// How a tooth is, as the doctor judges it. Without a status the portal derives it from the
+    /// chart's findings; a status overrides that.
+    ToothHealth {
+        /// Nothing to do.
+        Healthy => "healthy",
+        /// Look again at the next visit (the same meaning as the `watch` finding).
+        Watch => "watch",
+        /// Needs treatment.
+        NeedsTreatment => "needs_treatment",
+    }
+);
+
+/// A doctor's judgement of one tooth: its health, a one-line note, and optional advice on how
+/// soon to treat it. Stored as a `specialty_records` row of kind [`STATUS_KIND`], no surface.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToothStatus {
+    tooth: Tooth,
+    health: ToothHealth,
+    note: Option<String>,
+    treat_within_months: Option<u8>,
+}
+
+/// The JSON shape of a [`ToothStatus`] in `specialty_records.data`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ToothStatusData {
+    /// FDI tooth number.
+    pub tooth: u8,
+    /// `healthy`, `watch` or `needs_treatment`.
+    pub health: String,
+    /// The doctor's note.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    /// Advice: treat within this many months.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub treat_within_months: Option<u8>,
+}
+
+impl ToothStatus {
+    /// Validates a status: an FDI tooth, a known health, a note of at most 500 characters
+    /// (trimmed; empty is none), and advice of 1, 3, 6 or 12 months only on a tooth to watch or
+    /// treat.
+    ///
+    /// # Errors
+    /// [`ChartError::Tooth`], [`ChartError::Health`], [`ChartError::Note`],
+    /// [`ChartError::TreatWithin`] or [`ChartError::TreatWithinHealthy`].
+    pub fn new(
+        tooth: i64,
+        health: &str,
+        note: Option<&str>,
+        treat_within_months: Option<i64>,
+    ) -> Result<Self, ChartError> {
+        let tooth = Tooth::new(tooth)?;
+        let health = ToothHealth::parse(health.trim()).map_err(|_| ChartError::Health)?;
+        let note = optional_text(note, 500).map_err(|_: ClinicalError| ChartError::Note)?;
+        let treat_within_months = match treat_within_months {
+            None => None,
+            Some(months) => {
+                let months = u8::try_from(months)
+                    .ok()
+                    .filter(|m| TREAT_WITHIN_MONTHS.contains(m))
+                    .ok_or(ChartError::TreatWithin)?;
+                if health == ToothHealth::Healthy {
+                    return Err(ChartError::TreatWithinHealthy);
+                }
+                Some(months)
+            }
+        };
+        Ok(Self {
+            tooth,
+            health,
+            note,
+            treat_within_months,
+        })
+    }
+
+    /// The tooth.
+    #[must_use]
+    pub const fn tooth(&self) -> Tooth {
+        self.tooth
+    }
+
+    /// The health.
+    #[must_use]
+    pub const fn health(&self) -> ToothHealth {
+        self.health
+    }
+
+    /// The JSON stored for the status.
+    #[must_use]
+    pub fn data(&self) -> ToothStatusData {
+        ToothStatusData {
+            tooth: self.tooth.number(),
+            health: self.health.as_str().to_owned(),
+            note: self.note.clone(),
+            treat_within_months: self.treat_within_months,
+        }
     }
 }
 
@@ -511,6 +669,91 @@ mod tests {
         let old: ChartData =
             serde_json::from_value(serde_json::json!({ "tooth": 46, "finding": "crown" })).unwrap();
         assert!(!old.in_progress);
+    }
+
+    #[test]
+    fn elsewhere_is_only_finished_work() {
+        let tooth = |finding, elsewhere, in_progress| {
+            ChartEntry::new(
+                46,
+                None,
+                finding,
+                Detail {
+                    in_progress,
+                    elsewhere,
+                    ..Detail::default()
+                },
+            )
+        };
+        for work in [
+            "filled",
+            "crown",
+            "implant",
+            "root_canal",
+            "bridge",
+            "missing",
+        ] {
+            let entry = tooth(work, true, false).unwrap();
+            assert!(entry.elsewhere());
+            assert_eq!(
+                serde_json::to_value(entry.data()).unwrap()["elsewhere"],
+                true
+            );
+        }
+        for other in ["sound", "caries", "watch", "fractured"] {
+            assert_eq!(tooth(other, true, false), Err(ChartError::Elsewhere));
+        }
+        assert_eq!(
+            tooth("crown", true, true),
+            Err(ChartError::ElsewhereInProgress)
+        );
+        let here = serde_json::to_value(tooth("crown", false, false).unwrap().data()).unwrap();
+        assert!(here.get("elsewhere").is_none());
+        let old: ChartData =
+            serde_json::from_value(serde_json::json!({ "tooth": 46, "finding": "crown" })).unwrap();
+        assert!(!old.elsewhere);
+    }
+
+    #[test]
+    fn a_tooth_status_is_checked() {
+        let status =
+            ToothStatus::new(36, "needs_treatment", Some("  deep caries  "), Some(3)).unwrap();
+        assert_eq!(status.health(), ToothHealth::NeedsTreatment);
+        let data = status.data();
+        assert_eq!(data.note.as_deref(), Some("deep caries"));
+        assert_eq!(data.treat_within_months, Some(3));
+        let json = serde_json::to_value(&data).unwrap();
+        assert_eq!(json["health"], "needs_treatment");
+        assert!(json.get("surface").is_none());
+        let plain = ToothStatus::new(11, "healthy", Some("  "), None)
+            .unwrap()
+            .data();
+        assert_eq!(plain.note, None);
+        assert!(ToothStatus::new(21, "watch", None, Some(12)).is_ok());
+        assert_eq!(
+            ToothStatus::new(19, "healthy", None, None),
+            Err(ChartError::Tooth)
+        );
+        assert_eq!(
+            ToothStatus::new(11, "critical", None, None),
+            Err(ChartError::Health)
+        );
+        assert_eq!(
+            ToothStatus::new(11, "watch", Some(&"x".repeat(501)), None),
+            Err(ChartError::Note)
+        );
+        assert_eq!(
+            ToothStatus::new(11, "watch", None, Some(2)),
+            Err(ChartError::TreatWithin)
+        );
+        assert_eq!(
+            ToothStatus::new(11, "watch", None, Some(300)),
+            Err(ChartError::TreatWithin)
+        );
+        assert_eq!(
+            ToothStatus::new(11, "healthy", None, Some(3)),
+            Err(ChartError::TreatWithinHealthy)
+        );
     }
 
     #[test]

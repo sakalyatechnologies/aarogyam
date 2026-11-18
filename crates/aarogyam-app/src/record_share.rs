@@ -164,6 +164,8 @@ pub struct ChartLine {
     pub finding: Option<String>,
     /// The note.
     pub note: Option<String>,
+    /// The work was done by another dentist ("done elsewhere").
+    pub elsewhere: bool,
     /// When the finding was made.
     pub effective_at: OffsetDateTime,
 }
@@ -257,6 +259,11 @@ async fn contents(
                             surface: text(&row.data, "surface"),
                             finding: text(&row.data, "finding"),
                             note: text(&row.data, "note"),
+                            elsewhere: row
+                                .data
+                                .get("elsewhere")
+                                .and_then(Value::as_bool)
+                                .unwrap_or(false),
                             effective_at: row.effective_at,
                         })
                         .collect(),

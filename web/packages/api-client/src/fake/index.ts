@@ -2,6 +2,7 @@ export { createFakeBackend, createFakeClient, fakeTokenFor, type FakeBackend, ty
 export {
   ROLES,
   createFixtures,
+  type FakeChartEntry,
   type FakeClinic,
   type FakeMembership,
   type FakePatient,

@@ -7,7 +7,8 @@ use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::clinical::{EncounterStatus, NoteRefusal, RecordSource};
 pub use aarogyam_domain::dental::Canal;
 use aarogyam_domain::dental::{
-    ChartData, ChartEntry, Detail, Finding, KIND, MODULE, SCHEMA_VERSION, Surface, Tooth,
+    ChartData, ChartEntry, ChartError, Detail, Finding, KIND, MODULE, SCHEMA_VERSION, STATUS_KIND,
+    STATUS_SCHEMA_VERSION, Surface, Tooth, ToothHealth, ToothStatus, ToothStatusData,
 };
 use aarogyam_domain::dental_terms::{TermKind, TermRef, seeded, seeded_match, term_label};
 use aarogyam_domain::ids::{DentalTermId, EncounterId, MembershipId, PatientId, SpecialtyRecordId};
@@ -58,6 +59,46 @@ pub struct ChartEntryView {
     pub sitting: Option<u8>,
     /// The treatment is started but not finished.
     pub in_progress: bool,
+    /// The work was done by another dentist.
+    pub elsewhere: bool,
+    /// Where the entry came from: `clinician`, `import`...
+    pub source: String,
+}
+
+/// A doctor's judgement of a tooth: it overrides the health the chart's findings suggest.
+#[derive(Debug, Clone)]
+pub struct ToothStatusView {
+    /// Identifier.
+    pub id: SpecialtyRecordId,
+    /// The tooth.
+    pub tooth: Tooth,
+    /// Healthy, watch or needs treatment.
+    pub health: ToothHealth,
+    /// The doctor's note.
+    pub note: Option<String>,
+    /// Advice: treat within this many months.
+    pub treat_within_months: Option<u8>,
+    /// The visit it was set in, if one was open.
+    pub visit_id: Option<EncounterId>,
+    /// The member who set it.
+    pub recorded_by: Option<MembershipId>,
+    /// When it was set.
+    pub recorded_at: OffsetDateTime,
+}
+
+fn status_view(row: ChartRow) -> Result<ToothStatusView, AppError> {
+    let stored = || AppError::Internal("a stored tooth status is malformed");
+    let data: ToothStatusData = serde_json::from_value(row.data).map_err(|_| stored())?;
+    Ok(ToothStatusView {
+        id: SpecialtyRecordId::from_uuid(row.id),
+        tooth: Tooth::new(i64::from(data.tooth)).map_err(|_| stored())?,
+        health: ToothHealth::parse(&data.health).map_err(|_| stored())?,
+        note: data.note,
+        treat_within_months: data.treat_within_months,
+        visit_id: row.encounter_id.map(EncounterId::from_uuid),
+        recorded_by: row.verified_by.map(MembershipId::from_uuid),
+        recorded_at: row.effective_at,
+    })
 }
 
 /// A procedure or material: seeded, or one the clinic added.
@@ -149,6 +190,8 @@ fn view(row: ChartRow, own: &[TermView]) -> Result<ChartEntryView, AppError> {
         canals: data.canals,
         sitting: data.sitting,
         in_progress: data.in_progress,
+        elsewhere: data.elsewhere,
+        source: row.source,
     })
 }
 
@@ -195,6 +238,8 @@ pub struct DentalChart {
     /// The procedures and materials to offer: the seeded vocabulary, then the clinic's own.
     /// Clients filter it as the clinician types; nothing is asked per keystroke.
     pub terms: Vec<TermView>,
+    /// The current health status of each tooth that has one, by tooth.
+    pub statuses: Vec<ToothStatusView>,
 }
 
 async fn load(
@@ -220,6 +265,11 @@ async fn load(
             .collect::<Result<_, _>>()?,
         None => Vec::new(),
     };
+    let statuses = chart::current_statuses(tx.conn(), patient_id)
+        .await?
+        .into_iter()
+        .map(status_view)
+        .collect::<Result<_, _>>()?;
     let terms = seeded()
         .iter()
         .filter(|t| !t.retired)
@@ -230,6 +280,7 @@ async fn load(
         current,
         history,
         terms,
+        statuses,
     })
 }
 
@@ -283,6 +334,10 @@ pub struct EntryInput {
     /// Treatment started, not finished. Left out when false so older retries keep their hash.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub in_progress: bool,
+    /// Work done by another dentist (only on work findings, never in progress). Left out when
+    /// false so older retries keep their hash.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub elsewhere: bool,
 }
 
 /// Entries recorded together, as received.
@@ -401,11 +456,17 @@ pub async fn record(
                     canals: &entry.canals,
                     sitting: entry.sitting,
                     in_progress: entry.in_progress,
+                    elsewhere: entry.elsewhere,
                 },
             )
         })
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| AppError::invalid("entries", error))?;
+        .map_err(|error| match error {
+            ChartError::Elsewhere | ChartError::ElsewhereInProgress => {
+                AppError::invalid("elsewhere", error)
+            }
+            _ => AppError::invalid("entries", error),
+        })?;
     let hash = input.client_id.map(|_| {
         request_hash(&serde_json::json!({
             "patient": patient_id.uuid(),
@@ -530,6 +591,157 @@ pub async fn add_term(
             _ => AppError::Db(error),
         })?;
         Ok((TermView::own(row)?, added))
+    })
+    .await
+}
+
+/// A tooth's health status as received.
+#[derive(Debug, Clone, Default)]
+pub struct SetToothStatus {
+    /// The client's id for this request. A retry with the same id and body returns the status
+    /// it made; the same id for anything else is `id_conflict`.
+    pub client_id: Option<Uuid>,
+    /// `healthy`, `watch` or `needs_treatment`.
+    pub health: String,
+    /// A one-line note, up to 500 characters.
+    pub note: Option<String>,
+    /// Advice: treat within 1, 3, 6 or 12 months (only with watch or needs treatment).
+    pub treat_within_months: Option<i64>,
+}
+
+fn status_error(error: ChartError) -> AppError {
+    let field = match error {
+        ChartError::Tooth => "tooth",
+        ChartError::Note => "note",
+        ChartError::TreatWithin | ChartError::TreatWithinHealthy => "treat_within_months",
+        _ => "health",
+    };
+    AppError::invalid(field, error)
+}
+
+/// The patient's open visit, if any, in the actor's reach: a status set during it belongs to it.
+async fn open_visit(
+    tx: &mut ScopedTx,
+    patient_id: Uuid,
+    member: Option<Uuid>,
+) -> Result<Option<Uuid>, AppError> {
+    Ok(
+        aarogyam_dal::visits::list_encounters(tx.conn(), patient_id, 3, member)
+            .await?
+            .into_iter()
+            .find(|visit| visit.status == EncounterStatus::Open.as_str())
+            .map(|visit| visit.id),
+    )
+}
+
+/// Sets a tooth's health status: supersedes its current status and records the new one, in
+/// the open visit when there is one. No visit is needed: an assessment can happen at a
+/// consult. Nothing is overwritten; the history keeps every status.
+///
+/// # Errors
+/// [`AppError::Invalid`] for a bad tooth, health, note or advice; [`AppError::NotFound`] when
+/// the patient isn't in this clinic or reach; [`AppError::Conflict`] when the tooth changed at
+/// the same moment; [`AppError::IdConflict`] when the `client_id` made something else.
+pub async fn set_status(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    patient_id: PatientId,
+    tooth: i64,
+    input: SetToothStatus,
+    now: OffsetDateTime,
+) -> Result<ToothStatusView, AppError> {
+    actor.require(Permission::ClinicalWrite)?;
+    let status = ToothStatus::new(
+        tooth,
+        &input.health,
+        input.note.as_deref(),
+        input.treat_within_months,
+    )
+    .map_err(status_error)?;
+    let data = serde_json::to_value(status.data())
+        .map_err(|_| AppError::Internal("tooth status did not serialise"))?;
+    let hash = input.client_id.map(|_| {
+        request_hash(&serde_json::json!({
+            "patient": patient_id.uuid(),
+            "kind": STATUS_KIND,
+            "status": data,
+        }))
+    });
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let reach = actor.reach(Permission::ClinicalWrite);
+        let patient = require_patient(tx, patient_id, reach).await?;
+        if let (Some(client_id), Some(hash)) = (input.client_id, hash.as_deref()) {
+            lock_client_id(tx.conn(), client_id).await?;
+            let found = chart::by_client_id(tx.conn(), client_id).await?;
+            if let Some(id) = replayed(found, patient.id, hash)? {
+                let row = chart::status_by_id(tx.conn(), patient.id, id)
+                    .await?
+                    .ok_or(AppError::IdConflict)?;
+                return status_view(row);
+            }
+        }
+        let tooth = i16::from(status.tooth().number());
+        let replaced = chart::current_status_for_tooth(tx.conn(), patient.id, tooth).await?;
+        if let Some(row) = &replaced {
+            chart::supersede(tx.conn(), row.id).await?;
+        }
+        let encounter_id = open_visit(tx, patient.id, reach.member()).await?;
+        let row = chart::insert(
+            tx.conn(),
+            &NewChartRow {
+                id: SpecialtyRecordId::new_v7().uuid(),
+                patient_id: patient.id,
+                encounter_id,
+                module: MODULE,
+                kind: STATUS_KIND,
+                schema_version: STATUS_SCHEMA_VERSION,
+                data: &data,
+                supersedes_id: replaced.map(|row| row.id),
+                effective_at: now,
+                source: RecordSource::Clinician.as_str(),
+                verified_by: actor.membership_id.uuid(),
+                client_id: input.client_id,
+                request_hash: hash.as_deref(),
+            },
+        )
+        .await
+        .map_err(|error| match error.kind() {
+            DbErrorKind::Conflict => {
+                AppError::Conflict("the tooth changed at the same moment; try again")
+            }
+            _ => AppError::Db(error),
+        })?;
+        status_view(row)
+    })
+    .await
+}
+
+/// Clears a tooth's health status, so the chart's findings suggest it again. The status is
+/// superseded, never deleted; clearing a tooth without one does nothing.
+///
+/// # Errors
+/// [`AppError::Invalid`] for a tooth that isn't an FDI number; [`AppError::NotFound`] when the
+/// patient isn't in this clinic or reach.
+pub async fn clear_status(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    patient_id: PatientId,
+    tooth: i64,
+) -> Result<(), AppError> {
+    actor.require(Permission::ClinicalWrite)?;
+    let tooth = Tooth::new(tooth).map_err(|error| AppError::invalid("tooth", error))?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let patient =
+            require_patient(tx, patient_id, actor.reach(Permission::ClinicalWrite)).await?;
+        let current =
+            chart::current_status_for_tooth(tx.conn(), patient.id, i16::from(tooth.number()))
+                .await?;
+        if let Some(row) = current {
+            chart::supersede(tx.conn(), row.id).await?;
+        }
+        Ok(())
     })
     .await
 }

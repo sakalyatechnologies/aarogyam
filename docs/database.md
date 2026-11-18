@@ -1732,9 +1732,9 @@ Specialty Pack data as versioned JSON. Longitudinal: a tooth chart or pregnancy 
 | `patient_id` | `uuid` | → `patients` |
 | `encounter_id` | `uuid?` | → `encounters`. the visit that changed it, if any |
 | `module` | `text` | dental, general, obstetrics, pediatrics ... |
-| `kind` | `text` | tooth (dental chart entry), pregnancy, growth |
+| `kind` | `text` | tooth (dental chart entry), tooth_status (a tooth's health: one current per tooth, no surface), pregnancy, growth |
 | `schema_version` | `int` |  |
-| `data` | `jsonb` | validated against the module's schema on write; dental: tooth, surface, finding, procedure, material, note (procedure and material are term ids: seeded or dental_terms) |
+| `data` | `jsonb` | validated against the module's schema on write; dental tooth: tooth, surface, finding, procedure, material, note, in_progress, elsewhere (procedure and material are term ids: seeded or dental_terms; elsewhere marks work by another dentist); dental tooth_status: tooth, health (healthy, watch, needs_treatment), note, treat_within_months (1, 3, 6, 12) |
 | `tooth` | `smallint?` | generated from data.tooth (FDI 11-48, 51-85) |
 | `surface` | `text?` | generated from data.surface: M, O, D, B, L, or none for the whole tooth |
 | `status` | `record_status` | current, superseded, entered_in_error |
@@ -1747,7 +1747,7 @@ Specialty Pack data as versioned JSON. Longitudinal: a tooth chart or pregnancy 
 | `verified_by` | `uuid?` | → `memberships` |
 | `verified_at` | `timestamptz?` |  |
 
-Each change writes a new row and marks the previous current one superseded, so the full history (tooth 36: caries, filled, crown) is kept. A partial unique index keeps one current entry per tooth and surface; a crown, implant or missing tooth also supersedes that tooth's surface entries. app.freeze_when() allows only current -> superseded or entered_in_error.
+Each change writes a new row and marks the previous current one superseded, so the full history (tooth 36: caries, filled, crown) is kept. A partial unique index keeps one current entry per kind, tooth and surface (so one current tooth_status per tooth); a crown, implant or missing tooth also supersedes that tooth's surface entries. app.freeze_when() allows only current -> superseded or entered_in_error.
 
 Referenced by: `specialty_records.supersedes_id`
 

@@ -177,7 +177,7 @@ The work runs from the small-task tracker below. An independent reviewer approve
 | v7 shows | Native build | Why |
 |---|---|---|
 | Mobile number + SMS OTP, Google/Apple sign-in | email code (real); the others shown as Preview | backend is email-only; SMS needs paid DLT |
-| Analytics Week (7 daily bars) / Month / Year | Week = 12 weekly bars, Month = 12 monthly, Year = 24 monthly | API buckets are week or month only |
+| Analytics Week (7 daily bars) / Month / Year | Week = 7 daily bars (matches, since 18 Nov 2026: the API groups by day); Month = 6 monthly, Year = 12 monthly | Month and Year still group by month |
 | Chair time Treatment/Consults/Admin, area chart by men/women/children | real chair utilization and busy hours, with the split shown as Preview | API lacks the split (backlog BK-4) |
 | Doctor sees money cards | owner and finance only | doctor lacks finance.view |
 | iOS floating Walk-in circle beside the tab bar | toolbar glass button; on iOS 26 a `tabViewBottomAccessory` was considered and rejected (full width) | system TabView rule, accessibility |

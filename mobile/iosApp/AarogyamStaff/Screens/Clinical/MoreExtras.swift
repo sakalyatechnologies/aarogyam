@@ -73,6 +73,9 @@ struct HelpPage: View {
 /// The Language sheet: iOS keeps each app's language in Settings, so this shows the languages
 /// the app speaks, marks the one in use and opens Settings to change it.
 struct LanguageSheet: View {
+    /// Below the screen languages, the language this person dictates voice notes in (kept on this phone).
+    var graph: AppGraph?
+    @State private var voice: DictationLanguage?
     @Environment(\.openURL) private var openURL
     @Environment(\.skTheme) private var theme
 
@@ -100,11 +103,19 @@ struct LanguageSheet: View {
                 SkPillButton(CL("c.language.open"), wide: true) {
                     if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                 }
+                if let graph, let chosen = voice {
+                    Text("voice.language").font(.system(size: 15, weight: .bold)).foregroundStyle(r.onSurface.color).padding(.top, 8)
+                    SkChoiceChips(Array(DictationLanguage.allCases), selected: [chosen], label: { $0.chipLabel }) {
+                        voice = $0
+                        graph.setVoiceLanguage(language: $0)
+                    }
+                }
             }
             .padding(.horizontal, SkSheetSizes.paddingH)
             .padding(.top, SkSheetSizes.paddingTop + SkSheetSizes.grabGap)
             .padding(.bottom, SkSheetSizes.paddingBottom)
         }
         .skSheet()
+        .onAppear { voice = graph?.voiceLanguage() }
     }
 }

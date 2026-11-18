@@ -235,7 +235,7 @@ fun MoreScreen(
             Spacer(Modifier.height(BOTTOM_CLEARANCE.dp))
         }
     }
-    if (language) LanguageDialog(onDismiss = { language = false })
+    if (language) LanguageDialog(graph.voiceLanguage(), graph::setVoiceLanguage) { language = false }
     if (avatars) {
         AvatarPicker(graph, onChange = { avatar = AvatarChoice.current(graph) }) { avatars = false }
     }

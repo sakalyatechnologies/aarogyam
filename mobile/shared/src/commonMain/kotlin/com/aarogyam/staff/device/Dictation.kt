@@ -10,6 +10,7 @@ enum class DictationLanguage(
     English("en-IN"),
     Hindi("hi-IN"),
     Marathi("mr-IN"),
+    Gujarati("gu-IN"),
     ;
 
     companion object {

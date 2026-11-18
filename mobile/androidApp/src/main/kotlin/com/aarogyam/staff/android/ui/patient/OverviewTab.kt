@@ -102,13 +102,21 @@ private fun Loaded(
 ) {
     val chart = chartHolder?.state?.collectAsStateWithLifecycle()?.value
     var sheetOpen by remember { mutableStateOf(false) }
+    var dictate by remember { mutableStateOf(false) }
     val pick = { tooth: Int ->
         chartHolder?.select(tooth, null)
+        dictate = false
+        sheetOpen = true
+    }
+    // A long press opens the tooth with its note already being dictated.
+    val pickAndDictate = { tooth: Int ->
+        chartHolder?.select(tooth, null)
+        dictate = true
         sheetOpen = true
     }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         loaded.error?.let { ErrorLine(it) }
-        JawCard(chart, chartHolder, pick)
+        JawCard(chart, chartHolder, pick, pickAndDictate)
         AlertsCard(loaded.alerts)
         TreatmentsCard(loaded.treatments, chartHolder != null, pick)
         loaded.lastVisit?.let { LastVisitCard(it) { onOpenVisit(it.id) } }
@@ -121,7 +129,7 @@ private fun Loaded(
     val loadedChart = chart as? ChartState.Loaded
     val selection = loadedChart?.selected
     if (sheetOpen && chartHolder != null && loadedChart != null && selection != null) {
-        ToothSheet(graph, clinic, chartHolder, loadedChart, selection) {
+        ToothSheet(graph, clinic, chartHolder, loadedChart, selection, dictate) {
             sheetOpen = false
             chartHolder.clearSelection()
             holder.refresh()
@@ -134,6 +142,7 @@ private fun JawCard(
     chart: ChartState?,
     chartHolder: ChartStateHolder?,
     pick: (Int) -> Unit,
+    dictate: (Int) -> Unit,
 ) {
     V7Card {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -159,12 +168,13 @@ private fun JawCard(
                             chart.upper,
                             chart.lower,
                             pick,
+                            onLongSelect = dictate,
                             tone = { chart.healthMark(it).tone() },
                             label = { marks.getValue(chart.healthMark(it)) },
                         )
                         JawLegend(HealthMark.entries.map { it.tone() to marks.getValue(it) })
                     } else {
-                        JawChart(chart.dentition, teeth, chart.upper, chart.lower, pick)
+                        JawChart(chart.dentition, teeth, chart.upper, chart.lower, pick, onLongSelect = dictate)
                         JawLegend()
                     }
                 }

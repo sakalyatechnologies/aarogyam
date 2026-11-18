@@ -228,6 +228,8 @@
     <string name="pv_status_planned">Planned</string>
     <string name="pv_status_watch">Watch</string>
     <string name="pv_tooth_add">Add treatment</string>
+    <string name="pv_tooth_note_dictate">Dictate</string>
+    <string name="pv_tooth_note_stop">Stop</string>
     <string name="pv_tooth_health">Health</string>
     <string name="pv_tooth_health_healthy">Healthy</string>
     <string name="pv_tooth_health_watch">Watch</string>

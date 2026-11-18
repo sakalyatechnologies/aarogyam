@@ -54,6 +54,8 @@ internal fun ToothSheet(
     chartHolder: ChartStateHolder,
     chart: ChartState.Loaded,
     selection: ToothSelection,
+    /** Opened with a long press: dictate into the tooth note at once. */
+    dictate: Boolean = false,
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -91,7 +93,7 @@ internal fun ToothSheet(
             }
         } else {
             NowCard(tooth)
-            ToothHealthCard(sheet, tooth, selection.status, chart.canRecord)
+            ToothHealthCard(sheet, tooth, selection.status, chart.canRecord, graph.voiceLanguage(), dictate)
             HistoryCard(tooth, selection.history, chart.canRecord) { entry ->
                 sheet.startEdit(entry, chart.terms)
                 adding = true

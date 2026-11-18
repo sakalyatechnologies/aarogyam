@@ -30,6 +30,7 @@
     <string name="schedule_empty_message">नई बुकिंग यहां दिखेंगी.</string>
     <string name="today_not_allowed_title">आज का पेज उपलब्ध नहीं है</string>
     <string name="today_not_allowed_message">इस क्लिनिक में आपकी भूमिका शेड्यूल नहीं देख सकती.</string>
+    <string name="language_voice">वॉइस नोट्स की भाषा</string>
     <string name="language_title">ऐप की भाषा</string>
     <string name="language_system">फ़ोन की भाषा</string>
     <string name="status_booked">बुक</string>

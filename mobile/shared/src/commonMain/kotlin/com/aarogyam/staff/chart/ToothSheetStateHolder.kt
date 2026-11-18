@@ -2,16 +2,13 @@ package com.aarogyam.staff.chart
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.addProcedure
-import com.aarogyam.staff.api.clearToothStatus
 import com.aarogyam.staff.api.model.NewProcedure
-import com.aarogyam.staff.api.model.NewToothStatus
-import com.aarogyam.staff.api.model.ToothHealth
-import com.aarogyam.staff.api.setToothStatus
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.device.Dictation
+import com.aarogyam.staff.device.DictationLanguage
 import com.aarogyam.staff.outbox.Queued
 import com.aarogyam.staff.outbox.WriteQueue
 import com.aarogyam.staff.outbox.shouldQueue
-import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
@@ -48,13 +45,6 @@ data class TreatmentFormState(
                 (check as? TreatmentCheck.Ok)?.plan?.finding in ELSEWHERE_FINDINGS
 }
 
-/** Saving the doctor's health status on the tooth. */
-data class HealthSaveState(
-    val saving: Boolean = false,
-    /** The last change was refused and taken back. */
-    val error: ScreenError? = null,
-)
-
 /**
  * The tooth sheet's Add treatment form. A completed treatment draws its finding through [chart]
  * (which shows it at once and takes it back if refused); inside [visitId] it is also logged as a
@@ -68,11 +58,15 @@ class ToothSheetStateHolder(
     private val log: Logger = Logger("aarogyam.toothsheet"),
     /** Saves a procedure for later when offline; null keeps it online-only. */
     private val writes: WriteQueue? = null,
+    /** The speech recogniser for the tooth note. */
+    private val dictation: Dictation = Dictation.None,
 ) {
     private val mutableForm = MutableStateFlow(TreatmentFormState().checked())
     val form: StateFlow<TreatmentFormState> = mutableForm.asStateFlow()
-    private val mutableHealth = MutableStateFlow(HealthSaveState())
-    val health: StateFlow<HealthSaveState> = mutableHealth.asStateFlow()
+    private val editor = ToothHealthEditor(clinic, chart, scope, log, dictation)
+
+    /** The tooth's health being saved, and its note being typed or dictated ([ToothHealthEditor]). */
+    val health: StateFlow<HealthSaveState> = editor.state
     private val queuedIds = mutableSetOf<String>()
 
     init {
@@ -182,75 +176,29 @@ class ToothSheetStateHolder(
         }
     }
 
-    /**
-     * Sets the doctor's health for [tooth]; no visit needed. [months] goes only with watch or needs
-     * treatment. It shows at once; a refusal puts back what was there.
-     */
     fun setHealth(
         tooth: Int,
         level: HealthLevel,
         months: Int? = null,
         note: String? = null,
-    ) {
-        if (mutableHealth.value.saving) return
-        val within = months?.takeIf { level.advisesTreatment && it in TREAT_WITHIN_MONTHS }
-        val text = note?.trim()?.take(MAX_HEALTH_NOTE)?.ifEmpty { null }
-        val before = chart.statusOf(tooth)
-        chart.applyStatus(tooth, ToothStatusView(level, text, within, before?.at))
-        mutableHealth.value = HealthSaveState(saving = true)
-        scope.launch {
-            val body =
-                NewToothStatus(
-                    health = ToothHealth.entries.first { it.value == level.wire },
-                    clientId = IdempotencyKey.generate().toString(),
-                    note = text,
-                    treatWithinMonths = within?.toLong(),
-                )
-            when (val answer = clinic.api.setToothStatus(chart.patientId, tooth, body)) {
-                is Outcome.Success -> {
-                    log.info("chart.health_set")
-                    statusesOf(listOf(answer.value), clinic.timeZone)[tooth]?.let { chart.applyStatus(tooth, it) }
-                    mutableHealth.value = HealthSaveState()
-                }
+    ) = editor.set(tooth, level, months, note)
 
-                is Outcome.Failure -> {
-                    healthFailed(tooth, before, answer.error)
-                }
-            }
-        }
-    }
+    fun clearHealth(tooth: Int) = editor.clear(tooth)
 
-    /** Takes the doctor's health off [tooth]; it shows what its findings suggest again. */
-    fun clearHealth(tooth: Int) {
-        if (mutableHealth.value.saving) return
-        val before = chart.statusOf(tooth) ?: return
-        chart.applyStatus(tooth, null)
-        mutableHealth.value = HealthSaveState(saving = true)
-        scope.launch {
-            when (val answer = clinic.api.clearToothStatus(chart.patientId, tooth)) {
-                is Outcome.Success -> {
-                    log.info("chart.health_cleared")
-                    mutableHealth.value = HealthSaveState()
-                }
+    fun dismissHealthError() = editor.dismissError()
 
-                is Outcome.Failure -> {
-                    healthFailed(tooth, before, answer.error)
-                }
-            }
-        }
-    }
+    fun openTooth(tooth: Int) = editor.open(tooth)
 
-    fun dismissHealthError() = mutableHealth.update { it.copy(error = null) }
+    fun editHealthNote(text: String) = editor.editNote(text)
 
-    private fun healthFailed(
+    fun saveHealthNote(tooth: Int) = editor.saveNote(tooth)
+
+    fun dictateHealthNote(
         tooth: Int,
-        before: ToothStatusView?,
-        error: com.sakalya.mobile.core.ApiError,
-    ) {
-        log.warn("chart.health_failed") { code("error", error.code.value) }
-        chart.applyStatus(tooth, before)
-        mutableHealth.value = HealthSaveState(error = ScreenError.of(error))
-    }
+        language: DictationLanguage,
+    ) = editor.dictate(tooth, language)
+
+    fun stopHealthDictation() = editor.stopDictation()
 
     /** Saves the procedure on the phone; the sheet closes and shows it as waiting to send. */
     private fun queue(
@@ -286,6 +234,5 @@ class ToothSheetStateHolder(
 
     private companion object {
         const val MAX_NOTE = 1000
-        const val MAX_HEALTH_NOTE = 500
     }
 }

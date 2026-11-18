@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,12 +22,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.visit.rememberMicStarter
 import com.aarogyam.staff.chart.HealthLevel
+import com.aarogyam.staff.chart.HealthSaveState
 import com.aarogyam.staff.chart.TREAT_WITHIN_MONTHS
 import com.aarogyam.staff.chart.ToothSheetStateHolder
 import com.aarogyam.staff.chart.ToothStatusView
 import com.aarogyam.staff.chart.ToothView
 import com.aarogyam.staff.chart.suggestedHealth
+import com.aarogyam.staff.device.DictationLanguage
 import com.sakalya.mobile.designcompose.SkChoiceChips
 import com.sakalya.mobile.designcompose.SkField
 import com.sakalya.mobile.designcompose.SkPillButton
@@ -44,12 +48,20 @@ internal fun ToothHealthCard(
     tooth: ToothView,
     status: ToothStatusView?,
     canRecord: Boolean,
+    /** The person's voice-notes language; the chips beside the mic change it for this note. */
+    voice: DictationLanguage,
+    /** Start dictating into the note at once (a long press on the tooth). */
+    dictate: Boolean = false,
 ) {
     val save by sheet.health.collectAsStateWithLifecycle()
     val suggested = tooth.suggestedHealth
     val level = status?.level ?: suggested
-    var note by remember(status?.note) { mutableStateOf(status?.note.orEmpty()) }
-    LaunchedEffect(tooth.number) { sheet.dismissHealthError() }
+    var language by remember(tooth.number) { mutableStateOf(voice) }
+    val listen = rememberMicStarter({ sheet.dictateHealthNote(tooth.number, it) })
+    LaunchedEffect(tooth.number) {
+        sheet.openTooth(tooth.number)
+        if (dictate && canRecord && level != null) listen(language)
+    }
     val levels = HealthLevel.entries.associateWith { healthLabel(it) }
     val spans = TREAT_WITHIN_MONTHS.associateWith { months(it) }
     V7Card {
@@ -93,19 +105,12 @@ internal fun ToothHealthCard(
                     status.treatWithinMonths?.let { V7Muted(spans[it] ?: months(it)) }
                 }
             }
-            if (status != null) {
-                if (canRecord) {
-                    SkField(stringResource(R.string.pv_tooth_health_note), note, { note = it })
-                    if (note.trim() != status.note.orEmpty()) {
-                        SkPillButton(stringResource(R.string.pv_tooth_health_save_note), {
-                            sheet.setHealth(tooth.number, status.level, status.treatWithinMonths, note)
-                        }, wide = true)
-                    }
-                    ResetLink { sheet.clearHealth(tooth.number) }
-                } else {
-                    status.note?.let { V7Muted(it) }
-                }
+            if (canRecord && level != null) {
+                NoteEditor(sheet, tooth.number, save, status, language, { language = it }, listen)
+            } else {
+                status?.note?.let { V7Muted(it) }
             }
+            if (canRecord && status != null) ResetLink { sheet.clearHealth(tooth.number) }
             if (save.error != null) {
                 Text(
                     stringResource(R.string.pv_tooth_health_failed),
@@ -116,6 +121,40 @@ internal fun ToothHealthCard(
         }
     }
 }
+
+/** The one-line note: typed, or dictated in the chosen language; saved with the tooth's health. */
+@Composable
+private fun NoteEditor(
+    sheet: ToothSheetStateHolder,
+    tooth: Int,
+    save: HealthSaveState,
+    status: ToothStatusView?,
+    language: DictationLanguage,
+    onLanguage: (DictationLanguage) -> Unit,
+    listen: (DictationLanguage) -> Unit,
+) {
+    val listening = save.listening != null
+    SkField(stringResource(R.string.pv_tooth_health_note), save.note, sheet::editHealthNote)
+    save.live?.let { V7Muted(it) }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SkPillButton(
+            stringResource(if (listening) R.string.pv_tooth_note_stop else R.string.pv_tooth_note_dictate),
+            { if (listening) sheet.stopHealthDictation() else listen(language) },
+        )
+        SkChoiceChips(
+            options = DictationLanguage.entries,
+            selected = setOf(save.listening ?: language),
+            onToggle = { if (!listening) onLanguage(it) },
+            label = { it.shortCode() },
+        )
+    }
+    if (!listening && save.note.trim() != status?.note.orEmpty()) {
+        SkPillButton(stringResource(R.string.pv_tooth_health_save_note), { sheet.saveHealthNote(tooth) }, wide = true)
+    }
+}
+
+/** EN, HI, MR or GU: the short switch beside the tooth note's mic. */
+private fun DictationLanguage.shortCode(): String = tag.substringBefore('-').uppercase()
 
 @Composable
 private fun ResetLink(onClick: () -> Unit) {

@@ -44,7 +44,9 @@ struct ChairModeView: View {
     let view: VisitView_
     let onClose: () -> Void
 
-    @State private var language: DictationLanguage = .english
+    /// The language picked here; until then the person's voice-notes language.
+    @State private var picked: DictationLanguage?
+    private var language: DictationLanguage { picked ?? holder.defaultLanguage }
     @State private var tooth: Int?
     @State private var camera = false
     @State private var toast: String?
@@ -63,7 +65,7 @@ struct ChairModeView: View {
             }
             HStack(spacing: SkSpacing.sm) {
                 ForEach(DictationLanguage.allCases, id: \.self) { option in
-                    SkChoiceChip(option.chipLabel, selected: (view.listening ?? language) == option) { if !listening { language = option } }
+                    SkChoiceChip(option.chipLabel, selected: (view.listening ?? language) == option) { if !listening { picked = option } }
                 }
             }
             .opacity(listening ? 0.6 : 1)

@@ -20,8 +20,10 @@ import com.aarogyam.staff.desk.WaitTimerHolder
 import com.aarogyam.staff.desk.createAvailability
 import com.aarogyam.staff.desk.createWaitTimer
 import com.aarogyam.staff.device.Dictation
+import com.aarogyam.staff.device.DictationLanguage
 import com.aarogyam.staff.device.MemoryPreferences
 import com.aarogyam.staff.device.Preferences
+import com.aarogyam.staff.device.VoiceLanguagePreference
 import com.aarogyam.staff.expenses.ExpensesStateHolder
 import com.aarogyam.staff.files.FilesStateHolder
 import com.aarogyam.staff.history.CorrectableNote
@@ -406,7 +408,17 @@ class AppGraph private constructor(
         visitId: String?,
         scope: CoroutineScope,
     ): ToothSheetStateHolder =
-        ToothSheetStateHolder(clinic, chart, visitId, scope, logger("aarogyam.toothsheet"), writes)
+        ToothSheetStateHolder(clinic, chart, visitId, scope, logger("aarogyam.toothsheet"), writes, dictation)
+
+    private val voiceLanguages = VoiceLanguagePreference(preferences)
+
+    private val signedInUser: String?
+        get() = (sessions.state.value as? SessionState.SignedIn)?.userId?.toString()
+
+    /** The signed-in person's language for dictated notes on this device (More, Voice notes language). */
+    fun voiceLanguage(): DictationLanguage = voiceLanguages.of(signedInUser)
+
+    fun setVoiceLanguage(language: DictationLanguage) = voiceLanguages.set(signedInUser, language)
 
     /** Start treatment: the Visit screen, from [tokenId] when the patient is queued. */
     fun visit(
@@ -416,7 +428,17 @@ class AppGraph private constructor(
         appointmentId: String?,
         scope: CoroutineScope,
     ): VisitStateHolder =
-        VisitStateHolder(clinic, patientId, tokenId, appointmentId, dictation, scope, logger("aarogyam.visit"), writes)
+        VisitStateHolder(
+            clinic,
+            patientId,
+            tokenId,
+            appointmentId,
+            dictation,
+            scope,
+            logger("aarogyam.visit"),
+            writes,
+            voiceLanguage(),
+        )
 
     /** Joining from an invitation [link] (or one pasted later); the token stays in memory. */
     fun invite(

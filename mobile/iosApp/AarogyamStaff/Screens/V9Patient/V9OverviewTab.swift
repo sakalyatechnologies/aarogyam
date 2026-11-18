@@ -32,6 +32,8 @@ struct V9OverviewTab: View {
     let clinic: ClinicContext
     let onOpenVisit: (String) -> Void
     @State private var sheetOpen = false
+    /// A long press on this tooth: its sheet opens with the note being dictated (the tap that ends the press opens it too).
+    @State private var dictating: Int32?
     /// The jaw shows each tooth's health instead of its findings.
     @State private var healthView = false
     @Environment(\.skTheme) private var theme
@@ -60,10 +62,11 @@ struct V9OverviewTab: View {
         }
         .sheet(isPresented: Binding(get: { sheetOpen && selected != nil }, set: { open in
             sheetOpen = open
-            if !open { chart?.holder.clearSelection(); holder.refresh() }
+            if !open { chart?.holder.clearSelection(); holder.refresh(); dictating = nil }
         })) {
             if let chart, let loadedChart, let selection = loadedChart.selected {
-                ToothSheet(holder: chart.holder, chart: loadedChart, selection: selection, graph: graph, clinic: clinic)
+                ToothSheet(holder: chart.holder, chart: loadedChart, selection: selection, graph: graph, clinic: clinic,
+                          dictate: dictating == selection.tooth.number)
             }
         }
         #if DEBUG && AARO_ENV_Local
@@ -83,8 +86,14 @@ struct V9OverviewTab: View {
 
     private func pick(_ tooth: Int32) {
         guard let chart else { return }
+        if dictating != tooth { dictating = nil }
         chart.holder.select(tooth: tooth, surface: nil)
         sheetOpen = true
+    }
+
+    private func pickAndDictate(_ tooth: Int32) {
+        dictating = tooth
+        pick(tooth)
     }
 
     @ViewBuilder private var jawCard: some View {
@@ -99,12 +108,12 @@ struct V9OverviewTab: View {
                     let lens = [pv("pv.jaw.view_findings"), pv("pv.tooth.health")]
                     SkChoiceChips(lens, selected: [lens[healthView ? 1 : 0]], label: { $0 }) { healthView = $0 == lens[1] }
                     if UIAccessibility.isVoiceOverRunning {
-                        JawList(upper: loadedChart.upper, lower: loadedChart.lower, picked: []) { pick($0) }
+                        JawList(upper: loadedChart.upper, lower: loadedChart.lower, picked: [], onSelect: { pick($0) }, onLongSelect: { pickAndDictate($0) })
                     } else if healthView {
-                        JawChart(dentition: loadedChart.dentition, teeth: teeth, picked: [], onSelect: pick,
+                        JawChart(dentition: loadedChart.dentition, teeth: teeth, picked: [], onSelect: pick, onLongSelect: pickAndDictate,
                                  tone: { loadedChart.healthMark(tooth: $0).tone }, label: { loadedChart.healthMark(tooth: $0).label })
                     } else {
-                        JawChart(dentition: loadedChart.dentition, teeth: teeth, picked: [], onSelect: pick)
+                        JawChart(dentition: loadedChart.dentition, teeth: teeth, picked: [], onSelect: pick, onLongSelect: pickAndDictate)
                     }
                     if healthView {
                         JawLegend(entries: HealthMark.allCases.map { ($0.tone, $0.label) })

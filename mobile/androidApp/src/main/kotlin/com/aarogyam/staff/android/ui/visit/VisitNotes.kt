@@ -60,7 +60,7 @@ internal fun VisitNotes(
     val field = remember { FocusRequester() }
     // Write opens the field ready to type.
     LaunchedEffect(writing) { if (writing) field.requestFocus() }
-    var language by remember { mutableStateOf(DictationLanguage.English) }
+    var language by remember { mutableStateOf(holder.defaultLanguage) }
     var draft by remember { mutableStateOf("") }
     val locked = view.save == NoteSave.Signed
     val listening = view.listening != null

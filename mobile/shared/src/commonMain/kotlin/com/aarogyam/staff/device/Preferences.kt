@@ -7,7 +7,7 @@ enum class PreferenceKey(
     /** Which illustrated avatar the person picked, by its art ID. */
     AvatarChoice("avatar_choice"),
 
-    /** The language last used for dictation, as a [DictationLanguage] tag. */
+    /** Each person's voice-notes language on this device, as `user id=tag` pairs ([VoiceLanguagePreference]). */
     DictationLanguage("dictation_language"),
 
     /** The random ID of this installation, the key of its push registration. Not secret. */

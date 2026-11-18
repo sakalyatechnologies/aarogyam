@@ -70,7 +70,7 @@ struct MoreScreen: View {
             Button(String(localized: "outbox.signout.stay"), role: .cancel) {}
         }
         .sheet(isPresented: $deleting) { DeleteAccountSheet(graph: graph) }
-        .sheet(isPresented: $languages) { LanguageSheet().presentationDetents([.medium]) }
+        .sheet(isPresented: $languages) { LanguageSheet(graph: graph).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $avatars) { AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large]) }
     }
 

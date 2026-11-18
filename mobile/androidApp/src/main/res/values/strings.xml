@@ -37,6 +37,7 @@
     <string name="schedule_empty_message">New bookings will show here.</string>
     <string name="today_not_allowed_title">Today isn\'t available</string>
     <string name="today_not_allowed_message">Your role can\'t see the schedule at this clinic.</string>
+    <string name="language_voice">Voice notes language</string>
     <string name="language_title">App language</string>
     <string name="language_system">Phone setting</string>
     <string name="language_english" translatable="false">English</string>

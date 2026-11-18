@@ -5,6 +5,7 @@ import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -128,6 +129,8 @@ internal fun JawChart(
     upper: List<ToothView>,
     lower: List<ToothView>,
     onSelect: (Int) -> Unit,
+    /** A long press: the tooth opens with its note being dictated. */
+    onLongSelect: ((Int) -> Unit)? = null,
     /** The colour each tooth takes: its headline finding, or its health in the Health view. */
     tone: (ToothView) -> JawTone = { JawTone.of(it.headline) },
     /** What TalkBack says after the tooth's number; null says the headline finding. */
@@ -144,7 +147,7 @@ internal fun JawChart(
                 true
         }
     if (exploring) {
-        JawList(upper, lower, onSelect)
+        JawList(upper, lower, onSelect, onLongSelect)
         return
     }
     val p = SkTheme.palette
@@ -186,6 +189,7 @@ internal fun JawChart(
                         w * spot.x.toFloat() - size / 2 - TAP_PAD,
                         h * spot.y.toFloat() - size / 2 - TAP_PAD,
                     ),
+                    onLongTap = onLongSelect?.let { { it(tooth.number) } },
                 ) { onSelect(tooth.number) }
             }
         }
@@ -224,6 +228,7 @@ private fun JawTooth(
     label: String?,
     size: Dp,
     modifier: Modifier,
+    onLongTap: (() -> Unit)? = null,
     onTap: () -> Unit,
 ) {
     val paint = JawPaint.of(tone)
@@ -233,7 +238,7 @@ private fun JawTooth(
         modifier
             .padding(TAP_PAD)
             .size(size)
-            .clickable(role = Role.Button, onClick = onTap)
+            .combinedClickable(role = Role.Button, onLongClick = onLongTap, onClick = onTap)
             .semantics { contentDescription = description }
             .drawBehind {
                 val top = CornerRadius(this.size.width * TOP_R)
@@ -308,10 +313,11 @@ private fun JawList(
     upper: List<ToothView>,
     lower: List<ToothView>,
     onSelect: (Int) -> Unit,
+    onLongSelect: ((Int) -> Unit)? = null,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        JawSection(stringResource(R.string.pv_jaw_upper), upper, onSelect)
-        JawSection(stringResource(R.string.pv_jaw_lower), lower, onSelect)
+        JawSection(stringResource(R.string.pv_jaw_upper), upper, onSelect, onLongSelect)
+        JawSection(stringResource(R.string.pv_jaw_lower), lower, onSelect, onLongSelect)
     }
 }
 
@@ -320,6 +326,7 @@ private fun JawSection(
     title: String,
     teeth: List<ToothView>,
     onSelect: (Int) -> Unit,
+    onLongSelect: ((Int) -> Unit)? = null,
 ) {
     val p = SkTheme.palette
     Text(
@@ -334,7 +341,10 @@ private fun JawSection(
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = 44.dp)
                 .background(p.surface2.color, RoundedCornerShape(12.dp))
-                .clickable(role = Role.Button) { onSelect(tooth.number) }
+                .combinedClickable(
+                    role = Role.Button,
+                    onLongClick = onLongSelect?.let { { it(tooth.number) } },
+                ) { onSelect(tooth.number) }
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),

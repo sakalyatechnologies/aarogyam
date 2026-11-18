@@ -31,6 +31,8 @@ struct JawChart: View {
     let teeth: [Int32: ToothView]
     let picked: Set<Int32>
     let onSelect: (Int32) -> Void
+    /// A long press: the tooth opens with its note being dictated.
+    var onLongSelect: ((Int32) -> Void)?
     /// The colour each tooth takes: its headline finding, or its health in the Health view.
     var tone: (ToothView) -> JawTone = { JawTone.of($0.headline) }
     /// What VoiceOver says after the tooth's number; nil says the headline finding.
@@ -57,7 +59,7 @@ struct JawChart: View {
                     .position(x: w / 2, y: h / 2)
                 ForEach(JawGeometry.shared.spots(dentition: dentition, aspect: aspect), id: \.tooth) { spot in
                     if let tooth = teeth[Int32(spot.tooth)] {
-                        JawTooth(tooth: tooth, tone: tone(tooth), label: label?(tooth), size: size, picked: picked.contains(tooth.number)) { onSelect(tooth.number) }
+                        JawTooth(tooth: tooth, tone: tone(tooth), label: label?(tooth), size: size, picked: picked.contains(tooth.number), onLongTap: onLongSelect.map { long in { long(tooth.number) } }) { onSelect(tooth.number) }
                             .position(x: w * spot.x, y: h * spot.y)
                             .zIndex(picked.contains(tooth.number) ? 1 : 0)
                     }
@@ -93,6 +95,7 @@ struct JawTooth: View {
     var label: String?
     let size: CGFloat
     let picked: Bool
+    var onLongTap: (() -> Void)?
     let onTap: () -> Void
     @Environment(\.skTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -120,6 +123,7 @@ struct JawTooth: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in onLongTap?() })
         .accessibilityLabel(label.map { pvf("pv.tooth.title", Int(tooth.number)) + ", " + $0 } ?? tooth.accessibilityText)
         .accessibilityAddTraits(picked ? [.isSelected, .isButton] : .isButton)
     }
@@ -151,6 +155,7 @@ struct JawList: View {
     let lower: [ToothView]
     let picked: Set<Int32>
     let onSelect: (Int32) -> Void
+    var onLongSelect: ((Int32) -> Void)?
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -176,6 +181,7 @@ struct JawList: View {
                 }
             }
             .buttonStyle(.skPressable)
+            .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in onLongSelect?(tooth.number) })
             .accessibilityLabel(tooth.accessibilityText)
             .accessibilityAddTraits(picked.contains(tooth.number) ? .isSelected : [])
         }

@@ -77,7 +77,7 @@ internal fun ChairMode(
     val colors = SkTheme.colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var language by remember { mutableStateOf(DictationLanguage.English) }
+    var language by remember { mutableStateOf(holder.defaultLanguage) }
     var tooth by remember { mutableStateOf<Int?>(null) }
     var toast by remember { mutableStateOf<Int?>(null) }
     val listening = view.listening != null

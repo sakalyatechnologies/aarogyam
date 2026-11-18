@@ -321,6 +321,9 @@ class ChartStateHolder(
             )
     }
 
+    /** [tooth] as the chart shows it now (sound when nothing is recorded). */
+    internal fun toothView(tooth: Int): ToothView = model?.teeth?.get(tooth) ?: ToothView(tooth)
+
     /** The doctor's status on [tooth], if any. */
     internal fun statusOf(tooth: Int): ToothStatusView? = model?.statuses?.get(tooth)
 

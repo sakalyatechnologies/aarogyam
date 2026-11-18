@@ -41,4 +41,5 @@ internal fun DictationLanguage.chipLabel(): String =
         DictationLanguage.English -> "English"
         DictationLanguage.Hindi -> "हिन्दी"
         DictationLanguage.Marathi -> "मराठी"
+        DictationLanguage.Gujarati -> "ગુજરાતી"
     }

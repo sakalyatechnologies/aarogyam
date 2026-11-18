@@ -16,6 +16,13 @@ import com.aarogyam.staff.visit.VisitStateHolder
 internal fun rememberDictationStarter(
     holder: VisitStateHolder,
     onStarted: () -> Unit = {},
+): (DictationLanguage) -> Unit = rememberMicStarter({ holder.listen(it) }, onStarted)
+
+/** [listen] in the language once `RECORD_AUDIO` is granted (asked each time; the system remembers). */
+@Composable
+internal fun rememberMicStarter(
+    listen: (DictationLanguage) -> Unit,
+    onStarted: () -> Unit = {},
 ): (DictationLanguage) -> Unit {
     var wanted by remember { mutableStateOf<DictationLanguage?>(null) }
     val launcher =
@@ -23,7 +30,7 @@ internal fun rememberDictationStarter(
             val language = wanted
             wanted = null
             if (granted && language != null) {
-                holder.listen(language)
+                listen(language)
                 onStarted()
             }
         }

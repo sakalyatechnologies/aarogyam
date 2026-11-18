@@ -52,6 +52,8 @@ class VisitStateHolder(
     private val log: Logger = Logger("aarogyam.visit"),
     /** Saves writes for later when offline; null keeps every write online-only. */
     private val writes: WriteQueue? = null,
+    /** The person's voice-notes language (More, Voice notes language), picked when dictation opens. */
+    val defaultLanguage: DictationLanguage = DictationLanguage.English,
 ) {
     private val mutableState = MutableStateFlow<VisitState>(VisitState.Starting)
     val state: StateFlow<VisitState> = mutableState.asStateFlow()

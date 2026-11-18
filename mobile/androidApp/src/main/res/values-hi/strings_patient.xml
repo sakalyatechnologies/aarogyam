@@ -228,6 +228,8 @@
     <string name="pv_status_planned">योजनाबद्ध</string>
     <string name="pv_status_watch">निगरानी</string>
     <string name="pv_tooth_add">उपचार जोड़ें</string>
+    <string name="pv_tooth_note_dictate">बोलकर लिखें</string>
+    <string name="pv_tooth_note_stop">रोकें</string>
     <string name="pv_tooth_health">स्वास्थ्य</string>
     <string name="pv_tooth_health_healthy">स्वस्थ</string>
     <string name="pv_tooth_health_watch">निगरानी</string>

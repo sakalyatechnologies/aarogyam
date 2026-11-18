@@ -10,8 +10,12 @@ struct ToothHealthCard: View {
     let tooth: ToothView
     let status: ToothStatusView?
     let canRecord: Bool
-    @State private var note = ""
-    @State private var failed = false
+    /// The person's voice-notes language; the chips beside the mic change it for this note.
+    var voice: DictationLanguage = .english
+    /// Start dictating into the note at once (a long press on the tooth).
+    var dictate = false
+    @State private var save = HealthSaveState(saving: false, error: nil, note: "", listening: nil, live: nil)
+    @State private var language: DictationLanguage?
     @Environment(\.skTheme) private var theme
 
     private var suggested: HealthLevel? { tooth.suggestedHealth }
@@ -46,29 +50,46 @@ struct ToothHealthCard: View {
                         V7Muted(Self.span(within.intValue))
                     }
                 }
-                if let status {
-                    if canRecord {
-                        SkField(pv("pv.tooth.health_note"), text: $note)
-                        if note.trimmingCharacters(in: .whitespaces) != (status.note ?? "") {
-                            SkPillButton(pv("pv.tooth.health_save_note"), wide: true) {
-                                sheet.setHealth(tooth: tooth.number, level: status.level, months: status.treatWithinMonths, note: note)
-                            }
-                        }
-                        Button { sheet.clearHealth(tooth: tooth.number) } label: {
-                            Text(pv("pv.tooth.health_reset")).v7Text(12.5, .bold).foregroundStyle(r.primary.color).frame(minHeight: 40)
-                        }
-                    } else if let saved = status.note {
-                        V7Muted(saved)
+                if canRecord && level != nil {
+                    noteEditor
+                } else if let saved = status?.note {
+                    V7Muted(saved)
+                }
+                if canRecord && status != nil {
+                    Button { sheet.clearHealth(tooth: tooth.number) } label: {
+                        Text(pv("pv.tooth.health_reset")).v7Text(12.5, .bold).foregroundStyle(r.primary.color).frame(minHeight: 40)
                     }
                 }
-                if failed {
+                if save.error != nil {
                     Text(pv("pv.tooth.health_failed")).v7Text(12.5).foregroundStyle(r.error.color)
                 }
             }
         }
-        .onAppear { note = status?.note ?? ""; sheet.dismissHealthError() }
-        .onChange(of: status?.note) { _, saved in note = saved ?? "" }
-        .task { for await save in sheet.health { failed = save.error != nil } }
+        .onAppear {
+            sheet.openTooth(tooth: tooth.number)
+            if dictate && canRecord && level != nil { sheet.dictateHealthNote(tooth: tooth.number, language: chosen) }
+        }
+        .task { for await next in sheet.health { save = next } }
+    }
+
+    private var chosen: DictationLanguage { language ?? voice }
+
+    /// The one-line note: typed, or dictated in the chosen language; saved with the tooth's health.
+    @ViewBuilder private var noteEditor: some View {
+        let listening = save.listening != nil
+        SkField(pv("pv.tooth.health_note"), text: Binding(get: { save.note }, set: { sheet.editHealthNote(text: $0) }))
+        if let live = save.live { V7Muted(live) }
+        HStack(spacing: 8) {
+            SkPillButton(listening ? pv("pv.tooth.note_stop") : pv("pv.tooth.note_dictate"), variant: .tonal, icon: nil) {
+                if listening { sheet.stopHealthDictation() } else { sheet.dictateHealthNote(tooth: tooth.number, language: chosen) }
+            }
+            SkChoiceChips(Array(DictationLanguage.allCases), selected: [save.listening ?? chosen], label: { $0.shortCode }) {
+                if !listening { language = $0 }
+            }
+        }
+        if !listening && save.note.trimmingCharacters(in: .whitespaces) != (status?.note ?? "") {
+            SkPillButton(pv("pv.tooth.health_save_note"), wide: true) { sheet.saveHealthNote(tooth: tooth.number) }
+        }
     }
 
     static func span(_ months: Int) -> String {
@@ -107,4 +128,9 @@ extension HealthMark {
         case .missing: pv("pv.jaw.missing")
         }
     }
+}
+
+extension DictationLanguage {
+    /// EN, HI, MR or GU: the short switch beside the tooth note's mic.
+    var shortCode: String { String(tag.prefix(2)).uppercased() }
 }

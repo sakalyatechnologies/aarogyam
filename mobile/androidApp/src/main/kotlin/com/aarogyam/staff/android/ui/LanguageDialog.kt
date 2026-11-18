@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.AlertDialog
@@ -13,6 +14,10 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -20,7 +25,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.visit.chipLabel
+import com.aarogyam.staff.device.DictationLanguage
 import com.sakalya.mobile.design.Spacing
+import com.sakalya.mobile.designcompose.SkChoiceChips
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
@@ -58,10 +66,18 @@ fun applyLanguage(language: AppLanguage) {
     AppCompatDelegate.setApplicationLocales(locales)
 }
 
-/** System, English, मराठी or हिंदी; the screens switch as soon as one is picked. */
+/**
+ * System, English, मराठी or हिंदी; the screens switch as soon as one is picked. Below, the language
+ * voice notes are dictated in (visit and tooth notes), kept for this person on this phone.
+ */
 @Composable
-fun LanguageDialog(onDismiss: () -> Unit) {
+fun LanguageDialog(
+    voice: DictationLanguage? = null,
+    onVoice: (DictationLanguage) -> Unit = {},
+    onDismiss: () -> Unit,
+) {
     val current = AppLanguage.current()
+    var spoken by remember { mutableStateOf(voice) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.language_title)) },
@@ -89,6 +105,23 @@ fun LanguageDialog(onDismiss: () -> Unit) {
                             color = SkTheme.colors.text.color,
                         )
                     }
+                }
+                spoken?.let { chosen ->
+                    Text(
+                        stringResource(R.string.language_voice),
+                        style = SkTypography.bodyStrong,
+                        color = SkTheme.colors.text.color,
+                        modifier = Modifier.padding(top = Spacing.M.dp),
+                    )
+                    SkChoiceChips(
+                        options = DictationLanguage.entries,
+                        selected = setOf(chosen),
+                        onToggle = {
+                            spoken = it
+                            onVoice(it)
+                        },
+                        label = { it.chipLabel() },
+                    )
                 }
             }
         },

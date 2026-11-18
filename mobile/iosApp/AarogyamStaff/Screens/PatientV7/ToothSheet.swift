@@ -10,10 +10,12 @@ struct ToothSheet: View {
     let selection: ToothSelection
     let graph: AppGraph
     let clinic: ClinicContext
+    /// Opened with a long press: dictate into the tooth note at once.
+    var dictate = false
 
     var body: some View {
         ScreenHost(make: { graph.toothSheet(clinic: clinic, chart: holder, visitId: nil, screen: $0) }, state: { $0.form }) { sheet, form in
-            ToothSheetBody(holder: holder, chart: chart, selection: selection, sheet: sheet, form: form)
+            ToothSheetBody(holder: holder, chart: chart, selection: selection, sheet: sheet, form: form, voice: graph.voiceLanguage(), dictate: dictate)
         }
     }
 }
@@ -24,6 +26,8 @@ private struct ToothSheetBody: View {
     let selection: ToothSelection
     let sheet: ToothSheetStateHolder
     let form: TreatmentFormState
+    let voice: DictationLanguage
+    let dictate: Bool
     @State private var adding = false
     @Environment(\.skTheme) private var theme
     @Environment(\.dismiss) private var dismiss
@@ -41,7 +45,7 @@ private struct ToothSheetBody: View {
                     }
                 } else {
                     nowCard
-                    ToothHealthCard(sheet: sheet, tooth: selection.tooth, status: selection.status, canRecord: chart.canRecord)
+                    ToothHealthCard(sheet: sheet, tooth: selection.tooth, status: selection.status, canRecord: chart.canRecord, voice: voice, dictate: dictate)
                     historyCard
                     if chart.canRecord {
                         SkPillButton(pv("pv.tooth.add"), wide: true) { sheet.reset(); adding = true }

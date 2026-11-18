@@ -57,6 +57,7 @@ extension DictationLanguage {
         case .english: "English"
         case .hindi: "हिन्दी"
         case .marathi: "मराठी"
+        case .gujarati: "ગુજરાતી"
         }
     }
 }

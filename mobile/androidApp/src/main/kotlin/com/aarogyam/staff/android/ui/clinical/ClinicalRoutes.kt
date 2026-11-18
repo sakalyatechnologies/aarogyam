@@ -76,7 +76,11 @@ fun NavGraphBuilder.clinicalDestinations(
     }
     composable(ClinicalRoutes.EXPENSES) {
         val open = clinic() ?: return@composable
-        ExpensesScreen(rememberHolder { graph.expenses(open, it) }, onBack = nav::popBackStack)
+        ExpensesScreen(
+            rememberHolder { graph.expenses(open, it) },
+            onBack = nav::popBackStack,
+            recurring = rememberHolder { graph.recurringExpenses(open, it) },
+        )
     }
     composable(ClinicalRoutes.ANALYTICS) {
         val open = clinic() ?: return@composable

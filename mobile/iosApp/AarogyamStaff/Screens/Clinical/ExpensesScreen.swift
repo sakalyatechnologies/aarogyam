@@ -2,13 +2,16 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// The month's expenses: a total card, then one row per expense, voided ones struck through.
+/// The month's expenses: a total card, the clinic's recurring expenses (when a holder for them is
+/// given), then one row per expense, voided ones struck through.
 /// "Add" opens the keypad sheet over the same state holder, so the list gains the new row.
 struct ExpensesScreen: View {
     let holder: ExpensesStateHolder
     let state: ExpensesState
     /// Whether this page has its own Add button (the finance tab gets one in the bar instead).
     var showsAdd = false
+    var recurring: RecurringExpensesStateHolder?
+    var recurringState: RecurringExpensesState?
     @State private var adding = false
     @State private var billOf: String?
     @Environment(\.skTheme) private var theme
@@ -22,6 +25,10 @@ struct ExpensesScreen: View {
                     SkEmptyState(CL("c.expenses.not_allowed.title"), message: CL("c.expenses.not_allowed.message"))
                 } else {
                     totalCard
+                    if let recurring, let recurringState, recurringState.allowed {
+                        RecurringSection(holder: recurring, state: recurringState)
+                        RecurringLabel(text: CL("c.recur.this_month")).padding(.top, 6)
+                    }
                     if let error = state.error {
                         SkEmptyState(CL("c.expenses.title"), message: error.message, actionTitle: String(localized: "try_again"), action: holder.refresh)
                     } else if state.loading && state.rows.isEmpty {
@@ -48,7 +55,10 @@ struct ExpensesScreen: View {
         }
         .background(r.background.color)
         .navigationTitle(CL("c.expenses.title"))
-        .refreshable { holder.refresh() }
+        .refreshable {
+            holder.refresh()
+            recurring?.refresh()
+        }
         .toolbar {
             if showsAdd && state.canAdd {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -109,6 +119,7 @@ private struct ExpenseRowView: View {
                 Text(ClinicFormat.rupees(paise: row.amountPaise)).font(.system(size: 14, weight: .heavy)).monospacedDigit()
                     .foregroundStyle(r.onSurface.color).strikethrough(row.void)
                 if row.void { SkChip(CL("c.expenses.void"), tone: .danger) }
+                if row.recurring { SkChip(CL("c.recur.tag"), tone: .brand) }
                 if row.hasBill { SkChip(CL("c.expenses.bill_open"), tone: .neutral) }
             }
         }

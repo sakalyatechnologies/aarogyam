@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,6 +37,7 @@ import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.rupees
 import com.aarogyam.staff.expenses.ExpenseRow
 import com.aarogyam.staff.expenses.ExpensesStateHolder
+import com.aarogyam.staff.expenses.RecurringExpensesStateHolder
 import com.aarogyam.staff.expenses.SpendCategory
 import com.sakalya.mobile.design.Spacing
 import com.sakalya.mobile.designcompose.SkCard
@@ -49,16 +52,23 @@ import com.sakalya.mobile.designcompose.color
 import java.time.LocalDate
 import java.time.format.TextStyle
 
-/** The month's expenses: a total card, then one row per expense, voided ones struck through. Add opens the keypad sheet. */
+/**
+ * The month's expenses: a total card, the clinic's recurring expenses (when [recurring] is given),
+ * then one row per expense, voided ones struck through. Add opens the keypad sheet.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpensesScreen(
     holder: ExpensesStateHolder,
     onBack: (() -> Unit)?,
     showsAdd: Boolean = true,
+    recurring: RecurringExpensesStateHolder? = null,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
+    val recur = recurring?.state?.collectAsStateWithLifecycle()?.value
     var adding by remember { mutableStateOf(false) }
+    var addingRecurring by remember { mutableStateOf(false) }
+    var stopping by remember { mutableStateOf<String?>(null) }
     var billOf by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize()) {
         StatusBarTone.DarkHeader()
@@ -78,7 +88,10 @@ fun ExpensesScreen(
         )
         PullToRefreshBox(
             isRefreshing = state.loading && state.rows.isNotEmpty(),
-            onRefresh = holder::refresh,
+            onRefresh = {
+                holder.refresh()
+                recurring?.refresh()
+            },
             modifier = Modifier.weight(1f),
         ) {
             val error = state.error
@@ -94,6 +107,27 @@ fun ExpensesScreen(
                     verticalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
                     item { TotalCard(state.totalPaise, state.rows.count { !it.void }) }
+                    if (recurring != null && recur != null) {
+                        recurringSection(
+                            recur,
+                            RecurringActions(
+                                onAdd = {
+                                    if (recur.draft.saved) recurring.resetDraft()
+                                    addingRecurring = true
+                                },
+                                onPause = recurring::pause,
+                                onResume = recurring::resume,
+                                onStop = { stopping = it },
+                                onRetry = recurring::refresh,
+                            ),
+                        )
+                        item(key = "month-header") {
+                            SectionLabel(
+                                stringResource(R.string.cn_c_recur_this_month),
+                                Modifier.padding(top = Spacing.SM.dp),
+                            )
+                        }
+                    }
                     when {
                         error != null -> {
                             item {
@@ -128,6 +162,21 @@ fun ExpensesScreen(
         }
     }
     if (adding) ExpenseSheet(holder, onDismiss = { adding = false })
+    if (addingRecurring && recurring != null) RecurringSheet(recurring, onDismiss = { addingRecurring = false })
+    stopping?.let { id -> StopRecurringDialog({ stopping = null }, { recurring?.stop(id) }) }
+    val actionError = recur?.actionError
+    if (recurring != null && actionError != null) {
+        val error = actionError
+        AlertDialog(
+            onDismissRequest = recurring::clearActionError,
+            text = { Text(stringResource(error.message())) },
+            confirmButton = {
+                TextButton(
+                    onClick = recurring::clearActionError,
+                ) { Text(stringResource(R.string.done)) }
+            },
+        )
+    }
     BillLinkEffect(
         state.billLink,
         state.billLinkFailed || state.billRemoveFailed,
@@ -184,6 +233,7 @@ private fun ExpenseItem(
                         textDecoration = if (row.void) TextDecoration.LineThrough else null,
                     )
                     if (row.void) SkChip(stringResource(R.string.cn_c_expenses_void), tone = SkTone.Danger)
+                    if (row.recurring) SkChip(stringResource(R.string.cn_c_recur_tag), tone = SkTone.Brand)
                     if (row.hasBill) SkChip(stringResource(R.string.cn_c_expenses_bill_open), tone = SkTone.Neutral)
                 }
             },

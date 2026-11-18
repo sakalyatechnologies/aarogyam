@@ -25,6 +25,7 @@ import com.aarogyam.staff.device.MemoryPreferences
 import com.aarogyam.staff.device.Preferences
 import com.aarogyam.staff.device.VoiceLanguagePreference
 import com.aarogyam.staff.expenses.ExpensesStateHolder
+import com.aarogyam.staff.expenses.RecurringExpensesStateHolder
 import com.aarogyam.staff.files.FilesStateHolder
 import com.aarogyam.staff.history.CorrectableNote
 import com.aarogyam.staff.history.NoteCorrectionStateHolder
@@ -400,6 +401,11 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): ExpensesStateHolder = ExpensesStateHolder(clinic, scope, logger("aarogyam.expenses"))
+
+    fun recurringExpenses(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): RecurringExpensesStateHolder = RecurringExpensesStateHolder(clinic, scope, logger("aarogyam.recurring"))
 
     /** The tooth sheet's Add treatment form over [chart]; inside [visitId] it also logs visit procedures. */
     fun toothSheet(

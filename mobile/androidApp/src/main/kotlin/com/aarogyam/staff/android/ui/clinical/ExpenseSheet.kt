@@ -146,7 +146,7 @@ fun ExpenseSheet(
 
 /** A 3 by 4 digit pad that edits the whole-rupee text. */
 @Composable
-private fun Keypad(
+internal fun Keypad(
     value: String,
     onChange: (String) -> Unit,
 ) {

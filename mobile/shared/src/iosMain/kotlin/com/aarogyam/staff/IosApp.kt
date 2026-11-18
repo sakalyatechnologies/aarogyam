@@ -15,6 +15,7 @@ import com.aarogyam.staff.desk.registerDeskPayments
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.UserDefaultsPreferences
 import com.aarogyam.staff.expenses.ExpensesStateHolder
+import com.aarogyam.staff.expenses.RecurringExpensesStateHolder
 import com.aarogyam.staff.files.FilesStateHolder
 import com.aarogyam.staff.labs.LabsStateHolder
 import com.aarogyam.staff.labs.NewLabCaseStateHolder
@@ -222,6 +223,12 @@ fun AppGraph.expenses(
     clinic: ClinicContext,
     screen: ScreenScope,
 ): ExpensesStateHolder = expenses(clinic, screen.scope)
+
+/** The recurring expenses on the Expenses page for [clinic], living as long as [screen]. */
+fun AppGraph.recurringExpenses(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): RecurringExpensesStateHolder = recurringExpenses(clinic, screen.scope)
 
 /** The tooth sheet's treatment form over [chart], living as long as [screen]. */
 fun AppGraph.toothSheet(

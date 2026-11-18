@@ -49,6 +49,8 @@ data class ExpenseRow(
     val method: PayMethod? = null,
     /** A bill photo is attached; [ExpensesStateHolder.openBill] fetches a link to it. */
     val hasBill: Boolean = false,
+    /** Recorded by a recurring expense rather than by hand. */
+    val recurring: Boolean = false,
 )
 
 /** Why the add form cannot be saved yet. */

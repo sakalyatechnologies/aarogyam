@@ -246,6 +246,7 @@ class ExpensesStateHolder(
             status == "void",
             PayMethod.of(method),
             bill != null,
+            recurringExpenseId != null,
         )
 
     private companion object {

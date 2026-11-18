@@ -15,5 +15,10 @@ fun ExpensesPage(
     clinic: ClinicContext,
     showsAdd: Boolean,
 ) {
-    ExpensesScreen(rememberHolder { graph.expenses(clinic, it) }, onBack = null, showsAdd = showsAdd)
+    ExpensesScreen(
+        rememberHolder { graph.expenses(clinic, it) },
+        onBack = null,
+        showsAdd = showsAdd,
+        recurring = rememberHolder { graph.recurringExpenses(clinic, it) },
+    )
 }

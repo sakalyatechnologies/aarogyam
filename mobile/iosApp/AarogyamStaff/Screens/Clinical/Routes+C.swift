@@ -38,10 +38,12 @@ enum ClinicalRoutes {
         }
     }
 
-    /// The month's expenses over their state holder.
+    /// The month's expenses and the recurring ones, each over its state holder.
     static func expensesPage(graph: AppGraph, clinic: ClinicContext, showsAdd: Bool) -> some View {
         ScreenHost(make: { graph.expenses(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
-            ExpensesScreen(holder: holder, state: state, showsAdd: showsAdd)
+            ScreenHost(make: { graph.recurringExpenses(clinic: clinic, screen: $0) }, state: { $0.state }) { recurring, recurringState in
+                ExpensesScreen(holder: holder, state: state, showsAdd: showsAdd, recurring: recurring, recurringState: recurringState)
+            }
         }
     }
 }

@@ -52,8 +52,12 @@ fun ExpenseSheet(
     var tried by remember { mutableStateOf(false) }
     val colors = SkTheme.colors
     SkBottomSheet(title = stringResource(R.string.cn_c_expenses_add), onDismiss = onDismiss) {
+        // The form scrolls; on a short screen the actions stay below it instead of past the edge.
         Column(
-            Modifier.verticalScroll(rememberScrollState()).padding(horizontal = Spacing.L.dp, vertical = Spacing.M.dp),
+            Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Spacing.L.dp, vertical = Spacing.M.dp),
             verticalArrangement = Arrangement.spacedBy(Spacing.M.dp),
         ) {
             if (draft.saved) {
@@ -114,6 +118,13 @@ fun ExpenseSheet(
                         color = colors.dangerText.color,
                     )
                 }
+            }
+        }
+        if (!draft.saved) {
+            Column(
+                Modifier.padding(horizontal = Spacing.L.dp, vertical = Spacing.SM.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.XS.dp),
+            ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.SM.dp)) {
                     BillPhotoButton(draft.bill != null, holder::setBill, { holder.setBill(null) }, Modifier.weight(1f))
                     SkButton(stringResource(R.string.cn_c_expenses_save), {

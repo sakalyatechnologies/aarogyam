@@ -118,12 +118,13 @@ fun ExpensesScreen(
                             }
                         }
                     }
-                    items(state.rows, key = { it.id }) { ExpenseItem(it) }
+                    items(state.rows, key = { it.id }) { row -> ExpenseItem(row) { holder.openBill(row.id) } }
                 }
             }
         }
     }
     if (adding) ExpenseSheet(holder, onDismiss = { adding = false })
+    BillLinkEffect(state.billLink, state.billLinkFailed, holder::closeBill)
 }
 
 @Composable
@@ -150,14 +151,20 @@ private fun TotalCard(
     }
 }
 
+/** One expense: category, date, method and note; with a bill photo, a tap opens it. */
 @Composable
-private fun ExpenseItem(row: ExpenseRow) {
+private fun ExpenseItem(
+    row: ExpenseRow,
+    onOpenBill: () -> Unit,
+) {
     val colors = SkTheme.colors
     val title = row.categoryName.ifEmpty { stringResource(categoryLabel(row.category)) }
+    val method = row.method?.let { stringResource(methodLabel(it)) }
     Box(Modifier.clip(RoundedCornerShape(16.dp)).background(colors.card.color).alpha(if (row.void) 0.65f else 1f)) {
         SkListRow(
             title = title,
-            subtitle = ClinicalFormat.joinDot(listOf(ClinicalFormat.date(row.day.toString()), row.note)),
+            subtitle = ClinicalFormat.joinDot(listOf(ClinicalFormat.date(row.day.toString()), method, row.note)),
+            onClick = if (row.hasBill) onOpenBill else null,
             trailing = {
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
@@ -167,6 +174,7 @@ private fun ExpenseItem(row: ExpenseRow) {
                         textDecoration = if (row.void) TextDecoration.LineThrough else null,
                     )
                     if (row.void) SkChip(stringResource(R.string.cn_c_expenses_void), tone = SkTone.Danger)
+                    if (row.hasBill) SkChip(stringResource(R.string.cn_c_expenses_bill_open), tone = SkTone.Neutral)
                 }
             },
         )

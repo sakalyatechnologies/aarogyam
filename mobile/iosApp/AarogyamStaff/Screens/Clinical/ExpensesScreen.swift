@@ -11,6 +11,7 @@ struct ExpensesScreen: View {
     var showsAdd = false
     @State private var adding = false
     @Environment(\.skTheme) private var theme
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         let r = theme.roles
@@ -29,8 +30,13 @@ struct ExpensesScreen: View {
                     }
                     VStack(spacing: 3) {
                         ForEach(Array(state.rows.enumerated()), id: \.element.id) { index, row in
-                            ExpenseRowView(row: row)
-                                .background(r.card.color, in: UnevenRoundedRectangle(cornerRadii: MoreSizes.listRadii(index, of: state.rows.count), style: .continuous))
+                            Button { holder.openBill(expenseId: row.id) } label: {
+                                ExpenseRowView(row: row)
+                                    .background(r.card.color, in: UnevenRoundedRectangle(cornerRadii: MoreSizes.listRadii(index, of: state.rows.count), style: .continuous))
+                            }
+                            .buttonStyle(.skPressable)
+                            .disabled(!row.hasBill)
+                            .accessibilityHint(row.hasBill ? CL("c.expenses.bill_open") : "")
                         }
                     }
                 }
@@ -49,6 +55,15 @@ struct ExpensesScreen: View {
             }
         }
         .sheet(isPresented: $adding) { ExpenseSheet(holder: holder, state: state) }
+        .onChange(of: state.billLink) { _, link in
+            // The bill goes to the system (Safari shows photos and PDFs); the link is never kept.
+            guard let link else { return }
+            if let url = ChatFile.openable(link) { openURL(url) }
+            holder.closeBill()
+        }
+        .alert(CL("c.expenses.bill_open_failed"), isPresented: Binding(get: { state.billLinkFailed }, set: { if !$0 { holder.closeBill() } })) {
+            Button(CL("c.done"), role: .cancel) { holder.closeBill() }
+        }
     }
 
     private var totalCard: some View {
@@ -85,6 +100,7 @@ private struct ExpenseRowView: View {
                 Text(ClinicFormat.rupees(paise: row.amountPaise)).font(.system(size: 14, weight: .heavy)).monospacedDigit()
                     .foregroundStyle(r.onSurface.color).strikethrough(row.void)
                 if row.void { SkChip(CL("c.expenses.void"), tone: .danger) }
+                if row.hasBill { SkChip(CL("c.expenses.bill_open"), tone: .neutral) }
             }
         }
         .padding(.vertical, 9).padding(.horizontal, 11)
@@ -93,7 +109,7 @@ private struct ExpenseRowView: View {
     }
 
     private var subtitle: String {
-        [ClinicFormat.date(iso: row.day.isoText), row.note].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+        [ClinicFormat.date(iso: row.day.isoText), row.method?.label, row.note].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 }
 

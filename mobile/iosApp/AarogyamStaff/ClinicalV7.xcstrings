@@ -1819,29 +1819,6 @@
         }
       }
     },
-    "c.expenses.photo.preview": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview: bill photos need server support"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "प्रीव्यू: बिल फ़ोटो के लिए सर्वर सहायता चाहिए"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "प्रीव्ह्यू: बिल फोटोसाठी सर्व्हर सपोर्ट हवा"
-          }
-        }
-      }
-    },
     "c.expenses.problem.amount": {
       "extractionState": "manual",
       "localizations": {
@@ -4322,6 +4299,167 @@
           "stringUnit": {
             "state": "translated",
             "value": "आमंत्रण रद्द केले"
+          }
+        }
+      }
+    },
+    "c.expenses.photo_remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove bill photo"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिल फ़ोटो हटाएँ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिल फोटो काढा"
+          }
+        }
+      }
+    },
+    "c.expenses.photo_attached": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bill photo attached"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिल फ़ोटो जुड़ी है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिल फोटो जोडला आहे"
+          }
+        }
+      }
+    },
+    "c.expenses.bill_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The expense is saved, but the bill photo didn't upload."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खर्च सेव हो गया, पर बिल फ़ोटो अपलोड नहीं हुई।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खर्च सेव्ह झाला, पण बिल फोटो अपलोड झाला नाही."
+          }
+        }
+      }
+    },
+    "c.expenses.bill_retry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send photo again"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फ़ोटो फिर भेजें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फोटो पुन्हा पाठवा"
+          }
+        }
+      }
+    },
+    "c.expenses.bill_skip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "छोड़ें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वगळा"
+          }
+        }
+      }
+    },
+    "c.expenses.bill_open": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open bill"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिल खोलें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिल उघडा"
+          }
+        }
+      }
+    },
+    "c.expenses.bill_open_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't open the bill. Try again."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिल नहीं खुला। फिर कोशिश करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिल उघडले नाही. पुन्हा प्रयत्न करा."
           }
         }
       }

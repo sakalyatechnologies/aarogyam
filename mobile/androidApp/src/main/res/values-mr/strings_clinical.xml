@@ -157,7 +157,13 @@
     <string name="cn_c_expenses_note">नोंद</string>
     <string name="cn_c_expenses_note_prompt">हे कशासाठी होते?</string>
     <string name="cn_c_expenses_photo">बिलाचा फोटो</string>
-    <string name="cn_c_expenses_photo_preview">प्रीव्ह्यू: बिल फोटोसाठी सर्व्हर सपोर्ट हवा</string>
+    <string name="cn_c_expenses_photo_remove">बिल फोटो काढा</string>
+    <string name="cn_c_expenses_photo_attached">बिल फोटो जोडला आहे</string>
+    <string name="cn_c_expenses_bill_failed">खर्च सेव्ह झाला, पण बिल फोटो अपलोड झाला नाही.</string>
+    <string name="cn_c_expenses_bill_retry">फोटो पुन्हा पाठवा</string>
+    <string name="cn_c_expenses_bill_skip">वगळा</string>
+    <string name="cn_c_expenses_bill_open">बिल उघडा</string>
+    <string name="cn_c_expenses_bill_open_failed">बिल उघडले नाही. पुन्हा प्रयत्न करा.</string>
     <string name="cn_c_expenses_problem_amount">रक्कम टाका.</string>
     <string name="cn_c_expenses_problem_future">तारीख भविष्यातील असू शकत नाही.</string>
     <string name="cn_c_expenses_problem_large">ही रक्कम खूप मोठी आहे.</string>

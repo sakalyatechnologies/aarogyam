@@ -1,11 +1,13 @@
 package com.aarogyam.staff.expenses
 
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.expenseBillLink
 import com.aarogyam.staff.api.expenses
 import com.aarogyam.staff.api.model.Expense
 import com.aarogyam.staff.api.model.ExpenseCategory
 import com.aarogyam.staff.api.model.NewExpense
 import com.aarogyam.staff.api.recordExpense
+import com.aarogyam.staff.api.uploadExpenseBill
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Logger
@@ -20,75 +22,12 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
 
-/** What an expense was for, as the server names it. */
-enum class SpendCategory(
-    internal val wire: ExpenseCategory,
-) {
-    Salary(ExpenseCategory.SALARY),
-    Material(ExpenseCategory.MATERIAL),
-    Electricity(ExpenseCategory.ELECTRICITY),
-    Lab(ExpenseCategory.LAB),
-    Rent(ExpenseCategory.RENT),
-    Other(ExpenseCategory.OTHER),
-    ;
-
-    internal companion object {
-        fun of(wire: ExpenseCategory): SpendCategory = entries.firstOrNull { it.wire == wire } ?: Other
-    }
-}
-
-/** How the expense was paid; kept on the phone only until the server stores it (BK-5). */
-enum class PayMethod { Upi, Cash, Card, Bank }
-
-/** One row of the month's list. */
-data class ExpenseRow(
-    val id: String,
-    val category: SpendCategory,
-    val categoryName: String,
-    val day: LocalDate,
-    val amountPaise: Long,
-    val note: String?,
-    val void: Boolean,
-)
-
-/** Why the add form cannot be saved yet. */
-enum class ExpenseProblem { NoAmount, TooLarge, Future, NoteTooLong }
-
-/** The Add expense sheet with its keypad entry (whole rupees). */
-data class ExpenseDraft(
-    val rupees: String = "",
-    val category: SpendCategory = SpendCategory.Material,
-    val method: PayMethod = PayMethod.Upi,
-    val day: LocalDate,
-    val note: String = "",
-    val saving: Boolean = false,
-    val error: ScreenError? = null,
-    val saved: Boolean = false,
-) {
-    val amountPaise: Long get() = (rupees.toLongOrNull() ?: 0) * PAISE
-
-    internal companion object {
-        const val PAISE = 100L
-    }
-}
-
-data class ExpensesState(
-    val allowed: Boolean,
-    val canAdd: Boolean,
-    val loading: Boolean = false,
-    val rows: List<ExpenseRow> = emptyList(),
-    /** Recorded (not void) this month, in paise. */
-    val totalPaise: Long = 0,
-    val error: ScreenError? = null,
-    val draft: ExpenseDraft,
-    /** Bill photos need server support (BK-5). */
-    val photoPreview: Boolean = true,
-)
-
 /**
  * The month's expenses (`GET /expenses`) and the Add expense sheet (`POST /expenses`). A save
  * carries an `Idempotency-Key` kept until the draft changes or is saved, so tapping Save again
- * after a lost answer returns the same expense instead of recording it twice.
+ * after a lost answer returns the same expense instead of recording it twice. A bill photo goes up
+ * after the expense is saved (`POST /expenses/{id}/bill`); if only that fails, the expense stays
+ * and the photo can be sent again.
  */
 class ExpensesStateHolder(
     private val clinic: ClinicContext,
@@ -108,6 +47,9 @@ class ExpensesStateHolder(
 
     /** The key for the draft on screen; a new one once it changes or is saved. */
     private var key = IdempotencyKey.generate()
+
+    /** The saved expense and the bill photo that did not upload. */
+    private var unsentBill: Pair<String, ByteArray>? = null
 
     init {
         if (mutableState.value.allowed) refresh()
@@ -143,6 +85,9 @@ class ExpensesStateHolder(
 
     fun setNote(text: String) = draft { it.copy(note = text) }
 
+    /** Attaches (or with null, drops) the bill photo. Not part of the saved body, so the key stays. */
+    fun setBill(jpeg: ByteArray?) = setDraft { it.copy(bill = jpeg, saved = false, error = null) }
+
     /** The first problem with the draft, or null when it can be saved. */
     fun problem(d: ExpenseDraft = mutableState.value.draft): ExpenseProblem? =
         when {
@@ -164,6 +109,7 @@ class ExpensesStateHolder(
                     category = d.category.wire,
                     spentOn = d.day.toString(),
                     amountPaise = d.amountPaise,
+                    method = d.method.wire,
                     note = d.note.trim().ifEmpty { null },
                 )
             when (val answer = clinic.api.recordExpense(body, key)) {
@@ -176,14 +122,84 @@ class ExpensesStateHolder(
                             rows = listOf(row) + st.rows,
                             totalPaise = st.totalPaise + row.amountPaise,
                             draft = ExpenseDraft(day = today(), category = d.category, method = d.method, saved = true),
+                            billFailed = false,
                         )
                     }
+                    d.bill?.let { sendBill(row.id, it) }
                 }
 
                 is Outcome.Failure -> {
                     log.warn("expense.record_failed") { code("error", answer.error.code.value) }
                     setDraft { it.copy(saving = false, error = ScreenError.of(answer.error)) }
                 }
+            }
+        }
+    }
+
+    /** Sends the bill photo that did not upload again. */
+    fun retryBill() {
+        val (id, jpeg) = unsentBill ?: return
+        mutableState.update { it.copy(billFailed = false) }
+        scope.launch { sendBill(id, jpeg) }
+    }
+
+    /** Gives up on the bill photo; the expense stays saved without it. */
+    fun dropBill() {
+        unsentBill = null
+        mutableState.update { it.copy(billFailed = false) }
+    }
+
+    /** Fetches a five-minute link to [expenseId]'s bill for the screen to open. */
+    fun openBill(expenseId: String) {
+        if (mutableState.value.openingBill != null) return
+        mutableState.update { it.copy(openingBill = expenseId, billLink = null, billLinkFailed = false) }
+        scope.launch {
+            when (val answer = clinic.api.expenseBillLink(expenseId)) {
+                is Outcome.Success -> {
+                    val path = answer.value.url
+                    val url = if (path.startsWith("/")) clinic.api.origin + path else path
+                    mutableState.update { it.copy(openingBill = null, billLink = url) }
+                }
+
+                is Outcome.Failure -> {
+                    log.warn("expense.bill_link_failed") { code("error", answer.error.code.value) }
+                    mutableState.update { it.copy(openingBill = null, billLinkFailed = true) }
+                }
+            }
+        }
+    }
+
+    /** The screen opened the link (or showed the failure); it is not kept. */
+    fun closeBill() = mutableState.update { it.copy(billLink = null, billLinkFailed = false) }
+
+    private suspend fun sendBill(
+        id: String,
+        jpeg: ByteArray,
+    ) {
+        when (val answer = clinic.api.uploadExpenseBill(id, jpeg)) {
+            is Outcome.Success -> {
+                unsentBill = null
+                log.info("expense.bill_attached")
+                mutableState.update { st ->
+                    st.copy(
+                        rows =
+                            st.rows.map {
+                                if (it.id ==
+                                    id
+                                ) {
+                                    it.copy(hasBill = true)
+                                } else {
+                                    it
+                                }
+                            },
+                    )
+                }
+            }
+
+            is Outcome.Failure -> {
+                log.warn("expense.bill_failed") { code("error", answer.error.code.value) }
+                unsentBill = id to jpeg
+                mutableState.update { it.copy(billFailed = true) }
             }
         }
     }
@@ -207,6 +223,8 @@ class ExpensesStateHolder(
             amountPaise,
             note,
             status == "void",
+            PayMethod.of(method),
+            bill != null,
         )
 
     private companion object {

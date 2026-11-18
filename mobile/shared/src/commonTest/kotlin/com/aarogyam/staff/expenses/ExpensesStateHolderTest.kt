@@ -154,6 +154,90 @@ class ExpensesStateHolderTest {
         }
 
     @Test
+    fun the_method_is_saved_and_the_bill_goes_up_after_the_expense() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(
+                "$SUNRISE/api/v1/expenses",
+                { req ->
+                    if (req.method.value ==
+                        "POST"
+                    ) {
+                        json(expense("e9", 45000), HttpStatusCode.Created)
+                    } else {
+                        json("""{"items":[]}""")
+                    }
+                },
+            )
+            backend.on(
+                "$SUNRISE/api/v1/expenses/e9/bill",
+                { apiError(HttpStatusCode.ServiceUnavailable, "unavailable") },
+                {
+                    val bill = """"note":null,"bill":{"mime_type":"image/jpeg","size_bytes":3}"""
+                    json(expense("e9", 45000).replace(""""note":null""", bill))
+                },
+            )
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("finance.view", "expenses.write"))
+            val holder = ExpensesStateHolder(clinic, this, today = { today })
+            holder.state.first { !it.loading }
+            holder.setRupees("450")
+            holder.setMethod(PayMethod.Cash)
+            holder.setBill(byteArrayOf(1, 2, 3))
+            holder.save()
+            holder.state.first { it.billFailed }
+            val body =
+                backend.requests
+                    .first { it.method.value == "POST" && it.url.encodedPath == "/api/v1/expenses" }
+                    .let { (it.body as TextContent).text }
+            assertTrue(""""method":"cash"""" in body, body)
+            assertTrue(holder.state.value.draft.saved, "the expense itself is saved")
+            assertEquals(null, holder.state.value.draft.bill, "the next draft starts without a photo")
+            assertFalse(
+                holder.state.value.rows
+                    .single()
+                    .hasBill,
+            )
+            holder.retryBill()
+            holder.state.first { st -> st.rows.single().hasBill }
+            assertFalse(holder.state.value.billFailed)
+            assertEquals(2, backend.count("$SUNRISE/api/v1/expenses/e9/bill"))
+            val posts = backend.requests.count { it.method.value == "POST" && it.url.encodedPath == "/api/v1/expenses" }
+            assertEquals(1, posts, "the expense was not posted twice")
+        }
+
+    @Test
+    fun a_bill_opens_through_a_link_on_the_clinic_host() =
+        runTest {
+            val backend = FakeBackend()
+            val withBill =
+                expense("e1", 150000).replace(
+                    """"note":null""",
+                    """"note":null,"method":"upi","bill":{"mime_type":"application/pdf","size_bytes":9}""",
+                )
+            backend.on("$SUNRISE/api/v1/expenses", { json("""{"items":[$withBill]}""") })
+            backend.on(
+                "$SUNRISE/api/v1/expenses/e1/bill/download",
+                { json("""{"url":"/files/bill?t=signed","expires_at":"2026-10-09T04:05:00Z"}""") },
+            )
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("finance.view"))
+            val holder = ExpensesStateHolder(clinic, this, today = { today })
+            val row =
+                holder.state
+                    .first { it.rows.isNotEmpty() }
+                    .rows
+                    .single()
+            assertEquals(PayMethod.Upi, row.method)
+            assertTrue(row.hasBill)
+            holder.openBill("e1")
+            val link = holder.state.first { it.billLink != null }.billLink
+            assertEquals(clinic.api.origin + "/files/bill?t=signed", link)
+            holder.closeBill()
+            assertEquals(null, holder.state.value.billLink)
+        }
+
+    @Test
     fun without_finance_view_nothing_loads_and_without_expenses_write_nothing_saves() =
         runTest {
             val backend = FakeBackend()

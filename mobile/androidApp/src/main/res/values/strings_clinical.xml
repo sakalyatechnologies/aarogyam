@@ -157,7 +157,13 @@
     <string name="cn_c_expenses_note">Note</string>
     <string name="cn_c_expenses_note_prompt">What was it for?</string>
     <string name="cn_c_expenses_photo">Bill photo</string>
-    <string name="cn_c_expenses_photo_preview">Preview: bill photos need server support</string>
+    <string name="cn_c_expenses_photo_remove">Remove bill photo</string>
+    <string name="cn_c_expenses_photo_attached">Bill photo attached</string>
+    <string name="cn_c_expenses_bill_failed">The expense is saved, but the bill photo didn\'t upload.</string>
+    <string name="cn_c_expenses_bill_retry">Send photo again</string>
+    <string name="cn_c_expenses_bill_skip">Skip</string>
+    <string name="cn_c_expenses_bill_open">Open bill</string>
+    <string name="cn_c_expenses_bill_open_failed">Couldn\'t open the bill. Try again.</string>
     <string name="cn_c_expenses_problem_amount">Enter an amount.</string>
     <string name="cn_c_expenses_problem_future">The date can\'t be in the future.</string>
     <string name="cn_c_expenses_problem_large">That amount is too large.</string>

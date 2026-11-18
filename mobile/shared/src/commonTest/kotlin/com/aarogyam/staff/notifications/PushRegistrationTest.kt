@@ -11,6 +11,7 @@ import com.aarogyam.staff.openClinic
 import com.aarogyam.staff.signIn
 import com.aarogyam.staff.testGraph
 import com.sakalya.mobile.core.Outcome
+import com.sakalya.mobile.http.currentPlatform
 import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
@@ -86,7 +87,8 @@ class PushRegistrationTest {
                     .method.value,
             )
             assertTrue(
-                """"platform":"ios"""" in body && """"token":"ab12"""" in body && """"app":"staff"""" in body,
+                """"platform":"${currentPlatform().headerValue}"""" in body && """"token":"ab12"""" in body &&
+                    """"app":"staff"""" in body,
                 body,
             )
             assertTrue(""""locale":"hi"""" in body && """"app_version":"0.1.0"""" in body, body)
@@ -107,6 +109,53 @@ class PushRegistrationTest {
             assertTrue(
                 graph.preferences.get(PreferenceKey.PushSent)?.contains("ab12") != true,
                 "the token is never stored",
+            )
+        }
+
+    @Test
+    fun aSignInWithoutATokenStillRegistersThePhoneOncePerSession() =
+        runTest {
+            val backend = FakeBackend()
+            val graph = testGraph(backend, backgroundScope)
+            val id = graph.push.installationId
+            backend.on("$route/$id", { json("", HttpStatusCode.NoContent) })
+            signIn(graph, backend)
+            backend.waitFor("PUT", 1)
+            val body =
+                backend
+                    .devices()
+                    .single()
+                    .body
+                    .toByteArray()
+                    .decodeToString()
+            assertTrue(""""app":"staff"""" in body && """"locale":"en"""" in body, body)
+            assertTrue("token" !in body, "no token is sent before there is one: $body")
+            withContext(Dispatchers.Default) {
+                withTimeout(5_000) { while (graph.preferences.get(PreferenceKey.PushSent) == null) delay(10) }
+            }
+            graph.push.setLocale("hi")
+            delay(100)
+            assertEquals(1, backend.devices().size, "a language change alone waits for a token")
+            val restarted =
+                PushRegistration(
+                    graph.preferences,
+                    kotlinx.coroutines.flow.flowOf(0),
+                    graph.directory::appApi,
+                    backgroundScope,
+                    "0.1.0",
+                )
+            delay(100)
+            assertEquals(1, backend.devices().size, "the restored session is registered already")
+            restarted.setToken("ab12")
+            backend.waitFor("PUT", 2)
+            assertTrue(
+                """"token":"ab12"""" in
+                    backend
+                        .devices()
+                        .last()
+                        .body
+                        .toByteArray()
+                        .decodeToString(),
             )
         }
 
@@ -145,8 +194,8 @@ class PushRegistrationTest {
             val graph = testGraph(backend, backgroundScope)
             val id = graph.push.installationId
             backend.on("$route/$id", { apiError(HttpStatusCode.InternalServerError, "internal") })
-            signIn(graph, backend)
             graph.push.setToken("cd34")
+            signIn(graph, backend)
             backend.waitFor("PUT", 1)
             assertEquals(null, graph.preferences.get(PreferenceKey.PushSent))
             backend.on("$route/$id", { json("", HttpStatusCode.NoContent) })
@@ -163,9 +212,8 @@ class PushRegistrationTest {
             backend.waitFor("PUT", 2)
             withContext(Dispatchers.Default) {
                 withTimeout(5_000) {
-                    while (graph.preferences.get(PreferenceKey.PushSent) ==
-                        null
-                    ) {
+                    // The token-less registration may land first; wait for the token's.
+                    while (graph.preferences.get(PreferenceKey.PushSent)?.startsWith("en:4:") != true) {
                         delay(10)
                     }
                 }
@@ -191,8 +239,8 @@ class PushRegistrationTest {
             val graph = testGraph(backend, backgroundScope)
             val id = graph.push.installationId
             backend.on("$route/$id", { json("", HttpStatusCode.NoContent) })
-            signIn(graph, backend)
             graph.push.setToken("ef56")
+            signIn(graph, backend)
             backend.waitFor("PUT", 1)
             graph.push.forget()
             val delete = backend.devices().last()
@@ -212,6 +260,7 @@ class PushRegistrationTest {
                 { apiError(HttpStatusCode.ServiceUnavailable, "unavailable") },
             )
             signIn(graph, backend)
+            backend.waitFor("PUT", 1)
             graph.push.forget()
             assertEquals(
                 "DELETE",

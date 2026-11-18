@@ -7,6 +7,7 @@ import com.aarogyam.staff.openClinic
 import com.aarogyam.staff.testGraph
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
+import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
@@ -24,6 +25,9 @@ private const val STORED =
 private const val CONSENT =
     """{"id":"c1","purpose":"care","notice_version":"1","given_at":"2026-10-12T04:00:00Z","method":"verbal",
     "recorded_by":"u1","status":"active","signature_attachment_id":"e1"}"""
+
+/** The phone's own registration at sign-in, which these tests don't count. */
+private fun HttpRequestData.isDevice() = "/me/devices/" in url.encodedPath
 
 private fun link(consent: String) = "$SUNRISE/api/v1/patients/p9/consents/$consent/signature"
 
@@ -152,7 +156,7 @@ class PatientFileSenderTest {
             val clinic = openClinic(backend, testGraph(backend, backgroundScope), this, listOf("patients.write"))
             files.write("e2.jpg", byteArrayOf(1, 2, 3))
             assertEquals(SendResult.Delivered, PatientFileSender({ clinic }, files).send(photoEntry(clinic.slug)))
-            val put = backend.requests.single { it.method == HttpMethod.Put }
+            val put = backend.requests.single { it.method == HttpMethod.Put && !it.isDevice() }
             assertTrue(put.url.encodedPath.endsWith("/patients/p9/photo"))
             assertTrue(
                 """name=file""" in
@@ -177,6 +181,6 @@ class PatientFileSenderTest {
                 SendResult.Rejected("photo_too_large"),
                 PatientFileSender({ clinic }, files).send(photoEntry(clinic.slug)),
             )
-            assertEquals(0, backend.requests.count { it.method == HttpMethod.Put })
+            assertEquals(0, backend.requests.count { it.method == HttpMethod.Put && !it.isDevice() })
         }
 }

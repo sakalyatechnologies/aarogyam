@@ -10,6 +10,7 @@ import com.sakalya.mobile.auth.SessionState
 import com.sakalya.mobile.core.DeviceId
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
+import com.sakalya.mobile.http.currentPlatform
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,10 +25,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Keeps the server's record of this phone's push token current.
+ * Registers this phone with the server and keeps its push token current.
  *
- * The platform hands over the token ([setToken]) and the app's language ([setLocale]); while the
- * person is signed in, each change is sent with `PUT /me/devices/{installation id}`. A send that
+ * At each sign-in the phone is registered (`PUT /me/devices/{installation id}`) even without a
+ * token: the server then treats the session as a phone's (30 idle days instead of a browser's 12
+ * hours). The platform hands over the token ([setToken]) and the app's language ([setLocale]);
+ * while the person is signed in, each change is sent the same way. A send that
  * fails is not repeated until the next app start (the accepted fingerprint is only saved on
  * success). [forget] sends the `DELETE` before sign-out finishes. The token is never logged or
  * stored: the preferences keep only the installation ID and a fingerprint.
@@ -40,16 +43,18 @@ class PushRegistration(
     scope: CoroutineScope,
     private val appVersion: String,
     private val log: Logger = Logger("aarogyam.push"),
+    /** `ios` or `android`, as the server names them. */
+    private val platform: String = currentPlatform().headerValue,
 ) {
     private data class Wanted(
-        val token: String,
+        val token: String?,
         val locale: String,
     )
 
     private var token: String? = null
     private var locale: String = DEFAULT_LOCALE
     private var resetFor = 0
-    private val wanted = MutableStateFlow<Wanted?>(null)
+    private val wanted = MutableStateFlow(Wanted(null, DEFAULT_LOCALE))
 
     /** This installation's random ID, made once and kept in preferences. */
     val installationId: String
@@ -59,7 +64,7 @@ class PushRegistration(
 
     init {
         scope.launch {
-            combine(session, wanted) { on, want -> if (on != null && want != null) on to want else null }
+            combine(session, wanted) { on, want -> if (on != null) on to want else null }
                 .collectLatest { pair -> if (pair != null) send(pair.second, pair.first) }
         }
     }
@@ -97,8 +102,7 @@ class PushRegistration(
     }
 
     private fun publish() {
-        val t = token ?: return
-        wanted.value = Wanted(t, locale)
+        wanted.value = Wanted(token, locale)
     }
 
     private suspend fun send(
@@ -111,10 +115,14 @@ class PushRegistration(
             preferences.set(PreferenceKey.PushSent, null)
             resetFor = session
         }
-        val fingerprint = "${want.locale}:${want.token.length}:${want.token.hashCode()}:$appVersion"
-        if (preferences.get(PreferenceKey.PushSent) == fingerprint) return
+        val sent = preferences.get(PreferenceKey.PushSent)
+        // Without a token there is only the registration itself to send, once per session; the
+        // server keeps a token it already has.
+        if (want.token == null && sent != null) return
+        val fingerprint = "${want.locale}:${want.token?.length ?: 0}:${want.token.hashCode()}:$appVersion"
+        if (sent == fingerprint) return
         val app = api() ?: return
-        val body = DeviceRegistration("ios", want.token, "staff", want.locale, appVersion)
+        val body = DeviceRegistration(platform, want.token, "staff", want.locale, appVersion)
         when (val answer = app.registerDevice(installationId, body)) {
             is Outcome.Success -> {
                 preferences.set(PreferenceKey.PushSent, fingerprint)

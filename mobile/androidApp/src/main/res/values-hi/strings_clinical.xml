@@ -157,7 +157,13 @@
     <string name="cn_c_expenses_note">नोट</string>
     <string name="cn_c_expenses_note_prompt">यह किसलिए था?</string>
     <string name="cn_c_expenses_photo">बिल का फ़ोटो</string>
-    <string name="cn_c_expenses_photo_preview">प्रीव्यू: बिल फ़ोटो के लिए सर्वर सहायता चाहिए</string>
+    <string name="cn_c_expenses_photo_remove">बिल फ़ोटो हटाएँ</string>
+    <string name="cn_c_expenses_photo_attached">बिल फ़ोटो जुड़ी है</string>
+    <string name="cn_c_expenses_bill_failed">खर्च सेव हो गया, पर बिल फ़ोटो अपलोड नहीं हुई।</string>
+    <string name="cn_c_expenses_bill_retry">फ़ोटो फिर भेजें</string>
+    <string name="cn_c_expenses_bill_skip">छोड़ें</string>
+    <string name="cn_c_expenses_bill_open">बिल खोलें</string>
+    <string name="cn_c_expenses_bill_open_failed">बिल नहीं खुला। फिर कोशिश करें।</string>
     <string name="cn_c_expenses_problem_amount">राशि दर्ज करें।</string>
     <string name="cn_c_expenses_problem_future">तारीख भविष्य की नहीं हो सकती।</string>
     <string name="cn_c_expenses_problem_large">यह राशि बहुत बड़ी है।</string>

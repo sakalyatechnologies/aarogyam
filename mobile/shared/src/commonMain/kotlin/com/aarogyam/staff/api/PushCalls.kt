@@ -12,11 +12,14 @@ import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** The body of `PUT /api/v1/me/devices/{installation_id}`; [token] is the APNs hex and is never logged. */
+/**
+ * The body of `PUT /api/v1/me/devices/{installation_id}`; [token] is the push token (APNs hex) and
+ * is never logged. Without one the phone is still registered, and a token already stored is kept.
+ */
 @Serializable
 data class DeviceRegistration(
     val platform: String,
-    val token: String,
+    val token: String? = null,
     val app: String,
     val locale: String,
     @SerialName("app_version") val appVersion: String,
@@ -25,7 +28,7 @@ data class DeviceRegistration(
     override fun toString(): String = "DeviceRegistration(platform=$platform, app=$app, locale=$locale)"
 }
 
-/** `PUT /api/v1/me/devices/{installation_id}`: registers or refreshes this phone's push token (204, an upsert). */
+/** `PUT /api/v1/me/devices/{installation_id}`: registers this phone and refreshes its push token (204, an upsert). */
 suspend fun AppApi.registerDevice(
     installationId: String,
     registration: DeviceRegistration,

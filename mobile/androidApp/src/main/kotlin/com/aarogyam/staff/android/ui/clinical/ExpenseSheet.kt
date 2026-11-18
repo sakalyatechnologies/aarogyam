@@ -41,7 +41,7 @@ import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
 
-/** The Add expense sheet: a big amount, category and method chips, the keypad, a note and Save. Bill photo waits for server support. */
+/** The Add expense sheet: a big amount, category and method chips, the keypad, a note, a bill photo and Save. */
 @Composable
 fun ExpenseSheet(
     holder: ExpensesStateHolder,
@@ -67,6 +67,7 @@ fun ExpenseSheet(
                     style = SkTypography.bodyText,
                     color = colors.textMuted.color,
                 )
+                if (state.billFailed) BillFailedNotice(holder)
                 SkButton(stringResource(R.string.done), onDismiss, Modifier.fillMaxWidth())
             } else {
                 val amountText = draft.amountPaise.rupees()
@@ -114,16 +115,15 @@ fun ExpenseSheet(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.SM.dp)) {
-                    SkButton(stringResource(R.string.cn_c_expenses_photo), {
-                    }, Modifier.weight(1f), SkButtonVariant.Secondary, enabled = false)
+                    BillPhotoButton(draft.bill != null, holder::setBill, { holder.setBill(null) }, Modifier.weight(1f))
                     SkButton(stringResource(R.string.cn_c_expenses_save), {
                         tried = true
                         holder.save()
                     }, Modifier.weight(1f), enabled = !draft.saving)
                 }
-                if (state.photoPreview) {
+                if (draft.bill != null) {
                     Text(
-                        stringResource(R.string.cn_c_expenses_photo_preview),
+                        stringResource(R.string.cn_c_expenses_photo_attached),
                         style = SkTypography.caption,
                         color = colors.textMuted.color,
                     )
@@ -174,14 +174,6 @@ private fun Keypad(
         }
     }
 }
-
-private fun methodLabel(method: PayMethod): Int =
-    when (method) {
-        PayMethod.Upi -> R.string.cn_c_pay_upi
-        PayMethod.Cash -> R.string.cn_c_pay_cash
-        PayMethod.Card -> R.string.cn_c_pay_card
-        PayMethod.Bank -> R.string.cn_c_pay_bank
-    }
 
 private fun problemText(problem: ExpenseProblem): Int =
     when (problem) {

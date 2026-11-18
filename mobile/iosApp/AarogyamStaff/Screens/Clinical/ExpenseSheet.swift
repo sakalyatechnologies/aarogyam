@@ -2,8 +2,8 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// The Add expense sheet: a big amount, category and method chips, the keypad, a note, and
-/// Save. Bill photo waits for server support (Preview).
+/// The Add expense sheet: a big amount, category and method chips, the keypad, a note, a bill
+/// photo and Save.
 struct ExpenseSheet: View {
     let holder: ExpensesStateHolder
     let state: ExpensesState
@@ -48,20 +48,23 @@ struct ExpenseSheet: View {
             Text(error).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(r.error.color)
         }
         HStack(spacing: SkSpacing.sm) {
-            SkPillButton(CL("c.expenses.photo"), variant: .tonal, icon: V7Icon.path("cam"), wide: true) {}.disabled(true)
+            BillPhotoButton(attached: draft.bill != nil, onPhoto: { holder.setBill(jpeg: $0.kotlinBytes) }, onRemove: { holder.setBill(jpeg: nil) })
             SkPillButton(CL("c.expenses.save"), variant: .warm, wide: true, loading: draft.saving) {
                 tried = true
                 holder.save()
             }
             .layoutPriority(1)
         }
-        if state.photoPreview { PreviewNotice(text: CL("c.expenses.photo.preview")) }
+        if draft.bill != nil {
+            Text(CL("c.expenses.photo_attached")).font(.system(size: 12)).foregroundStyle(r.onSurfaceVariant.color)
+        }
     }
 
     private var savedView: some View {
         VStack(spacing: SkSpacing.l) {
             SkCheckDraw()
             SkSheetHeader(CL("c.expenses.saved.title"), subtitle: CL("c.expenses.saved.message")).multilineTextAlignment(.center)
+            if state.billFailed { BillFailedNotice(holder: holder) }
             SkPillButton(CL("c.done"), wide: true) { dismiss() }
         }
         .frame(maxWidth: .infinity)

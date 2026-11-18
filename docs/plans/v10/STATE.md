@@ -275,6 +275,13 @@ Done:
   5. Optional: retake iOS shot 2 (visit with Rx) cleaner.
 - **The founder's open question:** the "ROCM … icon on the top right".
 
+### 18 Nov, night: session expiry, phone registration, BK-5
+- **Session expiry (backend 0723):** the API ends sessions itself (browser 12 idle hours or 7 days; a session with a registered device 30 idle days) without ending the Supabase session, so the token refresh succeeds and the API keeps refusing. `api/SessionEndWatch.kt` counts 401s per request; a second one after the refresh signs out locally (Supabase `scope=local`) and the app returns to sign-in.
+- **Phone registration (0725):** every sign-in sends `PUT /me/devices/{installation id}` with the real platform, app `staff` and locale, and no token until there is one (once per session); the token follows when it arrives. Android sends the app's language at start. Without this, Android (no FCM yet) and iPhones that declined notifications counted as browsers.
+- **BK-5 (both apps):** the expense method is saved; Bill photo takes a resized JPEG that uploads after the save (`POST /expenses/{id}/bill`), with Send photo again or Skip when only that fails; rows show the method and open the bill through a five-minute link. Not built: removing a bill (`DELETE /expenses/{id}/bill`).
+- **apiModels:** `ExpenseBill` added (BK-5 had broken the generation on main). The backend adds `ToothStatus` and `ToothHealth` with its tooth-health commit.
+- **Invite resend/cancel:** checked on the Android emulator against the local API (menu, confirm, both toasts, the row goes).
+
 ### 18 Nov, later: invite resend and cancel
 - **Team (both apps):** each pending invitation has a "⋮" menu with Resend invitation (`POST /staff/invitations/{id}/resend`, a fresh 7-day link; the token is dropped) and Cancel invitation (`DELETE`, after a confirm). Toasts: "Invitation sent again to {email}" and "Invitation cancelled"; errors show as a toast too. Only an owner sees the menu on an owner's invitation (the API answers 403). A 404 reloads the list. Shared `TeamStateHolder.resend`, `cancel`, `busy` and `notice`; tests in `TeamInvitesTest`.
 

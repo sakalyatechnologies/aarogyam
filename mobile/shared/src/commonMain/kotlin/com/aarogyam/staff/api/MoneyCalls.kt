@@ -2,6 +2,7 @@ package com.aarogyam.staff.api
 
 import com.aarogyam.staff.api.model.Analytics
 import com.aarogyam.staff.api.model.CollectSummary
+import com.aarogyam.staff.api.model.DownloadLink
 import com.aarogyam.staff.api.model.Expense
 import com.aarogyam.staff.api.model.ExpenseList
 import com.aarogyam.staff.api.model.Invoice
@@ -11,10 +12,14 @@ import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.http.call
 import com.sakalya.mobile.http.idempotencyKey
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
@@ -43,6 +48,37 @@ suspend fun ClinicApi.recordExpense(
         contentType(ContentType.Application.Json)
         setBody(expense)
     }
+
+/**
+ * `POST /api/v1/expenses/{id}/bill` (`uploadExpenseBill`): the bill photo, a JPEG already resized on
+ * the device, replacing any earlier one. 409 when the expense is void, 413 over 10 MB.
+ */
+suspend fun ClinicApi.uploadExpenseBill(
+    id: String,
+    jpeg: ByteArray,
+): Outcome<Expense, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/expenses/${id.encodeURLPathPart()}/bill")
+        setBody(
+            MultiPartFormDataContent(
+                formData {
+                    append(
+                        "file",
+                        jpeg,
+                        Headers.build {
+                            append(HttpHeaders.ContentType, "image/jpeg")
+                            append(HttpHeaders.ContentDisposition, "filename=\"bill.jpg\"")
+                        },
+                    )
+                },
+            ),
+        )
+    }
+
+/** `GET /api/v1/expenses/{id}/bill/download` (`getExpenseBillDownloadLink`): a five-minute link; needs `finance.view`. */
+suspend fun ClinicApi.expenseBillLink(id: String): Outcome<DownloadLink, ApiError> =
+    client.call { url("api/v1/expenses/${id.encodeURLPathPart()}/bill/download") }
 
 /** `GET /api/v1/reports/analytics` (`getAnalytics`): buckets of [bucket] (`week` or `month`) from [from] to [to]. */
 suspend fun ClinicApi.analytics(

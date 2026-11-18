@@ -1,6 +1,7 @@
 package com.aarogyam.staff.android
 
 import android.app.Application
+import androidx.appcompat.app.AppCompatDelegate
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.device.FilesDirOutboxFile
 import com.aarogyam.staff.android.device.SharedPreferencesStore
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 /** Whether the app graph is ready. */
 sealed interface GraphState {
@@ -61,6 +63,9 @@ class AarogyamApp : Application() {
                     outboxStore = PersistentOutboxStore(JsonOutboxPersistence(FilesDirOutboxFile(this@AarogyamApp))),
                     outboxFiles = AndroidOutboxFiles(this@AarogyamApp),
                 )
+            // The app's language (or the phone's) goes with the device registration at sign-in.
+            val chosen = AppCompatDelegate.getApplicationLocales().toLanguageTags()
+            graph?.push?.setLocale(chosen.ifEmpty { Locale.getDefault().toLanguageTag() })
             mutableGraph.value = graph?.let(GraphState::Ready) ?: GraphState.NotConfigured
         }
     }

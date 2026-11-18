@@ -235,6 +235,45 @@ class ExpensesStateHolderTest {
             assertEquals(clinic.api.origin + "/files/bill?t=signed", link)
             holder.closeBill()
             assertEquals(null, holder.state.value.billLink)
+            holder.removeBill("e1")
+            assertEquals(0, backend.count("$SUNRISE/api/v1/expenses/e1/bill"), "finance.view alone cannot remove it")
+        }
+
+    @Test
+    fun removing_a_bill_clears_the_row_and_a_refusal_says_so() =
+        runTest {
+            val backend = FakeBackend()
+            val withBill =
+                expense(
+                    "e1",
+                    150000,
+                ).replace(""""note":null""", """"note":null,"bill":{"mime_type":"image/jpeg","size_bytes":9}""")
+            backend.on("$SUNRISE/api/v1/expenses", { json("""{"items":[$withBill]}""") })
+            backend.on(
+                "$SUNRISE/api/v1/expenses/e1/bill",
+                { apiError(HttpStatusCode.Conflict, "conflict") },
+                { json(expense("e1", 150000)) },
+            )
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, listOf("finance.view", "expenses.write"))
+            val holder = ExpensesStateHolder(clinic, this, today = { today })
+            holder.state.first { it.rows.isNotEmpty() }
+            holder.removeBill("e1")
+            holder.state.first { it.billRemoveFailed }
+            assertTrue(
+                holder.state.value.rows
+                    .single()
+                    .hasBill,
+            )
+            holder.closeBill()
+            holder.removeBill("e1")
+            holder.state.first { !it.rows.single().hasBill }
+            assertEquals(
+                "DELETE",
+                backend.requests
+                    .last()
+                    .method.value,
+            )
         }
 
     @Test

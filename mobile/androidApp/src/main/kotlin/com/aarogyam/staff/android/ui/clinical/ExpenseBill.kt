@@ -96,6 +96,8 @@ fun BillFailedNotice(holder: ExpensesStateHolder) {
 fun BillLinkEffect(
     link: String?,
     failed: Boolean,
+    /** The failure was a removal, not an open. */
+    removing: Boolean,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -116,10 +118,48 @@ fun BillLinkEffect(
     if (failed) {
         AlertDialog(
             onDismissRequest = onClose,
-            text = { Text(stringResource(R.string.cn_c_expenses_bill_open_failed)) },
+            text = {
+                Text(
+                    stringResource(
+                        if (removing) {
+                            R.string.cn_c_expenses_bill_remove_failed
+                        } else {
+                            R.string.cn_c_expenses_bill_open_failed
+                        },
+                    ),
+                )
+            },
             confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.done)) } },
         )
     }
+}
+
+/** A row's bill: open it, or take it off the expense. */
+@Composable
+fun BillActions(
+    onDismiss: () -> Unit,
+    onOpen: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.cn_c_expenses_photo)) },
+        confirmButton = {
+            Column {
+                TextButton(onClick = {
+                    onDismiss()
+                    onOpen()
+                }) { Text(stringResource(R.string.cn_c_expenses_bill_open)) }
+                TextButton(onClick = {
+                    onDismiss()
+                    onRemove()
+                }) {
+                    Text(stringResource(R.string.cn_c_expenses_photo_remove), color = SkTheme.colors.dangerText.color)
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cn_c_expenses_cancel)) }
+            }
+        },
+    )
 }
 
 fun methodLabel(method: PayMethod): Int =

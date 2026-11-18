@@ -10,6 +10,7 @@ struct ExpensesScreen: View {
     /// Whether this page has its own Add button (the finance tab gets one in the bar instead).
     var showsAdd = false
     @State private var adding = false
+    @State private var billOf: String?
     @Environment(\.skTheme) private var theme
     @Environment(\.openURL) private var openURL
 
@@ -30,7 +31,8 @@ struct ExpensesScreen: View {
                     }
                     VStack(spacing: 3) {
                         ForEach(Array(state.rows.enumerated()), id: \.element.id) { index, row in
-                            Button { holder.openBill(expenseId: row.id) } label: {
+                            // Those who may edit expenses choose to open or remove the bill; others open it.
+                            Button { if state.canAdd { billOf = row.id } else { holder.openBill(expenseId: row.id) } } label: {
                                 ExpenseRowView(row: row)
                                     .background(r.card.color, in: UnevenRoundedRectangle(cornerRadii: MoreSizes.listRadii(index, of: state.rows.count), style: .continuous))
                             }
@@ -61,8 +63,15 @@ struct ExpensesScreen: View {
             if let url = ChatFile.openable(link) { openURL(url) }
             holder.closeBill()
         }
-        .alert(CL("c.expenses.bill_open_failed"), isPresented: Binding(get: { state.billLinkFailed }, set: { if !$0 { holder.closeBill() } })) {
+        .alert(state.billRemoveFailed ? CL("c.expenses.bill_remove_failed") : CL("c.expenses.bill_open_failed"),
+               isPresented: Binding(get: { state.billLinkFailed || state.billRemoveFailed }, set: { if !$0 { holder.closeBill() } })) {
             Button(CL("c.done"), role: .cancel) { holder.closeBill() }
+        }
+        .confirmationDialog(CL("c.expenses.photo"), isPresented: Binding(get: { billOf != nil }, set: { if !$0 { billOf = nil } }),
+                            titleVisibility: .visible, presenting: billOf) { id in
+            Button(CL("c.expenses.bill_open")) { holder.openBill(expenseId: id) }
+            Button(CL("c.expenses.photo_remove"), role: .destructive) { holder.removeBill(expenseId: id) }
+            Button(CL("c.expenses.cancel"), role: .cancel) {}
         }
     }
 

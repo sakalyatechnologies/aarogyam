@@ -76,6 +76,13 @@ suspend fun ClinicApi.uploadExpenseBill(
         )
     }
 
+/** `DELETE /api/v1/expenses/{id}/bill` (`removeExpenseBill`): the expense without its bill photo. */
+suspend fun ClinicApi.removeExpenseBill(id: String): Outcome<Expense, ApiError> =
+    client.call {
+        method = HttpMethod.Delete
+        url("api/v1/expenses/${id.encodeURLPathPart()}/bill")
+    }
+
 /** `GET /api/v1/expenses/{id}/bill/download` (`getExpenseBillDownloadLink`): a five-minute link; needs `finance.view`. */
 suspend fun ClinicApi.expenseBillLink(id: String): Outcome<DownloadLink, ApiError> =
     client.call { url("api/v1/expenses/${id.encodeURLPathPart()}/bill/download") }

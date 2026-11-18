@@ -157,6 +157,8 @@
     <string name="cn_c_expenses_note">Note</string>
     <string name="cn_c_expenses_note_prompt">What was it for?</string>
     <string name="cn_c_expenses_photo">Bill photo</string>
+    <string name="cn_c_expenses_cancel">Cancel</string>
+    <string name="cn_c_expenses_bill_remove_failed">Couldn\'t remove the bill photo. Try again.</string>
     <string name="cn_c_expenses_photo_remove">Remove bill photo</string>
     <string name="cn_c_expenses_photo_attached">Bill photo attached</string>
     <string name="cn_c_expenses_bill_failed">The expense is saved, but the bill photo didn\'t upload.</string>

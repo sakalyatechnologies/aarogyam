@@ -91,6 +91,7 @@ internal fun ToothSheet(
             }
         } else {
             NowCard(tooth)
+            ToothHealthCard(sheet, tooth, selection.status, chart.canRecord)
             HistoryCard(tooth, selection.history, chart.canRecord) { entry ->
                 sheet.startEdit(entry, chart.terms)
                 adding = true
@@ -224,7 +225,8 @@ private fun HistoryRow(
             )
             val treatment = listOfNotNull(entry.procedure, entry.material).joinToString(" · ")
             if (treatment.isNotEmpty()) Text(treatment, style = v7(13f), color = p.onSurface.color)
-            val details = listOfNotNull(entry.at?.date?.display(), status, entry.note).joinToString(" · ")
+            val elsewhere = if (entry.elsewhere) stringResource(R.string.pv_tooth_elsewhere) else null
+            val details = listOfNotNull(entry.at?.date?.display(), elsewhere, status, entry.note).joinToString(" · ")
             if (details.isNotEmpty()) Text(details, style = v7(12f), color = p.onSurfaceVariant.color)
         }
         if (current && canRecord) {

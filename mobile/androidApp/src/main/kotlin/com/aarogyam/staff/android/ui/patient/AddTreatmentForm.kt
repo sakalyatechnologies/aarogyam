@@ -156,6 +156,15 @@ internal fun AddTreatmentForm(
             form.status.ordinal,
             { sheet.setStatus(TreatmentStatus.entries[it]) },
         )
+        if (form.canElsewhere) {
+            SkChoiceChip(
+                stringResource(R.string.pv_tooth_elsewhere),
+                form.elsewhere,
+                { sheet.setElsewhere(!form.elsewhere) },
+                single = false,
+            )
+            if (form.elsewhere) V7Muted(stringResource(R.string.pv_tooth_elsewhere_hint))
+        }
         SkField(stringResource(R.string.pv_form_note), form.note, sheet::setNote)
         Footer(chart, sheet, form, tooth)
     }

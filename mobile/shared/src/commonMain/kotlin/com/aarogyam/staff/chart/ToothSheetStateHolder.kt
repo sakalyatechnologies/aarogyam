@@ -2,11 +2,16 @@ package com.aarogyam.staff.chart
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.addProcedure
+import com.aarogyam.staff.api.clearToothStatus
 import com.aarogyam.staff.api.model.NewProcedure
+import com.aarogyam.staff.api.model.NewToothStatus
+import com.aarogyam.staff.api.model.ToothHealth
+import com.aarogyam.staff.api.setToothStatus
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.outbox.Queued
 import com.aarogyam.staff.outbox.WriteQueue
 import com.aarogyam.staff.outbox.shouldQueue
+import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +28,8 @@ data class TreatmentFormState(
     val surfaces: Set<Surface> = emptySet(),
     val material: TermView? = null,
     val note: String = "",
+    /** The work was done by another dentist: it marks the chart only, with no visit procedure. */
+    val elsewhere: Boolean = false,
     /** The history entry being corrected, when the form was opened with Edit. */
     val editing: HistoryEntryView? = null,
     val saving: Boolean = false,
@@ -33,6 +40,19 @@ data class TreatmentFormState(
     val pendingSync: Boolean = false,
     /** What Save would do, or why it cannot. */
     val check: TreatmentCheck = TreatmentCheck.Blocked(TreatmentBlock.NoTreatment),
+) {
+    /** "Done elsewhere" is offered for finished work only: a completed treatment that leaves a lasting mark. */
+    val canElsewhere: Boolean
+        get() =
+            status == TreatmentStatus.Completed &&
+                (check as? TreatmentCheck.Ok)?.plan?.finding in ELSEWHERE_FINDINGS
+}
+
+/** Saving the doctor's health status on the tooth. */
+data class HealthSaveState(
+    val saving: Boolean = false,
+    /** The last change was refused and taken back. */
+    val error: ScreenError? = null,
 )
 
 /**
@@ -51,6 +71,8 @@ class ToothSheetStateHolder(
 ) {
     private val mutableForm = MutableStateFlow(TreatmentFormState().checked())
     val form: StateFlow<TreatmentFormState> = mutableForm.asStateFlow()
+    private val mutableHealth = MutableStateFlow(HealthSaveState())
+    val health: StateFlow<HealthSaveState> = mutableHealth.asStateFlow()
     private val queuedIds = mutableSetOf<String>()
 
     init {
@@ -86,6 +108,8 @@ class ToothSheetStateHolder(
 
     fun setNote(text: String) = edit { it.copy(note = text.take(MAX_NOTE)) }
 
+    fun setElsewhere(on: Boolean) = edit { it.copy(elsewhere = on) }
+
     /**
      * Opens the form on [entry] to correct it. The same surface supersedes it as usual; another
      * surface names it in `supersedes_id`, so the old mark goes and the new one replaces it.
@@ -116,7 +140,13 @@ class ToothSheetStateHolder(
                 e.surface != null && f.surfaces.isNotEmpty() &&
                     f.surfaces != setOf(e.surface)
             }
-        plan.finding?.let { chart.record(it, surfaces, f.treatment, f.material, f.note, moved?.id) }
+        val elsewhere = f.elsewhere && f.canElsewhere
+        plan.finding?.let { chart.record(it, surfaces, f.treatment, f.material, f.note, moved?.id, elsewhere) }
+        if (elsewhere) {
+            // Another dentist's work is history on the chart, not something done in this visit.
+            mutableForm.update { it.copy(saved = true) }
+            return
+        }
         val status = plan.procedureStatus
         val visit = visitId
         if (status == null || visit == null || f.treatment == null) {
@@ -150,6 +180,76 @@ class ToothSheetStateHolder(
                 }
             }
         }
+    }
+
+    /**
+     * Sets the doctor's health for [tooth]; no visit needed. [months] goes only with watch or needs
+     * treatment. It shows at once; a refusal puts back what was there.
+     */
+    fun setHealth(
+        tooth: Int,
+        level: HealthLevel,
+        months: Int? = null,
+        note: String? = null,
+    ) {
+        if (mutableHealth.value.saving) return
+        val within = months?.takeIf { level.advisesTreatment && it in TREAT_WITHIN_MONTHS }
+        val text = note?.trim()?.take(MAX_HEALTH_NOTE)?.ifEmpty { null }
+        val before = chart.statusOf(tooth)
+        chart.applyStatus(tooth, ToothStatusView(level, text, within, before?.at))
+        mutableHealth.value = HealthSaveState(saving = true)
+        scope.launch {
+            val body =
+                NewToothStatus(
+                    health = ToothHealth.entries.first { it.value == level.wire },
+                    clientId = IdempotencyKey.generate().toString(),
+                    note = text,
+                    treatWithinMonths = within?.toLong(),
+                )
+            when (val answer = clinic.api.setToothStatus(chart.patientId, tooth, body)) {
+                is Outcome.Success -> {
+                    log.info("chart.health_set")
+                    statusesOf(listOf(answer.value), clinic.timeZone)[tooth]?.let { chart.applyStatus(tooth, it) }
+                    mutableHealth.value = HealthSaveState()
+                }
+
+                is Outcome.Failure -> {
+                    healthFailed(tooth, before, answer.error)
+                }
+            }
+        }
+    }
+
+    /** Takes the doctor's health off [tooth]; it shows what its findings suggest again. */
+    fun clearHealth(tooth: Int) {
+        if (mutableHealth.value.saving) return
+        val before = chart.statusOf(tooth) ?: return
+        chart.applyStatus(tooth, null)
+        mutableHealth.value = HealthSaveState(saving = true)
+        scope.launch {
+            when (val answer = clinic.api.clearToothStatus(chart.patientId, tooth)) {
+                is Outcome.Success -> {
+                    log.info("chart.health_cleared")
+                    mutableHealth.value = HealthSaveState()
+                }
+
+                is Outcome.Failure -> {
+                    healthFailed(tooth, before, answer.error)
+                }
+            }
+        }
+    }
+
+    fun dismissHealthError() = mutableHealth.update { it.copy(error = null) }
+
+    private fun healthFailed(
+        tooth: Int,
+        before: ToothStatusView?,
+        error: com.sakalya.mobile.core.ApiError,
+    ) {
+        log.warn("chart.health_failed") { code("error", error.code.value) }
+        chart.applyStatus(tooth, before)
+        mutableHealth.value = HealthSaveState(error = ScreenError.of(error))
     }
 
     /** Saves the procedure on the phone; the sheet closes and shows it as waiting to send. */
@@ -186,5 +286,6 @@ class ToothSheetStateHolder(
 
     private companion object {
         const val MAX_NOTE = 1000
+        const val MAX_HEALTH_NOTE = 500
     }
 }

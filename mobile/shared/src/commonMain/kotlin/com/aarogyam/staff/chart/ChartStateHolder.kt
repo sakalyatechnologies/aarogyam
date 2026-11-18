@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
  */
 class ChartStateHolder(
     private val clinic: ClinicContext,
-    private val patientId: String,
+    internal val patientId: String,
     private val scope: CoroutineScope,
     private val log: Logger = Logger("aarogyam.chart"),
 ) {
@@ -40,6 +40,7 @@ class ChartStateHolder(
         val recordError: ScreenError? = null,
         val refreshing: Boolean = false,
         val error: ScreenError? = null,
+        val statuses: Map<Int, ToothStatusView> = emptyMap(),
     )
 
     private val canRecord = CLINICAL_WRITE in clinic.permissions
@@ -69,7 +70,13 @@ class ChartStateHolder(
                 is Outcome.Success -> {
                     val base = model ?: Model(emptyMap(), defaultDentition(result.value.current))
                     val teeth = if (base.saving) base.teeth else teethOf(result.value.current)
-                    val next = base.copy(teeth = teeth, terms = termsOf(result.value.terms), refreshing = false)
+                    val next =
+                        base.copy(
+                            teeth = teeth,
+                            terms = termsOf(result.value.terms),
+                            statuses = statusesOf(result.value.statuses, clinic.timeZone),
+                            refreshing = false,
+                        )
                     publish(if (tooth != null && next.selected == tooth) next.withHistory(result.value) else next)
                 }
 
@@ -168,12 +175,25 @@ class ChartStateHolder(
         note: String? = null,
         /** The current entry this corrects, when the correction moves it to another surface. */
         supersedes: String? = null,
+        /** The work was done by another dentist. */
+        elsewhere: Boolean = false,
     ) {
         val current = model ?: return
         val teeth = current.group.takeIf { current.several && it.isNotEmpty() } ?: listOfNotNull(current.selected)
         if (teeth.isEmpty() || !canRecord || current.saving) return
         val before = current.teeth
-        val (drawn, entries) = recordPlan(before, teeth, finding, surfaces, procedure, material, note, supersedes)
+        val (drawn, entries) =
+            recordPlan(
+                before,
+                teeth,
+                finding,
+                surfaces,
+                procedure,
+                material,
+                note,
+                supersedes,
+                elsewhere,
+            )
         publish(current.copy(teeth = drawn, saving = true, recordError = null))
         scope.launch {
             when (val result = clinic.api.recordDentalChart(patientId, NewChartEntries(entries))) {
@@ -183,6 +203,7 @@ class ChartStateHolder(
                         now.copy(
                             teeth = teethOf(result.value.current),
                             terms = termsOf(result.value.terms),
+                            statuses = statusesOf(result.value.statuses, clinic.timeZone),
                             saving = false,
                         ),
                     )
@@ -276,7 +297,15 @@ class ChartStateHolder(
                 upper = upper,
                 lower = lower,
                 needsCare = (upper + lower).count { it.needsCare },
-                selected = next.selected?.let { ToothSelection(view(it), next.surface, next.history) },
+                selected =
+                    next.selected?.let {
+                        ToothSelection(
+                            view(it),
+                            next.surface,
+                            next.history,
+                            next.statuses[it],
+                        )
+                    },
                 several = next.several,
                 group = next.group.sorted(),
                 terms = next.terms,
@@ -288,7 +317,21 @@ class ChartStateHolder(
                 recordError = next.recordError,
                 refreshing = next.refreshing,
                 error = next.error,
+                statuses = next.statuses,
             )
+    }
+
+    /** The doctor's status on [tooth], if any. */
+    internal fun statusOf(tooth: Int): ToothStatusView? = model?.statuses?.get(tooth)
+
+    /** Shows [status] on [tooth] (null: back to what its findings suggest); the tooth sheet saves it. */
+    internal fun applyStatus(
+        tooth: Int,
+        status: ToothStatusView?,
+    ) {
+        val current = model ?: return
+        val statuses = if (status == null) current.statuses - tooth else current.statuses + (tooth to status)
+        publish(current.copy(statuses = statuses))
     }
 
     private fun logFailure(

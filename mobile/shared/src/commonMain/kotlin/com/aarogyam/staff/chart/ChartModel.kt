@@ -235,6 +235,8 @@ data class HistoryEntryView(
     val procedure: String? = null,
     /** The material's label, if recorded. */
     val material: String? = null,
+    /** The work was done by another dentist. */
+    val elsewhere: Boolean = false,
 )
 
 /** The selected tooth's full history, fetched when the tooth is picked. */
@@ -256,4 +258,6 @@ data class ToothSelection(
     val tooth: ToothView,
     val surface: Surface?,
     val history: HistoryState,
+    /** The doctor's health status on the tooth; null means [ToothView.suggestedHealth] applies. */
+    val status: ToothStatusView? = null,
 )

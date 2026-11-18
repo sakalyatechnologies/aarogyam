@@ -123,7 +123,8 @@ extension HistoryEntryView {
 
     /// "20 Sept 2026 · Superseded · Pulp exposed", leaving out what is missing.
     var detailText: String {
-        [at.map { ClinicFormat.date(iso: $0.date.isoText) }, status.label, note].compactMap { $0 }.joined(separator: " · ")
+        [at.map { ClinicFormat.date(iso: $0.date.isoText) }, elsewhere ? pv("pv.tooth.elsewhere") : nil, status.label, note]
+            .compactMap { $0 }.joined(separator: " · ")
     }
 }
 

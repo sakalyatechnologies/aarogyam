@@ -226,6 +226,23 @@
     <string name="pv_status_planned">योजनाबद्ध</string>
     <string name="pv_status_watch">निगरानी</string>
     <string name="pv_tooth_add">उपचार जोड़ें</string>
+    <string name="pv_tooth_health">स्वास्थ्य</string>
+    <string name="pv_tooth_health_healthy">स्वस्थ</string>
+    <string name="pv_tooth_health_watch">निगरानी</string>
+    <string name="pv_tooth_health_needs">इलाज ज़रूरी</string>
+    <string name="pv_tooth_health_suggested">चार्ट से सुझाया गया</string>
+    <string name="pv_tooth_health_unassessed">अभी जाँचा नहीं गया</string>
+    <string name="pv_tooth_health_within">इतने समय में इलाज</string>
+    <string name="pv_tooth_health_note">टिप्पणी</string>
+    <string name="pv_tooth_health_save_note">टिप्पणी सेव करें</string>
+    <string name="pv_tooth_health_reset">चार्ट का सुझाव लें</string>
+    <string name="pv_tooth_health_failed">दाँत का स्वास्थ्य सेव नहीं हुआ। फिर कोशिश करें।</string>
+    <string name="pv_tooth_elsewhere">कहीं और किया गया</string>
+    <string name="pv_tooth_elsewhere_hint">किसी और दंत चिकित्सक का काम: चार्ट पर दर्ज, इस विज़िट में नहीं जोड़ा गया।</string>
+    <plurals name="pv_tooth_health_months">
+        <item quantity="one">%d महीना</item>
+        <item quantity="other">%d महीने</item>
+    </plurals>
     <string name="pv_tooth_edit">बदलें</string>
     <string name="pv_tooth_group">%1$d दाँत</string>
     <string name="pv_tooth_lower_left">नीचे बायाँ</string>

@@ -52,6 +52,10 @@ struct AddTreatmentForm: View {
             SkSegmented(TreatmentStatus.allCases.map(\.title), selectedIndex: TreatmentStatus.allCases.firstIndex(of: form.status) ?? 0) {
                 sheet.setStatus(status: TreatmentStatus.allCases[$0])
             }
+            if form.canElsewhere {
+                SkChoiceChip(pv("pv.tooth.elsewhere"), selected: form.elsewhere) { sheet.setElsewhere(on: !form.elsewhere) }
+                if form.elsewhere { V7Muted(pv("pv.tooth.elsewhere_hint")) }
+            }
             SkField(pv("pv.form.note"), text: Binding(get: { form.note }, set: { sheet.setNote(text: $0) }))
             footer
         }

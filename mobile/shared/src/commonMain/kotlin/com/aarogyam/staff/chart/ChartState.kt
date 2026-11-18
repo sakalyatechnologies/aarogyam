@@ -42,6 +42,8 @@ sealed interface ChartState {
         val refreshing: Boolean,
         /** A refresh failed; the chart on screen is the last one loaded. */
         val error: ScreenError?,
+        /** The doctor's health status by tooth; teeth without one take what [suggestedHealth] says. */
+        val statuses: Map<Int, ToothStatusView> = emptyMap(),
     ) : ChartState {
         /** How many teeth the shown dentition has. */
         val total: Int get() = upper.size + lower.size

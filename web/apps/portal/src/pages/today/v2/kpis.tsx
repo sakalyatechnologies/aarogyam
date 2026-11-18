@@ -112,7 +112,8 @@ export function KpisWidget({ opts, catalogue, spec }: WidgetProps) {
     <Body query={day} label={spec.label} rows={2} empty={null}>
       {(today) => {
         if (metrics.length === 0) return <Empty title={COPY.noKeyNumbers} />;
-        const toGo = Math.max(0, today.counts.total - today.counts.done - today.counts.cancelled - today.counts.no_shows);
+        // `total` already leaves out cancelled appointments, so only done and no-shows come off it.
+        const toGo = Math.max(0, today.counts.total - today.counts.done - today.counts.no_shows);
         const tiles: Tile[] = [];
         for (const metric of metrics) {
           const base = { key: metric.key, label: METRIC_LABEL[metric.key] ?? metric.label, icon: METRIC_ICON[metric.key] ?? Activity, money: MONEY_METRICS.has(metric.key) };

@@ -290,6 +290,22 @@ describe("money stays hidden until the eye is pressed", () => {
     await waitFor(() => { expect(calls.collections).toBeGreaterThan(0); });
   });
 
+  it("heads the key numbers with today's patients and counts appointments to come without the cancelled ones twice", async () => {
+    const counts = (client: ApiClient): ApiClient => ({
+      ...client,
+      getToday: async (options) => {
+        const real = await client.getToday(options);
+        // 6 booked today (cancelled already left out of total), 2 done, 1 no-show, 1 cancelled: 3 to come.
+        return real.ok ? success({ ...real.value, counts: { ...real.value.counts, total: 6, done: 2, no_shows: 1, cancelled: 1, patients: 9, patients_done: 5 } }) : real;
+      },
+    });
+    renderPortal("/today", { as: PEOPLE.asha, wrap: counts });
+    const numbers = await screen.findByRole("list", { name: "Key numbers" });
+    const tile = within(numbers).getByText("Today's patients").closest("li");
+    expect(tile?.textContent).toMatch(/9/);
+    expect(tile?.textContent).toMatch(/5 done · 3 appointments to come/);
+  });
+
   it("shows no money, and no eye, to a role without finance.view even when the setting is on", async () => {
     localStorage.setItem(SHOW_MONEY_KEY, "1");
     renderPortal("/today", { as: PEOPLE.farah, backend: asAssistant() });

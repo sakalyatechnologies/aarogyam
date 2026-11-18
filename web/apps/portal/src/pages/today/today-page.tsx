@@ -194,7 +194,7 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
               icon={<Clock />}
               trend={today.attention.length === 0 ? { direction: "flat", text: "None urgent" } : { direction: "up", text: `${String(today.attention.length)} need attention`, good: false }}
             />
-            <StatTile label="Completed" value={today.counts.done} icon={<CircleCheck />} trend={{ direction: "flat", text: `${String(Math.max(0, today.counts.total - today.counts.done - today.counts.cancelled - today.counts.no_shows))} to go` }} />
+            <StatTile label="Completed" value={today.counts.done} icon={<CircleCheck />} trend={{ direction: "flat", text: `${String(Math.max(0, today.counts.total - today.counts.done - today.counts.no_shows))} to go` }} />
             <StatTile label="Chairs in use" value={today.chairs.length === 0 ? "—" : `${String(chairsInUse)}/${String(today.chairs.length)}`} icon={<Armchair />} />
           </div>
 

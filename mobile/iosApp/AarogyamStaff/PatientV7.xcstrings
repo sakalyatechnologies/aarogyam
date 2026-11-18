@@ -1290,6 +1290,29 @@
         }
       }
     },
+    "pv.jaw.not_assessed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not assessed"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जाँचा नहीं गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तपासले नाही"
+          }
+        }
+      }
+    },
     "pv.jaw.plain": {
       "extractionState": "manual",
       "localizations": {
@@ -1424,6 +1447,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "वरचे"
+          }
+        }
+      }
+    },
+    "pv.jaw.view_findings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Findings"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "निष्कर्ष"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "निष्कर्ष"
           }
         }
       }

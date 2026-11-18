@@ -31,6 +31,10 @@ struct JawChart: View {
     let teeth: [Int32: ToothView]
     let picked: Set<Int32>
     let onSelect: (Int32) -> Void
+    /// The colour each tooth takes: its headline finding, or its health in the Health view.
+    var tone: (ToothView) -> JawTone = { JawTone.of($0.headline) }
+    /// What VoiceOver says after the tooth's number; nil says the headline finding.
+    var label: ((ToothView) -> String)?
     @Environment(\.skTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -53,7 +57,7 @@ struct JawChart: View {
                     .position(x: w / 2, y: h / 2)
                 ForEach(JawGeometry.shared.spots(dentition: dentition, aspect: aspect), id: \.tooth) { spot in
                     if let tooth = teeth[Int32(spot.tooth)] {
-                        JawTooth(tooth: tooth, size: size, picked: picked.contains(tooth.number)) { onSelect(tooth.number) }
+                        JawTooth(tooth: tooth, tone: tone(tooth), label: label?(tooth), size: size, picked: picked.contains(tooth.number)) { onSelect(tooth.number) }
                             .position(x: w * spot.x, y: h * spot.y)
                             .zIndex(picked.contains(tooth.number) ? 1 : 0)
                     }
@@ -85,6 +89,8 @@ struct JawChart: View {
 /// One tooth of the jaw: a rounded crown with a lower edge for depth, lifting when picked.
 struct JawTooth: View {
     let tooth: ToothView
+    var tone: JawTone
+    var label: String?
     let size: CGFloat
     let picked: Bool
     let onTap: () -> Void
@@ -92,7 +98,6 @@ struct JawTooth: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let tone = JawTone.of(tooth.headline)
         let paint = JawPaint.of(tone)
         let shape = UnevenRoundedRectangle(
             topLeadingRadius: size * 0.44, bottomLeadingRadius: size * 0.48,
@@ -115,21 +120,24 @@ struct JawTooth: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(tooth.accessibilityText)
+        .accessibilityLabel(label.map { pvf("pv.tooth.title", Int(tooth.number)) + ", " + $0 } ?? tooth.accessibilityText)
         .accessibilityAddTraits(picked ? [.isSelected, .isButton] : .isButton)
     }
 }
 
 /// The jaw's legend: a dot and a label per colour, centred.
 struct JawLegend: View {
+    /// Replaces the findings' colours (the Health view's legend).
+    var entries: [(JawTone, String)]?
     @Environment(\.skTheme) private var theme
 
     var body: some View {
+        let shown = entries ?? [JawTone.treated, .progress, .watch, .care, .missing].map { ($0, $0.title) }
         V7Flow(spacing: 10) {
-            ForEach([JawTone.treated, .progress, .watch, .care, .missing], id: \.self) { tone in
+            ForEach(Array(shown.enumerated()), id: \.offset) { _, item in
                 HStack(spacing: 4) {
-                    Circle().fill(JawPaint.of(tone).dot).frame(width: 10, height: 10)
-                    Text(tone.title).v7Text(11.5).foregroundStyle(theme.roles.onSurfaceVariant.color)
+                    Circle().fill(JawPaint.of(item.0).dot).frame(width: 10, height: 10)
+                    Text(item.1).v7Text(11.5).foregroundStyle(theme.roles.onSurfaceVariant.color)
                 }
             }
         }

@@ -63,6 +63,9 @@ class ToothHealthTest {
             assertEquals(HealthLevel.NeedsTreatment, tooth(36).suggestedHealth)
             assertEquals(HealthLevel.Healthy, tooth(46).suggestedHealth)
             assertNull(tooth(11).suggestedHealth, "nothing recorded is not assessed")
+            assertEquals(HealthMark.NeedsTreatment, loaded.healthMark(tooth(36)))
+            assertEquals(HealthMark.Watch, loaded.healthMark(tooth(16)), "the doctor's status wins")
+            assertEquals(HealthMark.NotAssessed, loaded.healthMark(tooth(11)))
             chart.select(16, null)
             val picked =
                 (chart.state.first { (it as? ChartState.Loaded)?.selected != null } as ChartState.Loaded)

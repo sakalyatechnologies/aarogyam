@@ -128,6 +128,10 @@ internal fun JawChart(
     upper: List<ToothView>,
     lower: List<ToothView>,
     onSelect: (Int) -> Unit,
+    /** The colour each tooth takes: its headline finding, or its health in the Health view. */
+    tone: (ToothView) -> JawTone = { JawTone.of(it.headline) },
+    /** What TalkBack says after the tooth's number; null says the headline finding. */
+    label: (ToothView) -> String? = { null },
 ) {
     val context = LocalContext.current
     val exploring =
@@ -175,6 +179,8 @@ internal fun JawChart(
                 val tooth = teeth[spot.tooth] ?: return@forEach
                 JawTooth(
                     tooth,
+                    tone(tooth),
+                    label(tooth),
                     size,
                     Modifier.offset(
                         w * spot.x.toFloat() - size / 2 - TAP_PAD,
@@ -214,14 +220,15 @@ private fun Centre(
 @Composable
 private fun JawTooth(
     tooth: ToothView,
+    tone: JawTone,
+    label: String?,
     size: Dp,
     modifier: Modifier,
     onTap: () -> Unit,
 ) {
-    val tone = JawTone.of(tooth.headline)
     val paint = JawPaint.of(tone)
     val description =
-        stringResource(R.string.pv_tooth_title, tooth.number) + ", " + stringResource(tooth.headline.label())
+        stringResource(R.string.pv_tooth_title, tooth.number) + ", " + (label ?: stringResource(tooth.headline.label()))
     Box(
         modifier
             .padding(TAP_PAD)
@@ -278,14 +285,18 @@ private const val BOTTOM_R = 0.48f
 private const val DEPTH = 0.16f
 private const val NUMBER = 0.32f
 
-/** The jaw's legend: a dot and a label per colour, centred. */
+/** The jaw's legend: a dot and a label per colour, centred; [entries] replaces the findings' colours. */
 @Composable
-internal fun JawLegend() {
+internal fun JawLegend(entries: List<Pair<JawTone, String>>? = null) {
+    val shown =
+        entries ?: listOf(JawTone.Treated, JawTone.Progress, JawTone.Watch, JawTone.Care, JawTone.Missing).map {
+            it to it.title()
+        }
     Flow(Modifier.fillMaxWidth(), spacing = 10.dp) {
-        listOf(JawTone.Treated, JawTone.Progress, JawTone.Watch, JawTone.Care, JawTone.Missing).forEach { tone ->
+        shown.forEach { (tone, text) ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Box(Modifier.size(10.dp).background(JawPaint.of(tone).dot, CircleShape))
-                Text(tone.title(), style = v7(11.5f), color = SkTheme.palette.onSurfaceVariant.color)
+                Text(text, style = v7(11.5f), color = SkTheme.palette.onSurfaceVariant.color)
             }
         }
     }

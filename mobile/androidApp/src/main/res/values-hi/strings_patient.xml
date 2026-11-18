@@ -187,6 +187,8 @@
     <string name="pv_form_title">उपचार जोड़ें</string>
     <string name="pv_form_treatment">उपचार</string>
     <string name="pv_form_whole">यह उपचार पूरे दाँत पर है।</string>
+    <string name="pv_jaw_view_findings">निष्कर्ष</string>
+    <string name="pv_jaw_not_assessed">जाँचा नहीं गया</string>
     <string name="pv_jaw_care">देखभाल चाहिए</string>
     <string name="pv_jaw_centre">%1$d दाँतों में निष्कर्ष</string>
     <string name="pv_jaw_lower">नीचे</string>

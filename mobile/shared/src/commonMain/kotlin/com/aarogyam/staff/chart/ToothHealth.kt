@@ -65,3 +65,23 @@ internal fun statusesOf(
                 s.tooth to ToothStatusView(level, s.note, s.treatWithinMonths, moment(s.recordedAt, zone))
             }
         }.toMap()
+
+/** What the jaw's Health view paints on a tooth. */
+enum class HealthMark { Healthy, Watch, NeedsTreatment, NotAssessed, Missing }
+
+/** [tooth]'s mark for the Health view: a missing tooth, else the doctor's level, else what its findings suggest. */
+fun ChartState.Loaded.healthMark(tooth: ToothView): HealthMark =
+    when {
+        tooth.headline == Finding.Missing -> {
+            HealthMark.Missing
+        }
+
+        else -> {
+            when (statuses[tooth.number]?.level ?: tooth.suggestedHealth) {
+                HealthLevel.Healthy -> HealthMark.Healthy
+                HealthLevel.Watch -> HealthMark.Watch
+                HealthLevel.NeedsTreatment -> HealthMark.NeedsTreatment
+                null -> HealthMark.NotAssessed
+            }
+        }
+    }

@@ -32,6 +32,8 @@ struct V9OverviewTab: View {
     let clinic: ClinicContext
     let onOpenVisit: (String) -> Void
     @State private var sheetOpen = false
+    /// The jaw shows each tooth's health instead of its findings.
+    @State private var healthView = false
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -94,12 +96,21 @@ struct V9OverviewTab: View {
                     }
                     .accessibilityLabel(chartText("chart.title"))
                     let teeth = Dictionary(uniqueKeysWithValues: (loadedChart.upper + loadedChart.lower).map { ($0.number, $0) })
+                    let lens = [pv("pv.jaw.view_findings"), pv("pv.tooth.health")]
+                    SkChoiceChips(lens, selected: [lens[healthView ? 1 : 0]], label: { $0 }) { healthView = $0 == lens[1] }
                     if UIAccessibility.isVoiceOverRunning {
                         JawList(upper: loadedChart.upper, lower: loadedChart.lower, picked: []) { pick($0) }
+                    } else if healthView {
+                        JawChart(dentition: loadedChart.dentition, teeth: teeth, picked: [], onSelect: pick,
+                                 tone: { loadedChart.healthMark(tooth: $0).tone }, label: { loadedChart.healthMark(tooth: $0).label })
                     } else {
                         JawChart(dentition: loadedChart.dentition, teeth: teeth, picked: [], onSelect: pick)
                     }
-                    JawLegend()
+                    if healthView {
+                        JawLegend(entries: HealthMark.allCases.map { ($0.tone, $0.label) })
+                    } else {
+                        JawLegend()
+                    }
                 } else if let chart, case .failed(let failed) = onEnum(of: chart.value) {
                     V9SectionState(title: chartText("chart.title"), kind: .failed(failed.error), retry: chart.holder.refresh)
                 } else if let chart, case .notAllowed = onEnum(of: chart.value) {

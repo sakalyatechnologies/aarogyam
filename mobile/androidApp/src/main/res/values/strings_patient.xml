@@ -187,6 +187,8 @@
     <string name="pv_form_title">Add treatment</string>
     <string name="pv_form_treatment">Treatment</string>
     <string name="pv_form_whole">This treatment covers the whole tooth.</string>
+    <string name="pv_jaw_view_findings">Findings</string>
+    <string name="pv_jaw_not_assessed">Not assessed</string>
     <string name="pv_jaw_care">Needs care</string>
     <string name="pv_jaw_centre">%1$d teeth with findings</string>
     <string name="pv_jaw_lower">Lower</string>

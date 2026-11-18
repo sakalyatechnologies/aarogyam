@@ -85,3 +85,26 @@ extension HealthLevel {
         }
     }
 }
+
+extension HealthMark {
+    /// The Health view's colours: healthy green, watch yellow, needs treatment red; not assessed plain.
+    var tone: JawTone {
+        switch self {
+        case .healthy: .treated
+        case .watch: .watch
+        case .needsTreatment: .care
+        case .notAssessed: .plain
+        case .missing: .missing
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .healthy: pv("pv.tooth.health_healthy")
+        case .watch: pv("pv.tooth.health_watch")
+        case .needsTreatment: pv("pv.tooth.health_needs")
+        case .notAssessed: pv("pv.jaw.not_assessed")
+        case .missing: pv("pv.jaw.missing")
+        }
+    }
+}

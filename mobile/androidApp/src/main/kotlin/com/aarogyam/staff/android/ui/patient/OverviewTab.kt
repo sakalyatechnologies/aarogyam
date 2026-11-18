@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +34,8 @@ import com.aarogyam.staff.android.ui.display
 import com.aarogyam.staff.chart.ChartState
 import com.aarogyam.staff.chart.ChartStateHolder
 import com.aarogyam.staff.chart.Dentition
+import com.aarogyam.staff.chart.HealthMark
+import com.aarogyam.staff.chart.healthMark
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.FlagsView
 import com.aarogyam.staff.patients.LastVisitView
@@ -44,6 +47,7 @@ import com.aarogyam.staff.patients.Severity
 import com.aarogyam.staff.patients.TreatmentRow
 import com.aarogyam.staff.patients.TxStatus
 import com.aarogyam.staff.visit.RecallsStateHolder
+import com.sakalya.mobile.designcompose.SkChoiceChips
 import com.sakalya.mobile.designcompose.SkSegmented
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.color
@@ -143,8 +147,26 @@ private fun JawCard(
                     )
                     val teeth =
                         remember(chart.upper, chart.lower) { (chart.upper + chart.lower).associateBy { it.number } }
-                    JawChart(chart.dentition, teeth, chart.upper, chart.lower, pick)
-                    JawLegend()
+                    var health by rememberSaveable { mutableStateOf(false) }
+                    val lens =
+                        listOf(stringResource(R.string.pv_jaw_view_findings), stringResource(R.string.pv_tooth_health))
+                    SkChoiceChips(lens, setOf(lens[if (health) 1 else 0]), { health = it == lens[1] }, { it })
+                    if (health) {
+                        val marks = healthMarkTexts()
+                        JawChart(
+                            chart.dentition,
+                            teeth,
+                            chart.upper,
+                            chart.lower,
+                            pick,
+                            tone = { chart.healthMark(it).tone() },
+                            label = { marks.getValue(chart.healthMark(it)) },
+                        )
+                        JawLegend(HealthMark.entries.map { it.tone() to marks.getValue(it) })
+                    } else {
+                        JawChart(chart.dentition, teeth, chart.upper, chart.lower, pick)
+                        JawLegend()
+                    }
                 }
 
                 is ChartState.Failed -> {
@@ -296,3 +318,27 @@ internal fun MediaGrid(tiles: List<MediaTileData>) {
         }
     }
 }
+
+/** The Health view's colours: healthy green, watch yellow, needs treatment red; not assessed plain. */
+private fun HealthMark.tone(): JawTone =
+    when (this) {
+        HealthMark.Healthy -> JawTone.Treated
+        HealthMark.Watch -> JawTone.Watch
+        HealthMark.NeedsTreatment -> JawTone.Care
+        HealthMark.NotAssessed -> JawTone.Plain
+        HealthMark.Missing -> JawTone.Missing
+    }
+
+@Composable
+private fun healthMarkTexts(): Map<HealthMark, String> =
+    HealthMark.entries.associateWith {
+        stringResource(
+            when (it) {
+                HealthMark.Healthy -> R.string.pv_tooth_health_healthy
+                HealthMark.Watch -> R.string.pv_tooth_health_watch
+                HealthMark.NeedsTreatment -> R.string.pv_tooth_health_needs
+                HealthMark.NotAssessed -> R.string.pv_jaw_not_assessed
+                HealthMark.Missing -> R.string.pv_jaw_missing
+            },
+        )
+    }

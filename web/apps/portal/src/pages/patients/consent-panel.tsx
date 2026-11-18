@@ -1,14 +1,15 @@
-import { Plus } from "lucide-react";
-import { useState } from "react";
+import { FileImage, Paperclip, Plus } from "lucide-react";
+import { useRef, useState } from "react";
 
-import { apiErrorOf, type Consent, type ConsentMethod, type ConsentPurpose, type PatientId } from "@aarogyam/api-client";
+import { apiErrorOf, attachmentId, type AttachmentId, type Consent, type ConsentMethod, type ConsentPurpose, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate } from "@aarogyam/app-kit";
-import { Button, Dialog, Field, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
+import { Button, Dialog, Field, Select, TextArea, TextInput, useFieldControl, useToast } from "@sakalya/ui";
 
 import { Empty, MkCard, Tag, statusTone } from "../../components/mk/index.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 import { useClinic } from "../../clinic.js";
-import { useConsents, useRecordConsent, useWithdrawConsent } from "./queries.js";
+import { useDownloadLink, useUploadAttachment } from "../../queries.js";
+import { useConsents, useRecordConsent, useSetConsentSignature, useWithdrawConsent } from "./queries.js";
 
 export const PURPOSES: readonly { value: ConsentPurpose; label: string; help: string }[] = [
   { value: "care", label: "Care and records", help: "Keeping their record and treating them." },
@@ -23,6 +24,33 @@ const METHODS: readonly { value: ConsentMethod; label: string }[] = [
   { value: "verbal", label: "Said aloud, noted by staff" },
   { value: "app", label: "In an app" },
 ];
+
+/** What a photo or scan of the signed form may be; the server takes the same, up to 10 MB. */
+const FORM_TYPES = "image/jpeg,image/png,application/pdf";
+const FORM_MAX_BYTES = 10 * 1024 * 1024;
+
+/** Why this file can't be the signed form, or nothing. */
+function formProblem(file: File): string | undefined {
+  if (!FORM_TYPES.split(",").includes(file.type)) return "Choose a photo (JPEG or PNG) or a PDF.";
+  if (file.size > FORM_MAX_BYTES) return "That file is over 10 MB. Take the photo again at a smaller size.";
+  return undefined;
+}
+
+/** Uploads the signed form as a patient file of kind `consent`; resolves to its id. */
+function useUploadForm(patientId: PatientId) {
+  const upload = useUploadAttachment(patientId);
+  return {
+    isPending: upload.isPending,
+    upload: async (file: File): Promise<AttachmentId> => {
+      const form = new FormData();
+      form.append("kind", "consent");
+      form.append("caption", "Signed consent form");
+      form.append("file", file);
+      const saved = await upload.mutateAsync(form);
+      return saved.id;
+    },
+  };
+}
 
 const purposeLabel = (purpose: ConsentPurpose) => PURPOSES.find((p) => p.value === purpose)?.label ?? purpose;
 const methodLabel = (method: ConsentMethod) => METHODS.find((m) => m.value === method)?.label ?? method;
@@ -74,6 +102,7 @@ export function ConsentPanel({ patientId }: { patientId: PatientId }) {
                   Notice {c.notice_version} · {methodLabel(c.method)} · {formatDate(c.given_at)} · recorded by {c.recorded_by}
                 </p>
                 {c.note == null ? null : <p className="mt-1 text-sm text-text">{c.note}</p>}
+                <SignedForm patientId={patientId} consent={c} canWrite={canWrite} />
                 {c.status === "withdrawn" && c.withdrawn_at != null ? (
                   <p className="mt-1 text-sm text-muted">
                     Withdrawn {formatDate(c.withdrawn_at)}
@@ -123,35 +152,129 @@ export function ConsentPanel({ patientId }: { patientId: PatientId }) {
   );
 }
 
+/** The signed form on a consent: open it, or (while given) attach a photo or scan of it. */
+function SignedForm({ patientId, consent, canWrite }: { patientId: PatientId; consent: Consent; canWrite: boolean }) {
+  const link = useDownloadLink();
+  const form = useUploadForm(patientId);
+  const attach = useSetConsentSignature(patientId);
+  const input = useRef<HTMLInputElement>(null);
+  const toast = useToast();
+  const signature = consent.signature_attachment_id;
+  if (signature != null) {
+    return (
+      <Button
+        variant="ghost"
+        className="mt-1 px-2 py-1"
+        icon={<FileImage aria-hidden="true" className="size-4" />}
+        disabled={link.isPending}
+        aria-label={`View signed form: ${purposeLabel(consent.purpose)}`}
+        onClick={() => {
+          link.mutate(attachmentId.parse(signature), {
+            onSuccess: (opened) => {
+              window.open(opened.url, "_blank", "noopener,noreferrer");
+            },
+            onError: (thrown) => {
+              toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't open the signed form.", tone: "danger" });
+            },
+          });
+        }}
+      >
+        View signed form
+      </Button>
+    );
+  }
+  if (!canWrite || consent.status !== "given") return null;
+  const busy = form.isPending || attach.isPending;
+  const onFile = async (file: File) => {
+    const problem = formProblem(file);
+    if (problem !== undefined) {
+      toast.show({ title: problem, tone: "danger" });
+      return;
+    }
+    try {
+      const id = await form.upload(file);
+      await attach.mutateAsync({ id: consent.id, input: { signature_attachment_id: id } });
+      toast.show({ title: "Signed form added", tone: "success" });
+    } catch (thrown) {
+      toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't add the signed form. Please try again.", tone: "danger" });
+    }
+  };
+  return (
+    <>
+      <input
+        ref={input}
+        type="file"
+        accept={FORM_TYPES}
+        hidden
+        aria-label={`Signed form for ${purposeLabel(consent.purpose)}`}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file !== undefined) void onFile(file);
+        }}
+      />
+      <Button
+        variant="ghost"
+        className="mt-1 px-2 py-1"
+        icon={<Paperclip aria-hidden="true" className="size-4" />}
+        disabled={busy}
+        onClick={() => input.current?.click()}
+      >
+        {busy ? "Adding…" : "Add signed form"}
+      </Button>
+    </>
+  );
+}
+
+/** The file input for the signed form, labelled by the surrounding `Field`. */
+function FormFileInput({ onChoose }: { onChoose: (file: File | undefined, problem: string | undefined) => void }) {
+  const { props: control } = useFieldControl({});
+  return (
+    <input
+      {...control}
+      type="file"
+      accept={FORM_TYPES}
+      className="text-sm"
+      onChange={(event) => {
+        const chosen = event.target.files?.[0];
+        const problem = chosen === undefined ? undefined : formProblem(chosen);
+        onChoose(chosen, problem);
+        if (problem !== undefined) event.target.value = "";
+      }}
+    />
+  );
+}
+
 function RecordConsentDialog({ patientId, active, onOpenChange }: { patientId: PatientId; active: ConsentPurpose[]; onOpenChange: () => void }) {
   const open = PURPOSES.filter((p) => !active.includes(p.value));
   const [purpose, setPurpose] = useState<ConsentPurpose>(open[0]?.value ?? "care");
   const [version, setVersion] = useState("");
   const [method, setMethod] = useState<ConsentMethod>("paper");
   const [note, setNote] = useState("");
+  const [file, setFile] = useState<File | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const record = useRecordConsent(patientId);
+  const form = useUploadForm(patientId);
   const toast = useToast();
+  const busy = record.isPending || form.isPending;
 
-  const submit = () => {
+  const submit = async () => {
     setError(undefined);
-    record.mutate(
-      {
+    try {
+      // The form goes up first, so the consent is recorded with it in one step.
+      const signature = file === undefined ? undefined : await form.upload(file);
+      await record.mutateAsync({
         purpose,
         notice_version: version.trim(),
         method,
         ...(note.trim() === "" ? {} : { note: note.trim() }),
-      },
-      {
-        onSuccess: () => {
-          toast.show({ title: "Consent recorded", tone: "success" });
-          onOpenChange();
-        },
-        onError: (thrown) => {
-          setError(apiErrorOf(thrown)?.message ?? "Couldn't record that consent. Please try again.");
-        },
-      },
-    );
+        ...(signature === undefined ? {} : { signature_attachment_id: signature }),
+      });
+      toast.show({ title: "Consent recorded", tone: "success" });
+      onOpenChange();
+    } catch (thrown) {
+      setError(apiErrorOf(thrown)?.message ?? "Couldn't record that consent. Please try again.");
+    }
   };
 
   return (
@@ -164,8 +287,13 @@ function RecordConsentDialog({ patientId, active, onOpenChange }: { patientId: P
           <Button variant="secondary" onClick={onOpenChange}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={version.trim() === "" || open.length === 0 || record.isPending}>
-            {record.isPending ? "Saving…" : "Save"}
+          <Button
+            onClick={() => {
+              void submit();
+            }}
+            disabled={version.trim() === "" || open.length === 0 || busy}
+          >
+            {busy ? "Saving…" : "Save"}
           </Button>
         </>
       }
@@ -189,6 +317,14 @@ function RecordConsentDialog({ patientId, active, onOpenChange }: { patientId: P
         </Field>
         <Field label="How was it given?">
           <Select options={METHODS} value={method} onValueChange={setMethod} />
+        </Field>
+        <Field label="Signed form" hint="Optional. A photo or scan of the form the patient signed (JPEG, PNG or PDF, up to 10 MB).">
+          <FormFileInput
+            onChoose={(chosen, problem) => {
+              setError(problem);
+              setFile(problem === undefined ? chosen : undefined);
+            }}
+          />
         </Field>
         <Field label="Note" hint="For example the paper form number. No health details.">
           <TextArea

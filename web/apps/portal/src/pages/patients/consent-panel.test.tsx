@@ -50,4 +50,42 @@ describe("Consent on Patient 360", () => {
     expect(screen.queryByRole("button", { name: /Withdraw consent/ })).toBeNull();
     expect(screen.getByText("No consent recorded")).toBeTruthy();
   });
+
+  it("records a consent with a photo of the signed form, or adds one later", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = firstPatientPath();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await user.click(await screen.findByRole("tab", { name: "Consent" }));
+    const photo = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3])], "form.jpg", { type: "image/jpeg" });
+
+    await user.click(await screen.findByRole("button", { name: "Record consent" }));
+    let dialog = await screen.findByRole("dialog");
+    await user.selectOptions(within(dialog).getByLabelText(/Purpose/), "care");
+    await user.type(within(dialog).getByLabelText(/Notice version/), "v1");
+    await user.upload(within(dialog).getByLabelText(/Signed form/), photo);
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await screen.findByRole("button", { name: "View signed form: Care and records" })).toBeTruthy();
+
+    // A consent recorded without the form gets it later.
+    await user.click(screen.getByRole("button", { name: "Record consent" }));
+    dialog = await screen.findByRole("dialog");
+    await user.selectOptions(within(dialog).getByLabelText(/Purpose/), "reminders");
+    await user.type(within(dialog).getByLabelText(/Notice version/), "v1");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await screen.findByRole("button", { name: "Add signed form" });
+    await user.upload(screen.getByLabelText("Signed form for Reminders"), photo);
+    expect(await screen.findByRole("button", { name: "View signed form: Reminders" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add signed form" })).toBeNull();
+  });
+
+  it("refuses a file that isn't a photo or a PDF", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const { path, backend } = firstPatientPath();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await user.click(await screen.findByRole("tab", { name: "Consent" }));
+    await user.click(await screen.findByRole("button", { name: "Record consent" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.upload(within(dialog).getByLabelText(/Signed form/), new File(["x"], "form.heic", { type: "image/heic" }));
+    expect(within(dialog).getByRole("alert").textContent).toMatch(/JPEG or PNG/);
+  });
 });

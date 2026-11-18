@@ -11,6 +11,7 @@ import {
   type PatientListOptions,
   type PatientId,
   type RecordConsent,
+  type SetConsentSignature,
   type WithdrawConsent,
 } from "@aarogyam/api-client";
 
@@ -99,6 +100,16 @@ export function useRecordConsent(patientId: PatientId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: RecordConsent) => unwrap(api.recordConsent(patientId, input)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patient-consents", access.org_id, patientId] }),
+  });
+}
+
+/** Attaches the photo or scan of the signed form to a consent already recorded. */
+export function useSetConsentSignature(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: ConsentId; input: SetConsentSignature }) => unwrap(api.setConsentSignature(patientId, id, input)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["patient-consents", access.org_id, patientId] }),
   });
 }

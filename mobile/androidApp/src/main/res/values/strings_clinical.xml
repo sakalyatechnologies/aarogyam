@@ -127,6 +127,14 @@
     <string name="cn_c_team_pending">Invited, not joined yet</string>
     <string name="cn_c_team_pending_until">%1$s · until %2$s</string>
     <string name="cn_c_team_pending_no_email">Invitation</string>
+    <string name="cn_c_team_invite_actions">Invitation options</string>
+    <string name="cn_c_team_resend">Resend invitation</string>
+    <string name="cn_c_team_cancel">Cancel invitation</string>
+    <string name="cn_c_team_cancel_title">Cancel this invitation?</string>
+    <string name="cn_c_team_cancel_message">The link in the email stops working.</string>
+    <string name="cn_c_team_cancel_keep">Keep</string>
+    <string name="cn_c_team_resent">Invitation sent again to %1$s</string>
+    <string name="cn_c_team_cancelled">Invitation cancelled</string>
     <string name="cn_c_team_not_allowed_message">Ask the owner to manage the team.</string>
     <string name="cn_c_team_not_allowed_title">The team list is for owners</string>
     <string name="cn_c_team_title">Team</string>

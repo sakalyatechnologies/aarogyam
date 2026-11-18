@@ -2,16 +2,19 @@ package com.aarogyam.staff.team
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.badges
+import com.aarogyam.staff.api.cancelInvitation
 import com.aarogyam.staff.api.inbox
 import com.aarogyam.staff.api.lowStock
 import com.aarogyam.staff.api.model.NewConversationBody
 import com.aarogyam.staff.api.notifications
 import com.aarogyam.staff.api.readAllNotifications
+import com.aarogyam.staff.api.resendInvitation
 import com.aarogyam.staff.api.staff
 import com.aarogyam.staff.api.startConversation
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.ClinicMoment
 import com.aarogyam.staff.patients.moment
+import com.sakalya.mobile.core.ApiErrorKind
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
@@ -55,7 +58,22 @@ data class PendingInviteRow(
     val name: String? = null,
     val roleName: String,
     val expires: ClinicMoment?,
+    /** The caller may resend or cancel it: only an owner acts on an owner's invitation. */
+    val manageable: Boolean = true,
 )
+
+/** What the last resend or cancel did, for a short message; [TeamStateHolder.consumeNotice] clears it. */
+sealed interface InviteNotice {
+    data class Resent(
+        val email: String,
+    ) : InviteNotice
+
+    data object Cancelled : InviteNotice
+
+    data class Failed(
+        val error: ScreenError,
+    ) : InviteNotice
+}
 
 /** One low-stock line. */
 data class StockRow(
@@ -125,10 +143,18 @@ abstract class SimpleListHolder<T>(
 class TeamStateHolder(
     clinic: ClinicContext,
     private val scope: CoroutineScope,
-    log: Logger = Logger("aarogyam.team"),
+    private val log: Logger = Logger("aarogyam.team"),
 ) : SimpleListHolder<MemberRow>(clinic, scope, STAFF_MANAGE, log, "team.load_failed") {
     private val mutableOpened = MutableStateFlow<String?>(null)
     private val mutablePending = MutableStateFlow<List<PendingInviteRow>>(emptyList())
+    private val mutableBusy = MutableStateFlow<String?>(null)
+    private val mutableNotice = MutableStateFlow<InviteNotice?>(null)
+
+    /** The invitation a resend or cancel is running on; its actions are off meanwhile. */
+    val busy: StateFlow<String?> = mutableBusy.asStateFlow()
+
+    /** The outcome of the last resend or cancel. */
+    val notice: StateFlow<InviteNotice?> = mutableNotice.asStateFlow()
 
     /** Invitations neither accepted nor expired, newest first; loaded with the members. */
     val pending: StateFlow<List<PendingInviteRow>> = mutablePending.asStateFlow()
@@ -144,6 +170,7 @@ class TeamStateHolder(
         when (val answer = clinic.api.staff()) {
             is Outcome.Success -> {
                 val names = answer.value.members.associate { it.roleKey to it.roleName }
+                val owner = clinic.session.membership.roleKey == OWNER
                 mutablePending.value =
                     answer.value.invitations.map {
                         PendingInviteRow(
@@ -152,6 +179,7 @@ class TeamStateHolder(
                             it.displayName?.trim()?.ifEmpty { null },
                             names[it.roleKey] ?: it.roleKey.replace('_', ' ').replaceFirstChar(Char::uppercase),
                             moment(it.expiresAt, clinic.timeZone),
+                            manageable = owner || it.roleKey != OWNER,
                         )
                     }
                 Outcome.Success(
@@ -185,7 +213,64 @@ class TeamStateHolder(
         mutableOpened.value = null
     }
 
+    /** Emails a fresh link (7 more days); the old link stops working. The token in the answer is dropped. */
+    fun resend(id: String) =
+        act(id, "team.resend_failed") {
+            when (val answer = clinic.api.resendInvitation(id)) {
+                is Outcome.Success -> Outcome.Success(InviteNotice.Resent(answer.value.email))
+                is Outcome.Failure -> answer
+            }
+        }
+
+    /** Withdraws the invitation; its link stops working. */
+    fun cancel(id: String) =
+        act(id, "team.cancel_failed") {
+            when (val answer = clinic.api.cancelInvitation(id)) {
+                is Outcome.Success -> {
+                    mutablePending.update { rows -> rows.filterNot { it.id == id } }
+                    Outcome.Success(InviteNotice.Cancelled)
+                }
+
+                is Outcome.Failure -> {
+                    answer
+                }
+            }
+        }
+
+    fun consumeNotice() {
+        mutableNotice.value = null
+    }
+
+    private fun act(
+        id: String,
+        event: String,
+        call: suspend () -> Outcome<InviteNotice, com.sakalya.mobile.core.ApiError>,
+    ) {
+        if (mutableBusy.value != null || mutablePending.value.none { it.id == id && it.manageable }) return
+        mutableBusy.value = id
+        scope.launch {
+            val answer = call()
+            mutableNotice.value =
+                when (answer) {
+                    is Outcome.Success -> {
+                        answer.value
+                    }
+
+                    is Outcome.Failure -> {
+                        log.warn(event) { code("error", answer.error.code.value) }
+                        InviteNotice.Failed(ScreenError.of(answer.error))
+                    }
+                }
+            mutableBusy.value = null
+            // A resend moves the expiry; a 404 means someone else accepted or cancelled it.
+            val resent = answer is Outcome.Success && answer.value is InviteNotice.Resent
+            val gone = answer is Outcome.Failure && answer.error.kind == ApiErrorKind.NotFound
+            if (resent || gone) refresh()
+        }
+    }
+
     private companion object {
+        const val OWNER = "owner"
         const val STAFF_MANAGE = "staff.manage"
         const val CHAT_USE = "chat.use"
     }

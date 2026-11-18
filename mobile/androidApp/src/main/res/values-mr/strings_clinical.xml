@@ -127,6 +127,14 @@
     <string name="cn_c_team_pending">आमंत्रित, अजून सामील नाहीत</string>
     <string name="cn_c_team_pending_until">%1$s · %2$s पर्यंत</string>
     <string name="cn_c_team_pending_no_email">आमंत्रण</string>
+    <string name="cn_c_team_invite_actions">आमंत्रण पर्याय</string>
+    <string name="cn_c_team_resend">आमंत्रण पुन्हा पाठवा</string>
+    <string name="cn_c_team_cancel">आमंत्रण रद्द करा</string>
+    <string name="cn_c_team_cancel_title">हे आमंत्रण रद्द करायचे?</string>
+    <string name="cn_c_team_cancel_message">ईमेलमधील लिंक काम करणे थांबवेल.</string>
+    <string name="cn_c_team_cancel_keep">राहू द्या</string>
+    <string name="cn_c_team_resent">%1$s यांना आमंत्रण पुन्हा पाठवले</string>
+    <string name="cn_c_team_cancelled">आमंत्रण रद्द केले</string>
     <string name="cn_c_team_not_allowed_message">टीम व्यवस्थापनासाठी मालकांना विचारा.</string>
     <string name="cn_c_team_not_allowed_title">टीम यादी मालकांसाठी आहे</string>
     <string name="cn_c_team_title">टीम</string>

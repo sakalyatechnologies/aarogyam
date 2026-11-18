@@ -14,6 +14,9 @@ struct TeamPage: View {
     @State private var chattingWith = ""
     @State private var inviting = false
     @State private var pending: [PendingInviteRow] = []
+    @State private var busy: String?
+    @State private var cancelling: PendingInviteRow?
+    @State private var toast: String?
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -60,7 +63,30 @@ struct TeamPage: View {
         .sheet(isPresented: $inviting, onDismiss: { holder.refresh() }) {
             InviteStaffSheet(graph: graph, clinic: clinic) { _ in inviting = false }
         }
+        .skToast($toast)
+        .confirmationDialog(
+            CL("c.team.cancel_title"),
+            isPresented: Binding(get: { cancelling != nil }, set: { if !$0 { cancelling = nil } }),
+            titleVisibility: .visible, presenting: cancelling
+        ) { row in
+            Button(CL("c.team.cancel"), role: .destructive) { holder.cancel(id: row.id) }
+            Button(CL("c.team.cancel_keep"), role: .cancel) {}
+        } message: { _ in
+            Text(CL("c.team.cancel_message"))
+        }
         .task { for await rows in holder.pending { pending = rows } }
+        .task { for await id in holder.busy { busy = id } }
+        .task {
+            for await notice in holder.notice {
+                guard let notice else { continue }
+                holder.consumeNotice()
+                switch onEnum(of: notice) {
+                case .resent(let resent): toast = String(format: CL("c.team.resent %@"), resent.email)
+                case .cancelled: toast = CL("c.team.cancelled")
+                case .failed(let failed): toast = failed.error.message
+                }
+            }
+        }
         .task {
             for await opened in holder.opened {
                 guard let id = opened else { continue }
@@ -83,13 +109,29 @@ struct TeamPage: View {
                         Text(row.name ?? row.email ?? CL("c.team.pending_no_email")).font(.system(size: 13.5, weight: .bold)).foregroundStyle(r.onSurface.color)
                         Text(pendingSubtitle(row)).font(.system(size: 11.5)).foregroundStyle(r.onSurfaceVariant.color)
                     }
+                    .accessibilityElement(children: .combine)
                     Spacer(minLength: 0)
+                    if row.manageable { inviteMenu(row) }
                 }
                 .padding(.vertical, 9).padding(.horizontal, 11)
                 .background(r.card.color, in: UnevenRoundedRectangle(cornerRadii: MoreSizes.listRadii(index, of: pending.count), style: .continuous))
-                .accessibilityElement(children: .combine)
+                .accessibilityElement(children: .contain)
             }
         }
+    }
+
+    /// Resend or cancel; only an owner acts on an owner's invitation, so the row comes marked.
+    private func inviteMenu(_ row: PendingInviteRow) -> some View {
+        Menu {
+            Button(CL("c.team.resend")) { holder.resend(id: row.id) }
+            Button(CL("c.team.cancel"), role: .destructive) { cancelling = row }
+        } label: {
+            V7Icon(name: "more", size: 20, tint: theme.roles.onSurfaceVariant.color)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
+        }
+        .disabled(busy != nil)
+        .accessibilityLabel(CL("c.team.invite_actions"))
     }
 
     private func pendingSubtitle(_ row: PendingInviteRow) -> String {

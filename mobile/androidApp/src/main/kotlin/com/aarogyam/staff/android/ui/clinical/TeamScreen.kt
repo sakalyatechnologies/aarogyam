@@ -7,11 +7,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,7 +27,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
@@ -30,7 +39,9 @@ import com.aarogyam.staff.android.ui.LoadingIndicator
 import com.aarogyam.staff.android.ui.StatusBarTone
 import com.aarogyam.staff.android.ui.display
 import com.aarogyam.staff.android.ui.message
+import com.aarogyam.staff.android.ui.patient.V7Icon
 import com.aarogyam.staff.android.ui.rememberHolder
+import com.aarogyam.staff.team.InviteNotice
 import com.aarogyam.staff.team.InviteStaffStateHolder
 import com.aarogyam.staff.team.ListState
 import com.aarogyam.staff.team.MemberRow
@@ -42,10 +53,12 @@ import com.sakalya.mobile.designcompose.SkChip
 import com.sakalya.mobile.designcompose.SkEmptyState
 import com.sakalya.mobile.designcompose.SkListRow
 import com.sakalya.mobile.designcompose.SkTheme
+import com.sakalya.mobile.designcompose.SkToastHost
 import com.sakalya.mobile.designcompose.SkTone
 import com.sakalya.mobile.designcompose.SkTopBar
 import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
+import com.sakalya.mobile.designcompose.rememberSkToastState
 import kotlinx.coroutines.CoroutineScope
 
 /** The team list (`staff.manage`): who is in the clinic, their role and whether they are active; a tap opens a direct chat when the role may chat. */
@@ -63,7 +76,23 @@ fun TeamScreen(
     val state by holder.state.collectAsStateWithLifecycle()
     val opened by holder.opened.collectAsStateWithLifecycle()
     val pending by holder.pending.collectAsStateWithLifecycle()
+    val busy by holder.busy.collectAsStateWithLifecycle()
+    val notice by holder.notice.collectAsStateWithLifecycle()
     var inviting by remember { mutableStateOf(false) }
+    var cancelling by remember { mutableStateOf<PendingInviteRow?>(null) }
+    val toast = rememberSkToastState()
+    val resources = LocalResources.current
+    LaunchedEffect(notice) {
+        val shown = notice ?: return@LaunchedEffect
+        holder.consumeNotice()
+        val text =
+            when (shown) {
+                is InviteNotice.Resent -> resources.getString(R.string.cn_c_team_resent, shown.email)
+                InviteNotice.Cancelled -> resources.getString(R.string.cn_c_team_cancelled)
+                is InviteNotice.Failed -> resources.getString(shown.error.message())
+            }
+        toast.show(text)
+    }
     var chattingWith by remember { mutableStateOf("") }
     val direct = stringResource(R.string.cn_c_chat_direct)
     LaunchedEffect(opened) {
@@ -130,13 +159,34 @@ fun TeamScreen(
                                         modifier = Modifier.padding(top = Spacing.L.dp, bottom = Spacing.XS.dp),
                                     )
                                 }
-                                items(pending, key = { it.id }) { PendingItem(it) }
+                                items(pending, key = { it.id }) { row ->
+                                    PendingItem(row, enabled = busy == null, onResend = { holder.resend(row.id) }) {
+                                        cancelling = row
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        SkToastHost(toast)
+    }
+    cancelling?.let { row ->
+        AlertDialog(
+            onDismissRequest = { cancelling = null },
+            title = { Text(stringResource(R.string.cn_c_team_cancel_title)) },
+            text = { Text(stringResource(R.string.cn_c_team_cancel_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    cancelling = null
+                    holder.cancel(row.id)
+                }) { Text(stringResource(R.string.cn_c_team_cancel), color = SkTheme.colors.dangerText.color) }
+            },
+            dismissButton = {
+                TextButton(onClick = { cancelling = null }) { Text(stringResource(R.string.cn_c_team_cancel_keep)) }
+            },
+        )
     }
     if (inviting && invite != null) {
         val inviter = rememberHolder { invite(it) }
@@ -148,9 +198,17 @@ fun TeamScreen(
     }
 }
 
+/** One invitation; its menu resends or cancels it when the caller may act on it. */
 @Composable
-private fun PendingItem(row: PendingInviteRow) {
+private fun PendingItem(
+    row: PendingInviteRow,
+    enabled: Boolean,
+    onResend: () -> Unit,
+    onCancel: () -> Unit,
+) {
     val until = row.expires?.date?.display()
+    var menu by remember { mutableStateOf(false) }
+    val actions = stringResource(R.string.cn_c_team_invite_actions)
     Box(Modifier.clip(RoundedCornerShape(16.dp)).background(SkTheme.colors.card.color)) {
         SkListRow(
             title = row.name ?: row.email ?: stringResource(R.string.cn_c_team_pending_no_email),
@@ -163,6 +221,38 @@ private fun PendingItem(row: PendingInviteRow) {
                     )
                 } ?: row.roleName,
             leading = { SkAvatar(row.name ?: row.email ?: "?", tone = SkTone.Neutral, size = 38.dp) },
+            trailing = {
+                if (row.manageable) {
+                    Box {
+                        IconButton(
+                            onClick = { menu = true },
+                            enabled = enabled,
+                            modifier =
+                                Modifier.size(40.dp).semantics { contentDescription = actions },
+                        ) {
+                            V7Icon("more", SkTheme.palette.onSurfaceVariant.color, 20.dp)
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.cn_c_team_resend)) }, onClick = {
+                                menu = false
+                                onResend()
+                            })
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.cn_c_team_cancel),
+                                        color = SkTheme.colors.dangerText.color,
+                                    )
+                                },
+                                onClick = {
+                                    menu = false
+                                    onCancel()
+                                },
+                            )
+                        }
+                    }
+                }
+            },
         )
     }
 }

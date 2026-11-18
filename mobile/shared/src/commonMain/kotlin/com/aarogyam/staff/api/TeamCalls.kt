@@ -46,6 +46,23 @@ suspend fun ClinicApi.inviteStaff(body: NewInvitation): Outcome<CreatedInvitatio
         setBody(body)
     }
 
+/**
+ * `POST /api/v1/staff/invitations/{id}/resend` (`resendStaffInvitation`): a fresh link valid 7 more
+ * days; the old one stops working. The answer's `invite_token` is a secret the caller drops.
+ */
+suspend fun ClinicApi.resendInvitation(id: String): Outcome<CreatedInvitation, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/staff/invitations/${id.encodeURLPathPart()}/resend")
+    }
+
+/** `DELETE /api/v1/staff/invitations/{id}` (`cancelStaffInvitation`): the link stops working. */
+suspend fun ClinicApi.cancelInvitation(id: String): Outcome<Unit, ApiError> =
+    client.call {
+        method = HttpMethod.Delete
+        url("api/v1/staff/invitations/${id.encodeURLPathPart()}")
+    }
+
 /** `GET /api/v1/stock/low` (`lowStock`): items at or below their reorder level, worst first. */
 suspend fun ClinicApi.lowStock(): Outcome<ItemList, ApiError> = client.call { url("api/v1/stock/low") }
 

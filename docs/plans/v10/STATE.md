@@ -275,6 +275,9 @@ Done:
   5. Optional: retake iOS shot 2 (visit with Rx) cleaner.
 - **The founder's open question:** the "ROCM … icon on the top right".
 
+### 18 Nov, later: invite resend and cancel
+- **Team (both apps):** each pending invitation has a "⋮" menu with Resend invitation (`POST /staff/invitations/{id}/resend`, a fresh 7-day link; the token is dropped) and Cancel invitation (`DELETE`, after a confirm). Toasts: "Invitation sent again to {email}" and "Invitation cancelled"; errors show as a toast too. Only an owner sees the menu on an owner's invitation (the API answers 403). A 404 reloads the list. Shared `TeamStateHolder.resend`, `cancel`, `busy` and `notice`; tests in `TeamInvitesTest`.
+
 ### 18 Nov: main 91a7daeb
 - **Play screenshots: done (5).** In `mobile/fastlane/metadata/android/en-US/images/phoneScreenshots`: 1 Today with "Waiting for you", 2 Patient, 3 History, 4 Schedule queue with the chair board, 5 Visit with tagged notes. All 1080×1920 from the store seed (`iosApp/scripts/store-seed.sh`). Analytics was left out: the synthetic money looks wrong (negative net, 0% chair use).
 - **Fixed while shooting (Android):**

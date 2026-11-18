@@ -33,7 +33,8 @@ export function App({ services }: { services: ConsoleServices }) {
   const [queryClient] = useState(() =>
     createQueryClient({
       onUnauthenticated: () => {
-        void services.auth.signOut();
+        // The API refused this session; other devices stay signed in.
+        void services.auth.forget();
       },
     }),
   );

@@ -7988,8 +7988,12 @@ export interface components {
             locale: string;
             /** @description `ios` or `android`; anything else is `400`. */
             platform: string;
-            /** @description The push provider's token for this install (APNs or FCM), 1 to 4096 characters. */
-            token: string;
+            /**
+             * @description The push provider's token for this install (APNs or FCM), 1 to 4096 characters. Leave it
+             *     out until the install has one (no push permission yet): the install is still recorded,
+             *     so its session counts as a phone's, and a token already registered is kept.
+             */
+            token?: string | null;
         };
         /** @description Why a follow-up is dismissed. */
         DismissRecall: {

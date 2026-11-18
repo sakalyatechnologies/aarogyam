@@ -6,6 +6,7 @@ const client = {
   getAccessToken: vi.fn(),
   verifySession: vi.fn(),
   signOut: vi.fn(() => Promise.resolve()),
+  forget: vi.fn(() => Promise.resolve()),
 };
 
 vi.mock("./env", () => ({ API_BASE_URL: "", CONSOLE_URL: "", SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "k" }));

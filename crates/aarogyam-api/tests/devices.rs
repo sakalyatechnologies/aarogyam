@@ -273,9 +273,10 @@ async fn the_patient_app_is_reserved_and_bad_input_is_refused() {
         let (status, body) = put(&app, &owner, install, bad).await;
         assert_eq!(status, StatusCode::BAD_REQUEST, "{what}: {body}");
     }
-    // A malformed body (a missing token, an unknown field) is refused before anything is read.
+    // A malformed body (a missing platform, an unknown field) is refused before anything is
+    // read. A missing token is fine: the install registers before it has one.
     for malformed in [
-        json!({ "platform": "ios", "app": "staff", "locale": "en-IN" }),
+        json!({ "token": ios("no-platform"), "app": "staff", "locale": "en-IN" }),
         json!({ "platform": "ios", "token": "abc", "app": "staff", "locale": "en-IN",
                 "name": "Asha" }),
     ] {
@@ -622,5 +623,40 @@ async fn signing_out_the_current_session_clears_its_devices_and_nobody_elses() {
         .send(Method::GET, ALPHA, "/api/v1/session", Some(&fresh), None)
         .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn an_install_registers_without_a_token_and_keeps_one_it_already_has() {
+    let app = TestApp::start().await;
+    let phone = app.token(ALPHA_OWNER);
+    let install = Uuid::now_v7();
+    let tokenless = json!({ "platform": "android", "app": "staff", "locale": "en-IN" });
+    let (status, body) = put(&app, &phone, install, tokenless.clone()).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    // Recorded, so its session counts as a phone's, but there is nothing to push to.
+    let recorded: i64 = sqlx::query_scalar(
+        "select count(*) from aarogyam.devices d join aarogyam.users u on u.id = d.user_id
+         where u.auth_uid = $1 and d.installation_id = $2 and d.session_id is not null",
+    )
+    .bind(ALPHA_OWNER)
+    .bind(install)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(recorded, 1);
+    assert_eq!(token_of(&app, ALPHA_OWNER, install).await, None);
+    assert_eq!(listed(&app, ALPHA_OWNER).await, Vec::<String>::new());
+
+    // The token arrives later; a refresh without one keeps it.
+    let token = fcm("later");
+    let with_token =
+        json!({ "platform": "android", "token": token, "app": "staff", "locale": "en-IN" });
+    let (status, _) = put(&app, &phone, install, with_token).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = put(&app, &phone, install, tokenless).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(token_of(&app, ALPHA_OWNER, install).await, Some(token));
     app.finish().await;
 }

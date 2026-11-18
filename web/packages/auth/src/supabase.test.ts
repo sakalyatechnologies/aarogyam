@@ -119,6 +119,17 @@ describe("createSupabaseAuth", () => {
     expect(auth.getState()).toEqual({ status: "signed_out" });
   });
 
+  it("forgets a session the API refused in this browser only, leaving other devices signed in", async () => {
+    const { api } = stubApi();
+    const auth = createSupabaseAuth(api);
+    await auth.forget();
+    expect(auth.getState()).toEqual({ status: "signed_out" });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(api.signOut).toHaveBeenCalledWith({ scope: "local" });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(api.signOut).not.toHaveBeenCalledWith({ scope: "global" });
+  });
+
   it("verifies a stored session with the server, and drops one the server refuses", async () => {
     const good = stubApi();
     expect(await createSupabaseAuth(good.api).verifySession()).toBe(true);

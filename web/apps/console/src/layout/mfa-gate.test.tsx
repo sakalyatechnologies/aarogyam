@@ -22,6 +22,7 @@ function client(initial: MfaStatus, verify = vi.fn<(factor: string, code: string
     subscribe: () => () => undefined,
     getAccessToken: () => Promise.resolve("t"),
     signOut: () => Promise.resolve(),
+    forget: () => Promise.resolve(),
     verifySession: () => Promise.resolve(true),
     requestCode: () => Promise.resolve({ ok: true }),
     verifyCode: () => Promise.resolve({ ok: true }),

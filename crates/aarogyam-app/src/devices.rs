@@ -27,8 +27,9 @@ pub struct Registration {
     pub installation_id: Uuid,
     /// The phone's operating system.
     pub platform: DevicePlatform,
-    /// The push provider's token for this install. Never logged.
-    pub token: String,
+    /// The push provider's token for this install, once it has one; a registration without one
+    /// keeps any token already recorded. Never logged.
+    pub token: Option<String>,
     /// Which app this is.
     pub app: DeviceApp,
     /// The phone's language, such as `en-IN`.
@@ -37,8 +38,9 @@ pub struct Registration {
     pub app_version: Option<String>,
 }
 
-/// Registers or refreshes the install, replacing its token. A token held by another person or
-/// install moves here, since the phone changed hands.
+/// Registers or refreshes the install, replacing its token when one is sent. A token held by
+/// another person or install moves here, since the phone changed hands. An install registers at
+/// sign-in even without a token, so its session counts as a phone's.
 ///
 /// # Errors
 /// [`AppError::UnsupportedApp`] for the patient app (reserved); [`AppError::Invalid`] for a bad
@@ -48,7 +50,11 @@ pub async fn register(db: &Db, registration: Registration) -> Result<(), AppErro
     if !registration.app.supported() {
         return Err(AppError::UnsupportedApp);
     }
-    if !valid_token(registration.platform, &registration.token) {
+    if registration
+        .token
+        .as_deref()
+        .is_some_and(|token| !valid_token(registration.platform, token))
+    {
         return Err(AppError::invalid(
             "token",
             "is not a push token for this platform",
@@ -72,7 +78,7 @@ pub async fn register(db: &Db, registration: Registration) -> Result<(), AppErro
             session_expires_at: registration.session_expires_at,
             installation_id: registration.installation_id,
             platform: registration.platform.as_str(),
-            token: &registration.token,
+            token: registration.token.as_deref(),
             app: registration.app.as_str(),
             locale: &registration.locale,
             app_version: registration.app_version.as_deref(),

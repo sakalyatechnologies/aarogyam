@@ -24,8 +24,8 @@ pub struct NewDevice<'a> {
     pub installation_id: Uuid,
     /// `ios` or `android`.
     pub platform: &'a str,
-    /// The provider's push token. Never logged.
-    pub token: &'a str,
+    /// The provider's push token, when the install has one yet. Never logged.
+    pub token: Option<&'a str>,
     /// `staff` (or `patient`, reserved).
     pub app: &'a str,
     /// The device's language, such as `en-IN`.

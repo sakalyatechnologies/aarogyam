@@ -22,6 +22,7 @@ function stubAuth(responses: { request?: AuthOutcome; verify?: AuthOutcome; pass
     subscribe: () => () => undefined,
     getAccessToken: () => Promise.resolve(null),
     signOut: () => Promise.resolve(),
+    forget: () => Promise.resolve(),
     verifySession: () => Promise.resolve(true),
     requestCode,
     verifyCode,

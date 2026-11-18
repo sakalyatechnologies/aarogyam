@@ -23914,7 +23914,6 @@
         "description": "An install of the app and where to push to it.",
         "required": [
           "platform",
-          "token",
           "app",
           "locale"
         ],
@@ -23939,8 +23938,11 @@
             "description": "`ios` or `android`; anything else is `400`."
           },
           "token": {
-            "type": "string",
-            "description": "The push provider's token for this install (APNs or FCM), 1 to 4096 characters."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The push provider's token for this install (APNs or FCM), 1 to 4096 characters. Leave it\nout until the install has one (no push permission yet): the install is still recorded,\nso its session counts as a phone's, and a token already registered is kept."
           }
         },
         "additionalProperties": false

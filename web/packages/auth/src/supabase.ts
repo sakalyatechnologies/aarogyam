@@ -318,6 +318,10 @@ export function createSupabaseAuth(api: SupabaseAuthApi, options: SupabaseAuthOp
       }
       store.set({ status: "signed_out" });
     },
+    forget: async () => {
+      await api.signOut({ scope: "local" }).catch(() => undefined);
+      store.set({ status: "signed_out" });
+    },
     verifySession: async () => {
       try {
         const { data, error } = await api.getUser();

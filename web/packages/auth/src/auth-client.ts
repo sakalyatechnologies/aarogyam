@@ -32,6 +32,11 @@ interface AuthClientBase {
   /** Ends the session everywhere (every device and app signed in as this person), then clears it here. */
   signOut: () => Promise<void>;
   /**
+   * Clears the session in this browser only, leaving the person's other devices signed in: for when the API has
+   * already refused this session (it ended after being idle, or was revoked), so there is nothing to end elsewhere.
+   */
+  forget: () => Promise<void>;
+  /**
    * Asks the auth server whether the stored session is still good (not revoked, not expired).
    * A session the server refuses is cleared here and gives false.
    */

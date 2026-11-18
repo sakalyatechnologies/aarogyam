@@ -116,6 +116,16 @@ export function createDevAuth(options: DevAuthOptions): DevAuthClient {
     store.set(signedIn(person));
   };
   const store = createAuthStore(saved === undefined ? { status: "signed_out" } : signedIn(saved));
+  const clear = () => {
+    try {
+      storage?.removeItem(key);
+    } catch {
+      // Nothing stored.
+    }
+    current = undefined;
+    store.set({ status: "signed_out" });
+    return Promise.resolve();
+  };
 
   return {
     kind: "dev",
@@ -148,15 +158,8 @@ export function createDevAuth(options: DevAuthOptions): DevAuthClient {
       return true;
     },
     verifySession: () => Promise.resolve(store.get().status === "signed_in"),
-    signOut: () => {
-      try {
-        storage?.removeItem(key);
-      } catch {
-        // Nothing stored.
-      }
-      current = undefined;
-      store.set({ status: "signed_out" });
-      return Promise.resolve();
-    },
+    // Dev sign-ins live in this browser only, so signing out everywhere is the same as forgetting.
+    signOut: clear,
+    forget: clear,
   };
 }

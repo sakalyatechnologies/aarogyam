@@ -275,6 +275,30 @@ Done:
   5. Optional: retake iOS shot 2 (visit with Rx) cleaner.
 - **The founder's open question:** the "ROCM … icon on the top right".
 
+### 19 Nov: the founder's list of web changes brought to the phones
+On main, each after a green full gate:
+
+| # | What | Commit |
+|---|---|---|
+| 1 | Today: "patients today" headline (`counts.patients`, falls back to `total`), "N done · M appointments to come" | 8c93489b |
+| 2 | No My tasks on the doctor's and owner's home (`showsTasksOnHome`) | c2fab74c |
+| 3 | New appointment: Register and book when the search finds nobody (POST /patients once, then booking) | 552105a7 |
+| 5, 6 | Voice-notes language per person (en/hi/mr/gu, Language sheet), tooth-note dictation with an EN/HI/MR/GU switch, long press on a tooth opens it dictating | 95067b98 |
+| 7 | Collect per patient: one row per patient, one POST /payments split oldest bill first (billing roles) | c00c2e3f |
+| 8 | Recurring expenses (list, add, pause, resume, stop, Recurring tag); built by a sub-agent | 6393595b |
+| 9 | Consents: add or view the signed paper form (`consent` file + PUT signature) | cdc59d70 |
+| 11 | Analytics money: All / Revenue / Expenses / Net switch | f00a70c0 |
+| 12 | Health view: ✓ ! ✕ glyphs, not assessed as an outline | 693ef5e6 |
+| 13 | "Add image (OPG)" right after Start visit | 41bc3172 |
+
+Not done, or only in part:
+- **4:** the mobile tooth sheet never had a Start visit button.
+- **10:** Week is 7 daily bars and custom ranges go daily, weekly or monthly; there are no 1-day or 3-day presets.
+- **11:** mobile has no collections chart.
+- **14 Explain to patient:** not built yet. It needs the patient's images with pins, treatment-plan estimates (mobile doesn't load plans) and a hold-to-exit full screen.
+- **3:** the age only, no date of birth.
+- **8:** recurring expenses can't be edited (PATCH) and have no start-date picker.
+
 ### 18 Nov, late night: tooth health
 - **Tooth health (both apps):** a Health card on the tooth sheet (Healthy, Watch or Needs treatment; one tap saves via PUT .../teeth/{tooth}/status, rolled back if refused). Without a status the chart's suggestion shows, labelled. Watch and Needs treatment take a "treat within" of 1, 3, 6 or 12 months and a one-line note; "Use the chart's suggestion" sends the DELETE.
 - **Done elsewhere:** offered in Add treatment for finished work (filled, crown, root canal, implant, bridge, missing). It marks the chart with `elsewhere` and logs no visit procedure; history says "Done elsewhere".

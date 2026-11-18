@@ -157,6 +157,8 @@
     <string name="cn_c_expenses_note">नोंद</string>
     <string name="cn_c_expenses_note_prompt">हे कशासाठी होते?</string>
     <string name="cn_c_expenses_photo">बिलाचा फोटो</string>
+    <string name="cn_c_expenses_cancel">रद्द करा</string>
+    <string name="cn_c_expenses_bill_remove_failed">बिल फोटो काढता आला नाही. पुन्हा प्रयत्न करा.</string>
     <string name="cn_c_expenses_photo_remove">बिल फोटो काढा</string>
     <string name="cn_c_expenses_photo_attached">बिल फोटो जोडला आहे</string>
     <string name="cn_c_expenses_bill_failed">खर्च सेव्ह झाला, पण बिल फोटो अपलोड झाला नाही.</string>

@@ -7,6 +7,7 @@ import com.aarogyam.staff.api.model.Expense
 import com.aarogyam.staff.api.model.ExpenseCategory
 import com.aarogyam.staff.api.model.NewExpense
 import com.aarogyam.staff.api.recordExpense
+import com.aarogyam.staff.api.removeExpenseBill
 import com.aarogyam.staff.api.uploadExpenseBill
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.IdempotencyKey
@@ -170,7 +171,27 @@ class ExpensesStateHolder(
     }
 
     /** The screen opened the link (or showed the failure); it is not kept. */
-    fun closeBill() = mutableState.update { it.copy(billLink = null, billLinkFailed = false) }
+    fun closeBill() = mutableState.update { it.copy(billLink = null, billLinkFailed = false, billRemoveFailed = false) }
+
+    /** Takes the bill photo off [expenseId]; needs `expenses.write`. */
+    fun removeBill(expenseId: String) {
+        if (!mutableState.value.canAdd) return
+        scope.launch {
+            when (val answer = clinic.api.removeExpenseBill(expenseId)) {
+                is Outcome.Success -> {
+                    log.info("expense.bill_removed")
+                    mutableState.update { st ->
+                        st.copy(rows = st.rows.map { if (it.id == expenseId) it.copy(hasBill = false) else it })
+                    }
+                }
+
+                is Outcome.Failure -> {
+                    log.warn("expense.bill_remove_failed") { code("error", answer.error.code.value) }
+                    mutableState.update { it.copy(billRemoveFailed = true) }
+                }
+            }
+        }
+    }
 
     private suspend fun sendBill(
         id: String,

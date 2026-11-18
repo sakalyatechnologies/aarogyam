@@ -59,6 +59,7 @@ fun ExpensesScreen(
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     var adding by remember { mutableStateOf(false) }
+    var billOf by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize()) {
         StatusBarTone.DarkHeader()
         SkTopBar(
@@ -118,13 +119,22 @@ fun ExpensesScreen(
                             }
                         }
                     }
-                    items(state.rows, key = { it.id }) { row -> ExpenseItem(row) { holder.openBill(row.id) } }
+                    items(state.rows, key = { it.id }) { row ->
+                        // Those who may edit expenses choose to open or remove the bill; others open it.
+                        ExpenseItem(row) { if (state.canAdd) billOf = row.id else holder.openBill(row.id) }
+                    }
                 }
             }
         }
     }
     if (adding) ExpenseSheet(holder, onDismiss = { adding = false })
-    BillLinkEffect(state.billLink, state.billLinkFailed, holder::closeBill)
+    BillLinkEffect(
+        state.billLink,
+        state.billLinkFailed || state.billRemoveFailed,
+        state.billRemoveFailed,
+        holder::closeBill,
+    )
+    billOf?.let { id -> BillActions({ billOf = null }, { holder.openBill(id) }, { holder.removeBill(id) }) }
 }
 
 @Composable

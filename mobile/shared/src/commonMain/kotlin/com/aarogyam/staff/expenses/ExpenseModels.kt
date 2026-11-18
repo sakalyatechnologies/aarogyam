@@ -90,4 +90,6 @@ data class ExpensesState(
     /** A five-minute link to the bill to open, once; [ExpensesStateHolder.closeBill] drops it. */
     val billLink: String? = null,
     val billLinkFailed: Boolean = false,
+    /** Removing a bill photo failed; [ExpensesStateHolder.closeBill] clears it. */
+    val billRemoveFailed: Boolean = false,
 )

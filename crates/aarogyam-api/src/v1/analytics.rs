@@ -28,6 +28,8 @@ pub enum AnalyticsBucket {
     Month,
     /// Weeks starting on Monday.
     Week,
+    /// Single days (ranges up to 92 days).
+    Day,
 }
 
 impl From<Bucket> for AnalyticsBucket {
@@ -35,6 +37,7 @@ impl From<Bucket> for AnalyticsBucket {
         match bucket {
             Bucket::Month => Self::Month,
             Bucket::Week => Self::Week,
+            Bucket::Day => Self::Day,
         }
     }
 }
@@ -273,7 +276,7 @@ pub struct AnalyticsParams {
     pub from: Option<String>,
     /// Last clinic day.
     pub to: Option<String>,
-    /// `month` or `week`.
+    /// `month`, `week` or `day`.
     pub bucket: Option<String>,
 }
 
@@ -335,7 +338,7 @@ fn counts<K>(rows: Vec<(K, i64)>, key: impl Fn(K) -> &'static str) -> Vec<KeyCou
     params(
         ("from" = Option<String>, Query, description = "First clinic day, YYYY-MM-DD (default: the 1st of the month eleven months before to)"),
         ("to" = Option<String>, Query, description = "Last clinic day, included (default: today)"),
-        ("bucket" = Option<String>, Query, description = "month (default) or week")
+        ("bucket" = Option<String>, Query, description = "month (default), week, or day (ranges up to 92 days)")
     ),
     security(("bearer" = [])),
     responses(
@@ -367,7 +370,7 @@ pub(crate) async fn analytics(
     let bucket = params
         .bucket
         .as_deref()
-        .map(|t| Bucket::parse(t).map_err(|_| bad("bucket", "must be month or week")))
+        .map(|t| Bucket::parse(t).map_err(|_| bad("bucket", "must be month, week or day")))
         .transpose()?;
     let report = app::report(
         state.db(),

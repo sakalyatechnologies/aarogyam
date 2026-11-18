@@ -12,12 +12,11 @@ import { compactRupees } from "../../../lib/money.js";
 import { useExpenses, usePendingReport } from "../../billing/queries.js";
 import { MoneyEye, useShowMoney } from "../../today/v2/money.js";
 import { Body, Empty } from "../../today/v2/widget-parts.js";
-import { useWeeklyCollections } from "../../today/v2/queries.js";
-import { bucketLabel, isEmpty, periodRows, rangeStart, totals } from "../analytics-data.js";
+import { bucketLabel, isEmpty, periodRows, totals } from "../analytics-data.js";
 import { series, swatch } from "../chart-tooltip.js";
 import { IncomeVsExpensesChart, MethodStackChart, WeeklyCollectionsChart } from "../money-charts.js";
-import { useAnalytics } from "../queries.js";
-import { bucketOf, expenseWindow, monthsOf, weeksOf, type RangeKey } from "./range.js";
+import { useAnalytics, useRangeCollections } from "../queries.js";
+import { expenseWindow, windowLabel, type RangeWindow } from "./range.js";
 import { Tile } from "./tiles.js";
 
 const dayLabel = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -37,18 +36,19 @@ function MoneyCard({ title, subtitle, wide, children }: { title: string; subtitl
 }
 
 /** Money: income and expenses, what was collected and how, what is still owed, and the expense log. Needs `finance.view`. */
-export function MoneyTab({ range, today }: { range: RangeKey; today: string }) {
+export function MoneyTab({ win }: { win: RangeWindow }) {
   const [shown] = useShowMoney();
-  const report = useAnalytics({ from: rangeStart(today, monthsOf(range)), bucket: bucketOf(range) });
+  const report = useAnalytics({ from: win.from, to: win.to, bucket: win.bucket });
   const pending = usePendingReport(shown);
   if (report.isError && report.data === undefined) {
     return <ApiErrorNotice title="Couldn't load money figures" error={report.error} onRetry={() => void report.refetch()} />;
   }
   if (report.data === undefined) return <Loading />;
-  return <Money report={report.data} range={range} today={today} pending={pending} />;
+  return <Money report={report.data} win={win} pending={pending} />;
 }
 
-function Money({ report, range, today, pending }: { report: Analytics; range: RangeKey; today: string; pending: ReturnType<typeof usePendingReport> }) {
+function Money({ report, win, pending }: { report: Analytics; win: RangeWindow; pending: ReturnType<typeof usePendingReport> }) {
+  const byDay = win.bucket === "day";
   const [shown] = useShowMoney();
   const t = totals(report);
   const owed = pending.data;
@@ -76,20 +76,20 @@ function Money({ report, range, today, pending }: { report: Analytics; range: Ra
         <MoneyCard title="Income vs expenses" subtitle="Received and spent in each period; the latest is so far" wide="an2-w8">
           <IncomeBody report={report} />
         </MoneyCard>
-        <MoneyCard title="Billed vs collected" subtitle="Where the money went, this range" wide="an2-w4">
-          <BilledBody range={range} pending={pending} />
+        <MoneyCard title="Billed vs collected" subtitle={`Where the money went, ${windowLabel(win)}`} wide="an2-w4">
+          <BilledBody win={win} pending={pending} />
         </MoneyCard>
-        <MoneyCard title="Collections by week" subtitle="Payments received each week" wide="an2-w8">
-          <WeeklyBody range={range} />
+        <MoneyCard title={byDay ? "Collections by day" : "Collections by week"} subtitle={byDay ? "Payments received each day" : "Payments received each week"} wide="an2-w8">
+          <CollectionsBody win={win} />
         </MoneyCard>
         <MoneyCard title="Collections by method" subtitle="How patients paid" wide="an2-w4">
-          <MethodBody range={range} />
+          <MethodBody win={win} />
         </MoneyCard>
         <MoneyCard title="Expenses by category" subtitle="Share of everything spent" wide="an2-w4">
           <CategoryBody report={report} />
         </MoneyCard>
-        <MoneyCard title="Expense log" subtitle="The last six weeks, newest first" wide="an2-w8">
-          <ExpenseLog today={today} enabled={shown} />
+        <MoneyCard title="Expense log" subtitle={win.days > 42 ? "The last six weeks of the range, newest first" : "Newest first"} wide="an2-w8">
+          <ExpenseLog win={win} enabled={shown} />
         </MoneyCard>
       </div>
     </div>
@@ -104,8 +104,8 @@ function IncomeBody({ report }: { report: Analytics }) {
   return <IncomeVsExpensesChart rows={periodRows(report)} animate={animate} />;
 }
 
-function BilledBody({ range, pending }: { range: RangeKey; pending: ReturnType<typeof usePendingReport> }) {
-  const collections = useWeeklyCollections(weeksOf(range), true, "prev");
+function BilledBody({ win, pending }: { win: RangeWindow; pending: ReturnType<typeof usePendingReport> }) {
+  const collections = useRangeCollections(win, true, "prev");
   return (
     <Body query={collections} label="billed and collected" rows={4} isEmpty={(c) => c.invoiced_paise === 0 && c.collected_paise === 0} empty={<Empty title="Nothing billed yet" description="Invoices and payments show here." />}>
       {(c) => <BilledFlow c={c} pending={pending} />}
@@ -172,18 +172,30 @@ function BilledFlow({ c, pending }: { c: Collections; pending: ReturnType<typeof
   );
 }
 
-function WeeklyBody({ range }: { range: RangeKey }) {
+/** Collections over the range: by day up to a month, else by week, with the split by method. */
+function CollectionsBody({ win }: { win: RangeWindow }) {
   const animate = useReducedMotion() !== true;
-  const collections = useWeeklyCollections(weeksOf(range), true);
+  const collections = useRangeCollections(win, true);
+  const byDay = win.bucket === "day";
+  const points = (c: Collections) => (byDay ? c.by_day : c.by_week);
   return (
-    <Body query={collections} label="collections by week" isEmpty={(c) => c.by_week.length === 0 || c.by_week.every((w) => w.amount_paise === 0)} empty={<Empty title="Nothing collected yet" description="Payments you record show here week by week." />}>
+    <Body
+      query={collections}
+      label={byDay ? "collections by day" : "collections by week"}
+      isEmpty={(c) => points(c).length === 0 || points(c).every((w) => w.amount_paise === 0)}
+      empty={<Empty title="Nothing collected yet" description={byDay ? "Payments you record show here day by day." : "Payments you record show here week by week."} />}
+    >
       {(c) => (
         <>
           <WeeklyCollectionsChart
             animate={animate}
-            rows={c.by_week.map((w) => ({ label: bucketLabel(w.date, "week"), tip: `Week of ${dayLabel(w.date)} (${String(w.payments)} payments)`, value: w.amount_paise / 100 }))}
+            rows={points(c).map((w) => ({
+              label: byDay ? dayLabel(w.date) : bucketLabel(w.date, "week"),
+              tip: `${byDay ? dayLabel(w.date) : `Week of ${dayLabel(w.date)}`} (${String(w.payments)} payments)`,
+              value: w.amount_paise / 100,
+            }))}
           />
-          <MethodSplit c={c} animate={animate} />
+          <MethodSplit c={c} byDay={byDay} animate={animate} />
         </>
       )}
     </Body>
@@ -191,13 +203,14 @@ function WeeklyBody({ range }: { range: RangeKey }) {
 }
 
 /** The same weeks split by how patients paid. Absent when the report carries no per-method split. */
-function MethodSplit({ c, animate }: { c: Collections; animate: boolean }) {
-  const keys = [...new Set(c.by_week.flatMap((w) => w.by_method.filter((m) => m.amount_paise > 0).map((m) => m.method)))];
+function MethodSplit({ c, byDay, animate }: { c: Collections; byDay: boolean; animate: boolean }) {
+  const points = byDay ? c.by_day : c.by_week;
+  const keys = [...new Set(points.flatMap((w) => w.by_method.filter((m) => m.amount_paise > 0).map((m) => m.method)))];
   if (keys.length === 0) return null;
   const methods = keys.map((key, i) => ({ key, name: methodName(key), color: series(i + 1) }));
-  const rows = c.by_week.map((w) => ({
-    label: bucketLabel(w.date, "week"),
-    tip: `Week of ${dayLabel(w.date)}`,
+  const rows = points.map((w) => ({
+    label: byDay ? dayLabel(w.date) : bucketLabel(w.date, "week"),
+    tip: byDay ? dayLabel(w.date) : `Week of ${dayLabel(w.date)}`,
     ...Object.fromEntries(keys.map((k) => [k, (w.by_method.find((m) => m.method === k)?.amount_paise ?? 0) / 100])),
   }));
   return (
@@ -216,8 +229,8 @@ function MethodSplit({ c, animate }: { c: Collections; animate: boolean }) {
   );
 }
 
-function MethodBody({ range }: { range: RangeKey }) {
-  const collections = useWeeklyCollections(weeksOf(range), true);
+function MethodBody({ win }: { win: RangeWindow }) {
+  const collections = useRangeCollections(win, true);
   return (
     <Body query={collections} label="collections by method" rows={4} isEmpty={(c) => c.by_method.length === 0} empty={<Empty title="No payments yet" />}>
       {(c) => (
@@ -266,10 +279,10 @@ function CategoryBody({ report }: { report: Analytics }) {
   );
 }
 
-function ExpenseLog({ today, enabled }: { today: string; enabled: boolean }) {
-  const expenses = useExpenses(expenseWindow(today), enabled);
+function ExpenseLog({ win, enabled }: { win: RangeWindow; enabled: boolean }) {
+  const expenses = useExpenses(expenseWindow(win), enabled);
   return (
-    <Body query={expenses} label="expenses" rows={4} isEmpty={(d) => d.items.length === 0} empty={<Empty title="No expenses in the last six weeks" description="Add them under Billing, Expenses." />}>
+    <Body query={expenses} label="expenses" rows={4} isEmpty={(d) => d.items.length === 0} empty={<Empty title="No expenses in this range" description="Add them under Billing, Expenses." />}>
       {(d) => (
         <div className="an2-scroll">
           <table className="an2-table">

@@ -60,3 +60,22 @@
 .an2-delta[data-dir="up"] { color: var(--sk-success, var(--sk-text-muted)); }
 .an2-split { margin-top: 16px; }
 .an2-sub { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+
+/* The custom range's start and end dates, under the header; side by side, stacked on a phone. */
+.an2-custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  margin: -4px 0 16px;
+}
+.an2-custom > * {
+  min-width: 180px;
+}
+.an2-custom-problem {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--sk-danger-text);
+}

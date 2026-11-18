@@ -10,10 +10,10 @@ export function rangeStart(today: string, months: Months): string {
   return new Date(Date.UTC(year ?? 2000, (month ?? 1) - months, 1)).toISOString().slice(0, 10);
 }
 
-/** `Nov` (or `Nov '25` across a year boundary) for months; `6 Oct` for weeks. */
+/** `Nov` (or `Nov '25` across a year boundary) for months; `6 Oct` for weeks and days. */
 export function bucketLabel(start: string, bucket: AnalyticsBucket, withYear = false): string {
   const date = new Date(`${start}T00:00:00Z`);
-  if (bucket === "week") return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  if (bucket === "week" || bucket === "day") return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
   const month = date.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
   return withYear ? `${month} '${start.slice(2, 4)}` : month;
 }
@@ -58,7 +58,7 @@ const shortDay = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateStrin
 /** The last day of the month or week starting `start`. */
 export function periodEnd(start: string, bucket: AnalyticsBucket): string {
   const d = new Date(`${start}T00:00:00Z`);
-  const end = bucket === "month" ? new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)) : new Date(d.getTime() + 6 * 86_400_000);
+  const end = bucket === "month" ? new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)) : new Date(d.getTime() + (bucket === "day" ? 0 : 6) * 86_400_000);
   return end.toISOString().slice(0, 10);
 }
 

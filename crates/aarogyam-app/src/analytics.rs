@@ -13,8 +13,8 @@
 use aarogyam_dal::analytics::{self as dal, AnalyticsQuery, AnalyticsRows};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::analytics::{
-    AgeBand, Bucket, ChairTime, MAX_DAYS, OPEN_MINUTES_PER_DAY, ReferralKind, default_from,
-    open_minutes, utilization_bps,
+    AgeBand, Bucket, ChairTime, MAX_DAILY_DAYS, MAX_DAYS, OPEN_MINUTES_PER_DAY, ReferralKind,
+    default_from, open_minutes, utilization_bps,
 };
 use aarogyam_domain::expense::ExpenseCategoryKey;
 use aarogyam_domain::ids::RoomId;
@@ -192,7 +192,7 @@ fn average_days(orders: i64, total_minutes: i64) -> Option<f64> {
 }
 
 /// The report for clinic days `from` to `to` by `bucket` (months by default). The last twelve
-/// months by default; at most 731 days.
+/// months by default; at most 731 days, or 92 by day.
 ///
 /// # Errors
 /// [`AppError::Denied`] without `analytics.view`; [`AppError::Invalid`] for a backwards or
@@ -220,6 +220,12 @@ pub async fn report(
         return Err(AppError::invalid(
             "from",
             "the range can be at most 731 days (24 months)",
+        ));
+    }
+    if bucket == Bucket::Day && days >= MAX_DAILY_DAYS {
+        return Err(AppError::invalid(
+            "bucket",
+            "day needs a range of at most 92 days",
         ));
     }
     let (start, end) = day_range(timezone, from, to);

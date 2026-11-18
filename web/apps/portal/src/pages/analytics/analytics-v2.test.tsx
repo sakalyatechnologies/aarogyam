@@ -10,7 +10,9 @@ import { ROLES } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../../lib/new-look.js";
 import { NOW, PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
+import { pickDate } from "../../test/date-picker.js";
 import { SHOW_MONEY_KEY } from "../today/v2/money.js";
+import { addDays, daysBetween } from "./v2/range.js";
 
 // jsdom has no layout, so ResponsiveContainer would measure 0×0 and draw nothing: give charts a size.
 vi.mock("recharts", async (importOriginal) => {
@@ -199,6 +201,70 @@ describe("Analytics (New look)", () => {
     });
     expect((asked.at(-1)?.from ?? "") > twelve).toBe(true);
     expect(screen.getByRole("button", { name: "3 months" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("asks for the last 1, 3 or 7 days by day, and the money cards follow", async () => {
+    const user = userEvent.setup();
+    const asked: AnalyticsQuery[] = [];
+    const wrap = (client: ApiClient): ApiClient => {
+      const original = client.getAnalytics.bind(client);
+      client.getAnalytics = (query, options) => {
+        asked.push(query);
+        return original(query, options);
+      };
+      return client;
+    };
+    renderPortal("/analytics?range=7d&tab=money", { as: PEOPLE.asha, wrap });
+    expect(await screen.findByRole("heading", { name: "Collections by day", level: 2 })).toBeTruthy();
+    const week = asked.at(-1);
+    expect(week?.bucket).toBe("day");
+    expect(daysBetween(week?.from ?? "", week?.to ?? "")).toBe(7);
+
+    await user.click(screen.getByRole("button", { name: "1 day" }));
+    await waitFor(() => {
+      expect(asked.at(-1)?.from).toBe(week?.to);
+    });
+    expect(asked.at(-1)?.to).toBe(week?.to);
+    await user.click(screen.getByRole("button", { name: "1 month" }));
+    await waitFor(() => {
+      expect(daysBetween(asked.at(-1)?.from ?? "", asked.at(-1)?.to ?? "")).toBeGreaterThanOrEqual(28);
+    });
+    expect(asked.at(-1)?.bucket).toBe("day");
+  });
+
+  it("takes a custom start and end date, kept in the URL, and explains a range it can't use", async () => {
+    const user = userEvent.setup();
+    const asked: AnalyticsQuery[] = [];
+    const wrap = (client: ApiClient): ApiClient => {
+      const original = client.getAnalytics.bind(client);
+      client.getAnalytics = (query, options) => {
+        asked.push(query);
+        return original(query, options);
+      };
+      return client;
+    };
+    const { router } = renderPortal("/analytics?range=6m", { as: PEOPLE.asha, wrap });
+    await screen.findByRole("heading", { name: "Busy hours" });
+    const sixMonths = asked.at(-1);
+    await user.click(screen.getByRole("button", { name: "Custom" }));
+    // Custom starts from the range on screen.
+    await waitFor(() => {
+      expect(new URLSearchParams(router.state.location.search).get("from")).toBe(sixMonths?.from);
+    });
+    const to = sixMonths?.to ?? "";
+    const start = addDays(to, -9);
+    await pickDate(user, "Start date", start);
+    await waitFor(() => {
+      expect(asked.at(-1)?.from).toBe(start);
+    });
+    expect(asked.at(-1)).toMatchObject({ to, bucket: "day" });
+    expect(new URLSearchParams(router.state.location.search).get("range")).toBe("custom");
+    expect(screen.queryByRole("alert")).toBeNull();
+    cleanup();
+
+    renderPortal("/analytics?range=custom&from=2026-10-10&to=2026-10-01", { as: PEOPLE.asha, wrap });
+    expect((await screen.findByRole("alert")).textContent).toMatch(/start date must be on or before the end date/);
+    expect(asked.at(-1)?.bucket).toBe("month");
   });
 
   it("falls back to 6 months for a range the URL gets wrong", async () => {

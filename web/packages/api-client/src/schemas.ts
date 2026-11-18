@@ -2485,7 +2485,7 @@ export type ExpenseList = z.output<typeof expenseList>;
 /** Body of `POST /api/v1/expenses`. */
 export type NewExpense = C.NewExpense;
 
-export const analyticsBucket = z.enum(["month", "week"]) satisfies z.ZodType<C.AnalyticsBucket>;
+export const analyticsBucket = z.enum(["month", "week", "day"]) satisfies z.ZodType<C.AnalyticsBucket>;
 export type AnalyticsBucket = z.output<typeof analyticsBucket>;
 
 const chairUtilization = z.object({

@@ -6,11 +6,11 @@ import { ApiErrorNotice, formatRupees } from "@aarogyam/app-kit";
 import { BentoCard, Heatmap } from "@sakalya/ui";
 
 import { Empty, Skeleton } from "../../../components/mk/index.js";
-import { AGE_LABEL, REFERRAL_LABEL, VISIT_LABEL, WEEKDAY, busyGrid, hourLabel, isEmpty, periodRows, rangeStart, totals } from "../analytics-data.js";
+import { AGE_LABEL, REFERRAL_LABEL, VISIT_LABEL, WEEKDAY, busyGrid, hourLabel, isEmpty, periodRows, totals } from "../analytics-data.js";
 import { DonutCard } from "../breakdown-charts.js";
 import { ChairChart, PatientMixChart } from "../chair-charts.js";
 import { useAnalytics } from "../queries.js";
-import { bucketOf, monthsOf, type RangeKey } from "./range.js";
+import type { RangeWindow } from "./range.js";
 import { Tile } from "./tiles.js";
 
 /** `endodontics` → `Endodontics`, `root_canal` → `Root canal`. */
@@ -20,8 +20,8 @@ export const prettyKey = (key: string) => {
 };
 
 /** Practice: who came, what was done, how the chairs were used and when it was busy. Nothing here is money. */
-export function PracticeTab({ range, today }: { range: RangeKey; today: string }) {
-  const report = useAnalytics({ from: rangeStart(today, monthsOf(range)), bucket: bucketOf(range) });
+export function PracticeTab({ win }: { win: RangeWindow }) {
+  const report = useAnalytics({ from: win.from, to: win.to, bucket: win.bucket });
   if (report.isError && report.data === undefined) {
     return <ApiErrorNotice title="Couldn't load analytics" error={report.error} onRetry={() => void report.refetch()} />;
   }

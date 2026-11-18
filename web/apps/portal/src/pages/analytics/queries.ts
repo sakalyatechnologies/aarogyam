@@ -17,3 +17,15 @@ export function useAnalytics(query: AnalyticsQuery) {
     staleTime: 5 * 60_000,
   });
 }
+
+/** Collections for exactly `from` to `to` (at most 366 days), optionally with the period before for comparison. */
+export function useRangeCollections(range: { from: string; to: string }, enabled: boolean, compare?: "prev") {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["collections-range", access.org_id, range.from, range.to, compare ?? null],
+    queryFn: ({ signal }) => unwrap(api.getCollections({ from: range.from, to: range.to, ...(compare === undefined ? {} : { compare }) }, { signal })),
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+  });
+}

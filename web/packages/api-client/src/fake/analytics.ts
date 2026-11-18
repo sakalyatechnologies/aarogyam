@@ -117,10 +117,12 @@ function periods(from: string, to: string, bucket: C.AnalyticsBucket): { start: 
   let start =
     bucket === "month"
       ? toDay(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)))
-      : addDays(from, -((d.getUTCDay() + 6) % 7));
+      : bucket === "day"
+        ? from
+        : addDays(from, -((d.getUTCDay() + 6) % 7));
   while (start <= to) {
     const s = parseDay(start);
-    const next = bucket === "month" ? toDay(new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth() + 1, 1))) : addDays(start, 7);
+    const next = bucket === "month" ? toDay(new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth() + 1, 1))) : addDays(start, bucket === "day" ? 1 : 7);
     const end = addDays(next, -1);
     out.push({ start, first: start < from ? from : start, last: end > to ? to : end });
     start = next;

@@ -8416,6 +8416,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (daysInclusive(from, to) > 731) {
             return invalid("from", "the range is too long");
           }
+          if (bucket === "day" && daysInclusive(from, to) > 92) {
+            return invalid("bucket", "day needs a range of at most 92 days");
+          }
           const clinicId = caller.clinic.id;
           return reply(
             buildAnalytics({

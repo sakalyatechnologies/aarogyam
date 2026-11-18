@@ -1,4 +1,4 @@
-//! Rules behind the owner's Analytics page: periods (months or weeks), chair utilization, age
+//! Rules behind the owner's Analytics page: periods (months, weeks or days), chair utilization, age
 //! bands and referral kinds. See `docs/decisions.md`, "Analytics: chair utilization".
 
 use time::{Date, Duration, Month};
@@ -12,6 +12,9 @@ pub const OPEN_MINUTES_PER_DAY: i64 = 9 * 60;
 /// The longest range the report covers, in days (about 24 months).
 pub const MAX_DAYS: i64 = 731;
 
+/// The longest range the report groups by day, in days (about three months).
+pub const MAX_DAILY_DAYS: i64 = 92;
+
 text_value!(
     /// How the report groups days.
     Bucket("bucket") {
@@ -19,6 +22,8 @@ text_value!(
         Month => "month",
         /// Weeks starting on Monday.
         Week => "week",
+        /// Single days, for ranges up to [`MAX_DAILY_DAYS`].
+        Day => "day",
     }
 );
 
@@ -29,6 +34,7 @@ impl Bucket {
         match self {
             Self::Month => day.replace_day(1).unwrap_or(day),
             Self::Week => day - Duration::days(i64::from(day.weekday().number_days_from_monday())),
+            Self::Day => day,
         }
     }
 
@@ -36,6 +42,7 @@ impl Bucket {
     #[must_use]
     pub fn next(self, start: Date) -> Date {
         match self {
+            Self::Day => start + Duration::DAY,
             Self::Week => start + Duration::days(7),
             Self::Month => {
                 let (year, month) = match start.month() {
@@ -241,6 +248,24 @@ mod tests {
         let across_years = Bucket::Month.periods(date!(2025 - 12 - 01), date!(2026 - 01 - 01));
         assert_eq!(across_years.len(), 2);
         assert_eq!(across_years[1].0, date!(2026 - 01 - 01));
+    }
+
+    #[test]
+    fn days_are_one_period_each() {
+        let periods = Bucket::Day.periods(date!(2026 - 10 - 30), date!(2026 - 11 - 01));
+        assert_eq!(
+            periods.iter().map(|p| p.0).collect::<Vec<_>>(),
+            [
+                date!(2026 - 10 - 30),
+                date!(2026 - 10 - 31),
+                date!(2026 - 11 - 01)
+            ]
+        );
+        assert!(
+            periods
+                .iter()
+                .all(|(start, first, last)| start == first && first == last)
+        );
     }
 
     #[test]

@@ -14413,7 +14413,7 @@
           {
             "name": "bucket",
             "in": "query",
-            "description": "month (default) or week",
+            "description": "month (default), week, or day (ranges up to 92 days)",
             "required": false,
             "schema": {
               "type": "string"
@@ -19659,7 +19659,8 @@
         "description": "How the report groups days.",
         "enum": [
           "month",
-          "week"
+          "week",
+          "day"
         ]
       },
       "AnalyticsBucketRow": {

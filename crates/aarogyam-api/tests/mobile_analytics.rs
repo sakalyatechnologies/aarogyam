@@ -186,3 +186,39 @@ async fn analytics_split_chair_time_sex_procedures_and_walk_ins() {
     );
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn analytics_by_day_gives_one_period_per_day_for_up_to_92_days() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let get = async |query: &str| {
+        app.send(
+            Method::GET,
+            ALPHA,
+            &format!("/api/v1/reports/analytics?{query}"),
+            Some(&owner),
+            None,
+        )
+        .await
+    };
+    let (status, report) = get("from=2026-10-30&to=2026-11-01&bucket=day").await;
+    assert_eq!(status, StatusCode::OK, "{report}");
+    assert_eq!(report["bucket"], "day");
+    let starts: Vec<&str> = report["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["start"].as_str().unwrap())
+        .collect();
+    assert_eq!(starts, ["2026-10-30", "2026-10-31", "2026-11-01"]);
+
+    // 92 days is the longest daily range; one more is refused.
+    let (status, _) = get("from=2026-08-02&to=2026-11-01&bucket=day").await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, refused) = get("from=2026-08-01&to=2026-11-01&bucket=day").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+    let (status, _) = get("from=2026-11-01&to=2026-11-01&bucket=hour").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    app.finish().await;
+}

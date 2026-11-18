@@ -6206,7 +6206,7 @@ export interface components {
          * @description How the report groups days.
          * @enum {string}
          */
-        AnalyticsBucket: "month" | "week";
+        AnalyticsBucket: "month" | "week" | "day";
         /** @description One month or week. Money fields are null without `finance.view`. */
         AnalyticsBucketRow: {
             /** @description Every chair in `chairs`, in that order. */
@@ -29484,7 +29484,7 @@ export interface operations {
                 from?: string;
                 /** @description Last clinic day, included (default: today) */
                 to?: string;
-                /** @description month (default) or week */
+                /** @description month (default), week, or day (ranges up to 92 days) */
                 bucket?: string;
             };
             header?: never;

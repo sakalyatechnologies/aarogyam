@@ -21,6 +21,8 @@ class ShellLogicTest {
         assertFalse(TodayLogic.usesDesk(setOf("appointments.write", "clinical.write")))
         assertTrue(TodayLogic.showsWaitingCard(setOf("clinical.write")))
         assertTrue(TodayLogic.showsTasks(setOf("tasks.use")))
+        // Doctors and owners don't get it by default.
+        assertFalse(TodayLogic.showsTasks(setOf("tasks.use", "clinical.write")))
         assertFalse(TodayLogic.showsTasks(emptySet()))
     }
 

@@ -106,7 +106,7 @@ struct MainTabs: View {
                     }
                 }
                 .toolbar {
-                    if TodayV10Logic.showsTasks(permissions: clinic.permissions) {
+                    if TodayV10Logic.showsTasksOnHome(permissions: clinic.permissions) {
                         ToolbarItem(placement: .topBarLeading) {
                             Button { tasksOpen = true } label: {
                                 HStack(spacing: 4) {

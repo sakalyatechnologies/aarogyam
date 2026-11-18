@@ -36,6 +36,7 @@ import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.device.PreferenceKey
 import com.aarogyam.staff.nav.Home
 import com.aarogyam.staff.nav.homeChoiceOf
+import com.aarogyam.staff.nav.showsTasksOnHome
 import com.aarogyam.staff.pollWhileInFront
 
 /** What the Today tab shows, decided from permissions alone (iOS `TodayV10Logic`). */
@@ -43,8 +44,8 @@ object TodayLogic {
     /** The Desk home replaces the Today list for a person whose home is the Desk. */
     fun usesDesk(permissions: Set<String>): Boolean = homeChoiceOf(permissions).home == Home.Desk
 
-    /** The My tasks button shows only for a role that may use tasks. */
-    fun showsTasks(permissions: Set<String>): Boolean = "tasks.use" in permissions
+    /** The My tasks button shows for front desk and assistants, not doctors and owners (shared rule). */
+    fun showsTasks(permissions: Set<String>): Boolean = showsTasksOnHome(permissions)
 
     /** The doctor's "Waiting for you" card sits above Today for anyone who can write clinical notes. */
     fun showsWaitingCard(permissions: Set<String>): Boolean = "clinical.write" in permissions

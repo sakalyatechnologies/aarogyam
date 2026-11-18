@@ -44,6 +44,8 @@ final class TodayV10LogicTests: XCTestCase {
     func testTasksButtonNeedsTheTasksPermission() {
         XCTAssertTrue(TodayV10Logic.showsTasks(permissions: ["tasks.use", "patients.read"]))
         XCTAssertFalse(TodayV10Logic.showsTasks(permissions: ["patients.read"]))
+        XCTAssertTrue(TodayV10Logic.showsTasksOnHome(permissions: ["tasks.use", "intake.write"]))
+        XCTAssertFalse(TodayV10Logic.showsTasksOnHome(permissions: ["tasks.use", "clinical.write"]), "doctors and owners don't get it by default")
     }
 
     func testDeskPersonGetsDeskHomeAndDoctorGetsToday() {

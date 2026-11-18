@@ -38,3 +38,11 @@ fun homeChoiceOf(permissions: Set<String>): HomeChoice {
         else -> HomeChoice(Home.Default, deskReachable = false)
     }
 }
+
+private const val TASKS_USE = "tasks.use"
+
+/**
+ * Whether the home shows the My tasks button: front desk and assistants do; doctors and owners
+ * (who write clinical notes) don't by default. A tapped task alert still opens the tasks.
+ */
+fun showsTasksOnHome(permissions: Set<String>): Boolean = TASKS_USE in permissions && CLINICAL_WRITE !in permissions

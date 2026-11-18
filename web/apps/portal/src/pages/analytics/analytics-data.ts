@@ -85,6 +85,17 @@ export function periodRows(report: Analytics): PeriodRow[] {
   });
 }
 
+/** A money series the Income vs expenses chart can show on its own. */
+export type MoneySeries = "income" | "expenses" | "net";
+export const MONEY_SERIES: readonly MoneySeries[] = ["income", "expenses", "net"];
+export const SERIES_LABEL: Readonly<Record<MoneySeries, string>> = { income: "Income", expenses: "Expenses", net: "Net" };
+
+/** `?series=` as a series, or undefined (show all) for anything else. */
+export const parseSeries = (value: string | null): MoneySeries | undefined => MONEY_SERIES.find((s) => s === value);
+
+/** Period rows with the net (income less expenses, in rupees) per period; it goes below zero in a period that spent more. */
+export const withNet = (rows: readonly PeriodRow[]): (PeriodRow & { net: number })[] => rows.map((r) => ({ ...r, net: (r.income ?? 0) - (r.expenses ?? 0) }));
+
 export interface Totals {
   incomePaise: number;
   expensesPaise: number;

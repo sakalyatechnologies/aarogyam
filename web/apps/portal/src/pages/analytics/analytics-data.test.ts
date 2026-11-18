@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { analytics, type Analytics } from "@aarogyam/api-client";
 
-import { busyGrid, isEmpty, periodEnd, periodRows, rangeStart, totals } from "./analytics-data.js";
+import { busyGrid, isEmpty, parseSeries, periodEnd, periodRows, rangeStart, totals, withNet, type PeriodRow } from "./analytics-data.js";
 
 const report: Analytics = analytics.parse({
   from: "2026-09-01",
@@ -57,6 +57,16 @@ describe("analytics data", () => {
     const rows = periodRows(report);
     expect(rows.map((r) => r.tip)).toEqual(["Sept", "Oct (so far)"]);
     expect(rows[0]).toMatchObject({ income: 1000, expenses: 400, rent: 400, salary: 0, chair0: 50, newPatients: 2 });
+  });
+
+  it("works out the net per period, below zero when a period spent more, and reads ?series=", () => {
+    const nov: PeriodRow = { label: "Nov", tip: "Nov", income: 200, expenses: 750, newPatients: 0, returning: 0 };
+    expect(withNet([...periodRows(report), nov]).map((r) => r.net)).toEqual([600, 500, -550]);
+    expect(withNet([{ ...nov, income: null, expenses: 300 }])[0]?.net).toBe(-300);
+    expect(parseSeries("expenses")).toBe("expenses");
+    expect(parseSeries("net")).toBe("net");
+    expect(parseSeries("all")).toBeUndefined();
+    expect(parseSeries(null)).toBeUndefined();
   });
 
   it("totals money and chair use across periods", () => {

@@ -2,19 +2,51 @@ import type { ReactNode } from "react";
 
 import { MoneyEye, useShowMoney } from "../../today/v2/money.js";
 
-/** One key number in the ribbon. A money tile carries the eye and stays masked until it is pressed. */
-export function Tile({ label, value, hint, icon, money = false, meter }: { label: string; value: ReactNode; hint?: ReactNode; icon: ReactNode; money?: boolean; meter?: number | null }) {
+/**
+ * One key number in the ribbon. A money tile carries the eye and stays masked until it is pressed. With
+ * `onPress` the tile is also a toggle: its label is the button, stretched over the whole tile, so the
+ * eye stays its own button above it.
+ */
+export function Tile({
+  label,
+  value,
+  hint,
+  icon,
+  money = false,
+  meter,
+  pressed,
+  onPress,
+  pressHint,
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: ReactNode;
+  icon: ReactNode;
+  money?: boolean;
+  meter?: number | null;
+  pressed?: boolean | undefined;
+  onPress?: (() => void) | undefined;
+  pressHint?: string | undefined;
+}) {
   const [shown] = useShowMoney();
   const masked = money && !shown;
   return (
-    <li className="an2-kpi" data-money={money ? "1" : undefined}>
+    <li className="an2-kpi" data-money={money ? "1" : undefined} data-toggle={onPress === undefined ? undefined : "1"} data-pressed={pressed === true ? "1" : undefined}>
       <div className="an2-kpi-top">
         <span className="an2-kpi-ico" aria-hidden="true">
           {icon}
         </span>
         {money ? <MoneyEye what={label.toLowerCase()} className="an2-eye" /> : null}
       </div>
-      <p className="an2-kpi-label">{label}</p>
+      {onPress === undefined ? (
+        <p className="an2-kpi-label">{label}</p>
+      ) : (
+        <p className="an2-kpi-label">
+          <button type="button" className="an2-kpi-btn" aria-pressed={pressed === true} title={pressHint} onClick={onPress}>
+            {label}
+          </button>
+        </p>
+      )}
       <p className="an2-kpi-value">
         {masked ? (
           <>

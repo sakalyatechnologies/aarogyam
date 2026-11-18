@@ -10,6 +10,20 @@
 .an2-kpi-top { display: flex; align-items: center; justify-content: space-between; min-height: 32px; }
 .an2-kpi-ico { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; background: var(--sk-surface-muted); color: var(--sk-text-muted); }
 .an2-kpi-label { margin: 0; font-size: 12px; color: var(--sk-text-muted); }
+/* A selectable tile: the label's button covers the whole tile; the eye sits above it. */
+.an2-kpi[data-toggle] { cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease; }
+.an2-kpi[data-toggle]:hover { border-color: var(--sk-border-strong); }
+.an2-kpi[data-pressed] { border-color: var(--sk-primary); background: var(--sk-primary-soft); }
+.an2-kpi-btn { margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+.an2-kpi-btn::after { content: ""; position: absolute; inset: 0; border-radius: var(--nl-card-r, 24px); }
+.an2-kpi-btn:focus-visible { outline: none; }
+.an2-kpi-btn:focus-visible::after { outline: 2px solid var(--sk-primary); outline-offset: 2px; }
+.an2-kpi[data-toggle] .an2-eye { position: relative; z-index: 1; }
+.an2-series { display: grid; gap: 8px; }
+.an2-all { justify-self: end; display: inline-flex; align-items: center; min-height: 32px; padding: 0 14px; border: 1px solid var(--sk-border); border-radius: 999px; background: var(--sk-surface); color: var(--sk-text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.an2-all:hover { background: var(--sk-surface-muted); }
+.an2-all:focus-visible { outline: 2px solid var(--sk-primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .an2-kpi[data-toggle] { transition: none; } }
 .an2-kpi-value { margin: 0; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--sk-text); }
 .an2-kpi-hint { margin: 0; font-size: 12px; color: var(--sk-text-muted); }
 .an2-meter { position: static; display: block; margin-top: 8px; }

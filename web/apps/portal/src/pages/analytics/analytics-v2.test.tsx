@@ -175,6 +175,86 @@ describe("Analytics (New look)", () => {
     expect(screen.queryByRole("img", { name: /by method/ })).toBeNull();
   });
 
+  it("draws collections as a line with dots, and keeps the split by method as bars", async () => {
+    localStorage.setItem(SHOW_MONEY_KEY, "1");
+    const wrap = withCollections((c) => {
+      c.by_week = [
+        { date: c.from, amount_paise: 300000, payments: 3, by_method: [{ method: "cash", amount_paise: 100000, payments: 1 }, { method: "upi", amount_paise: 200000, payments: 2 }] },
+        { date: addDays(c.from, 7), amount_paise: 150000, payments: 2, by_method: [{ method: "cash", amount_paise: 150000, payments: 2 }] },
+      ] as never;
+    });
+    renderPortal("/analytics?tab=money", { as: PEOPLE.asha, wrap });
+    const line = await screen.findByRole("img", { name: /^Collected per week, / });
+    await waitFor(() => {
+      expect(line.querySelector(".an-collected-line .recharts-area-curve")).not.toBeNull();
+    });
+    expect(line.querySelectorAll(".recharts-area-dots .recharts-dot")).toHaveLength(2);
+    expect(line.querySelector(".recharts-bar")).toBeNull();
+    const split = screen.getByRole("img", { name: /Collected per week by method/ });
+    expect(split.querySelectorAll(".recharts-bar").length).toBe(2);
+    expect(split.querySelector(".recharts-area")).toBeNull();
+  });
+
+  it("shows one money series from the Income, Expenses or Net tile, kept in the URL", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(SHOW_MONEY_KEY, "1");
+    const { router } = renderPortal("/analytics?tab=money", { as: PEOPLE.asha });
+    const kpis = await screen.findByRole("list", { name: "Money totals for the range" });
+    expect(within(kpis).queryByRole("button", { name: "Outstanding" })).toBeNull();
+    const all = await screen.findByRole("img", { name: /^Income and expenses by period/ });
+    expect(all.querySelector(".an-s-income")).not.toBeNull();
+    expect(within(screen.getByRole("list", { name: "Series shown" })).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Income", "Expenses", "Net"]);
+
+    // Keyboard: the tile's toggle is a real button.
+    const expenses = within(kpis).getByRole("button", { name: "Expenses" });
+    expect(expenses.getAttribute("aria-pressed")).toBe("false");
+    expenses.focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(new URLSearchParams(router.state.location.search).get("series")).toBe("expenses");
+    });
+    expect(new URLSearchParams(router.state.location.search).get("tab")).toBe("money");
+    const only = await screen.findByRole("img", { name: /^Expenses by period/ });
+    expect(only.querySelector(".an-s-income")).toBeNull();
+    expect(only.querySelector(".an-s-net")).toBeNull();
+    expect(only.querySelector(".an-s-expenses")).not.toBeNull();
+    expect(within(screen.getByRole("list", { name: "Series shown" })).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Expenses"]);
+    expect(screen.getByRole("heading", { name: "Expenses", level: 2 })).toBeTruthy();
+    expect(within(kpis).getByRole("button", { name: "Expenses" }).getAttribute("aria-pressed")).toBe("true");
+    const check = async () => (await axe.run(document.body, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } })).violations;
+    expect(await check()).toEqual([]);
+    cleanup();
+
+    // A reload keeps the choice; pressing the tile again, or Show all, brings every series back.
+    const again = renderPortal("/analytics?tab=money&series=expenses", { as: PEOPLE.asha });
+    await screen.findByRole("img", { name: /^Expenses by period/ });
+    const tiles = screen.getByRole("list", { name: "Money totals for the range" });
+    expect(within(tiles).getByRole("button", { name: "Expenses" }).getAttribute("aria-pressed")).toBe("true");
+    await user.click(within(tiles).getByRole("button", { name: "Expenses" }));
+    await screen.findByRole("heading", { name: "Income vs expenses", level: 2 });
+    expect(new URLSearchParams(again.router.state.location.search).get("series")).toBeNull();
+    await user.click(within(tiles).getByRole("button", { name: "Income" }));
+    await screen.findByRole("heading", { name: "Income", level: 2 });
+    await user.click(screen.getByRole("button", { name: "Show all" }));
+    await screen.findByRole("img", { name: /^Income and expenses by period/ });
+    expect(new URLSearchParams(again.router.state.location.search).get("series")).toBeNull();
+  }, 30_000);
+
+  it("draws the net on its own, below zero for a period that spent more", async () => {
+    localStorage.setItem(SHOW_MONEY_KEY, "1");
+    const wrap = withReport((r) => {
+      r.buckets = r.buckets.map((b, i) => ({ ...b, income_paise: i === 0 ? 100_000 : 20_000, expenses_paise: i === 0 ? 30_000 : 70_000 })) as never;
+    });
+    renderPortal("/analytics?tab=money&series=net", { as: PEOPLE.asha, wrap });
+    const net = await screen.findByRole("img", { name: /^Net by period, / });
+    const parts = (net.getAttribute("aria-label") ?? "").replace(/^Net by period, /, "").split(", ");
+    expect(parts[0]).toMatch(/ ₹700$/);
+    expect(parts.slice(1).every((p) => / −₹500$/.test(p))).toBe(true);
+    expect(net.querySelector(".an-s-net")).not.toBeNull();
+    expect(net.querySelector(".an-s-income")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Net", level: 2 })).toBeTruthy();
+  });
+
   it("keeps the range in the URL: it is read on load and written when changed", async () => {
     const user = userEvent.setup();
     const asked: AnalyticsQuery[] = [];

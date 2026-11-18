@@ -52,9 +52,9 @@ export function ChartTooltip({ active, label, payload, format, total }: ChartToo
 }
 
 /** A legend of swatches and ink-coloured names; identity never rests on colour alone. */
-export function Legend({ items }: { items: readonly { key: string; label: string; color: string }[] }) {
+export function Legend({ items, label }: { items: readonly { key: string; label: string; color: string }[]; label?: string | undefined }) {
   return (
-    <ul className="an-legend">
+    <ul className="an-legend" aria-label={label}>
       {items.map((item) => (
         <li key={item.key}>
           <span className="an-sw" style={swatch(item.color)} aria-hidden="true" />

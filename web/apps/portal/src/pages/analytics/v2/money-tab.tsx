@@ -1,6 +1,7 @@
 import { HandCoins, Hourglass, Scale, Wallet } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
+import { useSearchParams } from "react-router";
 
 import { EXPENSE_CATEGORIES, type Analytics, type Collections } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatRupees } from "@aarogyam/app-kit";
@@ -12,7 +13,7 @@ import { compactRupees } from "../../../lib/money.js";
 import { useExpenses, usePendingReport } from "../../billing/queries.js";
 import { MoneyEye, useShowMoney } from "../../today/v2/money.js";
 import { Body, Empty } from "../../today/v2/widget-parts.js";
-import { bucketLabel, isEmpty, periodRows, totals } from "../analytics-data.js";
+import { SERIES_LABEL, bucketLabel, isEmpty, parseSeries, periodRows, totals, type MoneySeries } from "../analytics-data.js";
 import { series, swatch } from "../chart-tooltip.js";
 import { IncomeVsExpensesChart, MethodStackChart, WeeklyCollectionsChart } from "../money-charts.js";
 import { useAnalytics, useRangeCollections } from "../queries.js";
@@ -24,11 +25,11 @@ const METHOD_LABEL: Readonly<Record<string, string>> = { cash: "Cash", upi: "UPI
 const methodName = (method: string) => METHOD_LABEL[method] ?? method.charAt(0).toUpperCase() + method.slice(1).replaceAll("_", " ");
 
 /** A money card: the title, the eye, and the body only while the eye is open. Nothing inside is fetched or drawn until then. */
-function MoneyCard({ title, subtitle, wide, children }: { title: string; subtitle: string; wide: string; children: ReactNode }) {
+function MoneyCard({ title, subtitle, wide, eye, children }: { title: string; subtitle: string; wide: string; eye?: string; children: ReactNode }) {
   const [shown] = useShowMoney();
   return (
     <div className={`an2-cell ${wide}`}>
-      <BentoCard title={title} subtitle={subtitle} action={<MoneyEye what={title.toLowerCase()} className="an2-eye" />}>
+      <BentoCard title={title} subtitle={subtitle} action={<MoneyEye what={eye ?? title.toLowerCase()} className="an2-eye" />}>
         {shown ? children : <p className="an2-veil">Hidden. Press the eye to show the amounts.</p>}
       </BentoCard>
     </div>
@@ -52,17 +53,39 @@ function Money({ report, win, pending }: { report: Analytics; win: RangeWindow; 
   const [shown] = useShowMoney();
   const t = totals(report);
   const owed = pending.data;
+  // The Income, Expenses and Net tiles pick what the chart shows; kept in the URL as `?series=`, like the range and tab.
+  const [params, setParams] = useSearchParams();
+  const only = parseSeries(params.get("series"));
+  const choose = (next: MoneySeries | undefined) => {
+    setParams(
+      (current) => {
+        const url = new URLSearchParams(current);
+        if (next === undefined) url.delete("series");
+        else url.set("series", next);
+        return url;
+      },
+      { replace: true },
+    );
+  };
+  const toggle = (key: MoneySeries) => ({
+    pressed: only === key,
+    pressHint: only === key ? "Show income, expenses and net together" : `Show only ${SERIES_LABEL[key].toLowerCase()} in the chart`,
+    onPress: () => {
+      choose(only === key ? undefined : key);
+    },
+  });
   return (
     <div className="an2-stack">
       <ul className="an2-kpis" aria-label="Money totals for the range">
-        <Tile money label="Income" value={compactRupees(t.incomePaise)} hint="Payments received" icon={<Wallet className="size-4" />} />
-        <Tile money label="Expenses" value={compactRupees(t.expensesPaise)} hint="Including stock received" icon={<HandCoins className="size-4" />} />
+        <Tile money label="Income" value={compactRupees(t.incomePaise)} hint="Payments received" icon={<Wallet className="size-4" />} {...toggle("income")} />
+        <Tile money label="Expenses" value={compactRupees(t.expensesPaise)} hint="Including stock received" icon={<HandCoins className="size-4" />} {...toggle("expenses")} />
         <Tile
           money
           label="Net"
           value={`${t.netPaise < 0 ? "−" : ""}${compactRupees(Math.abs(t.netPaise))}`}
           hint={t.incomePaise > 0 ? `${String(Math.round((t.netPaise / t.incomePaise) * 100))}% margin` : "No income yet"}
           icon={<Scale className="size-4" />}
+          {...toggle("net")}
         />
         <Tile
           money
@@ -73,8 +96,14 @@ function Money({ report, win, pending }: { report: Analytics; win: RangeWindow; 
         />
       </ul>
       <div className="an2-grid">
-        <MoneyCard title="Income vs expenses" subtitle="Received and spent in each period; the latest is so far" wide="an2-w8">
-          <IncomeBody report={report} />
+        <MoneyCard title={only === undefined ? "Income vs expenses" : SERIES_LABEL[only]} subtitle={SUBTITLE[only ?? "all"]} wide="an2-w8" eye="income vs expenses">
+          <IncomeBody
+            report={report}
+            only={only}
+            onShowAll={() => {
+              choose(undefined);
+            }}
+          />
         </MoneyCard>
         <MoneyCard title="Billed vs collected" subtitle={`Where the money went, ${windowLabel(win)}`} wide="an2-w4">
           <BilledBody win={win} pending={pending} />
@@ -96,12 +125,28 @@ function Money({ report, win, pending }: { report: Analytics; win: RangeWindow; 
   );
 }
 
-function IncomeBody({ report }: { report: Analytics }) {
+const SUBTITLE: Readonly<Record<MoneySeries | "all", string>> = {
+  all: "Received and spent in each period; the latest is so far",
+  income: "Received in each period; the latest is so far",
+  expenses: "Spent in each period; the latest is so far",
+  net: "Received less spent in each period; the latest is so far",
+};
+
+function IncomeBody({ report, only, onShowAll }: { report: Analytics; only: MoneySeries | undefined; onShowAll: () => void }) {
   const animate = useReducedMotion() !== true;
   if (isEmpty(report) || periodRows(report).every((r) => (r.income ?? 0) === 0 && (r.expenses ?? 0) === 0)) {
     return <Empty title="No income or expenses in this range" description="Payments and expenses you record show here." />;
   }
-  return <IncomeVsExpensesChart rows={periodRows(report)} animate={animate} />;
+  const chart = <IncomeVsExpensesChart rows={periodRows(report)} animate={animate} only={only} />;
+  if (only === undefined) return chart;
+  return (
+    <div className="an2-series">
+      <button type="button" className="an2-all" onClick={onShowAll}>
+        Show all
+      </button>
+      {chart}
+    </div>
+  );
 }
 
 function BilledBody({ win, pending }: { win: RangeWindow; pending: ReturnType<typeof usePendingReport> }) {

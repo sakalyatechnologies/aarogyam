@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { ChartEntry, PlanItem } from "@aarogyam/api-client";
 
@@ -23,6 +23,14 @@ export const VIEWS = [
 
 /** How long a press on a tooth lasts before it starts dictating a note. */
 export const LONG_PRESS_MS = 500;
+
+/** Where the hover card sits: centred on the tooth, below an upper tooth and above a lower one. */
+interface HoverSpot {
+  tooth: number;
+  x: number;
+  y: number;
+  below: boolean;
+}
 
 const GLYPH: Readonly<Record<ToothHealthView, string>> = { healthy: "✓", watch: "!", needs_treatment: "✕", none: "", unassessed: "" };
 
@@ -59,6 +67,9 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
     press.current.timer = undefined;
   };
   const health = view === "health";
+  const root = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<HoverSpot | undefined>(undefined);
+  const statusOf = useMemo(() => new Map(statuses.map((s) => [s.tooth, s])), [statuses]);
 
   const tooth = (n: number, style?: React.CSSProperties, className = "tc-tooth") => {
     const state = states.get(n) ?? EMPTY_STATE(n);
@@ -83,10 +94,17 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
         data-marked={marked?.has(n) === true || undefined}
         aria-pressed={selected === n}
         aria-label={label}
-        onPointerEnter={() => {
+        onPointerEnter={(event) => {
           onHover?.(n);
+          // A mouse resting on a tooth shows its card; touch has tap and long press instead.
+          const box = root.current?.getBoundingClientRect();
+          if (event.pointerType !== "mouse" || box === undefined) return;
+          const at = event.currentTarget.getBoundingClientRect();
+          const below = n < 30 || (n >= 50 && n < 70);
+          setHover({ tooth: n, x: at.left - box.left + at.width / 2, y: (below ? at.bottom : at.top) - box.top, below });
         }}
         onPointerDown={() => {
+          setHover(undefined);
           if (onLongPress === undefined) return;
           endPress();
           press.current.fired = false;
@@ -100,6 +118,7 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
         onPointerLeave={() => {
           endPress();
           onHover?.(undefined);
+          setHover(undefined);
         }}
         onPointerCancel={endPress}
         onContextMenu={(event) => {
@@ -156,8 +175,32 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
     );
   };
 
+  const card = () => {
+    if (hover === undefined) return null;
+    const state = states.get(hover.tooth) ?? EMPTY_STATE(hover.tooth);
+    const status = statusOf.get(hover.tooth);
+    const level = healths.get(hover.tooth) ?? "unassessed";
+    const [title = "", ...rest] = describeTooth(state).split(", ");
+    return (
+      <div role="tooltip" className="tc-hovercard" data-below={hover.below || undefined} style={{ left: hover.x, top: hover.y }}>
+        <strong>{title}</strong>
+        <span>{rest.join(", ")}</span>
+        <span data-health={level}>
+          {healthLabel(level)}
+          {status === undefined && level !== "unassessed" && level !== "none" ? " (from the chart)" : ""}
+        </span>
+        {status?.note == null ? null : <span className="tc-hovernote">{status.note}</span>}
+        {status?.treat_within_months == null ? null : <span>Advise treatment within {status.treat_within_months} {status.treat_within_months === 1 ? "month" : "months"}</span>}
+        {away.has(hover.tooth) ? <span>Done elsewhere</span> : null}
+        {progress.has(hover.tooth) ? <span>Treatment in progress</span> : null}
+        <span className="tc-hoverhint">{onLongPress === undefined ? "Click to open" : "Click to open · hold to speak a note"}</span>
+      </div>
+    );
+  };
+
   return (
-    <div className="odo tc" data-view={view}>
+    <div className="odo tc" data-view={view} ref={root}>
+      {card()}
       {look === "arch" ? (
         arch()
       ) : (

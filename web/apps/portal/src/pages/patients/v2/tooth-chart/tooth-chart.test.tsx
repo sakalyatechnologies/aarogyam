@@ -530,6 +530,27 @@ describe("tooth health and a quick note", () => {
     await screen.findByRole("complementary", { name: "Tooth 36 panel" });
   });
 
+  it("shows a tooth's findings, health, note and advice when the mouse rests on it", async () => {
+    const user = userEvent.setup();
+    const { path, backend, wrap } = seeded(() => [{ id: uuid(6), tooth: 16, finding: "caries", surface: "O" }]);
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const panel = await pickTooth(user, 16);
+    await user.click(within(panel).getByRole("button", { name: /Watch/ }));
+    await user.click(within(within(panel).getByRole("group", { name: "Advise treatment within" })).getByRole("button", { name: "3 mo" }));
+    const note = within(panel).getByRole("textbox", { name: /note/i });
+    await user.type(note, "Deep pit, recheck{Enter}");
+
+    await user.hover(tooth(16));
+    const card = await screen.findByRole("tooltip");
+    expect(card.textContent).toMatch(/Tooth 16/);
+    expect(card.textContent).toMatch(/Caries on occlusal/i);
+    expect(card.textContent).toMatch(/Watch/);
+    expect(card.textContent).toMatch(/Deep pit, recheck/);
+    expect(card.textContent).toMatch(/Advise treatment within 3 months/);
+    await user.unhover(tooth(16));
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
   it("paints the Health view in three colours with glyphs, unassessed as an outline, and remembers it", async () => {
     const user = userEvent.setup();
     const { path, backend } = seeded(() => [

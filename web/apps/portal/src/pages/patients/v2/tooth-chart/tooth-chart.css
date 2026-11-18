@@ -138,3 +138,12 @@
 
 /* Explain mode: teeth with a pin get a ring */
 .tc-tooth[data-marked] { box-shadow: inset 0 0 0 3px var(--odo-primary); }
+
+/* The card a mouse resting on a tooth shows: findings, health, the doctor's note and advice. */
+.tc { position: relative; }
+.tc-hovercard { position: absolute; z-index: 5; display: grid; gap: 2px; width: max-content; max-width: 260px; padding: 8px 10px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--odo-border) 80%, transparent); background: var(--odo-surface); color: var(--odo-text); font-size: 12px; line-height: 1.35; box-shadow: 0 8px 24px -10px rgba(0, 0, 0, .35); pointer-events: none; transform: translate(-50%, calc(-100% - 8px)); }
+.tc-hovercard[data-below] { transform: translate(-50%, 8px); }
+.tc-hovercard strong { font-size: 13px; }
+.tc-hovercard [data-health] { font-weight: 600; }
+.tc-hovernote { font-style: italic; }
+.tc-hoverhint { margin-top: 2px; color: var(--odo-muted); font-size: 11px; }

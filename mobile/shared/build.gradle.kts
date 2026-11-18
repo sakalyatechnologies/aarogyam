@@ -56,6 +56,8 @@ val apiModels =
         "RoomList",
         "Room",
         "DentalChart",
+        "ToothStatus",
+        "ToothHealth",
         "ChartEntry",
         "NewChartEntries",
         "NewChartEntry",

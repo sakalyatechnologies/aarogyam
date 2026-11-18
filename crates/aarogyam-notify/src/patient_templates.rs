@@ -1,6 +1,6 @@
 //! What patient messages say. Booking answers, prescription links and app invitations keep the
-//! wording they had in the outbox (`templates.rs`); appointment reminders and the messages staff
-//! send are rendered here. Reminders and promotional email carry a one-click unsubscribe link in
+//! wording they had in the outbox (`templates.rs`); appointment reminders, a prescription link's
+//! PIN and the messages staff send are rendered here. Reminders and promotional email carry a one-click unsubscribe link in
 //! the `List-Unsubscribe` header and a footer link to the clinic's unsubscribe page.
 
 use std::fmt::Write as _;
@@ -194,6 +194,7 @@ pub(crate) fn render(mail: &PatientMail<'_>, portal: &PortalLinks) -> Result<Ema
                 ],
             )
         }
+        MessageKind::PrescriptionSharedPin => prescription_pin(mail)?,
         MessageKind::ClinicMessage => staff_message(mail, portal)?,
         MessageKind::Welcome
         | MessageKind::VisitSummary
@@ -226,6 +227,26 @@ pub(crate) fn render(mail: &PatientMail<'_>, portal: &PortalLinks) -> Result<Ema
         html,
         list_unsubscribe: one_click,
     })
+}
+
+/// The PIN of a prescription link, sent a moment after the link on the same channel: the PIN,
+/// the clinic and the day the link expires; never the patient, the doctor or the medicines.
+fn prescription_pin(mail: &PatientMail<'_>) -> Result<(String, Vec<String>), Failure> {
+    let pin = mail
+        .secret
+        .filter(|pin| !pin.trim().is_empty())
+        .ok_or_else(|| Failure::permanent("no PIN"))?;
+    let expires = field(mail.variables, "expires_on")?;
+    Ok((
+        format!("Your PIN for the prescription from {}", mail.clinic_name),
+        vec![
+            format!(
+                "Your PIN is {pin}. Open the link in the message we just sent and enter it. \
+                 It works until {expires}."
+            ),
+            "Please do not share it.".to_owned(),
+        ],
+    ))
 }
 
 /// An automatic message (welcome, visit summary and its PIN, follow-up booking): the clinic's
@@ -444,6 +465,54 @@ mod tests {
         };
         let text = render(&welcome, &links).unwrap().text;
         assert!(text.contains("https://alpha.localtest.me/ https://alpha.localtest.me/"));
+    }
+
+    #[test]
+    fn prescription_pins_carry_the_pin_the_clinic_and_the_day_only() {
+        let links = PortalLinks::default();
+        let expires = json!({ "expires_on": "10 October 2026" });
+        let pin = PatientMail {
+            secret: Some("482913"),
+            ..mail(
+                MessageKind::PrescriptionSharedPin,
+                "prescription.shared_pin",
+                &expires,
+            )
+        };
+        let email = render(&pin, &links).unwrap();
+        assert_eq!(
+            email.subject,
+            "Your PIN for the prescription from Alpha <Dental>"
+        );
+        assert!(email.text.contains("Your PIN is 482913."));
+        assert!(email.text.contains("It works until 10 October 2026."));
+        assert!(email.html.contains("Alpha &lt;Dental&gt;"));
+        assert!(email.html.contains("482913"));
+        assert!(!email.subject.contains("482913"));
+        // No patient, doctor, link or address: only the PIN, the clinic and the day.
+        for part in [&email.text, &email.html] {
+            assert!(!part.contains("leela"));
+            assert!(!part.contains("http"));
+            assert!(!part.contains("Dr "));
+        }
+        assert_eq!(email.list_unsubscribe, None);
+        // Without its PIN or its day it fails rather than send half a message.
+        let no_pin = mail(
+            MessageKind::PrescriptionSharedPin,
+            "prescription.shared_pin",
+            &expires,
+        );
+        assert!(render(&no_pin, &links).is_err());
+        let none = json!({});
+        let no_day = PatientMail {
+            secret: Some("482913"),
+            ..mail(
+                MessageKind::PrescriptionSharedPin,
+                "prescription.shared_pin",
+                &none,
+            )
+        };
+        assert!(render(&no_day, &links).is_err());
     }
 
     #[test]

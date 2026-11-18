@@ -184,8 +184,8 @@ function PinGate({
     >
       <h1 className="shp-title">Your prescription</h1>
       <p className="shp-muted">
-        Enter the 6-digit PIN printed on your prescription, or read out by the
-        clinic.
+        Enter the 6-digit PIN we sent in a separate message just after the
+        link. It is also printed on your copy.
       </p>
       <Field label="PIN" error={error} required>
         <TextInput

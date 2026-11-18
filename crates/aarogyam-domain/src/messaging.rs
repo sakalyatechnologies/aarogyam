@@ -431,6 +431,7 @@ pub fn allowed_variables(key: &str) -> &'static [&'static str] {
             &["clinic_name", "booking_link", "when", "doctor_name"]
         }
         "prescription.shared" => &["clinic_name", "booking_link", "doctor_name", "expires_on"],
+        "prescription.shared_pin" => &["clinic_name", "pin", "expires_on"],
         "patient_app.invited" => &["clinic_name", "booking_link", "expires_on"],
         "patient.welcome" => &[
             "clinic_name",
@@ -554,6 +555,12 @@ mod tests {
             }
         }
         assert!(placeholders("visit.summary", "Hi {{patient_name}}").is_err());
+        // A prescription's PIN message names the clinic, the PIN and the expiry day only.
+        assert_eq!(
+            allowed_variables("prescription.shared_pin"),
+            ["clinic_name", "pin", "expires_on"]
+        );
+        assert!(placeholders("prescription.shared_pin", "{{doctor_name}}").is_err());
         assert!(placeholders("patient.welcome", "{{diagnosis}}").is_err());
     }
 

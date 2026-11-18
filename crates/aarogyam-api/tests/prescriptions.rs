@@ -1,5 +1,6 @@
 //! Prescriptions on a real database: drafts, the allergy check with a fake allergy source,
-//! cancel and reissue, Quick Rx, patient links with a PIN, and the QR verification page.
+//! cancel and reissue, Quick Rx, patient links with a PIN (sent apart from the link), and the QR
+//! verification page.
 #![expect(
     clippy::unwrap_used,
     reason = "tests fail loudly instead of returning errors"
@@ -689,6 +690,132 @@ async fn issuing_emails_the_patient_a_link_without_the_pin_or_medicines() {
     assert_eq!(status, StatusCode::OK, "{issued}");
     assert_eq!(issued["patient_message"]["status"], "sent");
     assert_eq!(queued(&app).await.len(), 2);
+    app.finish().await;
+}
+
+/// A link message and its PIN message: kind, channel, variables, secret, and how many seconds
+/// after the message was queued it is due.
+type Queued = (String, String, Value, Option<String>, f64);
+
+async fn link_and_pin_messages(app: &TestApp) -> Vec<Queued> {
+    sqlx::query_as(
+        "select m.kind, m.channel, m.variables, m.secret,
+                extract(epoch from m.scheduled_for - m.created_at)::float8
+         from aarogyam.messages m
+         where m.kind in ('prescription.shared', 'prescription.shared_pin')
+         order by m.created_at, m.kind",
+    )
+    .fetch_all(&app.owner)
+    .await
+    .unwrap()
+}
+
+/// Checks a link message and the PIN message after it: same channel, the PIN about 30 seconds
+/// later, nothing about the patient or the medicines. Returns the link's token and its PIN.
+fn link_then_pin(link: &Queued, pin: &Queued, channel: &str) -> (String, String) {
+    assert_eq!(
+        (link.0.as_str(), link.1.as_str()),
+        ("prescription.shared", channel)
+    );
+    assert_eq!(
+        (pin.0.as_str(), pin.1.as_str()),
+        ("prescription.shared_pin", channel)
+    );
+    assert!(link.4.abs() < 1.0, "the link is due now: {}", link.4);
+    assert!(
+        (25.0..=35.0).contains(&pin.4),
+        "the PIN is due ~30 s later: {}",
+        pin.4
+    );
+    // The PIN's message names only the day the link expires (the clinic is read when sent).
+    assert_eq!(pin.2, json!({ "expires_on": link.2["expires_on"] }));
+    let token = link.3.clone().unwrap();
+    let secret = pin.3.clone().unwrap();
+    assert_eq!(secret.len(), 6);
+    let stored = format!("{}{}", link.2, pin.2);
+    for leak in [
+        secret.as_str(),
+        token.as_str(),
+        "Ibuprofen",
+        "Rahul",
+        "Verma",
+    ] {
+        assert!(!stored.contains(leak), "a payload leaks {leak}");
+    }
+    (token, secret)
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_pin_follows_the_link_on_its_channel_and_opens_only_that_link() {
+    let app = start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = patient_with(
+        &app,
+        &owner,
+        json!({ "email": "rahul@example.in", "phone": "98765 43210" }),
+    )
+    .await;
+    let id = rx_draft(&app, &owner, &patient).await;
+    let (status, issued) = issue(&app, &owner, &id, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{issued}");
+    let shown = issued["patient_message"]["pin"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    // Issuing emails the link, then the PIN 30 seconds later.
+    let rows = link_and_pin_messages(&app).await;
+    assert_eq!(rows.len(), 2, "{rows:?}");
+    let (first_token, first_pin) = link_then_pin(&rows[0], &rows[1], "email");
+    assert_eq!(first_pin, shown, "the PIN sent is the PIN shown to staff");
+
+    // Sharing again on WhatsApp sends a new link and its own PIN, on WhatsApp.
+    let share = format!("/api/v1/prescriptions/{id}/share");
+    let (status, again) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &share,
+            Some(&owner),
+            Some(json!({ "channel": "whatsapp" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{again}");
+    let rows = link_and_pin_messages(&app).await;
+    assert_eq!(rows.len(), 4, "{rows:?}");
+    let (second_token, second_pin) = link_then_pin(&rows[2], &rows[3], "whatsapp");
+    assert_eq!(second_pin, again["pin"].as_str().unwrap());
+    assert_ne!(first_token, second_token);
+
+    // A PIN from the second share doesn't open the first link; each link's own PIN does.
+    if second_pin != first_pin {
+        let (status, _) = shared(&app, &first_token, &second_pin).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+    }
+    let (status, opened) = shared(&app, &first_token, &first_pin).await;
+    assert_eq!(status, StatusCode::OK, "{opened}");
+    let (status, opened) = shared(&app, &second_token, &second_pin).await;
+    assert_eq!(status, StatusCode::OK, "{opened}");
+
+    // Only the link is due now: the PIN waits its 30 seconds.
+    let (_, report) = app
+        .send(
+            Method::POST,
+            "localhost",
+            "/api/v1/internal/outbox/drain",
+            None,
+            None,
+        )
+        .await;
+    let (sent_pins,): (i64,) = sqlx::query_as(
+        "select count(*) from aarogyam.messages
+         where kind = 'prescription.shared_pin' and status <> 'queued'",
+    )
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(sent_pins, 0, "{report}");
     app.finish().await;
 }
 

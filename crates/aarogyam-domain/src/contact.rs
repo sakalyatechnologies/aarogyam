@@ -91,7 +91,9 @@ impl PatientMessage {
             | MessageKind::LabOrderReminder
             | MessageKind::CampaignTest => None,
             MessageKind::AppointmentReminder => Some(Self::AppointmentReminder),
-            MessageKind::PrescriptionShared => Some(Self::PrescriptionLink),
+            MessageKind::PrescriptionShared | MessageKind::PrescriptionSharedPin => {
+                Some(Self::PrescriptionLink)
+            }
             MessageKind::BookingRequested
             | MessageKind::BookingConfirmed
             | MessageKind::BookingDeclined => Some(Self::BookingConfirmation),
@@ -154,6 +156,10 @@ mod tests {
         assert_eq!(
             PatientMessage::of(MessageKind::PrescriptionShared).map(PatientMessage::purpose),
             Some(Purpose::Care)
+        );
+        assert_eq!(
+            PatientMessage::of(MessageKind::PrescriptionSharedPin),
+            PatientMessage::of(MessageKind::PrescriptionShared)
         );
     }
 }

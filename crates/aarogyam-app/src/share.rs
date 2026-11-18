@@ -1,4 +1,5 @@
-//! Patient links to a prescription, opened with the PIN printed on the paper, and the QR code's
+//! Patient links to a prescription, opened with the PIN sent a moment after the link (and printed
+//! on the paper), and the QR code's
 //! verification page. The public parts run in a clinic transaction with no user: the clinic
 //! comes from the host name, the link from its token.
 
@@ -21,7 +22,7 @@ use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
-use crate::messaging::{PatientEmail, enqueue_patient_message};
+use crate::messaging::{PatientEmail, enqueue_patient_message, enqueue_patient_message_at};
 use crate::prescriptions::{NotSent, RxView, load};
 use crate::scope::{PATIENT, public_scope, staff_scope};
 use crate::tokens::{hash_token, new_token};
@@ -176,6 +177,7 @@ pub(crate) async fn share_in(
                 PatientId::from_uuid(patient_id),
                 &doctor,
                 &link,
+                now,
             )
             .await?,
         )
@@ -197,6 +199,7 @@ async fn queue_for_phone(
     patient_id: PatientId,
     doctor_name: &str,
     link: &NewLink,
+    now: OffsetDateTime,
 ) -> Result<Result<(), NotSent>, AppError> {
     let patient = aarogyam_dal::patients::get(tx.conn(), patient_id.uuid(), None)
         .await?
@@ -215,14 +218,24 @@ async fn queue_for_phone(
         doctor_name,
         &host,
         link,
+        now,
     )
     .await?;
     Ok(Ok(()))
 }
 
-/// Queues the "your prescription is ready" message for a link on `channel`. The payload names
-/// the clinic, the doctor, the portal and the expiry day, never the patient or the medicines; the
-/// token travels in the message's one-time secret.
+/// How long after the link its PIN is due, so the two arrive in that order.
+pub(crate) const PIN_DELAY: Duration = Duration::seconds(30);
+
+/// Queues the "your prescription is ready" message for a link on `channel`, then its PIN as a
+/// second message on the same channel [`PIN_DELAY`] later (docs/decisions.md, "PIN apart from
+/// the link"). The payloads name the clinic, the doctor (link only), the portal and the expiry
+/// day, never the patient or the medicines; the token and the PIN travel in each message's
+/// one-time secret.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one link and its PIN in the caller's transaction"
+)]
 pub(crate) async fn queue_link_message(
     tx: &mut ScopedTx,
     channel: Channel,
@@ -231,6 +244,7 @@ pub(crate) async fn queue_link_message(
     doctor_name: &str,
     portal_host: &str,
     link: &NewLink,
+    now: OffsetDateTime,
 ) -> Result<(), AppError> {
     let profile = aarogyam_dal::clinic::profile(tx.conn())
         .await?
@@ -239,6 +253,12 @@ pub(crate) async fn queue_link_message(
         .expires_at
         .to_offset(crate::clock::clinic_offset(&profile.timezone))
         .date();
+    let expires_on = format!(
+        "{} {} {}",
+        expires_on.day(),
+        expires_on.month(),
+        expires_on.year()
+    );
     enqueue_patient_message(
         tx,
         channel,
@@ -250,12 +270,26 @@ pub(crate) async fn queue_link_message(
                 "clinic_name": profile.name,
                 "doctor_name": doctor_name,
                 "portal_host": portal_host,
-                "expires_on": format!("{} {} {}", expires_on.day(), expires_on.month(), expires_on.year()),
+                "expires_on": expires_on,
             }),
             secret: Some(&link.token),
             appointment_id: None,
             dedupe_key: None,
         },
+    )
+    .await?;
+    enqueue_patient_message_at(
+        tx,
+        channel,
+        &PatientEmail {
+            kind: MessageKind::PrescriptionSharedPin,
+            patient_id,
+            payload: json!({ "expires_on": expires_on }),
+            secret: Some(&link.pin),
+            appointment_id: None,
+            dedupe_key: None,
+        },
+        Some(now + PIN_DELAY),
     )
     .await?;
     Ok(())

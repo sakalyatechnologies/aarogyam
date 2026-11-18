@@ -693,6 +693,7 @@ async fn share_with_patient(
         doctor_name,
         &host,
         &link,
+        now,
     )
     .await?;
     Ok(Sharing::Sent {

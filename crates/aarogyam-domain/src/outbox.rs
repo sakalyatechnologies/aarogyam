@@ -37,6 +37,8 @@ pub enum MessageKind {
     StaffInvited,
     /// A prescription link was sent to its patient.
     PrescriptionShared,
+    /// The PIN of that link, in a message of its own a moment later.
+    PrescriptionSharedPin,
     /// A patient asked for an appointment online and waits for the front desk.
     BookingRequested,
     /// An appointment booked online is confirmed.
@@ -76,6 +78,7 @@ impl MessageKind {
         match self {
             Self::StaffInvited => "staff.invited",
             Self::PrescriptionShared => "prescription.shared",
+            Self::PrescriptionSharedPin => "prescription.shared_pin",
             Self::BookingRequested => "booking.requested",
             Self::BookingConfirmed => "booking.confirmed",
             Self::BookingDeclined => "booking.declined",
@@ -100,6 +103,7 @@ impl MessageKind {
         match text {
             "staff.invited" => Some(Self::StaffInvited),
             "prescription.shared" => Some(Self::PrescriptionShared),
+            "prescription.shared_pin" => Some(Self::PrescriptionSharedPin),
             "booking.requested" => Some(Self::BookingRequested),
             "booking.confirmed" => Some(Self::BookingConfirmed),
             "booking.declined" => Some(Self::BookingDeclined),
@@ -159,6 +163,14 @@ mod tests {
         assert_eq!(
             MessageKind::parse(MessageKind::StaffInvited.as_str()),
             Some(MessageKind::StaffInvited)
+        );
+        assert_eq!(
+            MessageKind::parse("prescription.shared_pin"),
+            Some(MessageKind::PrescriptionSharedPin)
+        );
+        assert_eq!(
+            MessageKind::PrescriptionSharedPin.as_str(),
+            "prescription.shared_pin"
         );
     }
 }

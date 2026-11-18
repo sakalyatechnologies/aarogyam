@@ -24,6 +24,7 @@ pub const KEYS: &[&str] = &[
     "booking.confirmed",
     "booking.declined",
     "prescription.shared",
+    "prescription.shared_pin",
     "patient_app.invited",
     "patient.welcome",
     "visit.summary",

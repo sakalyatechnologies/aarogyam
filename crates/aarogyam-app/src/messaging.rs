@@ -65,6 +65,20 @@ pub async fn enqueue_patient_message(
     channel: Channel,
     email: &PatientEmail<'_>,
 ) -> Result<MessageId, AppError> {
+    enqueue_patient_message_at(tx, channel, email, None).await
+}
+
+/// [`enqueue_patient_message`], due at `scheduled_for` instead of now when given (a PIN that
+/// follows its link a moment later).
+///
+/// # Errors
+/// As [`enqueue_patient_message`].
+pub async fn enqueue_patient_message_at(
+    tx: &mut ScopedTx,
+    channel: Channel,
+    email: &PatientEmail<'_>,
+    scheduled_for: Option<OffsetDateTime>,
+) -> Result<MessageId, AppError> {
     let purpose = PatientMessage::of(email.kind)
         .ok_or(AppError::Internal("not a patient message"))?
         .purpose();
@@ -83,7 +97,7 @@ pub async fn enqueue_patient_message(
             secret: email.secret,
             appointment_id: email.appointment_id,
             dedupe_key: email.dedupe_key,
-            scheduled_for: None,
+            scheduled_for,
         },
     )
     .await?;

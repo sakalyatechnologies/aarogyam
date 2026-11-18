@@ -350,6 +350,7 @@ pub(crate) fn render(message: &Claimed, links: &PortalLinks) -> Result<Email, Fa
             | MessageKind::Welcome
             | MessageKind::VisitSummary
             | MessageKind::VisitSummaryPin
+            | MessageKind::PrescriptionSharedPin
             | MessageKind::FollowUpBooking
             | MessageKind::VisitThanks,
         )
@@ -382,15 +383,15 @@ fn render_prescription_share(
         "{clinic}\n\n\
          Your prescription from {doctor} is ready.\n\n\
          Open it: {link}\n\n\
-         Enter the PIN printed on your prescription, or given at the clinic. \
-         The link expires on {expires}."
+         Your PIN comes in a separate message right after this one; it is also on your \
+         printed prescription. The link expires on {expires}."
     );
     let html = format!(
         "<p><strong>{clinic}</strong></p>\
          <p>Your prescription from {doctor} is ready.</p>\
          <p><a href=\"{link}\">Open your prescription</a></p>\
-         <p>Enter the PIN printed on your prescription, or given at the clinic. \
-         The link expires on {expires}.</p>",
+         <p>Your PIN comes in a separate message right after this one; it is also on your \
+         printed prescription. The link expires on {expires}.</p>",
         clinic = escape(clinic),
         doctor = escape(&doctor),
         link = escape(&link),
@@ -481,8 +482,19 @@ mod tests {
                 .text
                 .contains("https://sunrise.localtest.me/shared/tok3n")
         );
-        assert!(email.text.contains("PIN printed on your prescription"));
+        assert!(email.text.contains("PIN comes in a separate message"));
+        assert!(email.html.contains("PIN comes in a separate message"));
         assert!(email.html.contains("10 October 2026"));
+        // The link email never carries a PIN: no six digits in a row anywhere in it.
+        for part in [&email.subject, &email.text, &email.html] {
+            assert!(
+                !part
+                    .as_bytes()
+                    .windows(6)
+                    .any(|digits| digits.iter().all(u8::is_ascii_digit)),
+                "a PIN-like number in the link email"
+            );
+        }
     }
 
     #[test]

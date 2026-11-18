@@ -82,6 +82,8 @@ entities! {
     ExpenseCategory, ExpenseCategoryId;
     /// Money the clinic spent.
     Expense, ExpenseId;
+    /// An expense the clinic records every month or week, such as rent.
+    RecurringExpense, RecurringExpenseId;
 }
 
 entities! {

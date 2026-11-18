@@ -34,6 +34,8 @@ export interface FakeExpense {
   bill?: C.ExpenseBill | null;
   /** The current bill file's id, when one is attached. */
   bill_file_id?: string;
+  /** The recurring expense that recorded it. */
+  recurring_expense_id?: string;
 }
 
 export const wireExpense = (e: FakeExpense): C.Expense => ({
@@ -51,6 +53,7 @@ export const wireExpense = (e: FakeExpense): C.Expense => ({
   created_at: e.created_at,
   void_reason: e.void_reason ?? null,
   voided_at: e.voided_at ?? null,
+  ...(e.recurring_expense_id === undefined ? {} : { recurring_expense_id: e.recurring_expense_id }),
 });
 
 const DAY = 86_400_000;

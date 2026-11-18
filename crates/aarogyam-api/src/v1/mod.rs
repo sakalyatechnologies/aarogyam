@@ -62,6 +62,7 @@ pub(crate) mod queue;
 pub(crate) mod quick_picks;
 pub(crate) mod recalls;
 pub(crate) mod record_shares;
+pub(crate) mod recurring_expenses;
 pub(crate) mod registrations;
 pub(crate) mod reports;
 pub(crate) mod roles;
@@ -727,6 +728,26 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/expenses/{id}/bill/download", get(expenses::bill_link))
         .route("/expense-files/{id}/content", get(expenses::bill_content))
+        .route(
+            "/recurring-expenses",
+            get(recurring_expenses::list).post(recurring_expenses::create),
+        )
+        .route(
+            "/recurring-expenses/{id}",
+            patch(recurring_expenses::update),
+        )
+        .route(
+            "/recurring-expenses/{id}/pause",
+            post(recurring_expenses::pause),
+        )
+        .route(
+            "/recurring-expenses/{id}/resume",
+            post(recurring_expenses::resume),
+        )
+        .route(
+            "/recurring-expenses/{id}/stop",
+            post(recurring_expenses::stop),
+        )
         .route(
             "/lab-vendors",
             get(labs::list_vendors).post(labs::create_vendor),

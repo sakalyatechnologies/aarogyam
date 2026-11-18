@@ -1,7 +1,7 @@
 /* Billing → Expenses: the quick-add form and the month list. Portal colour variables only. */
 
 .ex-layout { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 16px; align-items: start; }
-.ex-layout > :only-child { grid-column: 1 / -1; }
+.ex-side { display: grid; gap: 16px; min-width: 0; }
 .ex-form { display: grid; gap: 12px; }
 .ex-wide { min-width: 0; }
 .ex-wide .mk-alert { margin: 0; }
@@ -27,6 +27,16 @@
 .ex-retry-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ex-row > :last-child { justify-self: end; }
 .ex-row.is-void .ex-amt, .ex-row.is-void .ex-note { color: var(--muted); text-decoration: line-through; }
+
+.ex-tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--hover); color: var(--muted); font-size: 11px; font-weight: 700; vertical-align: 1px; }
+.ex-rec-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ex-rec { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 12px; font-size: 13px; }
+.ex-rec-main { display: grid; gap: 2px; min-width: 0; }
+.ex-rec-line { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; margin: 0; }
+.ex-rec-note { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-rec-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 14px; }
+.ex-rec-stop { color: var(--red); }
+.ex-rec.is-stopped .ex-rec-line { color: var(--muted); }
 
 @media (max-width: 1120px) {
   .ex-layout { grid-template-columns: minmax(0, 1fr); }

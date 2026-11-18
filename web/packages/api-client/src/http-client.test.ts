@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createFakeBackend, createFixtures, fakeTokenFor } from "./fake/index.js";
-import { ApiFailure, appointmentId, importSessionId, createDevTokenSource, createHttpClient, expenseId, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, purchaseOrderId, queueTokenId, sessionId, taskId, taskOccurrenceId, unwrap, visitId } from "./index.js";
+import { ApiFailure, appointmentId, importSessionId, createDevTokenSource, createHttpClient, expenseId, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, purchaseOrderId, queueTokenId, recurringExpenseId, sessionId, taskId, taskOccurrenceId, unwrap, visitId } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -1177,6 +1177,44 @@ describe("deleting the own account", () => {
     expect(refused.ok ? undefined : [refused.error.code, refused.error.clinics?.map((c) => c.name)]).toEqual(["last_owner", ["Alpha Dental"]]);
     expect(calls.map((c) => `${c.init?.method ?? ""} ${new URL(c.url).pathname}`)).toEqual(["DELETE /api/v1/me/account", "DELETE /api/v1/me/account"]);
     expect(calls[0]?.init?.body).toBe(JSON.stringify({ confirm: "delete" }));
+  });
+});
+
+describe("createHttpClient recurring expense requests", () => {
+  it("sends each recurring expense call to its path and reads the rule", async () => {
+    const rule = {
+      id: "r1",
+      category: "rent",
+      category_name: "Rent",
+      amount_paise: 3_000_000,
+      note: null,
+      cadence: "monthly",
+      day_of_month: 1,
+      starts_on: "2026-11-01",
+      ends_on: null,
+      next_due_on: "2026-12-01",
+      status: "active",
+      recorded_by: "m1",
+      created_at: "2026-11-01T05:30:00Z",
+    };
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, rule)));
+    const client = createHttpClient("", () => "abc", { fetch });
+    const id = recurringExpenseId.parse("r 1");
+    const made = await client.createRecurringExpense({ category: "rent", amount_paise: 3_000_000, cadence: "monthly", day_of_month: 1, starts_on: "2026-11-01" });
+    expect(made.ok ? made.value.next_due_on : undefined).toBe("2026-12-01");
+    await client.updateRecurringExpense(id, { ends_on: null, amount_paise: 3_100_000 });
+    await client.pauseRecurringExpense(id);
+    await client.resumeRecurringExpense(id);
+    await client.stopRecurringExpense(id);
+    expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
+      "POST /api/v1/recurring-expenses",
+      "PATCH /api/v1/recurring-expenses/r%201",
+      "POST /api/v1/recurring-expenses/r%201/pause",
+      "POST /api/v1/recurring-expenses/r%201/resume",
+      "POST /api/v1/recurring-expenses/r%201/stop",
+    ]);
+    const sent = calls[1]?.init?.body;
+    expect(JSON.parse(typeof sent === "string" ? sent : "{}")).toEqual({ ends_on: null, amount_paise: 3_100_000 });
   });
 });
 

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.recurring_due_after($1, $2, $3, $4) as \"day!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "day!",
+        "type_info": "Date",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Int4",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a85012333a662023ced4ecb391626819c26718294481fbd2d9ff9130eda40358"
+}

@@ -176,6 +176,12 @@ pub enum Event {
     ExpenseRecorded,
     /// A clinic expense was voided.
     ExpenseVoided,
+    /// A recurring expense was set up.
+    RecurringExpenseCreated,
+    /// A recurring expense was edited, paused, resumed or stopped.
+    RecurringExpenseChanged,
+    /// The recurring pass recorded a rule's due expenses.
+    RecurringExpenseRecorded,
     /// A walk-in was registered (or found), checked in and given a token in one step.
     WalkInRegistered,
     /// A clinician confirmed a patient-reported allergy.
@@ -332,6 +338,9 @@ impl Event {
             Self::AttachmentSharingChanged => "attachment.sharing_changed",
             Self::ExpenseRecorded => "expense.recorded",
             Self::ExpenseVoided => "expense.voided",
+            Self::RecurringExpenseCreated => "recurring_expense.created",
+            Self::RecurringExpenseChanged => "recurring_expense.changed",
+            Self::RecurringExpenseRecorded => "recurring_expense.recorded",
             Self::WalkInRegistered => "walk_in.registered",
             Self::ConsentRequested => "consent.requested",
             Self::ConsentSigned => "consent.signed",

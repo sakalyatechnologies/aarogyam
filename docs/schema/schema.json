@@ -2278,6 +2278,7 @@
     "prescriptions.cancelled_by",
     "prescriptions.issued_by",
     "procedures.clinician_id",
+    "recurring_expenses.recorded_by",
     "salary_structures.membership_id",
     "specialty_records.verified_by",
     "staff_advances.membership_id",
@@ -8464,7 +8465,8 @@
     }
    ],
    "referenced_by": [
-    "expenses.category_id"
+    "expenses.category_id",
+    "recurring_expenses.category_id"
    ],
    "sensitivity": "internal",
    "offline": "server_only"
@@ -8563,6 +8565,13 @@
      "nullable": true,
      "ref": null,
      "note": "how it was paid: cash, upi, card, bank; null when not recorded (migration 0724)"
+    },
+    {
+     "name": "recurring_expense_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "recurring_expenses",
+     "note": "the rule that recorded it; unique per rule and day (migration 0727)"
     }
    ],
    "referenced_by": [
@@ -8620,6 +8629,115 @@
     }
    ],
    "referenced_by": [],
+   "sensitivity": "financial",
+   "offline": "server_only"
+  },
+  {
+   "name": "recurring_expenses",
+   "domain": "billing",
+   "purpose": "An expense the clinic records every month or week: rent, salaries, regular bills.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0727). Set up, edited, paused, resumed and stopped with expenses.write; listed with finance.view. The outbox drain job records each due day as an ordinary expense (app.run_recurring_expenses: at most 12 per rule per run, idempotent through expenses_recurring_day). An edit changes only later expenses. Never deleted.",
+   "cols": [
+    {
+     "name": "category_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "expense_categories",
+     "note": ""
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "above zero, at most 1 crore rupees"
+    },
+    {
+     "name": "method",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "cash, upi, card, bank"
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "up to 300 characters, copied to each expense"
+    },
+    {
+     "name": "cadence",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "monthly, weekly"
+    },
+    {
+     "name": "day_of_month",
+     "type": "smallint",
+     "nullable": true,
+     "ref": null,
+     "note": "1 to 31, monthly only; a shorter month uses its last day"
+    },
+    {
+     "name": "weekday",
+     "type": "smallint",
+     "nullable": true,
+     "ref": null,
+     "note": "1 (Monday) to 7, weekly only"
+    },
+    {
+     "name": "starts_on",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": "the first day it may fall on"
+    },
+    {
+     "name": "ends_on",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": "the last day it may fall on"
+    },
+    {
+     "name": "next_due_on",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": "the next day it records an expense"
+    },
+    {
+     "name": "paused_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "paused: records nothing; the paused days are skipped on resume"
+    },
+    {
+     "name": "stopped_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "stopped for good"
+    },
+    {
+     "name": "recorded_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": "whose name the recorded expenses carry"
+    }
+   ],
+   "referenced_by": [
+    "expenses.recurring_expense_id"
+   ],
    "sensitivity": "financial",
    "offline": "server_only"
   },

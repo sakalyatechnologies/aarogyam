@@ -8,7 +8,9 @@ use aarogyam_domain::billing::PaymentMethod;
 use aarogyam_domain::chat::tidy_file_name;
 use aarogyam_domain::expense::{ExpenseCategoryKey, ExpenseStatus, check_amount, check_note};
 use aarogyam_domain::files::FileType;
-use aarogyam_domain::ids::{AttachmentId, ClinicId, ExpenseCategoryId, ExpenseId, MembershipId};
+use aarogyam_domain::ids::{
+    AttachmentId, ClinicId, ExpenseCategoryId, ExpenseId, MembershipId, RecurringExpenseId,
+};
 use aarogyam_domain::lab::{ProofError, check_payment_proof};
 use aarogyam_domain::permission::Permission;
 use sakalya_db::{Db, ScopedTx};
@@ -58,6 +60,8 @@ pub struct ExpenseView {
     pub created_at: OffsetDateTime,
     /// The current bill photo, if one was attached.
     pub bill: Option<BillView>,
+    /// The recurring expense that recorded it.
+    pub recurring_expense_id: Option<RecurringExpenseId>,
 }
 
 /// The bill file of an expense, as shown. Fetch it with [`bill_link`].
@@ -103,6 +107,7 @@ fn view(row: ExpenseRow) -> ExpenseView {
         recorded_by: MembershipId::from_uuid(row.recorded_by),
         created_at: row.created_at,
         bill: None,
+        recurring_expense_id: row.recurring_expense_id.map(RecurringExpenseId::from_uuid),
     }
 }
 

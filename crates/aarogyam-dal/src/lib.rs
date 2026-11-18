@@ -69,6 +69,7 @@ pub mod purchase_orders;
 pub mod queue;
 pub mod recalls;
 pub mod record_shares;
+pub mod recurring_expenses;
 pub mod retention;
 pub mod roles;
 pub mod schedule;

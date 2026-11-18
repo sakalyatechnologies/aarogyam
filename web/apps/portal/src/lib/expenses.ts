@@ -29,3 +29,25 @@ export function billProblem(file: File): string | undefined {
   if (file.size > MAX_BILL_BYTES) return "Choose a file of at most 10 MB.";
   return undefined;
 }
+
+/** Weekdays as the API numbers them: Monday is 1. */
+export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+
+/** `1` → `1st`, `22` → `22nd`. */
+export function ordinal(n: number): string {
+  const teen = n % 100 >= 11 && n % 100 <= 13;
+  const suffix = teen ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+  return `${String(n)}${suffix}`;
+}
+
+/** When a recurring expense falls: "monthly on the 1st" or "weekly on Monday". */
+export function scheduleLabel(rule: { cadence: string; day_of_month?: number | null; weekday?: number | null }): string {
+  if (rule.cadence === "weekly") return `weekly on ${WEEKDAYS[(rule.weekday ?? 1) - 1] ?? "Monday"}`;
+  return `monthly on the ${ordinal(rule.day_of_month ?? 1)}`;
+}
+
+/** `2026-12-01` → `1 Dec`, with the year when it isn't this year's. */
+export function shortDay(day: string, today: string): string {
+  const sameYear = day.slice(0, 4) === today.slice(0, 4);
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC", ...(sameYear ? {} : { year: "numeric" }) });
+}

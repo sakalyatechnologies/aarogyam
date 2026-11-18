@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select e.id, e.category_id, c.key as category_key, c.name as category_name, e.spent_on,\n                  e.amount_paise, e.note, e.method, e.status, e.void_reason, e.voided_at,\n                  e.recorded_by, e.created_at, e.request_hash as \"request_hash!\"\n           from aarogyam.expenses e\n           join aarogyam.expense_categories c on c.org_id = e.org_id and c.id = e.category_id\n           where e.idempotency_key = $1",
+  "query": "select e.id, e.category_id, c.key as category_key, c.name as category_name, e.spent_on,\n                  e.amount_paise, e.note, e.method, e.status, e.void_reason, e.voided_at,\n                  e.recorded_by, e.created_at, e.recurring_expense_id\n           from aarogyam.expenses e\n           join aarogyam.expense_categories c on c.org_id = e.org_id and c.id = e.category_id\n           where e.id = $1",
   "describe": {
     "columns": [
       {
@@ -148,19 +148,19 @@
       },
       {
         "ordinal": 13,
-        "name": "request_hash!",
-        "type_info": "Text",
+        "name": "recurring_expense_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
             "table": "aarogyam.expenses",
-            "name": "request_hash"
+            "name": "recurring_expense_id"
           }
         }
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -180,5 +180,5 @@
       true
     ]
   },
-  "hash": "a3cece34ea93b3c730a338940ae3b473ce12816f9bd7a980085e3731a1f68712"
+  "hash": "20cbf2513b01a3c94848383761d380fa81a690d1095942ce09054106ae1da7d0"
 }

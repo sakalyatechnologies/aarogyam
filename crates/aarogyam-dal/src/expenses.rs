@@ -34,6 +34,8 @@ pub struct ExpenseRow {
     pub recorded_by: Uuid,
     /// When it was recorded.
     pub created_at: OffsetDateTime,
+    /// The recurring expense that recorded it.
+    pub recurring_expense_id: Option<Uuid>,
 }
 
 /// A new expense.
@@ -77,13 +79,13 @@ pub async fn insert(
                                             idempotency_key, request_hash, method)
              select $1, c.id, $3, $4, $5, $6, $7, $8, $9 from c
              returning id, category_id, spent_on, amount_paise, note, method, status, void_reason,
-                       voided_at, recorded_by, created_at
+                       voided_at, recorded_by, created_at, recurring_expense_id
            )
            select e.id as "id!", e.category_id as "category_id!", c.key as "category_key!",
                   c.name as "category_name!", e.spent_on as "spent_on!",
                   e.amount_paise as "amount_paise!", e.note, e.method, e.status as "status!",
                   e.void_reason, e.voided_at, e.recorded_by as "recorded_by!",
-                  e.created_at as "created_at!"
+                  e.created_at as "created_at!", e.recurring_expense_id
            from e join c on c.id = e.category_id"#,
         new.id,
         new.category_key,
@@ -115,6 +117,7 @@ struct ListedRow {
     voided_at: Option<OffsetDateTime>,
     recorded_by: Uuid,
     created_at: OffsetDateTime,
+    recurring_expense_id: Option<Uuid>,
     bill_id: Option<Uuid>,
     bill_mime_type: Option<String>,
     bill_size_bytes: Option<i64>,
@@ -147,6 +150,7 @@ impl From<ListedRow> for (ExpenseRow, Option<BillRow>) {
             voided_at: row.voided_at,
             recorded_by: row.recorded_by,
             created_at: row.created_at,
+            recurring_expense_id: row.recurring_expense_id,
         };
         (expense, bill)
     }
@@ -168,7 +172,7 @@ pub async fn list(
         ListedRow,
         r#"select e.id, e.category_id, c.key as category_key, c.name as category_name, e.spent_on,
                   e.amount_paise, e.note, e.method, e.status, e.void_reason, e.voided_at,
-                  e.recorded_by, e.created_at,
+                  e.recorded_by, e.created_at, e.recurring_expense_id,
                   f.id as "bill_id?", f.mime_type as "bill_mime_type?",
                   f.size_bytes as "bill_size_bytes?", f.file_name as "bill_file_name?"
            from aarogyam.expenses e
@@ -197,7 +201,7 @@ pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<ExpenseRow>
         ExpenseRow,
         r#"select e.id, e.category_id, c.key as category_key, c.name as category_name, e.spent_on,
                   e.amount_paise, e.note, e.method, e.status, e.void_reason, e.voided_at,
-                  e.recorded_by, e.created_at
+                  e.recorded_by, e.created_at, e.recurring_expense_id
            from aarogyam.expenses e
            join aarogyam.expense_categories c on c.org_id = e.org_id and c.id = e.category_id
            where e.id = $1"#,
@@ -231,13 +235,13 @@ pub async fn void(
                                where p.org_id = expenses.org_id and p.expense_id = expenses.id
                                  and p.status = 'recorded')
              returning org_id, id, category_id, spent_on, amount_paise, note, method, status,
-                       void_reason, voided_at, recorded_by, created_at
+                       void_reason, voided_at, recorded_by, created_at, recurring_expense_id
            )
            select e.id as "id!", e.category_id as "category_id!", c.key as "category_key!",
                   c.name as "category_name!", e.spent_on as "spent_on!",
                   e.amount_paise as "amount_paise!", e.note, e.method, e.status as "status!",
                   e.void_reason, e.voided_at, e.recorded_by as "recorded_by!",
-                  e.created_at as "created_at!"
+                  e.created_at as "created_at!", e.recurring_expense_id
            from e
            join aarogyam.expense_categories c on c.org_id = e.org_id and c.id = e.category_id"#,
         id,
@@ -272,7 +276,8 @@ pub async fn by_key(
     let row = sqlx::query!(
         r#"select e.id, e.category_id, c.key as category_key, c.name as category_name, e.spent_on,
                   e.amount_paise, e.note, e.method, e.status, e.void_reason, e.voided_at,
-                  e.recorded_by, e.created_at, e.request_hash as "request_hash!"
+                  e.recorded_by, e.created_at, e.recurring_expense_id,
+                  e.request_hash as "request_hash!"
            from aarogyam.expenses e
            join aarogyam.expense_categories c on c.org_id = e.org_id and c.id = e.category_id
            where e.idempotency_key = $1"#,
@@ -296,6 +301,7 @@ pub async fn by_key(
                 voided_at: row.voided_at,
                 recorded_by: row.recorded_by,
                 created_at: row.created_at,
+                recurring_expense_id: row.recurring_expense_id,
             },
             row.request_hash,
         )

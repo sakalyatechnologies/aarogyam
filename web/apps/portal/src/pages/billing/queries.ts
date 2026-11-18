@@ -7,6 +7,9 @@ import {
   type DateRange,
   type ExpenseId,
   type NewExpense,
+  type NewRecurringExpense,
+  type RecurringExpenseChange,
+  type RecurringExpenseId,
   type InvoiceEdit,
   type InvoiceId,
   type NewInvoice,
@@ -236,4 +239,53 @@ export function useUploadExpenseBill() {
 export function useExpenseBillLink() {
   const { api } = useClinic();
   return useMutation({ mutationFn: (id: ExpenseId) => unwrap(api.getExpenseBillDownloadLink(id)) });
+}
+
+export function useRecurringExpenses(enabled = true) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["recurring-expenses", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.listRecurringExpenses({ signal })),
+    enabled,
+  });
+}
+
+/** A rule's change can record expenses that fell due (in fake mode at once), so expenses refresh too. */
+function useRecurringChanged() {
+  const { access } = useClinic();
+  const queryClient = useQueryClient();
+  const expenseChanged = useExpenseChanged();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: ["recurring-expenses", access.org_id] });
+    expenseChanged();
+  };
+}
+
+export function useCreateRecurringExpense() {
+  const { api } = useClinic();
+  const changed = useRecurringChanged();
+  return useMutation({ mutationFn: (input: NewRecurringExpense) => unwrap(api.createRecurringExpense(input)), onSuccess: changed });
+}
+
+export function useUpdateRecurringExpense() {
+  const { api } = useClinic();
+  const changed = useRecurringChanged();
+  return useMutation({
+    mutationFn: ({ id, changes }: { id: RecurringExpenseId; changes: RecurringExpenseChange }) => unwrap(api.updateRecurringExpense(id, changes)),
+    onSuccess: changed,
+  });
+}
+
+/** Pauses, resumes or stops a recurring expense. */
+export function useRecurringAction() {
+  const { api } = useClinic();
+  const changed = useRecurringChanged();
+  return useMutation({
+    mutationFn: ({ id, action }: { id: RecurringExpenseId; action: "pause" | "resume" | "stop" }) => {
+      if (action === "pause") return unwrap(api.pauseRecurringExpense(id));
+      if (action === "resume") return unwrap(api.resumeRecurringExpense(id));
+      return unwrap(api.stopRecurringExpense(id));
+    },
+    onSuccess: changed,
+  });
 }

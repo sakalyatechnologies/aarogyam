@@ -4420,6 +4420,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recurring-expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's recurring expenses. */
+        get: operations["listRecurringExpenses"];
+        put?: never;
+        /**
+         * Sets up a recurring expense. Its first expense is recorded on the first due day on or after
+         *     `starts_on`, by the background job (within a few minutes).
+         */
+        post: operations["createRecurringExpense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recurring-expenses/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edits a recurring expense. Only expenses recorded from now on change; a new day moves the
+         *     next due day to the first one on or after today.
+         */
+        patch: operations["updateRecurringExpense"];
+        trace?: never;
+    };
+    "/api/v1/recurring-expenses/{id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pauses a recurring expense: nothing is recorded until it is resumed. */
+        post: operations["pauseRecurringExpense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recurring-expenses/{id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resumes a paused recurring expense from its next due day on or after today; the days it was
+         *     paused are not recorded.
+         */
+        post: operations["resumeRecurringExpense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recurring-expenses/{id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stops a recurring expense for good. Expenses it recorded stay. */
+        post: operations["stopRecurringExpense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/registrations": {
         parameters: {
             query?: never;
@@ -8211,6 +8306,8 @@ export interface components {
             note?: string | null;
             /** @description The membership that recorded it. */
             recorded_by: string;
+            /** @description The recurring expense that recorded it. Absent for one recorded by hand. */
+            recurring_expense_id?: string | null;
             /** @description The clinic day the money went out, `YYYY-MM-DD`. */
             spent_on: string;
             /** @description `recorded` or `void`. */
@@ -10623,6 +10720,37 @@ export interface components {
              */
             record_types: string[];
         };
+        /** @description A recurring expense to set up. */
+        NewRecurringExpense: {
+            /**
+             * Format: int64
+             * @description Paise each time, more than zero and at most 1,00,00,000 rupees.
+             */
+            amount_paise: number;
+            /** @description Monthly or weekly. */
+            cadence: components["schemas"]["RecurringCadence"];
+            /** @description What it is for. */
+            category: components["schemas"]["ExpenseCategory"];
+            /**
+             * Format: int32
+             * @description 1 to 31; required for monthly, absent for weekly.
+             */
+            day_of_month?: number | null;
+            /** @description How it is paid: `cash`, `upi`, `card` or `bank`. Optional. */
+            method?: string | null;
+            /** @description Up to 300 characters, copied to each expense. */
+            note?: string | null;
+            /**
+             * @description The first day it may fall on, `YYYY-MM-DD`: up to 90 days back (the missed days are
+             *     recorded on the next run) or a year ahead.
+             */
+            starts_on: string;
+            /**
+             * Format: int32
+             * @description 1 (Monday) to 7 (Sunday); required for weekly, absent for monthly.
+             */
+            weekday?: number | null;
+        };
         /** @description A clinic asking to join. */
         NewRegistration: {
             /** @description Its city. */
@@ -12843,6 +12971,90 @@ export interface components {
             /** @description Newest first. */
             items: components["schemas"]["RecordShareItem"][];
         };
+        /**
+         * @description How often a recurring expense is recorded.
+         * @enum {string}
+         */
+        RecurringCadence: "monthly" | "weekly";
+        /** @description An expense the clinic records every month or week, such as rent or a salary. */
+        RecurringExpense: {
+            /**
+             * Format: int64
+             * @description Paise, each time.
+             */
+            amount_paise: number;
+            /** @description Monthly or weekly. */
+            cadence: components["schemas"]["RecurringCadence"];
+            /** @description What it is for. */
+            category: components["schemas"]["ExpenseCategory"];
+            /** @description The category's name, such as `Rent`. */
+            category_name: string;
+            /** @description When it was set up (RFC 3339). */
+            created_at: string;
+            /**
+             * Format: int32
+             * @description 1 to 31, for a monthly one; a shorter month uses its last day. Absent for weekly.
+             */
+            day_of_month?: number | null;
+            /** @description The last day it may fall on, `YYYY-MM-DD`; null for no end. */
+            ends_on?: string | null;
+            /** @description Identifier. */
+            id: string;
+            /** @description How it is paid: `cash`, `upi`, `card` or `bank`. Absent when not recorded. */
+            method?: string | null;
+            /** @description The next day it records an expense, `YYYY-MM-DD`. */
+            next_due_on: string;
+            /** @description A note copied to each expense. */
+            note?: string | null;
+            /** @description The membership whose name the recorded expenses carry. */
+            recorded_by: string;
+            /** @description The first day it may fall on, `YYYY-MM-DD`. */
+            starts_on: string;
+            /** @description Active, paused, stopped or ended. */
+            status: components["schemas"]["RecurringExpenseStatus"];
+            /**
+             * Format: int32
+             * @description 1 (Monday) to 7 (Sunday), for a weekly one. Absent for monthly.
+             */
+            weekday?: number | null;
+        };
+        /**
+         * @description A change to a recurring expense. Fields left out stay; only expenses recorded after the
+         *     change use it.
+         */
+        RecurringExpenseChange: {
+            /**
+             * Format: int64
+             * @description Paise each time.
+             */
+            amount_paise?: number | null;
+            /**
+             * Format: int32
+             * @description 1 to 31, for a monthly one.
+             */
+            day_of_month?: number | null;
+            /** @description The last day, `YYYY-MM-DD`, not before `starts_on`; `null` clears. */
+            ends_on?: string | null;
+            /** @description `cash`, `upi`, `card` or `bank`; `null` clears. */
+            method?: string | null;
+            /** @description Up to 300 characters; `null` clears. */
+            note?: string | null;
+            /**
+             * Format: int32
+             * @description 1 (Monday) to 7, for a weekly one.
+             */
+            weekday?: number | null;
+        };
+        /** @description Recurring expenses. */
+        RecurringExpenseList: {
+            /** @description By next due day, stopped ones last. */
+            items: components["schemas"]["RecurringExpense"][];
+        };
+        /**
+         * @description Where a recurring expense stands.
+         * @enum {string}
+         */
+        RecurringExpenseStatus: "active" | "paused" | "stopped" | "ended";
         /** @description A code to redeem on the host it was made for. */
         RedeemHandoff: {
             /** @description The code from the URL fragment. */
@@ -29431,6 +29643,295 @@ export interface operations {
                 content?: never;
             };
             /** @description Already closed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listRecurringExpenses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpenseList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createRecurringExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewRecurringExpense"];
+            };
+        };
+        responses: {
+            /** @description Set up */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpense"];
+                };
+            };
+            /** @description Invalid input: amount, note, method, day, or a start out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateRecurringExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The recurring expense */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringExpenseChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpense"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such recurring expense in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Stopped */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pauseRecurringExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The recurring expense */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpense"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such recurring expense in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already paused, or stopped */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resumeRecurringExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The recurring expense */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpense"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such recurring expense in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not paused, or stopped */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    stopRecurringExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The recurring expense */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringExpense"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such recurring expense in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already stopped */
             409: {
                 headers: {
                     [name: string]: unknown;

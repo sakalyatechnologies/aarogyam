@@ -35,6 +35,8 @@ import {
   analytics,
   expense,
   expenseList,
+  recurringExpense,
+  recurringExpenseList,
   condition,
   conditionList,
   consoleClinics,
@@ -1029,6 +1031,18 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "DELETE", path: `/api/v1/expenses/${encodeURIComponent(id)}/bill`, schema: expense, signal: opts?.signal }),
     getExpenseBillDownloadLink: (id, opts) =>
       call({ method: "GET", path: `/api/v1/expenses/${encodeURIComponent(id)}/bill/download`, schema: downloadLink, signal: opts?.signal }),
+    listRecurringExpenses: (opts) =>
+      call({ method: "GET", path: "/api/v1/recurring-expenses", schema: recurringExpenseList, signal: opts?.signal }),
+    createRecurringExpense: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/recurring-expenses", schema: recurringExpense, body: input, signal: opts?.signal }),
+    updateRecurringExpense: (id, changes, opts) =>
+      call({ method: "PATCH", path: `/api/v1/recurring-expenses/${encodeURIComponent(id)}`, schema: recurringExpense, body: changes, signal: opts?.signal }),
+    pauseRecurringExpense: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/recurring-expenses/${encodeURIComponent(id)}/pause`, schema: recurringExpense, signal: opts?.signal }),
+    resumeRecurringExpense: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/recurring-expenses/${encodeURIComponent(id)}/resume`, schema: recurringExpense, signal: opts?.signal }),
+    stopRecurringExpense: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/recurring-expenses/${encodeURIComponent(id)}/stop`, schema: recurringExpense, signal: opts?.signal }),
     getAnalytics: (query, opts) =>
       call({
         method: "GET",

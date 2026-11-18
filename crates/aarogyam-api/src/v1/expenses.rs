@@ -122,6 +122,10 @@ pub struct Expense {
     pub recorded_by: Uuid,
     /// When it was recorded (RFC 3339).
     pub created_at: String,
+    /// The recurring expense that recorded it. Absent for one recorded by hand.
+    #[schema(required = false, value_type = Option<String>)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recurring_expense_id: Option<Uuid>,
 }
 
 impl From<ExpenseView> for Expense {
@@ -144,6 +148,7 @@ impl From<ExpenseView> for Expense {
             voided_at: view.voided_at.map(rfc3339),
             recorded_by: view.recorded_by.uuid(),
             created_at: rfc3339(view.created_at),
+            recurring_expense_id: view.recurring_expense_id.map(sakalya_types::Id::uuid),
         }
     }
 }

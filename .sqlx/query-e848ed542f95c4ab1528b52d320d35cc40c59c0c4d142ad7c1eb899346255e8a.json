@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select e.id, e.category_id, c.key as category_key, c.name as category_name, e.spent_on,\n                  e.amount_paise, e.note, e.method, e.status, e.void_reason, e.voided_at,\n                  e.recorded_by, e.created_at,\n                  f.id as \"bill_id?\", f.mime_type as \"bill_mime_type?\",\n                  f.size_bytes as \"bill_size_bytes?\", f.file_name as \"bill_file_name?\"\n           from aarogyam.expenses e\n           join aarogyam.expense_categories c on c.org_id = e.org_id and c.id = e.category_id\n           left join aarogyam.expense_files f\n             on f.org_id = e.org_id and f.expense_id = e.id and f.superseded_at is null\n           where ($1::date is null or e.spent_on >= $1)\n             and ($2::date is null or e.spent_on <= $2)\n           order by e.spent_on desc, e.id desc\n           limit $3",
+  "query": "with c as (\n             select id, key, name from aarogyam.expense_categories where key = $2\n           ), e as (\n             insert into aarogyam.expenses (id, category_id, spent_on, amount_paise, note, recorded_by,\n                                            idempotency_key, request_hash, method)\n             select $1, c.id, $3, $4, $5, $6, $7, $8, $9 from c\n             returning id, category_id, spent_on, amount_paise, note, method, status, void_reason,\n                       voided_at, recorded_by, created_at, recurring_expense_id\n           )\n           select e.id as \"id!\", e.category_id as \"category_id!\", c.key as \"category_key!\",\n                  c.name as \"category_name!\", e.spent_on as \"spent_on!\",\n                  e.amount_paise as \"amount_paise!\", e.note, e.method, e.status as \"status!\",\n                  e.void_reason, e.voided_at, e.recorded_by as \"recorded_by!\",\n                  e.created_at as \"created_at!\", e.recurring_expense_id\n           from e join c on c.id = e.category_id",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "id!",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -16,7 +16,7 @@
       },
       {
         "ordinal": 1,
-        "name": "category_id",
+        "name": "category_id!",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -27,7 +27,7 @@
       },
       {
         "ordinal": 2,
-        "name": "category_key",
+        "name": "category_key!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -38,7 +38,7 @@
       },
       {
         "ordinal": 3,
-        "name": "category_name",
+        "name": "category_name!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -49,7 +49,7 @@
       },
       {
         "ordinal": 4,
-        "name": "spent_on",
+        "name": "spent_on!",
         "type_info": "Date",
         "origin": {
           "Table": {
@@ -60,7 +60,7 @@
       },
       {
         "ordinal": 5,
-        "name": "amount_paise",
+        "name": "amount_paise!",
         "type_info": "Int8",
         "origin": {
           "Table": {
@@ -93,7 +93,7 @@
       },
       {
         "ordinal": 8,
-        "name": "status",
+        "name": "status!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -126,7 +126,7 @@
       },
       {
         "ordinal": 11,
-        "name": "recorded_by",
+        "name": "recorded_by!",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -137,7 +137,7 @@
       },
       {
         "ordinal": 12,
-        "name": "created_at",
+        "name": "created_at!",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -148,54 +148,27 @@
       },
       {
         "ordinal": 13,
-        "name": "bill_id?",
+        "name": "recurring_expense_id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "aarogyam.expense_files",
-            "name": "id"
-          }
-        }
-      },
-      {
-        "ordinal": 14,
-        "name": "bill_mime_type?",
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "aarogyam.expense_files",
-            "name": "mime_type"
-          }
-        }
-      },
-      {
-        "ordinal": 15,
-        "name": "bill_size_bytes?",
-        "type_info": "Int8",
-        "origin": {
-          "Table": {
-            "table": "aarogyam.expense_files",
-            "name": "size_bytes"
-          }
-        }
-      },
-      {
-        "ordinal": 16,
-        "name": "bill_file_name?",
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "aarogyam.expense_files",
-            "name": "file_name"
+            "table": "aarogyam.expenses",
+            "name": "recurring_expense_id"
           }
         }
       }
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Text",
         "Date",
-        "Date",
-        "Int8"
+        "Int8",
+        "Text",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text"
       ]
     },
     "nullable": [
@@ -212,11 +185,8 @@
       true,
       false,
       false,
-      false,
-      false,
-      false,
       true
     ]
   },
-  "hash": "37d1688ef2625d563a3b24cfc24d28c9663930ad7cddf0022937a50d556b90b8"
+  "hash": "e848ed542f95c4ab1528b52d320d35cc40c59c0c4d142ad7c1eb899346255e8a"
 }

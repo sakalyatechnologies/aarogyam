@@ -12,6 +12,7 @@ import { useClinic } from "../../clinic.js";
 import { useTodayDate } from "../../lib/patients.js";
 import { CATEGORY_LABEL, paidByLabel } from "../../lib/expenses.js";
 import { ExpenseForm } from "./expense-form.js";
+import { RecurringExpensesCard } from "./recurring-expenses.js";
 import { useExpenseBillLink, useExpenses, useVoidExpense } from "./queries.js";
 import "./expenses.css";
 
@@ -31,8 +32,9 @@ const monthLabel = (month: string) => new Date(`${month}-01T00:00:00Z`).toLocale
 const dayLabel = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
 /**
- * Billing → Expenses: a quick-add form (with `expenses.write`) and one month's expenses grouped by
- * category with totals (`?month=`); voiding takes a reason. Needs `finance.view`.
+ * Billing → Expenses: a quick-add form (with `expenses.write`), the recurring expenses (rent,
+ * salaries) and one month's expenses grouped by category with totals (`?month=`); voiding takes a
+ * reason. Needs `finance.view`.
  */
 export function ExpensesPanel() {
   const { can } = useClinic();
@@ -73,11 +75,14 @@ export function ExpensesPanel() {
 
   return (
     <div className="ex-layout">
-      {can("expenses.write") ? (
-        <MkCard title="Add an expense" hint="Rent, salaries, bills and anything bought outside Stock">
-          <ExpenseForm onSaved={(day) => { setMonth(day.slice(0, 7)); }} />
-        </MkCard>
-      ) : null}
+      <div className="ex-side">
+        {can("expenses.write") ? (
+          <MkCard title="Add an expense" hint="Rent, salaries, bills and anything bought outside Stock">
+            <ExpenseForm onSaved={(day) => { setMonth(day.slice(0, 7)); }} />
+          </MkCard>
+        ) : null}
+        <RecurringExpensesCard />
+      </div>
       <MkCard
         title={monthLabel(month)}
         hint={expenses.isSuccess ? `${formatRupees(total)} spent · ${String(live.length)} ${live.length === 1 ? "entry" : "entries"}` : undefined}
@@ -113,6 +118,7 @@ export function ExpensesPanel() {
                       <span className="ex-note">
                         {e.status === "void" ? `Void: ${e.void_reason ?? ""}` : (e.note ?? "—")}
                         {e.method == null ? null : <span className="ex-method"> · {paidByLabel(e.method)}</span>}
+                        {e.recurring_expense_id == null ? null : <span className="ex-tag">Recurring</span>}
                       </span>
                       {e.bill == null ? (
                         <span />

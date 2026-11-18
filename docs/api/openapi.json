@@ -14347,6 +14347,285 @@
         ]
       }
     },
+    "/api/v1/recurring-expenses": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "The clinic's recurring expenses.",
+        "operationId": "listRecurringExpenses",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpenseList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks finance.view"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Sets up a recurring expense. Its first expense is recorded on the first due day on or after\n`starts_on`, by the background job (within a few minutes).",
+        "operationId": "createRecurringExpense",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewRecurringExpense"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Set up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpense"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input: amount, note, method, day, or a start out of range"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recurring-expenses/{id}": {
+      "patch": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Edits a recurring expense. Only expenses recorded from now on change; a new day moves the\nnext due day to the first one on or after today.",
+        "operationId": "updateRecurringExpense",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The recurring expense",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecurringExpenseChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpense"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write"
+          },
+          "404": {
+            "description": "No such recurring expense in this clinic"
+          },
+          "409": {
+            "description": "Stopped"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recurring-expenses/{id}/pause": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Pauses a recurring expense: nothing is recorded until it is resumed.",
+        "operationId": "pauseRecurringExpense",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The recurring expense",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpense"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write"
+          },
+          "404": {
+            "description": "No such recurring expense in this clinic"
+          },
+          "409": {
+            "description": "Already paused, or stopped"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recurring-expenses/{id}/resume": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Resumes a paused recurring expense from its next due day on or after today; the days it was\npaused are not recorded.",
+        "operationId": "resumeRecurringExpense",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The recurring expense",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpense"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write"
+          },
+          "404": {
+            "description": "No such recurring expense in this clinic"
+          },
+          "409": {
+            "description": "Not paused, or stopped"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recurring-expenses/{id}/stop": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Stops a recurring expense for good. Expenses it recorded stay.",
+        "operationId": "stopRecurringExpense",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The recurring expense",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringExpense"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write"
+          },
+          "404": {
+            "description": "No such recurring expense in this clinic"
+          },
+          "409": {
+            "description": "Already stopped"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/registrations": {
       "post": {
         "tags": [
@@ -24471,6 +24750,13 @@
             "type": "string",
             "description": "The membership that recorded it."
           },
+          "recurring_expense_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The recurring expense that recorded it. Absent for one recorded by hand."
+          },
           "spent_on": {
             "type": "string",
             "description": "The clinic day the money went out, `YYYY-MM-DD`."
@@ -30452,6 +30738,65 @@
           }
         }
       },
+      "NewRecurringExpense": {
+        "type": "object",
+        "description": "A recurring expense to set up.",
+        "required": [
+          "category",
+          "amount_paise",
+          "cadence",
+          "starts_on"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise each time, more than zero and at most 1,00,00,000 rupees."
+          },
+          "cadence": {
+            "$ref": "#/components/schemas/RecurringCadence",
+            "description": "Monthly or weekly."
+          },
+          "category": {
+            "$ref": "#/components/schemas/ExpenseCategory",
+            "description": "What it is for."
+          },
+          "day_of_month": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "1 to 31; required for monthly, absent for weekly."
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How it is paid: `cash`, `upi`, `card` or `bank`. Optional."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Up to 300 characters, copied to each expense."
+          },
+          "starts_on": {
+            "type": "string",
+            "description": "The first day it may fall on, `YYYY-MM-DD`: up to 90 days back (the missed days are\nrecorded on the next run) or a year ahead."
+          },
+          "weekday": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "1 (Monday) to 7 (Sunday); required for weekly, absent for monthly."
+          }
+        }
+      },
       "NewRegistration": {
         "type": "object",
         "description": "A clinic asking to join.",
@@ -36015,6 +36360,187 @@
             "description": "Newest first."
           }
         }
+      },
+      "RecurringCadence": {
+        "type": "string",
+        "description": "How often a recurring expense is recorded.",
+        "enum": [
+          "monthly",
+          "weekly"
+        ]
+      },
+      "RecurringExpense": {
+        "type": "object",
+        "description": "An expense the clinic records every month or week, such as rent or a salary.",
+        "required": [
+          "id",
+          "category",
+          "category_name",
+          "amount_paise",
+          "cadence",
+          "starts_on",
+          "next_due_on",
+          "status",
+          "recorded_by",
+          "created_at"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Paise, each time."
+          },
+          "cadence": {
+            "$ref": "#/components/schemas/RecurringCadence",
+            "description": "Monthly or weekly."
+          },
+          "category": {
+            "$ref": "#/components/schemas/ExpenseCategory",
+            "description": "What it is for."
+          },
+          "category_name": {
+            "type": "string",
+            "description": "The category's name, such as `Rent`."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was set up (RFC 3339)."
+          },
+          "day_of_month": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "1 to 31, for a monthly one; a shorter month uses its last day. Absent for weekly."
+          },
+          "ends_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The last day it may fall on, `YYYY-MM-DD`; null for no end."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How it is paid: `cash`, `upi`, `card` or `bank`. Absent when not recorded."
+          },
+          "next_due_on": {
+            "type": "string",
+            "description": "The next day it records an expense, `YYYY-MM-DD`."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A note copied to each expense."
+          },
+          "recorded_by": {
+            "type": "string",
+            "description": "The membership whose name the recorded expenses carry."
+          },
+          "starts_on": {
+            "type": "string",
+            "description": "The first day it may fall on, `YYYY-MM-DD`."
+          },
+          "status": {
+            "$ref": "#/components/schemas/RecurringExpenseStatus",
+            "description": "Active, paused, stopped or ended."
+          },
+          "weekday": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "1 (Monday) to 7 (Sunday), for a weekly one. Absent for monthly."
+          }
+        }
+      },
+      "RecurringExpenseChange": {
+        "type": "object",
+        "description": "A change to a recurring expense. Fields left out stay; only expenses recorded after the\nchange use it.",
+        "properties": {
+          "amount_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Paise each time."
+          },
+          "day_of_month": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "1 to 31, for a monthly one."
+          },
+          "ends_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The last day, `YYYY-MM-DD`, not before `starts_on`; `null` clears."
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`cash`, `upi`, `card` or `bank`; `null` clears."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Up to 300 characters; `null` clears."
+          },
+          "weekday": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "1 (Monday) to 7, for a weekly one."
+          }
+        }
+      },
+      "RecurringExpenseList": {
+        "type": "object",
+        "description": "Recurring expenses.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecurringExpense"
+            },
+            "description": "By next due day, stopped ones last."
+          }
+        }
+      },
+      "RecurringExpenseStatus": {
+        "type": "string",
+        "description": "Where a recurring expense stands.",
+        "enum": [
+          "active",
+          "paused",
+          "stopped",
+          "ended"
+        ]
       },
       "RedeemHandoff": {
         "type": "object",

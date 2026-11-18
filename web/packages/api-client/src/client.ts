@@ -257,6 +257,11 @@ import type {
   ExpenseId,
   ExpenseList,
   NewExpense,
+  NewRecurringExpense,
+  RecurringExpense,
+  RecurringExpenseChange,
+  RecurringExpenseId,
+  RecurringExpenseList,
   TokenStatusChange,
   Today,
   Unsubscribed,
@@ -1009,6 +1014,18 @@ export interface ApiClient {
   removeExpenseBill(id: ExpenseId, options?: RequestOptions): Promise<ApiResult<Expense>>;
   /** Clinic host: a five-minute link to the expense's bill, also when the expense is void. Needs `finance.view`; 404 when there is none. */
   getExpenseBillDownloadLink(id: ExpenseId, options?: RequestOptions): Promise<ApiResult<DownloadLink>>;
+  /** Clinic host: recurring expenses (rent, salaries), stopped ones last. Needs `finance.view`. */
+  listRecurringExpenses(options?: RequestOptions): Promise<ApiResult<RecurringExpenseList>>;
+  /** Clinic host: sets up a recurring expense; the job records it on each due day. Needs `expenses.write`. */
+  createRecurringExpense(input: NewRecurringExpense, options?: RequestOptions): Promise<ApiResult<RecurringExpense>>;
+  /** Clinic host: edits a recurring expense; only later expenses change. Needs `expenses.write`; 409 when stopped. */
+  updateRecurringExpense(id: RecurringExpenseId, changes: RecurringExpenseChange, options?: RequestOptions): Promise<ApiResult<RecurringExpense>>;
+  /** Clinic host: pauses a recurring expense. Needs `expenses.write`; 409 when paused or stopped. */
+  pauseRecurringExpense(id: RecurringExpenseId, options?: RequestOptions): Promise<ApiResult<RecurringExpense>>;
+  /** Clinic host: resumes a paused recurring expense from its next due day on or after today. Needs `expenses.write`. */
+  resumeRecurringExpense(id: RecurringExpenseId, options?: RequestOptions): Promise<ApiResult<RecurringExpense>>;
+  /** Clinic host: stops a recurring expense for good; what it recorded stays. Needs `expenses.write`. */
+  stopRecurringExpense(id: RecurringExpenseId, options?: RequestOptions): Promise<ApiResult<RecurringExpense>>;
   /** Clinic host: chair use, money, patients and busy hours by month or week; money is null without `finance.view`. Needs `analytics.view`. */
   getAnalytics(query: AnalyticsQuery, options?: RequestOptions): Promise<ApiResult<Analytics>>;
 

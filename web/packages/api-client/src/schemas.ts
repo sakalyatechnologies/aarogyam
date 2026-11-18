@@ -2476,6 +2476,8 @@ export const expense = z.object({
   created_at: timestamp,
   void_reason: optionalText,
   voided_at: optionalTimestamp,
+  /** The recurring expense that recorded it; absent for one recorded by hand. */
+  recurring_expense_id: z.string().min(1).brand<"RecurringExpenseId">().nullable().exactOptional(),
 }) satisfies z.ZodType<C.Expense>;
 export type Expense = z.output<typeof expense>;
 
@@ -2484,6 +2486,46 @@ export type ExpenseList = z.output<typeof expenseList>;
 
 /** Body of `POST /api/v1/expenses`. */
 export type NewExpense = C.NewExpense;
+
+export const recurringExpenseId = z.string().min(1).brand<"RecurringExpenseId">();
+export type RecurringExpenseId = z.output<typeof recurringExpenseId>;
+
+export const recurringCadence = z.enum(["monthly", "weekly"]) satisfies z.ZodType<C.RecurringCadence>;
+export type RecurringCadence = z.output<typeof recurringCadence>;
+
+export const recurringExpenseStatus = z.enum(["active", "paused", "stopped", "ended"]) satisfies z.ZodType<C.RecurringExpenseStatus>;
+export type RecurringExpenseStatus = z.output<typeof recurringExpenseStatus>;
+
+/** Rent, a salary or another expense recorded every month or week. */
+export const recurringExpense = z.object({
+  id: recurringExpenseId,
+  category: expenseCategory,
+  category_name: z.string(),
+  amount_paise: paise,
+  /** `cash`, `upi`, `card` or `bank`; absent when not recorded. */
+  method: z.string().nullable().exactOptional(),
+  note: optionalText,
+  cadence: recurringCadence,
+  /** 1 to 31 for a monthly one (a shorter month uses its last day); absent for weekly. */
+  day_of_month: z.number().int().nullable().exactOptional(),
+  /** 1 (Monday) to 7 for a weekly one; absent for monthly. */
+  weekday: z.number().int().nullable().exactOptional(),
+  starts_on: date,
+  ends_on: date.nullable(),
+  next_due_on: date,
+  status: recurringExpenseStatus,
+  recorded_by: membershipId,
+  created_at: timestamp,
+}) satisfies z.ZodType<C.RecurringExpense>;
+export type RecurringExpense = z.output<typeof recurringExpense>;
+
+export const recurringExpenseList = z.object({ items: z.array(recurringExpense) }) satisfies z.ZodType<C.RecurringExpenseList>;
+export type RecurringExpenseList = z.output<typeof recurringExpenseList>;
+
+/** Body of `POST /api/v1/recurring-expenses`. */
+export type NewRecurringExpense = C.NewRecurringExpense;
+/** Body of `PATCH /api/v1/recurring-expenses/{id}`: fields left out stay; `null` clears. */
+export type RecurringExpenseChange = C.RecurringExpenseChange;
 
 export const analyticsBucket = z.enum(["month", "week", "day"]) satisfies z.ZodType<C.AnalyticsBucket>;
 export type AnalyticsBucket = z.output<typeof analyticsBucket>;

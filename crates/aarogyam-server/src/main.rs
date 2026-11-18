@@ -674,6 +674,17 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not flag staff alerts"),
         }
+        // Rent, salaries and other recurring expenses that fell due: record them.
+        match aarogyam_app::recurring_expenses::generate(&db, time::OffsetDateTime::now_utc()).await
+        {
+            Ok(report) if report.rules > 0 => tracing::info!(
+                rules = report.rules,
+                recorded = report.recorded,
+                "recurring expenses recorded"
+            ),
+            Ok(_) => {}
+            Err(error) => tracing::warn!(error = %error, "could not record recurring expenses"),
+        }
         push_staff(&notifier, &db).await;
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(

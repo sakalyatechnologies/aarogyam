@@ -1,0 +1,229 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with e as (\n             update aarogyam.recurring_expenses\n             set amount_paise = $2, method = $3, note = $4, day_of_month = $5, weekday = $6,\n                 ends_on = $7, next_due_on = $8, paused_at = $9, stopped_at = $10\n             where id = $1\n             returning *\n           )\n           select e.id as \"id!\", e.category_id as \"category_id!\", c.key as \"category_key!\",\n                  c.name as \"category_name!\", e.amount_paise as \"amount_paise!\", e.method, e.note,\n                  e.cadence as \"cadence!\", e.day_of_month, e.weekday, e.starts_on as \"starts_on!\",\n                  e.ends_on, e.next_due_on as \"next_due_on!\", e.paused_at, e.stopped_at,\n                  e.recorded_by as \"recorded_by!\", e.created_at as \"created_at!\"\n           from e\n           join aarogyam.expense_categories c on c.org_id = e.org_id and c.id = e.category_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "category_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "category_key!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expense_categories",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "category_name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.expense_categories",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "amount_paise!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "amount_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "method",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "method"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "cadence!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "cadence"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "day_of_month",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "day_of_month"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "weekday",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "weekday"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "starts_on!",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "starts_on"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "ends_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "ends_on"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "next_due_on!",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "next_due_on"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "paused_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "paused_at"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "stopped_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "stopped_at"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "recorded_by!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "recorded_by"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "created_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.recurring_expenses",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8",
+        "Text",
+        "Text",
+        "Int2",
+        "Int2",
+        "Date",
+        "Date",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "5e58005183a9d5980be2f577195f50edbb61e5bd5225ca4a50a7111f4e641a74"
+}

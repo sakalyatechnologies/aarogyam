@@ -60,6 +60,7 @@ import {
   type Fixtures,
 } from "./fixtures.js";
 import { EXPENSE_NAMES, buildAnalytics, daysInclusive, wireExpense, type FakeExpense } from "./analytics.js";
+import { changeRecurring, isRefusal, newRecurring, recordDue, resumeRecurring, wireRecurring, type FakeRecurring } from "./recurring-expenses.js";
 import { DASHBOARD_CATALOGUE, builtInLayout, validateLayout } from "./dashboard-layout.js";
 import { clinicTerms, type FakeDentalTerm } from "./dental-terms.js";
 import { MAX_GRANT_MS, MIN_GRANT_MS, grantStatus, wireGrant, type FakeSupportGrant } from "./support-grants.js";
@@ -644,6 +645,38 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     /** The clinic's local date. */
     function clinicToday(clinic: FakeClinic): string {
       return localClock(clock(), clinic.timezone).date;
+    }
+
+    /** Records the clinic's recurring expenses that fell due, as the server's job does. */
+    function recordRecurring(clinic: FakeClinic): void {
+      const rules = (state.recurringExpenses ?? []).filter((r) => r.clinic_id === clinic.id);
+      if (rules.length > 0) {
+        const now = clock();
+        recordDue(rules, (state.expenses ??= []), clinicToday(clinic), () => fakeUuid(random, now), now.toISOString());
+      }
+    }
+
+    /** Edits, pauses, resumes or stops one of the caller's clinic's recurring expenses. */
+    function actOnRecurring(
+      id: string,
+      opts: { signal?: AbortSignal | undefined } | undefined,
+      change: (rule: FakeRecurring, today: string) => Outcome | null,
+    ) {
+      return respond(S.recurringExpense, opts?.signal, async () => {
+        const caller = await inClinic("expenses.write");
+        if (!isCaller(caller)) {
+          return caller;
+        }
+        const rule = (state.recurringExpenses ?? []).find((r) => r.id === id && r.clinic_id === caller.clinic.id);
+        if (rule === undefined) {
+          return notFound;
+        }
+        if (rule.stopped_at !== null) {
+          return refuse(409, "conflict", "this recurring expense is stopped");
+        }
+        const outcome = change(rule, clinicToday(caller.clinic));
+        return outcome ?? reply(wireRecurring(rule) satisfies C.RecurringExpense);
+      });
     }
 
     /** What writing or settling a visit notice needs: the state, the bill amounts, a new id, now and who acted. */
@@ -8274,6 +8307,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (from !== undefined && to !== undefined && from > to) {
             return invalid("from", "must be before to");
           }
+          recordRecurring(caller.clinic);
           const items = (state.expenses ?? [])
             .filter((e) => e.clinic_id === caller.clinic.id && (from === undefined || e.spent_on >= from) && (to === undefined || e.spent_on <= to))
             .sort((a, b) => b.spent_on.localeCompare(a.spent_on) || b.created_at.localeCompare(a.created_at))
@@ -8382,6 +8416,70 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           delete found.bill;
           delete found.bill_file_id;
           return reply(wireExpense(found));
+        }),
+
+      listRecurringExpenses: (opts) =>
+        respond(S.recurringExpenseList, opts?.signal, async () => {
+          const caller = await inClinic("finance.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          recordRecurring(caller.clinic);
+          const items = (state.recurringExpenses ?? [])
+            .filter((r) => r.clinic_id === caller.clinic.id)
+            .sort((a, b) => Number(a.stopped_at !== null) - Number(b.stopped_at !== null) || a.next_due_on.localeCompare(b.next_due_on));
+          return reply({ items: items.map(wireRecurring) } satisfies C.RecurringExpenseList);
+        }),
+
+      createRecurringExpense: (input, opts) =>
+        respond(S.recurringExpense, opts?.signal, async () => {
+          const caller = await inClinic("expenses.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const now = clock();
+          const made = newRecurring(input, {
+            id: fakeUuid(random, now),
+            clinicId: caller.clinic.id,
+            recordedBy: caller.membership.id,
+            now: now.toISOString(),
+            today: clinicToday(caller.clinic),
+          });
+          if (isRefusal(made)) {
+            return invalid(made[0], made[1]);
+          }
+          (state.recurringExpenses ??= []).push(made);
+          return reply(wireRecurring(made) satisfies C.RecurringExpense);
+        }),
+
+      updateRecurringExpense: (id, changes, opts) =>
+        actOnRecurring(id, opts, (rule, today) => {
+          const bad = changeRecurring(rule, changes, today);
+          return bad === null ? null : invalid(bad[0], bad[1]);
+        }),
+
+      pauseRecurringExpense: (id, opts) =>
+        actOnRecurring(id, opts, (rule) => {
+          if (rule.paused_at !== null) {
+            return refuse(409, "conflict", "this recurring expense is already paused");
+          }
+          rule.paused_at = clock().toISOString();
+          return null;
+        }),
+
+      resumeRecurringExpense: (id, opts) =>
+        actOnRecurring(id, opts, (rule, today) => {
+          if (rule.paused_at === null) {
+            return refuse(409, "conflict", "this recurring expense is not paused");
+          }
+          resumeRecurring(rule, today);
+          return null;
+        }),
+
+      stopRecurringExpense: (id, opts) =>
+        actOnRecurring(id, opts, (rule) => {
+          rule.stopped_at = clock().toISOString();
+          return null;
         }),
 
       getExpenseBillDownloadLink: (id, opts) =>

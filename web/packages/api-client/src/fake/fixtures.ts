@@ -731,6 +731,8 @@ export interface Fixtures {
   stockImports?: import("./purchasing.js").FakeStockImport[];
   /** Clinic expenses (stock deliveries count as material on their own). */
   expenses?: import("./analytics.js").FakeExpense[];
+  /** Recurring expenses (rent, salaries), made on first use. */
+  recurringExpenses?: import("./recurring-expenses.js").FakeRecurring[];
   /** Labs, lab orders and lab payments. */
   labs?: import("./labs.js").FakeLabs;
   /** Staff tasks and their occurrences, made on first use (the standard tasks are added then). */

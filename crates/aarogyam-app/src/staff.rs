@@ -210,50 +210,32 @@ pub(crate) async fn invite_in_scope(
     let (token, token_hash) = crate::tokens::new_token()?;
     let expires_at = now + INVITE_VALID_FOR;
     let id = InvitationId::new_v7();
-    let portal_host = db.scoped(scope, async |tx| {
-        let (role_id, role_name) = dal::role_by_key(tx.conn(), &role_key)
-            .await?
-            .ok_or_else(|| AppError::invalid("role_key", "is not a role in this clinic"))?;
-        let profile = clinic::profile(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let host = dal::portal_host(tx.conn())
-            .await?
-            .ok_or(AppError::Conflict("the clinic has no portal address yet"))?;
-        dal::insert_invitation(
-            tx.conn(),
-            &dal::NewInvitation {
-                id: id.uuid(),
-                email: email.as_str(),
-                display_name: details.display_name.as_deref(),
-                phone_e164: details.phone.as_ref().map(PhoneE164::as_e164),
-                role_id,
-                invited_by,
-                token_hash: &token_hash,
-                expires_at,
-            },
-        )
+    let portal_host = db
+        .scoped(scope, async |tx| {
+            let (role_id, role_name) = dal::role_by_key(tx.conn(), &role_key)
+                .await?
+                .ok_or_else(|| AppError::invalid("role_key", "is not a role in this clinic"))?;
+            let host = dal::portal_host(tx.conn())
+                .await?
+                .ok_or(AppError::Conflict("the clinic has no portal address yet"))?;
+            dal::insert_invitation(
+                tx.conn(),
+                &dal::NewInvitation {
+                    id: id.uuid(),
+                    email: email.as_str(),
+                    display_name: details.display_name.as_deref(),
+                    phone_e164: details.phone.as_ref().map(PhoneE164::as_e164),
+                    role_id,
+                    invited_by,
+                    token_hash: &token_hash,
+                    expires_at,
+                },
+            )
+            .await?;
+            queue_invite_email(tx, id, &email, &role_name, &host, &token, expires_at).await?;
+            Ok::<_, AppError>(host)
+        })
         .await?;
-        let expires_on = expires_at.to_offset(clinic_offset(&profile.timezone)).date();
-        enqueue_staff_email(
-            tx,
-            &StaffEmail {
-                kind: MessageKind::StaffInvited,
-                to: &email,
-                payload: json!({
-                    "invitation_id": id.uuid(),
-                    "clinic_name": profile.name,
-                    "role_name": role_name,
-                    "portal_host": host,
-                    "expires_on": format!("{} {} {}", expires_on.day(), expires_on.month(), expires_on.year()),
-                }),
-                secret: Some(&token),
-            },
-        )
-        .await?;
-        Ok::<_, AppError>(host)
-    })
-    .await?;
     Ok(Invited {
         id,
         email: email.as_str().to_owned(),
@@ -262,6 +244,142 @@ pub(crate) async fn invite_in_scope(
         token,
         portal_host,
     })
+}
+
+/// Queues the invitation email with its link secret in the caller's clinic transaction.
+async fn queue_invite_email(
+    tx: &mut sakalya_db::ScopedTx,
+    id: InvitationId,
+    email: &Email,
+    role_name: &str,
+    host: &str,
+    token: &str,
+    expires_at: OffsetDateTime,
+) -> Result<(), AppError> {
+    let profile = clinic::profile(tx.conn())
+        .await?
+        .ok_or(AppError::NotFound("clinic"))?;
+    let expires_on = expires_at
+        .to_offset(clinic_offset(&profile.timezone))
+        .date();
+    enqueue_staff_email(
+        tx,
+        &StaffEmail {
+            kind: MessageKind::StaffInvited,
+            to: email,
+            payload: json!({
+                "invitation_id": id.uuid(),
+                "clinic_name": profile.name,
+                "role_name": role_name,
+                "portal_host": host,
+                "expires_on": format!("{} {} {}", expires_on.day(), expires_on.month(), expires_on.year()),
+            }),
+            secret: Some(token),
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+/// Locks a pending invitation the actor may change: only owners touch an owner's invitation.
+async fn lock_invitation(
+    tx: &mut sakalya_db::ScopedTx,
+    actor: &ClinicActor,
+    id: InvitationId,
+) -> Result<dal::LockedInvitation, AppError> {
+    let invitation = dal::lock_pending_invitation(tx.conn(), id.uuid())
+        .await?
+        .ok_or(AppError::NotFound("invitation"))?;
+    check_invite(&actor.role_key, &invitation.role_key)?;
+    Ok(invitation)
+}
+
+/// Sends a pending invitation again with a new link, valid for another
+/// [`INVITE_VALID_FOR`]; the old link stops working and an unsent earlier email is dropped.
+/// With `accounts`, the invitee's sign-in account is made first, so an invitation sent before
+/// accounts were made with it can still be accepted.
+///
+/// # Errors
+/// [`AppError::Denied`] without `staff.manage`; [`AppError::NotFound`] when no pending
+/// invitation has this id; [`AppError::Forbidden`] when a non-owner resends an owner's
+/// invitation; [`AppError::Conflict`] when it has no email or the clinic has no portal address;
+/// [`AppError::Accounts`] when Supabase fails; [`AppError::Db`] on database failures.
+pub async fn resend_invitation(
+    db: &Db,
+    actor: &ClinicActor,
+    accounts: Option<&dyn SignInAccounts>,
+    request_id: Option<Uuid>,
+    id: InvitationId,
+    now: OffsetDateTime,
+) -> Result<Invited, AppError> {
+    actor.require(Permission::StaffManage)?;
+    let scope = staff_scope(actor, request_id);
+    let email = db
+        .scoped(&scope, async |tx| {
+            let invitation = lock_invitation(tx, actor, id).await?;
+            invitation
+                .email
+                .ok_or(AppError::Conflict("the invitation has no email address"))
+        })
+        .await?;
+    let email = Email::parse(&email).map_err(|error| AppError::invalid("email", error))?;
+    if let Some(accounts) = accounts {
+        accounts.ensure_user(&email).await?;
+    }
+    let (token, token_hash) = crate::tokens::new_token()?;
+    let expires_at = now + INVITE_VALID_FOR;
+    db.scoped(&scope, async |tx| {
+        let invitation = lock_invitation(tx, actor, id).await?;
+        let host = dal::portal_host(tx.conn())
+            .await?
+            .ok_or(AppError::Conflict("the clinic has no portal address yet"))?;
+        dal::renew_invitation(tx.conn(), id.uuid(), &token_hash, expires_at).await?;
+        dal::abandon_invitation_emails(tx.conn(), id.uuid(), MessageKind::StaffInvited.as_str())
+            .await?;
+        queue_invite_email(
+            tx,
+            id,
+            &email,
+            &invitation.role_name,
+            &host,
+            &token,
+            expires_at,
+        )
+        .await?;
+        Ok(Invited {
+            id,
+            email: email.as_str().to_owned(),
+            role_key: invitation.role_key,
+            expires_at,
+            token,
+            portal_host: host,
+        })
+    })
+    .await
+}
+
+/// Cancels a pending invitation: its link stops working, an unsent email is dropped, and it
+/// leaves the pending list.
+///
+/// # Errors
+/// [`AppError::Denied`] without `staff.manage`; [`AppError::NotFound`] when no pending
+/// invitation has this id; [`AppError::Forbidden`] when a non-owner cancels an owner's
+/// invitation; [`AppError::Db`] on database failures.
+pub async fn cancel_invitation(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    id: InvitationId,
+) -> Result<(), AppError> {
+    actor.require(Permission::StaffManage)?;
+    db.scoped(&staff_scope(actor, request_id), async |tx| {
+        lock_invitation(tx, actor, id).await?;
+        dal::cancel_invitation(tx.conn(), id.uuid()).await?;
+        dal::abandon_invitation_emails(tx.conn(), id.uuid(), MessageKind::StaffInvited.as_str())
+            .await?;
+        Ok(())
+    })
+    .await
 }
 
 /// A change to a member, as received. `None` leaves it as it is.

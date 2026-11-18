@@ -234,6 +234,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
   /** Invitations made by createClinic or inviteStaff, by token. */
   const invitations = new Map<string, Invitation>();
+  /** A clinic's invitation neither used nor expired, with its token. */
+  const pendingInvitation = (id: string, clinicId: string, now: string): [string, Invitation] | undefined =>
+    [...invitations.entries()].find(([, inv]) => inv.id === id && inv.clinicId === clinicId && !inv.used && inv.expiresAt > now);
   /** Session handoffs by code: who, for which host, until when, and whether used. */
   const handoffs = new Map<string, { personId: string; host: string; expiresAt: number; used: boolean }>();
   /** Payment ids already recorded for an `Idempotency-Key`, so a retry returns the first payment. */
@@ -5450,6 +5453,46 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           const token = random.hex(32);
           invitations.set(token, { id, clinicId: caller.clinic.id, email: input.email, ...(displayName === "" ? {} : { displayName }), roleKey: role.key, createdAt: now.toISOString(), expiresAt, used: false });
           return reply({ id, email: input.email, role_key: role.key, expires_at: expiresAt, invite_token: token } satisfies C.CreatedInvitation);
+        }),
+
+      resendStaffInvitation: (id, opts) =>
+        respond(S.createdInvitation, opts?.signal, async () => {
+          const caller = await inClinic("staff.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = pendingInvitation(id, caller.clinic.id, clock().toISOString());
+          if (found === undefined) {
+            return notFound;
+          }
+          const [oldToken, inv] = found;
+          if (inv.roleKey === "owner" && caller.membership.role.key !== "owner") {
+            return refuse(403, "forbidden", "Only an owner may invite an owner.");
+          }
+          // A new link, valid for another 7 days; the old one stops working.
+          const expiresAt = new Date(clock().getTime() + 7 * 86_400_000).toISOString();
+          const token = random.hex(32);
+          invitations.delete(oldToken);
+          invitations.set(token, { ...inv, expiresAt });
+          return reply({ id: inv.id, email: inv.email, role_key: inv.roleKey, expires_at: expiresAt, invite_token: token } satisfies C.CreatedInvitation);
+        }),
+
+      cancelStaffInvitation: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("staff.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = pendingInvitation(id, caller.clinic.id, clock().toISOString());
+          if (found === undefined) {
+            return notFound;
+          }
+          const [, inv] = found;
+          if (inv.roleKey === "owner" && caller.membership.role.key !== "owner") {
+            return refuse(403, "forbidden", "Only an owner may invite an owner.");
+          }
+          inv.expiresAt = clock().toISOString();
+          return reply(undefined);
         }),
 
       changeStaffMember: (membershipId, changes, opts) =>

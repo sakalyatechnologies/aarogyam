@@ -1098,3 +1098,148 @@ async fn an_invitation_carries_the_name_and_phone_and_the_name_is_used_on_joinin
     );
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_pending_invitation_can_be_resent_with_a_new_link() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let invite = |email: &str| json!({ "email": email, "role_key": "front_desk" });
+    let (_, first) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/staff/invitations",
+            Some(&owner),
+            Some(invite("desk@alpha.test")),
+        )
+        .await;
+    let id = first["id"].as_str().unwrap().to_owned();
+    let old_token = first["invite_token"].as_str().unwrap().to_owned();
+
+    // Only staff managers of this clinic may resend or cancel it.
+    let resend = format!("/api/v1/staff/invitations/{id}/resend");
+    let cancel = format!("/api/v1/staff/invitations/{id}");
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &resend,
+            Some(&app.token(ALPHA_ASSISTANT)),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = app
+        .send(
+            Method::DELETE,
+            BETA,
+            &cancel,
+            Some(&app.token(BETA_OWNER)),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // A resend gives a new link; the unsent first email is dropped with its secret.
+    let (status, renewed) = app
+        .send(Method::POST, ALPHA, &resend, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{renewed}");
+    assert_eq!(renewed["id"], id.as_str());
+    let new_token = renewed["invite_token"].as_str().unwrap().to_owned();
+    assert_ne!(new_token, old_token);
+    let emails: Vec<(String, Option<String>)> = sqlx::query_as(
+        "select status, secret from aarogyam.outbox_events where event_key = 'staff.invited'
+         order by created_at",
+    )
+    .fetch_all(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(
+        emails,
+        vec![
+            ("failed".to_owned(), None),
+            ("pending".to_owned(), Some(new_token.clone()))
+        ]
+    );
+    let desk = app
+        .tokens
+        .mint_with_email(uuid::Uuid::now_v7(), Some("desk@alpha.test"))
+        .unwrap();
+    let accept = |token: &str| json!({ "token": token, "display_name": "Desk" });
+    let (status, _) = app
+        .send(
+            Method::POST,
+            "app.localtest.me",
+            "/api/v1/invitations/accept",
+            Some(&desk),
+            Some(accept(&old_token)),
+        )
+        .await;
+    assert_ne!(status, StatusCode::OK);
+    let (status, _) = app
+        .send(
+            Method::POST,
+            "app.localtest.me",
+            "/api/v1/invitations/accept",
+            Some(&desk),
+            Some(accept(&new_token)),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    // Accepted, it is no longer pending.
+    let (status, _) = app
+        .send(Method::POST, ALPHA, &resend, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_cancelled_invitation_leaves_the_list_and_its_link_stops_working() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let invite = |email: &str| json!({ "email": email, "role_key": "front_desk" });
+    let (_, second) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/staff/invitations",
+            Some(&owner),
+            Some(invite("nurse@alpha.test")),
+        )
+        .await;
+    let cancel = format!(
+        "/api/v1/staff/invitations/{}",
+        second["id"].as_str().unwrap()
+    );
+    let (status, _) = app
+        .send(Method::DELETE, ALPHA, &cancel, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = app
+        .send(Method::DELETE, ALPHA, &cancel, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (_, staff) = app
+        .send(Method::GET, ALPHA, "/api/v1/staff", Some(&owner), None)
+        .await;
+    assert_eq!(staff["invitations"], json!([]));
+    let nurse = app
+        .tokens
+        .mint_with_email(uuid::Uuid::now_v7(), Some("nurse@alpha.test"))
+        .unwrap();
+    let (status, _) = app
+        .send(
+            Method::POST,
+            "app.localtest.me",
+            "/api/v1/invitations/accept",
+            Some(&nurse),
+            Some(json!({ "token": second["invite_token"], "display_name": "Nurse" })),
+        )
+        .await;
+    assert_ne!(status, StatusCode::OK);
+    app.finish().await;
+}

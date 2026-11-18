@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.outbox_events\n           set status = 'failed', processed_at = now(), secret = null, last_error = 'superseded'\n           where status = 'pending' and event_key = $2 and payload ->> 'invitation_id' = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f57222f21bc6f43601371ed0a4845a41664f9edcff81dee67badcba65129a133"
+}

@@ -362,6 +362,98 @@ pub async fn insert_invitation(
     Ok(())
 }
 
+/// A pending invitation, locked for a resend or cancel.
+#[derive(Debug, Clone)]
+pub struct LockedInvitation {
+    /// The invitation.
+    pub id: Uuid,
+    /// Who is invited.
+    pub email: Option<String>,
+    /// The role they will get.
+    pub role_key: String,
+    /// Its name.
+    pub role_name: String,
+}
+
+/// Locks an invitation in the current clinic that is neither accepted nor expired.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn lock_pending_invitation(
+    conn: &mut PgConnection,
+    id: Uuid,
+) -> Result<Option<LockedInvitation>, DbError> {
+    let row = sqlx::query_as!(
+        LockedInvitation,
+        r#"select i.id, i.email, r.key as role_key, r.name as role_name
+           from aarogyam.invitations i
+           join aarogyam.roles r on r.org_id = i.org_id and r.id = i.role_id
+           where i.id = $1 and i.accepted_at is null and i.expires_at > now()
+           for update of i"#,
+        id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Gives an invitation a new link token and expiry; the old link stops working.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn renew_invitation(
+    conn: &mut PgConnection,
+    id: Uuid,
+    token_hash: &str,
+    expires_at: OffsetDateTime,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        "update aarogyam.invitations set token_hash = $2, expires_at = $3 where id = $1",
+        id,
+        token_hash,
+        expires_at
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// Ends an invitation now, so its link stops working and it leaves the pending list.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn cancel_invitation(conn: &mut PgConnection, id: Uuid) -> Result<(), DbError> {
+    sqlx::query!(
+        "update aarogyam.invitations set expires_at = now() where id = $1",
+        id
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// Abandons an invitation's emails not yet sent, dropping the link secret they carry, so a
+/// cancelled or resent invitation never mails a dead link.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn abandon_invitation_emails(
+    conn: &mut PgConnection,
+    id: Uuid,
+    event_key: &str,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"update aarogyam.outbox_events
+           set status = 'failed', processed_at = now(), secret = null, last_error = 'superseded'
+           where status = 'pending' and event_key = $2 and payload ->> 'invitation_id' = $1"#,
+        id.to_string(),
+        event_key
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
 /// The clinic's verified portal host, such as `sunrise.aarogyam.example`.
 ///
 /// # Errors

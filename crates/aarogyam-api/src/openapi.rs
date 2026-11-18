@@ -182,6 +182,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::files::content,
         crate::v1::staff::list,
         crate::v1::staff::invite,
+        crate::v1::staff::resend_invitation,
+        crate::v1::staff::cancel_invitation,
         crate::v1::staff::change,
         crate::v1::staff::roles,
         crate::v1::roles::catalogue,

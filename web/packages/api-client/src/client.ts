@@ -114,6 +114,7 @@ import type {
   Me,
   Member,
   MemberChanges,
+  InvitationId,
   MembershipId,
   Metrics,
   MetricsRange,
@@ -611,6 +612,10 @@ export interface ApiClient {
   listStaff(options?: RequestOptions): Promise<ApiResult<Staff>>;
   /** Clinic host: invites someone by email. Needs `staff.manage`; only an owner may invite an owner. */
   inviteStaff(input: NewInvitation, options?: RequestOptions): Promise<ApiResult<CreatedInvitation>>;
+  /** Clinic host: sends a pending invitation again with a new link (the old one stops working). Needs `staff.manage`. */
+  resendStaffInvitation(id: InvitationId, options?: RequestOptions): Promise<ApiResult<CreatedInvitation>>;
+  /** Clinic host: cancels a pending invitation; its link stops working. Needs `staff.manage`. */
+  cancelStaffInvitation(id: InvitationId, options?: RequestOptions): Promise<ApiResult<void>>;
   /** Clinic host: changes a member's role or status. Needs `staff.manage`. */
   changeStaffMember(membershipId: MembershipId, changes: MemberChanges, options?: RequestOptions): Promise<ApiResult<Member>>;
   /** Clinic host: the clinic's roles and what each may do, for choosing a role. Needs `staff.manage`. */

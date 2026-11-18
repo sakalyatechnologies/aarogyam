@@ -2,12 +2,12 @@ import { Mail, MoreVertical, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 
-import { apiErrorOf, type MemberChanges, type MembershipId, type Role } from "@aarogyam/api-client";
+import { apiErrorOf, type InvitationId, type MemberChanges, type MembershipId, type Role } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate } from "@aarogyam/app-kit";
 import { Avatar, Button, Card, DataTable, Dialog, Field, Menu, PhoneInput, Pill, Select, TextInput, useToast, type DataTableColumn, type MenuItem } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
-import { useChangeStaffMember, useInviteStaff, useRoles, useStaff } from "../../queries.js";
+import { useCancelStaffInvitation, useChangeStaffMember, useInviteStaff, useResendStaffInvitation, useRoles, useStaff } from "../../queries.js";
 import { RolesPanel } from "./roles-panel.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 
@@ -96,8 +96,9 @@ function StaffPanel() {
                   {invitation.display_name ?? invitation.email ?? "Invited"}
                   {invitation.display_name != null && invitation.email != null ? <span className="font-normal text-muted">{invitation.email}</span> : null}
                 </span>
-                <span className="text-muted">
+                <span className="flex items-center gap-2 text-muted">
                   {roles.data?.items.find((role) => role.key === invitation.role_key)?.name ?? invitation.role_key} · expires {formatDate(invitation.expires_at)}
+                  <InvitationMenu invitation={invitation} />
                 </span>
               </li>
             ))}
@@ -142,6 +143,43 @@ function MemberMenu({ member, selfId }: { member: { id: MembershipId; display_na
     );
   };
   return <Menu label={`Actions for ${member.display_name}`} icon={<MoreVertical aria-hidden="true" className="size-4" />} items={items} onSelect={onSelect} />;
+}
+
+/** Resend (a new link; the old one stops working) or cancel a pending invitation. */
+function InvitationMenu({ invitation }: { invitation: { id: InvitationId; email?: string | null; display_name?: string | null } }) {
+  const resend = useResendStaffInvitation();
+  const cancel = useCancelStaffInvitation();
+  const toast = useToast();
+  const who = invitation.display_name ?? invitation.email ?? "this invitation";
+  const failed = (thrown: unknown, fallback: string) => {
+    toast.show({ title: apiErrorOf(thrown)?.message ?? fallback, tone: "danger" });
+  };
+  const items: MenuItem[] = [
+    { id: "resend", label: "Resend invitation" },
+    { id: "cancel", label: "Cancel invitation", danger: true, separatorBefore: true },
+  ];
+  const onSelect = (id: string) => {
+    if (id === "resend") {
+      resend.mutate(invitation.id, {
+        onSuccess: (sent) => {
+          toast.show({ title: `Invitation sent again to ${sent.email}`, tone: "success" });
+        },
+        onError: (thrown) => {
+          failed(thrown, "Couldn't resend the invitation.");
+        },
+      });
+    } else {
+      cancel.mutate(invitation.id, {
+        onSuccess: () => {
+          toast.show({ title: "Invitation cancelled", tone: "success" });
+        },
+        onError: (thrown) => {
+          failed(thrown, "Couldn't cancel the invitation.");
+        },
+      });
+    }
+  };
+  return <Menu label={`Actions for ${who}`} icon={<MoreVertical aria-hidden="true" className="size-4" />} items={items} onSelect={onSelect} />;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

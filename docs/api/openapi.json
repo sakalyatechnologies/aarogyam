@@ -15943,6 +15943,96 @@
         ]
       }
     },
+    "/api/v1/staff/invitations/{invitation_id}": {
+      "delete": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "Cancels a pending invitation. Its link stops working and it leaves the pending list.",
+        "operationId": "cancelStaffInvitation",
+        "parameters": [
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "description": "The invitation",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancelled"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks staff.manage, or a non-owner cancelled an owner's invitation"
+          },
+          "404": {
+            "description": "No pending invitation with this id in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/staff/invitations/{invitation_id}/resend": {
+      "post": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "Sends a pending invitation again with a new link, valid for another 7 days. The old link\nstops working. Makes the invitee's sign-in account if it is missing, so an older invitation\ncan still be accepted.",
+        "operationId": "resendStaffInvitation",
+        "parameters": [
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "description": "The invitation",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedInvitation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks staff.manage, or a non-owner resent an owner's invitation"
+          },
+          "404": {
+            "description": "No pending invitation with this id in this clinic"
+          },
+          "409": {
+            "description": "The invitation has no email, or the clinic has no portal address"
+          },
+          "503": {
+            "description": "Supabase could not create the sign-in account"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/staff/{membership_id}": {
       "patch": {
         "tags": [

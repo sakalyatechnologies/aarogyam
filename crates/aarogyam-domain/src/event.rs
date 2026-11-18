@@ -8,6 +8,10 @@ pub enum Event {
     PatientUpdated,
     /// Someone was invited to join a clinic's staff.
     StaffInvited,
+    /// A pending staff invitation was sent again with a new link.
+    StaffInvitationResent,
+    /// A pending staff invitation was cancelled.
+    StaffInvitationCancelled,
     /// A member's role or status changed.
     MembershipChanged,
     /// A role was created, removed, or its permissions changed.
@@ -249,6 +253,8 @@ impl Event {
         match self {
             Self::PatientUpdated => "patient.updated",
             Self::StaffInvited => "staff.invited",
+            Self::StaffInvitationResent => "staff.invitation_resent",
+            Self::StaffInvitationCancelled => "staff.invitation_cancelled",
             Self::MembershipChanged => "membership.changed",
             Self::RoleChanged => "role.changed",
             Self::SettingsChanged => "settings.changed",

@@ -863,5 +863,16 @@ async fn a_clinic_invitation_makes_the_sign_in_account_first() {
         *accounts.emails.lock().unwrap(),
         vec!["desk.new@alpha.test".to_owned()]
     );
+
+    // A resend makes sure of the account again, for invitations sent before it was made.
+    let resend = format!(
+        "/api/v1/staff/invitations/{}/resend",
+        created["id"].as_str().unwrap()
+    );
+    let (status, again) = app
+        .send(Method::POST, ALPHA, &resend, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(accounts.calls.load(Ordering::SeqCst), 2);
     app.finish().await;
 }

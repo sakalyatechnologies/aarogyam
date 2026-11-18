@@ -499,6 +499,14 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/staff", get(staff::list))
         .route("/staff/invitations", post(staff::invite))
+        .route(
+            "/staff/invitations/{invitation_id}",
+            delete(staff::cancel_invitation),
+        )
+        .route(
+            "/staff/invitations/{invitation_id}/resend",
+            post(staff::resend_invitation),
+        )
         .route("/staff/{membership_id}", patch(staff::change))
         .route(
             "/roles",

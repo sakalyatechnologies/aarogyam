@@ -1,4 +1,4 @@
-import { cleanup, screen, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, describe, expect, it } from "vitest";
@@ -77,5 +77,28 @@ describe("team invite", () => {
     expect(link.getAttribute("href")).toMatch(/^https:\/\/wa\.me\/919876543210\?text=Hi%20Neha%20Joshi.*invite/);
     await user.click(screen.getByRole("button", { name: "Done" }));
     expect(await screen.findByText("Neha Joshi")).toBeTruthy();
+  });
+});
+
+describe("pending invitations", () => {
+  it("resends an invitation with a new link, or cancels it", async () => {
+    const { user, dialog } = await openInvite();
+    await user.type(dialog.getByLabelText(/Full name/), "Neha Joshi");
+    await user.type(dialog.getByLabelText(/Mobile/), "9876543210");
+    await user.type(dialog.getByLabelText(/^Email/), "neha@example.in");
+    await user.selectOptions(dialog.getByLabelText(/^role/i), "doctor");
+    await user.click(dialog.getByRole("button", { name: "Send invite" }));
+    await user.click(await screen.findByRole("button", { name: "Done" }));
+
+    await user.click(await screen.findByRole("button", { name: "Actions for Neha Joshi" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Resend invitation" }));
+    expect(await screen.findByText("Invitation sent again to neha@example.in")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Actions for Neha Joshi" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Cancel invitation" }));
+    expect(await screen.findByText("Invitation cancelled")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByText("Pending invitations")).toBeNull();
+    });
   });
 });

@@ -24,6 +24,7 @@ import {
   type NewAppointmentBody,
   type NewChartEntries,
   type NewDentalTerm,
+  type InvitationId,
   type NewInvitation,
   type NewLeave,
   type NewPatient,
@@ -309,6 +310,24 @@ export function useInviteStaff() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: NewInvitation) => unwrap(api.inviteStaff(input)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["staff", access.org_id] }),
+  });
+}
+
+export function useResendStaffInvitation() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: InvitationId) => unwrap(api.resendStaffInvitation(id)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["staff", access.org_id] }),
+  });
+}
+
+export function useCancelStaffInvitation() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: InvitationId) => unwrap(api.cancelStaffInvitation(id)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["staff", access.org_id] }),
   });
 }

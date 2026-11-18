@@ -2,7 +2,7 @@
 
 use aarogyam_app::staff::{self as app, ChangeMember, InviteStaff, MemberRow};
 use aarogyam_domain::event::Event;
-use aarogyam_domain::ids::{ClinicId, MembershipId};
+use aarogyam_domain::ids::{ClinicId, InvitationId, MembershipId};
 use aarogyam_domain::permission::require::{RolesManage, StaffManage};
 use axum::Json;
 use axum::extract::State;
@@ -239,6 +239,89 @@ pub(crate) async fn invite(
             invite_token: invited.token,
         }),
     ))
+}
+
+/// Sends a pending invitation again with a new link, valid for another 7 days. The old link
+/// stops working. Makes the invitee's sign-in account if it is missing, so an older invitation
+/// can still be accepted.
+#[utoipa::path(
+    post,
+    path = "/api/v1/staff/invitations/{invitation_id}/resend",
+    operation_id = "resendStaffInvitation",
+    tag = "staff",
+    params(("invitation_id" = String, Path, description = "The invitation")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = CreatedInvitation),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks staff.manage, or a non-owner resent an owner's invitation"),
+        (status = 404, description = "No pending invitation with this id in this clinic"),
+        (status = 409, description = "The invitation has no email, or the clinic has no portal address"),
+        (status = 503, description = "Supabase could not create the sign-in account")
+    )
+)]
+pub(crate) async fn resend_invitation(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<StaffManage>,
+    ApiPath(invitation_id): ApiPath<Uuid>,
+) -> Result<Json<CreatedInvitation>, ApiFailure> {
+    let invited = app::resend_invitation(
+        state.db(),
+        &request.actor,
+        state.accounts(),
+        request.request_id,
+        InvitationId::from_uuid(invitation_id),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    tracing::info!(
+        event = Event::StaffInvitationResent.as_str(),
+        invitation_id = %invited.id.uuid(),
+        role_key = %invited.role_key,
+        "staff invitation resent"
+    );
+    Ok(Json(CreatedInvitation {
+        id: invited.id.uuid(),
+        email: invited.email,
+        role_key: invited.role_key,
+        expires_at: rfc3339(invited.expires_at),
+        invite_token: invited.token,
+    }))
+}
+
+/// Cancels a pending invitation. Its link stops working and it leaves the pending list.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/staff/invitations/{invitation_id}",
+    operation_id = "cancelStaffInvitation",
+    tag = "staff",
+    params(("invitation_id" = String, Path, description = "The invitation")),
+    security(("bearer" = [])),
+    responses(
+        (status = 204, description = "Cancelled"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks staff.manage, or a non-owner cancelled an owner's invitation"),
+        (status = 404, description = "No pending invitation with this id in this clinic")
+    )
+)]
+pub(crate) async fn cancel_invitation(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<StaffManage>,
+    ApiPath(invitation_id): ApiPath<Uuid>,
+) -> Result<StatusCode, ApiFailure> {
+    app::cancel_invitation(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        InvitationId::from_uuid(invitation_id),
+    )
+    .await?;
+    tracing::info!(
+        event = Event::StaffInvitationCancelled.as_str(),
+        invitation_id = %invitation_id,
+        "staff invitation cancelled"
+    );
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// A change to a member. Fields left out stay as they are.

@@ -713,6 +713,10 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     listStaff: (opts) => call({ method: "GET", path: "/api/v1/staff", schema: staffResponse, signal: opts?.signal }),
     inviteStaff: (input, opts) =>
       call({ method: "POST", path: "/api/v1/staff/invitations", schema: createdInvitation, body: input, signal: opts?.signal }),
+    resendStaffInvitation: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/staff/invitations/${encodeURIComponent(id)}/resend`, schema: createdInvitation, signal: opts?.signal }),
+    cancelStaffInvitation: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/staff/invitations/${encodeURIComponent(id)}`, schema: voidResponse, signal: opts?.signal }),
     changeStaffMember: (membershipId, changes, opts) =>
       call({ method: "PATCH", path: `/api/v1/staff/${encodeURIComponent(membershipId)}`, schema: member, body: changes, signal: opts?.signal }),
     listRoles: (opts) => call({ method: "GET", path: "/api/v1/roles", schema: rolesResponse, signal: opts?.signal }),

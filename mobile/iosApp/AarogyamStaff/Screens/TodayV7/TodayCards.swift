@@ -2,13 +2,27 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// Visits, waiting (warm) and done as one joined row (`.stats`).
+/// Today's patients, waiting (warm) and done as one joined row (`.stats`), with what is left under it.
 struct TodayStats: View {
     let counts: TodayCountsView
+    @Environment(\.skTheme) private var theme
+
+    private var hint: String {
+        let done = Int(counts.patientsDone?.int32Value ?? counts.done), toCome = Int(counts.toCome)
+        let key: String.LocalizationValue = toCome == 1 ? "t7.stat.hint_one" : "t7.stat.hint_other"
+        return String(format: String(localized: key, table: "TodayV7"), done, toCome)
+    }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            stats
+            Text(hint).font(.system(size: 12)).foregroundStyle(theme.roles.onSurfaceVariant.color).padding(.leading, 4)
+        }
+    }
+
+    private var stats: some View {
         SkStatGroup([
-            SkStat("\(counts.visits)", label: String(localized: "t7.stat.visits", table: "TodayV7")),
+            SkStat("\(counts.patients)", label: String(localized: "t7.stat.patients", table: "TodayV7")),
             SkStat("\(counts.waiting)", label: String(localized: "t7.stat.waiting", table: "TodayV7"), highlighted: true),
             SkStat("\(counts.done)", label: String(localized: "t7.stat.done", table: "TodayV7")),
         ])

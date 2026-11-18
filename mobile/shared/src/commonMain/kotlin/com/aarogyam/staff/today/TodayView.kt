@@ -35,6 +35,12 @@ data class TodayCountsView(
     val visits: Int,
     val waiting: Int,
     val done: Int,
+    /** Distinct patients seen or coming today; the server's count, or [visits] when it sends none. */
+    val patients: Int = visits,
+    /** Of [patients], those whose visit is done; null when the server sends none. */
+    val patientsDone: Int? = null,
+    /** Appointments still to come: all of them less done, cancelled and no-shows. */
+    val toCome: Int = 0,
 )
 
 /** The money tiles, only for a role that holds `finance.view`. Amounts are paise; [upiShareBps] is basis points. */
@@ -131,7 +137,15 @@ internal fun TodayResponse.toView(
                 in NOON..<EVENING -> DayPart.Afternoon
                 else -> DayPart.Evening
             },
-        counts = TodayCountsView(visits = counts.total, waiting = counts.waiting, done = counts.done),
+        counts =
+            TodayCountsView(
+                visits = counts.total,
+                waiting = counts.waiting,
+                done = counts.done,
+                patients = counts.patients ?: counts.total,
+                patientsDone = counts.patientsDone,
+                toCome = (counts.total - counts.done - counts.cancelled - counts.noShows).coerceAtLeast(0),
+            ),
         heroKind = if (now != null) HeroKind.Now else next?.let { HeroKind.UpNext },
         hero = now ?: next,
         schedule = items,

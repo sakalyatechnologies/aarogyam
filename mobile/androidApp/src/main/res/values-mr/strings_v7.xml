@@ -52,7 +52,11 @@
         <item quantity="one">%1$d प्रतीक्षेत</item>
         <item quantity="other">%1$d प्रतीक्षेत</item>
     </plurals>
-    <string name="v7_stat_visits">आजच्या भेटी</string>
+    <string name="v7_stat_patients">आजचे रुग्ण</string>
+    <plurals name="v7_stat_hint">
+        <item quantity="one">%1$d पूर्ण · %2$d अपॉइंटमेंट बाकी</item>
+        <item quantity="other">%1$d पूर्ण · %2$d अपॉइंटमेंट बाकी</item>
+    </plurals>
     <string name="v7_stat_waiting">प्रतीक्षेत</string>
     <string name="v7_stat_done">पूर्ण</string>
     <string name="v7_hero_now">खुर्चीत</string>

@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -52,41 +53,54 @@ import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
 import com.sakalya.mobile.designcompose.compose
 
-/** Visits, waiting (warm) and done as one joined row of three (`.stats`). */
+/** Today's patients, waiting (warm) and done as one joined row of three (`.stats`), with what is left under it. */
 @Composable
 fun TodayStats(counts: TodayCountsView) {
     val p = SkTheme.palette
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        val cells =
-            listOf(
-                Triple(counts.visits, R.string.v7_stat_visits, false),
-                Triple(counts.waiting, R.string.v7_stat_waiting, true),
-                Triple(counts.done, R.string.v7_stat_done, false),
-            )
-        cells.forEachIndexed { i, (n, label, warm) ->
-            val start = if (i == 0) BIG else SMALL
-            val end = if (i == cells.lastIndex) BIG else SMALL
-            val bg = if (warm) p.tertiaryContainer.color else p.surface2.color
-            val ink = if (warm) p.onTertiaryContainer.color else p.onSurface.color
-            Column(
-                Modifier
-                    .weight(
-                        1f,
-                    ).background(
-                        bg,
-                        RoundedCornerShape(start.dp, end.dp, end.dp, start.dp),
-                    ).padding(horizontal = 10.dp, vertical = 9.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(n.toString(), style = SkTypography.number.copy(fontSize = 17.sp), color = ink)
-                Text(
-                    stringResource(label),
-                    style = SkTypography.caption.copy(fontSize = 10.5.sp),
-                    color = if (warm) ink.copy(alpha = WARM_LABEL) else p.onSurfaceVariant.color,
-                    maxLines = 1,
+    Column {
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            val cells =
+                listOf(
+                    Triple(counts.patients, R.string.v7_stat_patients, false),
+                    Triple(counts.waiting, R.string.v7_stat_waiting, true),
+                    Triple(counts.done, R.string.v7_stat_done, false),
                 )
+            cells.forEachIndexed { i, (n, label, warm) ->
+                val start = if (i == 0) BIG else SMALL
+                val end = if (i == cells.lastIndex) BIG else SMALL
+                val bg = if (warm) p.tertiaryContainer.color else p.surface2.color
+                val ink = if (warm) p.onTertiaryContainer.color else p.onSurface.color
+                Column(
+                    Modifier
+                        .weight(
+                            1f,
+                        ).background(
+                            bg,
+                            RoundedCornerShape(start.dp, end.dp, end.dp, start.dp),
+                        ).padding(horizontal = 10.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(n.toString(), style = SkTypography.number.copy(fontSize = 17.sp), color = ink)
+                    Text(
+                        stringResource(label),
+                        style = SkTypography.caption.copy(fontSize = 10.5.sp),
+                        color = if (warm) ink.copy(alpha = WARM_LABEL) else p.onSurfaceVariant.color,
+                        maxLines = 1,
+                    )
+                }
             }
         }
+        Text(
+            pluralStringResource(
+                R.plurals.v7_stat_hint,
+                counts.toCome,
+                counts.patientsDone ?: counts.done,
+                counts.toCome,
+            ),
+            style = SkTypography.caption,
+            color = p.onSurfaceVariant.color,
+            modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+        )
     }
 }
 

@@ -88,12 +88,26 @@ class TodayStateHolderTest {
             assertEquals("Sunrise Dental", view.clinicName)
             assertEquals("Dr. Patil", view.memberName)
             assertEquals(DayPart.Morning, view.dayPart) // 04:15 UTC is 09:45 in Kolkata
-            assertEquals(TodayCountsView(visits = 3, waiting = 2, done = 1), view.counts)
+            // Without `patients` the headline falls back to the appointments; to come leaves out done and cancelled.
+            assertEquals(TodayCountsView(visits = 3, waiting = 2, done = 1, patients = 3, toCome = 1), view.counts)
             assertEquals(listOf("Meera Shah", "Kavya Reddy", "Rohan Iyer"), view.schedule.map { it.patientName })
             assertEquals(LocalTime(9, 0), view.schedule[0].starts)
             assertEquals(HeroKind.UpNext, view.heroKind)
             assertEquals("Kavya Reddy", view.hero?.patientName)
             assertEquals(VisitStatus.Arrived, view.hero?.status)
+        }
+
+    @Test
+    fun the_headline_counts_distinct_patients_when_the_server_sends_them() =
+        runTest {
+            val backend = FakeBackend()
+            val body = todayBody().replace(""""total":3,""", """"total":3,"patients":5,"patients_done":2,""")
+            backend.on("$SUNRISE/api/v1/today", { json(body) })
+            val (graph, clinic) = open(backend, this, backgroundScope)
+            val view = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view
+            assertEquals(5, view.counts.patients)
+            assertEquals(2, view.counts.patientsDone)
+            assertEquals(3, view.counts.visits, "the ring still counts appointments")
         }
 
     @Test

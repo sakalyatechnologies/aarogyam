@@ -3188,6 +3188,75 @@
         }
       }
     },
+    "t7.stat.hint_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld done · %2$lld appointment to come"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld पूरे · %2$lld अपॉइंटमेंट बाकी"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld पूर्ण · %2$lld अपॉइंटमेंट बाकी"
+          }
+        }
+      }
+    },
+    "t7.stat.hint_other": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld done · %2$lld appointments to come"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld पूरे · %2$lld अपॉइंटमेंट बाकी"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld पूर्ण · %2$lld अपॉइंटमेंट बाकी"
+          }
+        }
+      }
+    },
+    "t7.stat.patients": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "patients today"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आज के मरीज़"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आजचे रुग्ण"
+          }
+        }
+      }
+    },
     "t7.stat.visits": {
       "extractionState": "manual",
       "localizations": {

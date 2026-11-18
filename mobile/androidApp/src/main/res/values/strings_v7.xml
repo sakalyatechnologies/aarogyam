@@ -53,7 +53,11 @@
         <item quantity="one">%1$d waiting</item>
         <item quantity="other">%1$d waiting</item>
     </plurals>
-    <string name="v7_stat_visits">visits today</string>
+    <string name="v7_stat_patients">patients today</string>
+    <plurals name="v7_stat_hint">
+        <item quantity="one">%1$d done · %2$d appointment to come</item>
+        <item quantity="other">%1$d done · %2$d appointments to come</item>
+    </plurals>
     <string name="v7_stat_waiting">waiting</string>
     <string name="v7_stat_done">done</string>
     <string name="v7_hero_now">In the chair</string>

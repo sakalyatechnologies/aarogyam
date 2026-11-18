@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createFakeBackend, createFixtures, fakeTokenFor } from "./fake/index.js";
-import { ApiFailure, appointmentId, importSessionId, createDevTokenSource, createHttpClient, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, purchaseOrderId, queueTokenId, sessionId, taskId, taskOccurrenceId, unwrap, visitId } from "./index.js";
+import { ApiFailure, appointmentId, importSessionId, createDevTokenSource, createHttpClient, expenseId, inventoryItemId, invoiceId, patientId, practitionerId, prescriptionId, purchaseOrderId, queueTokenId, sessionId, taskId, taskOccurrenceId, unwrap, visitId } from "./index.js";
 
 const REQUEST_ID = "0192f1c4-7a10-7c3e-9b2a-1d2e3f405162";
 
@@ -1177,5 +1177,54 @@ describe("deleting the own account", () => {
     expect(refused.ok ? undefined : [refused.error.code, refused.error.clinics?.map((c) => c.name)]).toEqual(["last_owner", ["Alpha Dental"]]);
     expect(calls.map((c) => `${c.init?.method ?? ""} ${new URL(c.url).pathname}`)).toEqual(["DELETE /api/v1/me/account", "DELETE /api/v1/me/account"]);
     expect(calls[0]?.init?.body).toBe(JSON.stringify({ confirm: "delete" }));
+  });
+});
+
+describe("createHttpClient expense requests", () => {
+  it("sends the method with an expense, and the bill calls", async () => {
+    const { calls, fetch } = stubFetch(() => Promise.resolve(json(200, {})));
+    const client = createHttpClient("", () => "abc", { fetch });
+    await client.recordExpense({ category: "rent", spent_on: "2026-10-03", amount_paise: 100, method: "upi" });
+    const bill = new FormData();
+    bill.set("file", new File(["%PDF"], "bill.pdf", { type: "application/pdf" }));
+    await client.uploadExpenseBill(expenseId.parse("e 1"), bill);
+    await client.getExpenseBillDownloadLink(expenseId.parse("e1"));
+    await client.removeExpenseBill(expenseId.parse("e1"));
+    expect(calls.map((c) => `${c.init?.method ?? "GET"} ${c.url}`)).toEqual([
+      "POST /api/v1/expenses",
+      "POST /api/v1/expenses/e%201/bill",
+      "GET /api/v1/expenses/e1/bill/download",
+      "DELETE /api/v1/expenses/e1/bill",
+    ]);
+    const sent = calls[0]?.init?.body;
+    expect(JSON.parse(typeof sent === "string" ? sent : "{}")).toMatchObject({ method: "upi" });
+    expect(calls[1]?.init?.body).toBeInstanceOf(FormData);
+  });
+
+  it("reads an expense with its method and bill absent, null or present", async () => {
+    const row = {
+      id: "e1",
+      category: "rent",
+      category_name: "Rent",
+      spent_on: "2026-10-03",
+      amount_paise: 100,
+      note: null,
+      status: "recorded",
+      recorded_by: "m1",
+      created_at: "2026-10-03T05:30:00Z",
+      void_reason: null,
+      voided_at: null,
+    };
+    const read = async (extra: object) => {
+      const client = createHttpClient("", () => "abc", { fetch: stubFetch(json(200, { items: [{ ...row, ...extra }] })).fetch });
+      return client.listExpenses({});
+    };
+    const extras = [{}, { method: null, bill: null }, { method: "cash" }, { bill: { mime_type: "image/png", size_bytes: 9, file_name: "a.png" } }];
+    for (const extra of extras) {
+      expect((await read(extra)).ok, JSON.stringify(extra)).toBe(true);
+    }
+    const shown = await read({ method: "card", bill: { mime_type: "application/pdf", size_bytes: 4 } });
+    expect(shown.ok && [shown.value.items[0]?.method, shown.value.items[0]?.bill?.mime_type]).toEqual(["card", "application/pdf"]);
+    expect((await read({ bill: { mime_type: 3 } })).ok).toBe(false);
   });
 });

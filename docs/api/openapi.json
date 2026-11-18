@@ -3335,6 +3335,46 @@
         ]
       }
     },
+    "/api/v1/expense-files/{id}/content": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Streams a bill file through a signed link from `GET /expenses/{id}/bill/download`. The link\nis the proof of access (an `<img>` can use it); it works on the clinic's own host for five\nminutes.",
+        "operationId": "getExpenseBillContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "The signed token from the download link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, with its media type"
+          },
+          "403": {
+            "description": "The link has expired; ask for a new one"
+          },
+          "404": {
+            "description": "Not a valid link for this file on this host"
+          }
+        }
+      }
+    },
     "/api/v1/expenses": {
       "get": {
         "tags": [
@@ -3450,7 +3490,7 @@
             }
           },
           "400": {
-            "description": "Invalid input: amount, note, a day after today, or a malformed key"
+            "description": "Invalid input: amount, note, method, a day after today, or a malformed key"
           },
           "401": {
             "description": "Not signed in"
@@ -3460,6 +3500,161 @@
           },
           "409": {
             "description": "The key was used for a different expense"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/expenses/{id}/bill": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Attaches a bill photo (or a PDF) as `multipart/form-data` field `file`: JPEG, PNG or PDF, up\nto 10 MB, checked by content. Replaces the current bill, which is kept as superseded. Returns\nthe expense.",
+        "operationId": "uploadExpenseBill",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The expense",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseBillForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Expense"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a JPEG, PNG or PDF, or empty"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write"
+          },
+          "404": {
+            "description": "No such expense in this clinic"
+          },
+          "409": {
+            "description": "The expense is void"
+          },
+          "413": {
+            "description": "Larger than 10 MB"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Takes the bill off an expense that is not void. The file is kept as superseded.",
+        "operationId": "removeExpenseBill",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The expense",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Expense"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks expenses.write"
+          },
+          "404": {
+            "description": "No such expense in this clinic, or it has no bill"
+          },
+          "409": {
+            "description": "The expense is void"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/expenses/{id}/bill/download": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Issues a five-minute link to an expense's bill. A voided expense's bill stays readable.",
+        "operationId": "getExpenseBillDownloadLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The expense",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks finance.view"
+          },
+          "404": {
+            "description": "No such expense in this clinic, or it has no bill"
           }
         },
         "security": [
@@ -24228,6 +24423,17 @@
             "format": "int64",
             "description": "Paise."
           },
+          "bill": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ExpenseBill",
+                "description": "The bill photo, when one was attached; fetch it with\n`GET /expenses/{id}/bill/download`. Absent when there is none."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "category": {
             "$ref": "#/components/schemas/ExpenseCategory",
             "description": "What it was for."
@@ -24243,6 +24449,13 @@
           "id": {
             "type": "string",
             "description": "Identifier."
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How it was paid: `cash`, `upi`, `card` or `bank`. Absent when it was not recorded."
           },
           "note": {
             "type": [
@@ -24276,6 +24489,46 @@
               "null"
             ],
             "description": "When it was voided (RFC 3339)."
+          }
+        }
+      },
+      "ExpenseBill": {
+        "type": "object",
+        "description": "The bill of an expense: a photo or a PDF.",
+        "required": [
+          "mime_type",
+          "size_bytes"
+        ],
+        "properties": {
+          "file_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name the uploader's device gave it, when it gave one."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "`image/jpeg`, `image/png` or `application/pdf`."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bytes."
+          }
+        }
+      },
+      "ExpenseBillForm": {
+        "type": "object",
+        "description": "The bill upload form.",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "A JPEG, PNG or PDF of at most 10 MB, checked by content."
           }
         }
       },
@@ -29418,6 +29671,13 @@
           "category": {
             "$ref": "#/components/schemas/ExpenseCategory",
             "description": "What it was for."
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How it was paid: `cash`, `upi`, `card` or `bank`. Optional; nothing is assumed."
           },
           "note": {
             "type": [

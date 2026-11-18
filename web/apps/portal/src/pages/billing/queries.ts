@@ -215,3 +215,25 @@ export function useVoidExpense() {
   const changed = useExpenseChanged();
   return useMutation({ mutationFn: ({ id, reason }: { id: ExpenseId; reason: string }) => unwrap(api.voidExpense(id, { reason })), onSuccess: changed });
 }
+
+/** Attaches (or replaces) an expense's bill: a photo or a PDF. */
+export function useUploadExpenseBill() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, file }: { id: ExpenseId; file: File }) => {
+      const form = new FormData();
+      form.set("file", file);
+      return unwrap(api.uploadExpenseBill(id, form));
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["expenses", access.org_id] });
+    },
+  });
+}
+
+/** A five-minute link to an expense's bill. */
+export function useExpenseBillLink() {
+  const { api } = useClinic();
+  return useMutation({ mutationFn: (id: ExpenseId) => unwrap(api.getExpenseBillDownloadLink(id)) });
+}

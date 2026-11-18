@@ -8300,6 +8300,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (note.length > 300) {
             return invalid("note", "at most 300 characters");
           }
+          if (input.method != null && !LAB_PAYMENT_METHODS.includes(input.method)) {
+            return invalid("method", "must be cash, upi, card or bank");
+          }
           const now = clock();
           const row: FakeExpense = {
             id: fakeUuid(random, now),
@@ -8308,6 +8311,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             spent_on: input.spent_on,
             amount_paise: input.amount_paise,
             note: note === "" ? null : note,
+            ...(input.method == null ? {} : { method: input.method }),
             recorded_by: caller.membership.id,
             created_at: now.toISOString(),
           };
@@ -8335,6 +8339,65 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           found.voided_at = clock().toISOString();
           found.void_reason = why;
           return reply(wireExpense(found) satisfies C.Expense);
+        }),
+
+      uploadExpenseBill: (id, form, opts) =>
+        respond(S.expense, opts?.signal, async () => {
+          const caller = await inClinic("expenses.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = (state.expenses ?? []).find((e) => e.id === id && e.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          const file = form.get("file");
+          if (!(file instanceof File) || file.size === 0 || !LAB_PROOF_TYPES.includes(file.type)) {
+            return invalid("file", "must be a JPEG, PNG or PDF");
+          }
+          if (file.size > 10 * 1024 * 1024) {
+            return refuse(413, "too_large", "file: must be at most 10 MB");
+          }
+          if (found.voided_at != null) {
+            return refuse(409, "conflict", "a voided expense takes no new bill");
+          }
+          found.bill = { mime_type: file.type, size_bytes: file.size, ...(file.name === "" ? {} : { file_name: file.name }) };
+          found.bill_file_id = fakeUuid(random, clock());
+          return reply(wireExpense(found));
+        }),
+
+      removeExpenseBill: (id, opts) =>
+        respond(S.expense, opts?.signal, async () => {
+          const caller = await inClinic("expenses.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = (state.expenses ?? []).find((e) => e.id === id && e.clinic_id === caller.clinic.id);
+          if (found === undefined || found.bill == null) {
+            return notFound;
+          }
+          if (found.voided_at != null) {
+            return refuse(409, "conflict", "a voided expense keeps its bill");
+          }
+          delete found.bill;
+          delete found.bill_file_id;
+          return reply(wireExpense(found));
+        }),
+
+      getExpenseBillDownloadLink: (id, opts) =>
+        respond(S.downloadLink, opts?.signal, async () => {
+          const caller = await inClinic("finance.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = (state.expenses ?? []).find((e) => e.id === id && e.clinic_id === caller.clinic.id);
+          if (found?.bill_file_id === undefined) {
+            return notFound;
+          }
+          return reply({
+            url: `/api/v1/expense-files/${found.bill_file_id}/content?token=fake`,
+            expires_at: new Date(clock().getTime() + 5 * 60_000).toISOString(),
+          } satisfies C.DownloadLink);
         }),
 
       getAnalytics: (query, opts) =>

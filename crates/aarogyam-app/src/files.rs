@@ -161,6 +161,8 @@ const CHAT_FILE: &str = "chat-attachment:v1";
 const IMPORT_FILE: &str = "import-file:v1";
 /// What a member-bound token is for: the proof file of a payment to a lab.
 const LAB_PAYMENT_FILE: &str = "lab-payment-file:v1";
+/// What a member-bound token is for: the bill file of an expense.
+const EXPENSE_FILE: &str = "expense-file:v1";
 
 /// Signs and checks download links.
 #[derive(Clone)]
@@ -310,6 +312,19 @@ impl LinkSigner {
         self.sign_kind(LAB_PAYMENT_FILE, clinic, file, user, expires)
     }
 
+    /// A token for `user` to download an expense's bill file until `expires`. It opens nothing
+    /// else, and no other kind of token opens it.
+    #[must_use]
+    pub fn sign_expense_file(
+        &self,
+        clinic: ClinicId,
+        file: AttachmentId,
+        user: UserId,
+        expires: OffsetDateTime,
+    ) -> String {
+        self.sign_kind(EXPENSE_FILE, clinic, file, user, expires)
+    }
+
     fn sign_kind(
         &self,
         kind: &str,
@@ -371,6 +386,20 @@ impl LinkSigner {
         now: OffsetDateTime,
     ) -> Result<LinkGrant, LinkRefusal> {
         self.verify_kind(LAB_PAYMENT_FILE, clinic, file, token, now)
+    }
+
+    /// Checks an expense bill token at `now`.
+    ///
+    /// # Errors
+    /// As [`Self::verify`].
+    pub fn verify_expense_file(
+        &self,
+        clinic: ClinicId,
+        file: AttachmentId,
+        token: &str,
+        now: OffsetDateTime,
+    ) -> Result<LinkGrant, LinkRefusal> {
+        self.verify_kind(EXPENSE_FILE, clinic, file, token, now)
     }
 
     fn verify_kind(

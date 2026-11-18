@@ -720,6 +720,14 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/expenses", get(expenses::list).post(expenses::record))
         .route("/expenses/{id}/void", post(expenses::void))
         .route(
+            "/expenses/{id}/bill",
+            post(expenses::upload_bill)
+                .delete(expenses::remove_bill)
+                .layer(DefaultBodyLimit::max(expenses::MAX_UPLOAD_BODY)),
+        )
+        .route("/expenses/{id}/bill/download", get(expenses::bill_link))
+        .route("/expense-files/{id}/content", get(expenses::bill_content))
+        .route(
             "/lab-vendors",
             get(labs::list_vendors).post(labs::create_vendor),
         )

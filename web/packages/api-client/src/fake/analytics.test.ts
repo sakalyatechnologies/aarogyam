@@ -55,6 +55,52 @@ describe("fake client: expenses", () => {
     expect(status(await as(BINA, LOTUS).voidExpense(ours.id, { reason: "Not ours" }))).toBe(404);
     expect(status(await as(ASHA).voidExpense(expenseId.parse("nope"), { reason: "Missing" }))).toBe(404);
   });
+
+  it("records how an expense was paid, and refuses an unknown method", async () => {
+    const owner = setup()(ASHA);
+    const upi = value(await owner.recordExpense({ category: "rent", spent_on: "2026-10-02", amount_paise: 500, method: "upi" }));
+    expect(upi.method).toBe("upi");
+    const plain = value(await owner.recordExpense({ category: "rent", spent_on: "2026-10-02", amount_paise: 500 }));
+    expect("method" in plain).toBe(false);
+    expect(status(await owner.recordExpense({ category: "rent", spent_on: "2026-10-02", amount_paise: 500, method: "cheque" }))).toBe(400);
+  });
+
+  it("attaches, replaces and removes an expense's bill, keeping it readable once void", async () => {
+    const as = setup();
+    const owner = as(ASHA);
+    const made = value(await owner.recordExpense({ category: "electricity", spent_on: "2026-10-02", amount_paise: 4_000 }));
+    expect("bill" in made).toBe(false);
+    expect(status(await owner.getExpenseBillDownloadLink(made.id))).toBe(404);
+    const form = (bytes: BlobPart, type: string, name: string): FormData => {
+      const body = new FormData();
+      body.set("file", new File([bytes], name, { type }));
+      return body;
+    };
+    const shown = value(await owner.uploadExpenseBill(made.id, form("png", "image/png", "bill.png")));
+    expect(shown.bill).toEqual({ mime_type: "image/png", size_bytes: 3, file_name: "bill.png" });
+    expect(value(await owner.listExpenses({})).items.find((e) => e.id === made.id)?.bill?.mime_type).toBe("image/png");
+    expect(value(await owner.getExpenseBillDownloadLink(made.id)).url).toContain("/api/v1/expense-files/");
+    expect(value(await owner.uploadExpenseBill(made.id, form("%PDF", "application/pdf", "bill.pdf"))).bill?.mime_type).toBe("application/pdf");
+    // A wrong type is 400, an oversized file 413; neither replaces the bill.
+    expect(status(await owner.uploadExpenseBill(made.id, form("x", "text/plain", "x.txt")))).toBe(400);
+    expect(status(await owner.uploadExpenseBill(made.id, form(new Uint8Array(10 * 1024 * 1024 + 1), "application/pdf", "big.pdf")))).toBe(413);
+    expect(status(await owner.uploadExpenseBill(made.id, new FormData()))).toBe(400);
+    // Another clinic sees nothing; a role without the permissions is refused.
+    const stranger = as(BINA, LOTUS);
+    expect(status(await stranger.uploadExpenseBill(made.id, form("png", "image/png", "x.png")))).toBe(404);
+    expect(status(await stranger.getExpenseBillDownloadLink(made.id))).toBe(404);
+    expect(status(await as(DEV).uploadExpenseBill(made.id, form("png", "image/png", "x.png")))).toBe(403);
+    expect(status(await as(DEV).getExpenseBillDownloadLink(made.id))).toBe(403);
+    // Removing it leaves none; a second removal is 404.
+    expect("bill" in value(await owner.removeExpenseBill(made.id))).toBe(false);
+    expect(status(await owner.removeExpenseBill(made.id))).toBe(404);
+    // Void: the bill stays readable, but no new one is taken and it can't be removed.
+    value(await owner.uploadExpenseBill(made.id, form("png", "image/png", "again.png")));
+    value(await owner.voidExpense(made.id, { reason: "Entered twice" }));
+    expect(status(await owner.uploadExpenseBill(made.id, form("png", "image/png", "late.png")))).toBe(409);
+    expect(status(await owner.removeExpenseBill(made.id))).toBe(409);
+    expect(value(await owner.getExpenseBillDownloadLink(made.id)).url).toContain("/content?token=");
+  });
 });
 
 describe("fake client: analytics", () => {

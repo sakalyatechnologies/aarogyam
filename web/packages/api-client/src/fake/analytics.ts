@@ -28,6 +28,12 @@ export interface FakeExpense {
   created_at: string;
   voided_at?: string | null;
   void_reason?: string | null;
+  /** How it was paid, when recorded. */
+  method?: string | null;
+  /** The current bill photo, when one is attached. */
+  bill?: C.ExpenseBill | null;
+  /** The current bill file's id, when one is attached. */
+  bill_file_id?: string;
 }
 
 export const wireExpense = (e: FakeExpense): C.Expense => ({
@@ -37,6 +43,9 @@ export const wireExpense = (e: FakeExpense): C.Expense => ({
   spent_on: e.spent_on,
   amount_paise: e.amount_paise,
   note: e.note,
+  // Absent, as the API leaves them, when not recorded.
+  ...(e.method == null ? {} : { method: e.method }),
+  ...(e.bill == null ? {} : { bill: e.bill }),
   status: e.voided_at == null ? "recorded" : "void",
   recorded_by: e.recorded_by,
   created_at: e.created_at,

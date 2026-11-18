@@ -12,12 +12,14 @@
 
 mod support;
 
-use axum::http::{Method, StatusCode};
+use axum::body::{Body, to_bytes};
+use axum::http::{HeaderMap, Method, Request, StatusCode};
 use sakalya_db::{DbError, Scope};
 use serde_json::{Value, json};
 use support::people::*;
 use support::{ALPHA, BETA, TestApp};
 use time::{Date, Duration, OffsetDateTime, UtcOffset};
+use tower::ServiceExt as _;
 
 fn today() -> Date {
     OffsetDateTime::now_utc()
@@ -585,5 +587,373 @@ async fn analytics_counts_chairs_money_and_patients() {
             .await;
         assert_eq!(status, StatusCode::BAD_REQUEST, "{query}");
     }
+    app.finish().await;
+}
+
+const PNG: &[u8] = b"\x89PNG\r\n\x1a\nsynthetic electricity bill";
+const PDF: &[u8] = b"%PDF-1.7 synthetic rent receipt";
+
+async fn upload_bill(
+    app: &TestApp,
+    host: &str,
+    token: &str,
+    expense: &str,
+    bytes: &[u8],
+    name: &str,
+) -> (StatusCode, Value) {
+    const BOUNDARY: &str = "aarogyam-bill-boundary";
+    let mut body = format!(
+        "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\n\
+         Content-Type: application/octet-stream\r\n\r\n"
+    )
+    .into_bytes();
+    body.extend_from_slice(bytes);
+    body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
+    let request = Request::post(format!("/api/v1/expenses/{expense}/bill"))
+        .header("host", host)
+        .header("authorization", format!("Bearer {token}"))
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={BOUNDARY}"),
+        )
+        .body(Body::from(body))
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
+}
+
+async fn fetch(app: &TestApp, host: &str, path: &str) -> (StatusCode, HeaderMap, Vec<u8>) {
+    let request = Request::get(path)
+        .header("host", host)
+        .body(Body::empty())
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let headers = response.headers().clone();
+    let bytes = to_bytes(response.into_body(), 16 * 1024 * 1024)
+        .await
+        .unwrap();
+    (status, headers, bytes.to_vec())
+}
+
+/// Records an expense at Alpha as its owner and returns its id.
+async fn rent_expense(app: &TestApp, owner: &str) -> String {
+    let (status, body) = record(
+        app,
+        ALPHA,
+        owner,
+        json!({ "category": "rent", "spent_on": today().to_string(), "amount_paise": 100_000 }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    body["id"].as_str().unwrap().to_owned()
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn an_expense_may_say_how_it_was_paid() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let day = today().to_string();
+    let (status, paid) = record(
+        &app,
+        ALPHA,
+        &owner,
+        json!({ "category": "electricity", "spent_on": day, "amount_paise": 4_000, "method": "upi" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{paid}");
+    assert_eq!(paid["method"], "upi");
+    // Without one, the field is absent, never assumed.
+    let (_, plain) = record(
+        &app,
+        ALPHA,
+        &owner,
+        json!({ "category": "rent", "spent_on": day, "amount_paise": 5_000 }),
+    )
+    .await;
+    assert!(plain.get("method").is_none(), "{plain}");
+    let (_, list) = app
+        .send(Method::GET, ALPHA, "/api/v1/expenses", Some(&owner), None)
+        .await;
+    let methods: Vec<&Value> = list["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| &e["method"])
+        .collect();
+    assert!(methods.contains(&&json!("upi")), "{list}");
+    // An unknown method is refused on its field.
+    let (status, body) = record(
+        &app,
+        ALPHA,
+        &owner,
+        json!({ "category": "rent", "spent_on": day, "amount_paise": 5_000, "method": "cheque" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.to_string().contains("method"), "{body}");
+
+    // A retry with the same key and method returns the first expense; a different method is a
+    // different expense, so the key is refused for it.
+    let send = async |method: &str| {
+        app.send_with(
+            Method::POST,
+            ALPHA,
+            "/api/v1/expenses",
+            Some(&owner),
+            Some(json!({ "category": "material", "spent_on": day, "amount_paise": 900, "method": method })),
+            &[("idempotency-key", "expense-method-0001")],
+        )
+        .await
+    };
+    let (status, first) = send("card").await;
+    assert_eq!(status, StatusCode::CREATED, "{first}");
+    let (status, again) = send("card").await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(
+        (&again["id"], &again["method"]),
+        (&first["id"], &json!("card"))
+    );
+    let (status, _) = send("cash").await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn an_expense_may_carry_a_bill() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let expense = rent_expense(&app, &owner).await;
+    let bill_path = format!("/api/v1/expenses/{expense}/bill");
+    let link_path = format!("{bill_path}/download");
+    let get = async |path: &str| app.send(Method::GET, ALPHA, path, Some(&owner), None).await;
+
+    // No bill: nothing to link to.
+    assert_eq!(get(&link_path).await.0, StatusCode::NOT_FOUND);
+
+    // Attach a PNG: its type is read from the bytes; the name is tidied; the list shows it.
+    let (status, with) = upload_bill(&app, ALPHA, &owner, &expense, PNG, "../bills/oct.png").await;
+    assert_eq!(status, StatusCode::OK, "{with}");
+    assert_eq!(with["bill"]["mime_type"], "image/png");
+    assert_eq!(with["bill"]["size_bytes"], PNG.len());
+    assert_eq!(with["bill"]["file_name"], "oct.png");
+    assert_eq!(with["id"], expense.as_str());
+    let (_, list) = get("/api/v1/expenses").await;
+    assert_eq!(list["items"][0]["bill"]["mime_type"], "image/png");
+
+    // A short-lived signed link gives the bytes, with safe headers; not on another host.
+    let url = get(&link_path).await.1["url"].as_str().unwrap().to_owned();
+    assert!(url.starts_with("/api/v1/expense-files/"), "{url}");
+    let (status, headers, bytes) = fetch(&app, ALPHA, &url).await;
+    assert_eq!((status, bytes.as_slice()), (StatusCode::OK, PNG));
+    assert_eq!(headers["content-type"], "image/png");
+    assert_eq!(headers["x-content-type-options"], "nosniff");
+    assert_eq!(fetch(&app, BETA, &url).await.0, StatusCode::NOT_FOUND);
+    let bare = url.split('?').next().unwrap();
+    assert_eq!(fetch(&app, ALPHA, bare).await.0, StatusCode::NOT_FOUND);
+
+    // Replacing keeps the old row (superseded); only the new one is current.
+    let (status, replaced) = upload_bill(&app, ALPHA, &owner, &expense, PDF, "rent.pdf").await;
+    assert_eq!(status, StatusCode::OK, "{replaced}");
+    assert_eq!(replaced["bill"]["mime_type"], "application/pdf");
+    let (current, superseded): (i64, i64) = sqlx::query_as(
+        "select count(*) filter (where superseded_at is null),
+                count(*) filter (where superseded_at is not null)
+         from aarogyam.expense_files",
+    )
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!((current, superseded), (1, 1));
+    let url = get(&link_path).await.1["url"].as_str().unwrap().to_owned();
+    assert_eq!(fetch(&app, ALPHA, &url).await.2, PDF);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_bill_can_be_removed_but_a_void_expense_keeps_it() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let expense = rent_expense(&app, &owner).await;
+    let bill_path = format!("/api/v1/expenses/{expense}/bill");
+    let link_path = format!("{bill_path}/download");
+    let as_owner =
+        async |method: Method, path: &str| app.send(method, ALPHA, path, Some(&owner), None).await;
+    let (status, _) = upload_bill(&app, ALPHA, &owner, &expense, PDF, "rent.pdf").await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Removing: the expense shows none, the file stays as superseded.
+    let (status, removed) = as_owner(Method::DELETE, &bill_path).await;
+    assert_eq!(status, StatusCode::OK, "{removed}");
+    assert!(removed.get("bill").is_none(), "{removed}");
+    assert_eq!(
+        as_owner(Method::DELETE, &bill_path).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        as_owner(Method::GET, &link_path).await.0,
+        StatusCode::NOT_FOUND
+    );
+    let superseded: i64 = sqlx::query_scalar(
+        "select count(*) from aarogyam.expense_files where superseded_at is not null",
+    )
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(superseded, 1);
+
+    // A voided expense keeps its bill readable but takes no new one, and it can't be removed.
+    let (status, _) = upload_bill(&app, ALPHA, &owner, &expense, PNG, "again.png").await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, voided) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/expenses/{expense}/void"),
+            Some(&owner),
+            Some(json!({ "reason": "Paid twice" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{voided}");
+    assert_eq!(voided["bill"]["mime_type"], "image/png");
+    let (status, _) = upload_bill(&app, ALPHA, &owner, &expense, PDF, "late.pdf").await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(
+        as_owner(Method::DELETE, &bill_path).await.0,
+        StatusCode::CONFLICT
+    );
+    let url = as_owner(Method::GET, &link_path).await.1["url"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(fetch(&app, ALPHA, &url).await.2, PNG);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_bill_must_be_a_small_image_or_pdf() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let expense = rent_expense(&app, &owner).await;
+    // Wrong type and empty: 400; too large: 413. None of them attaches anything.
+    for (bytes, name) in [
+        (&b"MZ\x90\x00 not a bill"[..], "x.exe"),
+        (&b"GIF89a not allowed"[..], "x.gif"),
+        (&b""[..], "x.png"),
+    ] {
+        let (status, body) = upload_bill(&app, ALPHA, &owner, &expense, bytes, name).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    }
+    let mut big = PDF.to_vec();
+    big.resize(10 * 1024 * 1024 + 1, 0);
+    let (status, _) = upload_bill(&app, ALPHA, &owner, &expense, &big, "big.pdf").await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    let (_, list) = app
+        .send(Method::GET, ALPHA, "/api/v1/expenses", Some(&owner), None)
+        .await;
+    assert!(list["items"][0].get("bill").is_none(), "{list}");
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn expense_bills_need_their_permissions() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let expense = rent_expense(&app, &owner).await;
+    let (status, _) = upload_bill(&app, ALPHA, &owner, &expense, PNG, "x.png").await;
+    assert_eq!(status, StatusCode::OK);
+    let bill_path = format!("/api/v1/expenses/{expense}/bill");
+    let link_path = format!("{bill_path}/download");
+    let status_for = async |token: &str, method: Method, path: &str| {
+        app.send(method, ALPHA, path, Some(token), None).await.0
+    };
+
+    // The front desk has neither expenses.write nor finance.view: every bill route is refused.
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let (status, _) = upload_bill(&app, ALPHA, &desk, &expense, PNG, "x.png").await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    for (method, path) in [(Method::GET, &link_path), (Method::DELETE, &bill_path)] {
+        assert_eq!(
+            status_for(&desk, method, path).await,
+            StatusCode::FORBIDDEN,
+            "{path}"
+        );
+    }
+
+    // finance.view alone reads the bill but can't attach or remove one.
+    grant_nothing_role(&app, &["finance.view"]).await;
+    let reader = app.token(ALPHA_NOTHING);
+    assert_eq!(
+        status_for(&reader, Method::GET, &link_path).await,
+        StatusCode::OK
+    );
+    let (status, _) = upload_bill(&app, ALPHA, &reader, &expense, PNG, "x.png").await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        status_for(&reader, Method::DELETE, &bill_path).await,
+        StatusCode::FORBIDDEN
+    );
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn expense_bills_stay_in_their_clinic() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let beta = app.token(BETA_OWNER);
+    let expense = rent_expense(&app, &owner).await;
+    let (status, _) = upload_bill(&app, ALPHA, &owner, &expense, PNG, "x.png").await;
+    assert_eq!(status, StatusCode::OK);
+    let bill_path = format!("/api/v1/expenses/{expense}/bill");
+    let link_path = format!("{bill_path}/download");
+
+    // Beta's owner gets 404 for Alpha's expense bill: to attach, read or remove.
+    let (status, _) = upload_bill(&app, BETA, &beta, &expense, PDF, "x.pdf").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    for (method, path) in [(Method::GET, &link_path), (Method::DELETE, &bill_path)] {
+        let (status, _) = app.send(method, BETA, path, Some(&beta), None).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{path}");
+    }
+    // Alpha's bill is untouched, and Beta's clinic sees no bill rows.
+    let (alpha, beta_id) = (app.clinic_id("alpha").await, app.clinic_id("beta").await);
+    let db = app.api_db();
+    let count = async |clinic| {
+        db.scoped(&Scope::tenant(clinic), async |tx| {
+            sqlx::query_scalar::<_, i64>(
+                "select count(*) from aarogyam.expense_files where superseded_at is null",
+            )
+            .fetch_one(tx.conn())
+            .await
+            .map_err(DbError::from)
+        })
+        .await
+        .unwrap()
+    };
+    assert_eq!((count(alpha).await, count(beta_id).await), (1, 0));
+    // Beta can't hang a bill row on Alpha's expense, even directly.
+    let error = db
+        .scoped(&Scope::tenant(beta_id), async |tx| {
+            sqlx::query(
+                "insert into aarogyam.expense_files (expense_id, mime_type, size_bytes)
+                 values ($1, 'image/png', 10)",
+            )
+            .bind(uuid::Uuid::parse_str(&expense).unwrap())
+            .execute(tx.conn())
+            .await
+            .map_err(DbError::from)
+        })
+        .await;
+    assert!(error.is_err());
     app.finish().await;
 }

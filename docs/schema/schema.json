@@ -8478,7 +8478,7 @@
    "partitioned": false,
    "lifecycle": "finalizable",
    "schema": "aarogyam",
-   "notes": "Built (migration 0300). Recording needs expenses.write; listing and voiding need finance.view. Never edited: a mistake is voided with a reason (trigger). Stock deliveries are not copied in; the Analytics report counts stock_batches at cost as material. Not built yet: branch, payment method, vendor, receipt file.",
+   "notes": "Built (migration 0300). Recording needs expenses.write; listing and voiding need finance.view. Never edited: a mistake is voided with a reason (trigger). Stock deliveries are not copied in; the Analytics report counts stock_batches at cost as material. A lab payment copies its method to its expense. The bill photo is in expense_files. Not built yet: branch, vendor.",
    "cols": [
     {
      "name": "category_id",
@@ -8556,11 +8556,70 @@
      "nullable": true,
      "ref": null,
      "note": "SHA-256 of the request sent with the key"
+    },
+    {
+     "name": "method",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "how it was paid: cash, upi, card, bank; null when not recorded (migration 0724)"
     }
    ],
    "referenced_by": [
+    "expense_files.expense_id",
     "lab_payments.expense_id"
    ],
+   "sensitivity": "financial",
+   "offline": "server_only"
+  },
+  {
+   "name": "expense_files",
+   "domain": "billing",
+   "purpose": "The optional bill of an expense: a photo or PDF (JPEG, PNG or PDF, up to 10 MB).",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "soft_delete",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0724), as lab_payment_files. expenses freezes once recorded, so the bill is its own table. Bytes are stored under <clinic>/<id> and reached through a five-minute link bound to the member (GET /expenses/{id}/bill/download); a voided expense's bill stays readable but takes no new one. Needs expenses.write to attach or remove, finance.view to read.",
+   "cols": [
+    {
+     "name": "expense_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "expenses",
+     "note": "at most one current bill per expense"
+    },
+    {
+     "name": "mime_type",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "image/jpeg, image/png, application/pdf"
+    },
+    {
+     "name": "size_bytes",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "1 byte to 10 MB"
+    },
+    {
+     "name": "file_name",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the name the device gave it, tidied; masked in the change history"
+    },
+    {
+     "name": "superseded_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "set when a newer bill replaces it or it is removed; the file and its bytes stay"
+    }
+   ],
+   "referenced_by": [],
    "sensitivity": "financial",
    "offline": "server_only"
   },

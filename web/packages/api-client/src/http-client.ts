@@ -1023,6 +1023,12 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     recordExpense: (input, opts) => call({ method: "POST", path: "/api/v1/expenses", schema: expense, body: input, signal: opts?.signal }),
     voidExpense: (id, reason, opts) =>
       call({ method: "POST", path: `/api/v1/expenses/${encodeURIComponent(id)}/void`, schema: expense, body: reason, signal: opts?.signal }),
+    uploadExpenseBill: (id, form, opts) =>
+      call({ method: "POST", path: `/api/v1/expenses/${encodeURIComponent(id)}/bill`, schema: expense, body: form, signal: opts?.signal }),
+    removeExpenseBill: (id, opts) =>
+      call({ method: "DELETE", path: `/api/v1/expenses/${encodeURIComponent(id)}/bill`, schema: expense, signal: opts?.signal }),
+    getExpenseBillDownloadLink: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/expenses/${encodeURIComponent(id)}/bill/download`, schema: downloadLink, signal: opts?.signal }),
     getAnalytics: (query, opts) =>
       call({
         method: "GET",

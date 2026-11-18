@@ -208,6 +208,8 @@ pub async fn record(
                 spent_on: input.paid_on,
                 amount_paise: amount.get(),
                 note: Some(&expense_note),
+                // The expense says how the lab was paid too.
+                method: method.map(PaymentMethod::as_str),
                 recorded_by: actor.membership_id.uuid(),
                 idempotency_key: None,
                 request_hash: None,

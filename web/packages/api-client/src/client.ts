@@ -1003,6 +1003,12 @@ export interface ApiClient {
   recordExpense(input: NewExpense, options?: RequestOptions): Promise<ApiResult<Expense>>;
   /** Clinic host: voids an expense with a reason; it stops counting in reports. Needs `finance.view`. */
   voidExpense(id: ExpenseId, reason: Reason, options?: RequestOptions): Promise<ApiResult<Expense>>;
+  /** Clinic host: attaches or replaces an expense's bill photo (a `FormData` with `file`: JPEG, PNG or PDF of at most 10 MB). The old bill is kept as superseded. Needs `expenses.write`; a voided expense answers 409. */
+  uploadExpenseBill(id: ExpenseId, form: FormData, options?: RequestOptions): Promise<ApiResult<Expense>>;
+  /** Clinic host: takes the bill off an expense that is not void. Needs `expenses.write`. */
+  removeExpenseBill(id: ExpenseId, options?: RequestOptions): Promise<ApiResult<Expense>>;
+  /** Clinic host: a five-minute link to the expense's bill, also when the expense is void. Needs `finance.view`; 404 when there is none. */
+  getExpenseBillDownloadLink(id: ExpenseId, options?: RequestOptions): Promise<ApiResult<DownloadLink>>;
   /** Clinic host: chair use, money, patients and busy hours by month or week; money is null without `finance.view`. Needs `analytics.view`. */
   getAnalytics(query: AnalyticsQuery, options?: RequestOptions): Promise<ApiResult<Analytics>>;
 

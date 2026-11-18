@@ -1074,6 +1074,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/expense-files/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Streams a bill file through a signed link from `GET /expenses/{id}/bill/download`. The link
+         *     is the proof of access (an `<img>` can use it); it works on the clinic's own host for five
+         *     minutes.
+         */
+        get: operations["getExpenseBillContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/expenses": {
         parameters: {
             query?: never;
@@ -1089,6 +1110,45 @@ export interface paths {
          *     the first expense (`200`) instead of recording another.
          */
         post: operations["recordExpense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/expenses/{id}/bill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attaches a bill photo (or a PDF) as `multipart/form-data` field `file`: JPEG, PNG or PDF, up
+         *     to 10 MB, checked by content. Replaces the current bill, which is kept as superseded. Returns
+         *     the expense.
+         */
+        post: operations["uploadExpenseBill"];
+        /** Takes the bill off an expense that is not void. The file is kept as superseded. */
+        delete: operations["removeExpenseBill"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/expenses/{id}/bill/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issues a five-minute link to an expense's bill. A voided expense's bill stays readable. */
+        get: operations["getExpenseBillDownloadLink"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8132,6 +8192,7 @@ export interface components {
              * @description Paise.
              */
             amount_paise: number;
+            bill?: components["schemas"]["ExpenseBill"] | null;
             /** @description What it was for. */
             category: components["schemas"]["ExpenseCategory"];
             /** @description The category's name, such as `Rent`. */
@@ -8140,6 +8201,8 @@ export interface components {
             created_at: string;
             /** @description Identifier. */
             id: string;
+            /** @description How it was paid: `cash`, `upi`, `card` or `bank`. Absent when it was not recorded. */
+            method?: string | null;
             /** @description A note. */
             note?: string | null;
             /** @description The membership that recorded it. */
@@ -8152,6 +8215,26 @@ export interface components {
             void_reason?: string | null;
             /** @description When it was voided (RFC 3339). */
             voided_at?: string | null;
+        };
+        /** @description The bill of an expense: a photo or a PDF. */
+        ExpenseBill: {
+            /** @description The name the uploader's device gave it, when it gave one. */
+            file_name?: string | null;
+            /** @description `image/jpeg`, `image/png` or `application/pdf`. */
+            mime_type: string;
+            /**
+             * Format: int64
+             * @description Bytes.
+             */
+            size_bytes: number;
+        };
+        /** @description The bill upload form. */
+        ExpenseBillForm: {
+            /**
+             * Format: binary
+             * @description A JPEG, PNG or PDF of at most 10 MB, checked by content.
+             */
+            file: string;
         };
         /**
          * @description A system expense category. Stock deliveries count as `material` in analytics.
@@ -10239,6 +10322,8 @@ export interface components {
             amount_paise: number;
             /** @description What it was for. */
             category: components["schemas"]["ExpenseCategory"];
+            /** @description How it was paid: `cash`, `upi`, `card` or `bank`. Optional; nothing is assumed. */
+            method?: string | null;
             /** @description Up to 300 characters. */
             note?: string | null;
             /** @description The clinic day, `YYYY-MM-DD`; today or earlier. */
@@ -18489,6 +18574,44 @@ export interface operations {
             };
         };
     };
+    getExpenseBillContent: {
+        parameters: {
+            query: {
+                /** @description The signed token from the download link */
+                token: string;
+            };
+            header?: never;
+            path: {
+                /** @description The file */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, with its media type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link has expired; ask for a new one */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a valid link for this file on this host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listExpenses: {
         parameters: {
             query?: {
@@ -18570,7 +18693,7 @@ export interface operations {
                     "application/json": components["schemas"]["Expense"];
                 };
             };
-            /** @description Invalid input: amount, note, a day after today, or a malformed key */
+            /** @description Invalid input: amount, note, method, a day after today, or a malformed key */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -18593,6 +18716,167 @@ export interface operations {
             };
             /** @description The key was used for a different expense */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    uploadExpenseBill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The expense */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ExpenseBillForm"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            /** @description Not a JPEG, PNG or PDF, or empty */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such expense in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The expense is void */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 10 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removeExpenseBill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The expense */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks expenses.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such expense in this clinic, or it has no bill */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The expense is void */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getExpenseBillDownloadLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The expense */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadLink"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such expense in this clinic, or it has no bill */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

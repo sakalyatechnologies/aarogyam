@@ -1,18 +1,18 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Paperclip } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
 
-import { EXPENSE_CATEGORIES, type Expense } from "@aarogyam/api-client";
+import { apiErrorOf, EXPENSE_CATEGORIES, type Expense } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatRupees } from "@aarogyam/app-kit";
-import { Button, Dialog, Field, TextArea } from "@sakalya/ui";
+import { Button, Dialog, Field, TextArea, useToast } from "@sakalya/ui";
 
 import { Empty, MkCard, StatusChip } from "../../components/mk/index.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 import { useClinic } from "../../clinic.js";
 import { useTodayDate } from "../../lib/patients.js";
-import { CATEGORY_LABEL } from "../../lib/expenses.js";
+import { CATEGORY_LABEL, paidByLabel } from "../../lib/expenses.js";
 import { ExpenseForm } from "./expense-form.js";
-import { useExpenses, useVoidExpense } from "./queries.js";
+import { useExpenseBillLink, useExpenses, useVoidExpense } from "./queries.js";
 import "./expenses.css";
 
 /** `2026-10` → first and last day of that month. */
@@ -50,6 +50,18 @@ export function ExpensesPanel() {
   };
   const expenses = useExpenses(monthRange(month), can("finance.view"));
   const [voiding, setVoiding] = useState<Expense>();
+  const toast = useToast();
+  const billLink = useExpenseBillLink();
+  const viewBill = (expense: Expense) => {
+    billLink.mutate(expense.id, {
+      onSuccess: (link) => {
+        window.open(link.url, "_blank", "noopener,noreferrer");
+      },
+      onError: (thrown) => {
+        toast.show({ title: apiErrorOf(thrown)?.message ?? "Couldn't open that bill.", tone: "danger" });
+      },
+    });
+  };
 
   if (!can("finance.view")) {
     return <Empty title="Expenses are for the owner">Ask the clinic's owner if you need to see them.</Empty>;
@@ -98,7 +110,26 @@ export function ExpensesPanel() {
                   {rows.map((e) => (
                     <li key={e.id} className={e.status === "void" ? "ex-row is-void" : "ex-row"}>
                       <span className="ex-day">{dayLabel(e.spent_on)}</span>
-                      <span className="ex-note">{e.status === "void" ? `Void: ${e.void_reason ?? ""}` : (e.note ?? "—")}</span>
+                      <span className="ex-note">
+                        {e.status === "void" ? `Void: ${e.void_reason ?? ""}` : (e.note ?? "—")}
+                        {e.method == null ? null : <span className="ex-method"> · {paidByLabel(e.method)}</span>}
+                      </span>
+                      {e.bill == null ? (
+                        <span />
+                      ) : (
+                        <button
+                          type="button"
+                          className="mk-link ex-bill"
+                          disabled={billLink.isPending}
+                          aria-label={`View the bill for the ${CATEGORY_LABEL[e.category]} expense of ${formatRupees(e.amount_paise)} on ${dayLabel(e.spent_on)}`}
+                          onClick={() => {
+                            viewBill(e);
+                          }}
+                        >
+                          <Paperclip aria-hidden="true" />
+                          Bill
+                        </button>
+                      )}
                       <span className="ex-amt">{formatRupees(e.amount_paise)}</span>
                       {e.status === "void" ? (
                         <StatusChip tone="noshow">Void</StatusChip>

@@ -594,6 +594,7 @@ export type TodayMoney = Schemas["TodayMoney"];
 
 export type ExpenseCategory = Schemas["ExpenseCategory"];
 export type Expense = Schemas["Expense"];
+export type ExpenseBill = Schemas["ExpenseBill"];
 export type ExpenseList = Schemas["ExpenseList"];
 export type NewExpense = Schemas["NewExpense"];
 export type AnalyticsBucket = Schemas["AnalyticsBucket"];

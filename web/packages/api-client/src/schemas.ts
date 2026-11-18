@@ -2453,6 +2453,13 @@ export const expenseCategory = z.enum(["salary", "material", "electricity", "lab
 export type ExpenseCategory = z.output<typeof expenseCategory>;
 export const EXPENSE_CATEGORIES = expenseCategory.options;
 
+export const expenseBill = z.object({
+  mime_type: z.string(),
+  size_bytes: z.number().int(),
+  file_name: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.ExpenseBill>;
+export type ExpenseBill = z.output<typeof expenseBill>;
+
 export const expense = z.object({
   id: expenseId,
   category: expenseCategory,
@@ -2460,6 +2467,10 @@ export const expense = z.object({
   spent_on: date,
   amount_paise: paise,
   note: optionalText,
+  /** `cash`, `upi`, `card` or `bank`; absent (or null) when not recorded. */
+  method: z.string().nullable().exactOptional(),
+  /** The bill photo; absent (or null) when none was attached. */
+  bill: expenseBill.nullable().exactOptional(),
   status: z.string(),
   recorded_by: membershipId,
   created_at: timestamp,

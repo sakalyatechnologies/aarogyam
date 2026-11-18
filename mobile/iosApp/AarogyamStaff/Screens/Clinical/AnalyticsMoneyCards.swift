@@ -3,9 +3,11 @@ import Charts
 import SakalyaUI
 import SwiftUI
 
-/// Revenue and expenses side by side per week or month, with the net as a line over them.
+/// Revenue and expenses side by side per period, with the net as a line over them; the switch above
+/// shows one series alone (as the portal's tiles do).
 struct MoneyChartCard: View {
     let view: AnalyticsView
+    @State private var series: MoneySeries = .all
     @Environment(\.skTheme) private var theme
 
     private struct Bar: Identifiable {
@@ -25,13 +27,20 @@ struct MoneyChartCard: View {
             let date = AnalyticsFormat.date(point.start)
             let label = AnalyticsFormat.bucketLabel(point.start, bucket: view.bucket)
             let income = point.incomePaise?.int64Value ?? 0, spent = point.expensesPaise?.int64Value ?? 0
-            return [
-                Bar(id: "r\(label)", date: date, kind: revenue, rupees: Double(income) / 100, label: label, text: AnalyticsFormat.rupees(paise: income)),
-                Bar(id: "e\(label)", date: date, kind: expenses, rupees: Double(spent) / 100, label: label, text: AnalyticsFormat.rupees(paise: spent)),
-            ]
+            var shown: [Bar] = []
+            if series == .all || series == .income {
+                shown.append(Bar(id: "r\(label)", date: date, kind: revenue, rupees: Double(income) / 100, label: label, text: AnalyticsFormat.rupees(paise: income)))
+            }
+            if series == .all || series == .expenses {
+                shown.append(Bar(id: "e\(label)", date: date, kind: expenses, rupees: Double(spent) / 100, label: label, text: AnalyticsFormat.rupees(paise: spent)))
+            }
+            return shown
         }
+        let names: [MoneySeries: String] = [.all: a11("a11.series.all"), .income: revenue, .expenses: expenses, .net: net]
+        let showsNet = series == .all || series == .net
         let netTotal = AnalyticsFormat.rupees(paise: view.netPaise?.int64Value ?? 0)
-        ChartCard(title: a11("a11.money.title"), sub: AnalyticsFormat.perBucket(view.bucket)) {
+        ChartCard(title: series == .all ? a11("a11.money.title") : names[series] ?? "", sub: AnalyticsFormat.perBucket(view.bucket)) {
+            SkChoiceChips(Array(MoneySeries.allCases), selected: [series], label: { names[$0] ?? "" }) { series = $0 }
             Chart {
                 ForEach(bars) { bar in
                     BarMark(x: .value("Date", bar.date, unit: unit), y: .value("Rupees", bar.rupees))
@@ -41,7 +50,7 @@ struct MoneyChartCard: View {
                         .accessibilityLabel("\(bar.label), \(bar.kind)")
                         .accessibilityValue(bar.text)
                 }
-                ForEach(Array(view.points.enumerated()), id: \.offset) { _, point in
+                ForEach(Array((showsNet ? view.points : []).enumerated()), id: \.offset) { _, point in
                     let label = AnalyticsFormat.bucketLabel(point.start, bucket: view.bucket)
                     LineMark(x: .value("Date", AnalyticsFormat.date(point.start), unit: unit), y: .value("Rupees", Double(point.netPaise?.int64Value ?? 0) / 100), series: .value("Series", net))
                         .foregroundStyle(by: .value("Kind", net))

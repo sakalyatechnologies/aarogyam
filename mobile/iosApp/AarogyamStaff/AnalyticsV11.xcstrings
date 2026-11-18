@@ -1612,6 +1612,29 @@
         }
       }
     },
+    "a11.series.all": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सभी"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सर्व"
+          }
+        }
+      }
+    },
     "a11.sex.female": {
       "extractionState": "manual",
       "localizations": {

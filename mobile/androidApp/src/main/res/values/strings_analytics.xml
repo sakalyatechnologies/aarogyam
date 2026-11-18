@@ -61,6 +61,7 @@
     <string name="an_patients_returning">Returning</string>
     <string name="an_patients_title">New vs returning patients</string>
     <string name="an_per_month">per month</string>
+    <string name="an_series_all">All</string>
     <string name="an_per_day">per day</string>
     <string name="an_per_week">per week</string>
     <string name="an_preset_custom">Custom</string>

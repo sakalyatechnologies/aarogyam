@@ -2,13 +2,19 @@ package com.aarogyam.staff.android.ui.analytics
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.aarogyam.staff.analytics.AnalyticsBucketKind
 import com.aarogyam.staff.analytics.AnalyticsView
+import com.aarogyam.staff.analytics.MoneySeries
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.clinical.categoryLabel
 import com.sakalya.mobile.designcompose.SkButton
 import com.sakalya.mobile.designcompose.SkButtonVariant
+import com.sakalya.mobile.designcompose.SkChoiceChips
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.color
 
@@ -34,10 +40,14 @@ internal fun perBucket(view: AnalyticsView): String =
         },
     )
 
-/** Revenue and expenses side by side per week or month, with the net as a line over them. */
+/**
+ * Revenue and expenses side by side per period, with the net as a line over them; the switch above
+ * shows one series alone (as the portal's tiles do).
+ */
 @Composable
 internal fun MoneyChartCard(view: AnalyticsView) {
     val colors = SkTheme.colors
+    var series by rememberSaveable { mutableStateOf(MoneySeries.All) }
     val (axis, full) = bucketNames(view)
     val revenue = stringResource(R.string.an_kpi_revenue)
     val expenses = stringResource(R.string.an_kpi_expenses)
@@ -58,15 +68,34 @@ internal fun MoneyChartCard(view: AnalyticsView) {
         }
     val caption = rangeCaption(view)
     val description = stringResource(R.string.an_money_chart_a11y, caption, netTotal) + ". " + rows.joinToString(". ")
-    ChartCard(stringResource(R.string.an_money_title), perBucket(view)) {
+    val names =
+        mapOf(
+            MoneySeries.All to stringResource(R.string.an_series_all),
+            MoneySeries.Income to revenue,
+            MoneySeries.Expenses to expenses,
+            MoneySeries.Net to net,
+        )
+    val title = if (series == MoneySeries.All) stringResource(R.string.an_money_title) else names.getValue(series)
+    ChartCard(title, perBucket(view)) {
+        SkChoiceChips(MoneySeries.entries, setOf(series), { series = it }, { names.getValue(it) })
         BucketChart(
             labels = axis,
             bars =
-                listOf(
-                    ChartSeries(revenue, colors.primary.color, income),
-                    ChartSeries(expenses, colors.warning.color, spent),
+                listOfNotNull(
+                    ChartSeries(revenue, colors.primary.color, income).takeIf {
+                        series == MoneySeries.All || series == MoneySeries.Income
+                    },
+                    ChartSeries(expenses, colors.warning.color, spent).takeIf {
+                        series == MoneySeries.All || series == MoneySeries.Expenses
+                    },
                 ),
-            lines = listOf(ChartSeries(net, colors.text.color, nets)),
+            lines =
+                listOfNotNull(
+                    ChartSeries(net, colors.text.color, nets).takeIf {
+                        series == MoneySeries.All ||
+                            series == MoneySeries.Net
+                    },
+                ),
             areas = false,
             formatY = { AnalyticsFormat.rupees((it * PAISE).toLong()) },
             description = description,

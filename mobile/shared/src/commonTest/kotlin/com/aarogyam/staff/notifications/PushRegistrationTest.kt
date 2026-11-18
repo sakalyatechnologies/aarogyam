@@ -91,14 +91,14 @@ class PushRegistrationTest {
                     """"app":"staff"""" in body,
                 body,
             )
-            assertTrue(""""locale":"hi"""" in body && """"app_version":"0.1.0"""" in body, body)
+            assertTrue(""""locale":"hi-IN"""" in body && """"app_version":"0.1.0"""" in body, body)
             graph.push.setToken("ab12")
             graph.push.setLocale("mr")
             backend.waitFor("PUT", 2)
             delay(50)
             assertEquals(2, backend.devices().size)
             assertTrue(
-                """"locale":"mr"""" in
+                """"locale":"mr-IN"""" in
                     backend
                         .devices()
                         .last()
@@ -110,6 +110,45 @@ class PushRegistrationTest {
                 graph.preferences.get(PreferenceKey.PushSent)?.contains("ab12") != true,
                 "the token is never stored",
             )
+        }
+
+    @Test
+    fun theLocaleAlwaysHasTheShapeTheServerTakes() =
+        runTest {
+            val backend = FakeBackend()
+            val graph = testGraph(backend, backgroundScope)
+            backend.on("$route/${graph.push.installationId}", { json("", HttpStatusCode.NoContent) })
+            signIn(graph, backend)
+            backend.waitFor("PUT", 1)
+            val sent = mutableListOf<String>()
+            for ((index, tag) in listOf("mr", "hi_IN", "fr-FR", "en-GB").withIndex()) {
+                // A fresh start each time, so the language and token go out together in one send.
+                val registration =
+                    PushRegistration(
+                        graph.preferences,
+                        kotlinx.coroutines.flow.flowOf(0),
+                        graph.directory::appApi,
+                        backgroundScope,
+                        "0.1.0",
+                    )
+                registration.setLocale(tag)
+                registration.setToken("t$index")
+                backend.waitFor("PUT", index + 2)
+                val body =
+                    backend
+                        .devices()
+                        .last()
+                        .body
+                        .toByteArray()
+                        .decodeToString()
+                sent +=
+                    Regex(""""locale":"([^"]*)"""")
+                        .find(body)
+                        ?.groupValues
+                        ?.get(1)
+                        .orEmpty()
+            }
+            assertEquals(listOf("mr-IN", "hi-IN", "en-IN", "en-IN"), sent)
         }
 
     @Test
@@ -128,7 +167,7 @@ class PushRegistrationTest {
                     .body
                     .toByteArray()
                     .decodeToString()
-            assertTrue(""""app":"staff"""" in body && """"locale":"en"""" in body, body)
+            assertTrue(""""app":"staff"""" in body && """"locale":"en-IN"""" in body, body)
             assertTrue("token" !in body, "no token is sent before there is one: $body")
             withContext(Dispatchers.Default) {
                 withTimeout(5_000) { while (graph.preferences.get(PreferenceKey.PushSent) == null) delay(10) }
@@ -213,7 +252,7 @@ class PushRegistrationTest {
             withContext(Dispatchers.Default) {
                 withTimeout(5_000) {
                     // The token-less registration may land first; wait for the token's.
-                    while (graph.preferences.get(PreferenceKey.PushSent)?.startsWith("en:4:") != true) {
+                    while (graph.preferences.get(PreferenceKey.PushSent)?.startsWith("en-IN:4:") != true) {
                         delay(10)
                     }
                 }

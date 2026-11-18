@@ -212,6 +212,12 @@ fun AppGraph.booking(
     screen: ScreenScope,
 ): BookingStateHolder = booking(clinic, patientId, date, screen.scope)
 
+/** "Register and book" for someone the search did not find, living as long as [screen]. */
+fun AppGraph.quickRegister(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): com.aarogyam.staff.booking.QuickRegisterStateHolder = quickRegister(clinic, screen.scope)
+
 /** The Analytics page for [clinic], living as long as [screen]. */
 fun AppGraph.analytics(
     clinic: ClinicContext,

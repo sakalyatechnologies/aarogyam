@@ -18,7 +18,7 @@ struct BookFlow: View {
                 }
             } else {
                 ScreenHost(make: { graph.patients(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
-                    PatientPicker(holder: holder, state: state) { patientId = $0 }
+                    PatientPicker(graph: graph, clinic: clinic, holder: holder, state: state) { patientId = $0 }
                 }
             }
         }
@@ -28,6 +28,8 @@ struct BookFlow: View {
 
 /// Step one: search the clinic's patients.
 private struct PatientPicker: View {
+    let graph: AppGraph
+    let clinic: ClinicContext
     let holder: PatientsStateHolder
     let state: PatientsState
     let onPick: (String) -> Void
@@ -45,6 +47,12 @@ private struct PatientPicker: View {
                 SkLoadingIndicator(String(localized: "v7.loading")).frame(maxWidth: .infinity)
             case .failed(let failed):
                 SkEmptyState(String(localized: "patients.title"), message: failed.error.message, actionTitle: String(localized: "try_again"), action: holder.retry)
+            case .loaded(let loaded) where loaded.items.isEmpty && text.trimmingCharacters(in: .whitespaces).count >= 2
+                && clinic.permissions.contains("patients.write"):
+                // Nobody by that name: register them here, then book for the new patient.
+                ScreenHost(make: { graph.quickRegister(clinic: clinic, screen: $0) }, state: { $0.state }) { register, registerState in
+                    RegisterAndBook(holder: register, state: registerState, searched: text, onRegistered: onPick)
+                }
             case .loaded(let loaded):
                 VStack(spacing: 3) {
                     ForEach(Array(loaded.items.prefix(20).enumerated()), id: \.element.id) { index, row in

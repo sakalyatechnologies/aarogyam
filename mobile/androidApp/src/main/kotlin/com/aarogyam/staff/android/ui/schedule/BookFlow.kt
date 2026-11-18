@@ -123,8 +123,14 @@ private fun PatientPicker(
             }
 
             is PatientsState.Loaded -> {
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    s.items.take(PICKER_ROWS).forEachIndexed { i, row -> PickRow(row, i, onPick) }
+                if (s.items.isEmpty() && text.trim().length >= 2 && "patients.write" in clinic.permissions) {
+                    // Nobody by that name: register them here, then book for the new patient.
+                    val register = remember { graph.quickRegister(clinic, scope) }
+                    RegisterAndBook(register, text, onPick)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        s.items.take(PICKER_ROWS).forEachIndexed { i, row -> PickRow(row, i, onPick) }
+                    }
                 }
             }
         }

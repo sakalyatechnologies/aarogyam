@@ -5,6 +5,7 @@ import com.aarogyam.staff.api.SessionEndWatch
 import com.aarogyam.staff.api.revokeCurrent
 import com.aarogyam.staff.billing.BillingStateHolder
 import com.aarogyam.staff.booking.BookingStateHolder
+import com.aarogyam.staff.booking.QuickRegisterStateHolder
 import com.aarogyam.staff.calendar.CalendarStateHolder
 import com.aarogyam.staff.chart.ChartStateHolder
 import com.aarogyam.staff.chart.ToothSheetStateHolder
@@ -275,6 +276,12 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): PatientsStateHolder = PatientsStateHolder(clinic, scope, logger("aarogyam.patients"))
+
+    /** New appointment for someone the search did not find: register, then book ([QuickRegisterStateHolder]). */
+    fun quickRegister(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): QuickRegisterStateHolder = QuickRegisterStateHolder(clinic, scope, logger("aarogyam.register"))
 
     fun patient360(
         clinic: ClinicContext,

@@ -110,7 +110,12 @@ class AnalyticsStateHolderTest {
                 rich.procedures,
             )
             val none = FakeBackend()
-            none.on(route, { json(analyticsBody(false, analyticsBucket("2026-09-07", 2, 1, 0, 0, 0, 0, 0))) })
+            // The range before fails, so no delta can arrive while the page is read (it raced on a busy machine).
+            none.on(
+                route,
+                { json(analyticsBody(false, analyticsBucket("2026-09-07", 2, 1, 0, 0, 0, 0, 0))) },
+                { apiError(HttpStatusCode.ServiceUnavailable, "unavailable") },
+            )
             val poor = holder(none, "analytics.view").loaded(deltas = false)
             assertEquals(listOf(null, null), poor.procedures.map { it.amountPaise })
             assertNull(poor.revenue)

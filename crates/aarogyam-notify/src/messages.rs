@@ -19,7 +19,7 @@ use base64::Engine as _;
 use sakalya_db::{Db, DbError};
 use time::OffsetDateTime;
 
-use crate::patient_templates::{self, PatientMail};
+use crate::patient_templates::{self, PatientMail, Unsubscribe};
 use crate::{EmailChannel, Failure, Notifier};
 
 /// Most patient messages one run handles.
@@ -271,7 +271,10 @@ impl Notifier {
                 dal::set_unsubscribe_hash(db.pool(), claimed.org_id, claimed.id, &hash)
                     .await
                     .map_err(|_| Failure::retryable("could not store the unsubscribe token"))?;
-                Some(self.links.unsubscribe(host, &token))
+                Some(Unsubscribe {
+                    one_click: self.links.unsubscribe(host, &token),
+                    page: self.links.unsubscribe_page(host, &token),
+                })
             }
             _ => None,
         };

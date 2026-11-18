@@ -2761,6 +2761,9 @@ export const verification = z.object({
 }) satisfies z.ZodType<C.Verification>;
 export type Verification = z.output<typeof verification>;
 
+export const unsubscribed = z.object({ unsubscribed: z.boolean() }) satisfies z.ZodType<C.Unsubscribed>;
+export type Unsubscribed = z.output<typeof unsubscribed>;
+
 // Requests -----------------------------------------------------------------------------------
 
 /** Body of `POST /api/v1/patients`. */

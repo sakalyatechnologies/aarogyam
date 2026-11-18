@@ -259,6 +259,7 @@ import type {
   NewExpense,
   TokenStatusChange,
   Today,
+  Unsubscribed,
   Verification,
   Visit,
   VisitDetail,
@@ -1032,6 +1033,8 @@ export interface ApiClient {
   openShared(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<Prescription>>;
   /** Any host, public: the QR code's check that a prescription is genuine. */
   verifyPrescription(token: string, options?: RequestOptions): Promise<ApiResult<Verification>>;
+  /** Clinic host, public: applies an email's unsubscribe link; the patient stops getting email of that kind from the clinic. */
+  unsubscribe(token: string, options?: RequestOptions): Promise<ApiResult<Unsubscribed>>;
 
   /** Clinic host, public: the clinic's name, booking settings and the doctors patients may pick. */
   getBookingOptions(options?: RequestOptions): Promise<ApiResult<BookingOptions>>;

@@ -81,6 +81,16 @@ impl PortalLinks {
         )
     }
 
+    /// The clinic's page that asks before unsubscribing, linked from a reminder or promotional
+    /// email's footer. The token rides in the fragment, which browsers never send to a server.
+    #[must_use]
+    pub fn unsubscribe_page(&self, host: &str, token: &str) -> String {
+        format!(
+            "{}/unsubscribe#{token}",
+            self.pattern.replace("{host}", host)
+        )
+    }
+
     /// The public page that verifies an issued prescription (its QR code points here).
     #[must_use]
     pub fn verify(&self, host: &str, token: &str) -> String {

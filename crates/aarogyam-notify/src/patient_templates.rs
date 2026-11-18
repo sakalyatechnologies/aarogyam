@@ -1,7 +1,7 @@
 //! What patient messages say. Booking answers, prescription links and app invitations keep the
 //! wording they had in the outbox (`templates.rs`); appointment reminders and the messages staff
-//! send are rendered here. Reminders and promotional email carry an unsubscribe link in the
-//! `List-Unsubscribe` header.
+//! send are rendered here. Reminders and promotional email carry a one-click unsubscribe link in
+//! the `List-Unsubscribe` header and a footer link to the clinic's unsubscribe page.
 
 use std::fmt::Write as _;
 
@@ -28,11 +28,21 @@ pub(crate) struct PatientMail<'a> {
     pub(crate) portal_host: Option<&'a str>,
     /// For a reminder: when the appointment starts and with whom.
     pub(crate) appointment: Option<(OffsetDateTime, &'a str)>,
-    /// The one-click unsubscribe address, for reminders and promotional email.
-    pub(crate) unsubscribe: Option<String>,
+    /// The unsubscribe links, for reminders and promotional email.
+    pub(crate) unsubscribe: Option<Unsubscribe>,
     /// The clinic's template text for the message, in the patient's language (the automatic
     /// messages are written from it).
     pub(crate) template_body: Option<&'a str>,
+}
+
+/// How a patient stops reminders or promotional email.
+#[derive(Debug, Clone)]
+pub(crate) struct Unsubscribe {
+    /// The one-click address mail apps POST to (`List-Unsubscribe`, RFC 8058).
+    pub(crate) one_click: String,
+    /// The page the email's footer links to, which asks before unsubscribing (so a mail
+    /// scanner opening links unsubscribes nobody).
+    pub(crate) page: String,
 }
 
 /// The values the automatic messages' `{{variables}}` take: links built from the clinic's portal
@@ -117,27 +127,34 @@ fn rupees(paise: i64) -> String {
     format!("₹{}.{:02}", paise / 100, paise % 100)
 }
 
-const UNSUBSCRIBE_LINE: &str =
-    "To stop these emails, use the Unsubscribe option in your email app.";
+const UNSUBSCRIBE_LINE: &str = "Don't want these emails?";
 
-/// Plain text and simple HTML from paragraphs separated by blank lines.
-fn paragraphs(clinic: &str, paras: &[String], footer: Option<&str>) -> (String, String) {
+/// Plain text and simple HTML from paragraphs separated by blank lines, with an unsubscribe
+/// link at the end when there is one.
+fn paragraphs(clinic: &str, paras: &[String], unsubscribe: Option<&str>) -> (String, String) {
     let mut text = format!("{clinic}\n\n{}", paras.join("\n\n"));
     let mut html = format!("<p><strong>{}</strong></p>", escape(clinic));
     for para in paras {
         // Writing to a String can't fail.
         let _ = write!(html, "<p>{}</p>", escape(para).replace('\n', "<br>"));
     }
-    if let Some(footer) = footer {
-        let _ = write!(text, "\n\n{footer}");
-        let _ = write!(html, "<p><small>{}</small></p>", escape(footer));
+    if let Some(page) = unsubscribe {
+        let _ = write!(text, "\n\n{UNSUBSCRIBE_LINE} Unsubscribe: {page}");
+        let _ = write!(
+            html,
+            "<p><small>{UNSUBSCRIBE_LINE} <a href=\"{}\">Unsubscribe</a></small></p>",
+            escape(page)
+        );
     }
     (text, html)
 }
 
 /// Renders a patient email.
 pub(crate) fn render(mail: &PatientMail<'_>, portal: &PortalLinks) -> Result<Email, Failure> {
-    let footer = mail.unsubscribe.as_ref().map(|_| UNSUBSCRIBE_LINE);
+    let one_click = mail
+        .unsubscribe
+        .as_ref()
+        .map(|links| links.one_click.clone());
     let (subject, paras) = match mail.kind {
         MessageKind::AppointmentReminder => {
             let (starts_at, doctor) = mail
@@ -196,17 +213,18 @@ pub(crate) fn render(mail: &PatientMail<'_>, portal: &PortalLinks) -> Result<Ema
                 attempts: 0,
             };
             let mut email = templates::render(&claimed, portal)?;
-            email.list_unsubscribe.clone_from(&mail.unsubscribe);
+            email.list_unsubscribe = one_click;
             return Ok(email);
         }
     };
-    let (text, html) = paragraphs(mail.clinic_name, &paras, footer);
+    let page = mail.unsubscribe.as_ref().map(|links| links.page.as_str());
+    let (text, html) = paragraphs(mail.clinic_name, &paras, page);
     Ok(Email {
         to: mail.to.to_owned(),
         subject,
         text,
         html,
-        list_unsubscribe: mail.unsubscribe.clone(),
+        list_unsubscribe: one_click,
     })
 }
 
@@ -320,7 +338,10 @@ mod tests {
         let none = json!({});
         let reminder = PatientMail {
             appointment: Some((datetime!(2026-10-10 04:30 UTC), "Ravi Rao")),
-            unsubscribe: Some("https://alpha.localtest.me/api/v1/public/unsubscribe/t0k".into()),
+            unsubscribe: Some(Unsubscribe {
+                one_click: "https://alpha.localtest.me/api/v1/public/unsubscribe/t0k".into(),
+                page: "https://alpha.localtest.me/unsubscribe#t0k&x=<y>".into(),
+            }),
             ..mail(
                 MessageKind::AppointmentReminder,
                 "appointment.reminder",
@@ -333,7 +354,16 @@ mod tests {
                 .text
                 .contains("10 October 2026, 10:00 with Dr Ravi Rao")
         );
-        assert!(email.text.contains("Unsubscribe option"));
+        assert!(
+            email
+                .text
+                .ends_with("Unsubscribe: https://alpha.localtest.me/unsubscribe#t0k&x=<y>")
+        );
+        assert!(
+            email
+                .html
+                .contains(r#"<a href="https://alpha.localtest.me/unsubscribe#t0k&amp;x=&lt;y&gt;">Unsubscribe</a>"#)
+        );
         assert!(email.html.contains("Alpha &lt;Dental&gt;"));
         assert!(
             email

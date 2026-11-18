@@ -646,6 +646,7 @@ export type QuickSetMedicine = Schemas["QuickSetMedicine"];
 export type SharedPreview = Schemas["SharedPreview"];
 export type OpenRequest = Schemas["OpenRequest"];
 export type Verification = Schemas["Verification"];
+export type Unsubscribed = Schemas["Unsubscribed"];
 
 // Patient self-booking (public, on the clinic host) -----------------------------------------------
 

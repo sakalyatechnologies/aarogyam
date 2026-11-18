@@ -9106,6 +9106,12 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           } satisfies C.Verification);
         }),
 
+      unsubscribe: (token, opts) =>
+        respond(S.unsubscribed, opts?.signal, () =>
+          // As the server: an opaque token of up to 100 characters; the fake treats any such token as known.
+          token.trim() === "" || token.length > 100 ? notFound : reply({ unsubscribed: true } satisfies C.Unsubscribed),
+        ),
+
       // Walk-in fast path.
       registerWalkIn: (input, opts) =>
         respond(S.walkIn, opts?.signal, async () => {

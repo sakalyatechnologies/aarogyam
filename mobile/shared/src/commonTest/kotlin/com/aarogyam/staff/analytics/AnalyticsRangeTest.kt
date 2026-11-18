@@ -10,7 +10,7 @@ class AnalyticsRangeTest {
     @Test
     fun presets_end_today_and_start_on_a_bucket_boundary() {
         assertEquals(
-            AnalyticsRange(AnalyticsPreset.Week, LocalDate(2026, 8, 17), today),
+            AnalyticsRange(AnalyticsPreset.Week, LocalDate(2026, 10, 3), today),
             AnalyticsRange.of(AnalyticsPreset.Week, today),
         )
         assertEquals(LocalDate(2026, 5, 1), AnalyticsRange.of(AnalyticsPreset.Month, today).from)
@@ -18,12 +18,17 @@ class AnalyticsRangeTest {
     }
 
     @Test
-    fun the_bucket_is_weekly_up_to_120_days_and_monthly_beyond() {
+    fun the_bucket_is_daily_up_to_31_days_weekly_up_to_120_and_monthly_beyond() {
+        val month = AnalyticsRange(AnalyticsPreset.Custom, LocalDate(2026, 9, 9), today) // 31 days
+        assertEquals(31, month.days)
+        assertEquals(AnalyticsBucketKind.Day, month.bucket)
+        assertEquals(AnalyticsBucketKind.Week, month.copy(from = LocalDate(2026, 9, 8)).bucket)
         val weekly = AnalyticsRange(AnalyticsPreset.Custom, LocalDate(2026, 6, 12), today) // 120 days
         assertEquals(120, weekly.days)
         assertEquals(AnalyticsBucketKind.Week, weekly.bucket)
         assertEquals(AnalyticsBucketKind.Month, weekly.copy(from = LocalDate(2026, 6, 11)).bucket)
-        assertEquals(AnalyticsBucketKind.Week, AnalyticsRange.of(AnalyticsPreset.Week, today).bucket)
+        assertEquals(AnalyticsBucketKind.Day, AnalyticsRange.of(AnalyticsPreset.Week, today).bucket)
+        assertEquals(7, AnalyticsRange.of(AnalyticsPreset.Week, today).days)
         assertEquals(AnalyticsBucketKind.Month, AnalyticsRange.of(AnalyticsPreset.Month, today).bucket)
         assertEquals(AnalyticsBucketKind.Month, AnalyticsRange.of(AnalyticsPreset.Year, today).bucket)
     }

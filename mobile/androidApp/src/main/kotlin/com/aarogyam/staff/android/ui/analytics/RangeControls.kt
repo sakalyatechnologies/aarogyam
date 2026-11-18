@@ -48,17 +48,15 @@ private fun presetName(preset: AnalyticsPreset): String =
         },
     )
 
-/** `17 Aug – 15 Nov 2026 · by week`. */
+/** `17 Aug – 15 Nov 2026 · by week` (or by day, by month). */
 @Composable
 internal fun rangeCaption(range: AnalyticsRange): String {
     val (from, to) = AnalyticsFormat.rangeEnds(range.from, range.to)
     return stringResource(
-        if (range.bucket ==
-            AnalyticsBucketKind.Week
-        ) {
-            R.string.an_range_caption_week
-        } else {
-            R.string.an_range_caption_month
+        when (range.bucket) {
+            AnalyticsBucketKind.Day -> R.string.an_range_caption_day
+            AnalyticsBucketKind.Week -> R.string.an_range_caption_week
+            AnalyticsBucketKind.Month -> R.string.an_range_caption_month
         },
         "$from – $to",
     )

@@ -20,7 +20,7 @@ struct MoneyChartCard: View {
     var body: some View {
         let r = theme.roles
         let revenue = a11("a11.kpi.revenue"), expenses = a11("a11.kpi.expenses"), net = a11("a11.kpi.net")
-        let unit: Calendar.Component = view.bucket == .week ? .weekOfYear : .month
+        let unit = AnalyticsFormat.unit(view.bucket)
         let bars = view.points.flatMap { point -> [Bar] in
             let date = AnalyticsFormat.date(point.start)
             let label = AnalyticsFormat.bucketLabel(point.start, bucket: view.bucket)
@@ -31,7 +31,7 @@ struct MoneyChartCard: View {
             ]
         }
         let netTotal = AnalyticsFormat.rupees(paise: view.netPaise?.int64Value ?? 0)
-        ChartCard(title: a11("a11.money.title"), sub: view.bucket == .week ? a11("a11.per.week") : a11("a11.per.month")) {
+        ChartCard(title: a11("a11.money.title"), sub: AnalyticsFormat.perBucket(view.bucket)) {
             Chart {
                 ForEach(bars) { bar in
                     BarMark(x: .value("Date", bar.date, unit: unit), y: .value("Rupees", bar.rupees))
@@ -67,12 +67,12 @@ struct MoneyChartCard: View {
     }
 }
 
-/// X axis marks for week or month buckets (a year shows two-digit years so 24 months read).
+/// X axis marks for day, week or month buckets.
 @AxisContentBuilder
 func dateAxis(view: AnalyticsView, color: Color) -> some AxisContent {
     AxisMarks(values: .automatic(desiredCount: 5)) { _ in
         AxisGridLine().foregroundStyle(Color.clear)
-        AxisValueLabel(format: view.bucket == .week ? Date.FormatStyle().day().month(.abbreviated) : (view.range.days > 400 ? Date.FormatStyle().month(.abbreviated).year(.twoDigits) : Date.FormatStyle().month(.abbreviated)), centered: false)
+        AxisValueLabel(format: AnalyticsFormat.axisFormat(view), centered: false)
             .font(.system(size: 10)).foregroundStyle(color)
     }
 }

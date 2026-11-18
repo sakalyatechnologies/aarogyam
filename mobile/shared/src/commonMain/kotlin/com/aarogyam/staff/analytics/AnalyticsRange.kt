@@ -7,7 +7,7 @@ import kotlinx.datetime.minus
 
 /** The Analytics range switch: three presets ending today, or a custom pair of dates. */
 enum class AnalyticsPreset {
-    /** The last 8 weeks, from a Monday. */
+    /** The last 7 days, one bar a day. */
     Week,
 
     /** The last 6 months, from the 1st. */
@@ -20,10 +20,14 @@ enum class AnalyticsPreset {
     Custom,
 }
 
-/** How the server groups the days: weekly up to [AnalyticsRange.WEEKLY_MAX_DAYS] days, monthly beyond. */
+/**
+ * How the server groups the days: daily up to [AnalyticsRange.DAILY_MAX_DAYS] days, weekly up to
+ * [AnalyticsRange.WEEKLY_MAX_DAYS], monthly beyond.
+ */
 enum class AnalyticsBucketKind(
     val wire: String,
 ) {
+    Day("day"),
     Week("week"),
     Month("month"),
 }
@@ -37,7 +41,12 @@ data class AnalyticsRange(
     val days: Int get() = from.daysUntil(to) + 1
 
     val bucket: AnalyticsBucketKind
-        get() = if (days <= WEEKLY_MAX_DAYS) AnalyticsBucketKind.Week else AnalyticsBucketKind.Month
+        get() =
+            when {
+                days <= DAILY_MAX_DAYS -> AnalyticsBucketKind.Day
+                days <= WEEKLY_MAX_DAYS -> AnalyticsBucketKind.Week
+                else -> AnalyticsBucketKind.Month
+            }
 
     /** The range of the same length right before this one, the base for every delta. */
     fun previous(): AnalyticsRange =
@@ -51,10 +60,12 @@ data class AnalyticsRange(
         /** The API's longest range. */
         const val MAX_DAYS = 731
 
+        /** Up to this many days the buckets are days (the API allows 92; a month of bars still reads). */
+        const val DAILY_MAX_DAYS = 31
+
         /** Beyond this many days the buckets are months. */
         const val WEEKLY_MAX_DAYS = 120
 
-        private const val WEEKS = 8
         private const val DAYS_PER_WEEK = 7
         private const val HALF_YEAR = 6
         private const val YEAR = 12
@@ -67,8 +78,7 @@ data class AnalyticsRange(
             val from =
                 when (preset) {
                     AnalyticsPreset.Week -> {
-                        today
-                            .minus(DatePeriod(days = today.dayOfWeek.ordinal + DAYS_PER_WEEK * (WEEKS - 1)))
+                        today.minus(DatePeriod(days = DAYS_PER_WEEK - 1))
                     }
 
                     AnalyticsPreset.Month -> {

@@ -61,6 +61,7 @@
     <string name="an_patients_returning">लौटे</string>
     <string name="an_patients_title">नए बनाम लौटे मरीज़</string>
     <string name="an_per_month">प्रति माह</string>
+    <string name="an_per_day">प्रति दिन</string>
     <string name="an_per_week">प्रति सप्ताह</string>
     <string name="an_preset_custom">अपनी तारीखें</string>
     <string name="an_preset_month">महीना</string>
@@ -73,6 +74,7 @@
     <string name="an_proc_title">श्रेणी के अनुसार प्रक्रियाएँ</string>
     <string name="an_range_a11y">%1$s से %2$s तक दिखा रहे हैं</string>
     <string name="an_range_caption_month">%1$s · महीने के हिसाब से</string>
+    <string name="an_range_caption_day">%1$s · दिन के हिसाब से</string>
     <string name="an_range_caption_week">%1$s · हफ़्ते के हिसाब से</string>
     <string name="an_range_from">से</string>
     <string name="an_range_limit">एक बार में अधिकतम 2 साल</string>

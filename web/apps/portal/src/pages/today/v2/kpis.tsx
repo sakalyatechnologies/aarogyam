@@ -29,7 +29,7 @@ const METRIC_ICON: Readonly<Record<string, LucideIcon>> = {
 
 /** The tiles' own names, where the day-to-day word is clearer than the catalogue's. */
 const METRIC_LABEL: Readonly<Record<string, string>> = {
-  appointments: "Appointments today",
+  appointments: "Today's patients",
   waiting: "Waiting",
   collected: "Collected today",
   chairs_busy: "In chair now",
@@ -118,10 +118,11 @@ export function KpisWidget({ opts, catalogue, spec }: WidgetProps) {
           const base = { key: metric.key, label: METRIC_LABEL[metric.key] ?? metric.label, icon: METRIC_ICON[metric.key] ?? Activity, money: MONEY_METRICS.has(metric.key) };
           switch (metric.key) {
             case "appointments":
-              tiles.push({ ...base, value: today.counts.total, hint: `${String(today.counts.done)} done · ${String(toGo)} to go` });
+              // Walk-ins are most of an Indian clinic's day, so the headline is patients, not bookings.
+              tiles.push({ ...base, value: today.counts.patients ?? today.counts.total, hint: `${String(today.counts.patients_done ?? today.counts.done)} done · ${String(toGo)} ${toGo === 1 ? "appointment" : "appointments"} to come` });
               break;
             case "completed":
-              tiles.push({ ...base, value: today.counts.done, hint: `${String(toGo)} to go` });
+              tiles.push({ ...base, value: today.counts.patients_done ?? today.counts.done, hint: `${String(toGo)} ${toGo === 1 ? "appointment" : "appointments"} to come` });
               break;
             case "waiting":
               tiles.push({ ...base, value: today.counts.waiting, hint: waitHint(today) });

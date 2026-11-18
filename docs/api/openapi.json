@@ -41092,6 +41092,16 @@
             "description": "Didn't come.",
             "minimum": 0
           },
+          "patients": {
+            "type": "integer",
+            "description": "Patients seen or being seen today, walk-ins and appointments alike, each once.\nOptional in the schema, so apps built before it read on.",
+            "minimum": 0
+          },
+          "patients_done": {
+            "type": "integer",
+            "description": "Of those, the patients whose visit is done today.",
+            "minimum": 0
+          },
           "ready_to_bill": {
             "type": "integer",
             "description": "Queue tokens `ready_to_bill`: treatment done, payment not yet collected.",

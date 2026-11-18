@@ -28,6 +28,8 @@ export function MissedSection({ missed, appointments, zone }: { missed: MissedLi
     <section aria-label="Missed today">
       {dialog}
       <h3 className="tv2-h3">Missed today ({missed.items.length})</h3>
+      {/* In a box like the queue and the completed list above and below it. */}
+      <div className="tv2-qbox">
       <ul aria-label="Missed today" className="tv2-list tv2-qlist">
         {missed.items.map((item) => {
           const known = appointments.find((a) => a.id === item.appointment_id);
@@ -88,6 +90,7 @@ export function MissedSection({ missed, appointments, zone }: { missed: MissedLi
           );
         })}
       </ul>
+      </div>
     </section>
   );
 }

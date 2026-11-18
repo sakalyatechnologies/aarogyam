@@ -97,7 +97,7 @@ describe("Today v2", () => {
     renderPortal("/today", { as: PEOPLE.asha, backend: withLabs() });
     expect(await screen.findByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening), Dr\. Asha Kulkarni$/ })).toBeTruthy();
     const numbers = await screen.findByRole("list", { name: "Key numbers" });
-    for (const label of ["Appointments today", "In chair now", "Waiting", "Collected today", "Lab cases due"]) {
+    for (const label of ["Today's patients", "In chair now", "Waiting", "Collected today", "Lab cases due"]) {
       expect(await within(numbers).findByText(label)).toBeTruthy();
     }
     expect(await screen.findByRole("region", { name: "Next up" })).toBeTruthy();
@@ -296,7 +296,7 @@ describe("money stays hidden until the eye is pressed", () => {
     await screen.findByRole("table", { name: "Appointments" });
     const numbers = await screen.findByRole("list", { name: "Key numbers" });
     expect(within(numbers).queryByText("Collected today")).toBeNull();
-    expect(within(numbers).getByText("Appointments today")).toBeTruthy();
+    expect(within(numbers).getByText("Today's patients")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^(Show|Hide) / })).toBeNull();
     expect(screen.getByRole("complementary", { name: "Side panel" }).textContent).not.toMatch(/₹/);
   });

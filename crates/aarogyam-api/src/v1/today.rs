@@ -45,6 +45,13 @@ pub struct TodayCounts {
     pub called: usize,
     /// Queue tokens `ready_to_bill`: treatment done, payment not yet collected.
     pub ready_to_bill: usize,
+    /// Patients seen or being seen today, walk-ins and appointments alike, each once.
+    /// Optional in the schema, so apps built before it read on.
+    #[schema(required = false)]
+    pub patients: usize,
+    /// Of those, the patients whose visit is done today.
+    #[schema(required = false)]
+    pub patients_done: usize,
 }
 
 /// Appointments starting in one local hour.
@@ -438,6 +445,8 @@ pub(crate) async fn today(
             waiting: counts.waiting,
             called: counts.called,
             ready_to_bill: counts.ready_to_bill,
+            patients: counts.patients,
+            patients_done: counts.patients_done,
         },
         by_hour: today
             .by_hour

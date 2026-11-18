@@ -11217,6 +11217,13 @@ function parseCsv(text: string): string[][] {
   return rows.filter((r) => !(r.length === 1 && r[0] === ""));
 }
 
+/** Today's patients, each once: anyone with a token not left or an arrived, seated or completed appointment; and those done. */
+function todayPatients(appointments: readonly { status: string; patient: { id: string } }[], tokens: readonly { status: string; patient_id: string }[]): { patients: number; patients_done: number } {
+  const done = new Set([...appointments.filter((a) => a.status === "completed").map((a) => a.patient.id), ...tokens.filter((t) => t.status === "done").map((t) => t.patient_id)]);
+  const seen = new Set([...done, ...appointments.filter((a) => a.status === "arrived" || a.status === "in_chair").map((a) => a.patient.id), ...tokens.filter((t) => t.status !== "left" && t.status !== "done").map((t) => t.patient_id)]);
+  return { patients: seen.size, patients_done: done.size };
+}
+
 /**
  * Today at the clinic, from appointments and queue tokens whose status and timing were worked
  * out once when fixtures built (relative to the fixture's own clock), not recomputed per request.
@@ -11242,6 +11249,8 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date, asked: strin
     waiting: todaysTokens.filter((t) => t.status === "waiting").length,
     called: todaysTokens.filter((t) => t.status === "called").length,
     ready_to_bill: todaysTokens.filter((t) => t.status === "ready_to_bill").length,
+    // As the server: walk-ins and appointments, each patient once; done = token done or appointment completed.
+    ...todayPatients(wired, todaysTokens),
   };
 
   const byHour = new Map<number, { booked: number; completed: number }>();

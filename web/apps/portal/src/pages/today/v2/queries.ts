@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { unwrap, type ApiClient, type DashboardLayout, type DashboardLayoutView, type TaskOccurrenceId } from "@aarogyam/api-client";
@@ -5,7 +6,7 @@ import { unwrap, type ApiClient, type DashboardLayout, type DashboardLayoutView,
 import { useClinic } from "../../../clinic.js";
 import { REFERENCE, SCHEDULE } from "../../../lib/cache-policy.js";
 import { QUEUE_POLL_MS } from "../../../queries.js";
-import { adoptTemplates } from "./layout-model.js";
+import { adoptTemplates, tasksByDefault } from "./layout-model.js";
 
 /** A clinic day's board data. `date` is `YYYY-MM-DD`; left out it is the current day, and refreshes by itself. */
 export function useDayToday(date: string | undefined) {
@@ -56,11 +57,13 @@ const layoutKey = (orgId: string, scope: "me" | "clinic") => ["dashboard-layout"
 
 /** The signed-in member's layout: their own, else the clinic's default, else MedSync; with the catalogue. */
 export function useMyLayout() {
-  const { api, access } = useClinic();
+  const { api, access, session } = useClinic();
+  const tasks = tasksByDefault(session.membership.role_key);
+  const select = useCallback((view: DashboardLayoutView) => adoptTemplates(view, tasks), [tasks]);
   return useQuery({
     queryKey: layoutKey(access.org_id, "me"),
     queryFn: ({ signal }) => unwrap(api.getMyDashboardLayout({ signal })),
-    select: adoptTemplates,
+    select,
     ...REFERENCE,
   });
 }

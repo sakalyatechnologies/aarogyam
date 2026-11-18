@@ -829,3 +829,8 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
 .mk-sorth:hover, th[aria-sort="ascending"] .mk-sorth, th[aria-sort="descending"] .mk-sorth { color: var(--ink); }
 .mk-sorth:focus-visible { outline: 2px solid var(--blue, currentColor); outline-offset: 2px; }
 .mk-sorth svg { opacity: .6; flex: none; }
+
+/* The page fills the window, so the legal links sit at the very bottom even when a page is short. */
+.mk-main { display: flex; flex-direction: column; min-height: 100dvh; }
+.mk-main > main { flex: 1 0 auto; }
+.mk-main > .mk-foot { margin-top: auto; }

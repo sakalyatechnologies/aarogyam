@@ -196,13 +196,13 @@ describe("Permissions", () => {
 
   it("keeps money off Today for the front desk", async () => {
     renderPortal("/today", { as: PEOPLE.farah });
-    expect(await screen.findByText("Appointments today")).toBeTruthy();
+    expect(await screen.findByText("Today's patients")).toBeTruthy();
     expect(screen.queryByText("Revenue today")).toBeNull();
   });
 
   it("shows Stock, Messages and Settings to everyone, since Settings has sessions for any signed-in person", async () => {
     renderPortal("/today", { as: PEOPLE.farah });
-    await screen.findByText("Appointments today");
+    await screen.findByText("Today's patients");
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     if (nav === undefined) throw new Error("no main navigation");
     expect(within(nav).getByRole("link", { name: "Stock" })).toBeTruthy();
@@ -307,7 +307,7 @@ describe("Patient 360", () => {
 describe("Today enrichment", () => {
   it("shows real chair status, team today and money from /today/money", async () => {
     renderPortal("/today", { as: PEOPLE.asha });
-    await screen.findByText("Appointments today");
+    await screen.findByText("Today's patients");
     expect(screen.getByText("Revenue today")).toBeTruthy();
     expect(screen.getAllByText("Chair 1").length).toBeGreaterThan(0);
     expect(await screen.findByRole("heading", { name: "Revenue mix" })).toBeTruthy();

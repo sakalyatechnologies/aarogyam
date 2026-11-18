@@ -942,6 +942,10 @@ async fn the_doctor_sends_a_patient_in_and_the_desk_bills() {
     let (status, done) = token_status(&app, &owner, &mine, "done").await;
     assert_eq!(status, StatusCode::OK, "{done}");
     assert!(done["done_at"].is_string());
+    // Walk-ins count as today's patients, each once; the finished one is also done.
+    let day = get_ok(&app, &owner, "/api/v1/today").await;
+    assert_eq!(day["counts"]["patients"], 2);
+    assert_eq!(day["counts"]["patients_done"], 1);
 
     // The earlier shortcuts still work: waiting straight to the chair, and a called patient
     // who leaves.

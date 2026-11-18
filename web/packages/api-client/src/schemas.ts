@@ -935,6 +935,10 @@ export const todayCounts = z.object({
   called: count,
   /** Treatment done, payment not yet collected. */
   ready_to_bill: count,
+  /** Patients seen or being seen today, walk-ins and appointments alike, each once. */
+  patients: count.exactOptional(),
+  /** Of those, the patients whose visit is done today. */
+  patients_done: count.exactOptional(),
 }) satisfies z.ZodType<C.TodayCounts>;
 export type TodayCounts = z.output<typeof todayCounts>;
 

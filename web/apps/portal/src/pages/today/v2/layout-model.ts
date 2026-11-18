@@ -300,6 +300,12 @@ function sortKeys(opts: LayoutOpts): LayoutOpts {
 /** The "My tasks" widget; the server's catalogue lists it. */
 export const MY_TASKS_KEY = "my_tasks";
 
+/**
+ * Whether a role's ready-made Today starts with "My tasks". Tasks are the front desk's and assistants' work; a doctor's
+ * or owner's Today leaves the card out (Studio can still add it, and a saved layout keeps what it has).
+ */
+export const tasksByDefault = (roleKey: string): boolean => roleKey !== "doctor" && roleKey !== "owner";
+
 /** "My tasks" in the main area, just under the Next up hero (or first when there is none). */
 function withTasksCard(catalogue: DashboardCatalogue, layout: DashboardLayout): DashboardLayout {
   if (layout.items.some((item) => item.key === MY_TASKS_KEY) || specOf(catalogue, MY_TASKS_KEY) === undefined) return layout;
@@ -326,8 +332,9 @@ export const MEDSYNC_METRICS = ["appointments", "chairs_busy", "waiting", "colle
  * API stays as it is: MedSync becomes the key-number strip, the next-up hero and the appointments table beside the
  * calendar column; the others keep their widgets and only gain the left column, with the calendar and the queue in it (Next up and the rest move to the main area).
  */
-export function restyleTemplate(catalogue: DashboardCatalogue, key: string, layout: DashboardLayout): DashboardLayout {
-  return withTasksCard(catalogue, restyleItems(catalogue, key, layout));
+export function restyleTemplate(catalogue: DashboardCatalogue, key: string, layout: DashboardLayout, tasks = true): DashboardLayout {
+  const items = restyleItems(catalogue, key, layout);
+  return tasks ? withTasksCard(catalogue, items) : { ...items, items: items.items.filter((item) => item.key !== MY_TASKS_KEY) };
 }
 
 function restyleItems(catalogue: DashboardCatalogue, key: string, layout: DashboardLayout): DashboardLayout {
@@ -361,9 +368,9 @@ function restyleItems(catalogue: DashboardCatalogue, key: string, layout: Dashbo
  * The view as the New look shows it: every template restyled, and a layout that is still a server template untouched
  * becomes the restyled one. A layout somebody changed and saved is left exactly as it is.
  */
-export function adoptTemplates(view: DashboardLayoutView): DashboardLayoutView {
+export function adoptTemplates(view: DashboardLayoutView, tasks = true): DashboardLayoutView {
   const server = view.catalogue;
-  const templates = server.templates.map((template) => ({ ...template, layout: restyleTemplate(server, template.key, template.layout) }));
+  const templates = server.templates.map((template) => ({ ...template, layout: restyleTemplate(server, template.key, template.layout, tasks) }));
   const stock = view.catalogue.templates.find((template) => template.key === view.layout.tpl);
   const untouched = stock !== undefined && sameLayout(stock.layout, view.layout);
   // A layout somebody saved keeps its edits, but the calendar column only ever holds the calendar, the queue and the completed visits.

@@ -186,7 +186,7 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
           ) : null}
 
           <div className="mk-stats" style={{ marginTop: 16 }}>
-            <StatTile label="Appointments today" value={today.counts.total} icon={<CalendarDays />} trend={{ direction: "up", text: `${String(today.counts.done)} done`, good: true }} />
+            <StatTile label="Today's patients" value={today.counts.patients ?? today.counts.total} icon={<CalendarDays />} trend={{ direction: "up", text: `${String(today.counts.patients_done ?? today.counts.done)} done`, good: true }} />
             <StatTile
               label="Waiting"
               value={today.counts.waiting}

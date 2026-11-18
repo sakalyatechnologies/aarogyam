@@ -5,7 +5,7 @@ import { fakeTokenFor } from "@aarogyam/api-client/fake";
 
 import { NOW, PEOPLE, fakeApi } from "../../../test/render.js";
 
-import { RAIL_KEYS, adoptTemplates, railOnly, zoneAllowed, addWidget, allowed, canStep, dropInZone, dropOn, nearestSize, stepSize, stepWidget, moveInZone, removeAt, sameLayout, setOpt, setZone, shownItems, shownLayout, specOf, templateLayout, offeredCards, offeredTemplates } from "./layout-model.js";
+import { RAIL_KEYS, adoptTemplates, railOnly, zoneAllowed, addWidget, allowed, canStep, dropInZone, dropOn, nearestSize, stepSize, stepWidget, moveInZone, removeAt, sameLayout, setOpt, setZone, shownItems, shownLayout, specOf, templateLayout, offeredCards, offeredTemplates, tasksByDefault } from "./layout-model.js";
 
 const spec = (key: string, zones: string[], sizes: string[], requires: string | null = null) => ({
   key,
@@ -158,6 +158,14 @@ describe("the portal's templates", () => {
     if (!got.ok) throw new Error("expected a layout");
     return got.value;
   };
+
+  it("leaves My tasks out of a doctor's or owner's ready-made Today, and keeps it for the desk and assistants", async () => {
+    const view = await server();
+    expect(["doctor", "owner"].map(tasksByDefault)).toEqual([false, false]);
+    expect(["front_desk", "assistant"].map(tasksByDefault)).toEqual([true, true]);
+    expect(adoptTemplates(view, false).layout.items.some((item) => item.key === "my_tasks")).toBe(false);
+    expect(adoptTemplates(view, true).layout.items.some((item) => item.key === "my_tasks")).toBe(true);
+  });
 
   it("draws a stock MedSync as the key numbers, the next-up hero and the appointments table beside the calendar column", async () => {
     const view = adoptTemplates(await server());

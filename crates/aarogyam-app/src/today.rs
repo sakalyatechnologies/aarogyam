@@ -2,7 +2,7 @@
 //! and what needs the front desk's attention, for today or any other clinic day: a past day
 //! shows what was done, a future day what is booked. Money figures need `finance.view`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use aarogyam_dal::schedule::{PractitionerRow, RoomRow, ShiftRow};
 use aarogyam_dal::today::{self as dal_today, CompletedVisitRow, DayMoneyRow, TodayReads};
@@ -49,6 +49,12 @@ pub struct Counts {
     pub called: usize,
     /// Queue tokens ready to bill: treatment done, payment not yet collected.
     pub ready_to_bill: usize,
+    /// Patients seen or being seen today, walk-ins and appointments alike, each counted once:
+    /// anyone with a queue token (not left), an arrived, seated or completed appointment, or a
+    /// completed visit.
+    pub patients: usize,
+    /// Of those, the patients whose visit is done today.
+    pub patients_done: usize,
 }
 
 /// Appointments starting in one local hour.
@@ -183,8 +189,38 @@ fn status_of(view: &AppointmentView) -> Option<AppointmentStatus> {
     AppointmentStatus::parse(&view.row.status).ok()
 }
 
-fn counts(appointments: &[AppointmentView], tokens: &[TokenView]) -> Counts {
+fn counts(
+    appointments: &[AppointmentView],
+    tokens: &[TokenView],
+    completed_visits: &[CompletedVisit],
+) -> Counts {
     let mut counts = Counts::default();
+    let mut done: BTreeSet<Uuid> = completed_visits
+        .iter()
+        .map(|visit| visit.row.patient_id)
+        .collect();
+    let mut seen: BTreeSet<Uuid> = BTreeSet::new();
+    for view in appointments {
+        match status_of(view) {
+            Some(AppointmentStatus::Completed) => {
+                done.insert(view.row.patient_id);
+            }
+            Some(AppointmentStatus::Arrived | AppointmentStatus::InChair) => {
+                seen.insert(view.row.patient_id);
+            }
+            _ => {}
+        }
+    }
+    for token in tokens {
+        if token.row.status == QueueStatus::Done.as_str() {
+            done.insert(token.row.patient_id);
+        } else if token.row.status != QueueStatus::Left.as_str() {
+            seen.insert(token.row.patient_id);
+        }
+    }
+    counts.patients_done = done.len();
+    seen.extend(done);
+    counts.patients = seen.len();
     for status in appointments.iter().filter_map(status_of) {
         if status != AppointmentStatus::Cancelled {
             counts.total += 1;
@@ -405,7 +441,7 @@ pub async fn today(
         let low_stock = rows
             .stock
             .map(|stock| inventory::low_stock_of(stock, clinic_day));
-        let completed_visits = rows
+        let completed_visits: Vec<CompletedVisit> = rows
             .completed_visits
             .into_iter()
             .map(|row| CompletedVisit {
@@ -424,7 +460,7 @@ pub async fn today(
             low_stock,
             date,
             as_of: now,
-            counts: counts(&appointments, &tokens),
+            counts: counts(&appointments, &tokens, &completed_visits),
             by_hour: by_hour(&appointments, &actor.timezone),
             chairs: chairs(rooms, &appointments, day),
             attention: if day == Day::Today {

@@ -14917,6 +14917,13 @@ export interface components {
             in_chair: number;
             /** @description Didn't come. */
             no_shows: number;
+            /**
+             * @description Patients seen or being seen today, walk-ins and appointments alike, each once.
+             *     Optional in the schema, so apps built before it read on.
+             */
+            patients?: number;
+            /** @description Of those, the patients whose visit is done today. */
+            patients_done?: number;
             /** @description Queue tokens `ready_to_bill`: treatment done, payment not yet collected. */
             ready_to_bill: number;
             /** @description Appointments today, not counting cancelled ones. */

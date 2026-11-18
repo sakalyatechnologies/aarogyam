@@ -745,3 +745,95 @@ async fn the_first_request_checks_host_and_member_together() {
     }
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_browser_session_ends_after_12_idle_hours_or_7_days_and_a_phone_after_30() {
+    let app = TestApp::start().await;
+    let alpha = app.clinic_id("alpha").await;
+    let authorize = async |session: uuid::Uuid| -> bool {
+        sqlx::query_scalar(
+            "select session_revoked from app.authorize($1, $2, $3, now() + interval '1 hour')",
+        )
+        .bind(alpha)
+        .bind(ALPHA_OWNER)
+        .bind(session)
+        .fetch_one(&app.owner)
+        .await
+        .unwrap()
+    };
+    let reason = async |session: uuid::Uuid| -> Option<String> {
+        sqlx::query_scalar(
+            "select revoke_reason from aarogyam.sessions where provider_session_id = $1",
+        )
+        .bind(session)
+        .fetch_one(&app.owner)
+        .await
+        .unwrap()
+    };
+    // Moves the session's last activity and first sighting back by these many hours. The row
+    // trigger keeps created_at as inserted, so it is paused for this one change.
+    let backdate = async |session: uuid::Uuid, idle_hours: i32, age_hours: i32| {
+        let mut tx = app.owner.begin().await.unwrap();
+        sqlx::query("alter table aarogyam.sessions disable trigger set_row_times")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query(
+            "update aarogyam.sessions
+             set last_active_at = now() - make_interval(hours => $2::int),
+                 created_at = now() - make_interval(hours => $3::int)
+             where provider_session_id = $1",
+        )
+        .bind(session)
+        .bind(idle_hours)
+        .bind(age_hours)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+        sqlx::query("alter table aarogyam.sessions enable trigger set_row_times")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+    };
+
+    // In use within the limits: still good.
+    let (busy, idle, old) = (
+        uuid::Uuid::now_v7(),
+        uuid::Uuid::now_v7(),
+        uuid::Uuid::now_v7(),
+    );
+    for session in [busy, idle, old] {
+        assert!(!authorize(session).await);
+    }
+    backdate(busy, 11, 6 * 24).await;
+    assert!(!authorize(busy).await);
+
+    // Left for 12 hours, or signed in more than 7 days ago: ended, and it stays ended.
+    backdate(idle, 13, 13).await;
+    assert!(authorize(idle).await);
+    assert_eq!(reason(idle).await.as_deref(), Some("idle"));
+    backdate(old, 0, 8 * 24).await;
+    assert!(authorize(old).await);
+    assert_eq!(reason(old).await.as_deref(), Some("expired"));
+    assert!(authorize(old).await);
+
+    // A phone app's session (a registered device points at it) lasts 30 idle days.
+    let phone = uuid::Uuid::now_v7();
+    assert!(!authorize(phone).await);
+    sqlx::query(
+        "insert into aarogyam.devices (user_id, platform, session_id)
+         select s.user_id, 'ios', s.id from aarogyam.sessions s where s.provider_session_id = $1",
+    )
+    .bind(phone)
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    backdate(phone, 29 * 24, 60 * 24).await;
+    assert!(!authorize(phone).await);
+    backdate(phone, 31 * 24, 60 * 24).await;
+    assert!(authorize(phone).await);
+    assert_eq!(reason(phone).await.as_deref(), Some("idle"));
+    app.finish().await;
+}

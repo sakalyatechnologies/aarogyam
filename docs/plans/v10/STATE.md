@@ -275,6 +275,12 @@ Done:
   5. Optional: retake iOS shot 2 (visit with Rx) cleaner.
 - **The founder's open question:** the "ROCM … icon on the top right".
 
+### 18 Nov, late night: tooth health
+- **Tooth health (both apps):** a Health card on the tooth sheet (Healthy, Watch or Needs treatment; one tap saves via PUT .../teeth/{tooth}/status, rolled back if refused). Without a status the chart's suggestion shows, labelled. Watch and Needs treatment take a "treat within" of 1, 3, 6 or 12 months and a one-line note; "Use the chart's suggestion" sends the DELETE.
+- **Done elsewhere:** offered in Add treatment for finished work (filled, crown, root canal, implant, bridge, missing). It marks the chart with `elsewhere` and logs no visit procedure; history says "Done elsewhere".
+- **Jaw Health view:** a Findings / Health switch on the patient's jaw (healthy green, watch yellow, needs treatment red, not assessed plain).
+- Checked end to end on the Android emulator against the local API on main a1a8853e: set 200, months 200, reset 204, done-elsewhere crown 200.
+
 ### 18 Nov, night: session expiry, phone registration, BK-5
 - **Session expiry (backend 0723):** the API ends sessions itself (browser 12 idle hours or 7 days; a session with a registered device 30 idle days) without ending the Supabase session, so the token refresh succeeds and the API keeps refusing. `api/SessionEndWatch.kt` counts 401s per request; a second one after the refresh signs out locally (Supabase `scope=local`) and the app returns to sign-in.
 - **Phone registration (0725):** every sign-in sends `PUT /me/devices/{installation id}` with the real platform, app `staff` and locale, and no token until there is one (once per session); the token follows when it arrives. Android sends the app's language at start. Without this, Android (no FCM yet) and iPhones that declined notifications counted as browsers.

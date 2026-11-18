@@ -37,6 +37,10 @@
     <string name="p9_consent_record_sub">पहले मरीज़ को सूचना का पाठ दिखाएँ।</string>
     <string name="p9_consent_save">सहमति सहेजें</string>
     <string name="p9_consent_title">सहमतियाँ</string>
+    <string name="p9_consent_form_add">हस्ताक्षरित फ़ॉर्म जोड़ें</string>
+    <string name="p9_consent_form_view">हस्ताक्षरित फ़ॉर्म देखें</string>
+    <string name="p9_consent_form_adding">फ़ॉर्म अपलोड हो रहा है…</string>
+    <string name="p9_consent_form_failed">हस्ताक्षरित फ़ॉर्म सेव या खुल नहीं पाया। फिर कोशिश करें।</string>
     <string name="p9_consent_withdraw">वापस लें</string>
     <string name="p9_consent_withdraw_a11y">%1$s की सहमति वापस लें</string>
     <string name="p9_consent_withdraw_msg">यह दर्ज होगा कि मरीज़ ने सूचना v%1$s के तहत सहमति वापस ली। पुराने रिकॉर्ड रहेंगे।</string>

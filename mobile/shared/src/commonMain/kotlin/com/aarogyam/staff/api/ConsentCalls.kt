@@ -3,6 +3,7 @@ package com.aarogyam.staff.api
 import com.aarogyam.staff.api.model.Consent
 import com.aarogyam.staff.api.model.ConsentList
 import com.aarogyam.staff.api.model.ConsentNoticeList
+import com.aarogyam.staff.api.model.DownloadLink
 import com.aarogyam.staff.api.model.RecordConsent
 import com.aarogyam.staff.api.model.SetConsentSignature
 import com.aarogyam.staff.api.model.WithdrawConsent
@@ -67,3 +68,7 @@ suspend fun ClinicApi.withdrawConsent(
         contentType(ContentType.Application.Json)
         setBody(body)
     }
+
+/** `GET /api/v1/attachments/{id}/download` (`getAttachmentDownloadLink`): a five-minute link to a patient file. */
+suspend fun ClinicApi.attachmentLink(id: String): Outcome<DownloadLink, ApiError> =
+    client.call { url("api/v1/attachments/${id.encodeURLPathPart()}/download") }

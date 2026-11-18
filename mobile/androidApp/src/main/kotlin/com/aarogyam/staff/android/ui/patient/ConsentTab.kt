@@ -102,8 +102,17 @@ private fun Content(
 ) {
     var recording by remember { mutableStateOf(false) }
     var withdrawing by remember { mutableStateOf<ConsentView?>(null) }
+    val forms by holder.forms.state.collectAsStateWithLifecycle()
+    SignedFormEffect(holder.forms, forms)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (!recording) loaded.error?.let { ErrorLine(it) }
+        if (forms.error != null) {
+            Text(
+                stringResource(R.string.p9_consent_form_failed),
+                style = v7(12.5f),
+                color = SkTheme.palette.error.color,
+            )
+        }
         V7Card {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 SectionHead(
@@ -116,7 +125,10 @@ private fun Content(
                         Modifier.padding(vertical = 6.dp),
                     )
                 }
-                loaded.active.forEach { ConsentRow(it, true, loaded.canWithdraw) { withdrawing = it } }
+                loaded.active.forEach { consent ->
+                    ConsentRow(consent, true, loaded.canWithdraw) { withdrawing = consent }
+                    SignedFormLink(consent, holder.forms, forms, loaded.canRecord)
+                }
             }
         }
         if (loaded.withdrawn.isNotEmpty()) {

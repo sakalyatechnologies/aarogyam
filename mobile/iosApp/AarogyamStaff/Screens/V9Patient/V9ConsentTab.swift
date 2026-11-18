@@ -45,6 +45,8 @@ struct V9ConsentTab: View {
     let state: ConsentsState
     @State private var recording = false
     @State private var withdrawing: ConsentView?
+    @State private var forms = ConsentFormsState(attaching: nil, error: nil, link: nil, opening: false)
+    @Environment(\.openURL) private var openURL
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -59,12 +61,14 @@ struct V9ConsentTab: View {
     @ViewBuilder private func content(_ loaded: ConsentsStateLoaded) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             if let error = loaded.error, !recording { V9ErrorLine(error: error) }
+            if forms.error != nil { Text(p9("p9.consent.form_failed")).v7Text(12.5).foregroundStyle(theme.roles.error.color) }
             V7Card {
                 VStack(alignment: .leading, spacing: 4) {
                     V9SectionHead(title: p9("p9.consent.title"), note: p9f("p9.consent.given_count", loaded.active.count))
                     if loaded.active.isEmpty { V7Muted(p9("p9.consent.none")).padding(.vertical, 6) }
                     ForEach(loaded.active, id: \.id) { consent in
                         row(consent, active: true, canWithdraw: loaded.canWithdraw)
+                        V9SignedFormLink(consent: consent, forms: holder.forms, state: forms, canAdd: loaded.canRecord)
                     }
                 }
             }
@@ -91,6 +95,13 @@ struct V9ConsentTab: View {
             Button(p9("p9.cancel"), role: .cancel) {}
         } message: { consent in
             Text(p9f("p9.consent.withdraw_msg", consent.noticeVersion))
+        }
+        .task { for await next in holder.forms.state { forms = next } }
+        .onChange(of: forms.link) { _, link in
+            // The signed form goes to the system (Safari shows photos and PDFs); the link is never kept.
+            guard let link else { return }
+            if let url = ChatFile.openable(link) { openURL(url) }
+            holder.forms.close()
         }
         #if DEBUG && AARO_ENV_Local
         .onAppear { if DevLaunch.consentSheet { recording = true } }

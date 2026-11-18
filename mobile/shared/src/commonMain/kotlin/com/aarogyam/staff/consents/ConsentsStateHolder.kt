@@ -53,6 +53,8 @@ data class ConsentView(
     val withdrawnAt: ClinicMoment?,
     val withdrawnBy: String?,
     val note: String?,
+    /** The signed paper form's file, once one is linked ("View signed form"). */
+    val signedFormId: String? = null,
 ) {
     val withdrawn: Boolean get() = withdrawnAt != null
 }
@@ -105,6 +107,9 @@ class ConsentsStateHolder(
 ) {
     private val mutableState = MutableStateFlow<ConsentsState>(ConsentsState.Loading)
     val state: StateFlow<ConsentsState> = mutableState.asStateFlow()
+
+    /** Add or view a consent's signed paper form. */
+    val forms = ConsentFormsHolder(clinic, patientId, scope, log) { refresh() }
 
     /** Kept across a failed record so a retry carries the same key; cleared on success. */
     private var pendingKey: IdempotencyKey? = null
@@ -250,6 +255,7 @@ class ConsentsStateHolder(
             withdrawnAt = withdrawnAt?.let { moment(it, clinic.timeZone) },
             withdrawnBy = withdrawnBy,
             note = note,
+            signedFormId = signatureAttachmentId,
         )
 
     private fun ConsentNotice.view() = NoticeView(id, version, label, body)

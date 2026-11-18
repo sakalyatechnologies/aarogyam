@@ -37,6 +37,10 @@
     <string name="p9_consent_record_sub">The notice text is shown to the patient first.</string>
     <string name="p9_consent_save">Save consent</string>
     <string name="p9_consent_title">Consents</string>
+    <string name="p9_consent_form_add">Add signed form</string>
+    <string name="p9_consent_form_view">View signed form</string>
+    <string name="p9_consent_form_adding">Uploading the form…</string>
+    <string name="p9_consent_form_failed">Couldn\'t save or open the signed form. Try again.</string>
     <string name="p9_consent_withdraw">Withdraw</string>
     <string name="p9_consent_withdraw_a11y">Withdraw consent for %1$s</string>
     <string name="p9_consent_withdraw_msg">This records that the patient withdrew consent under notice v%1$s. Earlier records stay.</string>

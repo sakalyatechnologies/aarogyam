@@ -37,6 +37,10 @@
     <string name="p9_consent_record_sub">आधी रुग्णाला सूचनेचा मजकूर दाखवा.</string>
     <string name="p9_consent_save">संमती जतन करा</string>
     <string name="p9_consent_title">संमती</string>
+    <string name="p9_consent_form_add">सही केलेला फॉर्म जोडा</string>
+    <string name="p9_consent_form_view">सही केलेला फॉर्म पाहा</string>
+    <string name="p9_consent_form_adding">फॉर्म अपलोड होत आहे…</string>
+    <string name="p9_consent_form_failed">सही केलेला फॉर्म सेव्ह किंवा उघडता आला नाही. पुन्हा प्रयत्न करा.</string>
     <string name="p9_consent_withdraw">मागे घ्या</string>
     <string name="p9_consent_withdraw_a11y">%1$s ची संमती मागे घ्या</string>
     <string name="p9_consent_withdraw_msg">रुग्णाने सूचना v%1$s अंतर्गत संमती मागे घेतली अशी नोंद होईल. जुन्या नोंदी राहतील.</string>

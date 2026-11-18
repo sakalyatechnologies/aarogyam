@@ -393,6 +393,98 @@
         }
       }
     },
+    "p9.consent.form_add": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add signed form"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हस्ताक्षरित फ़ॉर्म जोड़ें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सही केलेला फॉर्म जोडा"
+          }
+        }
+      }
+    },
+    "p9.consent.form_adding": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading the form…"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फ़ॉर्म अपलोड हो रहा है…"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फॉर्म अपलोड होत आहे…"
+          }
+        }
+      }
+    },
+    "p9.consent.form_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't save or open the signed form. Try again."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हस्ताक्षरित फ़ॉर्म सेव या खुल नहीं पाया। फिर कोशिश करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सही केलेला फॉर्म सेव्ह किंवा उघडता आला नाही. पुन्हा प्रयत्न करा."
+          }
+        }
+      }
+    },
+    "p9.consent.form_view": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View signed form"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हस्ताक्षरित फ़ॉर्म देखें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सही केलेला फॉर्म पाहा"
+          }
+        }
+      }
+    },
     "p9.consent.given_count": {
       "extractionState": "manual",
       "localizations": {
@@ -1612,6 +1704,144 @@
         }
       }
     },
+    "p9.note.correct": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correct note"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नोट सुधारें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नोंद दुरुस्त करा"
+          }
+        }
+      }
+    },
+    "p9.note.correct.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The original stays in the record. The correction is signed in your name."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मूल नोट रिकॉर्ड में रहता है. सुधार आपके नाम से साइन होता है."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मूळ नोंद रेकॉर्डमध्ये राहते. दुरुस्तीवर तुमच्या नावाने सही होते."
+          }
+        }
+      }
+    },
+    "p9.note.correct.of": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correct note · %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नोट सुधारें · %@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नोंद दुरुस्त करा · %@"
+          }
+        }
+      }
+    },
+    "p9.note.correct.save": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign correction"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सुधार पर साइन करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दुरुस्तीवर सही करा"
+          }
+        }
+      }
+    },
+    "p9.note.correct.stale": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This note was corrected meanwhile. Close and reopen the visit to see the latest version."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस बीच यह नोट सुधारा गया. नया संस्करण देखने के लिए विज़िट फिर से खोलें."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दरम्यान ही नोंद दुरुस्त झाली. नवी आवृत्ती पाहण्यासाठी भेट पुन्हा उघडा."
+          }
+        }
+      }
+    },
+    "p9.note.corrected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corrected"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सुधारा गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दुरुस्त केलेली"
+          }
+        }
+      }
+    },
     "p9.note.o": {
       "extractionState": "manual",
       "localizations": {
@@ -1681,75 +1911,6 @@
         }
       }
     },
-    "p9.note.correct": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Correct note"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "नोट सुधारें"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "नोंद दुरुस्त करा"
-          }
-        }
-      }
-    },
-    "p9.note.correct.of": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Correct note · %@"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "नोट सुधारें · %@"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "नोंद दुरुस्त करा · %@"
-          }
-        }
-      }
-    },
-    "p9.note.corrected": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Corrected"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "सुधारा गया"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "दुरुस्त केलेली"
-          }
-        }
-      }
-    },
     "p9.note.versions": {
       "extractionState": "manual",
       "localizations": {
@@ -1773,71 +1934,25 @@
         }
       }
     },
-    "p9.note.correct.hint": {
+    "p9.note.versions.none": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The original stays in the record. The correction is signed in your name."
+            "value": "No earlier versions"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "मूल नोट रिकॉर्ड में रहता है. सुधार आपके नाम से साइन होता है."
+            "value": "कोई पिछला संस्करण नहीं"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "मूळ नोंद रेकॉर्डमध्ये राहते. दुरुस्तीवर तुमच्या नावाने सही होते."
-          }
-        }
-      }
-    },
-    "p9.note.correct.save": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign correction"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "सुधार पर साइन करें"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "दुरुस्तीवर सही करा"
-          }
-        }
-      }
-    },
-    "p9.note.correct.stale": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This note was corrected meanwhile. Close and reopen the visit to see the latest version."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "इस बीच यह नोट सुधारा गया. नया संस्करण देखने के लिए विज़िट फिर से खोलें."
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "दरम्यान ही नोंद दुरुस्त झाली. नवी आवृत्ती पाहण्यासाठी भेट पुन्हा उघडा."
+            "value": "आधीची आवृत्ती नाही"
           }
         }
       }
@@ -1861,29 +1976,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "आधीच्या आवृत्त्या"
-          }
-        }
-      }
-    },
-    "p9.note.versions.none": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No earlier versions"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कोई पिछला संस्करण नहीं"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आधीची आवृत्ती नाही"
           }
         }
       }

@@ -203,4 +203,58 @@ class ConsentsStateHolderTest {
             assertEquals(1, h.loaded().active.size)
             assertNull(h.loaded().error)
         }
+
+    @Test
+    fun a_photo_of_the_signed_form_uploads_as_a_consent_file_and_links_to_the_consent() =
+        runTest {
+            val backend = FakeBackend()
+            val signed =
+                consent(
+                    "c1",
+                    "care",
+                ).replace(""""status":"given"""", """"status":"given","signature_attachment_id":"f9"""")
+            backend.on(consents, { json(list(consent("c1", "care"))) }, { json(list(signed)) })
+            backend.on(notices, { json(NOTICES) })
+            backend.on(
+                "$SUNRISE/api/v1/patients/p1/attachments",
+                {
+                    json(
+                        """{"id":"f9","kind":"consent","mime_type":"image/jpeg","size_bytes":3,"sha256":"${"0".repeat(
+                            64,
+                        )}",
+                           "created_at":"2026-11-18T04:30:00Z"}""",
+                        HttpStatusCode.Created,
+                    )
+                },
+            )
+            backend.on("$SUNRISE/api/v1/patients/p1/consents/c1/signature", { json(signed) })
+            backend.on(
+                "$SUNRISE/api/v1/attachments/f9/download",
+                { json("""{"url":"/files/f9?t=signed","expires_at":"2026-11-18T04:35:00Z"}""") },
+            )
+            val holder = holder(backend)
+            assertNull(
+                holder
+                    .loaded()
+                    .active
+                    .single()
+                    .signedFormId,
+            )
+            holder.forms.attach("c1", byteArrayOf(1, 2, 3))
+            holder.state.first { (it as? ConsentsState.Loaded)?.active?.singleOrNull()?.signedFormId == "f9" }
+            val upload = backend.requests.single { it.url.encodedPath == "/api/v1/patients/p1/attachments" }
+            assertTrue("consent" in upload.body.toByteArray().decodeToString())
+            val link = backend.requests.single { it.url.encodedPath.endsWith("/consents/c1/signature") }
+            assertEquals(HttpMethod.Put, link.method)
+            assertTrue(""""signature_attachment_id":"f9"""" in link.body.toByteArray().decodeToString())
+            holder.forms.open("f9")
+            assertTrue(
+                holder.forms.state
+                    .first { it.link != null }
+                    .link!!
+                    .endsWith("/files/f9?t=signed"),
+            )
+            holder.forms.close()
+            assertNull(holder.forms.state.value.link)
+        }
 }

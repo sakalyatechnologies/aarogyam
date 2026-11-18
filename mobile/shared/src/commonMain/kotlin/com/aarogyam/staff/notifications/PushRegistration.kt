@@ -77,9 +77,13 @@ class PushRegistration(
         publish()
     }
 
-    /** The app's language (`en`, `hi` or `mr`); anything else counts as `en`. */
+    /**
+     * The app's language (`en`, `hi` or `mr`, any region); anything else counts as `en`. The server
+     * takes a tag like `hi-IN`, so the language is always sent with India's region.
+     */
     fun setLocale(tag: String) {
-        locale = tag.substringBefore('-').lowercase().takeIf { it in LOCALES } ?: DEFAULT_LOCALE
+        val language = tag.substringBefore('-').substringBefore('_').lowercase()
+        locale = if (language in LANGUAGES) "$language-$REGION" else DEFAULT_LOCALE
         publish()
     }
 
@@ -136,8 +140,9 @@ class PushRegistration(
     }
 
     private companion object {
-        const val DEFAULT_LOCALE = "en"
-        val LOCALES = setOf("en", "hi", "mr")
+        const val REGION = "IN"
+        const val DEFAULT_LOCALE = "en-$REGION"
+        val LANGUAGES = setOf("en", "hi", "mr")
         const val FORGET_TIMEOUT_MS = 4_000L
     }
 }

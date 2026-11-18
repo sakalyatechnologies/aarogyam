@@ -61,6 +61,7 @@
     <string name="an_patients_returning">परतलेले</string>
     <string name="an_patients_title">नवीन विरुद्ध परतलेले रुग्ण</string>
     <string name="an_per_month">प्रति महिना</string>
+    <string name="an_per_day">प्रति दिवस</string>
     <string name="an_per_week">प्रति आठवडा</string>
     <string name="an_preset_custom">निवडक</string>
     <string name="an_preset_month">महिना</string>
@@ -73,6 +74,7 @@
     <string name="an_proc_title">वर्गानुसार प्रक्रिया</string>
     <string name="an_range_a11y">%1$s ते %2$s दाखवत आहे</string>
     <string name="an_range_caption_month">%1$s · महिन्यानुसार</string>
+    <string name="an_range_caption_day">%1$s · दिवसानुसार</string>
     <string name="an_range_caption_week">%1$s · आठवड्यानुसार</string>
     <string name="an_range_from">पासून</string>
     <string name="an_range_limit">एका वेळी जास्तीत जास्त 2 वर्षे</string>

@@ -1175,6 +1175,29 @@
         }
       }
     },
+    "a11.per.day": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "per day"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "प्रति दिन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "प्रति दिवस"
+          }
+        }
+      }
+    },
     "a11.per.month": {
       "extractionState": "manual",
       "localizations": {
@@ -1447,6 +1470,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ ते %@ दाखवत आहे"
+          }
+        }
+      }
+    },
+    "a11.range.caption.day": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · by day"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · दिन के हिसाब से"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · दिवसानुसार"
           }
         }
       }

@@ -126,25 +126,38 @@ object AnalyticsFormat {
     fun weekdays(locale: Locale = Locale.getDefault()): List<String> =
         DayOfWeek.entries.map { it.getDisplayName(TextStyle.SHORT, locale) }
 
-    /** `17 Aug` for a week, `Sep 2026` for a month. */
+    /** `Tue 17 Nov` for a day, `17 Aug` for a week, `Sep 2026` for a month. */
     fun bucketLabel(
         start: LocalDate,
         bucket: AnalyticsBucketKind,
         locale: Locale = Locale.getDefault(),
     ): String =
         start.toJavaLocalDate().format(
-            DateTimeFormatter.ofPattern(if (bucket == AnalyticsBucketKind.Week) "d MMM" else "MMM yyyy", locale),
+            DateTimeFormatter.ofPattern(
+                when (bucket) {
+                    AnalyticsBucketKind.Day -> "EEE d MMM"
+                    AnalyticsBucketKind.Week -> "d MMM"
+                    AnalyticsBucketKind.Month -> "MMM yyyy"
+                },
+                locale,
+            ),
         )
 
-    /** Short axis label: `17 Aug`, or `Sep` (with a two-digit year when [longRange]). */
+    /**
+     * Short axis label: `Tue` or `17` for a day, `17 Aug` for a week, or `Sep` (with a two-digit year
+     * when [longRange]).
+     */
     fun axisLabel(
         start: LocalDate,
         bucket: AnalyticsBucketKind,
         longRange: Boolean,
         locale: Locale = Locale.getDefault(),
+        /** Daily bars of one week read best as weekday names. */
+        dayNames: Boolean = true,
     ): String {
         val pattern =
             when {
+                bucket == AnalyticsBucketKind.Day -> if (dayNames) "EEE" else "d"
                 bucket == AnalyticsBucketKind.Week -> "d MMM"
                 longRange -> "MMM yy"
                 else -> "MMM"

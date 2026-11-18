@@ -28,7 +28,7 @@ struct PatientsTrendCard: View {
                 Dot(id: "r\(label)", date: date, name: back, count: Int(point.returningPatients), label: label),
             ]
         }
-        ChartCard(title: a11("a11.patients.title"), sub: view.bucket == .week ? a11("a11.per.week") : a11("a11.per.month")) {
+        ChartCard(title: a11("a11.patients.title"), sub: AnalyticsFormat.perBucket(view.bucket)) {
             Chart {
                 ForEach(dots) { dot in
                     AreaMark(x: .value("Date", dot.date), y: .value("Patients", dot.count), series: .value("Series", dot.name), stacking: .unstacked)

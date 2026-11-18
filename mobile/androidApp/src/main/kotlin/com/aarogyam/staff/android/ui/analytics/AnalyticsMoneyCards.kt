@@ -13,18 +13,26 @@ import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.color
 
 private const val PAISE = 100.0
+private const val DAYS_IN_WEEK = 7
 
 @Composable
 internal fun bucketNames(view: AnalyticsView): Pair<List<String>, List<String>> {
     val long = view.range.days > LONG_RANGE
-    val axis = view.points.map { AnalyticsFormat.axisLabel(it.start, view.bucket, long) }
+    val week = view.range.days <= DAYS_IN_WEEK
+    val axis = view.points.map { AnalyticsFormat.axisLabel(it.start, view.bucket, long, dayNames = week) }
     val full = view.points.map { AnalyticsFormat.bucketLabel(it.start, view.bucket) }
     return axis to full
 }
 
 @Composable
 internal fun perBucket(view: AnalyticsView): String =
-    stringResource(if (view.bucket == AnalyticsBucketKind.Week) R.string.an_per_week else R.string.an_per_month)
+    stringResource(
+        when (view.bucket) {
+            AnalyticsBucketKind.Day -> R.string.an_per_day
+            AnalyticsBucketKind.Week -> R.string.an_per_week
+            AnalyticsBucketKind.Month -> R.string.an_per_month
+        },
+    )
 
 /** Revenue and expenses side by side per week or month, with the net as a line over them. */
 @Composable

@@ -61,6 +61,7 @@
     <string name="an_patients_returning">Returning</string>
     <string name="an_patients_title">New vs returning patients</string>
     <string name="an_per_month">per month</string>
+    <string name="an_per_day">per day</string>
     <string name="an_per_week">per week</string>
     <string name="an_preset_custom">Custom</string>
     <string name="an_preset_month">Month</string>
@@ -73,6 +74,7 @@
     <string name="an_proc_title">Procedures by category</string>
     <string name="an_range_a11y">Showing %1$s to %2$s</string>
     <string name="an_range_caption_month">%1$s · by month</string>
+    <string name="an_range_caption_day">%1$s · by day</string>
     <string name="an_range_caption_week">%1$s · by week</string>
     <string name="an_range_from">From</string>
     <string name="an_range_limit">Up to 2 years at a time</string>

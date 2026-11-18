@@ -40,13 +40,49 @@ enum AnalyticsFormat {
     static func caption(_ range: AnalyticsRange) -> String {
         let ends = rangeEnds(range)
         let text = "\(ends.from) – \(ends.to)"
-        return range.bucket == .week ? a11f("a11.range.caption.week", text) : a11f("a11.range.caption.month", text)
+        switch range.bucket {
+        case .day: return a11f("a11.range.caption.day", text)
+        case .week: return a11f("a11.range.caption.week", text)
+        case .month: return a11f("a11.range.caption.month", text)
+        }
     }
 
-    /// A bucket's label for tooltips and VoiceOver: `17 Aug` for a week, `Sep 2026` for a month.
+    /// A bucket's label for tooltips and VoiceOver: `Tue 17 Nov` for a day, `17 Aug` for a week, `Sep 2026` for a month.
     static func bucketLabel(_ start: Kotlinx_datetimeLocalDate, bucket: AnalyticsBucketKind) -> String {
         let day = date(start)
-        return bucket == .week ? day.formatted(Date.FormatStyle().day().month(.abbreviated)) : day.formatted(Date.FormatStyle().month(.abbreviated).year())
+        switch bucket {
+        case .day: return day.formatted(Date.FormatStyle().weekday(.abbreviated).day().month(.abbreviated))
+        case .week: return day.formatted(Date.FormatStyle().day().month(.abbreviated))
+        case .month: return day.formatted(Date.FormatStyle().month(.abbreviated).year())
+        }
+    }
+
+    /// "per day", "per week" or "per month", under a chart's title.
+    static func perBucket(_ bucket: AnalyticsBucketKind) -> String {
+        switch bucket {
+        case .day: a11("a11.per.day")
+        case .week: a11("a11.per.week")
+        case .month: a11("a11.per.month")
+        }
+    }
+
+    /// The calendar unit one bar spans.
+    static func unit(_ bucket: AnalyticsBucketKind) -> Calendar.Component {
+        switch bucket {
+        case .day: .day
+        case .week: .weekOfYear
+        case .month: .month
+        }
+    }
+
+    /// Axis dates: weekday names for one week of days, day numbers for longer, `17 Aug` for weeks,
+    /// and months (with two-digit years past 400 days, so 24 months read).
+    static func axisFormat(_ view: AnalyticsView) -> Date.FormatStyle {
+        switch view.bucket {
+        case .day: view.range.days <= 7 ? Date.FormatStyle().weekday(.abbreviated) : Date.FormatStyle().day()
+        case .week: Date.FormatStyle().day().month(.abbreviated)
+        case .month: view.range.days > 400 ? Date.FormatStyle().month(.abbreviated).year(.twoDigits) : Date.FormatStyle().month(.abbreviated)
+        }
     }
 
     /// `₹45k`, with a minus sign for a loss.

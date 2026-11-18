@@ -80,7 +80,7 @@ suspend fun ClinicApi.uploadExpenseBill(
 suspend fun ClinicApi.expenseBillLink(id: String): Outcome<DownloadLink, ApiError> =
     client.call { url("api/v1/expenses/${id.encodeURLPathPart()}/bill/download") }
 
-/** `GET /api/v1/reports/analytics` (`getAnalytics`): buckets of [bucket] (`week` or `month`) from [from] to [to]. */
+/** `GET /api/v1/reports/analytics` (`getAnalytics`): buckets of [bucket] (`day` up to 92 days, `week` or `month`) from [from] to [to]. */
 suspend fun ClinicApi.analytics(
     bucket: String,
     from: LocalDate,

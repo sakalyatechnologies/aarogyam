@@ -168,16 +168,23 @@ private fun Fields(
     online: Boolean,
 ) {
     val dues = ready.dues
-    var invoiceId by remember { mutableStateOf<String?>(null) }
+    // Several issued bills: Collect for the patient as a whole, one payment split oldest bill first.
+    val splitBills = remember(dues) { holder.splitBills() }
+    val canSplit = splitBills.size > 1
+    val allTotal = splitBills.sumOf { it.balancePaise }
+    var invoiceId by remember { mutableStateOf<String?>(if (canSplit) ALL_BILLS else null) }
+    val all = canSplit && invoiceId == ALL_BILLS
     val chosen = dues.firstOrNull { it.id == invoiceId } ?: dues.first()
-    var amount by remember(chosen.id) { mutableStateOf(DeskPay.rupeesText(chosen.balancePaise)) }
+    var amount by remember(if (all) ALL_BILLS else chosen.id) {
+        mutableStateOf(DeskPay.rupeesText(if (all) allTotal else chosen.balancePaise))
+    }
     var method by remember { mutableStateOf<PayMethod?>(null) }
     var showProblems by remember { mutableStateOf(false) }
     var proof by remember { mutableStateOf<ByteArray?>(null) }
     val problems = if (showProblems) DeskPay.problems(amount, method != null) else emptyList()
     if (!online) DeskNotice(stringResource(R.string.dk_d9_pay_offline))
-    BillPicker(dues, chosen) { invoiceId = it }
-    if (chosen.draft) DeskMutedText(stringResource(R.string.dk_d9_pay_draft_note))
+    BillPicker(dues, chosen, allTotal.takeIf { canSplit }, all) { invoiceId = it }
+    if (!all && chosen.draft) DeskMutedText(stringResource(R.string.dk_d9_pay_draft_note))
     SkTextField(
         value = amount,
         onValueChange = {
@@ -201,6 +208,7 @@ private fun Fields(
         PayMethod.entries.forEach { PickChip(stringResource(it.label()), method == it, onClick = { method = it }) }
     }
     if (DeskPayProblem.Method in problems) DeskErrorText(stringResource(R.string.dk_d9_pay_method_required))
+    if (all) SplitPreview(holder, DeskPay.paise(amount) ?: 0)
     if (ServerCaps.paymentProof) ProofSection(ready.canAttachProof, proof) { proof = it }
     when (outcome) {
         is DeskPayOutcome.Failed -> {
@@ -221,22 +229,51 @@ private fun Fields(
             showProblems = true
             val paise = DeskPay.paise(amount)
             val picked = method
-            if (paise != null && picked != null) holder.record(chosen.id, paise, picked, proof)
+            if (paise != null && picked != null) {
+                if (all) holder.recordAll(paise, picked, proof) else holder.record(chosen.id, paise, picked, proof)
+            }
         },
         enabled = outcome != DeskPayOutcome.Sending,
         modifier = Modifier.fillMaxWidth(),
     )
 }
 
+/** What [amountPaise] does to each bill, oldest first, before it is saved; any rest is an advance. */
+@Composable
+private fun SplitPreview(
+    holder: DeskPaymentStateHolder,
+    amountPaise: Long,
+) {
+    val shares = holder.split(amountPaise)
+    DeskLabel(stringResource(R.string.dk_dx_pay_split_title))
+    shares.forEach { share ->
+        DeskMutedText(listOfNotNull(share.number, share.amountPaise.rupees()).joinToString(" · "))
+    }
+    val rest = amountPaise - shares.sumOf { it.amountPaise }
+    if (rest > 0) DeskMutedText(stringResource(R.string.dk_dx_pay_split_advance, rest.rupees()))
+}
+
+private const val ALL_BILLS = "all"
+
 @Composable
 private fun BillPicker(
     dues: List<DueBill>,
     chosen: DueBill,
+    /** The issued bills' total when they can be paid together, else null. */
+    allTotal: Long?,
+    allPicked: Boolean,
     onPick: (String) -> Unit,
 ) {
     if (dues.size > 1) {
         DeskLabel(stringResource(R.string.dk_d9_pay_bill))
         DeskWrap {
+            if (allTotal != null) {
+                PickChip(
+                    stringResource(R.string.dk_dx_pay_all, allTotal.rupees()),
+                    allPicked,
+                    onClick = { onPick(ALL_BILLS) },
+                )
+            }
             dues.forEach { due ->
                 val text =
                     listOfNotNull(
@@ -244,7 +281,7 @@ private fun BillPicker(
                         if (due.draft) stringResource(R.string.dk_d9_pay_draft_tag) else null,
                         due.balancePaise.rupees(),
                     ).joinToString(" · ")
-                PickChip(text, due.id == chosen.id, onClick = { onPick(due.id) })
+                PickChip(text, !allPicked && due.id == chosen.id, onClick = { onPick(due.id) })
             }
         }
     } else {

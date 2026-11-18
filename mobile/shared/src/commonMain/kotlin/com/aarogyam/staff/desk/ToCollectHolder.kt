@@ -27,8 +27,26 @@ sealed interface ToCollectState {
     data class Loaded(
         val items: List<ToCollectItem>,
         val totalPaise: Long,
+        /** The same bills, one row per patient: what they owe in all and how many bills. */
+        val patients: List<ToCollectPatient> = patientsOf(items),
     ) : ToCollectState
 }
+
+/** One patient with bills to collect, their oldest bill first; Collect splits one payment over them. */
+data class ToCollectPatient(
+    val patientId: String,
+    val patientNumber: String,
+    val bills: List<ToCollectItem>,
+    val totalPaise: Long,
+) {
+    val billCount: Int get() = bills.size
+}
+
+/** The bills grouped by patient, in the order of each patient's oldest bill. */
+internal fun patientsOf(items: List<ToCollectItem>): List<ToCollectPatient> =
+    items.groupBy { it.patientId }.map { (id, bills) ->
+        ToCollectPatient(id, bills.first().patientNumber, bills, bills.sumOf { it.balancePaise })
+    }
 
 /** Bills still to collect from earlier days (`GET /queue/to-collect`). */
 class ToCollectHolder(

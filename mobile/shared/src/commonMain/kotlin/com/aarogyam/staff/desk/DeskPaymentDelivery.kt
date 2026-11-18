@@ -60,6 +60,8 @@ internal data class PaymentJob(
     val proofJpegBase64: String? = null,
     /** The bill is a draft: issue it first (`POST /invoices/{id}/issue`), then pay, in this order. */
     val issueFirst: Boolean = false,
+    /** One payment over several issued bills, oldest first ([allocateOldestFirst]); empty for one bill. */
+    val shares: List<BillShare> = emptyList(),
 )
 
 internal fun encodeJob(job: PaymentJob): String = jobJson.encodeToString(job)
@@ -150,8 +152,24 @@ internal suspend fun deliver(
             method = method.wire,
             amountPaise = job.amountPaise,
             allocations =
-                job.invoiceId?.let { listOf(Allocation(invoiceId = it, amountPaise = allocated)) }
-                    ?: emptyList(),
+                when {
+                    job.shares.isNotEmpty() -> {
+                        job.shares.map {
+                            Allocation(
+                                invoiceId = it.invoiceId,
+                                amountPaise = it.amountPaise,
+                            )
+                        }
+                    }
+
+                    job.invoiceId != null -> {
+                        listOf(Allocation(invoiceId = job.invoiceId, amountPaise = allocated))
+                    }
+
+                    else -> {
+                        emptyList()
+                    }
+                },
         )
     val paid = api.recordPayment(payment, idempotency, attachmentId)
     if (paid is Outcome.Failure) {
@@ -211,6 +229,11 @@ internal sealed interface Recheck {
     data class Rejected(
         val error: ScreenError,
     ) : Recheck
+
+    /** A bill of a split owes less than its share now; [balancePaise] is what the bills still owe. */
+    data class Changed(
+        val balancePaise: Long,
+    ) : Recheck
 }
 
 /**
@@ -229,6 +252,7 @@ internal suspend fun recheck(
     canCollect: Boolean = true,
     canIssue: Boolean = false,
 ): Recheck {
+    if (job.shares.isNotEmpty()) return recheckShares(api, job, log, canCollect)
     val invoiceId = job.invoiceId ?: return Recheck.Proceed(job)
     if (!canCollect) return recheckByInvoice(api, job, invoiceId, log)
     return when (val fresh = api.collectSummary(invoiceId)) {

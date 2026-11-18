@@ -238,6 +238,54 @@ class DeskPaymentStateHolder(
                 proofJpegBase64 = proof?.let(::encodeProof),
             )
         val fingerprint = "$invoiceId|$amountPaise|${method.name}|${proof?.size}"
+        submit(job, fingerprint, invoiceId)
+    }
+
+    /** The patient's issued bills that owe something, oldest first: what Collect all splits over. */
+    fun splitBills(): List<DueBill> =
+        (mutableState.value as? DeskPayState.Ready)
+            ?.dues
+            .orEmpty()
+            .filter { !it.draft }
+            .asReversed()
+
+    /** How [amountPaise] would be split over [splitBills], for the screen to show before saving. */
+    fun split(amountPaise: Long): List<BillShare> = allocateOldestFirst(splitBills(), amountPaise)
+
+    /**
+     * Collect for the patient as a whole: ONE `POST /payments` whose allocations settle the oldest
+     * bill first ([split]). The Idempotency-Key stays while the amount, method and split are the same.
+     */
+    fun recordAll(
+        amountPaise: Long,
+        method: PayMethod,
+        proofJpeg: ByteArray?,
+    ) {
+        if (!allowed || amountPaise <= 0 || mutableOutcome.value == DeskPayOutcome.Sending) return
+        val shares = split(amountPaise)
+        if (shares.isEmpty()) return
+        val proof = proofJpeg?.takeIf { canProof && it.isNotEmpty() }
+        val job =
+            PaymentJob(
+                clinicSlug = clinic.slug,
+                patientId = patientId,
+                method = method.name,
+                amountPaise = amountPaise,
+                proofId = proof?.let { IdempotencyKey.generate().toString() },
+                proofJpegBase64 = proof?.let(::encodeProof),
+                shares = shares,
+            )
+        val fingerprint = "split|${shares.joinToString {
+            "${it.invoiceId}:${it.amountPaise}"
+        }}|$amountPaise|${method.name}|${proof?.size}"
+        submit(job, fingerprint, null)
+    }
+
+    private fun submit(
+        job: PaymentJob,
+        fingerprint: String,
+        invoiceId: String?,
+    ) {
         val key =
             keyed?.takeIf { it.first == fingerprint }?.second
                 ?: IdempotencyKey.generate().toString().also { keyed = fingerprint to it }
@@ -279,6 +327,13 @@ class DeskPaymentStateHolder(
 
                     is Recheck.Rejected -> {
                         mutableOutcome.value = DeskPayOutcome.Failed(check.error)
+                        load()
+                        return@launch
+                    }
+
+                    is Recheck.Changed -> {
+                        keyed = null
+                        mutableOutcome.value = DeskPayOutcome.BalanceChanged(check.balancePaise)
                         load()
                         return@launch
                     }

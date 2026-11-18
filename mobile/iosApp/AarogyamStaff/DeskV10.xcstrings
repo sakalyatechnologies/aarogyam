@@ -70,6 +70,52 @@
         }
       }
     },
+    "dx.earlier.bills_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bill"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld बिल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld बिल"
+          }
+        }
+      }
+    },
+    "dx.earlier.bills_other": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bills"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld बिल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld बिले"
+          }
+        }
+      }
+    },
     "dx.earlier.collapse": {
       "extractionState": "manual",
       "localizations": {
@@ -599,6 +645,29 @@
         }
       }
     },
+    "dx.pay.all": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All bills · %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सभी बिल · %@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सर्व बिले · %@"
+          }
+        }
+      }
+    },
     "dx.pay.balance_changed": {
       "extractionState": "manual",
       "localizations": {
@@ -641,6 +710,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "डॉक्टर कदाचित पैसे घेत आहेत"
+          }
+        }
+      }
+    },
+    "dx.pay.split_advance": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ stays as an advance"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ अग्रिम के रूप में रहेगा"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ आगाऊ म्हणून राहील"
+          }
+        }
+      }
+    },
+    "dx.pay.split_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split, oldest bill first"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बँटवारा, सबसे पुराना बिल पहले"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विभागणी, सर्वात जुने बिल आधी"
           }
         }
       }

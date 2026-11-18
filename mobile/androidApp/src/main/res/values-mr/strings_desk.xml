@@ -116,6 +116,13 @@
     <string name="dk_dx_earlier_missed_header">आज चुकलेले (%d)</string>
     <string name="dk_dx_earlier_missed_row_a11y">%1$s, %2$s ची अपॉइंटमेंट चुकली, रुग्ण उघडा</string>
     <string name="dk_dx_earlier_token">टोकन %d</string>
+    <string name="dk_dx_pay_all">सर्व बिले · %1$s</string>
+    <string name="dk_dx_pay_split_title">विभागणी, सर्वात जुने बिल आधी</string>
+    <string name="dk_dx_pay_split_advance">%1$s आगाऊ म्हणून राहील</string>
+    <plurals name="dk_dx_earlier_bills">
+        <item quantity="one">%d बिल</item>
+        <item quantity="other">%d बिले</item>
+    </plurals>
     <string name="dk_dx_earlier_unpaid_header">आधीच्या दिवसांची थकबाकी (%1$d) · %2$s</string>
     <string name="dk_dx_earlier_unpaid_row_a11y">%1$s, टोकन %2$d, %3$s, बाकी %4$s</string>
     <string name="dk_dx_home_checkin">चेक-इन · %s</string>

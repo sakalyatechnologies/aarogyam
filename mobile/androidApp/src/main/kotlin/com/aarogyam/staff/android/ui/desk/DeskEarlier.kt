@@ -14,6 +14,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -43,6 +44,8 @@ fun DeskUnpaidSection(
     canCollect: Boolean,
     refreshTick: Int,
     onCollect: (DeskPayTarget) -> Unit,
+    /** The role may list the patient's bills (billing.read and billing.write), so one payment can cover several. */
+    canSplit: Boolean = false,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     LaunchedEffect(refreshTick) { if (refreshTick > 0) holder.refresh() }
@@ -56,23 +59,30 @@ fun DeskUnpaidSection(
             open,
         ) { expanded = !open }
         if (open) {
-            loaded.items.forEach { item ->
+            // One row per patient: what they owe in all and how many bills; Collect splits one payment.
+            loaded.patients.forEach { row ->
+                val item = row.bills.first()
                 SkCard(Modifier.fillMaxWidth()) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(Spacing.M.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text(item.patientNumber, style = SkTypography.bodyStrong, color = SkTheme.colors.text.color)
+                            Text(row.patientNumber, style = SkTypography.bodyStrong, color = SkTheme.colors.text.color)
                             Text(
-                                stringResource(R.string.dk_dx_earlier_token, item.tokenNumber) + " · " +
-                                    DeskEarlier.dayText(item.day),
+                                if (row.billCount > 1) {
+                                    pluralStringResource(R.plurals.dk_dx_earlier_bills, row.billCount, row.billCount) +
+                                        " · " + DeskEarlier.dayText(item.day)
+                                } else {
+                                    stringResource(R.string.dk_dx_earlier_token, item.tokenNumber) + " · " +
+                                        DeskEarlier.dayText(item.day)
+                                },
                                 style = SkTypography.footnote,
                                 color = SkTheme.colors.textMuted.color,
                             )
                         }
                         Text(
-                            item.balancePaise.rupees(),
+                            row.totalPaise.rupees(),
                             style = SkTypography.bodyStrong,
                             color = SkTheme.colors.text.color,
                         )
@@ -80,8 +90,14 @@ fun DeskUnpaidSection(
                             SkButton(
                                 stringResource(R.string.dk_dx_earlier_collect),
                                 onClick = {
+                                    // Billing roles see all the patient's bills; the desk collects one bill at a time.
+                                    val whole = row.billCount > 1 && canSplit
                                     onCollect(
-                                        DeskPayTarget(item.patientId, item.patientNumber, invoiceId = item.invoiceId),
+                                        DeskPayTarget(
+                                            item.patientId,
+                                            item.patientNumber,
+                                            invoiceId = item.invoiceId.takeUnless { whole },
+                                        ),
                                     )
                                 },
                                 variant = SkButtonVariant.Secondary,

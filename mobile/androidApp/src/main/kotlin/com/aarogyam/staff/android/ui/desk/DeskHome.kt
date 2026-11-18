@@ -143,7 +143,13 @@ fun DeskHome(
                     onCollect = { paying = it },
                 ),
             )
-            DeskUnpaidSection(toCollect, canCollect, tick) { paying = it }
+            DeskUnpaidSection(
+                toCollect,
+                canCollect,
+                tick,
+                { paying = it },
+                canSplit = "billing.read" in clinic.permissions && "billing.write" in clinic.permissions,
+            )
             DeskMissedSection(missed, clinic.session.clinic.timezone, tick, nav::openPatient)
         }
     }

@@ -8,6 +8,8 @@ struct DeskUnpaidSection: View {
     let holder: ToCollectHolder
     let state: ToCollectState
     let canCollect: Bool
+    /// The role may list the patient's bills (billing.read and billing.write), so one payment can cover several.
+    var canSplit = false
     /// Bumped by the home screen after a payment sheet or a pull to refresh.
     let refreshTick: Int
     let onCollect: (DeskPayTarget) -> Void
@@ -22,7 +24,8 @@ struct DeskUnpaidSection: View {
                     DeskEarlierHeader(title: DeskV10Earlier.unpaidHeader(count: loaded.items.count, totalPaise: loaded.totalPaise), open: open) {
                         expanded = !open
                     }
-                    if open { ForEach(loaded.items, id: \.invoiceId) { row($0) } }
+                    // One row per patient: what they owe in all and how many bills; Collect splits one payment.
+                    if open { ForEach(loaded.patients, id: \.patientId) { row($0) } }
                 }
                 .padding(.top, 6)
             }
@@ -30,22 +33,28 @@ struct DeskUnpaidSection: View {
         .onChange(of: refreshTick) { holder.refresh() }
     }
 
-    private func row(_ item: ToCollectItem) -> some View {
+    private func row(_ patient: ToCollectPatient) -> some View {
         let r = theme.roles
+        let item = patient.bills[0]
+        let count = Int(patient.billCount)
+        let sub = count > 1
+            ? String(format: dx(count == 1 ? "dx.earlier.bills_one" : "dx.earlier.bills_other"), count) + " · " + DeskV10Earlier.dayText(item.day)
+            : dxf("dx.earlier.token", Int(item.tokenNumber)) + " · " + DeskV10Earlier.dayText(item.day)
         return HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.patientNumber).v7Text(15, .bold).foregroundStyle(r.onSurface.color)
-                Text(dxf("dx.earlier.token", Int(item.tokenNumber)) + " · " + DeskV10Earlier.dayText(item.day))
-                    .v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color)
+                Text(patient.patientNumber).v7Text(15, .bold).foregroundStyle(r.onSurface.color)
+                Text(sub).v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(DeskV10Earlier.unpaidRowLabel(number: item.patientNumber, token: Int(item.tokenNumber), day: item.day, balancePaise: item.balancePaise))
-            Text(ClinicFormat.rupees(paise: item.balancePaise)).v7Text(15, .bold).foregroundStyle(r.onSurface.color)
+            .accessibilityLabel(DeskV10Earlier.unpaidRowLabel(number: patient.patientNumber, token: Int(item.tokenNumber), day: item.day, balancePaise: patient.totalPaise))
+            Text(ClinicFormat.rupees(paise: patient.totalPaise)).v7Text(15, .bold).foregroundStyle(r.onSurface.color)
                 .accessibilityHidden(true)
             if canCollect {
                 SkPillButton(dx("dx.earlier.collect"), variant: .tonal) {
-                    onCollect(DeskPayTarget(patientId: item.patientId, name: item.patientNumber, invoiceId: item.invoiceId))
+                    // Billing roles see all the patient's bills; the desk collects one bill at a time.
+                    let whole = count > 1 && canSplit
+                    onCollect(DeskPayTarget(patientId: item.patientId, name: item.patientNumber, invoiceId: whole ? nil : item.invoiceId))
                 }
                 .frame(minHeight: SkSpacing.minTouchTarget)
                 .accessibilityLabel(dxf("dx.earlier.collect.a11y", item.patientNumber))

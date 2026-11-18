@@ -50,7 +50,9 @@ struct DeskHomeScreen: View {
                                     onCollect: { paying = $0 }, feed: feed, embedded: true)
                 }
                 ScreenHost(make: { graph.toCollect(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
-                    DeskUnpaidSection(holder: holder, state: state, canCollect: canCollect, refreshTick: earlierTick) { paying = $0 }
+                    DeskUnpaidSection(holder: holder, state: state, canCollect: canCollect,
+                                      canSplit: clinic.permissions.contains("billing.read") && clinic.permissions.contains("billing.write"),
+                                      refreshTick: earlierTick) { paying = $0 }
                 }
                 ScreenHost(make: { graph.missed(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
                     DeskMissedSection(holder: holder, state: state, zoneId: clinic.session.clinic.timezone, refreshTick: earlierTick, onOpenPatient: onOpenPatient)

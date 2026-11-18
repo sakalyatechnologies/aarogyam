@@ -116,6 +116,13 @@
     <string name="dk_dx_earlier_missed_header">Missed today (%d)</string>
     <string name="dk_dx_earlier_missed_row_a11y">%1$s, missed appointment at %2$s, open patient</string>
     <string name="dk_dx_earlier_token">Token %d</string>
+    <string name="dk_dx_pay_all">All bills · %1$s</string>
+    <string name="dk_dx_pay_split_title">Split, oldest bill first</string>
+    <string name="dk_dx_pay_split_advance">%1$s stays as an advance</string>
+    <plurals name="dk_dx_earlier_bills">
+        <item quantity="one">%d bill</item>
+        <item quantity="other">%d bills</item>
+    </plurals>
     <string name="dk_dx_earlier_unpaid_header">Unpaid from earlier days (%1$d) · %2$s</string>
     <string name="dk_dx_earlier_unpaid_row_a11y">%1$s, token %2$d, %3$s, balance %4$s</string>
     <string name="dk_dx_home_checkin">Check in · %s</string>

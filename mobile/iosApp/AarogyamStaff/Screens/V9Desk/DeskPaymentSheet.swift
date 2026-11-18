@@ -100,6 +100,11 @@ private struct DeskPaymentScreen: View {
         if dues.isEmpty {
             SkEmptyState(dv("d9.pay.none.title"), message: dv("d9.pay.none.message"))
         } else {
+            // Several issued bills: Collect for the patient as a whole, one payment split oldest bill first.
+            let splitBills = holder.splitBills()
+            let canSplit = splitBills.count > 1
+            let allTotal = splitBills.reduce(Int64(0)) { $0 + $1.balancePaise }
+            let all = canSplit && (invoiceId == nil || invoiceId == Self.allBills)
             let chosen = dues.first { $0.id == invoiceId } ?? dues[0]
             if !net.online {
                 Text(dv("d9.pay.offline")).v7Text(12.5, .semibold).foregroundStyle(r.onErrorContainer.color)
@@ -108,17 +113,21 @@ private struct DeskPaymentScreen: View {
             }
             if dues.count > 1 {
                 V7Label(text: dv("d9.pay.bill"))
-                SkChoiceChips(dues.map(\.id), selected: [chosen.id], label: { id in
+                SkChoiceChips((canSplit ? [Self.allBills] : []) + dues.map(\.id), selected: [all ? Self.allBills : chosen.id], label: { id in
+                    if id == Self.allBills { return dxf("dx.pay.all", ClinicFormat.rupees(paise: allTotal)) }
                     let due = dues.first { $0.id == id }
                     return [due?.number, due?.draft == true ? dv("d9.pay.draft_tag") : nil, ClinicFormat.rupees(paise: due?.balancePaise ?? 0)].compactMap { $0 }.joined(separator: " · ")
                 }) { pick in
                     invoiceId = pick
-                    if !amountEdited, let due = dues.first(where: { $0.id == pick }) { amount = DeskPay.rupeesText(paise: due.balancePaise) }
+                    if !amountEdited {
+                        if pick == Self.allBills { amount = DeskPay.rupeesText(paise: allTotal) }
+                        else if let due = dues.first(where: { $0.id == pick }) { amount = DeskPay.rupeesText(paise: due.balancePaise) }
+                    }
                 }
             } else {
                 Text(dvf("d9.pay.due", ClinicFormat.rupees(paise: chosen.balancePaise))).v7Text(13, .semibold).foregroundStyle(r.onSurfaceVariant.color)
             }
-            if chosen.draft {
+            if !all && chosen.draft {
                 Text(dv("d9.pay.draft_note")).v7Text(12.5, .semibold).foregroundStyle(r.onTertiaryContainer.color)
                     .padding(.horizontal, 12).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
                     .background(r.tertiaryContainer.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -126,7 +135,8 @@ private struct DeskPaymentScreen: View {
             let problems = showProblems ? DeskPay.problems(amountText: amount, method: method) : []
             SkField(dv("d9.pay.amount"), text: Binding(get: { amount }, set: { amount = $0; amountEdited = true; holder.dismissOutcome() }),
                     error: problems.contains(.amount) ? dv("d9.pay.amount.invalid") : nil, keyboard: .decimalPad)
-                .onAppear { if amount.isEmpty { amount = DeskPay.rupeesText(paise: chosen.balancePaise) } }
+                .onAppear { if amount.isEmpty { amount = DeskPay.rupeesText(paise: all ? allTotal : chosen.balancePaise) } }
+            if all { splitPreview(DeskPay.paise(from: amount) ?? 0) }
             V7Label(text: dv("d9.pay.method"))
             SkChoiceChips(Array(PayMethod.allCases), selected: method.map { [$0] } ?? [], label: { $0.label }) { method = $0 }
             if problems.contains(.method) {
@@ -140,17 +150,37 @@ private struct DeskPaymentScreen: View {
                 Text(dxf("dx.pay.balance_changed", DeskPay.rupeesText(paise: changed.balancePaise)))
                     .v7Text(12.5, .semibold).foregroundStyle(r.error.color)
             }
-            SkPillButton(dv("d9.pay.record"), wide: true, loading: isSending) { record(chosen) }
+            SkPillButton(dv("d9.pay.record"), wide: true, loading: isSending) { record(all ? nil : chosen) }
         }
     }
 
     private var isSending: Bool { if case .sending = onEnum(of: outcome) { true } else { false } }
 
-    private func record(_ due: DueBill) {
+    private static let allBills = "all"
+
+    /// What the amount does to each bill, oldest first, before it is saved; any rest is an advance.
+    @ViewBuilder private func splitPreview(_ paise: Int64) -> some View {
+        let r = theme.roles
+        let shares = holder.split(amountPaise: paise)
+        V7Label(text: dx("dx.pay.split_title"))
+        ForEach(shares, id: \.invoiceId) { share in
+            Text([share.number, ClinicFormat.rupees(paise: share.amountPaise)].compactMap { $0 }.joined(separator: " · "))
+                .v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color)
+        }
+        let rest = paise - shares.reduce(Int64(0)) { $0 + $1.amountPaise }
+        if rest > 0 { Text(dxf("dx.pay.split_advance", ClinicFormat.rupees(paise: rest))).v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color) }
+    }
+
+    /// One bill, or nil for all of them (one payment split oldest bill first).
+    private func record(_ due: DueBill?) {
         showProblems = true
         guard DeskPay.problems(amountText: amount, method: method).isEmpty,
               let paise = DeskPay.paise(from: amount), let method else { return }
-        holder.record(invoiceId: due.id, amountPaise: paise, method: method, proofJpeg: proof?.kotlinBytes)
+        if let due {
+            holder.record(invoiceId: due.id, amountPaise: paise, method: method, proofJpeg: proof?.kotlinBytes)
+        } else {
+            holder.recordAll(amountPaise: paise, method: method, proofJpeg: proof?.kotlinBytes)
+        }
     }
 
     /// "Attach proof": the camera or the photo library; the photo is saved as the payment's proof.

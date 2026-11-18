@@ -13,9 +13,10 @@ import { useSortable, type SortColumn } from "../../components/use-sortable.js";
 import { useClinic } from "../../clinic.js";
 import { useTodayDate } from "../../lib/patients.js";
 import { invoiceStatus } from "../../lib/invoice-status.js";
-import { CHIP_TONE, FILTERS, matchesFilter, modeOf, pendingOf, type StatusFilter } from "./billing-v2-parts.js";
+import { CHIP_TONE, FILTERS, groupPending, matchesFilter, modeOf, type StatusFilter } from "./billing-v2-parts.js";
 import { ExpensesPanel } from "./expenses-panel.js";
 import { InvoiceDrawer } from "./invoice-drawer.js";
+import { PatientCollectDrawer } from "./patient-collect-drawer.js";
 import { useInvoices } from "./queries.js";
 import "./billing-v2.css";
 
@@ -31,7 +32,7 @@ const SORT_COLUMNS: readonly SortColumn<Invoice>[] = [
 ];
 
 /**
- * Billing, New look: the front desk's daily tool. Pending bills with one-tap Collect, every bill with status
+ * Billing, New look: the front desk's daily tool. Pending bills with one row and one Collect per patient, every bill with status
  * filters and sortable headers, and a drawer for one bill (lines, payments, balance, Collect, Print, Share).
  * Money reports live in Analytics. Needs `billing.read`; the Expenses tab needs `finance.view`.
  */
@@ -50,56 +51,106 @@ export function BillingV2() {
   const newest = useMemo(() => rows.toSorted((a, b) => (b.issued_at ?? b.created_at).localeCompare(a.issued_at ?? a.created_at)), [rows]);
   const filtered = useMemo(() => newest.filter((i) => matchesFilter(i, filter)), [newest, filter]);
   const sortable = useSortable(filtered, SORT_COLUMNS);
-  const pending = useMemo(() => pendingOf(rows), [rows]);
-  const owed = pending.reduce((sum, i) => sum + i.balance_paise, 0);
+  const groups = useMemo(() => groupPending(rows), [rows]);
+  const owed = groups.reduce((sum, g) => sum + g.owed_paise, 0);
+  const [shown, setShown] = useState<string>();
+  const [collectFor, setCollectFor] = useState<{ id: string; name: string }>();
   const counts = (value: StatusFilter) => rows.filter((i) => matchesFilter(i, value)).length;
 
   const bills = (
     <div className="bl2-grid">
-      <MkCard title="To collect" hint={pending.length === 0 ? undefined : `${String(pending.length)} bill${pending.length === 1 ? "" : "s"} · ${formatRupees(owed)} owed`} className="bl2-card">
+      <MkCard title="To collect" hint={groups.length === 0 ? undefined : `${String(groups.length)} patient${groups.length === 1 ? "" : "s"} · ${formatRupees(owed)} owed`} className="bl2-card">
         {invoices.isPending ? (
           <SkeletonRows count={3} tall label="Loading pending bills" />
-        ) : pending.length === 0 ? (
+        ) : groups.length === 0 ? (
           <Empty art="bill" title="Nothing to collect">
             Every issued bill is paid in full.
           </Empty>
         ) : (
           <ul className="bl2-pending" aria-label="Pending bills">
-            {pending.slice(0, 12).map((i) => (
-              <li key={i.id}>
-                <span className="bl2-who">
-                  <Initials name={i.patient.name} size="sm" />
-                  <span>
-                    <strong>{i.patient.name}</strong>
-                    <small className="mk-mono">{i.number ?? "Draft"}</small>
-                  </span>
-                </span>
-                <span className="bl2-due">{formatRupees(i.balance_paise)}</span>
-                {canWrite ? (
-                  <button
-                    type="button"
-                    className="bl2-btn dark"
-                    aria-label={`Collect ${formatRupees(i.balance_paise)} from ${i.patient.name}`}
-                    onClick={() => {
-                      setOpen({ id: i.id, collect: true });
-                    }}
-                  >
-                    <WalletCards aria-hidden="true" /> Collect
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="bl2-btn"
-                    aria-label={`Open bill ${i.number ?? ""} for ${i.patient.name}`}
-                    onClick={() => {
-                      setOpen({ id: i.id, collect: false });
-                    }}
-                  >
-                    Open
-                  </button>
-                )}
-              </li>
-            ))}
+            {groups.slice(0, 12).map((group) => {
+              const [oldest] = group.bills;
+              const several = group.bills.length > 1;
+              const name = group.patient.name;
+              const expanded = shown === group.patient.id;
+              return (
+                <li key={group.patient.id}>
+                  <div className="bl2-prow">
+                    <span className="bl2-who">
+                      <Initials name={name} size="sm" />
+                      <span>
+                        <strong>{name}</strong>
+                        <small className="bl2-pmeta">
+                          <span className={several ? undefined : "mk-mono"}>{several ? `${String(group.bills.length)} bills` : (oldest.number ?? "Draft")}</span>
+                          <StatusChip tone={group.partly_paid ? CHIP_TONE.partial : CHIP_TONE.due}>{group.partly_paid ? "Partly paid" : "Due"}</StatusChip>
+                        </small>
+                      </span>
+                    </span>
+                    <span className="bl2-due">{formatRupees(group.owed_paise)}</span>
+                    <span className="bl2-pact">
+                      {several ? (
+                        <button
+                          type="button"
+                          className="bl2-btn"
+                          aria-expanded={expanded}
+                          aria-controls={`bl2-pb-${group.patient.id}`}
+                          aria-label={`${expanded ? "Hide" : "Show"} the ${String(group.bills.length)} bills of ${name}`}
+                          onClick={() => {
+                            setShown(expanded ? undefined : group.patient.id);
+                          }}
+                        >
+                          {expanded ? "Hide bills" : "View bills"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="bl2-btn"
+                          aria-label={`Open bill ${oldest.number ?? ""} for ${name}`}
+                          onClick={() => {
+                            setOpen({ id: oldest.id, collect: false });
+                          }}
+                        >
+                          Open
+                        </button>
+                      )}
+                      {canWrite ? (
+                        <button
+                          type="button"
+                          className="bl2-btn dark"
+                          aria-label={`Collect ${formatRupees(group.owed_paise)} from ${name}`}
+                          onClick={() => {
+                            if (several) setCollectFor({ id: group.patient.id, name });
+                            else setOpen({ id: oldest.id, collect: true });
+                          }}
+                        >
+                          <WalletCards aria-hidden="true" /> Collect
+                        </button>
+                      ) : null}
+                    </span>
+                  </div>
+                  {several && expanded ? (
+                    <ul className="bl2-pbills" id={`bl2-pb-${group.patient.id}`} aria-label={`Bills of ${name}, oldest first`}>
+                      {group.bills.map((bill) => (
+                        <li key={bill.id}>
+                          <button
+                            type="button"
+                            className="bl2-open mk-mono"
+                            aria-label={`Open bill ${bill.number ?? ""} for ${name}`}
+                            onClick={() => {
+                              setOpen({ id: bill.id, collect: false });
+                            }}
+                          >
+                            {bill.number ?? "Draft"}
+                          </button>
+                          <StatusChip tone={CHIP_TONE[invoiceStatus(bill).key]}>{invoiceStatus(bill).label}</StatusChip>
+                          <span className="num">{formatRupees(bill.balance_paise)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </MkCard>
@@ -255,6 +306,15 @@ export function BillingV2() {
         collect={open?.collect ?? false}
         onClose={() => {
           setOpen(undefined);
+        }}
+      />
+      <PatientCollectDrawer
+        key={collectFor?.id}
+        open={collectFor !== undefined}
+        name={collectFor?.name ?? ""}
+        group={groups.find((g) => g.patient.id === collectFor?.id)}
+        onClose={() => {
+          setCollectFor(undefined);
         }}
       />
     </div>

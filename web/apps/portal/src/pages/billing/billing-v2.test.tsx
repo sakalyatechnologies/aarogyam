@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ApiClient, Permission } from "@aarogyam/api-client";
+import type { ApiClient, NewPayment, Permission } from "@aarogyam/api-client";
 
 import { NEW_LOOK_KEY } from "../../lib/new-look.js";
 import { PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
@@ -32,6 +32,26 @@ function withDueBill() {
     const other = fixtures.patients.find((p) => p.clinic_id === sunrise?.id && p.id !== base?.patient_id);
     if (base === undefined || other === undefined) throw new Error("expected the seeded bills");
     fixtures.invoices.push({ ...base, id: crypto.randomUUID(), patient_id: other.id, number: DUE, items: base.items.map((l) => ({ ...l })) });
+  });
+}
+
+const OLDER_DUE = "SD/26-27/000004";
+
+/** The ids of the two bills `withTwoBillsForOnePatient` leaves unpaid, oldest first, and the older one's total. */
+const twoBills = { older: "", partial: "", olderTotal: 0 };
+
+/** Sunrise's seeded bills plus an older, unpaid bill for the patient whose bill is part paid. */
+function withTwoBillsForOnePatient() {
+  return fakeApi((fixtures) => {
+    const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+    const base = fixtures.invoices.find((i) => i.clinic_id === sunrise?.id && i.number === PARTIAL);
+    if (base === undefined) throw new Error("expected the seeded bills");
+    const older = new Date(Date.parse(base.issued_at ?? base.created_at) - 5 * 86_400_000).toISOString();
+    const id = crypto.randomUUID();
+    fixtures.invoices.push({ ...base, id, number: OLDER_DUE, created_at: older, issued_at: older, items: base.items.map((l) => ({ ...l })) });
+    twoBills.older = id;
+    twoBills.partial = base.id;
+    twoBills.olderTotal = base.items.reduce((sum, l) => sum + l.total_paise, 0);
   });
 }
 
@@ -153,6 +173,81 @@ describe("Billing (New look)", () => {
     const form = await screen.findByRole("form", { name: "Collect a payment" });
     await user.click(within(form).getByRole("button", { name: "UPI" }));
     expect(await within(form).findByRole("img", { name: /UPI QR for/ })).toBeTruthy();
+  });
+
+  it("shows a patient with a due and a part-paid bill as one row with one Collect", async () => {
+    const user = userEvent.setup();
+    renderPortal("/billing", { as: PEOPLE.asha, backend: withTwoBillsForOnePatient() });
+    const pending = await screen.findByRole("list", { name: "Pending bills" });
+    const rows = within(pending).getAllByRole("listitem");
+    expect(rows).toHaveLength(1);
+    const row = first(rows);
+    expect(row.textContent).toContain("2 bills");
+    expect(row.textContent).toContain("Partly paid");
+    expect(within(row).getAllByRole("button", { name: /^Collect/ })).toHaveLength(1);
+
+    await user.click(within(row).getByRole("button", { name: /^Show the 2 bills/ }));
+    const bills = within(row).getByRole("list", { name: /oldest first/ });
+    const open = within(bills).getAllByRole("button", { name: /^Open bill/ });
+    expect(open.map((b) => b.textContent)).toEqual([OLDER_DUE, PARTIAL]);
+
+    // The All bills table stays one row per bill.
+    await waitFor(async () => {
+      expect((await bodyRows()).length).toBe(3);
+    });
+  });
+
+  it("collects for two bills in one payment, oldest first, and a retry never charges twice", async () => {
+    const user = userEvent.setup();
+    const calls: { input: NewPayment; key: string; paymentId: string | undefined }[] = [];
+    let dropFirstReply = true;
+    const wrap = (client: ApiClient): ApiClient => {
+      const original = client.recordPayment.bind(client);
+      client.recordPayment = async (input, key, options) => {
+        const result = await original(input, key, options);
+        calls.push({ input, key, paymentId: result.ok ? result.value.id : undefined });
+        if (dropFirstReply) {
+          dropFirstReply = false;
+          return { ok: false, error: { status: 0, code: "network_error", message: "The connection dropped." } };
+        }
+        return result;
+      };
+      return client;
+    };
+    renderPortal("/billing", { as: PEOPLE.asha, backend: withTwoBillsForOnePatient(), wrap });
+    const pending = await screen.findByRole("list", { name: "Pending bills" });
+    await user.click(within(pending).getByRole("button", { name: /^Collect/ }));
+
+    const drawer = await screen.findByRole("dialog", { name: /^Collect from/ });
+    const form = within(drawer).getByRole("form", { name: "Collect a payment" });
+    const amount = within(form).getByRole<HTMLInputElement>("textbox", { name: /Amount/ });
+    const owed = Math.round(Number(amount.value) * 100);
+    const split = within(form).getByRole("list", { name: /oldest bill first/ });
+    const shares = within(split).getAllByRole("listitem");
+    expect(shares.map((s) => s.textContent.slice(0, OLDER_DUE.length))).toEqual([OLDER_DUE, PARTIAL]);
+    const audit = await axe.run(document.body, { rules: { "color-contrast": { enabled: false } } });
+    expect(audit.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.html).join(" | ")}`)).toEqual([]);
+
+    // Pay less than all of it: the oldest bill is settled in full first, the rest goes to the next.
+    await user.clear(amount);
+    await user.type(amount, String(owed / 100 - 100));
+    await user.click(within(form).getByRole("button", { name: /^Record/ }));
+    expect(await within(form).findByRole("alert")).toBeTruthy();
+    await user.click(within(form).getByRole("button", { name: /^Record/ }));
+    await waitFor(() => {
+      expect(calls).toHaveLength(2);
+    });
+
+    const [firstTry, retry] = calls;
+    expect(retry?.key).toBe(firstTry?.key);
+    expect(retry?.paymentId).toBe(firstTry?.paymentId);
+    expect(firstTry?.input.amount_paise).toBe(owed - 10_000);
+    const allocations = firstTry?.input.allocations ?? [];
+    expect(allocations).toEqual([
+      { invoice_id: twoBills.older, amount_paise: twoBills.olderTotal },
+      { invoice_id: twoBills.partial, amount_paise: owed - 10_000 - twoBills.olderTotal },
+    ]);
+    expect(retry?.input.allocations).toEqual(allocations);
   });
 
   it("hides Collect without billing.write and the Expenses tab without finance.view", async () => {

@@ -3,17 +3,16 @@ import { useEffect } from "react";
 import { useParams } from "react-router";
 
 import { paymentId as paymentIdSchema } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
+import { ApiErrorNotice, formatDate, formatDateTime, formatRupees, useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, Skeleton } from "@sakalya/ui";
 
-import { LetterheadSheet } from "../../components/letterhead/letterhead.js";
-import { plainLetterhead } from "../../components/letterhead/sample.js";
 import { useClinicSettings, useLetterhead } from "../../queries.js";
-import { usePayment } from "./queries.js";
+import { BillFooter, BillSheet, clinicFacts } from "./bill-sheet.js";
+import { useInvoices, usePayment } from "./queries.js";
 
 const METHOD_LABEL: Readonly<Record<string, string>> = { cash: "Cash", upi: "UPI", card: "Card", bank: "Bank transfer" };
 
-/** A plain, printable receipt for one payment. */
+/** A receipt for one payment on A4, in the same style as the printed bill: clinic header, who paid, the bills it paid, a signature. */
 export function ReceiptPrintPage() {
   const params = useParams();
   const parsed = paymentIdSchema.safeParse(params.id);
@@ -21,11 +20,12 @@ export function ReceiptPrintPage() {
   const payment = usePayment(id);
   const settings = useClinicSettings();
   const letterhead = useLetterhead();
-  const letterheadPending = letterhead.isPending;
+  const bills = useInvoices({ patientId: payment.data?.patient.id }, payment.data !== undefined);
   useDocumentTitle(payment.data?.number ?? "Receipt", "Print");
+  const ready = payment.data !== undefined && settings.data !== undefined && !letterhead.isPending && !bills.isLoading;
 
   useEffect(() => {
-    if (payment.data !== undefined && settings.data !== undefined && !letterheadPending) {
+    if (ready) {
       const timer = setTimeout(() => {
         window.print();
       }, 150);
@@ -34,12 +34,12 @@ export function ReceiptPrintPage() {
       };
     }
     return undefined;
-  }, [payment.data, settings.data, letterheadPending]);
+  }, [ready]);
 
   if (id === undefined) {
     return <ApiErrorNotice title="That receipt address isn't valid" error={{ status: 404, code: "not_found", message: "No such receipt." }} />;
   }
-  if (payment.isPending || settings.isPending || letterheadPending) {
+  if (payment.isPending || settings.isPending || letterhead.isPending) {
     return <Skeleton shape="block" />;
   }
   if (payment.isError) {
@@ -49,10 +49,11 @@ export function ReceiptPrintPage() {
     return <ApiErrorNotice title="Couldn't load the clinic's details" error={settings.error} onRetry={() => void settings.refetch()} />;
   }
   const receipt = payment.data;
-  const clinic = settings.data;
+  const clinic = clinicFacts(settings.data, letterhead.data);
+  const numberOf = (invoiceId: string) => bills.data?.items.find((bill) => bill.id === invoiceId)?.number ?? "Bill";
 
   return (
-    <div className="print-area mx-auto max-w-[210mm] bg-surface text-text">
+    <div className="print-area mx-auto max-w-[210mm] text-text">
       <div className="mb-4 flex justify-end p-4 print:hidden">
         <Button
           icon={<Printer aria-hidden="true" className="size-4" />}
@@ -63,47 +64,64 @@ export function ReceiptPrintPage() {
           Print
         </Button>
       </div>
-      <LetterheadSheet document={letterhead.data ?? plainLetterhead(clinic.legal_name ?? clinic.name)}>
-        <p className="border-b border-border pb-3 text-center text-sm font-semibold text-muted">Payment receipt</p>
-        <dl className="mt-4 flex flex-col gap-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-muted">Receipt no.</dt>
-            <dd className="font-mono font-semibold">{receipt.number}</dd>
+      <BillSheet clinic={clinic} kind="Payment receipt" number={receipt.number} date={formatDate(receipt.received_at)} isVoid={receipt.status === "void"}>
+        <section className="bp-parties" aria-label="Who paid">
+          <div className="bp-party">
+            <h3>Received from</h3>
+            <p className="bp-strong">{receipt.patient.name}</p>
+            <p>
+              Patient no. <span className="bp-num">{receipt.patient.number}</span>
+            </p>
           </div>
-          <div className="flex justify-between">
-            <dt className="text-muted">Date</dt>
-            <dd>{formatDateTime(receipt.received_at)}</dd>
+          <div className="bp-party">
+            <h3>Paid by</h3>
+            <p className="bp-strong">{METHOD_LABEL[receipt.method] ?? receipt.method}</p>
+            <p>{formatDateTime(receipt.received_at)}</p>
+            {receipt.reference == null ? null : <p>Reference {receipt.reference}</p>}
           </div>
-          <div className="flex justify-between">
-            <dt className="text-muted">Received from</dt>
-            <dd>
-              {receipt.patient.name} ({receipt.patient.number})
-            </dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-muted">Method</dt>
-            <dd>{METHOD_LABEL[receipt.method] ?? receipt.method}</dd>
-          </div>
-          {receipt.reference == null ? null : (
-            <div className="flex justify-between">
-              <dt className="text-muted">Reference</dt>
-              <dd>{receipt.reference}</dd>
-            </div>
-          )}
-          {receipt.allocations.map((allocation) => (
-            <div key={allocation.invoice_id} className="flex justify-between text-xs text-muted">
-              <dt>Against bill</dt>
-              <dd>{formatRupees(allocation.amount_paise)}</dd>
-            </div>
-          ))}
-          <div className="flex justify-between border-t border-border pt-2 text-base font-bold">
-            <dt>Amount</dt>
-            <dd>{formatRupees(receipt.amount_paise)}</dd>
-          </div>
-          {receipt.status === "void" ? <p className="text-center font-bold text-danger-text">VOID</p> : null}
-        </dl>
+        </section>
 
-      </LetterheadSheet>
+        <div className="bp-summary">
+          <section className="bp-section" aria-labelledby="bp-against">
+            <h3 id="bp-against">Against bills</h3>
+            {receipt.allocations.length === 0 ? (
+              <p className="bp-notes">Kept as an advance.</p>
+            ) : (
+              <table className="bp-table">
+                <caption className="bp-sr">Bills this payment settles</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Bill</th>
+                    <th scope="col" className="num">
+                      Amount
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {receipt.allocations.map((allocation) => (
+                    <tr key={allocation.invoice_id}>
+                      <td className="bp-num">{numberOf(allocation.invoice_id)}</td>
+                      <td className="num">{formatRupees(allocation.amount_paise)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+          <dl className="bp-totals">
+            {receipt.unallocated_paise === 0 ? null : (
+              <>
+                <dt>Advance</dt>
+                <dd>{formatRupees(receipt.unallocated_paise)}</dd>
+              </>
+            )}
+            <dt className="bp-total">Amount received</dt>
+            <dd className="bp-total">{formatRupees(receipt.amount_paise)}</dd>
+          </dl>
+        </div>
+
+        <BillFooter clinic={clinic} signer={undefined} />
+      </BillSheet>
     </div>
   );
 }

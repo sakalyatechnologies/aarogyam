@@ -16,8 +16,22 @@ struct DoctorV10VisitEntry: View {
     let saveStaged: () async -> Bool
     @State private var chair = false
     @State private var wrap = false
+    @State private var image = false
 
     var body: some View {
+        VStack(spacing: SkSpacing.sm) {
+            entries
+            // Right after Start visit the first picture is usually the OPG: the camera, labelled so.
+            if clinic.permissions.contains("patients.write") || clinic.permissions.contains("clinical.write") {
+                SkPillButton(dv10("dv10.add_image"), variant: .tonal, icon: V7Icon.path("cam"), wide: true) { image = true }
+            }
+        }
+        .sheet(isPresented: $image) {
+            V9PhotoSheet(graph: graph, clinic: clinic, patientId: patientId, onDone: { image = false }, label: .opg)
+        }
+    }
+
+    private var entries: some View {
         HStack(spacing: SkSpacing.sm) {
             SkPillButton(dv10("dv10.chair.open"), variant: .tonal, wide: true) { chair = true }
                 .accessibilityLabel(dv10("dv10.chair.open.a11y"))

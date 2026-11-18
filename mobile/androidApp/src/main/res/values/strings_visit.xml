@@ -109,6 +109,7 @@
     <string name="vv_dv10_chair_dictate_a11y">Start dictation</string>
     <string name="vv_dv10_chair_done">Done</string>
     <string name="vv_dv10_chair_listening">Listening</string>
+    <string name="vv_visit_add_image">Add image (OPG)</string>
     <string name="vv_dv10_chair_open">Chair mode</string>
     <string name="vv_dv10_chair_photo">Photo</string>
     <string name="vv_dv10_chair_photo_a11y">Take a photo for this visit</string>

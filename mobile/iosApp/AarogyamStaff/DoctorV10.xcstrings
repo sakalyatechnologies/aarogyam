@@ -1496,6 +1496,29 @@
           }
         }
       }
+    },
+    "dv10.add_image": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add image (OPG)"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इमेज जोड़ें (OPG)"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इमेज जोडा (OPG)"
+          }
+        }
+      }
     }
   }
 }

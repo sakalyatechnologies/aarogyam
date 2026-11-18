@@ -5,10 +5,11 @@ import SwiftUI
 
 /// What an added picture is saved as. The English label is what the clinic's files list shows (and what picks the kind).
 enum PatientPhotoLabel: CaseIterable, Hashable {
-    case xray, photo, oldRx, report
+    case opg, xray, photo, oldRx, report
 
     var apiLabel: String {
         switch self {
+        case .opg: "OPG"
         case .xray: "X-ray"
         case .photo: "Photo"
         case .oldRx: "Old Rx"
@@ -18,6 +19,7 @@ enum PatientPhotoLabel: CaseIterable, Hashable {
 
     var title: String {
         switch self {
+        case .opg: "OPG"
         case .xray: p9("p9.photo.xray")
         case .photo: p9("p9.photo.photo")
         case .oldRx: p9("p9.photo.old_rx")
@@ -33,7 +35,8 @@ struct V9PhotoSheet: View {
     let clinic: ClinicContext
     let patientId: String
     let onDone: () -> Void
-    @State private var label = PatientPhotoLabel.photo
+    /// The label picked to start with (OPG right after Start visit).
+    @State var label = PatientPhotoLabel.photo
     @State private var camera = false
     @State private var library: PhotosPickerItem?
     @State private var problem: String?

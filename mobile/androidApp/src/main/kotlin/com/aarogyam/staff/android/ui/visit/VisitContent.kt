@@ -28,6 +28,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.message
+import com.aarogyam.staff.android.ui.patient.PatientPhotoLabel
+import com.aarogyam.staff.android.ui.patient.PhotoSheet
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.Patient360State
@@ -224,6 +226,7 @@ private fun VisitEntry(
 ) {
     var chair by remember { mutableStateOf(false) }
     var wrap by remember { mutableStateOf(false) }
+    var image by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.SM.dp)) {
         SkButton(stringResource(R.string.vv_dv10_chair_open), onClick = {
             chair = true
@@ -236,6 +239,16 @@ private fun VisitEntry(
             )
         }
     }
+    // Right after Start visit the first picture is usually the OPG: the camera, labelled so.
+    if ("patients.write" in clinic.permissions || CLINICAL_WRITE in clinic.permissions) {
+        SkButton(
+            stringResource(R.string.vv_visit_add_image),
+            onClick = { image = true },
+            variant = SkButtonVariant.Secondary,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    if (image) PhotoSheet(graph, clinic, patientId, PatientPhotoLabel.Opg) { image = false }
     if (chair) ChairMode(graph, clinic, patientId, holder, view) { chair = false }
     if (wrap) WrapUpSheet(graph, clinic, patientId, view.visitId, holder, rx, saveStaged, onCollect) { wrap = false }
 }

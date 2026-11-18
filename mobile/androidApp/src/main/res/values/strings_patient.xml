@@ -96,6 +96,7 @@
     <string name="p9_photo_refused">Not enough space on this phone to keep the photo. Try again when the queue is sent.</string>
     <string name="p9_photo_report">Report</string>
     <string name="p9_photo_title">Add a photo</string>
+    <string name="p9_photo_opg">OPG</string>
     <string name="p9_photo_xray">X-ray</string>
     <string name="p9_preview">Preview: needs server support</string>
     <string name="p9_start_treatment">Start treatment</string>

@@ -96,6 +96,7 @@
     <string name="p9_photo_refused">फ़ोन में फ़ोटो रखने की जगह नहीं है। कतार भेजे जाने के बाद फिर कोशिश करें।</string>
     <string name="p9_photo_report">रिपोर्ट</string>
     <string name="p9_photo_title">फ़ोटो जोड़ें</string>
+    <string name="p9_photo_opg">OPG</string>
     <string name="p9_photo_xray">एक्स-रे</string>
     <string name="p9_preview">प्रीव्यू: सर्वर सपोर्ट चाहिए</string>
     <string name="p9_start_treatment">इलाज शुरू करें</string>

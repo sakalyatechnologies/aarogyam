@@ -34,6 +34,7 @@ import java.util.UUID
 internal enum class PatientPhotoLabel(
     val apiLabel: String,
 ) {
+    Opg("OPG"),
     Xray("X-ray"),
     Photo("Photo"),
     OldRx("Old Rx"),
@@ -50,11 +51,13 @@ internal fun PhotoSheet(
     graph: AppGraph,
     clinic: ClinicContext,
     patientId: String,
+    /** The label picked to start with (OPG right after Start visit). */
+    initial: PatientPhotoLabel = PatientPhotoLabel.Photo,
     onDone: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var label by remember { mutableStateOf(PatientPhotoLabel.Photo) }
+    var label by remember { mutableStateOf(initial) }
     var problem by remember { mutableStateOf<Int?>(null) }
     val camera = remember { newCameraTarget(context) }
     val save = { uri: Uri ->
@@ -127,6 +130,7 @@ internal fun PhotoSheet(
 private fun PatientPhotoLabel.title(): String =
     stringResource(
         when (this) {
+            PatientPhotoLabel.Opg -> R.string.p9_photo_opg
             PatientPhotoLabel.Xray -> R.string.p9_photo_xray
             PatientPhotoLabel.Photo -> R.string.p9_photo_photo
             PatientPhotoLabel.OldRx -> R.string.p9_photo_old_rx

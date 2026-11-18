@@ -151,6 +151,7 @@ val apiModels =
         "ConversationStarted",
         "ErrorDetail",
         "Expense",
+        "ExpenseBill",
         "ExpenseCategory",
         "ExpenseList",
         "HandledBy",

@@ -34,8 +34,6 @@ interface Props {
   /** The open visit, when there is one: treatment is recorded in it. */
   visitId: VisitId | undefined;
   canWrite: boolean;
-  starting: boolean;
-  onStartVisit: () => void;
   terms: readonly DentalTerm[];
   planItems: readonly PlanItem[];
   procedures: readonly Procedure[];
@@ -57,7 +55,7 @@ export function ToothPanel(props: Props) {
   return <SelectedTooth key={tooth} {...props} tooth={tooth} />;
 }
 
-function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, starting, onStartVisit, terms, planItems, procedures, who, onClose }: Props & { tooth: number }) {
+function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, planItems, procedures, who, onClose }: Props & { tooth: number }) {
   const history = useToothHistory(patientId, tooth);
   const [mode, setMode] = useState<"view" | "form">("view");
   const [editing, setEditing] = useState<HistoryRow | undefined>(undefined);
@@ -192,12 +190,10 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, starting,
             </div>
           ) : visitId === undefined ? (
             <div className="tc-actions">
+              {/* The visit bar at the top holds the one Start visit button. */}
               <p className="tc-meta" style={{ width: "100%" }}>
-                Start a visit to record treatment.
+                Start the visit from the bar at the top to add treatment.
               </p>
-              <PillButton disabled={starting} onClick={onStartVisit}>
-                {starting ? "Starting…" : "Start visit"}
-              </PillButton>
               <Button variant="secondary" onClick={onClose}>
                 Close
               </Button>

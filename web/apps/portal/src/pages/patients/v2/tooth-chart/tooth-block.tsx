@@ -55,8 +55,6 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
       surface={surface}
       visitId={visit.visit?.id}
       canWrite={visit.canWrite}
-      starting={visit.starting}
-      onStartVisit={visit.startVisit}
       terms={chart.data.terms}
       planItems={planItems}
       procedures={procedures.data?.items ?? []}

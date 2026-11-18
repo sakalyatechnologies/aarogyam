@@ -60,15 +60,14 @@ describe("Calendar: booking dialog", () => {
     expect(within(dialog).getByPlaceholderText("Name, clinic number or phone")).toBeTruthy();
   });
 
-  it("registers a new patient inline when nothing matches, then selects them", async () => {
+  it("shows the new patient's details right away when nothing matches, and Book registers them", async () => {
     const user = userEvent.setup();
     const { dialog } = await openDialog();
     await user.type(within(dialog).getByPlaceholderText("Name, clinic number or phone"), "Zed Newcomer");
-    await user.click(await within(dialog).findByRole("button", { name: /Register “Zed Newcomer”/ }, { timeout: 15_000 }));
-    await user.type(within(dialog).getByLabelText(/^Age/), "34");
-    await user.click(within(dialog).getByRole("button", { name: "Register patient" }));
-    expect(await within(dialog).findByText("Zed Newcomer", {}, { timeout: 15_000 })).toBeTruthy();
-    expect(within(dialog).getByRole("button", { name: "Change" })).toBeTruthy();
+    const details = await within(dialog).findByRole("group", { name: "New patient details" }, { timeout: 15_000 });
+    expect(within(details).getByDisplayValue("Zed Newcomer")).toBeTruthy();
+    expect(within(dialog).queryByRole("button", { name: "Register patient" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Register and book" })).toBeTruthy();
   });
 
   it("lists free times for the chosen doctor and fills the start time from one", async () => {

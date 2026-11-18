@@ -62,7 +62,7 @@ async function openTooth(user: ReturnType<typeof userEvent.setup>, n: number) {
   await ready();
   await user.click(tooth(n));
   const panel = await screen.findByRole("complementary", { name: `Tooth ${String(n)} panel` });
-  const start = within(panel).queryByRole("button", { name: "Start visit" });
+  const start = screen.queryByRole("button", { name: "Start visit" });
   if (start !== null) await user.click(start);
   await within(panel).findByRole("button", { name: "Add treatment" });
   return panel;
@@ -136,7 +136,7 @@ describe("the Classic view", () => {
     if (surface === null) throw new Error("tooth 16 is not in the odontogram");
     await user.click(surface);
     const panel = await screen.findByRole("complementary", { name: "Tooth 16 panel" });
-    const start = within(panel).queryByRole("button", { name: "Start visit" });
+    const start = screen.queryByRole("button", { name: "Start visit" });
     if (start !== null) await user.click(start);
     await user.click(await within(panel).findByRole("button", { name: "Add treatment" }));
     await user.click(within(panel).getByRole("button", { name: "Crown" }));
@@ -290,15 +290,21 @@ describe("the tooth panel", () => {
     expect(await within(panel).findByText("Planned")).toBeTruthy();
   });
 
-  it("asks for an open visit before recording, and offers Start visit", async () => {
+  it("without an open visit, shows the history and points to the visit bar, with no second Start visit", async () => {
     const user = userEvent.setup();
     const { path, backend } = patient();
     renderPortal(path, { as: PEOPLE.asha, backend });
     await ready();
     await user.click(tooth(16));
     const panel = await screen.findByRole("complementary", { name: "Tooth 16 panel" });
-    expect(await within(panel).findByText("Start a visit to record treatment.")).toBeTruthy();
+    expect(await within(panel).findByText("Start the visit from the bar at the top to add treatment.")).toBeTruthy();
+    expect(within(panel).queryByRole("button", { name: "Start visit" })).toBeNull();
     expect(within(panel).queryByRole("button", { name: "Add treatment" })).toBeNull();
+    expect(within(panel).getByRole("button", { name: "Close" })).toBeTruthy();
+    // The one Start visit is the visit bar's.
+    expect(screen.getAllByRole("button", { name: "Start visit" })).toHaveLength(1);
+    const result = await axe.run(panel, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   });
 
   it("has no axe violations with the panel and the form open", async () => {

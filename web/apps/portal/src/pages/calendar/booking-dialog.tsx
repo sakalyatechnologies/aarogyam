@@ -12,8 +12,9 @@ import { localInstant, todayIn } from "../../lib/time.js";
 import { nowMinutes, placementOf } from "../../lib/time-grid.js";
 import { useTimeOff } from "../../lib/time-off-queries.js";
 import { isAway } from "./away.js";
-import { useAppointments, useBookAppointment, usePatient, useWorkingHours } from "../../queries.js";
-import { BookingPatient } from "./booking-patient.js";
+import { useAppointments, useBookAppointment, useCreatePatient, usePatient, useWorkingHours } from "../../queries.js";
+import { patientErrorOf, toNewPatient } from "../patients/patient-form.js";
+import { BookingPatient, usePatientPicker } from "./booking-patient.js";
 import { PatientOverlapNotice, clashSentence, clashesFromServer, patientOverlaps } from "./patient-overlap.js";
 
 export const DURATIONS = [15, 20, 30, 45, 60, 90] as const;
@@ -48,6 +49,9 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
   patientParam = null,
 }: BookingDialogProps) {
   const { can } = useClinic();
+  const canRegister = can("patients.write");
+  const picker = usePatientPicker(canRegister);
+  const create = useCreatePatient();
   const [picked, setPicked] = useState<Patient | undefined>(undefined);
   const [cleared, setCleared] = useState(false);
   const parsed = patientIdSchema.safeParse(patientParam);
@@ -113,6 +117,7 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
   const loadingSlots = doctor.success && (hours.isPending || day.isPending);
 
   const reset = () => {
+    picker.reset();
     setPicked(undefined);
     setCleared(false);
     setPractitionerId(undefined);
@@ -133,13 +138,36 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
     reset();
   };
 
-  const canSubmit = patient !== undefined && practitionerId !== "" && !Number.isNaN(parseHm(startTime));
+  // A new patient's details are being filled in: Book registers them first.
+  const registering = patient === undefined && picker.creating;
+  const busy = book.isPending || create.isPending || picker.draft.formState.isSubmitting;
+  const canSubmit = (patient !== undefined || registering) && practitionerId !== "" && !Number.isNaN(parseHm(startTime));
 
   const submit = () => {
-    if (patient === undefined) {
+    setError(undefined);
+    if (patient !== undefined) {
+      bookFor(patient);
       return;
     }
-    setError(undefined);
+    if (!registering) {
+      return;
+    }
+    void picker.draft.handleSubmit(async (values) => {
+      let created: Patient;
+      try {
+        created = await create.mutateAsync(toNewPatient(values));
+      } catch (thrown) {
+        setError(patientErrorOf(picker.draft, thrown));
+        return;
+      }
+      // Chosen before booking, so if the booking fails a retry books this patient instead of registering a second one.
+      picker.reset();
+      setPatient(created);
+      bookFor(created);
+    })();
+  };
+
+  const bookFor = (patient: Patient) => {
     setRefused(false);
     const startsAt = localInstant(date, startTime, timeZone);
     const endsAt = new Date(Date.parse(startsAt) + duration * 60_000).toISOString();
@@ -194,14 +222,14 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
           <Button variant="secondary" onClick={close}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!canSubmit || book.isPending}>
-            {book.isPending ? "Booking…" : overlaps.length > 0 ? "Book anyway" : "Book appointment"}
+          <Button onClick={submit} disabled={!canSubmit || busy}>
+            {busy ? (create.isPending ? "Registering…" : "Booking…") : registering ? "Register and book" : overlaps.length > 0 ? "Book anyway" : "Book appointment"}
           </Button>
         </>
       }
     >
       <div className="mk-bk">
-        <BookingPatient patient={patient} onChange={setPatient} canRegister={can("patients.write")} />
+        <BookingPatient patient={patient} onChange={setPatient} canRegister={canRegister} picker={picker} />
 
         <section className="mk-bk-sec" aria-label="Who">
           <div className="mk-bk-grid2">

@@ -158,14 +158,18 @@ describe("Calendar: new patient or follow-up", () => {
     expect(within(dialog).getByText("New patient", { selector: "span" })).toBeTruthy();
   });
 
-  it("a patient registered in the dialog is a New patient", async () => {
-    const { backend } = await setup();
+  it("a patient registered in the dialog is booked as a New patient", async () => {
+    const { backend, dev } = await setup();
     const { user, dialog } = await openBooking(backend);
     await user.type(within(dialog).getByPlaceholderText("Name, clinic number or phone"), "Zed Newcomer");
-    await user.click(await within(dialog).findByRole("button", { name: /Register “Zed Newcomer”/ }, { timeout: 15_000 }));
-    await user.type(within(dialog).getByLabelText(/^Age/), "34");
-    await user.click(within(dialog).getByRole("button", { name: "Register patient" }));
-    expect(await within(dialog).findByText("New patient", { selector: "span" }, { timeout: 15_000 })).toBeTruthy();
+    const details = await within(dialog).findByRole("group", { name: "New patient details" }, { timeout: 15_000 });
+    await user.click(within(details).getByRole("radio", { name: "Male" }));
+    await user.click(within(details).getByRole("radio", { name: /Age only/ }));
+    await user.type(within(details).getByLabelText(/^Age in years/), "34");
+    await chooseDoctor(user, dialog, dev.display_name);
+    await setTime(user, dialog, "14:00");
+    await user.click(screen.getByRole("button", { name: "Register and book" }));
+    expect(await screen.findByRole("button", { name: /^Zed Newcomer, .*, new patient, / }, { timeout: 15_000 })).toBeTruthy();
   });
 
   it("tags the appointment in the calendar and in its detail dialog", async () => {

@@ -5,7 +5,9 @@ import type { ChartEntry, PlanItem } from "@aarogyam/api-client";
 import { ARCHES, FINDING_ORDER, FINDING_STYLE, describeTooth, EMPTY_STATE, headline, kindOf, toothStates, treatmentsByTooth } from "../../../visits/odontogram/model.js";
 import { HEALTHS, elsewhereTeeth, healthByTooth, healthLabel, inProgressTeeth, type Health, type StatusLike, type ToothHealthView } from "./model.js";
 import type { ChartDentition, ChartLook, ChartView } from "./use-chart-prefs.js";
+import { useLongPress } from "./long-press.js";
 import "./tooth-chart.css";
+
 
 export const LOOKS = [
   { value: "rows", label: "Rows" },
@@ -20,9 +22,6 @@ export const VIEWS = [
   { value: "treatment", label: "Treatment" },
   { value: "health", label: "Health" },
 ] as const satisfies readonly { value: ChartView; label: string }[];
-
-/** How long a press on a tooth lasts before it starts dictating a note. */
-export const LONG_PRESS_MS = 500;
 
 /** Where the hover card sits: centred on the tooth, below an upper tooth and above a lower one. */
 interface HoverSpot {
@@ -61,11 +60,7 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
   const healths = useMemo(() => healthByTooth(current, statuses), [current, statuses]);
   const away = useMemo(() => elsewhereTeeth(current), [current]);
   const arches = ARCHES[dentition];
-  const press = useRef<{ timer: ReturnType<typeof setTimeout> | undefined; fired: boolean }>({ timer: undefined, fired: false });
-  const endPress = () => {
-    clearTimeout(press.current.timer);
-    press.current.timer = undefined;
-  };
+  const press = useLongPress(onLongPress);
   const health = view === "health";
   const root = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<HoverSpot | undefined>(undefined);
@@ -105,25 +100,18 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
         }}
         onPointerDown={() => {
           setHover(undefined);
-          if (onLongPress === undefined) return;
-          endPress();
-          press.current.fired = false;
-          press.current.timer = setTimeout(() => {
-            press.current.fired = true;
-            press.current.timer = undefined;
-            onLongPress(n);
-          }, LONG_PRESS_MS);
+          press.start(n);
         }}
-        onPointerUp={endPress}
+        onPointerUp={press.end}
         onPointerLeave={() => {
-          endPress();
+          press.end();
           onHover?.(undefined);
           setHover(undefined);
         }}
-        onPointerCancel={endPress}
+        onPointerCancel={press.end}
         onContextMenu={(event) => {
           // A long press on a phone opens the browser's menu; the press already did its job.
-          if (press.current.fired) event.preventDefault();
+          if (press.fired()) event.preventDefault();
         }}
         onKeyDown={(event) => {
           const picked = HEALTHS.find((h) => h.key === event.key);
@@ -133,10 +121,7 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
         }}
         onClick={() => {
           // A long press already selected the tooth and started dictation; its release is not a second tap.
-          if (press.current.fired) {
-            press.current.fired = false;
-            return;
-          }
+          if (press.consumed()) return;
           onSelect(n);
         }}
       >

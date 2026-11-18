@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiClient, ProfileUpdate } from "@aarogyam/api-client";
 import { fakeTokenFor } from "@aarogyam/api-client/fake";
 
+import { dictationLanguageKey } from "../../lib/dictation-language.js";
 import { NEW_LOOK_KEY } from "../../lib/new-look.js";
 import { NOW, PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
 
@@ -52,6 +53,14 @@ describe("My profile (new look)", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => { expect(calls).toHaveLength(2); });
     expect(calls[1]).toEqual({ phone: "" });
+  });
+
+  it("keeps the voice notes language for this person", async () => {
+    const user = userEvent.setup();
+    renderPortal("/settings", { as: PEOPLE.asha });
+    const field = await screen.findByRole("combobox", { name: "Voice notes language" });
+    await user.selectOptions(field, "mr-IN");
+    expect(localStorage.getItem(dictationLanguageKey(PEOPLE.asha))).toBe("mr-IN");
   });
 
   it("shows a message for an empty name and a bad phone, and sends nothing", async () => {

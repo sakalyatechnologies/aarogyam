@@ -1,5 +1,6 @@
 import type { ChartFinding, ToothSurface } from "@aarogyam/api-client";
 
+import { useLongPress } from "../../patients/v2/tooth-chart/long-press.js";
 import {
   CELL_H,
   CROWN_H,
@@ -156,10 +157,13 @@ export interface ToothProps {
   focusable: boolean;
   onSelect: (tooth: number, surface: ToothSurface | null) => void;
   onFocusTooth: (tooth: number) => void;
+  /** A long press on the tooth: select it and dictate its note. */
+  onLongPress?: ((tooth: number) => void) | undefined;
 }
 
 /** One tooth: root, crown with five clickable surfaces, whole-tooth overlay, status badge and FDI number. */
-export function ToothSvg({ placed, state, selected, selectedSurface, focusable, onSelect, onFocusTooth }: ToothProps) {
+export function ToothSvg({ placed, state, selected, selectedSurface, focusable, onSelect, onFocusTooth, onLongPress }: ToothProps) {
+  const press = useLongPress(onLongPress);
   const { tooth, x, y, w, rotate } = placed;
   const kind = kindOf(tooth);
   const lower = archOf(tooth) === "lower";
@@ -194,7 +198,18 @@ export function ToothSvg({ placed, state, selected, selectedSurface, focusable, 
         onFocus={() => {
           onFocusTooth(tooth);
         }}
+        onPointerDown={() => {
+          press.start(tooth);
+        }}
+        onPointerUp={press.end}
+        onPointerLeave={press.end}
+        onPointerCancel={press.end}
+        onContextMenu={(event) => {
+          if (press.fired()) event.preventDefault();
+        }}
         onClick={() => {
+          // The release of a long press is not a second tap.
+          if (press.consumed()) return;
           onSelect(tooth, null);
         }}
       >
@@ -245,6 +260,7 @@ export function ToothSvg({ placed, state, selected, selectedSurface, focusable, 
                         strokeWidth="0.9"
                         onClick={(event) => {
                           event.stopPropagation();
+                          if (press.consumed()) return;
                           onSelect(tooth, zone.surface);
                         }}
                       >

@@ -9,6 +9,7 @@ import { useEditNote, useUploadRecording } from "./queries.js";
 import { insertAt } from "./voice/dictation.js";
 import { VoiceRecorder } from "./voice/voice-recorder.js";
 import { QuickPickBar, type PickSection } from "./quick-pick-bar.js";
+import { useDictationLanguage } from "../../lib/dictation-language.js";
 
 const SECTIONS = [
   { key: "subjective", label: "Subjective" },
@@ -59,6 +60,7 @@ export function DraftNoteEditor({
   note: Note;
   handle?: Ref<DraftHandle>;
 }) {
+  const [voiceLanguage] = useDictationLanguage();
   const edit = useEditNote(visitId);
   const upload = useUploadRecording(patientId, visitId);
   const toast = useToast();
@@ -220,6 +222,7 @@ export function DraftNoteEditor({
       </div>
       {recording ? (
         <VoiceRecorder
+          language={voiceLanguage}
           onInsert={insert}
           onKeep={keep}
           onClose={() => {

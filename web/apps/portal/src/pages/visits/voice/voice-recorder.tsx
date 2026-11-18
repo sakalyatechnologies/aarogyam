@@ -13,14 +13,16 @@ export interface VoiceRecorderProps {
   onKeep: (recording: FinishedRecording) => Promise<void>;
   /** Called when the doctor closes the recorder without a recording in hand. */
   onClose: () => void;
+  /** The language to start dictating in (the person's choice under My profile); English by default. */
+  language?: DictationLanguage | undefined;
 }
 
 /**
  * Records the doctor's voice and dictates it into the note. The recording is kept with the note only when the
  * doctor chooses to keep it; dictated text goes straight into the draft, where it can be edited before signing.
  */
-export function VoiceRecorder({ onInsert, onKeep, onClose }: VoiceRecorderProps) {
-  const recorder = useVoiceRecorder(onInsert);
+export function VoiceRecorder({ onInsert, onKeep, onClose, language }: VoiceRecorderProps) {
+  const recorder = useVoiceRecorder(onInsert, language);
   const { phase, recording } = recorder;
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>(undefined);

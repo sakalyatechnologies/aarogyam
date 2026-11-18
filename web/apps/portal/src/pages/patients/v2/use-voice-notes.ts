@@ -10,6 +10,7 @@ import { apiErrorOf, type NoteId, type PatientId, type VisitId } from "@aarogyam
 import { useUploadRecording } from "../../visits/queries.js";
 import type { DictationLanguage } from "../../visits/voice/dictation.js";
 import { useVoiceRecorder, type RecorderPhase } from "../../visits/voice/use-voice-recorder.js";
+import { useDictationLanguage } from "../../../lib/dictation-language.js";
 
 /** `HH:MM` in the browser's clock: the start time a voice note is stamped with. */
 export function stamp(at: Date): string {
@@ -66,10 +67,11 @@ export function useVoiceNotes({
     addVoiceRef.current = addVoice;
   });
 
+  const [firstLanguage] = useDictationLanguage();
   const recorder = useVoiceRecorder((text) => {
     transcriptRef.current = `${transcriptRef.current} ${text}`.trim();
     setTranscript(transcriptRef.current);
-  });
+  }, firstLanguage);
   const { phase, recording, discard: discardRecording } = recorder;
   const uploadAsync = upload.mutateAsync;
 

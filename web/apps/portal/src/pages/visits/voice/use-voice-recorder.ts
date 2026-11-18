@@ -55,14 +55,14 @@ const TICK_MS = 250;
  * in the chosen language at the same time. Final text goes to `onFinalText`. Nothing is logged, and
  * neither audio nor text leaves the browser until the caller uploads the kept recording.
  */
-export function useVoiceRecorder(onFinalText: (text: string) => void): VoiceRecorder {
+export function useVoiceRecorder(onFinalText: (text: string) => void, initialLanguage: DictationLanguage = "en-IN"): VoiceRecorder {
   const [phase, setPhase] = useState<RecorderPhase>("idle");
   const [seconds, setSeconds] = useState(0);
   const [level, setLevel] = useState(0);
   const [interim, setInterim] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
   const [dictationNote, setDictationNote] = useState<string | undefined>(undefined);
-  const [language, setLanguageState] = useState<DictationLanguage>("en-IN");
+  const [language, setLanguageState] = useState<DictationLanguage>(initialLanguage);
   const [recording, setRecording] = useState<FinishedRecording | undefined>(undefined);
   const dictationSupported = dictationAvailable();
 

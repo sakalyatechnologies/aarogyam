@@ -135,6 +135,11 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
               setSelected(tooth);
               setSurface(picked);
             }}
+            onLongPress={(tooth) => {
+              setSelected(tooth);
+              setSurface(null);
+              setDictate(tooth);
+            }}
           />
         ) : (
           <div className="tc-split" data-open={selected === undefined ? undefined : ""}>

@@ -40,6 +40,7 @@ import { VoiceRecorder } from "./voice/voice-recorder.js";
 import { insertAt } from "./voice/dictation.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 import { OBSERVATION_KINDS, parseValue } from "./vitals.js";
+import { useDictationLanguage } from "../../lib/dictation-language.js";
 
 function parseIds(patientParam: string | undefined, visitParam: string | undefined): { patientId: PatientId; visitId: VisitId } | undefined {
   const patient = parsePatientId.safeParse(patientParam);
@@ -375,6 +376,7 @@ function AddendumDialog({
   noteId: NoteId;
   onOpenChange: () => void;
 }) {
+  const [voiceLanguage] = useDictationLanguage();
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
   const [recording, setRecording] = useState(false);
@@ -472,6 +474,7 @@ function AddendumDialog({
         {pending === undefined ? null : <p className="text-sm text-muted">A {pending.seconds}-second recording will be saved with this addendum.</p>}
         {recording ? (
           <VoiceRecorder
+          language={voiceLanguage}
             onInsert={insert}
             onKeep={(finished) => {
               setPending(finished);

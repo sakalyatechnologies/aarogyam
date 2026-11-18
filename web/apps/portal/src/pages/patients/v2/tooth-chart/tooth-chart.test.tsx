@@ -10,6 +10,7 @@ import { NEW_LOOK_KEY } from "../../../../lib/new-look.js";
 import { PEOPLE, fakeApi, renderPortal } from "../../../../test/render.js";
 import { layoutKey, type P360Layout } from "../use-layout.js";
 import { FakeRecognition, installVoiceDoubles, removeVoiceDoubles } from "../../../visits/voice/test-doubles.js";
+import { dictationLanguageKey } from "../../../../lib/dictation-language.js";
 import { chartPrefsKey } from "./use-chart-prefs.js";
 
 const LAYOUTS: readonly P360Layout[] = ["console", "stage", "tabs"];
@@ -515,6 +516,41 @@ describe("tooth health and a quick note", () => {
       expect(FakeRecognition.instances.at(-1)?.started).toBe(1);
     });
     expect(within(panel).getByRole("button", { name: "Stop dictating" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("starts dictating on a long press in the Classic look too", async () => {
+    installVoiceDoubles();
+    localStorage.setItem(chartPrefsKey(PEOPLE.asha), JSON.stringify({ look: "classic", dentition: "adult", view: "treatment" }));
+    const { path, backend, wrap } = seeded();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    await ready();
+    fireEvent.pointerDown(tooth(14));
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    fireEvent.pointerUp(tooth(14));
+    fireEvent.click(tooth(14));
+    const panel = await screen.findByRole("complementary", { name: "Tooth 14 panel" });
+    await waitFor(() => {
+      expect(FakeRecognition.instances.at(-1)?.started).toBe(1);
+    });
+    expect(within(panel).getByRole("button", { name: "Stop dictating" })).toBeTruthy();
+  });
+
+  it("dictates the tooth note in the language set under My profile, and can switch for this tooth", async () => {
+    installVoiceDoubles();
+    localStorage.setItem(dictationLanguageKey(PEOPLE.asha), "hi-IN");
+    const user = userEvent.setup();
+    const { path, backend, wrap } = seeded();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const panel = await pickTooth(user, 21);
+    const language = within(panel).getByRole("combobox", { name: "Dictation language" });
+    expect(language).toHaveProperty("value", "hi-IN");
+    await user.click(within(panel).getByRole("button", { name: "Dictate the note" }));
+    expect(FakeRecognition.instances.at(-1)?.lang).toBe("hi-IN");
+    await user.selectOptions(language, "mr-IN");
+    await user.click(within(panel).getByRole("button", { name: "Dictate the note" }));
+    expect(FakeRecognition.instances.at(-1)?.lang).toBe("mr-IN");
+    // Switching for one tooth leaves the profile's choice as it was.
+    expect(localStorage.getItem(dictationLanguageKey(PEOPLE.asha))).toBe("hi-IN");
   });
 
   it("sets the health with keys 1, 2 and 3 on a focused tooth", async () => {

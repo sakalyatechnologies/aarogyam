@@ -6,6 +6,8 @@ import { Button, useToast } from "@sakalya/ui";
 
 import { useClearToothStatus, useSetToothStatus } from "../../../../queries.js";
 import { HEALTHS, TREAT_WITHIN, derivedHealth, healthLabel, type Health } from "./model.js";
+import { useDictationLanguage } from "../../../../lib/dictation-language.js";
+import { DICTATION_LANGUAGES } from "../../../visits/voice/dictation.js";
 import { useNoteDictation } from "./use-note-dictation.js";
 
 export interface HealthChoice {
@@ -102,7 +104,11 @@ export function HealthRow({ patientId, tooth, entries, status, canWrite, who, di
     if (text.trim() === (status?.note ?? "").trim() && status !== undefined) return;
     choose(health, { note: text });
   };
+  // Starts in the language set under My profile; switching here lasts for this tooth only.
+  const [firstLanguage] = useDictationLanguage();
+  const [language, setLanguage] = useState<string>(firstLanguage);
   const dictation = useNoteDictation({
+    language,
     onPhrase: (phrase) => {
       setNote((before) => {
         const next = before.trim() === "" ? phrase : `${before.trim()} ${phrase}`;
@@ -185,6 +191,23 @@ export function HealthRow({ patientId, tooth, entries, status, canWrite, who, di
           >
             <span aria-hidden="true">🎤</span>
           </button>
+        ) : null}
+        {available && canWrite ? (
+          <select
+            className="tc-lang"
+            aria-label="Dictation language"
+            value={language}
+            onChange={(event) => {
+              if (dictation.listening) dictation.stop();
+              setLanguage(event.target.value);
+            }}
+          >
+            {DICTATION_LANGUAGES.map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.value.slice(0, 2).toUpperCase()}
+              </option>
+            ))}
+          </select>
         ) : null}
       </form>
       {hint === undefined ? null : (

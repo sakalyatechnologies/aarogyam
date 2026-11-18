@@ -147,3 +147,5 @@
 .tc-hovercard [data-health] { font-weight: 600; }
 .tc-hovernote { font-style: italic; }
 .tc-hoverhint { margin-top: 2px; color: var(--odo-muted); font-size: 11px; }
+/* The tooth note's dictation language, beside the mic: EN, HI, MR, GU. */
+.tc-lang { flex: none; height: 32px; padding: 0 4px; border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; }

@@ -3,11 +3,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera, Heart, Leaf, Smile, Sparkles, Star, Sun, type LucideIcon } from "lucide-react";
 
 import { apiErrorOf, unwrap, type Avatar } from "@aarogyam/api-client";
-import { Switch, useToast } from "@sakalya/ui";
+import { Field, Select, Switch, useToast } from "@sakalya/ui";
 
 import { Initials, MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { useVisitAlerts } from "../../layout/visit-alerts.js";
+import { useDictationLanguage } from "../../lib/dictation-language.js";
+import { DICTATION_LANGUAGES } from "../visits/voice/dictation.js";
 
 /** The pictures this portal draws for a preset id. The server stores only the id; each app ships its own pictures. */
 export const PRESETS: readonly { id: string; label: string; Icon: LucideIcon; tone: string }[] = [
@@ -54,6 +56,7 @@ const phoneProblem = (phone: string): string | undefined => (phone.trim() === ""
 export function MyProfile() {
   const { api, me, session, can } = useClinic();
   const alerts = useVisitAlerts(session.user.id);
+  const [voiceLanguage, setVoiceLanguage] = useDictationLanguage();
   const queryClient = useQueryClient();
   const toast = useToast();
   const nameId = useId();
@@ -227,6 +230,11 @@ export function MyProfile() {
           }}
         />
         <p className="mk-hint">Off by default and kept on this browser only. It says &ldquo;New patient waiting&rdquo;, never a name. Your browser asks before showing desktop alerts.</p>
+      </div>
+      <div style={{ marginTop: 16, maxWidth: 320 }}>
+        <Field label="Voice notes language" hint="Visit notes and tooth notes start dictating in this language; you can switch for one note. Kept on this browser.">
+          <Select options={DICTATION_LANGUAGES.map((l) => ({ value: l.value, label: l.label }))} value={voiceLanguage} onValueChange={setVoiceLanguage} />
+        </Field>
       </div>
     </MkCard>
   );

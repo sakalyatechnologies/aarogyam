@@ -37,12 +37,14 @@ export interface OdontogramProps {
   shownTooth?: number | undefined;
   /** With `panel`: called when a tooth (or one of its surfaces) is picked. */
   onPick?: (tooth: number, surface: ToothSurface | null) => void;
+  /** A long press on a tooth (select it and dictate its note), as in the other chart looks. */
+  onLongPress?: ((tooth: number) => void) | undefined;
   /** The New look: no summary strip, legend or hint (the caller offers a Key), and Select several and Zoom sit in an overflow menu. */
   compact?: boolean;
 }
 
 /** Both arches of one dentition, selectable by mouse, touch and keyboard, with a legend, summary strip and tooth panel. */
-export function Odontogram({ patientId, chart, planItems, onRecord, panel, shownTooth, onPick, compact = false }: OdontogramProps) {
+export function Odontogram({ patientId, chart, planItems, onRecord, panel, shownTooth, onPick, onLongPress, compact = false }: OdontogramProps) {
   const [dentition, setDentition] = useState<Dentition>(() => {
     const teeth = chart.current.map((e) => e.tooth);
     return teeth.length > 0 && teeth.every((t) => dentitionOf(t) === "child") ? "child" : "adult";
@@ -305,6 +307,7 @@ export function Odontogram({ patientId, chart, planItems, onRecord, panel, shown
                         focusable={placed.tooth === tabStop}
                         onSelect={select}
                         onFocusTooth={setFocusTooth}
+                        onLongPress={onLongPress}
                       />
                     ))}
                   </svg>

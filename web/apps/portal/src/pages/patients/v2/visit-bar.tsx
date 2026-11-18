@@ -1,4 +1,4 @@
-import { Check, Cloud, CloudOff, Printer, Send, Stethoscope, Timer, Wallet } from "lucide-react";
+import { Check, Cloud, CloudOff, ImagePlus, Printer, Send, Stethoscope, Timer, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -11,6 +11,7 @@ import { useClinic } from "../../../clinic.js";
 import { useSetQueueStatus, useVisit } from "../../../queries.js";
 import { usePrescriptions } from "../../prescriptions/queries.js";
 import { CollectPanel } from "./collect-panel.js";
+import { UploadDialog } from "./images.js";
 import { PillButton } from "./kit.js";
 import { useBillDraft } from "./use-bill-draft.js";
 import "./p360.css";
@@ -79,6 +80,7 @@ export function VisitBar() {
   const [confirming, setConfirming] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const [sending, setSending] = useState(false);
+  const [addingImage, setAddingImage] = useState(false);
   const [reason, setReason] = useState("");
   const prescriptions = usePrescriptions(session.canRx ? session.patientId : undefined);
   // The itemised bill and fee: a doctor (clinical.write) or the desk (billing.write). Collect: payments.collect or billing.write.
@@ -215,6 +217,17 @@ export function VisitBar() {
               </PillButton>
             )
           ) : (
+            <>
+            <PillButton
+              variant="ghost"
+              icon={<ImagePlus aria-hidden="true" />}
+              disabled={session.celebrating}
+              onClick={() => {
+                setAddingImage(true);
+              }}
+            >
+              Add image
+            </PillButton>
             <PillButton
               icon={<Check aria-hidden="true" />}
               disabled={!online || session.finishing || voice.busy}
@@ -228,6 +241,7 @@ export function VisitBar() {
             >
               {session.finishing ? "Ending…" : "End visit"}
             </PillButton>
+            </>
           )}
         </div>
       </div>
@@ -241,6 +255,16 @@ export function VisitBar() {
           {session.error}
         </p>
       )}
+      {addingImage && visit !== undefined && ended === undefined ? (
+        <UploadDialog
+          patientId={session.patientId}
+          visitId={visit.id}
+          initialTag="OPG"
+          onClose={() => {
+            setAddingImage(false);
+          }}
+        />
+      ) : null}
       {collecting && ended !== undefined ? (
         <CollectPanel
           finished={ended}

@@ -429,7 +429,7 @@ describe("X-rays, photos and what a visit holds", () => {
     const add = async (tag: string, name: string) => {
       await user.click(within(section).getByRole("button", { name: "Add X-ray or photo" }));
       const dialog = await screen.findByRole("dialog", { name: "Add an X-ray or photo" });
-      expect(within(dialog).getAllByRole("option").map((o) => o.textContent)).toEqual(["X-ray", "Intraoral", "Extraoral", "Report", "Other"]);
+      expect(within(dialog).getAllByRole("option").map((o) => o.textContent)).toEqual(["X-ray", "OPG", "Intraoral", "Extraoral", "Report", "Other"]);
       await user.selectOptions(within(dialog).getByLabelText("Tag"), tag);
       await user.upload(within(dialog).getByLabelText("Image"), new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], name, { type: "image/png" }));
       await user.click(within(dialog).getByRole("button", { name: "Upload" }));

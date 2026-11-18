@@ -3,23 +3,24 @@
  * opens full size. Both use the existing attachments API: the tag is the file's `label` (the kind follows it), so no
  * new field is needed. Images are fetched through five-minute signed links, never a bucket address.
  */
-import { useQuery } from "@tanstack/react-query";
-import { ImagePlus } from "lucide-react";
+import { ImagePlus, Presentation } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { apiErrorOf, unwrap, type Attachment, type PatientId, type VisitId } from "@aarogyam/api-client";
+import { apiErrorOf, type Attachment, type PatientId, type VisitId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate } from "@aarogyam/app-kit";
 import { Button, Dialog, Field, Select, TextInput, useToast } from "@sakalya/ui";
 
 import { Empty } from "../../../components/mk/index.js";
 import { SkeletonRows } from "../../../components/skeleton-rows.js";
-import { useClinic } from "../../../clinic.js";
 import { useAttachments, useUploadAttachment } from "../../../queries.js";
 import { FileThumb } from "../file-thumb.js";
+import { useAttachmentLink } from "./attachment-link.js";
+import { ExplainMode } from "./explain/explain-mode.js";
 
 /** The tags offered on upload. Each one is stored as the file's label, with the kind that fits it. */
 export const IMAGE_TAGS = [
   { value: "X-ray", label: "X-ray", kind: "xray" },
+  { value: "OPG", label: "OPG", kind: "xray" },
   { value: "Intraoral", label: "Intraoral", kind: "photo" },
   { value: "Extraoral", label: "Extraoral", kind: "photo" },
   { value: "Report", label: "Report", kind: "report" },
@@ -59,9 +60,20 @@ export function ImageUpload({ patientId, visitId }: { patientId: PatientId; visi
   );
 }
 
-function UploadDialog({ patientId, visitId, onClose }: { patientId: PatientId; visitId: VisitId | undefined; onClose: () => void }) {
+/** The upload form: a file, a tag (preset by the caller, say OPG from the visit bar) and an optional caption. */
+export function UploadDialog({
+  patientId,
+  visitId,
+  onClose,
+  initialTag = "X-ray",
+}: {
+  patientId: PatientId;
+  visitId: VisitId | undefined;
+  onClose: () => void;
+  initialTag?: ImageTag;
+}) {
   const fileInput = useRef<HTMLInputElement>(null);
-  const [tag, setTag] = useState<ImageTag>("X-ray");
+  const [tag, setTag] = useState<ImageTag>(initialTag);
   const [caption, setCaption] = useState("");
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
@@ -145,13 +157,8 @@ function UploadDialog({ patientId, visitId, onClose }: { patientId: PatientId; v
 }
 
 /** One image at full size, through a short-lived link; a PDF opens in its own tab instead. */
-function Viewer({ file, onClose }: { file: Attachment; onClose: () => void }) {
-  const { api, access } = useClinic();
-  const link = useQuery({
-    queryKey: ["attachment-link", access.org_id, file.id],
-    queryFn: () => unwrap(api.getDownloadLink(file.id)),
-    staleTime: 4 * 60_000,
-  });
+function Viewer({ file, onClose, onExplain }: { file: Attachment; onClose: () => void; onExplain: (() => void) | undefined }) {
+  const link = useAttachmentLink(file);
   const isImage = file.mime_type.startsWith("image/");
   return (
     <Dialog
@@ -159,7 +166,16 @@ function Viewer({ file, onClose }: { file: Attachment; onClose: () => void }) {
       onOpenChange={onClose}
       title={`${file.label ?? "Image"}${file.caption == null ? "" : ` · ${file.caption}`}`}
       description={`Added ${formatDate(file.created_at)}${file.tooth == null ? "" : ` · tooth ${String(file.tooth)}`}`}
-      footer={<Button onClick={onClose}>Close</Button>}
+      footer={
+        <>
+          {isImage && onExplain !== undefined ? (
+            <Button variant="secondary" icon={<Presentation aria-hidden="true" className="size-4" />} onClick={onExplain}>
+              Explain to patient
+            </Button>
+          ) : null}
+          <Button onClick={onClose}>Close</Button>
+        </>
+      }
     >
       {link.isError ? (
         <ApiErrorNotice title="Couldn't open this image" error={link.error} onRetry={() => void link.refetch()} />
@@ -176,9 +192,10 @@ function Viewer({ file, onClose }: { file: Attachment; onClose: () => void }) {
   );
 }
 
-/** Thumbnails that open full size. Used by the gallery and by a visit's detail. */
-export function ImageGrid({ files }: { files: readonly Attachment[] }) {
+/** Thumbnails that open full size. Used by the gallery and by a visit's detail. With a patient, the viewer offers Explain mode. */
+export function ImageGrid({ files, patientId }: { files: readonly Attachment[]; patientId?: PatientId | undefined }) {
   const [open, setOpen] = useState<Attachment | undefined>(undefined);
+  const [explaining, setExplaining] = useState<Attachment | undefined>(undefined);
   return (
     <>
       <ul aria-label="Images" className="p360-gallery m-0 list-none p-0">
@@ -205,6 +222,23 @@ export function ImageGrid({ files }: { files: readonly Attachment[] }) {
           file={open}
           onClose={() => {
             setOpen(undefined);
+          }}
+          onExplain={
+            patientId === undefined
+              ? undefined
+              : () => {
+                  setExplaining(open);
+                  setOpen(undefined);
+                }
+          }
+        />
+      )}
+      {explaining === undefined || patientId === undefined ? null : (
+        <ExplainMode
+          patientId={patientId}
+          imageId={explaining.id}
+          onExit={() => {
+            setExplaining(undefined);
           }}
         />
       )}
@@ -240,7 +274,7 @@ export function GalleryBlock({ patientId, canUpload, visitId }: { patientId: Pat
           X-rays and photos you add appear here.
         </Empty>
       ) : (
-        <ImageGrid files={shown} />
+        <ImageGrid files={shown} patientId={patientId} />
       )}
     </div>
   );

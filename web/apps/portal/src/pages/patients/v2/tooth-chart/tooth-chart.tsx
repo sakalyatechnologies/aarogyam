@@ -40,10 +40,14 @@ interface Props {
   onLongPress?: (tooth: number) => void;
   /** Keys 1, 2 and 3 on a focused tooth: healthy, watch, needs treatment. */
   onHealthKey?: ((tooth: number, health: Health) => void) | undefined;
+  /** Teeth to ring, such as those with a pin in Explain mode. */
+  marked?: ReadonlySet<number> | undefined;
+  /** The pointer entered a tooth (or left it, with undefined). */
+  onHover?: ((tooth: number | undefined) => void) | undefined;
 }
 
 /** The chart: rows or a 3D arch, adult or child teeth. Tapping a tooth selects it; recording happens in the panel beside it. */
-export function ToothChart({ look, dentition, view = "treatment", current, statuses = [], planItems, selected, onSelect, onLongPress, onHealthKey }: Props) {
+export function ToothChart({ look, dentition, view = "treatment", current, statuses = [], planItems, selected, onSelect, onLongPress, onHealthKey, marked, onHover }: Props) {
   const states = useMemo(() => toothStates(current, treatmentsByTooth(planItems)), [current, planItems]);
   const progress = useMemo(() => inProgressTeeth(current), [current]);
   const healths = useMemo(() => healthByTooth(current, statuses), [current, statuses]);
@@ -63,7 +67,7 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
     const busy = progress.has(n);
     const level = healths.get(n) ?? "unassessed";
     const elsewhere = !health && away.has(n);
-    const label = health ? `${describeTooth(state)}, ${healthLabel(level)}` : `${describeTooth(state)}${busy ? ", treatment in progress" : ""}${elsewhere ? ", done elsewhere" : ""}`;
+    const label = health ? `${describeTooth(state)}, ${healthLabel(level)}${marked?.has(n) === true ? ", pinned" : ""}` :`${describeTooth(state)}${busy ? ", treatment in progress" : ""}${elsewhere ? ", done elsewhere" : ""}`;
     return (
       <button
         key={n}
@@ -76,8 +80,12 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
         data-elsewhere={elsewhere || undefined}
         data-health={health ? level : undefined}
         data-kind={kindOf(n)}
+        data-marked={marked?.has(n) === true || undefined}
         aria-pressed={selected === n}
         aria-label={label}
+        onPointerEnter={() => {
+          onHover?.(n);
+        }}
         onPointerDown={() => {
           if (onLongPress === undefined) return;
           endPress();
@@ -89,7 +97,10 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
           }, LONG_PRESS_MS);
         }}
         onPointerUp={endPress}
-        onPointerLeave={endPress}
+        onPointerLeave={() => {
+          endPress();
+          onHover?.(undefined);
+        }}
         onPointerCancel={endPress}
         onContextMenu={(event) => {
           // A long press on a phone opens the browser's menu; the press already did its job.

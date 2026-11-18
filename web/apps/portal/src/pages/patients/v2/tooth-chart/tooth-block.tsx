@@ -1,18 +1,19 @@
+import { Presentation } from "lucide-react";
 import { useCallback, useState } from "react";
 
-
 import type { Patient, ToothSurface } from "@aarogyam/api-client";
-import { ApiErrorNotice, formatDate } from "@aarogyam/app-kit";
+import { ApiErrorNotice } from "@aarogyam/app-kit";
 
 import { SkeletonRows } from "../../../../components/skeleton-rows.js";
 import { useClinic } from "../../../../clinic.js";
 import { useDentalChart, useProcedures, useStaff, useVisits } from "../../../../queries.js";
 import { usePlans } from "../../../treatment-plans/queries.js";
 import { Odontogram } from "../../../visits/odontogram/odontogram.js";
-import { Bento, Pills, PopoverPill } from "../kit.js";
+import { ExplainMode } from "../explain/explain-mode.js";
+import { Bento, PillButton, Pills, PopoverPill } from "../kit.js";
 import { useVisitSession } from "../visit-session.js";
 import { useToothHealthSaver } from "./health-row.js";
-import { countLabel, progress } from "./model.js";
+import { ProgressLine } from "./progress-line.js";
 import { ChartKey, DENTITIONS, LOOKS, ToothChart, VIEWS } from "./tooth-chart.js";
 import { ToothPanel } from "./tooth-panel.js";
 import { useChartPrefs } from "./use-chart-prefs.js";
@@ -36,6 +37,7 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
   const dictated = useCallback(() => {
     setDictate(undefined);
   }, []);
+  const [explaining, setExplaining] = useState(false);
 
   if (chart.isPending) {
     return (
@@ -96,9 +98,27 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
           <PopoverPill label="Key" title="Chart key">
             <ChartKey view={prefs.look === "classic" ? "treatment" : prefs.view} />
           </PopoverPill>
+          <PillButton
+            variant="ghost"
+            className="xp-open"
+            icon={<Presentation aria-hidden="true" />}
+            onClick={() => {
+              setExplaining(true);
+            }}
+          >
+            Explain to patient
+          </PillButton>
         </div>
       }
     >
+      {explaining ? (
+        <ExplainMode
+          patientId={patientId}
+          onExit={() => {
+            setExplaining(false);
+          }}
+        />
+      ) : null}
       <div className="tc-wrap">
         <ProgressLine history={chart.data.current} procedures={procedures.data?.items ?? []} since={visits.data?.items.map((v) => v.started_at).sort()[0]} />
         {prefs.look === "classic" ? (
@@ -151,30 +171,5 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
         )}
       </div>
     </Bento>
-  );
-}
-
-/** "Since you joined (12 Mar 2026): 6 teeth treated here — 3 fillings, 1 root canal. Before: 4 teeth with work from elsewhere." Hidden when there is nothing to say. */
-function ProgressLine({ history, procedures, since }: { history: Parameters<typeof progress>[0]; procedures: Parameters<typeof progress>[1]; since: string | undefined }) {
-  const counted = progress(history, procedures);
-  if (counted.here === 0 && counted.before === 0 && counted.byTreatment.length === 0) return null;
-  const teeth = (n: number) => `${String(n)} ${n === 1 ? "tooth" : "teeth"}`;
-  const work = counted.byTreatment.map(countLabel).join(", ");
-  return (
-    <p className="tc-progress" aria-label="Progress">
-      {counted.here > 0 || work !== "" ? (
-        <>
-          <strong>{since === undefined ? "At this clinic" : `Since you joined (${formatDate(since)})`}</strong>
-          {`: ${teeth(counted.here)} treated here${work === "" ? "" : ` — ${work}`}.`}
-        </>
-      ) : null}
-      {counted.before > 0 ? (
-        <>
-          {" "}
-          <strong>Before:</strong>
-          {` ${teeth(counted.before)} with work from elsewhere.`}
-        </>
-      ) : null}
-    </p>
   );
 }

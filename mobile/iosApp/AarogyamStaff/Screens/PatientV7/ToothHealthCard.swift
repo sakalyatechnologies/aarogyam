@@ -108,6 +108,16 @@ extension HealthLevel {
 }
 
 extension HealthMark {
+    /// The Health view's symbols beside the colours: ✓ healthy, ! watch, ✕ needs treatment.
+    var glyph: String? {
+        switch self {
+        case .healthy: "✓"
+        case .watch: "!"
+        case .needsTreatment: "✕"
+        case .notAssessed, .missing: nil
+        }
+    }
+
     /// The Health view's colours: healthy green, watch yellow, needs treatment red; not assessed plain.
     var tone: JawTone {
         switch self {

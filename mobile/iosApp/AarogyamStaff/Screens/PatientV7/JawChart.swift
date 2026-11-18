@@ -37,6 +37,10 @@ struct JawChart: View {
     var tone: (ToothView) -> JawTone = { JawTone.of($0.headline) }
     /// What VoiceOver says after the tooth's number; nil says the headline finding.
     var label: ((ToothView) -> String)?
+    /// A small symbol on the tooth (the Health view's ✓ ! ✕), so colour is not the only cue.
+    var glyph: ((ToothView) -> String?)?
+    /// Drawn as an outline only (the Health view's not assessed).
+    var outlined: ((ToothView) -> Bool)?
     @Environment(\.skTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -59,7 +63,7 @@ struct JawChart: View {
                     .position(x: w / 2, y: h / 2)
                 ForEach(JawGeometry.shared.spots(dentition: dentition, aspect: aspect), id: \.tooth) { spot in
                     if let tooth = teeth[Int32(spot.tooth)] {
-                        JawTooth(tooth: tooth, tone: tone(tooth), label: label?(tooth), size: size, picked: picked.contains(tooth.number), onLongTap: onLongSelect.map { long in { long(tooth.number) } }) { onSelect(tooth.number) }
+                        JawTooth(tooth: tooth, tone: tone(tooth), label: label?(tooth), glyph: glyph?(tooth) ?? nil, outlined: outlined?(tooth) ?? false, size: size, picked: picked.contains(tooth.number), onLongTap: onLongSelect.map { long in { long(tooth.number) } }) { onSelect(tooth.number) }
                             .position(x: w * spot.x, y: h * spot.y)
                             .zIndex(picked.contains(tooth.number) ? 1 : 0)
                     }
@@ -93,6 +97,8 @@ struct JawTooth: View {
     let tooth: ToothView
     var tone: JawTone
     var label: String?
+    var glyph: String?
+    var outlined = false
     let size: CGFloat
     let picked: Bool
     var onLongTap: (() -> Void)?
@@ -108,10 +114,18 @@ struct JawTooth: View {
         )
         Button(action: onTap) {
             ZStack {
-                shape.fill(SkRGB(0xC9C2B1).color).offset(y: size * 0.16).opacity(tone == .missing ? 0 : 1)
-                shape.fill(RadialGradient(stops: paint.stops.map { .init(color: $0.0, location: $0.1) }, center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: size * 0.8))
+                if outlined {
+                    shape.strokeBorder(paint.ink, lineWidth: 1.5)
+                } else {
+                    shape.fill(SkRGB(0xC9C2B1).color).offset(y: size * 0.16).opacity(tone == .missing ? 0 : 1)
+                    shape.fill(RadialGradient(stops: paint.stops.map { .init(color: $0.0, location: $0.1) }, center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: size * 0.8))
+                }
                 if tone == .missing { shape.strokeBorder(paint.ink, style: StrokeStyle(lineWidth: 1, dash: [3, 2])) }
                 Text(String(tooth.number)).font(.system(size: size * 0.32, weight: .bold, design: .monospaced)).foregroundStyle(paint.ink)
+                if let glyph {
+                    Text(glyph).font(.system(size: size * 0.34, weight: .heavy)).foregroundStyle(paint.ink)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
             }
             .frame(width: size, height: size)
             .overlay { if picked { shape.stroke(theme.roles.primary.color, lineWidth: 3) } }

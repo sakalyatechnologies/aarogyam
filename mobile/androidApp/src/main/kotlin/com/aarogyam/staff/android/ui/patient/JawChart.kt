@@ -135,6 +135,10 @@ internal fun JawChart(
     tone: (ToothView) -> JawTone = { JawTone.of(it.headline) },
     /** What TalkBack says after the tooth's number; null says the headline finding. */
     label: (ToothView) -> String? = { null },
+    /** A small symbol on the tooth (the Health view's ✓ ! ✕), so colour is not the only cue. */
+    glyph: (ToothView) -> String? = { null },
+    /** Drawn as an outline only (the Health view's not assessed). */
+    outlined: (ToothView) -> Boolean = { false },
 ) {
     val context = LocalContext.current
     val exploring =
@@ -184,6 +188,8 @@ internal fun JawChart(
                     tooth,
                     tone(tooth),
                     label(tooth),
+                    glyph(tooth),
+                    outlined(tooth),
                     size,
                     Modifier.offset(
                         w * spot.x.toFloat() - size / 2 - TAP_PAD,
@@ -226,6 +232,8 @@ private fun JawTooth(
     tooth: ToothView,
     tone: JawTone,
     label: String?,
+    glyph: String?,
+    outlined: Boolean,
     size: Dp,
     modifier: Modifier,
     onLongTap: (() -> Unit)? = null,
@@ -249,6 +257,10 @@ private fun JawTooth(
                             RoundRect(Rect(Offset.Zero, this@drawBehind.size), top, top, bottom, bottom),
                         )
                     }
+                if (outlined) {
+                    drawPath(outline, paint.ink, style = Stroke(1.5.dp.toPx()))
+                    return@drawBehind
+                }
                 if (tone != JawTone.Missing) {
                     translate(0f, this.size.height * DEPTH) { drawPath(outline, Color(0xFFC9C2B1)) }
                 }
@@ -282,9 +294,18 @@ private fun JawTooth(
                 ).copy(fontFamily = FontFamily.Monospace, fontSize = (size.value * NUMBER).sp),
             color = paint.ink,
         )
+        glyph?.let {
+            Text(
+                it,
+                style = v7(10f, FontWeight.ExtraBold).copy(fontSize = (size.value * GLYPH).sp),
+                color = paint.ink,
+                modifier = Modifier.align(Alignment.TopEnd),
+            )
+        }
     }
 }
 
+private const val GLYPH = 0.34f
 private const val TOP_R = 0.44f
 private const val BOTTOM_R = 0.48f
 private const val DEPTH = 0.16f

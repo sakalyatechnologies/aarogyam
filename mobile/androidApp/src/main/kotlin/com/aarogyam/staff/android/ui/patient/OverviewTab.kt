@@ -171,8 +171,15 @@ private fun JawCard(
                             onLongSelect = dictate,
                             tone = { chart.healthMark(it).tone() },
                             label = { marks.getValue(chart.healthMark(it)) },
+                            glyph = { chart.healthMark(it).glyph() },
+                            outlined = { chart.healthMark(it) == HealthMark.NotAssessed },
                         )
-                        JawLegend(HealthMark.entries.map { it.tone() to marks.getValue(it) })
+                        JawLegend(
+                            HealthMark.entries.map {
+                                it.tone() to
+                                    listOfNotNull(it.glyph(), marks.getValue(it)).joinToString(" ")
+                            },
+                        )
                     } else {
                         JawChart(chart.dentition, teeth, chart.upper, chart.lower, pick, onLongSelect = dictate)
                         JawLegend()
@@ -329,7 +336,16 @@ internal fun MediaGrid(tiles: List<MediaTileData>) {
     }
 }
 
-/** The Health view's colours: healthy green, watch yellow, needs treatment red; not assessed plain. */
+/** The Health view's symbols beside the colours: ✓ healthy, ! watch, ✕ needs treatment. */
+private fun HealthMark.glyph(): String? =
+    when (this) {
+        HealthMark.Healthy -> "✓"
+        HealthMark.Watch -> "!"
+        HealthMark.NeedsTreatment -> "✕"
+        HealthMark.NotAssessed, HealthMark.Missing -> null
+    }
+
+/** The Health view's colours: healthy green, watch yellow, needs treatment red; not assessed an outline. */
 private fun HealthMark.tone(): JawTone =
     when (this) {
         HealthMark.Healthy -> JawTone.Treated

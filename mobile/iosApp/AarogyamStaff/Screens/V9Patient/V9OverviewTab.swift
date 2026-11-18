@@ -111,12 +111,13 @@ struct V9OverviewTab: View {
                         JawList(upper: loadedChart.upper, lower: loadedChart.lower, picked: [], onSelect: { pick($0) }, onLongSelect: { pickAndDictate($0) })
                     } else if healthView {
                         JawChart(dentition: loadedChart.dentition, teeth: teeth, picked: [], onSelect: pick, onLongSelect: pickAndDictate,
-                                 tone: { loadedChart.healthMark(tooth: $0).tone }, label: { loadedChart.healthMark(tooth: $0).label })
+                                 tone: { loadedChart.healthMark(tooth: $0).tone }, label: { loadedChart.healthMark(tooth: $0).label },
+                                 glyph: { loadedChart.healthMark(tooth: $0).glyph }, outlined: { loadedChart.healthMark(tooth: $0) == .notAssessed })
                     } else {
                         JawChart(dentition: loadedChart.dentition, teeth: teeth, picked: [], onSelect: pick, onLongSelect: pickAndDictate)
                     }
                     if healthView {
-                        JawLegend(entries: HealthMark.allCases.map { ($0.tone, $0.label) })
+                        JawLegend(entries: HealthMark.allCases.map { ($0.tone, [$0.glyph, $0.label].compactMap { $0 }.joined(separator: " ")) })
                     } else {
                         JawLegend()
                     }

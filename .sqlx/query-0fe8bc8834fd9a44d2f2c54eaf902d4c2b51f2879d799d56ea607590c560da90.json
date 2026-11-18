@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into audit.erased_files (org_id, file_id, patient_id, run_id)\n           select $1, f.id, $2, $3\n           from (select a.id from aarogyam.attachments a where a.org_id = $1 and a.patient_id = $2\n                 union\n                 select p.id from aarogyam.patient_photos p where p.org_id = $1 and p.patient_id = $2\n                 union\n                 select c.id from aarogyam.chat_attachments c\n                 join aarogyam.chat_messages m on m.org_id = c.org_id and m.id = c.message_id\n                 where c.org_id = $1 and m.patient_id = $2) f\n           on conflict (org_id, file_id) do update\n             set run_id = excluded.run_id, queued_at = now(), deleted_at = null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0fe8bc8834fd9a44d2f2c54eaf902d4c2b51f2879d799d56ea607590c560da90"
+}

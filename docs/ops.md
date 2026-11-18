@@ -162,6 +162,12 @@ the dump was taken: `aarogyam erase --replay <path>` (it erases again whoever th
 back; erasing twice changes nothing). `aarogyam admin retention-years --clinic <slug> --years N`
 sets a clinic's longer retention.
 
+`--apply` and `--replay` also delete the erased patients' files from storage, so they need the
+same file settings as the API (`ARO_FILES__BACKEND`, and `ARO_SUPABASE__URL` and
+`ARO_SUPABASE__SECRET_KEY` for Supabase). A file storage refused stays queued in
+`audit.erased_files`: the command exits with an error that says how many, and running it again
+retries them (`erasure.files_deleted` logs the counts).
+
 A patient file deleted in the product is deleted in Supabase Storage, but its copy stays in
 `files/` (and any database or accounts dump stays until it ages out, 14 or 56 days). When a
 deletion must be total, also run

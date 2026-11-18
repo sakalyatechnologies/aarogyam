@@ -6,6 +6,8 @@ use std::io::{BufRead as _, Write as _};
 use std::path::{Path, PathBuf};
 
 use aarogyam_app::erasure::{self, Erased};
+use aarogyam_app::files::Storage;
+use aarogyam_domain::ids::ClinicId;
 use anyhow::Context;
 use sakalya_db::Db;
 
@@ -18,10 +20,15 @@ pub(crate) struct EraseArgs {
     pub(crate) replay: Option<PathBuf>,
 }
 
-pub(crate) async fn run(db: &Db, args: EraseArgs) -> anyhow::Result<()> {
+pub(crate) async fn run(
+    db: &Db,
+    storage: Option<&dyn Storage>,
+    args: EraseArgs,
+) -> anyhow::Result<()> {
     if let Some(path) = &args.replay {
         anyhow::ensure!(!args.apply, "--replay and --apply are separate runs");
-        return replay(db, path).await;
+        replay(db, path).await?;
+        return delete_files(db, storage, None).await;
     }
     let now = time::OffsetDateTime::now_utc();
     let clinic = match &args.clinic {
@@ -68,6 +75,28 @@ pub(crate) async fn run(db: &Db, args: EraseArgs) -> anyhow::Result<()> {
         run_id = %run_id,
         patients = erased,
         "patients past retention erased"
+    );
+    delete_files(db, storage, Some(clinic)).await
+}
+
+/// Deletes the stored bytes of erased patients' files, including any an earlier run left.
+async fn delete_files(
+    db: &Db,
+    storage: Option<&dyn Storage>,
+    clinic: Option<ClinicId>,
+) -> anyhow::Result<()> {
+    let storage = storage.context("erasing needs file storage to delete the patients' files")?;
+    let outcome = erasure::delete_files(db, storage, clinic).await?;
+    tracing::info!(
+        event = "erasure.files_deleted",
+        deleted = outcome.deleted,
+        failed = outcome.failed,
+        "erased patients' files deleted from storage"
+    );
+    anyhow::ensure!(
+        outcome.failed == 0,
+        "{} files could not be deleted from storage; run again to retry them",
+        outcome.failed
     );
     Ok(())
 }

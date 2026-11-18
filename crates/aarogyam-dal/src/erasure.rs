@@ -83,8 +83,10 @@ pub async fn clinic_by_slug(pool: &PgPool, slug: &str) -> Result<Option<Uuid>, D
     Ok(id)
 }
 
-/// Erases one patient in its own transaction (`app.erase_patient`). `false` when nothing was
-/// done: unknown, already erased, or on legal hold (unless `replay`).
+/// Erases one patient in its own transaction (`app.erase_patient`), first queuing their stored
+/// files in `audit.erased_files` so the bytes can be deleted after it commits. `false` when
+/// nothing was done (unknown, already erased, or on legal hold unless `replay`); nothing is
+/// queued then.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -95,6 +97,27 @@ pub async fn erase(
     run_id: Uuid,
     replay: bool,
 ) -> Result<bool, DbError> {
+    let mut tx = pool.begin().await?;
+    // Read before the erase deletes the photo and chat rows. A file queued again (a replay after
+    // a restore) is deleted again: a missing object counts as deleted.
+    sqlx::query!(
+        r#"insert into audit.erased_files (org_id, file_id, patient_id, run_id)
+           select $1, f.id, $2, $3
+           from (select a.id from aarogyam.attachments a where a.org_id = $1 and a.patient_id = $2
+                 union
+                 select p.id from aarogyam.patient_photos p where p.org_id = $1 and p.patient_id = $2
+                 union
+                 select c.id from aarogyam.chat_attachments c
+                 join aarogyam.chat_messages m on m.org_id = c.org_id and m.id = c.message_id
+                 where c.org_id = $1 and m.patient_id = $2) f
+           on conflict (org_id, file_id) do update
+             set run_id = excluded.run_id, queued_at = now(), deleted_at = null"#,
+        org_id,
+        patient_id,
+        run_id
+    )
+    .execute(&mut *tx)
+    .await?;
     let done = sqlx::query_scalar!(
         r#"select app.erase_patient($1, $2, $3, $4) as "done!""#,
         org_id,
@@ -102,9 +125,58 @@ pub async fn erase(
         run_id,
         replay
     )
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await?;
+    if done {
+        tx.commit().await?;
+    } else {
+        tx.rollback().await?;
+    }
     Ok(done)
+}
+
+/// A file of an erased patient whose bytes are still in storage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ErasedFile {
+    /// The clinic.
+    pub org_id: Uuid,
+    /// The file; its storage key is `<org_id>/<file_id>`.
+    pub file_id: Uuid,
+}
+
+/// Erased patients' files not yet deleted from storage, oldest first, in `clinic` or all.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn pending_files(
+    pool: &PgPool,
+    clinic: Option<Uuid>,
+) -> Result<Vec<ErasedFile>, DbError> {
+    let rows = sqlx::query_as!(
+        ErasedFile,
+        r#"select org_id, file_id from audit.erased_files
+           where deleted_at is null and ($1::uuid is null or org_id = $1)
+           order by queued_at, file_id"#,
+        clinic
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+/// Marks an erased patient's file as deleted from storage.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn file_deleted(pool: &PgPool, file: ErasedFile) -> Result<(), DbError> {
+    sqlx::query!(
+        "update audit.erased_files set deleted_at = now() where org_id = $1 and file_id = $2",
+        file.org_id,
+        file.file_id
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 /// Sets (or, with `None`, clears) a clinic's retention years for patient records.

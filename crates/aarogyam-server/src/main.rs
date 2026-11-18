@@ -228,7 +228,15 @@ async fn main() -> anyhow::Result<()> {
                 log_file,
                 replay,
             };
-            erase::run(&owner_db(&config)?, args).await
+            let storage = if args.apply || args.replay.is_some() {
+                Some(file_storage(
+                    &config,
+                    config.environment == Environment::Local,
+                )?)
+            } else {
+                None
+            };
+            erase::run(&owner_db(&config)?, storage.as_deref(), args).await
         }
         Command::Outbox {
             action: Outbox::Drain { every },
@@ -242,10 +250,6 @@ async fn main() -> anyhow::Result<()> {
 /// Serves the API until a shutdown signal, then drains in-flight requests.
 ///
 /// The pool connects on first use, so the server starts while the database is briefly down.
-#[expect(
-    clippy::too_many_lines,
-    reason = "the one place every setting becomes a part of the server"
-)]
 async fn serve(config: Config) -> anyhow::Result<()> {
     tracing::info!(
         environment = %config.environment,
@@ -253,6 +257,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         "starting"
     );
     let local = config.environment == Environment::Local;
+    let storage = file_storage(&config, local)?;
     let tokens = token_check(&config, local).await?;
     let accounts = accounts(&config)?;
     let notifier = notifier(&config, local)?;
@@ -307,27 +312,6 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         LinkSigner::random()
     }
     .map_err(|error| anyhow::anyhow!("files.signing_key: {error}"))?;
-    let storage: Arc<dyn Storage> = match config.files.backend {
-        FileBackend::Local => {
-            if !local {
-                tracing::warn!(
-                    "patient files are on local disk, which is lost when the instance stops"
-                );
-            }
-            Arc::new(LocalDisk::new(config.files.dir))
-        }
-        FileBackend::Supabase => {
-            let (Some(url), Some(key)) = (&config.supabase.url, &config.supabase.secret_key) else {
-                anyhow::bail!(
-                    "files.backend = supabase needs supabase.url and supabase.secret_key"
-                );
-            };
-            Arc::new(
-                SupabaseStorage::new(url, &config.files.bucket, key.clone())
-                    .map_err(|error| anyhow::anyhow!("files.bucket / supabase.*: {error}"))?,
-            )
-        }
-    };
     let files = Files::new(storage, signer);
     let mut state = AppState::new(db, http, tokens, hosts)
         .with_quality_dir(config.quality.dir)
@@ -975,6 +959,31 @@ async fn retention(config: &Config, sample: i32, apply: bool) -> anyhow::Result<
         );
     }
     Ok(())
+}
+
+/// Where patient files' bytes live: local disk, or the private Supabase Storage bucket.
+fn file_storage(config: &Config, local: bool) -> anyhow::Result<Arc<dyn Storage>> {
+    Ok(match config.files.backend {
+        FileBackend::Local => {
+            if !local {
+                tracing::warn!(
+                    "patient files are on local disk, which is lost when the instance stops"
+                );
+            }
+            Arc::new(LocalDisk::new(config.files.dir.clone()))
+        }
+        FileBackend::Supabase => {
+            let (Some(url), Some(key)) = (&config.supabase.url, &config.supabase.secret_key) else {
+                anyhow::bail!(
+                    "files.backend = supabase needs supabase.url and supabase.secret_key"
+                );
+            };
+            Arc::new(
+                SupabaseStorage::new(url, &config.files.bucket, key.clone())
+                    .map_err(|error| anyhow::anyhow!("files.bucket / supabase.*: {error}"))?,
+            )
+        }
+    })
 }
 
 /// The schema owner's connection, which admin commands need.

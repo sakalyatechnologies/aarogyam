@@ -9,6 +9,7 @@
 mod support;
 
 use aarogyam_app::erasure::{self, Erased};
+use aarogyam_app::files::LocalDisk;
 use aarogyam_domain::ids::ClinicId;
 use aarogyam_domain::retention::PatientRetentionYears;
 use axum::http::{Method, StatusCode};
@@ -468,4 +469,77 @@ async fn membership_of(app: &TestApp, name: &str) -> String {
         .await
         .unwrap()
         .to_string()
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn erasing_a_patient_deletes_their_files_bytes_and_retries_what_storage_refused() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let old = patient(&app, ALPHA, &owner, "Old Adult", "1960-01-01").await;
+    let kept = patient(&app, ALPHA, &owner, "Recent", "1990-01-01").await;
+    let mut jpeg = vec![0xFF, 0xD8, 0xFF, 0xE0];
+    jpeg.extend_from_slice(&[3_u8; 256]);
+    let upload = async |patient: &str| {
+        let (status, body) = app
+            .upload(
+                ALPHA,
+                &owner,
+                patient,
+                &jpeg,
+                &[("kind", "xray"), ("caption", "Upper left")],
+            )
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "{body}");
+        body["id"].as_str().unwrap().parse::<Uuid>().unwrap()
+    };
+    let old_file = upload(&old).await;
+    let kept_file = upload(&kept).await;
+    backdate(&app, &[&old]).await;
+    let alpha = ClinicId::from_uuid(app.clinic_id("alpha").await);
+    let on_disk = |file: Uuid| {
+        app.files_dir
+            .join(alpha.uuid().to_string())
+            .join(file.to_string())
+    };
+    assert!(on_disk(old_file).exists());
+
+    let db = app.owner_db();
+    let now = OffsetDateTime::now_utc();
+    erasure::apply(&db, now, alpha, Uuid::now_v7(), |_| Ok(()))
+        .await
+        .unwrap();
+    // The attachment row stays (payments and consents may point at it), soft-deleted and wordless.
+    let (caption, deleted): (Option<String>, bool) = sqlx::query_as(
+        "select caption, deleted_at is not null from aarogyam.attachments where id = $1",
+    )
+    .bind(old_file)
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!((caption, deleted), (None, true));
+
+    // Storage refuses (a folder sits where the file should be): it stays queued.
+    let refusing = std::env::temp_dir().join(format!("aarogyam-refusing-{}", Uuid::now_v7()));
+    std::fs::create_dir_all(
+        refusing
+            .join(alpha.uuid().to_string())
+            .join(old_file.to_string()),
+    )
+    .unwrap();
+    let outcome = erasure::delete_files(&db, &LocalDisk::new(&refusing), Some(alpha))
+        .await
+        .unwrap();
+    assert_eq!((outcome.deleted, outcome.failed), (0, 1));
+
+    // The next run deletes it; only the erased patient's file goes.
+    let storage = LocalDisk::new(&app.files_dir);
+    let outcome = erasure::delete_files(&db, &storage, None).await.unwrap();
+    assert_eq!((outcome.deleted, outcome.failed), (1, 0));
+    assert!(!on_disk(old_file).exists());
+    assert!(on_disk(kept_file).exists());
+    let outcome = erasure::delete_files(&db, &storage, None).await.unwrap();
+    assert_eq!(outcome.deleted, 0, "nothing is left to delete");
+    let _ = std::fs::remove_dir_all(refusing);
+    app.finish().await;
 }

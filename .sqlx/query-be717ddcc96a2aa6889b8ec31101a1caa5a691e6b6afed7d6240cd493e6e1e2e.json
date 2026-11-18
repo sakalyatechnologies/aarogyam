@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update audit.erased_files set deleted_at = now() where org_id = $1 and file_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "be717ddcc96a2aa6889b8ec31101a1caa5a691e6b6afed7d6240cd493e6e1e2e"
+}

@@ -6,7 +6,7 @@
 use aarogyam_dal::erasure::{self as dal, ClinicCandidates};
 use aarogyam_dal::legal_hold::{self as hold_dal, HoldRow};
 use aarogyam_domain::access::ClinicActor;
-use aarogyam_domain::ids::{ClinicId, PatientId};
+use aarogyam_domain::ids::{AttachmentId, ClinicId, PatientId};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::retention::{self, Class, PatientRetentionYears, Period};
 use sakalya_db::{Db, DbError};
@@ -14,6 +14,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::AppError;
+use crate::files::{Storage, StorageKey};
 use crate::scope::staff_scope as scope;
 
 /// One patient erased, as the erasure log records it.
@@ -116,6 +117,41 @@ pub async fn replay(db: &Db, log: &[Erased]) -> Result<usize, DbError> {
         }
     }
     Ok(changed)
+}
+
+/// How deleting erased patients' files from storage went.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FilesDeleted {
+    /// Files whose bytes were removed (or were already gone).
+    pub deleted: usize,
+    /// Files storage refused or couldn't be reached for; they stay queued for the next run.
+    pub failed: usize,
+}
+
+/// Deletes from storage the bytes of erased patients' files (all clinics' or one's), marking
+/// each done. A failure leaves that file queued and goes on with the rest.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn delete_files(
+    db: &Db,
+    storage: &dyn Storage,
+    clinic: Option<ClinicId>,
+) -> Result<FilesDeleted, DbError> {
+    let mut outcome = FilesDeleted::default();
+    for file in dal::pending_files(db.pool(), clinic.map(ClinicId::uuid)).await? {
+        let key = StorageKey::new(
+            ClinicId::from_uuid(file.org_id),
+            AttachmentId::from_uuid(file.file_id),
+        );
+        if storage.delete(key).await.is_ok() {
+            dal::file_deleted(db.pool(), file).await?;
+            outcome.deleted += 1;
+        } else {
+            outcome.failed += 1;
+        }
+    }
+    Ok(outcome)
 }
 
 /// Sets how long a clinic keeps patient records (`None`: the default). `false` for an unknown

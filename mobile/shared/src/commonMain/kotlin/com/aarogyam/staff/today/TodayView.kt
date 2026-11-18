@@ -39,7 +39,7 @@ data class TodayCountsView(
     val patients: Int = visits,
     /** Of [patients], those whose visit is done; null when the server sends none. */
     val patientsDone: Int? = null,
-    /** Appointments still to come: all of them less done, cancelled and no-shows. */
+    /** Appointments still to come: today's (cancelled ones are not counted) less done and no-shows. */
     val toCome: Int = 0,
 )
 
@@ -144,7 +144,8 @@ internal fun TodayResponse.toView(
                 done = counts.done,
                 patients = counts.patients ?: counts.total,
                 patientsDone = counts.patientsDone,
-                toCome = (counts.total - counts.done - counts.cancelled - counts.noShows).coerceAtLeast(0),
+                // `total` already leaves out cancelled appointments.
+                toCome = (counts.total - counts.done - counts.noShows).coerceAtLeast(0),
             ),
         heroKind = if (now != null) HeroKind.Now else next?.let { HeroKind.UpNext },
         hero = now ?: next,

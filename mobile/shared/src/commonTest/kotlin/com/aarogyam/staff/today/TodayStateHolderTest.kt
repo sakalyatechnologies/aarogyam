@@ -88,8 +88,8 @@ class TodayStateHolderTest {
             assertEquals("Sunrise Dental", view.clinicName)
             assertEquals("Dr. Patil", view.memberName)
             assertEquals(DayPart.Morning, view.dayPart) // 04:15 UTC is 09:45 in Kolkata
-            // Without `patients` the headline falls back to the appointments; to come leaves out done and cancelled.
-            assertEquals(TodayCountsView(visits = 3, waiting = 2, done = 1, patients = 3, toCome = 1), view.counts)
+            // Without `patients` the headline falls back to the appointments; to come is total (no cancelled) less done.
+            assertEquals(TodayCountsView(visits = 3, waiting = 2, done = 1, patients = 3, toCome = 2), view.counts)
             assertEquals(listOf("Meera Shah", "Kavya Reddy", "Rohan Iyer"), view.schedule.map { it.patientName })
             assertEquals(LocalTime(9, 0), view.schedule[0].starts)
             assertEquals(HeroKind.UpNext, view.heroKind)

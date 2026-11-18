@@ -1,6 +1,7 @@
 package com.aarogyam.staff
 
 import com.aarogyam.staff.analytics.AnalyticsStateHolder
+import com.aarogyam.staff.api.SessionEndWatch
 import com.aarogyam.staff.api.revokeCurrent
 import com.aarogyam.staff.billing.BillingStateHolder
 import com.aarogyam.staff.booking.BookingStateHolder
@@ -565,7 +566,18 @@ class AppGraph private constructor(
     }
 
     private fun clientFor(base: BaseUrl): HttpClient =
-        clients.getOrPut(base) { factory.create(base, tokens = sessions) }
+        clients.getOrPut(base) {
+            factory.create(base, tokens = sessions).config {
+                install(SessionEndWatch) { onEnded = ::serverEndedSession }
+            }
+        }
+
+    /** The API refused a fresh token: the session ended on the server, so leave for sign-in. */
+    private fun serverEndedSession() {
+        if (sessions.state.value !is SessionState.SignedIn) return
+        logger("aarogyam.session").info("session.ended_by_server")
+        signOutLocally()
+    }
 
     companion object {
         private const val REVOKE_TIMEOUT_MS = 4_000L

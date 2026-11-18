@@ -111,7 +111,7 @@ enum DevSession {
 }
 
 /// Screenshot runs: `SIMCTL_CHILD_AAROGYAM_DEV_TAB=more` opens that tab first, and
-/// `SIMCTL_CHILD_AAROGYAM_DEV_SHEET=walkin` a sheet.
+/// `SIMCTL_CHILD_AAROGYAM_DEV_SHEET=walkin` a sheet (`team` opens More, then Team).
 enum DevLaunch {
     static var sheet: String? { ProcessInfo.processInfo.environment["AAROGYAM_DEV_SHEET"] }
 

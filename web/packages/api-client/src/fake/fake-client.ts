@@ -89,7 +89,7 @@ import {
   type FakeLabs,
   type FakeLabVendor,
 } from "./labs.js";
-import { createDbInsights, createMetrics, createUsageInsights } from "./metrics.js";
+import { createDbInsights, createFrontEndInsights, createMetrics, createPageInsights, createRouteInsights, createUsageInsights } from "./metrics.js";
 import { QUICK_PICKS } from "./quick-picks.js";
 import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photosOf, siteOf, wirePhoto, wireSettings, type FakePhoto } from "./website.js";
 import { createRandom, fakeUuid } from "./random.js";
@@ -6409,6 +6409,15 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
       getMetrics: (range, opts) =>
         respond(S.metricsResponse, opts?.signal, () => inConsole(() => reply(createMetrics(range, clock()) satisfies C.ServiceMetrics))),
+
+      getRouteInsights: (range, opts) =>
+        respond(S.routeInsights, opts?.signal, () => inConsole(() => reply(createRouteInsights(range, clock()) satisfies C.ApiRouteInsights))),
+
+      getFrontEndInsights: (range, opts) =>
+        respond(S.frontEndInsights, opts?.signal, () => inConsole(() => reply(createFrontEndInsights(range, clock()) satisfies C.FrontEndInsights))),
+
+      getPageInsights: (range, opts) =>
+        respond(S.pageInsights, opts?.signal, () => inConsole(() => reply(createPageInsights(range, clock()) satisfies C.PageInsights))),
 
       getDbInsights: (range, opts) =>
         respond(S.dbInsights, opts?.signal, () => inConsole(() => reply(createDbInsights(range, clock()) satisfies C.DbInsights))),

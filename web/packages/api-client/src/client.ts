@@ -121,6 +121,9 @@ import type {
   MetricsRange,
   DbInsights,
   UsageInsights,
+  RouteInsights,
+  FrontEndInsights,
+  PageInsights,
   MySessions,
   NewAppointmentBody,
   NewBooking,
@@ -713,6 +716,12 @@ export interface ApiClient {
   createClinic(input: NewClinic, options?: RequestOptions): Promise<ApiResult<CreatedClinic>>;
   /** Console host: service health for a time range. */
   getMetrics(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<Metrics>>;
+  /** Console host: API routes by traffic, latency and errors, from every instance's flushed counters. */
+  getRouteInsights(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<RouteInsights>>;
+  /** Console host: page speed per page (LCP, INP, CLS, TTFB at p75) and front-end error classes. */
+  getFrontEndInsights(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<FrontEndInsights>>;
+  /** Console host: pages by time and views per app, roles across all clinics, and each clinic's totals. */
+  getPageInsights(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<PageInsights>>;
   /** Console host: the database over time, from the drain job's samples. */
   getDbInsights(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<DbInsights>>;
   /** Console host: clinic usage (visits, timings, people signed in by role) and the onboarding funnel. */

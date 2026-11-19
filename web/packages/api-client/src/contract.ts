@@ -240,6 +240,19 @@ export type ServiceMetrics = Omit<Schemas["ServiceMetrics"], "api" | "db" | "edg
   cloud_error: string | null;
 };
 
+/** `GET /api/v1/console/insights/routes`: API routes from the durable per-route counters. */
+export type ApiRouteInsights = Schemas["ApiRouteInsights"];
+/** `GET /api/v1/console/insights/frontend`: page speed per page and error classes. */
+export type FrontEndInsights = Schemas["FrontEndInsights"];
+export type VitalThreshold = Schemas["VitalThreshold"];
+export type VitalStat = Schemas["VitalStat"];
+export type ErrorStat = Schemas["ErrorStat"];
+/** `GET /api/v1/console/insights/pages`: pages per app, roles across clinics, clinic totals. */
+export type PageInsights = Schemas["PageInsights"];
+export type PageStat = Schemas["PageStat"];
+export type RolePages = Schemas["RolePages"];
+export type ClinicPages = Schemas["ClinicPages"];
+
 /** `GET /api/v1/console/insights/db`: the database over time; `current` is `db` in `/console/metrics`. */
 export type DbInsights = Omit<Schemas["DbInsights"], "current"> & { current: DatabaseMetrics };
 export type DbSamplePoint = Schemas["DbSamplePoint"];

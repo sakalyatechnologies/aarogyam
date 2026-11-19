@@ -435,6 +435,48 @@ describe("createHttpClient requests", () => {
     expect((await client.getUsageInsights("7d")).ok).toBe(false);
   });
 
+  it("reads routes, front-end and page insights on their own paths and checks the bodies", async () => {
+    const routes = {
+      generated_at: "2026-11-19T06:00:00Z",
+      range: "24h",
+      since: "2026-11-18T06:00:00Z",
+      routes: [{ method: "GET", route: "/api/v1/patients/{id}", requests: 20, errors_4xx: 2, errors_5xx: 0, errors_429: 0, error_rate: 0, p50_ms: 4.2, p95_ms: 10_000 }],
+    };
+    const front = {
+      generated_at: "2026-11-19T06:00:00Z",
+      range: "7d",
+      from: "2026-11-13",
+      to: "2026-11-19",
+      thresholds: [{ vital: "lcp", good: 2500, poor: 4000, unit: "ms" }],
+      vitals: [{ app: "portal", route: "/today", vital: "lcp", samples: 6, p75: 3250, rating: "needs_work", good: 4, needs_work: 1, poor: 1 }],
+      errors: [{ app: "portal", route: "/today", class: "chunk_load", count: 1 }],
+    };
+    const pages = {
+      generated_at: "2026-11-19T06:00:00Z",
+      range: "7d",
+      from: "2026-11-13",
+      to: "2026-11-19",
+      pages: [{ app: "portal", route: "/queue", views: 2, visible_ms: null, avg_visible_ms: null }],
+      roles: [{ app: "portal", role_key: "owner", views: 10, visible_ms: 83_000 }],
+      clinics: [{ org_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405180", slug: "alpha", name: "Alpha", views: 10, visible_ms: 83_000 }],
+    };
+    const replies = [json(200, routes), json(200, front), json(200, pages), json(200, { ...front, vitals: [{ ...front.vitals[0], rating: "fine" }] })];
+    const { fetch, calls } = stubFetch(() => Promise.resolve(replies.shift() ?? json(500, {})));
+    const client = createHttpClient("http://console.localtest.me/", () => Promise.resolve("abc"), { fetch });
+
+    const durable = await client.getRouteInsights("24h");
+    expect(calls[0]?.url).toBe("http://console.localtest.me/api/v1/console/insights/routes?range=24h");
+    expect(durable.ok && durable.value.routes[0]?.p95_ms).toBe(10_000);
+    const speed = await client.getFrontEndInsights("7d");
+    expect(calls[1]?.url).toBe("http://console.localtest.me/api/v1/console/insights/frontend?range=7d");
+    expect(speed.ok && speed.value.vitals[0]?.rating).toBe("needs_work");
+    const used = await client.getPageInsights("7d");
+    expect(calls[2]?.url).toBe("http://console.localtest.me/api/v1/console/insights/pages?range=7d");
+    expect(used.ok && used.value.pages[0]?.visible_ms).toBeNull();
+    // A rating outside the contract is refused.
+    expect((await client.getFrontEndInsights("7d")).ok).toBe(false);
+  });
+
   it("lists walk-ins with the calendar's range and filters, reads optional fields and an unknown status, and checks the body", async () => {
     const fixtures = createFixtures({ now: new Date("2026-10-03T05:30:00Z") });
     const fake = createFakeBackend(fixtures).client({ host: "sunrise.localtest.me", getToken: () => fakeTokenFor({ id: "a1a1a1a1-0000-4000-8000-000000000003" }), now: () => new Date("2026-10-03T05:30:00Z") });

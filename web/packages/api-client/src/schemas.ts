@@ -1409,6 +1409,66 @@ export type EdgeMetrics = NonNullable<Metrics["edge"]>;
 
 const nullableNumber = z.number().nullable();
 
+export const routeInsights = z.object({
+  generated_at: timestamp,
+  range: metricsRange,
+  since: timestamp,
+  routes: z.array(
+    z.object({
+      method: z.string(),
+      route: z.string(),
+      requests: count,
+      errors_4xx: count,
+      errors_5xx: count,
+      errors_429: count,
+      error_rate: ratio,
+      p50_ms: millis,
+      p95_ms: millis,
+    }),
+  ),
+}) satisfies z.ZodType<C.ApiRouteInsights>;
+export type RouteInsights = z.output<typeof routeInsights>;
+export type DurableRoute = RouteInsights["routes"][number];
+
+export const frontEndInsights = z.object({
+  generated_at: timestamp,
+  range: metricsRange,
+  from: date,
+  to: date,
+  thresholds: z.array(z.object({ vital: z.string(), good: z.number().nonnegative(), poor: z.number().nonnegative(), unit: z.string() })),
+  vitals: z.array(
+    z.object({
+      app: z.string(),
+      route: z.string(),
+      vital: z.string(),
+      samples: count,
+      p75: z.number().nonnegative().nullable(),
+      rating: z.enum(["good", "needs_work", "poor"]).nullable(),
+      good: count,
+      needs_work: count,
+      poor: count,
+    }),
+  ),
+  errors: z.array(z.object({ app: z.string(), route: z.string(), class: z.string(), count })),
+}) satisfies z.ZodType<C.FrontEndInsights>;
+export type FrontEndInsights = z.output<typeof frontEndInsights>;
+export type VitalStat = FrontEndInsights["vitals"][number];
+export type ErrorStat = FrontEndInsights["errors"][number];
+
+export const pageInsights = z.object({
+  generated_at: timestamp,
+  range: metricsRange,
+  from: date,
+  to: date,
+  pages: z.array(z.object({ app: z.string(), route: z.string(), views: count, visible_ms: count.nullable(), avg_visible_ms: millis.nullable() })),
+  roles: z.array(z.object({ app: z.string(), role_key: z.string(), views: count, visible_ms: count.nullable() })),
+  clinics: z.array(z.object({ org_id: z.string(), slug: z.string(), name: z.string(), views: count, visible_ms: count.nullable() })),
+}) satisfies z.ZodType<C.PageInsights>;
+export type PageInsights = z.output<typeof pageInsights>;
+export type PageStat = PageInsights["pages"][number];
+export type RolePages = PageInsights["roles"][number];
+export type ClinicPages = PageInsights["clinics"][number];
+
 export const dbInsights = z.object({
   generated_at: timestamp,
   range: metricsRange,

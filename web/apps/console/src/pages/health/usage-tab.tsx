@@ -8,6 +8,7 @@ import { Card, CardLink, DataTable, StatCard, type DataTableColumn, type LineSer
 
 import { useUsageInsights } from "../../api.js";
 import { ChartCard, LoadingCharts, RANGE_WORDS, one, xAxis } from "./insight-parts.js";
+import { PagesSection } from "./pages-section.js";
 import { dayFormatter, dayTime, funnelCounts } from "./metrics-view.js";
 
 const TITLES = ["Visits and bookings", "People signed in", "Typical timings", "Signed in by role"] as const;
@@ -144,6 +145,8 @@ function UsageBody({ usage, range }: { usage: UsageInsights; range: MetricsRange
           empty={{ title: "No days recorded yet", description: "The outbox job writes each clinic's day shortly after its midnight." }}
         />
       </Card>
+
+      <PagesSection range={range} />
 
       <OnboardingCard rows={usage.onboarding} />
     </div>

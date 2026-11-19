@@ -8,6 +8,7 @@ import { Card, DataTable, EmptyState, LineChart, PageHeader, Pill, RadioGroup, S
 
 import { useMetrics, useUsageInsights } from "../../api.js";
 import { DatabaseTab } from "./database-tab.js";
+import { FrontEndTab } from "./frontend-tab.js";
 import { ChartCard, LoadingCharts, RANGE_WORDS, one, xAxis } from "./insight-parts.js";
 import {
   HEALTH_TONE,
@@ -23,6 +24,7 @@ import {
   type Health,
 } from "./metrics-view.js";
 import { UsageTab } from "./usage-tab.js";
+import { DurableRoutes } from "./routes-section.js";
 
 const RANGES = [
   { value: "1h", label: "1 hour" },
@@ -95,7 +97,7 @@ export function HealthPage() {
           {
             value: "frontend",
             label: "Front end",
-            content: <ComingSoon title="Front end coming soon" description="Page views, time on each page and Core Web Vitals for the portal and console, counted per page template." icon={<Globe className="size-7" />} />,
+            content: <FrontEndTab range={range} />,
           },
           { value: "usage", label: "Usage", content: <UsageTab range={range} /> },
           {
@@ -199,10 +201,11 @@ function ApiTab({ metrics, range }: { metrics: MetricsQuery; range: MetricsRange
       {cloud === null ? null : (
         <div>
           <h2 className="text-lg font-bold tracking-tight text-text">This instance</h2>
-          <p className="text-xs text-muted">The instance that answered, since it started: the only place routes are counted for now.</p>
+          <p className="text-xs text-muted">The instance that answered, since it started. Routes from every instance are below.</p>
         </div>
       )}
       <InstanceBody api={metrics.data.api} range={range} />
+      <DurableRoutes range={range} />
     </div>
   );
 }

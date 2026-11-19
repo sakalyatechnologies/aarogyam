@@ -301,3 +301,124 @@ export function createUsageInsights(range: C.MetricsRange, now: Date): C.UsageIn
     onboarding,
   };
 }
+
+const PORTAL_PAGES = ["/today", "/patients/:id/visits/:visitId", "/patients/:id", "/calendar", "/billing", "/queue", "/patients", "/settings"];
+const CONSOLE_PAGES = ["/health", "/clinics", "/clinics/:id"];
+const API_ROUTES: [string, string][] = [
+  ["GET", "/api/v1/today"],
+  ["GET", "/api/v1/patients/{id}"],
+  ["GET", "/api/v1/appointments"],
+  ["POST", "/api/v1/visits/{id}/notes"],
+  ["GET", "/api/v1/queue"],
+  ["POST", "/api/v1/invoices"],
+  ["POST", "/api/v1/telemetry"],
+];
+
+/** Durable API routes: made-up counts with a few errors and a slow route. */
+export function createRouteInsights(range: C.MetricsRange, now: Date): C.ApiRouteInsights {
+  const random = createRandom(Math.floor(now.getTime() / (60 * MINUTE)) * 17 + range.length);
+  const scale = range === "30d" ? 720 : range === "7d" ? 168 : range === "24h" ? 24 : range === "6h" ? 6 : 1;
+  const since = new Date(now.getTime() - scale * 60 * MINUTE);
+  since.setUTCMinutes(0, 0, 0);
+  const routes = API_ROUTES.map(([method, route], index) => {
+    const requests = Math.round((400 - index * 45) * scale * (0.8 + random.next() * 0.4));
+    const errors5xx = index === 3 ? Math.round(requests * 0.02) : 0;
+    const errors429 = index === 6 ? Math.round(requests * 0.01) : 0;
+    const p50 = 20 + index * 12 + random.next() * 10;
+    return {
+      method,
+      route,
+      requests,
+      errors_4xx: Math.round(requests * 0.01),
+      errors_5xx: errors5xx,
+      errors_429: errors429,
+      error_rate: requests === 0 ? 0 : (errors5xx + errors429) / requests,
+      p50_ms: Math.round(p50 * 10) / 10,
+      p95_ms: Math.round((p50 * (index === 3 ? 9 : 3)) * 10) / 10,
+    };
+  }).sort((a, b) => b.requests - a.requests);
+  return { generated_at: now.toISOString(), range, since: since.toISOString(), routes };
+}
+
+const THRESHOLDS: C.VitalThreshold[] = [
+  { vital: "lcp", good: 2500, poor: 4000, unit: "ms" },
+  { vital: "inp", good: 200, poor: 500, unit: "ms" },
+  { vital: "cls", good: 0.1, poor: 0.25, unit: "" },
+  { vital: "ttfb", good: 800, poor: 1800, unit: "ms" },
+];
+
+function rate(value: number, vital: string): string {
+  const threshold = THRESHOLDS.find((t) => t.vital === vital);
+  if (threshold === undefined) return "good";
+  return value <= threshold.good ? "good" : value <= threshold.poor ? "needs_work" : "poor";
+}
+
+function daySpan(range: C.MetricsRange, now: Date): { from: string; to: string } {
+  const back = range === "30d" ? 29 : range === "7d" ? 6 : 1;
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return { from: new Date(today.getTime() - back * 24 * 60 * MINUTE).toISOString().slice(0, 10), to: today.toISOString().slice(0, 10) };
+}
+
+/** Page speed per page and error classes, made up. */
+export function createFrontEndInsights(range: C.MetricsRange, now: Date): C.FrontEndInsights {
+  const random = createRandom(Math.floor(now.getTime() / (24 * 60 * MINUTE)) * 19 + range.length);
+  const vitals: C.VitalStat[] = [];
+  const pages: [string, string][] = [...PORTAL_PAGES.map((p): [string, string] => ["portal", p]), ...CONSOLE_PAGES.map((p): [string, string] => ["console", p])];
+  pages.forEach(([app, route], index) => {
+    const samples = index === pages.length - 1 ? 3 : 20 + Math.round(random.next() * 200);
+    const base: Record<string, number> = { lcp: 1200 + index * 260 + random.next() * 400, inp: 80 + index * 30, cls: 0.02 + index * 0.02, ttfb: 300 + index * 60 };
+    for (const vital of ["lcp", "inp", "cls", "ttfb"]) {
+      if (vital === "ttfb" && index > 2) continue;
+      const value = base[vital] ?? 0;
+      const p75 = samples < 5 ? null : vital === "cls" ? Math.round(value * 1000) / 1000 : Math.round(value);
+      const poor = Math.round(samples * (index / 40));
+      const needs = Math.round(samples * 0.15);
+      vitals.push({
+        app,
+        route,
+        vital,
+        samples,
+        p75,
+        rating: p75 === null ? null : rate(p75, vital),
+        good: samples - needs - poor,
+        needs_work: needs,
+        poor,
+      });
+    }
+  });
+  const errors: C.ErrorStat[] = [
+    { app: "portal", route: "/patients/:id/visits/:visitId", class: "type_error", count: 7 },
+    { app: "portal", route: "/today", class: "chunk_load", count: 4 },
+    { app: "portal", route: "other", class: "network", count: 2 },
+    { app: "console", route: "/health", class: "unhandled_rejection", count: 1 },
+  ];
+  return { generated_at: now.toISOString(), range, ...daySpan(range, now), thresholds: THRESHOLDS, vitals, errors };
+}
+
+/** Pages by time and views per app, roles across clinics and clinic totals, made up. */
+export function createPageInsights(range: C.MetricsRange, now: Date): C.PageInsights {
+  const random = createRandom(Math.floor(now.getTime() / (24 * 60 * MINUTE)) * 23 + range.length);
+  const span = range === "30d" ? 30 : range === "7d" ? 7 : 2;
+  const page = (app: string, route: string, index: number): C.PageStat => {
+    const views = route === "/settings" ? 3 : Math.round((300 - index * 30) * span * (0.7 + random.next() * 0.6));
+    const avg = 20_000 + random.next() * 200_000 - index * 8_000;
+    const shown = views >= 5;
+    return { app, route, views, visible_ms: shown ? Math.round(views * avg) : null, avg_visible_ms: shown ? Math.round(avg) : null };
+  };
+  const pages = [...PORTAL_PAGES.map((route, i) => page("portal", route, i)), ...CONSOLE_PAGES.map((route, i) => page("console", route, i + 4))].sort(
+    (a, b) => (b.visible_ms ?? 0) - (a.visible_ms ?? 0),
+  );
+  const roles: C.RolePages[] = [
+    { app: "portal", role_key: "doctor", views: 2_100 * span, visible_ms: 9_000_000 * span },
+    { app: "portal", role_key: "front_desk", views: 1_600 * span, visible_ms: 7_200_000 * span },
+    { app: "portal", role_key: "owner", views: 700 * span, visible_ms: 2_400_000 * span },
+    { app: "portal", role_key: "custom", views: 3, visible_ms: null },
+    { app: "console", role_key: "owner", views: 90 * span, visible_ms: 600_000 * span },
+  ];
+  const clinics: C.ClinicPages[] = [
+    { org_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405180", slug: "sunrise", name: "Sunrise Dental", views: 2_400 * span, visible_ms: 10_800_000 * span },
+    { org_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405181", slug: "lotus", name: "Lotus Dental Care", views: 1_900 * span, visible_ms: 7_900_000 * span },
+    { org_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405182", slug: "meadow", name: "Meadow Clinic", views: 4, visible_ms: null },
+  ];
+  return { generated_at: now.toISOString(), range, ...daySpan(range, now), pages, roles, clinics };
+}

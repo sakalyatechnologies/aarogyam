@@ -77,6 +77,9 @@ import {
   metricsResponse,
   dbInsights,
   usageInsights,
+  routeInsights,
+  frontEndInsights,
+  pageInsights,
   mySessionsResponse,
   note,
   noteVersions,
@@ -811,6 +814,12 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: "/api/v1/console/clinics", schema: createdClinic, body: input, signal: opts?.signal }),
     getMetrics: (range, opts) =>
       call({ method: "GET", path: "/api/v1/console/metrics", schema: metricsResponse, query: { range }, signal: opts?.signal }),
+    getRouteInsights: (range, opts) =>
+      call({ method: "GET", path: "/api/v1/console/insights/routes", schema: routeInsights, query: { range }, signal: opts?.signal }),
+    getFrontEndInsights: (range, opts) =>
+      call({ method: "GET", path: "/api/v1/console/insights/frontend", schema: frontEndInsights, query: { range }, signal: opts?.signal }),
+    getPageInsights: (range, opts) =>
+      call({ method: "GET", path: "/api/v1/console/insights/pages", schema: pageInsights, query: { range }, signal: opts?.signal }),
     getDbInsights: (range, opts) =>
       call({ method: "GET", path: "/api/v1/console/insights/db", schema: dbInsights, query: { range }, signal: opts?.signal }),
     getUsageInsights: (range, opts) =>

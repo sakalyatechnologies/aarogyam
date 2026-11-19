@@ -253,6 +253,19 @@ describe("fake client: console", () => {
     expect(usage.clinics.every((clinic) => clinic.roles.every((role) => role.members >= 3))).toBe(true);
     expect(usage.onboarding.length).toBeGreaterThan(0);
   });
+
+  it("serves durable routes, page speed and page usage with small numbers hidden", async () => {
+    const { as } = setup();
+    const routes = value(await as(PEOPLE.admin).getRouteInsights("24h"));
+    expect(routes.routes.length).toBeGreaterThan(0);
+    expect(routes.routes.some((row) => row.errors_5xx > 0)).toBe(true);
+    const front = value(await as(PEOPLE.admin).getFrontEndInsights("7d"));
+    expect(front.thresholds.map((t) => t.vital)).toEqual(["lcp", "inp", "cls", "ttfb"]);
+    expect(front.vitals.filter((stat) => stat.samples < 5).every((stat) => stat.p75 === null)).toBe(true);
+    const pages = value(await as(PEOPLE.admin).getPageInsights("7d"));
+    expect(pages.pages.filter((row) => row.views < 5).every((row) => row.visible_ms === null)).toBe(true);
+    expect(pages.clinics.every((clinic) => !("role_key" in clinic))).toBe(true);
+  });
 });
 
 describe("fake client: editing a patient", () => {

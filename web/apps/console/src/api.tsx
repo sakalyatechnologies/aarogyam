@@ -40,6 +40,39 @@ export function useMetrics(range: MetricsRange) {
   });
 }
 
+/** API routes from every instance's flushed counters, refreshed every minute. */
+export function useRouteInsights(range: MetricsRange) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["insights", "routes", range],
+    queryFn: ({ signal }) => unwrap(api.getRouteInsights(range, { signal })),
+    placeholderData: keepPreviousData,
+    refetchInterval: 60_000,
+  });
+}
+
+/** Page speed and front-end error classes; daily counters, so refreshed every 5 minutes. */
+export function useFrontEndInsights(range: MetricsRange) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["insights", "frontend", range],
+    queryFn: ({ signal }) => unwrap(api.getFrontEndInsights(range, { signal })),
+    placeholderData: keepPreviousData,
+    refetchInterval: 300_000,
+  });
+}
+
+/** Pages per app, roles across clinics and clinic totals; daily counters. */
+export function usePageInsights(range: MetricsRange) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["insights", "pages", range],
+    queryFn: ({ signal }) => unwrap(api.getPageInsights(range, { signal })),
+    placeholderData: keepPreviousData,
+    refetchInterval: 300_000,
+  });
+}
+
 /** The database over a range; the drain job samples it at most every 5 minutes. */
 export function useDbInsights(range: MetricsRange) {
   const api = useApi();

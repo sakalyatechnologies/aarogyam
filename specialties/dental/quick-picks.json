@@ -58,26 +58,28 @@
       "id": "post_extraction",
       "label": "Post-extraction",
       "items": [
-        { "drug_name": "Amoxicillin", "strength": "500 mg", "form": "capsule", "dose": "1 capsule", "frequency": "1-1-1", "timing": "after_food", "duration_days": 5 },
-        { "drug_name": "Paracetamol", "strength": "650 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-1-1", "timing": "after_food", "duration_days": 3 },
-        { "drug_name": "Chlorhexidine", "strength": "0.2%", "form": "mouthwash", "dose": "10 ml rinse", "frequency": "0-0-2", "timing": "after_food", "duration_days": 7, "instructions": "Start the day after extraction" }
+        { "drug_name": "Amoxicillin + Clavulanic acid", "strength": "625 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-1", "timing": "after_food", "duration_days": 5 },
+        { "drug_name": "Aceclofenac + Paracetamol", "strength": "100 mg + 325 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-1", "timing": "after_food", "duration_days": 3 },
+        { "drug_name": "Pantoprazole", "strength": "40 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-0", "timing": "before_food", "duration_days": 5, "instructions": "Before breakfast" },
+        { "drug_name": "Chlorhexidine gluconate", "strength": "0.2%", "form": "mouthwash", "dose": "10 ml", "frequency": "1-0-1", "timing": "after_food", "duration_days": 7, "instructions": "Start the day after extraction; don't rinse for the first 24 hours" }
       ]
     },
     {
       "id": "dental_pain",
-      "label": "Dental pain",
+      "label": "Pain after root canal",
       "items": [
-        { "drug_name": "Ibuprofen", "strength": "400 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-1", "timing": "after_food", "duration_days": 3 },
-        { "drug_name": "Pantoprazole", "strength": "40 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-0", "timing": "before_food", "duration_days": 3 }
+        { "drug_name": "Ketorolac tromethamine", "strength": "10 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-1", "timing": "after_food", "duration_days": 3, "instructions": "Dispersible: dissolve in water" },
+        { "drug_name": "Pantoprazole", "strength": "40 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-0", "timing": "before_food", "duration_days": 3, "instructions": "Before breakfast" }
       ]
     },
     {
       "id": "dental_infection",
-      "label": "Dental infection",
+      "label": "Dental infection / abscess",
       "items": [
-        { "drug_name": "Amoxicillin", "strength": "500 mg", "form": "capsule", "dose": "1 capsule", "frequency": "1-1-1", "timing": "after_food", "duration_days": 5 },
+        { "drug_name": "Amoxicillin + Clavulanic acid", "strength": "625 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-1", "timing": "after_food", "duration_days": 5 },
         { "drug_name": "Metronidazole", "strength": "400 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-1-1", "timing": "after_food", "duration_days": 5 },
-        { "drug_name": "Paracetamol", "strength": "650 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-1-1", "timing": "after_food", "duration_days": 3 }
+        { "drug_name": "Aceclofenac + Paracetamol", "strength": "100 mg + 325 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-1", "timing": "after_food", "duration_days": 3 },
+        { "drug_name": "Pantoprazole", "strength": "40 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-0", "timing": "before_food", "duration_days": 5, "instructions": "Before breakfast" }
       ]
     },
     {
@@ -85,14 +87,35 @@
       "label": "Infection, penicillin-allergic",
       "items": [
         { "drug_name": "Azithromycin", "strength": "500 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-0", "timing": "after_food", "duration_days": 3 },
-        { "drug_name": "Metronidazole", "strength": "400 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-1-1", "timing": "after_food", "duration_days": 5 }
+        { "drug_name": "Metronidazole", "strength": "400 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-1-1", "timing": "after_food", "duration_days": 5 },
+        { "drug_name": "Paracetamol", "strength": "650 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-1-1", "timing": "after_food", "duration_days": 3 }
       ]
     },
     {
       "id": "gum_care",
-      "label": "Gum care",
+      "label": "Gum care after scaling",
       "items": [
-        { "drug_name": "Chlorhexidine", "strength": "0.2%", "form": "mouthwash", "dose": "10 ml rinse", "frequency": "1-0-1", "timing": "after_food", "duration_days": 14 }
+        { "drug_name": "Chlorhexidine gluconate", "strength": "0.2%", "form": "mouthwash", "dose": "10 ml", "frequency": "1-0-1", "timing": "after_food", "duration_days": 14 },
+        { "drug_name": "Tannic acid + Glycerin", "strength": "gum paint", "form": "mouth_paint", "dose": "Apply", "frequency": "1-0-1", "timing": "after_food", "duration_days": 14, "instructions": "Massage gently on the gums" }
+      ]
+    },
+    {
+      "id": "pericoronitis",
+      "label": "Wisdom tooth swelling (pericoronitis)",
+      "items": [
+        { "drug_name": "Amoxicillin + Clavulanic acid", "strength": "625 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-1", "timing": "after_food", "duration_days": 5 },
+        { "drug_name": "Metronidazole", "strength": "400 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-1-1", "timing": "after_food", "duration_days": 5 },
+        { "drug_name": "Aceclofenac + Paracetamol", "strength": "100 mg + 325 mg", "form": "tablet", "dose": "1 tablet", "frequency": "1-0-1", "timing": "after_food", "duration_days": 3 },
+        { "drug_name": "Chlorhexidine gluconate", "strength": "0.2%", "form": "mouthwash", "dose": "10 ml", "frequency": "1-0-1", "timing": "after_food", "duration_days": 7, "instructions": "Also warm salt-water rinses 4 to 5 times a day" }
+      ]
+    },
+    {
+      "id": "mouth_ulcer",
+      "label": "Mouth ulcer",
+      "items": [
+        { "drug_name": "Triamcinolone acetonide", "strength": "0.1%", "form": "paste", "dose": "Apply", "frequency": "1-0-1", "timing": "after_food", "duration_days": 7, "instructions": "Dab on the ulcer after meals and at bedtime" },
+        { "drug_name": "Choline salicylate + Lignocaine", "strength": "8.7% + 2%", "form": "gel", "dose": "Apply", "frequency": "1-1-1", "timing": "before_food", "duration_days": 5, "instructions": "Apply 15 minutes before meals" },
+        { "drug_name": "Vitamin B complex + Vitamin C", "strength": "standard", "form": "capsule", "dose": "1 capsule", "frequency": "1-0-0", "timing": "after_food", "duration_days": 15 }
       ]
     }
   ]

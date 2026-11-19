@@ -841,6 +841,37 @@ pub(crate) fn override_text(text: Option<&str>) -> Result<Option<String>, AppErr
     }
 }
 
+/// The allergy classes of each line that names no catalogue row (typed, or added from a
+/// medicine set), from the rows its name matches, so "Amoxycillin 500 mg cap" still meets a
+/// penicillin allergy. Lines with a `drug_id` get none here: their row's classes apply.
+async fn classes_by_name(
+    tx: &mut ScopedTx,
+    items: &[RxItemRow],
+) -> Result<Vec<Vec<String>>, AppError> {
+    if items.iter().all(|item| item.drug_id.is_some()) {
+        return Ok(vec![Vec::new(); items.len()]);
+    }
+    let rows = dal::drug_names(tx.conn()).await?;
+    let catalog: Vec<rules::CatalogNames<'_>> = rows
+        .iter()
+        .map(|row| rules::CatalogNames {
+            generic_name: &row.generic_name,
+            brand_name: row.brand_name.as_deref(),
+            allergy_classes: &row.allergy_classes,
+        })
+        .collect();
+    Ok(items
+        .iter()
+        .map(|item| {
+            if item.drug_id.is_none() {
+                rules::classes_for_name(&item.drug_name, &catalog)
+            } else {
+                Vec::new()
+            }
+        })
+        .collect())
+}
+
 /// [`issue`] inside the caller's clinic transaction. Nothing is written when it answers
 /// `NeedsOverride`, so a caller may go on to other changes only after an `Issued`.
 #[expect(
@@ -876,16 +907,17 @@ pub(crate) async fn issue_in(
     }
     let ids: Vec<Uuid> = items.iter().filter_map(|item| item.drug_id).collect();
     let drugs = dal::drugs(tx.conn(), &ids).await?;
-    let no_classes = Vec::new();
+    let by_name = classes_by_name(tx, &items).await?;
     let checked: Vec<CheckedDrug<'_>> = items
         .iter()
-        .map(|item| CheckedDrug {
+        .zip(&by_name)
+        .map(|(item, named)| CheckedDrug {
             line_no: u16::try_from(item.line_no).unwrap_or(0),
             name: &item.drug_name,
             classes: item
                 .drug_id
                 .and_then(|drug| drugs.iter().find(|d| d.id == drug))
-                .map_or(&no_classes, |d| &d.allergy_classes),
+                .map_or(named, |d| &d.allergy_classes),
         })
         .collect();
     let allergies = allergy_source

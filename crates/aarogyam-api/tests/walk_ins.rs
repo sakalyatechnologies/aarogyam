@@ -562,7 +562,10 @@ async fn the_desk_and_the_doctor_read_the_quick_picks() {
             .iter()
             .find(|s| s["id"] == "post_extraction")
             .unwrap();
-        assert_eq!(set["items"][0]["drug_name"], "Amoxicillin");
+        assert_eq!(
+            set["items"][0]["drug_name"],
+            "Amoxicillin + Clavulanic acid"
+        );
         assert!(picks["complaints"].as_array().unwrap().len() >= 5);
     }
     let (status, _) = get(

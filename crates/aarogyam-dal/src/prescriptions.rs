@@ -89,6 +89,33 @@ pub async fn drugs(conn: &mut PgConnection, ids: &[Uuid]) -> Result<Vec<DrugRow>
     Ok(rows)
 }
 
+/// A catalogue row's names and classes, for checking lines that name no row.
+#[derive(Debug, Clone)]
+pub struct DrugNamesRow {
+    /// Generic name.
+    pub generic_name: String,
+    /// Brand aliases, comma separated.
+    pub brand_name: Option<String>,
+    /// Classes such as `penicillin`.
+    pub allergy_classes: Vec<String>,
+}
+
+/// Every active catalogue row's names and classes (the shared list is about 115 rows), for the
+/// allergy check of lines typed or added from a medicine set.
+///
+/// # Errors
+/// A database error.
+pub async fn drug_names(conn: &mut PgConnection) -> Result<Vec<DrugNamesRow>, DbError> {
+    let rows = sqlx::query_as!(
+        DrugNamesRow,
+        r#"select generic_name, brand_name, allergy_classes
+           from aarogyam.drug_catalog where active"#
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
 /// A prescription with its patient.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct RxRow {

@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select generic_name, brand_name, allergy_classes\n           from aarogyam.drug_catalog where active",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "generic_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "generic_name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "brand_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "brand_name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "allergy_classes",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "allergy_classes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "c74886735ef3749be21c0ef8f2ec6c554d6e9d8a67c6759d73cdf8d681e9add9"
+}

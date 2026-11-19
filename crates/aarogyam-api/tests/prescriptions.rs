@@ -595,6 +595,47 @@ async fn the_allergy_check_reads_the_recorded_allergies() {
     app.finish().await;
 }
 
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn lines_without_a_catalogue_row_still_meet_the_allergy_check() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = patient(&app, ALPHA, &owner).await;
+    let path = format!("/api/v1/patients/{patient}/allergies");
+    for substance in ["Penicillin", "NSAID"] {
+        let allergy = json!({ "substance": substance, "severity": "mild" });
+        let (status, body) = app
+            .send(Method::POST, ALPHA, &path, Some(&owner), Some(allergy))
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "{body}");
+    }
+    // As the built-in "After extraction" set adds them, a clinic set types them, and a doctor
+    // types a brand: no drug_id on any line.
+    let items = json!([
+        { "drug_name": "Amoxicillin + Clavulanic acid", "strength": "625 mg", "form": "tablet",
+          "dose": "1 tablet", "frequency": "1-0-1" },
+        { "drug_name": "Amoxycillin 500 mg cap", "dose": "1 capsule", "frequency": "1-1-1" },
+        { "drug_name": "Augmentin 625", "dose": "1 tablet", "frequency": "1-0-1" },
+        { "drug_name": "Ketorolac DT", "dose": "1 tablet", "frequency": "1-0-1" },
+        { "drug_name": "Paracetamol 650", "dose": "1 tablet", "frequency": "1-1-1" },
+        { "drug_name": "Chlorhexidine gluconate", "strength": "0.2%", "form": "mouthwash",
+          "dose": "10 ml", "frequency": "1-0-1" }
+    ]);
+    let rx = draft(&app, &owner, &patient, items).await;
+    let (status, blocked) = issue(&app, &owner, rx["id"].as_str().unwrap(), json!({})).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{blocked}");
+    let mut lines: Vec<i64> = blocked["alerts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|alert| alert["line_no"].as_i64().unwrap())
+        .collect();
+    lines.sort_unstable();
+    lines.dedup();
+    assert_eq!(lines, [1, 2, 3, 4], "{blocked}");
+    app.finish().await;
+}
+
 async fn patient_with(app: &TestApp, token: &str, extra: Value) -> String {
     let mut body = json!({ "full_name": "Rahul Verma", "sex": "male", "age_years": 40 });
     body.as_object_mut()

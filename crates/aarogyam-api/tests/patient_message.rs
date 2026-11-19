@@ -1,5 +1,6 @@
 //! The visit summary for the doctor's own `WhatsApp` on a real database: the message and its
-//! link, who it goes to, every refusal, the three-live-links cap, and the cross-clinic 404.
+//! link, who it goes to, every refusal, the three-live-links cap, the richer shared visit page,
+//! and the cross-clinic 404.
 #![expect(
     clippy::unwrap_used,
     reason = "tests fail loudly instead of returning errors"
@@ -140,6 +141,30 @@ async fn a_closed_visit_gives_the_message_a_link_and_a_pin_and_never_more_than_t
     .await;
     assert_eq!(status, StatusCode::OK, "{issued}");
 
+    // An accepted plan item shows on the plan too.
+    let (status, plan) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/patients/{patient}/treatment-plans"),
+        Some(json!({ "title": "Cleaning", "visit_id": visit,
+                     "items": [{ "name": "Scaling", "estimate_paise": 80_000 }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{plan}");
+    let (status, accepted) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!(
+            "/api/v1/treatment-plans/{}/accept",
+            plan["id"].as_str().unwrap()
+        ),
+        Some(json!({ "item_ids": [plan["items"][0]["id"]] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{accepted}");
+
     // An open visit has no summary yet.
     assert_eq!(refusal(&app, &owner, &visit).await, "visit_open");
     close(&app, &owner, &visit).await;
@@ -198,6 +223,44 @@ async fn a_closed_visit_gives_the_message_a_link_and_a_pin_and_never_more_than_t
         )
         .await;
     assert_eq!(status, StatusCode::OK, "{page}");
+    // The page carries the visit story, and nothing about notes or other staff.
+    assert_eq!(page["chief_complaint"], "Pain lower right");
+    assert_eq!(page["plan"][0]["source"], "procedure");
+    assert_eq!(page["plan"][0]["name"], "Implant");
+    assert_eq!(page["plan"][0]["tooth"], 46);
+    assert_eq!(page["plan"][0]["estimate_paise"], 2_500_000);
+    assert_eq!(page["plan"][1]["source"], "plan_item");
+    assert_eq!(page["plan"][1]["estimate_paise"], 80_000);
+    assert_eq!(page["plan"].as_array().unwrap().len(), 2);
+    assert_eq!(page["medicines"][0]["frequency"], "1-0-1");
+    assert_eq!(page["medicines"][0]["duration_days"], 5);
+    assert_eq!(page["aftercare"][0]["key"], "extraction");
+    assert!(page["aftercare"][0]["steps"].as_array().unwrap().len() >= 3);
+    assert!(page.get("notes").is_none());
+    // A clinic that hides estimates shows none.
+    sqlx::query(
+        "insert into aarogyam.org_settings (org_id, billing)
+         select org_id, '{\"patient_estimates\": false}' from aarogyam.encounters
+         where id = $1::uuid
+         on conflict (org_id) do update
+           set billing = aarogyam.org_settings.billing || excluded.billing",
+    )
+    .bind(&visit)
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let (status, page) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/shared/{token}/visit"),
+            None,
+            Some(json!({ "pin": pin })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{page}");
+    assert!(page["plan"][0]["estimate_paise"].is_null(), "{page}");
+    assert_eq!(page["plan"][0]["name"], "Implant");
 
     // Earlier links stay valid, but no more than three live at once.
     assert_eq!(live_links(&app, &visit).await, 2);

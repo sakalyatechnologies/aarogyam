@@ -15191,6 +15191,17 @@ export interface components {
             /** @description Every item, critical first, then low, expiring and ok; each group by name. */
             items: components["schemas"]["StockLevel"][];
         };
+        /** @description Care at home after one of today's treatments. */
+        SummaryAftercare: {
+            /** @description When to call the clinic. */
+            call_if: string;
+            /** @description The aftercare key, such as `extraction` or `root_canal_between_sittings`. */
+            key: string;
+            /** @description What to do, most important first. */
+            steps: string[];
+            /** @description Heading, such as "After a tooth removal". */
+            title: string;
+        };
         /** @description The summary note's new text. */
         SummaryContent: {
             /**
@@ -15198,6 +15209,22 @@ export interface components {
              *     links, images and code are refused (`400`).
              */
             body: string;
+        };
+        /** @description A medicine of the visit's issued prescriptions. */
+        SummaryMedicine: {
+            /**
+             * Format: int32
+             * @description For how many days.
+             */
+            duration_days?: number | null;
+            /** @description How often, such as `1-0-1` (morning, afternoon, night). */
+            frequency: string;
+            /** @description Generic name. */
+            generic: string;
+            /** @description Strength, such as `500 mg`. */
+            strength?: string | null;
+            /** @description When to take it, such as `after_food`. */
+            timing?: string | null;
         };
         /** @description A patient's summary note: formatted text kept up to date outside any single visit. */
         SummaryNote: {
@@ -15215,6 +15242,26 @@ export interface components {
             updated_at: string;
             /** @description Who last changed it. */
             updated_by?: string | null;
+        };
+        /** @description Something still to be done for the patient. */
+        SummaryPlanItem: {
+            /**
+             * Format: int64
+             * @description The estimate in paise; absent when unknown or the clinic hides estimates. Show it as an
+             *     estimate: the final cost follows the examination.
+             */
+            estimate_paise?: number | null;
+            /** @description The procedure's or plan item's id. */
+            id: string;
+            /** @description What is to be done. */
+            name: string;
+            /** @description `procedure` (planned in this visit) or `plan_item` (an accepted treatment plan). */
+            source: string;
+            /**
+             * Format: int32
+             * @description The tooth (FDI number), when it concerns one.
+             */
+            tooth?: number | null;
         };
         /** @description A treatment done in the visit. */
         SummaryTreatment: {
@@ -16168,20 +16215,32 @@ export interface components {
         };
         /** @description What a visit summary shows. */
         VisitSummary: {
+            /** @description Care at home after today's treatments, most important first. */
+            aftercare?: components["schemas"]["SummaryAftercare"][] | null;
             /** @description The clinic's verified portal host; the booking page is `https://{host}/book`. */
             booking_host?: string | null;
             /** @description Where to book the next visit: the clinic's public booking page, when it has a portal. */
             booking_path?: string | null;
+            /** @description Why the patient came. */
+            chief_complaint?: string | null;
             /** @description The clinic's name. */
             clinic_name: string;
+            /** @description The clinic's phone in E.164, for "Call us". */
+            clinic_phone?: string | null;
             /** @description The doctor's name. */
             doctor_name?: string | null;
             /** @description When the link stops working. */
             expires_at: string;
             /** @description When the next follow-up falls due (`YYYY-MM-DD`), if one is planned. */
             follow_up_on?: string | null;
+            /** @description The visit's medicines. */
+            medicines?: components["schemas"]["SummaryMedicine"][] | null;
             /** @description The patient's name. */
             patient_name: string;
+            /** @description What is still to be done: planned procedures, then accepted plan items. */
+            plan?: components["schemas"]["SummaryPlanItem"][] | null;
+            /** @description The visit doctor's practitioner id, to preselect on the booking page. */
+            practitioner_id?: string | null;
             /** @description The treatments done. */
             treatments: components["schemas"]["SummaryTreatment"][];
             /** @description The visit's readable number, such as `V-318`. */

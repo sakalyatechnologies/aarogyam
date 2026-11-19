@@ -1,23 +1,26 @@
 //! Links to a visit summary: the clinic makes one for a visit, and the patient opens it on the
 //! clinic's host with the PIN (the same token and PIN as prescription links, limited the same
-//! way). The summary shows only what the patient should take away: the treatments done, the
-//! follow-up date and where to book. Never notes, findings, prices or other visits. Making a link
-//! and opening it are written to the access record.
+//! way). The summary shows only what the patient should take away: why they came, the treatments
+//! done, the plan (with estimates unless the clinic hides them), the medicines, care at home, the
+//! follow-up date, the clinic's phone and where to book. Never notes, findings, images, other
+//! staff or other visits. Making a link and opening it are written to the access record.
 
+use aarogyam_dal::visit_messages as extras_dal;
 use aarogyam_dal::visit_summaries as dal;
-use aarogyam_dal::{access, patients, prescriptions as links, treatment, visits};
+use aarogyam_dal::{access, patients, prescriptions as links, visits};
 use aarogyam_domain::access::ClinicActor;
-use aarogyam_domain::clinical::ProcedureStatus;
 use aarogyam_domain::dental::Tooth;
 use aarogyam_domain::ids::{ClinicId, EncounterId, ShareLinkId};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::share::{LinkState, MAX_PIN_ATTEMPTS, Pin};
+use aarogyam_domain::visit_message::{Aftercare, aftercare};
 use sakalya_db::{Db, ScopedTx};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
+use crate::patient_message::{self as plan_source, PlanItem};
 use crate::scope::{PATIENT, public_scope, staff_scope};
 use crate::share::{NewLink, ShareOptions, new_pin, pin_hash};
 use crate::tokens::{hash_token, new_token};
@@ -137,6 +140,30 @@ pub struct Treatment {
     pub tooth: Option<Tooth>,
 }
 
+/// A medicine prescribed in the visit.
+#[derive(Debug, Clone)]
+pub struct Medicine {
+    /// Generic name.
+    pub generic: String,
+    /// Strength, such as `500 mg`.
+    pub strength: Option<String>,
+    /// How often, such as `1-0-1`.
+    pub frequency: String,
+    /// When to take it, such as `after_food`.
+    pub timing: Option<String>,
+    /// For how many days.
+    pub days: Option<u16>,
+}
+
+/// Care at home after one of today's treatments.
+#[derive(Debug, Clone, Copy)]
+pub struct Care {
+    /// The aftercare key, such as `extraction`.
+    pub key: &'static str,
+    /// What to do.
+    pub care: &'static Aftercare,
+}
+
 /// What an opened visit link shows.
 #[derive(Debug, Clone)]
 pub struct Summary {
@@ -158,6 +185,75 @@ pub struct Summary {
     pub booking_host: Option<String>,
     /// When the link stops working.
     pub expires_at: OffsetDateTime,
+    /// Why the patient came.
+    pub chief_complaint: Option<String>,
+    /// What is still to be done; estimates left out when the clinic hides them
+    /// (`billing.patient_estimates`).
+    pub plan: Vec<PlanItem>,
+    /// The medicines of the visit's issued prescriptions.
+    pub medicines: Vec<Medicine>,
+    /// Care at home after today's treatments, most important first.
+    pub aftercare: Vec<Care>,
+    /// The clinic's phone (the visit branch's, else the default branch's).
+    pub clinic_phone: Option<String>,
+    /// The visit doctor's practitioner record, for booking.
+    pub practitioner_id: Option<Uuid>,
+}
+
+/// What the page shows beyond the visit row: treatments, plan, medicines, care, contact.
+struct Extras {
+    treatments: Vec<Treatment>,
+    plan: Vec<PlanItem>,
+    medicines: Vec<Medicine>,
+    aftercare: Vec<Care>,
+    clinic_phone: Option<String>,
+    practitioner_id: Option<Uuid>,
+}
+
+async fn extras_in(
+    tx: &mut ScopedTx,
+    encounter_id: Uuid,
+    patient_id: Uuid,
+) -> Result<Extras, AppError> {
+    let done = plan_source::done_in(tx, encounter_id).await?;
+    let mut plan = plan_source::plan_in(tx, encounter_id, patient_id).await?;
+    let aftercare = plan_source::care_keys(&done, &plan)
+        .into_iter()
+        .filter_map(|key| aftercare(key).map(|care| Care { key, care }))
+        .collect();
+    let context = extras_dal::page_context(tx.conn(), encounter_id)
+        .await?
+        .ok_or(AppError::NotFound("visit"))?;
+    if !context.patient_estimates {
+        for item in &mut plan {
+            item.estimate = None;
+        }
+    }
+    let medicines = extras_dal::medicines(tx.conn(), encounter_id)
+        .await?
+        .into_iter()
+        .map(|row| Medicine {
+            generic: row.generic,
+            strength: row.strength,
+            frequency: row.frequency,
+            timing: row.timing,
+            days: row.duration_days.and_then(|d| u16::try_from(d).ok()),
+        })
+        .collect();
+    Ok(Extras {
+        treatments: done
+            .into_iter()
+            .map(|work| Treatment {
+                name: work.name,
+                tooth: work.tooth,
+            })
+            .collect(),
+        plan,
+        medicines,
+        aftercare,
+        clinic_phone: context.clinic_phone,
+        practitioner_id: context.practitioner_id,
+    })
 }
 
 /// What opening a link to a visit summary did.
@@ -228,15 +324,7 @@ pub async fn open(
         let doctor_name = links::doctor(tx.conn(), visit.clinician_id)
             .await?
             .map(|(name, _)| name);
-        let treatments = treatment::procedures_of_encounter(tx.conn(), visit.id)
-            .await?
-            .into_iter()
-            .filter(|row| row.status == ProcedureStatus::Done.as_str())
-            .map(|row| Treatment {
-                name: row.name,
-                tooth: row.tooth.and_then(|n| Tooth::new(i64::from(n)).ok()),
-            })
-            .collect();
+        let extras = extras_in(tx, visit.id, visit.patient_id).await?;
         let visited_on = clinic_today(&timezone, visit.started_at);
         let follow_up_on = dal::next_follow_up(tx.conn(), visit.patient_id, visited_on).await?;
         let booking_host = aarogyam_dal::staff::portal_host(tx.conn()).await?;
@@ -262,10 +350,16 @@ pub async fn open(
             visit_number: visit.number,
             visited_on,
             doctor_name,
-            treatments,
+            treatments: extras.treatments,
             follow_up_on,
             booking_host,
             expires_at: link.expires_at,
+            chief_complaint: visit.chief_complaint,
+            plan: extras.plan,
+            medicines: extras.medicines,
+            aftercare: extras.aftercare,
+            clinic_phone: extras.clinic_phone,
+            practitioner_id: extras.practitioner_id,
         })))
     })
     .await

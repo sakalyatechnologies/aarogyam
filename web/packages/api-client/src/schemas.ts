@@ -3024,6 +3024,37 @@ export const visitSummary = z.object({
   booking_path: z.string().nullable().exactOptional(),
   booking_host: z.string().nullable().exactOptional(),
   expires_at: timestamp,
+  chief_complaint: z.string().nullable().exactOptional(),
+  plan: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        source: z.string(),
+        name: z.string(),
+        tooth: count.nullable().exactOptional(),
+        estimate_paise: paise.nullable().exactOptional(),
+      }),
+    )
+    .nullable()
+    .exactOptional(),
+  medicines: z
+    .array(
+      z.object({
+        generic: z.string(),
+        strength: z.string().nullable().exactOptional(),
+        frequency: z.string(),
+        timing: z.string().nullable().exactOptional(),
+        duration_days: count.nullable().exactOptional(),
+      }),
+    )
+    .nullable()
+    .exactOptional(),
+  aftercare: z
+    .array(z.object({ key: z.string(), title: z.string(), steps: z.array(z.string()), call_if: z.string() }))
+    .nullable()
+    .exactOptional(),
+  clinic_phone: z.string().nullable().exactOptional(),
+  practitioner_id: z.string().nullable().exactOptional(),
 }) satisfies z.ZodType<C.VisitSummary>;
 export type VisitSummary = z.output<typeof visitSummary>;
 

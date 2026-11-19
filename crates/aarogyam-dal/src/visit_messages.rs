@@ -219,3 +219,47 @@ pub async fn next_booked(
     .await?;
     Ok(at)
 }
+
+/// What the shared visit page adds about the clinic and the visit's doctor.
+#[derive(Debug, Clone)]
+pub struct PageContext {
+    /// The visit branch's phone, else the default branch's.
+    pub clinic_phone: Option<String>,
+    /// Whether the clinic shows patients estimates (`billing.patient_estimates`; on when unset).
+    pub patient_estimates: bool,
+    /// The visit doctor's practitioner, for booking.
+    pub practitioner_id: Option<Uuid>,
+}
+
+/// The page context of a visit; `None` for an unknown visit.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn page_context(
+    conn: &mut PgConnection,
+    encounter_id: Uuid,
+) -> Result<Option<PageContext>, DbError> {
+    let row = sqlx::query_as!(
+        PageContext,
+        r#"select coalesce(
+                    (select b.phone_e164 from aarogyam.branches b
+                     where b.org_id = e.org_id and b.id = e.branch_id and b.deleted_at is null),
+                    (select b.phone_e164 from aarogyam.branches b
+                     where b.org_id = e.org_id and b.is_default and b.deleted_at is null
+                     limit 1)) as clinic_phone,
+                  coalesce((select case jsonb_typeof(s.billing -> 'patient_estimates')
+                                     when 'boolean' then (s.billing -> 'patient_estimates')::boolean
+                                   end
+                            from aarogyam.org_settings s where s.org_id = e.org_id), true)
+                    as "patient_estimates!",
+                  (select pr.id from aarogyam.practitioners pr
+                   where pr.org_id = e.org_id and pr.membership_id = e.clinician_id
+                     and pr.deleted_at is null
+                   limit 1) as practitioner_id
+           from aarogyam.encounters e where e.id = $1"#,
+        encounter_id
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}

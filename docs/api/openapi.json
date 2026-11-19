@@ -41402,6 +41402,37 @@
           }
         }
       },
+      "SummaryAftercare": {
+        "type": "object",
+        "description": "Care at home after one of today's treatments.",
+        "required": [
+          "key",
+          "title",
+          "steps",
+          "call_if"
+        ],
+        "properties": {
+          "call_if": {
+            "type": "string",
+            "description": "When to call the clinic."
+          },
+          "key": {
+            "type": "string",
+            "description": "The aftercare key, such as `extraction` or `root_canal_between_sittings`."
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What to do, most important first."
+          },
+          "title": {
+            "type": "string",
+            "description": "Heading, such as \"After a tooth removal\"."
+          }
+        }
+      },
       "SummaryContent": {
         "type": "object",
         "description": "The summary note's new text.",
@@ -41412,6 +41443,47 @@
           "body": {
             "type": "string",
             "description": "The text, up to 20,000 characters, in the Markdown subset. Empty clears the note. HTML,\nlinks, images and code are refused (`400`)."
+          }
+        }
+      },
+      "SummaryMedicine": {
+        "type": "object",
+        "description": "A medicine of the visit's issued prescriptions.",
+        "required": [
+          "generic",
+          "frequency"
+        ],
+        "properties": {
+          "duration_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "For how many days.",
+            "minimum": 0
+          },
+          "frequency": {
+            "type": "string",
+            "description": "How often, such as `1-0-1` (morning, afternoon, night)."
+          },
+          "generic": {
+            "type": "string",
+            "description": "Generic name."
+          },
+          "strength": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Strength, such as `500 mg`."
+          },
+          "timing": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When to take it, such as `after_food`."
           }
         }
       },
@@ -41443,6 +41515,46 @@
               "null"
             ],
             "description": "Who last changed it."
+          }
+        }
+      },
+      "SummaryPlanItem": {
+        "type": "object",
+        "description": "Something still to be done for the patient.",
+        "required": [
+          "id",
+          "source",
+          "name"
+        ],
+        "properties": {
+          "estimate_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The estimate in paise; absent when unknown or the clinic hides estimates. Show it as an\nestimate: the final cost follows the examination."
+          },
+          "id": {
+            "type": "string",
+            "description": "The procedure's or plan item's id."
+          },
+          "name": {
+            "type": "string",
+            "description": "What is to be done."
+          },
+          "source": {
+            "type": "string",
+            "description": "`procedure` (planned in this visit) or `plan_item` (an accepted treatment plan)."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The tooth (FDI number), when it concerns one.",
+            "minimum": 0
           }
         }
       },
@@ -43719,6 +43831,16 @@
           "expires_at"
         ],
         "properties": {
+          "aftercare": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SummaryAftercare"
+            },
+            "description": "Care at home after today's treatments, most important first."
+          },
           "booking_host": {
             "type": [
               "string",
@@ -43733,9 +43855,23 @@
             ],
             "description": "Where to book the next visit: the clinic's public booking page, when it has a portal."
           },
+          "chief_complaint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient came."
+          },
           "clinic_name": {
             "type": "string",
             "description": "The clinic's name."
+          },
+          "clinic_phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic's phone in E.164, for \"Call us\"."
           },
           "doctor_name": {
             "type": [
@@ -43755,9 +43891,36 @@
             ],
             "description": "When the next follow-up falls due (`YYYY-MM-DD`), if one is planned."
           },
+          "medicines": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SummaryMedicine"
+            },
+            "description": "The visit's medicines."
+          },
           "patient_name": {
             "type": "string",
             "description": "The patient's name."
+          },
+          "plan": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SummaryPlanItem"
+            },
+            "description": "What is still to be done: planned procedures, then accepted plan items."
+          },
+          "practitioner_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit doctor's practitioner id, to preselect on the booking page."
           },
           "treatments": {
             "type": "array",

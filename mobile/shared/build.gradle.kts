@@ -267,6 +267,11 @@ val apiModels =
         "CloseRequest",
         "CloseQueueStatus",
         "VisitLink",
+        // Phase C: the visit summary for the doctor's own WhatsApp.
+        "VisitPatientMessage",
+        "SummaryPlanItem",
+        "SummaryMedicine",
+        "SummaryAftercare",
         "ShareRequest",
         "FinishRequest",
         "FinishedVisit",

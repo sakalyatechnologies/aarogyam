@@ -8443,6 +8443,52 @@
           }
         }
       }
+    },
+    "calendar.walk_in": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walk-in"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वॉक-इन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वॉक-इन"
+          }
+        }
+      }
+    },
+    "calendar.walk_ins_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walk-ins couldn't load; pull down to try again."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वॉक-इन लोड नहीं हुए; फिर से कोशिश करने के लिए नीचे खींचें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वॉक-इन लोड झाले नाहीत; पुन्हा प्रयत्नासाठी खाली ओढा."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -92,7 +92,7 @@ fun DayV7(
                 }
 
                 is CalendarState.Loaded -> {
-                    Day(s, holder, zone) { detail = it }
+                    Day(s, holder, zone, onOpenPatient) { detail = it }
                 }
             }
         }
@@ -111,6 +111,7 @@ private fun Day(
     s: CalendarState.Loaded,
     holder: CalendarStateHolder,
     zone: TimeZone,
+    onOpenPatient: (String) -> Unit,
     onDetail: (String) -> Unit,
 ) {
     DayStrip(s.date, holder::show)
@@ -120,10 +121,18 @@ private fun Day(
         { holder.setMode(if (it == 0) CalendarMode.Doctor else CalendarMode.Chair) },
     )
     s.error?.let { Text(stringResource(it.message()), style = v7(12f), color = SkTheme.palette.error.color) }
+    if (s.walkInsFailed) {
+        Text(
+            stringResource(R.string.calendar_walk_ins_failed),
+            style = v7(12f),
+            color = SkTheme.palette.onSurfaceVariant.color,
+        )
+    }
     if (s.entries.isEmpty()) {
         SkEmptyState(stringResource(R.string.calendar_empty_title), stringResource(R.string.calendar_empty_message))
     } else {
-        DayColumns(s, zone) { onDetail(it.appointmentId) }
+        // A walk-in has no appointment to show: it opens the patient.
+        DayColumns(s, zone) { if (it.walkIn) onOpenPatient(it.patientId) else onDetail(it.appointmentId) }
     }
 }
 

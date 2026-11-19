@@ -2,11 +2,14 @@ package com.aarogyam.staff.schedule
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.model.Appointment
+import com.aarogyam.staff.api.model.CalendarWalkIn
+import com.aarogyam.staff.calendar.walkInsOf
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.today.parseInstant
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,9 +27,9 @@ import kotlin.time.Clock
 /** One day of the week view: how busy each clinic hour is. */
 data class DayDensity(
     val date: LocalDate,
-    /** Appointments that day, cancelled ones left out. */
+    /** Appointments and walk-ins that day, cancelled appointments left out. */
     val total: Int,
-    /** Appointments starting in each hour (0–23) that day. */
+    /** Appointments and walk-ins starting in each hour (0–23) that day. */
     val byHour: Map<Int, Int>,
 )
 
@@ -51,10 +54,12 @@ sealed interface WeekState {
     data class Loaded(
         val view: WeekView,
         val start: LocalDate,
+        /** The walk-ins could not be loaded; the counts are appointments only. */
+        val walkInsFailed: Boolean = false,
     ) : WeekState
 }
 
-/** The Schedule tab's Week view: one `GET /appointments` for Monday to Sunday. */
+/** The Schedule tab's Week view: `GET /appointments` and `GET /calendar/walk-ins` for Monday to Sunday. */
 class WeekStateHolder(
     private val clinic: ClinicContext,
     private val scope: CoroutineScope,
@@ -90,10 +95,17 @@ class WeekStateHolder(
         mutableState.value = WeekState.Loading
         scope.launch {
             val to = from.plus(DatePeriod(days = DAYS - 1))
+            val walkIns = async { walkInsOf(clinic.api.calendarWalkIns(from.toString(), to.toString())) }
             mutableState.value =
                 when (val answer = clinic.api.appointments(from.toString(), to.toString())) {
                     is Outcome.Success -> {
-                        WeekState.Loaded(weekOf(from, answer.value.items, clinic.timeZone), from)
+                        val extra = walkIns.await()
+                        if (extra.failed) log.warn("week.walk_ins_failed")
+                        WeekState.Loaded(
+                            weekOf(from, answer.value.items, clinic.timeZone, extra.items),
+                            from,
+                            extra.failed,
+                        )
                     }
 
                     is Outcome.Failure -> {
@@ -118,16 +130,16 @@ class WeekStateHolder(
     }
 }
 
-/** Counts [appointments] into the seven days from [monday], in [zone]. */
+/** Counts [appointments] and [walkIns] into the seven days from [monday], in [zone]. */
 internal fun weekOf(
     monday: LocalDate,
     appointments: List<Appointment>,
     zone: TimeZone,
+    walkIns: List<CalendarWalkIn> = emptyList(),
 ): WeekView {
     val starts =
-        appointments
-            .filter { it.status != "cancelled" }
-            .mapNotNull { parseInstant(it.startsAt)?.toLocalDateTime(zone) }
+        (appointments.filter { it.status != "cancelled" }.map { it.startsAt } + walkIns.map { it.startsAt })
+            .mapNotNull { parseInstant(it)?.toLocalDateTime(zone) }
     val days =
         (0 until WeekStateHolder.DAYS).map { offset ->
             val date = monday.plus(DatePeriod(days = offset))

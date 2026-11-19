@@ -36,7 +36,10 @@ data class CalendarColumn(
     val count: Int,
 )
 
-/** One appointment on the day. Patient details are for the screen only, never for logs. */
+/**
+ * One appointment or walk-in on the day. Patient details are for the screen only, never for logs.
+ * For a walk-in [appointmentId] is the visit id, and [practitionerId] is empty when it has no doctor.
+ */
 data class CalendarEntry(
     val appointmentId: String,
     val patientId: String,
@@ -51,6 +54,8 @@ data class CalendarEntry(
     val practitioner: String,
     val roomId: String?,
     val room: String?,
+    /** A visit without an appointment: drawn dashed, opens the patient, never moved. */
+    val walkIn: Boolean = false,
 )
 
 /** What the Calendar screen draws. */
@@ -80,11 +85,13 @@ sealed interface CalendarState {
         val entries: List<CalendarEntry>,
         val refreshing: Boolean = false,
         val error: ScreenError? = null,
+        /** The walk-ins could not be loaded; the appointments show without them. */
+        val walkInsFailed: Boolean = false,
     ) : CalendarState
 }
 
 /**
- * The day view. One `GET /appointments` per day shown; switching between doctors and chairs or
+ * The day view. One `GET /appointments` and one `GET /calendar/walk-ins` per day shown; switching between doctors and chairs or
  * filtering one column reuses that answer. Doctors and rooms come from the clinic's cached
  * reference data. Times are the clinic's, and cancelled appointments are left out.
  */
@@ -98,6 +105,7 @@ class CalendarStateHolder(
         val all: List<CalendarEntry>,
         val doctors: List<CalendarColumn>,
         val chairs: List<CalendarColumn>,
+        val walkInsFailed: Boolean,
     )
 
     private val today: LocalDate get() = now().toLocalDateTime(clinic.timeZone).date
@@ -188,6 +196,7 @@ class CalendarStateHolder(
         coroutineScope {
             val iso = target.toString()
             val appointments = async { clinic.api.appointments(iso, iso) }
+            val walkIns = async { walkInsOf(clinic.api.calendarWalkIns(iso, iso)) }
             // Reference data is a convenience: without it the day still shows, unfiltered.
             val doctors = async { clinic.reference.practitioners() }
             val rooms = async { clinic.reference.rooms() }
@@ -197,11 +206,15 @@ class CalendarStateHolder(
                 }
 
                 is Outcome.Success -> {
+                    val extra = walkIns.await()
+                    if (extra.failed) log.warn("calendar.walk_ins_failed")
                     val entries =
-                        list.value.items
-                            .mapNotNull { it.toEntry(clinic) }
-                            .filter { it.status != VisitStatus.Cancelled }
-                            .sortedBy { it.starts }
+                        (
+                            list.value.items
+                                .mapNotNull { it.toEntry(clinic) }
+                                .filter { it.status != VisitStatus.Cancelled } +
+                                extra.items.mapNotNull { it.toEntry(clinic.timeZone, today) }
+                        ).sortedBy { it.starts }
                     val doctorColumns =
                         (doctors.await() as? Outcome.Success)?.value.orEmpty().filter { it.active }.map { d ->
                             CalendarColumn(
@@ -218,7 +231,7 @@ class CalendarStateHolder(
                         (rooms.await() as? Outcome.Success)?.value.orEmpty().filter { it.active }.map { r ->
                             CalendarColumn(r.id, r.name, null, entries.count { it.roomId == r.id })
                         }
-                    Outcome.Success(Day(entries, doctorColumns, chairColumns))
+                    Outcome.Success(Day(entries, doctorColumns, chairColumns, extra.failed))
                 }
             }
         }
@@ -233,7 +246,16 @@ class CalendarStateHolder(
                 mode == CalendarMode.Doctor -> current.all.filter { it.practitionerId == chosen }
                 else -> current.all.filter { it.roomId == chosen }
             }
-        mutableState.value = CalendarState.Loaded(date, date == today, mode, columns, chosen, entries)
+        mutableState.value =
+            CalendarState.Loaded(
+                date,
+                date == today,
+                mode,
+                columns,
+                chosen,
+                entries,
+                walkInsFailed = current.walkInsFailed,
+            )
     }
 
     private companion object {

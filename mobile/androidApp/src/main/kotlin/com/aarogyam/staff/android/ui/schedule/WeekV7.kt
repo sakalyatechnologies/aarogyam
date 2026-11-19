@@ -131,6 +131,13 @@ private fun Loaded(
         )
         Arrow("chev", R.string.sh_s_week_next, holder::next)
     }
+    if (s.walkInsFailed) {
+        Text(
+            stringResource(R.string.calendar_walk_ins_failed),
+            style = v7(12f),
+            color = SkTheme.palette.onSurfaceVariant.color,
+        )
+    }
     SkCard {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SkHeatmap(

@@ -95,6 +95,8 @@
     <string name="calendar_next">पुढचा दिवस</string>
     <string name="calendar_column_count">%1$s (%2$d)</string>
     <string name="calendar_empty_title">अपॉइंटमेंट नाहीत</string>
+    <string name="calendar_walk_in">वॉक-इन</string>
+    <string name="calendar_walk_ins_failed">वॉक-इन लोड झाले नाहीत; पुन्हा प्रयत्नासाठी खाली ओढा.</string>
     <string name="calendar_empty_message">या दिवशी काहीही बुक नाही.</string>
     <string name="calendar_not_allowed_title">कॅलेंडर उपलब्ध नाही</string>
     <string name="calendar_not_allowed_message">या क्लिनिकमध्ये तुमच्या भूमिकेला वेळापत्रक पाहता येत नाही.</string>

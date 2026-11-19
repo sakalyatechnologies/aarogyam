@@ -168,7 +168,7 @@ enum Admin {
     },
     /// Set up the app-store reviewer's sign-in: an active owner of a synthetic demo clinic
     /// (sunrise, lotus, suhasyadental or review) who signs in with the password in the environment variable
-    /// `ARO_REVIEW_PASSWORD` (at least 16 characters; never printed or logged). Refused for any
+    /// `AAROGYAM_REVIEW_PASSWORD` (at least 16 characters; never printed or logged). Refused for any
     /// other clinic and for platform staff.
     ReviewAccount {
         /// The demo clinic's slug: `sunrise`, `lotus`, `suhasyadental` or `review`.

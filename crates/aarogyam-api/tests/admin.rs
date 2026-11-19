@@ -1001,7 +1001,7 @@ async fn review_account_makes_an_active_owner_and_off_ends_it_without_showing_th
     shown.push(out.clone());
     assert_eq!(
         out,
-        "clinic: sunrise, email: reviewer@example.com, password set from ARO_REVIEW_PASSWORD"
+        "clinic: sunrise, email: reviewer@example.com, password set from AAROGYAM_REVIEW_PASSWORD"
     );
     assert_eq!(
         accounts.password("reviewer@example.com").as_deref(),

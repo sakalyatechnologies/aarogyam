@@ -150,12 +150,12 @@ Run it once, over the owner connection and with the Supabase secret key, the way
 ```sh
 set -a; . ./.env.supabase; set +a
 # Paste the password from your password manager into this prompt; it never goes in a file, history or chat.
-read -rs ARO_REVIEW_PASSWORD; export ARO_REVIEW_PASSWORD; echo
+read -rs AAROGYAM_REVIEW_PASSWORD; export AAROGYAM_REVIEW_PASSWORD; echo
 ./target/debug/aarogyam admin review-account --clinic sunrise --email reviewer@<your-domain>
-unset ARO_REVIEW_PASSWORD
+unset AAROGYAM_REVIEW_PASSWORD
 ```
 
-It prints the clinic, the email and "password set from ARO_REVIEW_PASSWORD", nothing else. Type the same password into App Store Connect and the Play Console. Running it again changes the password. After review is approved:
+It prints the clinic, the email and "password set from AAROGYAM_REVIEW_PASSWORD", nothing else. Type the same password into App Store Connect and the Play Console. Running it again changes the password. After review is approved:
 
 ```sh
 set -a; . ./.env.supabase; set +a
@@ -167,7 +167,7 @@ That ends the membership (`left`) and sets the Supabase password to a random val
 Rules:
 
 - Only the synthetic demo clinics in `REVIEW_CLINICS` (`sunrise`, `lotus`, `suhasyadental`, `review`; `crates/aarogyam-app/src/review_account.rs`) are accepted; any other slug, a real clinic, is refused.
-- The password is read only from `ARO_REVIEW_PASSWORD`, at least 16 characters, from a password manager. It is never printed or logged.
+- The password is read only from `AAROGYAM_REVIEW_PASSWORD`, at least 16 characters, from a password manager. It is never printed or logged.
 - Platform staff are refused (they can't hold a clinic membership).
 - Turn it off after review.
 

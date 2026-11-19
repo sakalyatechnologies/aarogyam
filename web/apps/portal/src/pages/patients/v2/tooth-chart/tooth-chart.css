@@ -62,7 +62,7 @@
 .tc-wrap { container-type: inline-size; }
 .tc-split { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
 @container (min-width: 900px) { .tc-split { grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr); } }
-.tc-panel { border-radius: 24px; border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); background: color-mix(in srgb, var(--ink) 3%, var(--surface)); padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.tc-panel { border-radius: 24px; border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); background: color-mix(in srgb, var(--ink) 3%, var(--surface)); padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
 .tc-panel h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .tc-panel .tc-sub { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
 .tc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
@@ -125,8 +125,9 @@
 .tc-health-chip[data-suggested] { border-style: dashed; }
 .tc-health-chip:focus-visible { outline: 2px solid var(--odo-focus); outline-offset: 2px; }
 .tc-health-chip:disabled { cursor: default; opacity: .6; }
-.tc-note { display: flex; gap: 6px; align-items: center; }
-.tc-note input { flex: 1; min-width: 0; min-height: 40px; padding: 6px 12px; border-radius: 12px; border: 1px solid var(--odo-border); background: var(--odo-surface); color: var(--odo-text); font: inherit; font-size: 14px; }
+/* In a narrow panel the mic and the language drop to their own line instead of running out of it. */
+.tc-note { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tc-note input { flex: 1 1 160px; min-width: 0; min-height: 40px; padding: 6px 12px; border-radius: 12px; border: 1px solid var(--odo-border); background: var(--odo-surface); color: var(--odo-text); font: inherit; font-size: 14px; }
 .tc-note input:focus-visible { outline: 2px solid var(--odo-focus); outline-offset: 1px; }
 .tc-mic { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--odo-border); background: var(--odo-surface); cursor: pointer; font-size: 16px; }
 .tc-mic[aria-pressed="true"] { background: color-mix(in srgb, var(--odo-danger) 16%, var(--odo-surface)); border-color: var(--odo-danger); }

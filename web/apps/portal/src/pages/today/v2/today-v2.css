@@ -268,7 +268,9 @@
 @media (min-width: 1024px) and (min-height: 760px) {
   .mk-main:has(.tv2-page) { padding-bottom: 8px; }
   .mk-main:has(.tv2-page) .mk-foot { margin-top: 8px; padding: 6px 0 0; }
-  .tv2-page { height: calc(100dvh - var(--tv2-chrome, 120px)); min-height: 520px; }
+  /* Only a two-column board fits the screen; a stacked one is a normal page that scrolls, so the footer stays below it. */
+  .mk-main > main:has(.tv2-page) { container: tv2page / inline-size; }
+  @container tv2page (min-width: 900px) { .tv2-page { height: calc(100dvh - var(--tv2-chrome, 120px)); min-height: 520px; } }
   .tv2[data-fit] { flex: 1 1 auto; min-height: 0; }
   @container tv2 (min-width: 900px) {
     .tv2-frame { height: 100%; align-items: stretch; }
@@ -276,6 +278,8 @@
     .tv2-body { flex: 1 1 auto; min-height: 0; }
     .tv2-main { height: 100%; }
     .tv2[data-fit] .tv2-rail { min-height: 0; overflow-y: auto; }
+    /* More cards than fit (My tasks as well, say) scroll inside the main column rather than over the footer; the padding keeps the card shadows. */
+    .tv2[data-fit] .tv2-main { overflow-y: auto; overscroll-behavior: contain; padding: 0 10px 12px; margin: 0 -10px; }
   }
   @container tv2 (min-width: 760px) {
     .tv2[data-fit] .tv2-main { grid-template-rows: var(--tv2-tracks, auto); }

@@ -10,7 +10,7 @@ import { centralSignInSetting } from "../env.js";
 import { ConsoleAccessGate, NoConsoleAccessMessage, wasTurnedAway } from "./console-access.js";
 
 const NAV: readonly NavEntry[] = [
-  { id: "health", label: "Service health", icon: <Activity />, href: "/health" },
+  { id: "health", label: "Insights", icon: <Activity />, href: "/health" },
   { id: "quality", label: "Quality", icon: <CheckCircle2 />, href: "/quality" },
   { id: "applications", label: "Applications", icon: <Inbox />, href: "/applications" },
   { id: "clinics", label: "Clinics", icon: <Building2 />, href: "/clinics" },

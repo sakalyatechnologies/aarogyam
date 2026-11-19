@@ -74,6 +74,8 @@ import {
   meResponse,
   member,
   metricsResponse,
+  dbInsights,
+  usageInsights,
   mySessionsResponse,
   note,
   noteVersions,
@@ -800,6 +802,10 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: "/api/v1/console/clinics", schema: createdClinic, body: input, signal: opts?.signal }),
     getMetrics: (range, opts) =>
       call({ method: "GET", path: "/api/v1/console/metrics", schema: metricsResponse, query: { range }, signal: opts?.signal }),
+    getDbInsights: (range, opts) =>
+      call({ method: "GET", path: "/api/v1/console/insights/db", schema: dbInsights, query: { range }, signal: opts?.signal }),
+    getUsageInsights: (range, opts) =>
+      call({ method: "GET", path: "/api/v1/console/insights/usage", schema: usageInsights, query: { range }, signal: opts?.signal }),
     getQuality: (limit, opts) =>
       call({
         method: "GET",

@@ -675,6 +675,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/insights/db": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The database over time: connections, size, cache, transactions, rows, deadlocks and spills. */
+        get: operations["getConsoleDbInsights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/insights/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How clinics are used: visits, timings, people signed in by role and onboarding. */
+        get: operations["getConsoleUsageInsights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/metrics": {
         parameters: {
             query?: never;
@@ -7347,6 +7381,44 @@ export interface components {
             /** @description UPI ID, like `name@bank`. */
             upi_id?: string | null;
         };
+        /** @description One clinic over the window. */
+        ClinicUsage: {
+            /**
+             * Format: int32
+             * @description People signed in on the latest day, all roles together.
+             */
+            active_staff: number;
+            /**
+             * Format: int64
+             * @description Appointments booked.
+             */
+            booked: number;
+            /**
+             * Format: int32
+             * @description Days recorded.
+             */
+            days: number;
+            /** @description Its name. */
+            name: string;
+            /**
+             * Format: int64
+             * @description No-shows.
+             */
+            no_shows: number;
+            /** @description The clinic. */
+            org_id: string;
+            /** @description People signed in by role on the latest day, only roles with 3 or more. */
+            roles: components["schemas"]["RoleCount"][];
+            /** @description Its subdomain. */
+            slug: string;
+            /** @description Typical timings. */
+            timings: components["schemas"]["JourneyTimings"];
+            /**
+             * Format: int64
+             * @description Visits started.
+             */
+            visits: number;
+        };
         /**
          * @description Patient 360's safety banner. Anyone who can see the patient learns that flags exist and how
          *     many; the substances and conditions need `clinical.read`.
@@ -8049,6 +8121,85 @@ export interface components {
              * @description Payments.
              */
             payments: number;
+        };
+        /** @description The database over a window: one point per bucket of the drain job's samples. */
+        DbInsights: {
+            /**
+             * @description Connections, cache hit ratio, size, the biggest tables and the slowest statements now
+             *     (as `db` in `/console/metrics`).
+             */
+            current: Record<string, unknown>;
+            /** @description When this was produced (RFC 3339). */
+            generated_at: string;
+            /**
+             * Format: int32
+             * @description Seconds per point: 300 (`1h`, `6h`), 900 (`24h`), 7200 (`7d`) or 21 600 (`30d`).
+             */
+            interval_seconds: number;
+            /** @description The window: `1h`, `6h`, `24h`, `7d` or `30d`. */
+            range: string;
+            /** @description Oldest first; empty until the drain job has taken samples (at most one every 5 minutes). */
+            samples: components["schemas"]["DbSamplePoint"][];
+            /**
+             * Format: int64
+             * @description The database plan's size limit in bytes, drawn on the size chart.
+             */
+            size_limit_bytes: number;
+        };
+        /** @description One point of the database history. */
+        DbSamplePoint: {
+            /** @description When the interval starts (RFC 3339). */
+            at: string;
+            /**
+             * Format: double
+             * @description Share of reads served from memory, 0 to 1.
+             */
+            cache_hit_ratio?: number | null;
+            /**
+             * Format: double
+             * @description Committed transactions per minute.
+             */
+            commits_per_min?: number | null;
+            /**
+             * Format: int32
+             * @description The most connections in use.
+             */
+            connections: number;
+            /**
+             * Format: int64
+             * @description Database size in bytes.
+             */
+            db_bytes: number;
+            /**
+             * Format: int64
+             * @description Deadlocks in the interval.
+             */
+            deadlocks: number;
+            /**
+             * Format: int32
+             * @description The connection limit.
+             */
+            max_connections: number;
+            /**
+             * Format: double
+             * @description Rolled back transactions per minute.
+             */
+            rollbacks_per_min?: number | null;
+            /**
+             * Format: double
+             * @description Rows read per minute.
+             */
+            rows_read_per_min?: number | null;
+            /**
+             * Format: double
+             * @description Rows inserted, updated or deleted per minute.
+             */
+            rows_written_per_min?: number | null;
+            /**
+             * Format: int64
+             * @description Bytes spilled to temporary files in the interval.
+             */
+            temp_bytes: number;
         };
         /** @description The confirmation a person sends to delete their own account. */
         DeleteAccount: {
@@ -9070,6 +9221,37 @@ export interface components {
             membership_id: string;
             /** @description The clinic. */
             org_id: string;
+        };
+        /**
+         * @description Typical timings: the visit-weighted mean of daily medians. `null` where every day had fewer
+         *     than 5 visits.
+         */
+        JourneyTimings: {
+            /**
+             * Format: double
+             * @description Arrived to seated, minutes.
+             */
+            arrive_to_seat_minutes?: number | null;
+            /**
+             * Format: double
+             * @description Days between booking and appointment.
+             */
+            booking_lead_days?: number | null;
+            /**
+             * Format: double
+             * @description Visit ended to first payment, minutes.
+             */
+            end_to_paid_minutes?: number | null;
+            /**
+             * Format: double
+             * @description Seated to visit started, minutes.
+             */
+            seat_to_start_minutes?: number | null;
+            /**
+             * Format: double
+             * @description Visit length, minutes.
+             */
+            visit_minutes?: number | null;
         };
         /** @description A count under a key. */
         KeyCount: {
@@ -11211,6 +11393,36 @@ export interface components {
             /** @description Weekday by hour, chairs added; for the weekday-by-hour heatmap. */
             by_weekday_hour: components["schemas"]["WeekdayHour"][];
         };
+        /** @description Where one clinic stands in onboarding. Times are RFC 3339; `null` means not yet. */
+        OnboardingClinic: {
+            /** @description Created. */
+            created_at: string;
+            /** @description The first bill issued. */
+            first_bill_at?: string | null;
+            /** @description The Monday (`YYYY-MM-DD`) of the first week with 5 or more visits. */
+            first_busy_week?: string | null;
+            /** @description The first patient added. */
+            first_patient_at?: string | null;
+            /** @description The first visit started. */
+            first_visit_at?: string | null;
+            /** @description Its name. */
+            name: string;
+            /** @description The clinic. */
+            org_id: string;
+            /** @description The first owner joined. */
+            owner_joined_at?: string | null;
+            /** @description Setup completed. */
+            setup_completed_at?: string | null;
+            /**
+             * Format: int32
+             * @description Setup steps marked done.
+             */
+            setup_steps_done: number;
+            /** @description Its subdomain. */
+            slug: string;
+            /** @description `trial`, `active`, `suspended` or `churned`. */
+            status: string;
+        };
         /** @description Online booking: what patients may book on the clinic's public page. */
         OnlineBooking: {
             /** @description Whether a booking is confirmed at once; otherwise the front desk confirms. */
@@ -13215,6 +13427,16 @@ export interface components {
             /** @description The change. */
             id: string;
         };
+        /** @description People signed in in one role. */
+        RoleCount: {
+            /**
+             * Format: int32
+             * @description People, 3 or more (smaller numbers are not shown per clinic).
+             */
+            members: number;
+            /** @description A standard role key (`owner`, `doctor`, `front_desk` ...) or `custom`. */
+            role_key: string;
+        };
         /** @description A role in detail. */
         RoleDetail: {
             /** @description What "reset to default" restores; empty without a template. */
@@ -13275,6 +13497,23 @@ export interface components {
             name: string;
             /** @description Its default permissions, sorted by key. */
             permissions: components["schemas"]["RolePermission"][];
+        };
+        /** @description People signed in in one role across all clinics on one day. */
+        RoleUsage: {
+            /**
+             * Format: int32
+             * @description Clinics with at least one.
+             */
+            clinics: number;
+            /** @description The day (`YYYY-MM-DD`). */
+            day: string;
+            /**
+             * Format: int32
+             * @description People, summed over clinics (a person in two clinics counts in each).
+             */
+            members: number;
+            /** @description A standard role key or `custom`. */
+            role_key: string;
         };
         /** @description The clinic's roles. */
         Roles: {
@@ -13475,14 +13714,30 @@ export interface components {
         ServiceMetrics: {
             /** @description This instance's API requests, error rates and latency. */
             api?: Record<string, unknown> | null;
+            /**
+             * @description Cloud Run's numbers from Cloud Monitoring: `interval_seconds`, `service` (requests by
+             *     class, latency percentiles, instances, cold starts, CPU and memory) and `job` (drain
+             *     executions, billable, CPU and memory time). `null` when `source` is `instance`.
+             */
+            cloud?: Record<string, unknown> | null;
+            /**
+             * @description Why Cloud Monitoring could not be read, such as `Cloud Monitoring: 403`; `null` when it was
+             *     read or is not set up.
+             */
+            cloud_error?: string | null;
             /** @description Database connections, cache hit ratio, size, tables and slow statements. */
             db: Record<string, unknown>;
             /** @description Edge and front-end numbers from Cloudflare; `null` until connected. */
             edge?: Record<string, unknown> | null;
             /** @description When this was produced (RFC 3339). */
             generated_at: string;
-            /** @description The window: `1h`, `6h`, `24h` or `7d`. */
+            /** @description The window: `1h`, `6h`, `24h`, `7d` or `30d`. */
             range: string;
+            /**
+             * @description Where the service charts come from: `cloud_monitoring` (Cloud Run, every instance, in
+             *     `cloud`) or `instance` (only the instance that answered, since it started, in `api`).
+             */
+            source: string;
         };
         /** @description The current clinic session. */
         Session: {
@@ -15148,6 +15403,63 @@ export interface components {
              * @description Units used, 1 to 1000000.
              */
             quantity: number;
+        };
+        /** @description All clinics together on one day. */
+        UsageDay: {
+            /**
+             * Format: int64
+             * @description People signed in (any clinic, web or phone), summed over clinics.
+             */
+            active_staff: number;
+            /**
+             * Format: int64
+             * @description Appointments for the day, not cancelled or still requested.
+             */
+            booked: number;
+            /**
+             * Format: int32
+             * @description Clinics with a row that day.
+             */
+            clinics: number;
+            /** @description The day (`YYYY-MM-DD`). */
+            day: string;
+            /**
+             * Format: int64
+             * @description No-shows.
+             */
+            no_shows: number;
+            /** @description Typical timings across clinics. */
+            timings: components["schemas"]["JourneyTimings"];
+            /**
+             * Format: int64
+             * @description Visits started.
+             */
+            visits: number;
+        };
+        /**
+         * @description How clinics are used over a window: daily totals, each clinic, active staff by role and the
+         *     onboarding funnel. Counts, timings and dates only.
+         */
+        UsageInsights: {
+            /** @description Each clinic over the window, busiest first. */
+            clinics: components["schemas"]["ClinicUsage"][];
+            /** @description All clinics together per day, oldest first. */
+            days: components["schemas"]["UsageDay"][];
+            /** @description First day (`YYYY-MM-DD`), each clinic's own calendar. */
+            from: string;
+            /** @description When this was produced (RFC 3339). */
+            generated_at: string;
+            /** @description Each clinic's onboarding, newest clinic first. */
+            onboarding: components["schemas"]["OnboardingClinic"][];
+            /**
+             * @description The window: `1h`, `6h`, `24h`, `7d` or `30d`. Usage is daily, so the first three show
+             *     yesterday.
+             */
+            range: string;
+            /** @description People signed in by role across all clinics, per day. */
+            roles: components["schemas"]["RoleUsage"][];
+            /** @description Last day, included. */
+            to: string;
         };
         /** @description Stock used. */
         UseBody: {
@@ -17743,10 +18055,82 @@ export interface operations {
             };
         };
     };
+    getConsoleDbInsights: {
+        parameters: {
+            query?: {
+                /** @description 1h (default), 6h, 24h, 7d or 30d */
+                range?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DbInsights"];
+                };
+            };
+            /** @description Unknown range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Sakalya staff */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getConsoleUsageInsights: {
+        parameters: {
+            query?: {
+                /** @description 1h (default), 6h, 24h, 7d or 30d; the first three show yesterday */
+                range?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageInsights"];
+                };
+            };
+            /** @description Unknown range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Sakalya staff */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getConsoleMetrics: {
         parameters: {
             query?: {
-                /** @description 1h (default), 6h, 24h or 7d */
+                /** @description 1h (default), 6h, 24h, 7d or 30d */
                 range?: string;
             };
             header?: never;

@@ -237,6 +237,21 @@ describe("fake client: console", () => {
     expect(value(await as(PEOPLE.admin).getMetrics("6h")).api.timeline).toHaveLength(360);
     expect(metrics.api.timeline).toHaveLength(288);
     expect(metrics.api.timeline_interval_seconds).toBe(300);
+    const month = value(await as(PEOPLE.admin).getMetrics("30d"));
+    expect(month.api.timeline).toHaveLength(120);
+    expect(month.source).toBe("cloud_monitoring");
+    expect(month.cloud?.service.requests.map((series) => series.label)).toEqual(["2xx", "4xx", "5xx"]);
+  });
+
+  it("serves database and usage insights as numbers and dates only", async () => {
+    const { as } = setup();
+    const db = value(await as(PEOPLE.admin).getDbInsights("24h"));
+    expect(db.samples).toHaveLength(96);
+    expect(db.size_limit_bytes).toBe(500 * 1024 * 1024);
+    const usage = value(await as(PEOPLE.admin).getUsageInsights("7d"));
+    expect(usage.days).toHaveLength(7);
+    expect(usage.clinics.every((clinic) => clinic.roles.every((role) => role.members >= 3))).toBe(true);
+    expect(usage.onboarding.length).toBeGreaterThan(0);
   });
 });
 

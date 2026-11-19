@@ -89,7 +89,7 @@ import {
   type FakeLabs,
   type FakeLabVendor,
 } from "./labs.js";
-import { createMetrics } from "./metrics.js";
+import { createDbInsights, createMetrics, createUsageInsights } from "./metrics.js";
 import { QUICK_PICKS } from "./quick-picks.js";
 import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photosOf, siteOf, wirePhoto, wireSettings, type FakePhoto } from "./website.js";
 import { createRandom, fakeUuid } from "./random.js";
@@ -6355,6 +6355,12 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
       getMetrics: (range, opts) =>
         respond(S.metricsResponse, opts?.signal, () => inConsole(() => reply(createMetrics(range, clock()) satisfies C.ServiceMetrics))),
+
+      getDbInsights: (range, opts) =>
+        respond(S.dbInsights, opts?.signal, () => inConsole(() => reply(createDbInsights(range, clock()) satisfies C.DbInsights))),
+
+      getUsageInsights: (range, opts) =>
+        respond(S.usageInsights, opts?.signal, () => inConsole(() => reply(createUsageInsights(range, clock()) satisfies C.UsageInsights))),
 
       getQuality: (limit, opts) =>
         respond(S.qualityReport, opts?.signal, () =>

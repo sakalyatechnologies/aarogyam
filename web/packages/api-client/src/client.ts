@@ -118,6 +118,8 @@ import type {
   MembershipId,
   Metrics,
   MetricsRange,
+  DbInsights,
+  UsageInsights,
   MySessions,
   NewAppointmentBody,
   NewBooking,
@@ -705,6 +707,10 @@ export interface ApiClient {
   createClinic(input: NewClinic, options?: RequestOptions): Promise<ApiResult<CreatedClinic>>;
   /** Console host: service health for a time range. */
   getMetrics(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<Metrics>>;
+  /** Console host: the database over time, from the drain job's samples. */
+  getDbInsights(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<DbInsights>>;
+  /** Console host: clinic usage (visits, timings, people signed in by role) and the onboarding funnel. */
+  getUsageInsights(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<UsageInsights>>;
   /** Console host: recent quality runs, each suite's pass-rate trend, and the newest failures. */
   getQuality(limit?: number, options?: RequestOptions): Promise<ApiResult<QualityReport>>;
 

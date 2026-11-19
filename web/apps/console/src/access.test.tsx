@@ -22,7 +22,7 @@ function stubLocation() {
 describe("Console access", () => {
   it("lets Sakalya staff in", async () => {
     renderConsole("/health");
-    expect(await screen.findByRole("heading", { name: /Service health/i })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: /Insights/i })).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 

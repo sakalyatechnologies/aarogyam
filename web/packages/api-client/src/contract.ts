@@ -104,7 +104,7 @@ export type NotificationHandledBy = Schemas["HandledBy"];
 export type Session = Schemas["Session"];
 export type SessionClinic = Schemas["SessionClinic"];
 
-export type MetricsRange = "1h" | "6h" | "24h" | "7d";
+export type MetricsRange = "1h" | "6h" | "24h" | "7d" | "30d";
 
 export interface ApiMetricsPoint {
   at: string;
@@ -155,12 +155,13 @@ export interface ApiMetrics {
   routes: RouteMetrics[];
 }
 
-/** One `pg_stat_statements` entry, by query ID only: query text can hold literal values. */
+/** One `pg_stat_statements` entry. Only SELECT, INSERT, UPDATE and DELETE carry text (normalised, `$1` for values); older servers sent none. */
 export interface SlowQuery {
   query_id: string;
   calls: number;
   mean_ms: number;
   total_ms: number;
+  query?: string | undefined;
 }
 
 export interface TableHealth {
@@ -193,12 +194,63 @@ export interface EdgeMetrics {
   cls_p75: number;
 }
 
-/** `GET /api/v1/console/metrics`. The spec says `edge` is an object; the API sends `null` until it is connected. */
-export type ServiceMetrics = Omit<Schemas["ServiceMetrics"], "api" | "db" | "edge"> & {
+/** One Cloud Monitoring point: the start of its interval and the value over it. */
+export interface CloudPoint {
+  at: string;
+  value: number;
+}
+
+/** Points for one label value, such as response class `2xx` or execution result `failed`. */
+export interface CloudLabelledSeries {
+  label: string;
+  points: CloudPoint[];
+}
+
+/** Cloud Run's own metrics for the API service and the outbox job, every instance together. */
+export interface CloudMetrics {
+  interval_seconds: number;
+  service: {
+    requests: CloudLabelledSeries[];
+    latency_p50_ms: CloudPoint[];
+    latency_p95_ms: CloudPoint[];
+    latency_p99_ms: CloudPoint[];
+    instances: CloudPoint[];
+    cold_starts: CloudPoint[];
+    /** 0 to 1. */
+    cpu_p95: CloudPoint[];
+    memory_p95: CloudPoint[];
+  };
+  job: {
+    executions: CloudLabelledSeries[];
+    billable_seconds: CloudPoint[];
+    cpu_seconds: CloudPoint[];
+    memory_gib_seconds: CloudPoint[];
+  };
+}
+
+export type MetricsSource = "cloud_monitoring" | "instance";
+
+/** `GET /api/v1/console/metrics`. The spec says `edge` is an object; the API sends `null` until it is connected. `source` and `cloud` are absent from older servers. */
+export type ServiceMetrics = Omit<Schemas["ServiceMetrics"], "api" | "db" | "edge" | "source" | "cloud" | "cloud_error"> & {
   api: ApiMetrics;
   db: DatabaseMetrics;
   edge: EdgeMetrics | null;
+  source: MetricsSource;
+  cloud: CloudMetrics | null;
+  cloud_error: string | null;
 };
+
+/** `GET /api/v1/console/insights/db`: the database over time; `current` is `db` in `/console/metrics`. */
+export type DbInsights = Omit<Schemas["DbInsights"], "current"> & { current: DatabaseMetrics };
+export type DbSamplePoint = Schemas["DbSamplePoint"];
+
+/** `GET /api/v1/console/insights/usage`: clinic usage as counts, timings and dates. */
+export type UsageInsights = Schemas["UsageInsights"];
+export type UsageDay = Schemas["UsageDay"];
+export type ClinicUsage = Schemas["ClinicUsage"];
+export type RoleUsage = Schemas["RoleUsage"];
+export type OnboardingClinic = Schemas["OnboardingClinic"];
+export type JourneyTimings = Schemas["JourneyTimings"];
 
 // Not in the spec -----------------------------------------------------------------------------
 

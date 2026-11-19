@@ -13,6 +13,7 @@ const BUCKETS: Readonly<Record<C.MetricsRange, { points: number; minutes: number
   "6h": { points: 12, minutes: 30 },
   "24h": { points: 24, minutes: 60 },
   "7d": { points: 28, minutes: 360 },
+  "30d": { points: 30, minutes: 1440 },
 };
 
 /** The timeline's resolution per range, matching the API: minutes per point and point count. */
@@ -21,6 +22,7 @@ const TIMELINE: Readonly<Record<C.MetricsRange, { points: number; minutes: numbe
   "6h": { points: 360, minutes: 1 },
   "24h": { points: 288, minutes: 5 },
   "7d": { points: 168, minutes: 60 },
+  "30d": { points: 120, minutes: 360 },
 };
 
 const ROUTES: readonly { method: string; route: string; share: number; p95: number; errors: number }[] = [
@@ -119,7 +121,7 @@ export function createMetrics(range: C.MetricsRange, now: Date): C.ServiceMetric
       cache_hit_ratio: 0.9962,
       size_bytes: 2_791_728_742,
       slow_queries: [
-        { query_id: "-4581238471923471289", calls: 1_840, mean_ms: 412.6, total_ms: 759_184 },
+        { query_id: "-4581238471923471289", calls: 1_840, mean_ms: 412.6, total_ms: 759_184, query: "select p.id, p.number from aarogyam.patients p where p.org_id = $1 order by p.created_at desc limit $2" },
         { query_id: "7712093384551029376", calls: 26_310, mean_ms: 88.1, total_ms: 2_317_911 },
         { query_id: "1209938475610293847", calls: 410, mean_ms: 61.4, total_ms: 25_174 },
         { query_id: "-998172635401928374", calls: 98_220, mean_ms: 12.9, total_ms: 1_267_038 },
@@ -134,6 +136,9 @@ export function createMetrics(range: C.MetricsRange, now: Date): C.ServiceMetric
         { name: "patients", live_rows: 48_210, dead_rows: 310, size_bytes: 37_748_736 },
       ],
     },
+    source: "cloud_monitoring",
+    cloud: cloudMetrics(timeline, timelineShape.minutes * 60),
+    cloud_error: null,
     edge: {
           requests: Math.round(requests * 3.6),
           rate_4xx: 0.006,
@@ -144,5 +149,155 @@ export function createMetrics(range: C.MetricsRange, now: Date): C.ServiceMetric
           inp_p75_ms: 148,
           cls_p75: 0.04,
         },
+  };
+}
+
+/** Cloud Run's view of the same traffic, as Cloud Monitoring would answer it. */
+function cloudMetrics(timeline: readonly C.ApiTimelinePoint[], intervalSeconds: number): C.CloudMetrics {
+  const points = (value: (point: C.ApiTimelinePoint, index: number) => number): C.CloudPoint[] =>
+    timeline.map((point, index) => ({ at: point.at, value: value(point, index) }));
+  const busy = (point: C.ApiTimelinePoint) => (point.requests > 0 ? 1 : 0);
+  return {
+    interval_seconds: intervalSeconds,
+    service: {
+      requests: [
+        { label: "2xx", points: points((p) => p.requests - p.errors_4xx - p.errors_429 - p.errors_5xx) },
+        { label: "4xx", points: points((p) => p.errors_4xx + p.errors_429) },
+        { label: "5xx", points: points((p) => p.errors_5xx) },
+      ],
+      latency_p50_ms: points((p) => p.p50_ms),
+      latency_p95_ms: points((p) => p.p95_ms),
+      latency_p99_ms: points((p) => p.p99_ms),
+      instances: points(busy),
+      cold_starts: points((_, index) => (index % 17 === 0 ? 1 : 0)),
+      cpu_p95: points((p) => Math.min(1, 0.04 + p.requests / 4000)),
+      memory_p95: points(() => 0.31),
+    },
+    job: {
+      executions: [
+        { label: "failed", points: points((_, index) => (index % 41 === 7 ? 1 : 0)) },
+        { label: "succeeded", points: points(() => Math.max(1, Math.round(intervalSeconds / 120))) },
+      ],
+      billable_seconds: points(() => Math.round((intervalSeconds / 120) * 3.2)),
+      cpu_seconds: points(() => Math.round((intervalSeconds / 120) * 3.2)),
+      memory_gib_seconds: points(() => Math.round((intervalSeconds / 120) * 1.6)),
+    },
+  };
+}
+
+const DB_BUCKET_SECONDS: Readonly<Record<C.MetricsRange, { points: number; seconds: number }>> = {
+  "1h": { points: 12, seconds: 300 },
+  "6h": { points: 72, seconds: 300 },
+  "24h": { points: 96, seconds: 900 },
+  "7d": { points: 84, seconds: 7_200 },
+  "30d": { points: 120, seconds: 21_600 },
+};
+
+/** The database over time, shaped like the drain job's samples. */
+export function createDbInsights(range: C.MetricsRange, now: Date): C.DbInsights {
+  const random = createRandom(Math.floor(now.getTime() / (60 * MINUTE)) * 17 + range.length);
+  const { points, seconds } = DB_BUCKET_SECONDS[range];
+  const metrics = createMetrics(range, now);
+  const samples = Array.from({ length: points }, (_, index): C.DbSamplePoint => {
+    const at = new Date(now.getTime() - (points - index) * seconds * 1000);
+    const load = requestsPerMinute(at) / 90;
+    return {
+      at: at.toISOString(),
+      connections: 6 + Math.round(load * 14) + random.int(0, 3),
+      max_connections: 60,
+      cache_hit_ratio: 0.99 + random.next() * 0.009,
+      db_bytes: 180_000_000 + index * 40_000,
+      commits_per_min: index === 0 ? null : Math.round(40 + load * 900 * (0.8 + random.next() * 0.4)),
+      rollbacks_per_min: index === 0 ? null : Math.round(load * 6 * random.next()),
+      rows_read_per_min: index === 0 ? null : Math.round(2_000 + load * 60_000 * (0.8 + random.next() * 0.4)),
+      rows_written_per_min: index === 0 ? null : Math.round(20 + load * 700 * (0.8 + random.next() * 0.4)),
+      deadlocks: 0,
+      temp_bytes: random.chance(0.05) ? 8_388_608 : 0,
+    };
+  });
+  return {
+    generated_at: now.toISOString(),
+    range,
+    interval_seconds: seconds,
+    size_limit_bytes: 500 * 1024 * 1024,
+    current: metrics.db,
+    samples,
+  };
+}
+
+const FAKE_CLINICS = [
+  { org_id: "01a1de06-4c8e-796c-9d69-88e115d26ba1", slug: "sunrise", name: "Sunrise Dental", visits: 18, staff: 7 },
+  { org_id: "01a1de06-4c8e-796c-9d69-88e115d26ba2", slug: "lotus", name: "Lotus Smile Studio", visits: 9, staff: 4 },
+  { org_id: "01a1de06-4c8e-796c-9d69-88e115d26ba3", slug: "pearl", name: "Pearl Clinic", visits: 2, staff: 2 },
+] as const;
+
+function isoDay(at: Date): string {
+  return at.toISOString().slice(0, 10);
+}
+
+/** Clinic usage and onboarding: counts, timings and dates for three made-up clinics. */
+export function createUsageInsights(range: C.MetricsRange, now: Date): C.UsageInsights {
+  const random = createRandom(Math.floor(now.getTime() / (24 * 60 * MINUTE)) * 13 + range.length);
+  const span = range === "30d" ? 30 : range === "7d" ? 7 : 1;
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const dayAt = (back: number) => new Date(today.getTime() - back * 24 * 60 * MINUTE);
+  const timings = (visits: number): C.JourneyTimings =>
+    visits < 5
+      ? { arrive_to_seat_minutes: null, seat_to_start_minutes: null, visit_minutes: null, end_to_paid_minutes: null, booking_lead_days: null }
+      : {
+          arrive_to_seat_minutes: 8 + random.int(0, 9),
+          seat_to_start_minutes: 2 + random.int(0, 4),
+          visit_minutes: 22 + random.int(0, 14),
+          end_to_paid_minutes: 3 + random.int(0, 6),
+          booking_lead_days: 1 + random.int(0, 3),
+        };
+  const days = Array.from({ length: span }, (_, index): C.UsageDay => {
+    const day = dayAt(span - index);
+    const weekend = day.getUTCDay() === 0;
+    const visits = FAKE_CLINICS.reduce((sum, clinic) => sum + (weekend ? 0 : clinic.visits + random.int(-2, 3)), 0);
+    return {
+      day: isoDay(day),
+      clinics: FAKE_CLINICS.length,
+      visits,
+      booked: visits + random.int(0, 6),
+      no_shows: random.int(0, 3),
+      active_staff: weekend ? 2 : FAKE_CLINICS.reduce((sum, clinic) => sum + clinic.staff, 0) - random.int(0, 3),
+      timings: timings(visits),
+    };
+  });
+  const clinics = FAKE_CLINICS.map((clinic): C.ClinicUsage => ({
+    org_id: clinic.org_id,
+    slug: clinic.slug,
+    name: clinic.name,
+    days: span,
+    visits: clinic.visits * span,
+    booked: (clinic.visits + 2) * span,
+    no_shows: Math.round(span * 0.6),
+    active_staff: clinic.staff,
+    timings: timings(clinic.visits),
+    roles: clinic.staff >= 6 ? [{ role_key: "doctor", members: 3 }, { role_key: "front_desk", members: 3 }] : [],
+  }));
+  const roles = days.flatMap((day): C.RoleUsage[] => [
+    { day: day.day, role_key: "owner", members: 3, clinics: 3 },
+    { day: day.day, role_key: "doctor", members: 5, clinics: 3 },
+    { day: day.day, role_key: "front_desk", members: 4, clinics: 2 },
+    { day: day.day, role_key: "assistant", members: 1, clinics: 1 },
+  ]);
+  const at = (back: number) => dayAt(back).toISOString();
+  const base = (clinic: (typeof FAKE_CLINICS)[number]) => ({ org_id: clinic.org_id, slug: clinic.slug, name: clinic.name });
+  const onboarding: C.OnboardingClinic[] = [
+    { ...base(FAKE_CLINICS[2]), status: "trial", created_at: at(3), owner_joined_at: at(3), setup_steps_done: 2, setup_completed_at: null, first_patient_at: at(2), first_visit_at: null, first_bill_at: null, first_busy_week: null },
+    { ...base(FAKE_CLINICS[1]), status: "trial", created_at: at(20), owner_joined_at: at(19), setup_steps_done: 5, setup_completed_at: at(18), first_patient_at: at(18), first_visit_at: at(17), first_bill_at: at(17), first_busy_week: isoDay(dayAt(14)) },
+    { ...base(FAKE_CLINICS[0]), status: "active", created_at: at(60), owner_joined_at: at(60), setup_steps_done: 6, setup_completed_at: at(59), first_patient_at: at(59), first_visit_at: at(58), first_bill_at: at(58), first_busy_week: isoDay(dayAt(56)) },
+  ];
+  return {
+    generated_at: now.toISOString(),
+    range,
+    from: isoDay(dayAt(span)),
+    to: isoDay(today),
+    days,
+    clinics,
+    roles,
+    onboarding,
   };
 }

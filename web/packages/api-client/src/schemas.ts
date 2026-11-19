@@ -1292,8 +1292,45 @@ export const createdClinic = z.object({
 }) satisfies z.ZodType<C.CreatedClinic>;
 export type CreatedClinic = z.output<typeof createdClinic>;
 
-export const metricsRange = z.enum(["1h", "6h", "24h", "7d"]) satisfies z.ZodType<C.MetricsRange>;
+export const metricsRange = z.enum(["1h", "6h", "24h", "7d", "30d"]) satisfies z.ZodType<C.MetricsRange>;
 export type MetricsRange = z.output<typeof metricsRange>;
+
+const cloudPoint = z.object({ at: timestamp, value: z.number() }) satisfies z.ZodType<C.CloudPoint>;
+export type CloudPoint = z.output<typeof cloudPoint>;
+const cloudPoints = z.array(cloudPoint).default([]);
+const cloudLabelled = z.array(z.object({ label: z.string(), points: z.array(cloudPoint) })).default([]);
+
+const databaseNow = z.object({
+  connections_used: count,
+  connections_max: count,
+  cache_hit_ratio: ratio,
+  size_bytes: count,
+  slow_queries: z.array(
+    z.object({ query_id: z.string(), calls: count, mean_ms: millis, total_ms: millis, query: z.string().optional() }),
+  ),
+  tables: z.array(z.object({ name: z.string(), live_rows: count, dead_rows: count, size_bytes: count })),
+});
+
+export const cloudMetrics = z.object({
+  interval_seconds: count,
+  service: z.object({
+    requests: cloudLabelled,
+    latency_p50_ms: cloudPoints,
+    latency_p95_ms: cloudPoints,
+    latency_p99_ms: cloudPoints,
+    instances: cloudPoints,
+    cold_starts: cloudPoints,
+    cpu_p95: cloudPoints,
+    memory_p95: cloudPoints,
+  }),
+  job: z.object({
+    executions: cloudLabelled,
+    billable_seconds: cloudPoints,
+    cpu_seconds: cloudPoints,
+    memory_gib_seconds: cloudPoints,
+  }),
+}) satisfies z.ZodType<C.CloudMetrics>;
+export type CloudMetrics = z.output<typeof cloudMetrics>;
 
 export const metricsResponse = z.object({
   generated_at: timestamp,
@@ -1326,14 +1363,10 @@ export const metricsResponse = z.object({
       z.object({ method: z.string(), route: z.string(), requests: count, error_rate: ratio, p95_ms: millis, p99_ms: millis }),
     ),
   }),
-  db: z.object({
-    connections_used: count,
-    connections_max: count,
-    cache_hit_ratio: ratio,
-    size_bytes: count,
-    slow_queries: z.array(z.object({ query_id: z.string(), calls: count, mean_ms: millis, total_ms: millis })),
-    tables: z.array(z.object({ name: z.string(), live_rows: count, dead_rows: count, size_bytes: count })),
-  }),
+  db: databaseNow,
+  source: z.enum(["cloud_monitoring", "instance"]).default("instance"),
+  cloud: cloudMetrics.nullable().default(null),
+  cloud_error: z.string().nullable().default(null),
   edge: z
     .object({
       requests: count,
@@ -1353,6 +1386,93 @@ export type RouteMetrics = ApiMetrics["routes"][number];
 export type TimelinePoint = ApiMetrics["timeline"][number];
 export type DatabaseMetrics = Metrics["db"];
 export type EdgeMetrics = NonNullable<Metrics["edge"]>;
+
+const nullableNumber = z.number().nullable();
+
+export const dbInsights = z.object({
+  generated_at: timestamp,
+  range: metricsRange,
+  interval_seconds: count,
+  size_limit_bytes: count,
+  current: databaseNow,
+  samples: z.array(
+    z.object({
+      at: timestamp,
+      connections: count,
+      max_connections: count,
+      cache_hit_ratio: ratio.nullable(),
+      db_bytes: count,
+      commits_per_min: nullableNumber,
+      rollbacks_per_min: nullableNumber,
+      rows_read_per_min: nullableNumber,
+      rows_written_per_min: nullableNumber,
+      deadlocks: count,
+      temp_bytes: count,
+    }),
+  ),
+}) satisfies z.ZodType<C.DbInsights>;
+export type DbInsights = z.output<typeof dbInsights>;
+export type DbSample = DbInsights["samples"][number];
+
+const journeyTimings = z.object({
+  arrive_to_seat_minutes: nullableNumber,
+  seat_to_start_minutes: nullableNumber,
+  visit_minutes: nullableNumber,
+  end_to_paid_minutes: nullableNumber,
+  booking_lead_days: nullableNumber,
+}) satisfies z.ZodType<C.JourneyTimings>;
+
+export const usageInsights = z.object({
+  generated_at: timestamp,
+  range: metricsRange,
+  from: date,
+  to: date,
+  days: z.array(
+    z.object({
+      day: date,
+      clinics: count,
+      visits: count,
+      booked: count,
+      no_shows: count,
+      active_staff: count,
+      timings: journeyTimings,
+    }),
+  ),
+  clinics: z.array(
+    z.object({
+      org_id: z.string(),
+      slug: z.string(),
+      name: z.string(),
+      days: count,
+      visits: count,
+      booked: count,
+      no_shows: count,
+      active_staff: count,
+      timings: journeyTimings,
+      roles: z.array(z.object({ role_key: z.string(), members: count })),
+    }),
+  ),
+  roles: z.array(z.object({ day: date, role_key: z.string(), members: count, clinics: count })),
+  onboarding: z.array(
+    z.object({
+      org_id: z.string(),
+      slug: z.string(),
+      name: z.string(),
+      status: z.string(),
+      created_at: timestamp,
+      owner_joined_at: optionalTimestamp,
+      setup_steps_done: count,
+      setup_completed_at: optionalTimestamp,
+      first_patient_at: optionalTimestamp,
+      first_visit_at: optionalTimestamp,
+      first_bill_at: optionalTimestamp,
+      first_busy_week: date.nullable(),
+    }),
+  ),
+}) satisfies z.ZodType<C.UsageInsights>;
+export type UsageInsights = z.output<typeof usageInsights>;
+export type ClinicUsage = UsageInsights["clinics"][number];
+export type OnboardingClinic = UsageInsights["onboarding"][number];
 
 const qualityFailure = z.object({ test: z.string(), message: z.string() }) satisfies z.ZodType<C.QualityFailure>;
 

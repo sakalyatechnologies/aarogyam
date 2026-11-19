@@ -1,48 +1,40 @@
-import { AlertTriangle, CheckCircle2, Clock3, Database, Gauge, Globe, OctagonAlert, Server, Timer } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, Cloud, Database, Gauge, Globe, IndianRupee, OctagonAlert, Server, Timer, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
-import { metricsRange, type Metrics, type MetricsRange } from "@aarogyam/api-client";
-import {
-  ApiErrorNotice,
-  DEFAULT_TIME_ZONE,
-  formatBytes,
-  formatMs,
-  formatNumber,
-  formatPercent,
-  formatTime,
-  useDocumentTitle,
-} from "@aarogyam/app-kit";
-import { Card, DataTable, EmptyState, LineChart, PageHeader, Pill, RadioGroup, Skeleton, StatCard, type DataTableColumn } from "@sakalya/ui";
+import { metricsRange, type CloudMetrics, type Metrics, type MetricsRange } from "@aarogyam/api-client";
+import { ApiErrorNotice, DEFAULT_TIME_ZONE, formatBytes, formatMs, formatNumber, formatPercent, formatTime, useDocumentTitle } from "@aarogyam/app-kit";
+import { Card, DataTable, EmptyState, LineChart, PageHeader, Pill, RadioGroup, StatCard, Tabs, type DataTableColumn } from "@sakalya/ui";
 
-import { useMetrics } from "../../api.js";
+import { useMetrics, useUsageInsights } from "../../api.js";
+import { DatabaseTab } from "./database-tab.js";
+import { ChartCard, LoadingCharts, RANGE_WORDS, one, xAxis } from "./insight-parts.js";
 import {
   HEALTH_TONE,
   P95_BUDGET_MS,
   RANGE_MINUTES,
-  clsHealth,
-  inpHealth,
+  alignPoints,
   latencyHealth,
-  lcpHealth,
+  perMinuteOf,
   serverErrorHealth,
   successHealth,
   timeFormatter,
   timelineView,
   type Health,
 } from "./metrics-view.js";
+import { UsageTab } from "./usage-tab.js";
 
 const RANGES = [
   { value: "1h", label: "1 hour" },
   { value: "6h", label: "6 hours" },
   { value: "24h", label: "24 hours" },
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
 ] as const;
 
-const RANGE_WORDS: Readonly<Record<MetricsRange, string>> = {
-  "1h": "the last hour",
-  "6h": "the last 6 hours",
-  "24h": "the last 24 hours",
-  "7d": "the last 7 days",
-};
+const TABS = ["overview", "api", "database", "frontend", "usage", "cost"] as const;
+type Tab = (typeof TABS)[number];
+const isTab = (value: string | null): value is Tab => TABS.some((tab) => tab === value);
 
 function HealthNote({ health, children }: { health: Health; children: ReactNode }) {
   const Icon = health === "good" ? CheckCircle2 : health === "watch" ? AlertTriangle : OctagonAlert;
@@ -53,18 +45,24 @@ function HealthNote({ health, children }: { health: Health; children: ReactNode 
   );
 }
 
-/** Service health: API traffic, errors and latency, the database, and the edge. */
+/** Insights: the service, the database and how clinics use the product, one range for every tab. */
 export function HealthPage() {
-  useDocumentTitle("Service health", "Sakalya Console");
+  useDocumentTitle("Insights", "Sakalya Console");
   const [params, setParams] = useSearchParams();
   const range = metricsRange.catch("1h").parse(params.get("range"));
+  const tabParam = params.get("tab");
+  const tab: Tab = isTab(tabParam) ? tabParam : "overview";
   const metrics = useMetrics(range);
+  const go = (next: { tab?: Tab; range?: MetricsRange }) => {
+    setParams({ tab: next.tab ?? tab, range: next.range ?? range }, { replace: true });
+  };
+  const link = (to: Tab) => `/health?tab=${to}&range=${range}`;
 
   return (
     <>
       <PageHeader
-        title="Service health"
-        subtitle="API, database and edge for Aarogyam"
+        title="Insights"
+        subtitle="Service, database and clinic usage for Aarogyam"
         end={
           metrics.data === undefined ? null : (
             <p role="status" className="text-sm text-muted">
@@ -80,36 +78,236 @@ export function HealthPage() {
           options={RANGES}
           value={range}
           onValueChange={(value) => {
-            setParams({ range: value }, { replace: true });
+            go({ range: metricsRange.catch(range).parse(value) });
           }}
         />
       </div>
-      {metrics.isPending ? (
-        <div className="flex flex-col gap-4" role="status" aria-label="Loading service health">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 4 }, (_, index) => (
-              <Skeleton key={index} shape="block" />
-            ))}
-          </div>
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            {CHARTS.map((chart) => (
-              <Card key={chart.title} title={chart.title}>
-                <LineChart loading times={[]} series={[]} summary="" xLabel="Time" yLabel={chart.title} formatX={String} />
-              </Card>
-            ))}
-          </div>
-        </div>
-      ) : metrics.isError ? (
-        <ApiErrorNotice title="Couldn't load service health" error={metrics.error} onRetry={() => void metrics.refetch()} />
-      ) : (
-        <HealthBody metrics={metrics.data} range={range} />
-      )}
+      <Tabs<Tab>
+        label="Insights"
+        value={tab}
+        onValueChange={(value) => {
+          go({ tab: value });
+        }}
+        items={[
+          { value: "overview", label: "Overview", content: <OverviewTab metrics={metrics} range={range} link={link} /> },
+          { value: "api", label: "API", content: <ApiTab metrics={metrics} range={range} /> },
+          { value: "database", label: "Database", content: <DatabaseTab range={range} /> },
+          {
+            value: "frontend",
+            label: "Front end",
+            content: <ComingSoon title="Front end coming soon" description="Page views, time on each page and Core Web Vitals for the portal and console, counted per page template." icon={<Globe className="size-7" />} />,
+          },
+          { value: "usage", label: "Usage", content: <UsageTab range={range} /> },
+          {
+            value: "cost",
+            label: "Cost",
+            content: <ComingSoon title="Cost coming soon" description="An estimate of this month's Cloud Run cost for the API and the outbox job, after the free tier." icon={<IndianRupee className="size-7" />} />,
+          },
+        ]}
+      />
     </>
   );
 }
 
-function HealthBody({ metrics, range }: { metrics: Metrics; range: MetricsRange }) {
-  const { api } = metrics;
+function ComingSoon({ title, description, icon }: { title: string; description: string; icon: ReactNode }) {
+  return (
+    <Card>
+      <EmptyState title={title} description={description} icon={icon} />
+    </Card>
+  );
+}
+
+type MetricsQuery = ReturnType<typeof useMetrics>;
+
+/** Says where the service numbers come from. */
+function SourceNote({ metrics }: { metrics: Metrics }) {
+  return metrics.source === "cloud_monitoring" ? (
+    <Pill tone="success" icon={<Cloud aria-hidden="true" className="size-3.5" />}>
+      Source: Cloud Monitoring
+    </Pill>
+  ) : (
+    <span className="flex flex-wrap items-center gap-2">
+      <Pill tone="warning" icon={<Server aria-hidden="true" className="size-3.5" />}>
+        This instance only
+      </Pill>
+      <span className="text-xs text-muted">
+        {metrics.cloud_error === null ? "Numbers since this instance started; Cloud Run scales to zero, so they reset." : `Cloud Monitoring could not be read (${metrics.cloud_error}).`}
+      </span>
+    </span>
+  );
+}
+
+function OverviewTab({ metrics, range, link }: { metrics: MetricsQuery; range: MetricsRange; link: (tab: Tab) => string }) {
+  const usage = useUsageInsights(range);
+  if (metrics.isPending) {
+    return <LoadingCharts titles={[]} label="Loading the overview" />;
+  }
+  if (metrics.isError) {
+    return <ApiErrorNotice title="Couldn't load the overview" error={metrics.error} onRetry={() => void metrics.refetch()} />;
+  }
+  const { api, db } = metrics.data;
+  const success = successHealth(api.success_rate);
+  const visits = usage.data?.days.reduce((sum, day) => sum + day.visits, 0);
+  const usageWords = range === "7d" || range === "30d" ? RANGE_WORDS[range] : "yesterday";
+  return (
+    <div className="flex flex-col gap-4">
+      <SourceNote metrics={metrics.data} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <StatCard
+          label="API success rate"
+          value={formatPercent(api.success_rate, 2)}
+          tone={HEALTH_TONE[success]}
+          icon={<CheckCircle2 className="size-7" />}
+          href={link("api")}
+          footer={<p className="text-xs text-muted">{formatNumber(api.requests)} requests in {RANGE_WORDS[range]} · p95 {formatMs(api.p95_ms)}</p>}
+        />
+        <StatCard
+          label="Database size"
+          value={formatBytes(db.size_bytes)}
+          tone="neutral"
+          icon={<Database className="size-7" />}
+          href={link("database")}
+          footer={<p className="text-xs text-muted">{`${String(db.connections_used)} of ${String(db.connections_max)} connections · cache ${formatPercent(db.cache_hit_ratio, 1)}`}</p>}
+        />
+        <StatCard
+          label="Visits"
+          value={visits === undefined ? "—" : formatNumber(visits)}
+          tone="neutral"
+          icon={<Users className="size-7" />}
+          href={link("usage")}
+          footer={<p className="text-xs text-muted">{usage.isError ? "Couldn't load usage" : `All clinics, ${usageWords}`}</p>}
+        />
+        <StatCard label="Front end" value="Coming soon" tone="neutral" icon={<Globe className="size-7" />} href={link("frontend")} />
+        <StatCard label="Cost" value="Coming soon" tone="neutral" icon={<IndianRupee className="size-7" />} href={link("cost")} />
+      </div>
+    </div>
+  );
+}
+
+function ApiTab({ metrics, range }: { metrics: MetricsQuery; range: MetricsRange }) {
+  if (metrics.isPending) {
+    return <LoadingCharts titles={CHARTS.map((chart) => chart.title)} label="Loading service health" />;
+  }
+  if (metrics.isError) {
+    return <ApiErrorNotice title="Couldn't load service health" error={metrics.error} onRetry={() => void metrics.refetch()} />;
+  }
+  const { cloud } = metrics.data;
+  return (
+    <div className="flex flex-col gap-4">
+      <SourceNote metrics={metrics.data} />
+      {cloud === null ? null : <CloudCharts cloud={cloud} range={range} />}
+      {cloud === null ? null : (
+        <div>
+          <h2 className="text-lg font-bold tracking-tight text-text">This instance</h2>
+          <p className="text-xs text-muted">The instance that answered, since it started: the only place routes are counted for now.</p>
+        </div>
+      )}
+      <InstanceBody api={metrics.data.api} range={range} />
+    </div>
+  );
+}
+
+/** Cloud Run's charts: every instance and revision of the API, and the outbox job. */
+function CloudCharts({ cloud, range }: { cloud: CloudMetrics; range: MetricsRange }) {
+  const words = RANGE_WORDS[range];
+  const formatX = timeFormatter(range, DEFAULT_TIME_ZONE);
+  const perMinute = perMinuteOf(cloud.interval_seconds);
+  const empty = `Cloud Run recorded nothing in ${words}.`;
+  const { service, job } = cloud;
+  const requests = alignPoints(service.requests.map((series) => series.points));
+  const latency = alignPoints([service.latency_p50_ms, service.latency_p95_ms, service.latency_p99_ms]);
+  const instances = alignPoints([service.instances, service.cold_starts]);
+  const usage = alignPoints([service.cpu_p95, service.memory_p95]);
+  const executions = alignPoints(job.executions.map((series) => series.points));
+  const jobTime = alignPoints([job.billable_seconds, job.cpu_seconds]);
+  const colors: Readonly<Record<string, string>> = { "2xx": "var(--sk-chart-1)", "3xx": "var(--sk-chart-3)", "4xx": "var(--sk-warning)", "5xx": "var(--sk-danger)", succeeded: "var(--sk-success)", failed: "var(--sk-danger)" };
+  const count = (value: number) => formatNumber(Math.round(value));
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <ChartCard
+        {...xAxis(requests.times, formatX, "Time (IST)", empty)}
+        title="Requests by class"
+        note="Requests per minute across every instance, by response class; 5xx are the service's failures."
+        yLabel="Requests per minute"
+        formatY={(value) => one.format(value)}
+        series={service.requests.map((series, index) => ({
+          id: series.label,
+          label: series.label,
+          values: (requests.values[index] ?? []).map(perMinute),
+          color: colors[series.label] ?? "var(--sk-info)",
+        }))}
+        summary={`Requests per minute by response class over ${words}, all instances.`}
+      />
+      <ChartCard
+        {...xAxis(latency.times, formatX, "Time (IST)", empty)}
+        title="Latency, all instances"
+        note="How long Cloud Run took to answer, including cold starts the instance itself never sees."
+        yLabel="Latency (ms)"
+        formatY={(value) => one.format(value)}
+        formatValue={(value) => `${one.format(value)} ms`}
+        series={[
+          { id: "p50", label: "p50", values: latency.values[0] ?? [], color: "var(--sk-chart-3)", dash: "2 3" },
+          { id: "p95", label: "p95", values: latency.values[1] ?? [], color: "var(--sk-chart-1)" },
+          { id: "p99", label: "p99", values: latency.values[2] ?? [], color: "var(--sk-info)", dash: "7 4" },
+        ]}
+        reference={{ value: P95_BUDGET_MS, label: `p95 budget ${String(P95_BUDGET_MS)} ms`, color: "var(--sk-danger)" }}
+        summary={`Latency percentiles over ${words}, all instances.`}
+      />
+      <ChartCard
+        {...xAxis(instances.times, formatX, "Time (IST)", empty)}
+        title="Instances and cold starts"
+        note="Instances running (0 when idle) and how many started cold; each cold start makes one request slow."
+        yLabel="Instances / starts"
+        formatY={count}
+        series={[
+          { id: "instances", label: "Instances", values: instances.values[0] ?? [], color: "var(--sk-chart-1)" },
+          { id: "cold", label: "Cold starts", values: instances.values[1] ?? [], color: "var(--sk-warning)", dash: "7 4" },
+        ]}
+        summary={`Running instances and cold starts over ${words}.`}
+      />
+      <ChartCard
+        {...xAxis(usage.times, formatX, "Time (IST)", empty)}
+        title="CPU and memory"
+        note="95th percentile use of each instance's CPU and memory; near 100% the service needs more."
+        yLabel="Use (%)"
+        formatY={(value) => `${one.format(value)}%`}
+        series={[
+          { id: "cpu", label: "CPU p95", values: (usage.values[0] ?? []).map((value) => (value === null ? null : value * 100)), color: "var(--sk-chart-1)" },
+          { id: "memory", label: "Memory p95", values: (usage.values[1] ?? []).map((value) => (value === null ? null : value * 100)), color: "var(--sk-info)", dash: "7 4" },
+        ]}
+        summary={`CPU and memory use over ${words}.`}
+      />
+      <ChartCard
+        {...xAxis(executions.times, formatX, "Time (IST)", `The outbox job did not run in ${words}.`)}
+        title="Outbox job runs"
+        note="Runs of the job that sends messages and does the daily work, started every 2 minutes; failed runs retry next time."
+        yLabel="Runs"
+        formatY={count}
+        series={job.executions.map((series, index) => ({
+          id: series.label,
+          label: series.label,
+          values: executions.values[index] ?? [],
+          color: colors[series.label] ?? "var(--sk-info)",
+        }))}
+        summary={`Outbox job runs by result over ${words}.`}
+      />
+      <ChartCard
+        {...xAxis(jobTime.times, formatX, "Time (IST)", `The outbox job did not run in ${words}.`)}
+        title="Outbox job time"
+        note="Seconds the job was billed and its vCPU seconds, per interval: what the job costs."
+        yLabel="Seconds"
+        formatY={count}
+        series={[
+          { id: "billable", label: "Billable seconds", values: jobTime.values[0] ?? [], color: "var(--sk-chart-1)" },
+          { id: "cpu", label: "vCPU seconds", values: jobTime.values[1] ?? [], color: "var(--sk-warning)", dash: "7 4" },
+        ]}
+        summary={`Outbox job billable and vCPU seconds over ${words}.`}
+      />
+    </div>
+  );
+}
+
+function InstanceBody({ api, range }: { api: Metrics["api"]; range: MetricsRange }) {
   const perMinute = api.requests / RANGE_MINUTES[range];
   const success = successHealth(api.success_rate);
   const serverErrors = serverErrorHealth(api.rate_5xx);
@@ -170,11 +368,6 @@ function HealthBody({ metrics, range }: { metrics: Metrics; range: MetricsRange 
           pageSize={10}
         />
       </Card>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <DatabasePanel db={metrics.db} />
-        <EdgePanel edge={metrics.edge} />
-      </div>
     </div>
   );
 }
@@ -187,7 +380,6 @@ const CHARTS = [
   { title: "Latency", unit: "milliseconds" },
 ] as const;
 
-const one = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 });
 const rateOf = (value: number) => `${one.format(value)}%`;
 const msOf = (value: number) => `${one.format(value)} ms`;
 const perMin = (value: number) => (value < 10 ? one.format(Math.round(value * 10) / 10) : formatNumber(Math.round(value)));
@@ -204,6 +396,7 @@ function TrafficCharts({ api, range }: { api: Metrics["api"]; range: MetricsRang
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <Card title="Requests per minute">
+        <p className="mb-2 text-xs text-muted">How busy the API was, per minute.</p>
         <LineChart
           {...common}
           yLabel="Requests per minute"
@@ -223,6 +416,7 @@ function TrafficCharts({ api, range }: { api: Metrics["api"]; range: MetricsRang
         />
       </Card>
       <Card title="Error rate">
+        <p className="mb-2 text-xs text-muted">Share of requests that failed, against the 0.5% target.</p>
         <LineChart
           {...common}
           yLabel="Error rate (% of requests)"
@@ -248,6 +442,7 @@ function TrafficCharts({ api, range }: { api: Metrics["api"]; range: MetricsRang
       </Card>
       <div className="xl:col-span-2">
         <Card title="Latency">
+          <p className="mb-2 text-xs text-muted">How long this instance took to answer, against the p95 budget.</p>
           <LineChart
             {...common}
             height={240}
@@ -286,107 +481,3 @@ const ROUTE_COLUMNS: readonly DataTableColumn<RouteRow>[] = [
   { id: "p95", header: "p95", align: "end", cell: (row) => formatMs(row.p95_ms), sortValue: (row) => row.p95_ms },
   { id: "p99", header: "p99", align: "end", cell: (row) => formatMs(row.p99_ms), sortValue: (row) => row.p99_ms },
 ];
-
-function Stat({ label, value, note }: { label: string; value: string; note?: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-xs font-semibold text-muted">{label}</dt>
-      <dd className="text-xl font-extrabold tracking-tight text-text">{value}</dd>
-      {note === undefined ? null : <dd>{note}</dd>}
-    </div>
-  );
-}
-
-type Db = Metrics["db"];
-
-const QUERY_COLUMNS: readonly DataTableColumn<Db["slow_queries"][number]>[] = [
-  { id: "query", header: "Query ID", cell: (row) => <span className="font-mono text-xs">{row.query_id}</span> },
-  { id: "mean", header: "Mean", align: "end", cell: (row) => formatMs(row.mean_ms), sortValue: (row) => row.mean_ms },
-  { id: "calls", header: "Calls", align: "end", cell: (row) => formatNumber(row.calls), sortValue: (row) => row.calls },
-  { id: "total", header: "Total", align: "end", cell: (row) => formatMs(row.total_ms), sortValue: (row) => row.total_ms },
-];
-
-const TABLE_COLUMNS: readonly DataTableColumn<Db["tables"][number]>[] = [
-  { id: "name", header: "Table", cell: (row) => <span className="font-mono text-xs">{row.name}</span>, sortValue: (row) => row.name },
-  { id: "dead", header: "Dead rows", align: "end", cell: (row) => formatNumber(row.dead_rows), sortValue: (row) => row.dead_rows },
-  { id: "live", header: "Live rows", align: "end", cell: (row) => formatNumber(row.live_rows), sortValue: (row) => row.live_rows },
-  { id: "size", header: "Size", align: "end", cell: (row) => formatBytes(row.size_bytes), sortValue: (row) => row.size_bytes },
-];
-
-function DatabasePanel({ db }: { db: Db }) {
-  const used = db.connections_max === 0 ? 0 : db.connections_used / db.connections_max;
-  return (
-    <Card title="Database" action={<Database aria-hidden="true" className="size-5 text-muted" />}>
-      <dl className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat label="Connections" value={`${String(db.connections_used)} of ${String(db.connections_max)}`} note={<span className="text-xs text-muted">{formatPercent(used)} in use</span>} />
-        <Stat label="Cache hit ratio" value={formatPercent(db.cache_hit_ratio, 2)} />
-        <Stat label="Database size" value={formatBytes(db.size_bytes)} />
-      </dl>
-      <h3 className="mb-2 text-sm font-bold text-text">Slowest queries</h3>
-      <DataTable
-        caption="Slowest queries by mean time"
-        columns={QUERY_COLUMNS}
-        rows={db.slow_queries}
-        rowKey={(row) => row.query_id}
-        defaultSort={{ columnId: "mean", direction: "descending" }}
-        pageSize={5}
-      />
-      <h3 className="mt-5 mb-2 text-sm font-bold text-text">Tables with the most dead rows</h3>
-      <DataTable
-        caption="Tables by dead rows"
-        columns={TABLE_COLUMNS}
-        rows={db.tables}
-        rowKey={(row) => row.name}
-        defaultSort={{ columnId: "dead", direction: "descending" }}
-        pageSize={6}
-      />
-    </Card>
-  );
-}
-
-function EdgePanel({ edge }: { edge: Metrics["edge"] }) {
-  if (edge === null) {
-    return (
-      <Card title="Frontend and edge">
-        <EmptyState
-          title="Not connected yet"
-          description="Cloudflare traffic and Core Web Vitals will show here once the analytics feed is connected."
-          icon={<Globe className="size-7" />}
-        />
-      </Card>
-    );
-  }
-  const vitals = [
-    { label: "LCP p75", value: formatMs(edge.lcp_p75_ms), health: lcpHealth(edge.lcp_p75_ms), target: "Good up to 2.5 s" },
-    { label: "INP p75", value: formatMs(edge.inp_p75_ms), health: inpHealth(edge.inp_p75_ms), target: "Good up to 200 ms" },
-    { label: "CLS p75", value: edge.cls_p75.toFixed(2), health: clsHealth(edge.cls_p75), target: "Good up to 0.1" },
-  ];
-  const words: Readonly<Record<Health, string>> = { good: "Good", watch: "Needs improvement", bad: "Poor" };
-  return (
-    <Card title="Frontend and edge" action={<Globe aria-hidden="true" className="size-5 text-muted" />}>
-      <dl className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <Stat label="Edge requests" value={formatNumber(edge.requests)} />
-        <Stat label="Edge 4xx" value={formatPercent(edge.rate_4xx, 2)} />
-        <Stat label="Edge 5xx" value={formatPercent(edge.rate_5xx, 2)} />
-        <Stat label="Worker CPU p95" value={formatMs(edge.cpu_p95_ms)} />
-        <Stat label="Page views" value={formatNumber(edge.page_views)} />
-      </dl>
-      <h3 className="mb-2 text-sm font-bold text-text">Core Web Vitals</h3>
-      <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {vitals.map((vital) => (
-          <Stat
-            key={vital.label}
-            label={vital.label}
-            value={vital.value}
-            note={
-              <span className="flex flex-col items-start gap-1">
-                <HealthNote health={vital.health}>{words[vital.health]}</HealthNote>
-                <span className="text-xs text-muted">{vital.target}</span>
-              </span>
-            }
-          />
-        ))}
-      </dl>
-    </Card>
-  );
-}

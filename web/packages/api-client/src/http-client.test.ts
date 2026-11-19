@@ -400,6 +400,41 @@ describe("createHttpClient requests", () => {
     expect((await bad.listMyTasks()).ok).toBe(false);
   });
 
+  it("reads console insights on their own paths and checks the bodies against the contract", async () => {
+    const db = {
+      generated_at: "2026-11-19T06:00:00Z",
+      range: "24h",
+      interval_seconds: 900,
+      size_limit_bytes: 524_288_000,
+      current: { connections_used: 3, connections_max: 60, cache_hit_ratio: 0.99, size_bytes: 1000, slow_queries: [], tables: [] },
+      samples: [
+        { at: "2026-11-19T05:45:00Z", connections: 3, max_connections: 60, cache_hit_ratio: 0.99, db_bytes: 1000, commits_per_min: null, rollbacks_per_min: null, rows_read_per_min: null, rows_written_per_min: null, deadlocks: 0, temp_bytes: 0 },
+      ],
+    };
+    const timings = { arrive_to_seat_minutes: null, seat_to_start_minutes: null, visit_minutes: 24.5, end_to_paid_minutes: null, booking_lead_days: null };
+    const usage = {
+      generated_at: "2026-11-19T06:00:00Z",
+      range: "7d",
+      from: "2026-11-12",
+      to: "2026-11-19",
+      days: [{ day: "2026-11-18", clinics: 2, visits: 12, booked: 14, no_shows: 1, active_staff: 6, timings }],
+      clinics: [{ org_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405180", slug: "sunrise", name: "Sunrise", days: 1, visits: 12, booked: 14, no_shows: 1, active_staff: 6, timings, roles: [{ role_key: "doctor", members: 3 }] }],
+      roles: [{ day: "2026-11-18", role_key: "doctor", members: 3, clinics: 1 }],
+      onboarding: [{ org_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405180", slug: "sunrise", name: "Sunrise", status: "trial", created_at: "2026-11-01T04:00:00Z", owner_joined_at: null, setup_steps_done: 0, setup_completed_at: null, first_patient_at: null, first_visit_at: null, first_bill_at: null, first_busy_week: null }],
+    };
+    const replies = [json(200, db), json(200, usage), json(200, { ...usage, days: [{ ...usage.days[0], visits: -1 }] })];
+    const { fetch, calls } = stubFetch(() => Promise.resolve(replies.shift() ?? json(500, {})));
+    const client = createHttpClient("http://console.localtest.me/", () => Promise.resolve("abc"), { fetch });
+
+    const history = await client.getDbInsights("24h");
+    expect(calls[0]?.url).toBe("http://console.localtest.me/api/v1/console/insights/db?range=24h");
+    expect(history.ok && history.value.samples[0]?.commits_per_min).toBeNull();
+    const used = await client.getUsageInsights("7d");
+    expect(calls[1]?.url).toBe("http://console.localtest.me/api/v1/console/insights/usage?range=7d");
+    expect(used.ok && used.value.clinics[0]?.timings.visit_minutes).toBe(24.5);
+    expect((await client.getUsageInsights("7d")).ok).toBe(false);
+  });
+
   it("searches with a POST body, so the search term never appears in a URL", async () => {
     const { fetch, calls } = stubFetch(json(200, { items: [] }));
     const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });

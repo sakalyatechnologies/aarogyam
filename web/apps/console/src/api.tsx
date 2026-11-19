@@ -29,7 +29,7 @@ export function useApi(): ApiClient {
   return client;
 }
 
-/** Service health for a range, refreshed every minute without flashing. */
+/** Service metrics for a range, refreshed every minute without flashing. */
 export function useMetrics(range: MetricsRange) {
   const api = useApi();
   return useQuery({
@@ -37,6 +37,28 @@ export function useMetrics(range: MetricsRange) {
     queryFn: ({ signal }) => unwrap(api.getMetrics(range, { signal })),
     placeholderData: keepPreviousData,
     refetchInterval: 60_000,
+  });
+}
+
+/** The database over a range; the drain job samples it at most every 5 minutes. */
+export function useDbInsights(range: MetricsRange) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["insights", "db", range],
+    queryFn: ({ signal }) => unwrap(api.getDbInsights(range, { signal })),
+    placeholderData: keepPreviousData,
+    refetchInterval: 300_000,
+  });
+}
+
+/** Clinic usage and onboarding over a range; written once a day per clinic. */
+export function useUsageInsights(range: MetricsRange) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["insights", "usage", range],
+    queryFn: ({ signal }) => unwrap(api.getUsageInsights(range, { signal })),
+    placeholderData: keepPreviousData,
+    refetchInterval: 600_000,
   });
 }
 

@@ -3013,6 +3013,20 @@ export const visitLink = z.object({
 }) satisfies z.ZodType<C.VisitLink>;
 export type VisitLink = z.output<typeof visitLink>;
 
+/** The doctor's WhatsApp hand-off: the server-built text, a short text with no clinical words (for a web URL), the link and its PIN. Kept in memory only. */
+export const visitPatientMessage = z.object({
+  phone_e164: z.string(),
+  text: z.string(),
+  short_text: z.string(),
+  url: z.string(),
+  pin: z.string(),
+  expires_at: timestamp,
+  auto_sent_at: optionalTimestamp,
+  /** `patient` or `guardian`; a plain string, so a later value doesn't break old pages. */
+  recipient: z.string(),
+}) satisfies z.ZodType<C.VisitPatientMessage>;
+export type VisitPatientMessage = z.output<typeof visitPatientMessage>;
+
 export const visitSummary = z.object({
   clinic_name: z.string(),
   patient_name: z.string(),

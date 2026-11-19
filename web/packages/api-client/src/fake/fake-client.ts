@@ -4364,6 +4364,56 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ id: link.id, token: link.token, pin: link.pin, expires_at: link.expires_at, channel: share.channel } satisfies C.VisitLink);
         }),
 
+      prepareVisitPatientMessage: (id, opts) =>
+        respond(S.visitPatientMessage, opts?.signal, async () => {
+          const reader = await inClinic("clinical.read");
+          if (!isCaller(reader)) {
+            return reader;
+          }
+          const caller = await inClinic("patients.contact");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          const patient = found === undefined ? undefined : state.patients.find((p) => p.id === found.patient_id);
+          if (found === undefined || patient === undefined) {
+            return notFound;
+          }
+          if (found.status !== "closed") {
+            return refuse(409, "visit_open", "Finish the visit first.");
+          }
+          if (patient.phone == null) {
+            return refuse(409, "no_phone", "This patient has no mobile number.");
+          }
+          const now = clock();
+          const link: FakeShareLink = {
+            id: fakeUuid(random, now),
+            clinic_id: caller.clinic.id,
+            prescription_id: null,
+            encounter_id: found.id,
+            channel: "whatsapp",
+            token: random.hex(32),
+            pin: String(random.int(100_000, 999_999)),
+            created_at: now.toISOString(),
+            expires_at: new Date(now.getTime() + 7 * 24 * 3_600_000).toISOString(),
+            failed_attempts: 0,
+            locked: false,
+          };
+          state.shareLinks.push(link);
+          const url = `https://${caller.clinic.host}/shared/${link.token}`;
+          const greeting = `Hello from ${caller.clinic.name}!`;
+          const warning = "This link opens your health record. Please don't forward it.";
+          return reply({
+            phone_e164: patient.phone,
+            text: `${greeting} 😊\n\n✅ *Done today*\nVisit ${found.number}\n\nYour visit summary: ${url}\nPIN: ${link.pin}\n${warning}`,
+            short_text: `${greeting} Your visit summary: ${url} PIN: ${link.pin}. ${warning}`,
+            url,
+            pin: link.pin,
+            expires_at: link.expires_at,
+            recipient: "patient",
+          } satisfies C.VisitPatientMessage);
+        }),
+
       openSharedVisit: (token, pin, opts) =>
         respond(S.visitSummary, opts?.signal, () => {
           const link = state.shareLinks.find((l) => l.token === token && l.encounter_id != null);

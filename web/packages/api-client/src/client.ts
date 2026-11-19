@@ -239,6 +239,7 @@ import type {
   FinishedVisit,
   FinishVisitInput,
   VisitLink,
+  VisitPatientMessage,
   VisitSummary,
   SavedMedicineSet,
   SavedMedicineSetList,
@@ -786,6 +787,12 @@ export interface ApiClient {
   finishVisit(id: VisitId, input?: FinishVisitInput, options?: RequestOptions): Promise<ApiResult<FinishedVisit>>;
   /** Clinic host: makes a link and PIN for the patient to open the visit summary at `/shared/{token}/visit`. Needs `clinical.write`. */
   shareVisit(id: VisitId, input?: ShareInput, options?: RequestOptions): Promise<ApiResult<VisitLink>>;
+  /**
+   * Clinic host: prepares the patient's WhatsApp summary of a closed visit (text, link and PIN) for the doctor to send
+   * from their own WhatsApp. Needs `clinical.read` and `patients.contact`. 409 codes: `visit_open`, `no_phone`,
+   * `no_consent`, `opted_out`. Never cache or log the result.
+   */
+  prepareVisitPatientMessage(id: VisitId, options?: RequestOptions): Promise<ApiResult<VisitPatientMessage>>;
   /** Public: opens a visit summary link with its PIN. Five wrong PINs lock the link. */
   openSharedVisit(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<VisitSummary>>;
 

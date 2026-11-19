@@ -9,6 +9,7 @@ import { PEOPLE, fakeApi, renderPortal } from "../../../test/render.js";
 import { NEW_LOOK_KEY } from "../../../lib/new-look.js";
 import { FOLLOW_UPS, allergyAlertsOf, dateAfter, finishErrorMessage, finishVisit, type FinishDeps } from "./finish-visit.js";
 import { layoutKey, type P360Layout } from "./use-layout.js";
+import { handoff } from "./whatsapp-summary.js";
 
 /** The first "Start visit" button on the page (the blocks and the bar each offer one). */
 async function firstStart(): Promise<HTMLElement> {
@@ -209,6 +210,25 @@ describe("A visit, from the new Patient 360", () => {
     const dialog = await screen.findByRole("dialog", { name: "Visit completed" });
     expect(within(dialog).getByText(/closed and the note signed/)).toBeTruthy();
     expect(within(dialog).getByText(/follow-up in 2 weeks/)).toBeTruthy();
+    // The patient's summary goes from the doctor's own WhatsApp: the full text through WhatsApp Desktop, only the
+    // short text (no clinical words) through a WhatsApp Web URL. The screen says "prepared", never "sent".
+    const opened: string[] = [];
+    const open = handoff.open;
+    handoff.open = (url) => {
+      opened.push(url);
+    };
+    try {
+      await user.click(within(dialog).getByRole("button", { name: "Send on WhatsApp" }));
+      expect(await within(dialog).findByText(/Summary prepared/)).toBeTruthy();
+      expect(opened).toHaveLength(1);
+      expect(opened[0]).toMatch(/^whatsapp:\/\/send\?phone=\d+&text=.*Done%20today/);
+      const web = within(dialog).getByRole("link", { name: "Use WhatsApp Web" }).getAttribute("href") ?? "";
+      expect(web).toMatch(/^https:\/\/wa\.me\/\d+\?text=/);
+      expect(decodeURIComponent(web)).not.toMatch(/Done today/);
+      expect(within(dialog).queryByText(/sent/i)).toBeNull();
+    } finally {
+      handoff.open = open;
+    }
     await user.click(within(dialog).getByRole("button", { name: "Done" }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Visit completed" })).toBeNull();

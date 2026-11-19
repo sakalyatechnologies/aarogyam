@@ -719,6 +719,7 @@ export type CloseRequest = Schemas["CloseRequest"];
 export type ShareRequest = Schemas["ShareRequest"];
 export type ShareMessage = Schemas["ShareMessage"];
 export type VisitLink = Schemas["VisitLink"];
+export type VisitPatientMessage = Schemas["VisitPatientMessage"];
 export type VisitSummary = Schemas["VisitSummary"];
 export type Recall = Schemas["Recall"];
 export type RecallList = Schemas["RecallList"];

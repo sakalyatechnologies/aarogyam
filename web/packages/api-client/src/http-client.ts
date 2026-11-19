@@ -146,6 +146,7 @@ import {
   closedVisit,
   finishedVisit,
   visitLink,
+  visitPatientMessage,
   visitSummary,
   savedMedicineSet,
   savedMedicineSetList,
@@ -581,6 +582,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/finish`, schema: finishedVisit, body: input ?? {}, signal: opts?.signal }),
     shareVisit: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/share`, schema: visitLink, body: input ?? {}, signal: opts?.signal }),
+    prepareVisitPatientMessage: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/patient-message`, schema: visitPatientMessage, body: {}, signal: opts?.signal }),
     openSharedVisit: (token, pin, opts) =>
       call({ method: "POST", path: `/api/v1/shared/${encodeURIComponent(token)}/visit`, schema: visitSummary, body: { pin }, signal: opts?.signal }),
     listMedicineSets: (opts) => call({ method: "GET", path: "/api/v1/medicine-sets", schema: savedMedicineSetList, signal: opts?.signal }),

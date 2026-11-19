@@ -14,6 +14,7 @@ import { useCreateShareLinkWith } from "../../prescriptions/queries.js";
 import { dateAfter } from "./finish-visit.js";
 import { PillButton } from "./kit.js";
 import type { FinishedVisit } from "./visit-session.js";
+import { WhatsAppSummary } from "./whatsapp-summary.js";
 
 const COLOURS = ["var(--brand)", "var(--amber)", "var(--indigo)", "var(--green)", "var(--red)"];
 
@@ -111,6 +112,7 @@ export function Celebration({ finished, patient, onClose }: { finished: Finished
         <span className="p360-cele-ok" role="status">
           <CheckCircle2 aria-hidden="true" /> Visit {finished.visit.number} closed{finished.noteSigned ? " and the note signed" : ""}
         </span>
+        <WhatsAppSummary visitId={finished.visit.id} />
         {finished.rx === undefined ? null : <RxLink rx={finished.rx} />}
         <div className="p360-cele-foot">
           {follow !== null && can("appointments.write") ? (

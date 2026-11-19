@@ -181,6 +181,8 @@ address like any new clinic's:
 psql "$ARO_DB__OWNER_URL" -v ON_ERROR_STOP=1 -v portal_host_template='{slug}-aarogyam.spring-snow-130f.workers.dev' -f db/seed/review-clinic.sql
 ```
 
+Walk-ins for the calendar (once; a second run does nothing): `psql "$ARO_DB__OWNER_URL" -v ON_ERROR_STOP=1 -f db/seed/review-walk-ins.sql`.
+
 ## Public website (Cloudflare Pages)
 
 The marketing site (`web/apps/website`, built in Lovable, kept here) is a static build served by

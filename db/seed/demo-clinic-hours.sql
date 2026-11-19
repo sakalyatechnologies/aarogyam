@@ -17,7 +17,7 @@ begin;
 set local timezone = 'UTC';
 
 create temp table _orgs on commit drop as
-  select id, slug, timezone from aarogyam.organizations where slug in ('sunrise', 'lotus', 'suhasyadental');
+  select id, slug, timezone from aarogyam.organizations where slug in ('sunrise', 'lotus', 'suhasyadental', 'review');
 
 -- Anchor rows: appointments, and tokens and visits not tied to an appointment.
 create temp table _anchor on commit drop as

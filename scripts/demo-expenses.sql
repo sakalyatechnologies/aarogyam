@@ -1,4 +1,4 @@
--- Synthetic expenses for the demo clinics (sunrise, lotus, suhasyadental), so Billing → Expenses and
+-- Synthetic expenses for the demo clinics (sunrise, lotus, suhasyadental, review), so Billing → Expenses and
 -- the Analytics money charts are not empty: for each of the last twelve months (this one up to
 -- today) salaries, rent, electricity, two lab bills, a small material buy and one other cost.
 -- Amounts are made up and vary by month. Every row's note starts "Demo:"; a month and category that
@@ -22,7 +22,7 @@ with orgs as (
          (select m.id from aarogyam.memberships m join aarogyam.roles r on r.org_id = m.org_id and r.id = m.role_id
           where m.org_id = o.id and m.status = 'active' order by (r.key = 'owner') desc, m.id limit 1) as member
   from aarogyam.organizations o
-  where o.slug in ('sunrise', 'lotus', 'suhasyadental')
+  where o.slug in ('sunrise', 'lotus', 'suhasyadental', 'review')
 ), months as (
   select (date_trunc('month', current_date) - make_interval(months => n))::date as first_day, n
   from generate_series(0, 11) n

@@ -3,7 +3,7 @@
 # expiry, prescriptions) forward by whole weeks so Today, the calendar and billing centre on today,
 # then tops up synthetic expenses for the last twelve months (scripts/demo-expenses.sql) so
 # Billing → Expenses and Analytics have money to show.
-# Only the clinics sunrise, lotus and suhasyadental; never deletes; each step is one transaction; shift 0 = no-op.
+# Only the clinics sunrise, lotus, suhasyadental and review; never deletes; each step is one transaction; shift 0 = no-op.
 # Usage: scripts/demo-refresh.sh [--apply] [--exact] [--appointments-only] [--clinic-hours]
 #   default   dry run: shows what would move, then rolls back
 #   --apply   commit the change

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -495,6 +495,34 @@ describe("tooth health and a quick note", () => {
     await waitFor(() => {
       expect(statuses.at(-1)?.input).toMatchObject({ note: "Recheck in 3 months distal caries" });
     });
+  });
+
+  it("dictates the tooth note like visit notes: words show as heard, a pause doesn't end it, stopping keeps them", async () => {
+    installVoiceDoubles();
+    const user = userEvent.setup();
+    const { path, backend, wrap, statuses } = seeded(() => [{ id: uuid(2), tooth: 26, finding: "watch" }]);
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const panel = await pickTooth(user, 26);
+    await user.click(within(panel).getByRole("button", { name: "Dictate the note" }));
+    const recogniser = FakeRecognition.instances.at(-1);
+    act(() => {
+      recogniser?.say("deep caries", true);
+    });
+    // The browser ends recognition after a silence: it starts again rather than stopping.
+    act(() => {
+      recogniser?.onend?.();
+    });
+    expect(recogniser?.started).toBe(2);
+    expect(statuses).toEqual([]);
+    act(() => {
+      recogniser?.say("distal", false);
+    });
+    expect(within(panel).getByText("distal")).toBeTruthy();
+    await user.click(within(panel).getByRole("button", { name: "Stop dictating" }));
+    await waitFor(() => {
+      expect(statuses.at(-1)?.input).toMatchObject({ note: "deep caries distal" });
+    });
+    expect(recogniser?.aborted).toBe(true);
   });
 
   it("starts dictating on a long press, while a click stays a plain select", async () => {

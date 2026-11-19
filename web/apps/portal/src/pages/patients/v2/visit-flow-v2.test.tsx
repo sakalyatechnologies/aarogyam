@@ -137,6 +137,8 @@ describe("Voice notes", () => {
 
     await user.click(screen.getByRole("button", { name: "Pause" }));
     expect(screen.getByRole("timer", { name: "Recording time" }).textContent).toContain("Paused");
+    // While paused the transcript can be corrected.
+    expect(screen.getByRole("textbox", { name: "Transcript" })).toHaveProperty("value", "pain on chewing");
     // The visit cannot end with a recording open.
     expect(screen.getByRole("button", { name: "End visit" })).toHaveProperty("disabled", true);
     await user.click(screen.getByRole("button", { name: "Resume" }));
@@ -145,7 +147,7 @@ describe("Voice notes", () => {
     act(() => {
       second?.say("since two days", true);
     });
-    expect(transcript.textContent).toBe("pain on chewing since two days");
+    expect(screen.getByLabelText("Live transcript").textContent).toBe("pain on chewing since two days");
   });
 
   it("keeps several notes in one visit, each stamped with its start time, and shows them together in order", async () => {

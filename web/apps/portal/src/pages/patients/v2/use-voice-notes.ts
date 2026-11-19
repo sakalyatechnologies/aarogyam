@@ -29,6 +29,8 @@ export interface VoiceNotes {
   dictationSupported: boolean;
   /** What has been dictated so far in this note. */
   transcript: string;
+  /** Replaces the text before it is saved (a fix while paused); dictating on after Resume adds to it. */
+  editTranscript: (text: string) => void;
   /** Words still being recognised. */
   interim: string;
   /** Recording, paused or being saved: the visit must not end yet. */
@@ -116,6 +118,11 @@ export function useVoiceNotes({
     })();
   }, [phase, recording, visitId, uploadAsync, discardRecording, reset]);
 
+  const editTranscript = useCallback((text: string) => {
+    transcriptRef.current = text;
+    setTranscript(text);
+  }, []);
+
   const startRecorder = recorder.start;
   const start = useCallback(() => {
     setError(undefined);
@@ -144,6 +151,7 @@ export function useVoiceNotes({
     setLanguage: recorder.setLanguage,
     dictationSupported: recorder.dictationSupported,
     transcript,
+    editTranscript,
     interim: recorder.interim,
     busy: phase === "starting" || phase === "recording" || phase === "paused" || saving,
     saving,

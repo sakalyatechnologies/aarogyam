@@ -33,6 +33,9 @@ class ClinicContext(
     /** Permission keys the role holds; anything missing is denied. */
     val permissions: Set<String> = session.membership.permissions.toSet()
 
+    /** After End visit, "Bill later" replaces "Send to desk": see [billsLater]. */
+    val billsLater: Boolean = billsLater(permissions, session.othersCollect)
+
     /** Doctors and rooms, fetched once per clinic and reused by every screen. */
     val reference: ReferenceData = ReferenceData(api)
 }
@@ -105,3 +108,13 @@ class ClinicDirectory(
         mutableCurrent.value = null
     }
 }
+
+/**
+ * Whether the member collects and nobody else does: `others_collect` is false (the server sends it
+ * only to members with `billing.write` or `payments.collect`). Wrap up then shows Collect now and
+ * "Bill later" (the same `ready_to_bill` finish as Send to desk). Missing or true keeps Send to desk.
+ */
+internal fun billsLater(
+    permissions: Set<String>,
+    othersCollect: Boolean?,
+): Boolean = othersCollect == false && ("billing.write" in permissions || "payments.collect" in permissions)

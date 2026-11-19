@@ -38,6 +38,13 @@ final class DoctorV10FormatTests: XCTestCase {
         XCTAssertEqual(text, "Visit closed · collecting ₹500")
     }
 
+    func test_celebration_bill_later_never_mentions_the_desk() {
+        let later = DoctorV10Format.celebration(rxIssued: false, followUpOn: nil, collected: false, totalPaise: 50_000, billsLater: true, locale: Locale(identifier: "en_IN"))
+        XCTAssertEqual(later, "Visit closed · bill ₹500 later")
+        let noFee = DoctorV10Format.celebration(rxIssued: false, followUpOn: nil, collected: false, totalPaise: nil, billsLater: true, locale: Locale(identifier: "en_IN"))
+        XCTAssertEqual(noFee, "Visit closed")
+    }
+
     func test_age_and_sex_leave_out_what_is_missing() {
         XCTAssertEqual(DoctorV10Format.ageSex(age: 42, sex: "female"), "42 y · Female")
         XCTAssertEqual(DoctorV10Format.ageSex(age: nil, sex: "male"), "Male")

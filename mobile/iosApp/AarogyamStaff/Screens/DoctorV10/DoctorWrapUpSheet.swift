@@ -161,7 +161,8 @@ private struct WrapUpBody: View {
             .disabled(!state.hasRxDraft).frame(minHeight: SkSpacing.minTouchTarget)
             phaseNotes
             SkPillButton(dv10("dv10.wrap.collect"), variant: .fill, wide: true) { go(collect: true) }.disabled(!canFinish || savingStaged)
-            SkPillButton(dv10("dv10.wrap.desk"), variant: .tonal, wide: true) { go(collect: false) }.disabled(!canFinish || savingStaged)
+            // Nobody else collects: the second way is "Bill later" (the same finish), not the desk.
+            SkPillButton(dv10(clinic.billsLater ? "dv10.wrap.bill_later" : "dv10.wrap.desk"), variant: .tonal, wide: true) { go(collect: false) }.disabled(!canFinish || savingStaged)
         }
     }
 
@@ -219,7 +220,7 @@ private struct WrapUpBody: View {
         let r = theme.roles
         let text = DoctorV10Format.celebration(
             rxIssued: summary.rxIssued, followUpOn: summary.followUpOn, collected: summary.outcome == .collected,
-            totalPaise: summary.invoiceTotalPaise?.int64Value
+            totalPaise: summary.invoiceTotalPaise?.int64Value, billsLater: clinic.billsLater
         )
         return VStack(spacing: SkSpacing.l) {
             Image(systemName: "checkmark.seal.fill").font(.system(size: 64)).foregroundStyle(r.primary.color).accessibilityHidden(true)

@@ -169,6 +169,8 @@ export const sessionResponse = z.object({
   clinic: z.object({ id: clinicId, slug: z.string().min(1), name: z.string(), timezone: z.string().min(1), branding: z.record(z.string(), z.unknown()) }),
   membership: z.object({ id: membershipId, role_key: z.string(), permissions: z.array(z.string()) }),
   user: z.object({ id: userId, display_name: z.string(), avatar: avatar.nullable().exactOptional() }),
+  /** Whether another non-clinical member (assistant, front desk) collects; only sent to callers who collect, absent from older servers. */
+  others_collect: z.boolean().exactOptional(),
 }) satisfies z.ZodType<C.Session>;
 export type Session = z.output<typeof sessionResponse>;
 

@@ -37814,6 +37814,13 @@
             "$ref": "#/components/schemas/SessionMembership",
             "description": "The membership and its permissions."
           },
+          "others_collect": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether another active member who is not clinical (an assistant or front desk) can\ncollect payments, so \"Send for payment\" reaches someone. Sent only when the caller can\ncollect (`billing.write` or `payments.collect`); absent otherwise and from older servers."
+          },
           "user": {
             "$ref": "#/components/schemas/SessionUser",
             "description": "The member."

@@ -13541,6 +13541,12 @@ export interface components {
             clinic: components["schemas"]["SessionClinic"];
             /** @description The membership and its permissions. */
             membership: components["schemas"]["SessionMembership"];
+            /**
+             * @description Whether another active member who is not clinical (an assistant or front desk) can
+             *     collect payments, so "Send for payment" reaches someone. Sent only when the caller can
+             *     collect (`billing.write` or `payments.collect`); absent otherwise and from older servers.
+             */
+            others_collect?: boolean | null;
             /** @description The member. */
             user: components["schemas"]["SessionUser"];
         };

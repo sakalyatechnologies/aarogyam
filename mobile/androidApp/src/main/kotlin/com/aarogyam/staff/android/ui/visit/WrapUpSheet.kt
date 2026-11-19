@@ -126,7 +126,7 @@ internal fun WrapUpSheet(
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.ML.dp)) {
             when (phase) {
                 is FinishPhase.Done -> {
-                    Celebration(phase.summary, onCollect, onClose)
+                    Celebration(phase.summary, clinic.billsLater, onCollect, onClose)
                 }
 
                 FinishPhase.Finishing -> {
@@ -190,8 +190,11 @@ internal fun WrapUpSheet(
                             canFinish && !saving,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    // Nobody else collects: the second way is "Bill later" (the same finish), not the desk.
                     SkButton(
-                        stringResource(R.string.vv_dv10_wrap_desk),
+                        stringResource(
+                            if (clinic.billsLater) R.string.vv_dv10_wrap_bill_later else R.string.vv_dv10_wrap_desk,
+                        ),
                         onClick = { go(false) },
                         variant = SkButtonVariant.Secondary,
                         enabled =
@@ -261,6 +264,7 @@ private fun Banner(
 @Composable
 private fun Celebration(
     summary: FinishedSummary,
+    billsLater: Boolean,
     onCollect: (String?) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -271,8 +275,14 @@ private fun Celebration(
     val total = summary.invoiceTotalPaise
     if (total != null && total > 0) {
         val amount = VisitMoney.rupees(total)
-        parts += stringResource(if (collected) R.string.vv_dv10_done_collect else R.string.vv_dv10_done_desk, amount)
-    } else if (!collected) {
+        val text =
+            when {
+                collected -> R.string.vv_dv10_done_collect
+                billsLater -> R.string.vv_dv10_done_later
+                else -> R.string.vv_dv10_done_desk
+            }
+        parts += stringResource(text, amount)
+    } else if (!collected && !billsLater) {
         parts += stringResource(R.string.vv_dv10_done_desk_nofee)
     }
     Text("✓", style = SkTypography.largeTitle, color = SkTheme.colors.primary.color, modifier = Modifier.fillMaxWidth())

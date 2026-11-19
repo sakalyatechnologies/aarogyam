@@ -7,8 +7,9 @@
 //! the patient's name or reason.
 
 use aarogyam_dal::appointments::AppointmentRow;
+use aarogyam_dal::lookups;
 use aarogyam_dal::notifications::{self as dal, FeedRow, InboxRow, Sees, Viewer};
-use aarogyam_domain::access::{ClinicActor, Denied};
+use aarogyam_domain::access::{ClinicActor, ClinicPlace, Denied};
 use aarogyam_domain::ids::{
     AppointmentId, InboxMessageId, InvoiceId, LabOrderId, MembershipId, PractitionerId, RecallId,
     StaffNotificationId,
@@ -326,8 +327,7 @@ pub fn viewer(actor: &ClinicActor) -> Option<Viewer> {
     let inventory = actor.permissions.allows(Permission::InventoryRead);
     let time_off = actor.permissions.allows(Permission::TimeOffManage);
     let clinical_write = actor.permissions.allows(Permission::ClinicalWrite);
-    let collect = actor.permissions.allows(Permission::BillingWrite)
-        || actor.permissions.allows(Permission::PaymentsCollect);
+    let collect = collects(actor);
     // A time-off decision goes to the requester, whatever they hold.
     let any = bookings.shown
         || labs.shown
@@ -353,6 +353,44 @@ pub fn viewer(actor: &ClinicActor) -> Option<Viewer> {
         clinical_write,
         collect,
     })
+}
+
+/// Whether `actor` collects payments: `billing.write` or `payments.collect`, the test that puts
+/// `collect_payment` in their feed.
+#[must_use]
+pub fn collects(actor: &ClinicActor) -> bool {
+    actor.permissions.allows(Permission::BillingWrite)
+        || actor.permissions.allows(Permission::PaymentsCollect)
+}
+
+/// Whether another active member of the caller's clinic collects payments and is not clinical
+/// (no `clinical.write`): an assistant or front desk who can take the bill. A second doctor does
+/// not count, though the doctor template also has `payments.collect`. Members come from the
+/// push path (`lookups::active_members`, admitted as [`ClinicActor`]), so invited, suspended and
+/// left members and disabled users never count; the caller's own membership is left out.
+/// Branches are not considered.
+///
+/// # Errors
+/// [`AppError::Db`] on a database failure.
+pub async fn others_collect(db: &Db, actor: &ClinicActor) -> Result<bool, AppError> {
+    // Only the permissions matter here; the clinic's clock and numbering do not.
+    let place = ClinicPlace {
+        id: actor.clinic_id,
+        timezone: String::new(),
+        number_prefix: String::new(),
+    };
+    for authorization in lookups::active_members(db.pool(), actor.clinic_id).await? {
+        let Ok(member) = ClinicActor::admit(place.clone(), authorization) else {
+            continue;
+        };
+        if member.membership_id == actor.membership_id {
+            continue;
+        }
+        if collects(&member) && !member.permissions.allows(Permission::ClinicalWrite) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// The caller's viewer; [`AppError::Denied`] (for `appointments.read`) when they see none.

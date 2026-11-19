@@ -2,6 +2,7 @@
 //! session (clinic host).
 
 use aarogyam_app::account as account_app;
+use aarogyam_app::notifications as notifications_app;
 use aarogyam_app::patients as app;
 use aarogyam_app::profile::{self as profile_app, ProfileChanges};
 use aarogyam_app::sessions as sessions_app;
@@ -150,6 +151,12 @@ pub struct Session {
     pub membership: SessionMembership,
     /// The member.
     pub user: SessionUser,
+    /// Whether another active member who is not clinical (an assistant or front desk) can
+    /// collect payments, so "Send for payment" reaches someone. Sent only when the caller can
+    /// collect (`billing.write` or `payments.collect`); absent otherwise and from older servers.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub others_collect: Option<bool>,
 }
 
 /// The clinic, member and permissions for this host. The portal hides what the role can't
@@ -172,6 +179,11 @@ pub(crate) async fn session(
 ) -> Result<Json<Session>, ApiFailure> {
     let actor = &request.actor;
     let session = app::session(state.db(), actor, request.request_id).await?;
+    let others_collect = if notifications_app::collects(actor) {
+        Some(notifications_app::others_collect(state.db(), actor).await?)
+    } else {
+        None
+    };
     Ok(Json(Session {
         clinic: SessionClinic {
             id: session.clinic.id,
@@ -199,6 +211,7 @@ pub(crate) async fn session(
                 session.avatar.file_id,
             ),
         },
+        others_collect,
     }))
 }
 

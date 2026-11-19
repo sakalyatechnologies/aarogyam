@@ -97,6 +97,46 @@ export function DoneTodayBlock() {
 
 export { splitNote } from "./note-lines.js";
 
+/** Throws away the note being recorded, after a second tap, so one slip doesn't lose it. */
+function DiscardVoice({ disabled, onDiscard }: { disabled: boolean; onDiscard: () => void }) {
+  const [asking, setAsking] = useState(false);
+  if (!asking) {
+    return (
+      <Button
+        variant="secondary"
+        disabled={disabled}
+        onClick={() => {
+          setAsking(true);
+        }}
+      >
+        Discard
+      </Button>
+    );
+  }
+  return (
+    <span role="group" aria-label="Discard this voice note?" className="flex items-center gap-2">
+      <span className="text-sm">Discard this voice note?</span>
+      <Button
+        variant="secondary"
+        onClick={() => {
+          setAsking(false);
+          onDiscard();
+        }}
+      >
+        Yes, discard
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => {
+          setAsking(false);
+        }}
+      >
+        Keep
+      </Button>
+    </span>
+  );
+}
+
 /** Today's notes: record voice notes (several per visit, each stamped with its start time) and see them together, in order. */
 export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean; /** Add the quick picks (complaints, findings, advice) below the recorder and today's note, so one section takes the whole note. */ withPicks?: boolean }) {
   const session = useVisitSession();
@@ -137,6 +177,7 @@ export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean
                   <Button icon={<Square aria-hidden="true" className="size-4" />} disabled={voice.saving} onClick={voice.save}>
                     {voice.saving ? "Saving…" : "Save"}
                   </Button>
+                  <DiscardVoice disabled={voice.saving} onDiscard={voice.discard} />
                 </>
               ) : (
                 <Button
@@ -156,7 +197,18 @@ export function VoiceBlock({ flat = false, withPicks = false }: { flat?: boolean
                 {clock(voice.seconds)}
               </p>
             ) : null}
-            {active || voice.transcript !== "" ? (
+            {voice.phase === "paused" ? (
+              <Field label="Transcript" hint="Fix any words before you save. Resume adds to the end.">
+                <TextArea
+                  rows={4}
+                  value={voice.transcript}
+                  placeholder="Nothing dictated yet. Type the note, or resume speaking."
+                  onChange={(event) => {
+                    voice.editTranscript(event.target.value);
+                  }}
+                />
+              </Field>
+            ) : active || voice.transcript !== "" ? (
               <p className="p360-transcript" aria-label="Live transcript" aria-live="polite">
                 {voice.transcript}
                 {voice.interim === "" ? null : <span className="p360-interim"> {voice.interim}</span>}

@@ -159,10 +159,12 @@ export interface ToothProps {
   onFocusTooth: (tooth: number) => void;
   /** A long press on the tooth: select it and dictate its note. */
   onLongPress?: ((tooth: number) => void) | undefined;
+  /** The doctor's health status of the tooth, if set: a coloured dot, and said in its label and hover text. */
+  health?: { readonly value: "healthy" | "watch" | "needs_treatment"; readonly label: string; readonly note?: string | null | undefined } | undefined;
 }
 
 /** One tooth: root, crown with five clickable surfaces, whole-tooth overlay, status badge and FDI number. */
-export function ToothSvg({ placed, state, selected, selectedSurface, focusable, onSelect, onFocusTooth, onLongPress }: ToothProps) {
+export function ToothSvg({ placed, state, selected, selectedSurface, focusable, onSelect, onFocusTooth, onLongPress, health }: ToothProps) {
   const press = useLongPress(onLongPress);
   const { tooth, x, y, w, rotate } = placed;
   const kind = kindOf(tooth);
@@ -182,6 +184,7 @@ export function ToothSvg({ placed, state, selected, selectedSurface, focusable, 
   const centre = `${String(w / 2)} ${String(CELL_H / 2)}`;
   const flip = lower ? `translate(0 ${String(CELL_H)}) scale(1 -1)` : undefined;
   const crownTop = ROOT_H;
+  const said = health === undefined ? describeTooth(state) : `${describeTooth(state)}. ${health.label}${health.note == null || health.note === "" ? "" : `: ${health.note}`}`;
 
   return (
     <g transform={`translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rotate.toFixed(1)} ${centre})`}>
@@ -194,7 +197,8 @@ export function ToothSvg({ placed, state, selected, selectedSurface, focusable, 
         role="button"
         tabIndex={focusable ? 0 : -1}
         aria-pressed={selected}
-        aria-label={describeTooth(state)}
+        aria-label={said}
+        data-health={health?.value}
         onFocus={() => {
           onFocusTooth(tooth);
         }}
@@ -213,7 +217,7 @@ export function ToothSvg({ placed, state, selected, selectedSurface, focusable, 
           onSelect(tooth, null);
         }}
       >
-        <title>{describeTooth(state)}</title>
+        <title>{said}</title>
         {/* hit area keeps thin roots easy to tap */}
         <rect x="-3" y="-3" width={w + 6} height={CELL_H + 6} fill="transparent" />
         <g transform={flip} className="odo-body" opacity={missing ? 0.5 : 1}>
@@ -297,6 +301,7 @@ export function ToothSvg({ placed, state, selected, selectedSurface, focusable, 
         <text x={w / 2} y={lower ? -7 : CELL_H + 14} textAnchor="middle" className="odo-number" pointerEvents="none">
           {tooth}
         </text>
+        {health === undefined ? null : <circle className="odo-health" cx={w / 2} cy={lower ? CELL_H + 1 : -1} r={5} pointerEvents="none" />}
         {badge === undefined ? null : <StatusGlyph mark={badge} x={w + 1} y={lower ? CELL_H - 3 : 3} />}
       </g>
     </g>

@@ -546,6 +546,24 @@ describe("tooth health and a quick note", () => {
     expect(within(panel).getByRole("button", { name: "Stop dictating" }).getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("shows the health set for a tooth on the Classic chart too: a coloured dot and the hover text", async () => {
+    localStorage.setItem(chartPrefsKey(PEOPLE.asha), JSON.stringify({ look: "classic", dentition: "adult", view: "treatment" }));
+    const user = userEvent.setup();
+    const { path, backend, wrap } = seeded();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    await ready();
+    fireEvent.click(tooth(23));
+    const panel = await screen.findByRole("complementary", { name: "Tooth 23 panel" });
+    await user.click(within(panel).getByRole("button", { name: /Needs treatment/ }));
+    fireEvent.click(tooth(24));
+    await waitFor(() => {
+      expect(tooth(23).getAttribute("data-health")).toBe("needs_treatment");
+    });
+    expect(tooth(23).querySelector("title")?.textContent).toMatch(/Needs treatment$/);
+    expect(tooth(23).querySelector(".odo-health")).not.toBeNull();
+    expect(tooth(24).getAttribute("data-health")).toBeNull();
+  });
+
   it("starts dictating on a long press in the Classic look too", async () => {
     installVoiceDoubles();
     localStorage.setItem(chartPrefsKey(PEOPLE.asha), JSON.stringify({ look: "classic", dentition: "adult", view: "treatment" }));

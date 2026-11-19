@@ -74,14 +74,16 @@ Commit the bump before uploading. Keep the two marketing versions equal.
 
 - **Text:** `fastlane/metadata/ios/` (deliver layout) and `fastlane/metadata/android/` (supply layout), in en-US.
   - The name "Aarogyam Clinic" is a placeholder until the founder confirms it; store names must be unique.
-  - The privacy and support links point at `https://aarogyam.sakalyatechnologies.com/privacy` and `/support`.
+  - The privacy, support and marketing links point at `https://aarogyam-website.pages.dev/privacy/`, `/support/` and `/` until `aarogyam.sakalyatechnologies.com` resolves; switch them back then.
 - **Icon:** the interim icon is the launcher's white cross on `#136650`:
   - `iosApp/AarogyamStaff/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`
   - `metadata/android/en-US/images/icon.png` (512) and `featureGraphic.png` (1024×500).
   - Replace them with the approved artwork before the public release.
 - **App Review sign-in:**
   - `review_information/notes.txt` tells the reviewer to use "Use a password" with the demo account. That is the owner of a synthetic demo clinic on prod, created by the backend's script.
-  - Write the account's email into `review_information/demo_user.txt` and its password into `demo_password.txt`. Both are git-ignored, so set them locally, or type them straight into App Store Connect and the Play Console.
+  - The account is `review-aarogyam@gmail.com` (`review_information/demo_user.txt`). Its password is in the macOS Keychain as "Aarogyam store reviewer" (Keychain Access, or `security find-generic-password -s "Aarogyam store reviewer" -w`); never in git or chat.
+  - `demo_password.txt` is git-ignored and filled from the Keychain, so `fastlane ios metadata` sends it; type it into the Play Console's App access page.
+  - The backend's `aarogyam admin review-account` reads the same Keychain entry into `ARO_REVIEW_PASSWORD`.
   - Add a contact phone number in `phone_number.txt`.
 - **Privacy:**
   - `iosApp/AarogyamStaff/PrivacyInfo.xcprivacy` declares the collected data (email, name, user id, health, photos, other content; all linked, for app functionality, no tracking) and the required-reason APIs.

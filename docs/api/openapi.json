@@ -1050,6 +1050,78 @@
         }
       }
     },
+    "/api/v1/calendar/walk-ins": {
+      "get": {
+        "tags": [
+          "appointments"
+        ],
+        "summary": "Visits with no appointment that started on the clinic's local days `from` to `to`.\nNeither the visit nor its queue token is tied to an appointment, so nothing shows twice on\nthe calendar. A member limited to their own sees only the visits they are the clinician of.\n`room_id` matches the chair of the visit's queue token and `practitioner_id` the\nclinician's doctor record; visits without one are left out by that filter.",
+        "operationId": "listWalkIns",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First local day, `YYYY-MM-DD`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last local day, `YYYY-MM-DD`; at most 42 days counting both",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "room_id",
+            "in": "query",
+            "description": "Only this chair or room",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "practitioner_id",
+            "in": "query",
+            "description": "Only this doctor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarWalkInList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad dates, ids, or a range over 42 days"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks appointments.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/campaigns": {
       "get": {
         "tags": [
@@ -21256,6 +21328,90 @@
           }
         }
       },
+      "CalendarWalkIn": {
+        "type": "object",
+        "description": "A visit with no appointment (a walk-in), as the calendar shows it.",
+        "required": [
+          "visit_id",
+          "patient",
+          "starts_at",
+          "status"
+        ],
+        "properties": {
+          "ends_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the visit ended (RFC 3339, UTC); left out while it is open."
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientBrief",
+            "description": "The patient."
+          },
+          "practitioner": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PractitionerBrief",
+                "description": "The clinician's doctor record; left out when the clinician has none."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "room": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The room's name; left out when there is no room."
+          },
+          "room_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Chair or room of the visit's queue token; left out when it has none."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "When the visit started (RFC 3339, UTC)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`open` or `closed`; treat other values as `open`."
+          },
+          "token_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The day's queue token number, when the visit was started from a token."
+          },
+          "visit_id": {
+            "type": "string",
+            "description": "The visit."
+          }
+        }
+      },
+      "CalendarWalkInList": {
+        "type": "object",
+        "description": "Walk-ins in a range.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarWalkIn"
+            },
+            "description": "By start."
+          }
+        }
+      },
       "Campaign": {
         "type": "object",
         "description": "A campaign with the outcome of its messages.",
@@ -38129,6 +38285,13 @@
           "membership": {
             "$ref": "#/components/schemas/SessionMembership",
             "description": "The membership and its permissions."
+          },
+          "others_collect": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether another active member who is not clinical (an assistant or front desk) can\ncollect payments, so \"Send for payment\" reaches someone. Sent only when the caller can\ncollect (`billing.write` or `payments.collect`); absent otherwise and from older servers."
           },
           "user": {
             "$ref": "#/components/schemas/SessionUser",

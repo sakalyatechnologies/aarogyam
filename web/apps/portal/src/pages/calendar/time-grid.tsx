@@ -47,6 +47,8 @@ export interface GridEvent {
   doctorTone?: number;
   /** Room for a small tag (say "New patient" or "Follow-up") next to the name; shown when the chip is wide enough. */
   tag?: ReactNode;
+  /** A visit with no appointment: drawn with a dashed outline. */
+  walkIn?: boolean;
 }
 
 /** What the status icon on a chip says. */
@@ -317,9 +319,10 @@ export function TimeGrid({
                   <Fragment key={item.id}>
                     <button
                       type="button"
-                      className={`mk-tg-ev mk-evchip ${item.tone}${item.doctorTone === undefined ? "" : ` d${String(item.doctorTone % DOCTOR_TONES)}`}`}
+                      className={`mk-tg-ev mk-evchip ${item.tone}${item.doctorTone === undefined ? "" : ` d${String(item.doctorTone % DOCTOR_TONES)}`}${item.walkIn === true ? " walkin" : ""}`}
                       data-cols={span}
                       data-status={item.status}
+                      {...(item.walkIn === true ? { "data-walk-in": "" } : {})}
                       aria-label={item.label}
                       style={{
                         top,

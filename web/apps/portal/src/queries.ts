@@ -518,6 +518,17 @@ export function useAppointments(filter: AppointmentFilter) {
   });
 }
 
+/** Visits with no appointment, for the calendar. Keyed under `appointments`, so whatever refreshes the calendar refreshes these too. */
+export function useWalkIns(filter: AppointmentFilter) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["appointments", access.org_id, "walk-ins", filter.from, filter.to, filter.roomId, filter.practitionerId],
+    queryFn: ({ signal }) => unwrap(api.listWalkIns(filter, { signal })),
+    ...SCHEDULE,
+    placeholderData: keepPreviousData,
+  });
+}
+
 function invalidateSchedule(queryClient: ReturnType<typeof useQueryClient>, orgId: string) {
   void queryClient.invalidateQueries({ queryKey: ["appointments", orgId] });
   void queryClient.invalidateQueries({ queryKey: ["today", orgId] });

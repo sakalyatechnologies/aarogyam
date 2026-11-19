@@ -1,8 +1,9 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { fakeTokenFor } from "@aarogyam/api-client/fake";
+import type { ApiResult, CalendarWalkInPage } from "@aarogyam/api-client";
+import { fakeTokenFor, type Fixtures } from "@aarogyam/api-client/fake";
 
 import { NOW, PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
 
@@ -229,5 +230,157 @@ describe("Calendar: month view", () => {
     await user.click(day);
     expect(screen.getByRole("button", { name: "Day" }).getAttribute("aria-pressed")).toBe("true");
     expect(await screen.findByRole("group", { name: "Appointments from 2026-10-03 to 2026-10-03" })).toBeTruthy();
+  });
+});
+
+type FakeVisit = Fixtures["visits"][number];
+
+/** Three walk-ins in Sunrise:closed this morning with no chair, open now in Chair 1 from a token, and one left open on 30 Sep. */
+function withWalkIns(fixtures: Fixtures) {
+  const base = fixtures.visits.find((v) => v.appointment_id == null);
+  if (base === undefined) throw new Error("expected a fixture visit");
+  const room = fixtures.rooms.find((r) => r.clinic_id === base.clinic_id && r.name === "Chair 1");
+  const [closed, open, stale] = fixtures.patients.filter((p) => p.clinic_id === base.clinic_id).slice(-3);
+  if (room === undefined || closed === undefined || open === undefined || stale === undefined) throw new Error("expected fixture patients and Chair 1");
+  fixtures.queueTokens.push({ id: "walk-in-token", clinic_id: base.clinic_id, branch_id: room.branch_id, day: "2026-10-03", token_number: 41, patient_id: open.id, appointment_id: null, status: "in_chair", issued_at: "2026-10-03T04:50:00Z", room_id: room.id });
+  const visit = (id: string, patient: string, startedAt: string, extra: Partial<FakeVisit>): FakeVisit => ({ ...base, id, number: id, patient_id: patient, appointment_id: null, queue_token_id: null, status: "open", started_at: startedAt, ended_at: null, ...extra });
+  fixtures.visits.push(
+    visit("visit-closed", closed.id, "2026-10-03T03:00:00Z", { status: "closed", ended_at: "2026-10-03T03:45:00Z" }),
+    visit("visit-open", open.id, "2026-10-03T05:00:00Z", { queue_token_id: "walk-in-token" }),
+    visit("visit-stale", stale.id, "2026-09-30T05:00:00Z", {}),
+  );
+  return { closed: closed.full_name, open: open.full_name, stale: stale.full_name };
+}
+
+function walkInChips(container: HTMLElement): HTMLElement[] {
+  return [...container.querySelectorAll<HTMLElement>(".mk-tg-ev[data-walk-in]")];
+}
+
+function walkInChip(container: HTMLElement, name: string): HTMLElement {
+  const found = walkInChips(container).find((el) => (el.getAttribute("aria-label") ?? "").startsWith(`${name}, walk-in`));
+  if (found === undefined) throw new Error(`expected a walk-in for ${name}`);
+  return found;
+}
+
+/** The chip's height as a share of the grid, from its `calc(N% - 2px)`. */
+function heightOf(el: HTMLElement): number {
+  return Number.parseFloat(/calc\(([\d.]+)%/.exec(el.style.height)?.[1] ?? "0");
+}
+
+describe("Calendar: walk-ins", () => {
+  // The calendar's "today" comes from the clock: pin it to the fixtures' day.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("draws walk-ins in the week with a dashed outline: closed green, open today in the chair, an older open one neutral", async () => {
+    let names = { closed: "", open: "", stale: "" };
+    const backend = fakeApi((f) => {
+      names = withWalkIns(f);
+    });
+    renderPortal("/calendar?from=2026-09-28&to=2026-10-04", { as: PEOPLE.farah, backend });
+    const grid = await screen.findByRole("group", { name: /Appointments from 2026-09-28/ });
+    await waitFor(() => {
+      expect(walkInChips(grid)).toHaveLength(3);
+    });
+    const closed = walkInChip(grid, names.closed);
+    expect(closed.classList.contains("g")).toBe(true);
+    expect(closed.classList.contains("walkin")).toBe(true);
+    expect(closed.dataset.status).toBe("completed");
+    expect(closed.textContent).toContain("Walk-in");
+    const open = walkInChip(grid, names.open);
+    expect(open.dataset.status).toBe("in_chair");
+    expect(open.classList.contains("b")).toBe(true);
+    expect(open.getAttribute("aria-label")).toContain("Chair 1");
+    // Closed: start to end (45 minutes); open: the default 30-minute visit.
+    expect(heightOf(closed) / heightOf(open)).toBeCloseTo(1.5, 1);
+    const stale = walkInChip(grid, names.stale);
+    expect(stale.classList.contains("n")).toBe(true);
+    expect(stale.dataset.status).toBeUndefined();
+    expect(grid.querySelectorAll(".mk-tg-ev:not([data-walk-in])").length).toBeGreaterThan(0);
+  });
+
+  it("opens the patient when a walk-in is chosen, not an appointment dialog", async () => {
+    const user = userEvent.setup();
+    let name = "";
+    const backend = fakeApi((f) => {
+      name = withWalkIns(f).closed;
+    });
+    renderPortal("/calendar?from=2026-09-28&to=2026-10-04", { as: PEOPLE.farah, backend });
+    const grid = await screen.findByRole("group", { name: /Appointments from 2026-09-28/ });
+    await waitFor(() => {
+      expect(walkInChips(grid).length).toBeGreaterThan(0);
+    });
+    await user.click(walkInChip(grid, name));
+    await waitFor(() => {
+      expect(screen.queryByRole("group", { name: /Appointments from 2026-09-28/ })).toBeNull();
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect((await screen.findAllByText(name)).length).toBeGreaterThan(0);
+  });
+
+  it("puts a walk-in with no chair in an Unassigned lane in the day by chair", async () => {
+    const user = userEvent.setup();
+    let names = { closed: "", open: "", stale: "" };
+    const backend = fakeApi((f) => {
+      names = withWalkIns(f);
+    });
+    renderPortal("/calendar?from=2026-10-03&to=2026-10-03", { as: PEOPLE.farah, backend });
+    await user.click(await screen.findByRole("button", { name: "Day" }));
+    const grid = await screen.findByRole("group", { name: /Appointments from 2026-10-03/ });
+    await waitFor(() => {
+      expect(walkInChips(grid)).toHaveLength(2);
+    });
+    const heads = [...grid.querySelectorAll(".mk-tg-head .mk-dh")].map((n) => n.firstChild?.textContent);
+    expect(heads.at(-1)).toBe("Unassigned");
+    const columns = [...grid.querySelectorAll<HTMLElement>(".mk-tg-body .mk-tg-col")];
+    expect(columns.at(-1)?.querySelector(`[aria-label^="${names.closed}, walk-in"]`)).not.toBeNull();
+    expect(columns[heads.indexOf("Chair 1")]?.querySelector(`[aria-label^="${names.open}, walk-in"]`)).not.toBeNull();
+  });
+
+  it("counts walk-ins in the month's day numbers", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi((f) => {
+      withWalkIns(f);
+    });
+    renderPortal("/calendar?from=2026-10-01&to=2026-10-01", { as: PEOPLE.farah, backend });
+    await user.click(await screen.findByRole("button", { name: "Month" }));
+    const month = await screen.findByRole("group", { name: "Appointments in 2026-10" });
+    expect(await within(month).findByRole("button", { name: /^2026-10-03, \d+ appointments? and 2 walk-ins\. Open day/ })).toBeTruthy();
+    expect(within(month).getByRole("button", { name: /^2026-09-30, \d+ appointments? and 1 walk-in\. Open day/ })).toBeTruthy();
+  });
+
+  it("keeps the appointments when walk-ins fail", async () => {
+    const backend = fakeApi((f) => {
+      withWalkIns(f);
+    });
+    const failed: ApiResult<CalendarWalkInPage> = { ok: false, error: { status: 500, code: "internal", message: "Something went wrong" } };
+    renderPortal("/calendar?from=2026-09-28&to=2026-10-04", {
+      as: PEOPLE.farah,
+      backend,
+      wrap: (client) => ({ ...client, listWalkIns: () => Promise.resolve(failed) }),
+    });
+    const grid = await screen.findByRole("group", { name: /Appointments from 2026-09-28/ });
+    await waitFor(() => {
+      expect(grid.querySelectorAll(".mk-tg-ev").length).toBeGreaterThan(0);
+    });
+    expect(walkInChips(grid)).toHaveLength(0);
+    expect(await screen.findByText("Walk-ins couldn't be loaded. Appointments are shown.")).toBeTruthy();
+  });
+
+  it("shows the appointments while walk-ins are still loading", async () => {
+    renderPortal("/calendar?from=2026-09-28&to=2026-10-04", {
+      as: PEOPLE.farah,
+      wrap: (client) => ({ ...client, listWalkIns: () => new Promise<never>(() => undefined) }),
+    });
+    const grid = await screen.findByRole("group", { name: /Appointments from 2026-09-28/ });
+    await waitFor(() => {
+      expect(grid.querySelectorAll(".mk-tg-ev").length).toBeGreaterThan(0);
+    });
+    expect(walkInChips(grid)).toHaveLength(0);
   });
 });

@@ -321,6 +321,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/calendar/walk-ins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Visits with no appointment that started on the clinic's local days `from` to `to`.
+         *     Neither the visit nor its queue token is tied to an appointment, so nothing shows twice on
+         *     the calendar. A member limited to their own sees only the visits they are the clinician of.
+         *     `room_id` matches the chair of the visit's queue token and `practitioner_id` the
+         *     clinician's doctor record; visits without one are left out by that filter.
+         */
+        get: operations["listWalkIns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/campaigns": {
         parameters: {
             query?: never;
@@ -6837,6 +6860,34 @@ export interface components {
              * @description ISO weekday: 1 Monday to 7 Sunday.
              */
             weekday: number;
+        };
+        /** @description A visit with no appointment (a walk-in), as the calendar shows it. */
+        CalendarWalkIn: {
+            /** @description When the visit ended (RFC 3339, UTC); left out while it is open. */
+            ends_at?: string | null;
+            /** @description The patient. */
+            patient: components["schemas"]["PatientBrief"];
+            practitioner?: components["schemas"]["PractitionerBrief"] | null;
+            /** @description The room's name; left out when there is no room. */
+            room?: string | null;
+            /** @description Chair or room of the visit's queue token; left out when it has none. */
+            room_id?: string | null;
+            /** @description When the visit started (RFC 3339, UTC). */
+            starts_at: string;
+            /** @description `open` or `closed`; treat other values as `open`. */
+            status: string;
+            /**
+             * Format: int32
+             * @description The day's queue token number, when the visit was started from a token.
+             */
+            token_number?: number | null;
+            /** @description The visit. */
+            visit_id: string;
+        };
+        /** @description Walk-ins in a range. */
+        CalendarWalkInList: {
+            /** @description By start. */
+            items: components["schemas"]["CalendarWalkIn"][];
         };
         /** @description A campaign with the outcome of its messages. */
         Campaign: {
@@ -13745,6 +13796,12 @@ export interface components {
             clinic: components["schemas"]["SessionClinic"];
             /** @description The membership and its permissions. */
             membership: components["schemas"]["SessionMembership"];
+            /**
+             * @description Whether another active member who is not clinical (an assistant or front desk) can
+             *     collect payments, so "Send for payment" reaches someone. Sent only when the caller can
+             *     collect (`billing.write` or `payments.collect`); absent otherwise and from older servers.
+             */
+            others_collect?: boolean | null;
             /** @description The member. */
             user: components["schemas"]["SessionUser"];
         };
@@ -16972,6 +17029,55 @@ export interface operations {
             };
             /** @description Not a valid link for a photo of this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listWalkIns: {
+        parameters: {
+            query: {
+                /** @description First local day, `YYYY-MM-DD` */
+                from: string;
+                /** @description Last local day, `YYYY-MM-DD`; at most 42 days counting both */
+                to: string;
+                /** @description Only this chair or room */
+                room_id?: string;
+                /** @description Only this doctor */
+                practitioner_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarWalkInList"];
+                };
+            };
+            /** @description Bad dates, ids, or a range over 42 days */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks appointments.read */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

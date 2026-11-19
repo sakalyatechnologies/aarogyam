@@ -2,7 +2,7 @@
 //! no fixed-code bypass: the reviewer signs in with a Supabase password, as the owner of a
 //! synthetic demo clinic, so they see every feature and no real data.
 //!
-//! `aarogyam admin review-account` sets it up from the `ARO_REVIEW_PASSWORD` environment
+//! `aarogyam admin review-account` sets it up from the `AAROGYAM_REVIEW_PASSWORD` environment
 //! variable; `review-account-off` ends it. The password is a [`SecretString`] and is in no error,
 //! log line or output of this module.
 
@@ -16,11 +16,13 @@ use secrecy::{ExposeSecret, SecretString};
 use crate::accounts::{AccountsError, SignInAccounts};
 
 /// The only clinics a reviewer account can be made at: the synthetic demo clinics. A real
-/// clinic is refused. (`suhasyadental` is synthetic too: the founder confirmed it on 15 Nov 2026.)
-pub const REVIEW_CLINICS: &[&str] = &["sunrise", "lotus", "suhasyadental"];
+/// clinic is refused. (`suhasyadental` is synthetic too: the founder confirmed it on 15 Nov 2026.
+/// `review` is Aarogyam Demo Dental, seeded by `db/seed/review-clinic.sql` for store review.)
+pub const REVIEW_CLINICS: &[&str] = &["sunrise", "lotus", "suhasyadental", "review"];
 
-/// The environment variable the password is read from, and nowhere else.
-pub const PASSWORD_ENV: &str = "ARO_REVIEW_PASSWORD";
+/// The environment variable the password is read from, and nowhere else. It has no `ARO_` prefix on
+/// purpose: the configuration loader rejects unknown `ARO_` variables, so it would refuse to start.
+pub const PASSWORD_ENV: &str = "AAROGYAM_REVIEW_PASSWORD";
 
 /// Fewest characters in the password (the website accepts 12; a reviewer's is stricter).
 pub const MIN_PASSWORD_CHARS: usize = 16;
@@ -177,7 +179,8 @@ mod tests {
         assert_eq!(check_clinic("sunrise").unwrap(), "sunrise");
         assert_eq!(check_clinic(" lotus ").unwrap(), "lotus");
         assert_eq!(check_clinic("suhasyadental").unwrap(), "suhasyadental");
-        for other in ["alpha", "Sunrise", "sunrise2", "sun", ""] {
+        assert_eq!(check_clinic("review").unwrap(), "review");
+        for other in ["alpha", "Sunrise", "sunrise2", "sun", "reviews", ""] {
             assert!(
                 matches!(check_clinic(other), Err(ReviewError::NotADemoClinic)),
                 "{other}"

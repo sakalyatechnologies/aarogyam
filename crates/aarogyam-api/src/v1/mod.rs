@@ -255,6 +255,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/appointments",
             get(appointments::list).post(appointments::book),
         )
+        .route("/calendar/walk-ins", get(appointments::list_walk_ins))
         .route("/appointments/month-summary", get(today::month_summary))
         .route("/appointments/missed", get(appointments::missed))
         .route("/appointments/{id}", patch(appointments::change))

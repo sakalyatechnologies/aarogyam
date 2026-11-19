@@ -20,6 +20,8 @@
 .mk-tg-ev { border-radius: 8px; min-height: 22px; padding: 2px 6px 2px 10px; justify-content: flex-start; box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
 .mk-tg-ev::before, .mk-month .mk-evchip::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--doc, var(--bar)); }
 .mk-tg-ev.q::before, .mk-month .mk-evchip.q::before { background: repeating-linear-gradient(to bottom, var(--bar) 0 4px, transparent 4px 7px); }
+/* Walk-ins (a visit with no appointment): the status colours, with a dashed outline. Opens the patient; never dragged. */
+.mk-tg-ev.walkin { outline: 1.5px dashed var(--bar); outline-offset: -1.5px; }
 .mk-tg-col.current { background-color: color-mix(in srgb, var(--brand-soft) 45%, transparent); }
 .mk-tg-off { position: absolute; left: 0; right: 0; background: color-mix(in srgb, var(--muted) 9%, transparent); pointer-events: none; }
 /* Time off: a hatched band behind the appointments; only "Away · name" is ever shown. */

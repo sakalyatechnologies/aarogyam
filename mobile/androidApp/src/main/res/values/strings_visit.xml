@@ -123,6 +123,7 @@
     <string name="vv_dv10_done_collect">collecting %1$s</string>
     <string name="vv_dv10_done_desk">desk asked for %1$s</string>
     <string name="vv_dv10_done_desk_nofee">sent to desk</string>
+    <string name="vv_dv10_done_later">bill %1$s later</string>
     <string name="vv_dv10_done_followup">follow-up %1$s</string>
     <string name="vv_dv10_done_pay">Take payment</string>
     <string name="vv_dv10_done_rx">Rx sent</string>
@@ -134,6 +135,7 @@
     <string name="vv_dv10_fu_twoweeks">2 weeks</string>
     <string name="vv_dv10_wrap_collect">Collect now</string>
     <string name="vv_dv10_wrap_desk">Send to desk</string>
+    <string name="vv_dv10_wrap_bill_later">Bill later</string>
     <string name="vv_dv10_wrap_fee">Fee (₹)</string>
     <string name="vv_dv10_wrap_fee_hint">Amount in rupees, leave empty for no bill</string>
     <string name="vv_dv10_wrap_finishing">Closing the visit</string>

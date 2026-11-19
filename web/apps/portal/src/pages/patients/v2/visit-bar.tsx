@@ -1,4 +1,4 @@
-import { Check, Cloud, CloudOff, ImagePlus, Printer, Send, Stethoscope, Timer, Wallet } from "lucide-react";
+import { Check, Clock, Cloud, CloudOff, ImagePlus, Printer, Send, Stethoscope, Timer, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -73,7 +73,7 @@ function VisitTimer({ startedAt }: { startedAt: string }) {
  */
 export function VisitBar() {
   const session = useVisitSession();
-  const { api, can } = useClinic();
+  const { api, can, session: clinicSession } = useClinic();
   const online = useOnline();
   const navigate = useNavigate();
   const setQueueStatus = useSetQueueStatus();
@@ -86,6 +86,9 @@ export function VisitBar() {
   // The itemised bill and fee: a doctor (clinical.write) or the desk (billing.write). Collect: payments.collect or billing.write.
   const canBill = can("billing.write") || can("clinical.write");
   const canCollect = can("billing.write") || can("payments.collect");
+  // Nobody else (assistant, front desk) collects, so Send for payment would reach no one: Bill later
+  // does the same (draft saved, token to ready_to_bill) without implying anyone is told. Missing = as before.
+  const billLater = canCollect && clinicSession.others_collect === false;
   // The bill's lines, shared by the suggested total below, Send for payment and the Collect panel.
   const billVisitId = (session.ended?.visit ?? session.visit)?.id;
   // Once the visit is ended the session no longer holds it, so read what was done from the visit itself.
@@ -188,14 +191,25 @@ export function VisitBar() {
                   Collect payment
                 </PillButton>
               ) : null}
-              <PillButton
-                variant={canCollect ? "ghost" : "primary"}
-                icon={<Send aria-hidden="true" />}
-                disabled={sending || session.celebrating}
-                onClick={() => void sendForPayment()}
-              >
-                {sending ? "Sending…" : "Send for payment"}
-              </PillButton>
+              {billLater ? (
+                <PillButton
+                  variant="ghost"
+                  icon={<Clock aria-hidden="true" />}
+                  disabled={sending || session.celebrating}
+                  onClick={() => void sendForPayment()}
+                >
+                  {sending ? "Saving…" : "Bill later"}
+                </PillButton>
+              ) : (
+                <PillButton
+                  variant={canCollect ? "ghost" : "primary"}
+                  icon={<Send aria-hidden="true" />}
+                  disabled={sending || session.celebrating}
+                  onClick={() => void sendForPayment()}
+                >
+                  {sending ? "Sending…" : "Send for payment"}
+                </PillButton>
+              )}
             </>
           ) : finishedVisit !== undefined ? (
             canCollect ? (

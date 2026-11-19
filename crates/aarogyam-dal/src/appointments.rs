@@ -138,6 +138,101 @@ pub async fn list(
     Ok(rows)
 }
 
+/// A visit with no appointment, as the calendar shows it. No chief complaint, no visit number.
+#[derive(Debug, Clone)]
+pub struct WalkInRow {
+    /// The visit.
+    pub visit_id: Uuid,
+    /// When it started (UTC).
+    pub starts_at: OffsetDateTime,
+    /// When it ended (UTC), once closed.
+    pub ends_at: Option<OffsetDateTime>,
+    /// `open` or `closed`.
+    pub status: String,
+    /// The chair of the visit's queue token, if any.
+    pub room_id: Option<Uuid>,
+    /// That chair's name.
+    pub room_name: Option<String>,
+    /// The visit's queue token number, if it was started from one.
+    pub token_number: Option<i32>,
+    /// The patient.
+    pub patient_id: Uuid,
+    /// Their number.
+    pub patient_number: String,
+    /// Their name.
+    pub patient_name: String,
+    /// Their sex.
+    pub patient_sex: String,
+    /// Their date of birth.
+    pub patient_date_of_birth: Option<Date>,
+    /// Whether it was estimated.
+    pub patient_birth_date_estimated: bool,
+    /// Self-registered online and still missing sex or age.
+    pub patient_registration_incomplete: bool,
+    /// The clinician's active practitioner record, if they have one.
+    pub practitioner_id: Option<Uuid>,
+    /// Its name.
+    pub practitioner_name: Option<String>,
+    /// Its colour.
+    pub practitioner_color: Option<String>,
+}
+
+/// Visits with no appointment that started in `[from, to)`, by start: neither the visit nor
+/// its queue token is tied to an appointment, so nothing on the calendar shows twice. The
+/// doctor is the clinician's active practitioner record (at most one); the chair and token
+/// come from the visit's queue token. With `member`, only that member's own visits.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn list_walk_ins(
+    conn: &mut PgConnection,
+    from: OffsetDateTime,
+    to: OffsetDateTime,
+    room_id: Option<Uuid>,
+    practitioner_id: Option<Uuid>,
+    member: Option<Uuid>,
+) -> Result<Vec<WalkInRow>, DbError> {
+    let rows = sqlx::query_as!(
+        WalkInRow,
+        r#"select e.id as visit_id, e.started_at as starts_at, e.ended_at as ends_at,
+                  e.status::text as "status!", q.room_id as "room_id?", r.name as "room_name?",
+                  q.token_number as "token_number?",
+                  e.patient_id, p.number as patient_number, p.full_name as patient_name,
+                  p.sex as patient_sex, p.date_of_birth as patient_date_of_birth,
+                  p.birth_date_estimated as patient_birth_date_estimated,
+                  ('self_registered' = any(p.tags) and (p.sex = 'unknown' or p.date_of_birth is null))
+                    as "patient_registration_incomplete!",
+                  d.id as "practitioner_id?", d.display_name as "practitioner_name?",
+                  d.calendar_color as "practitioner_color?"
+           from aarogyam.encounters e
+           join aarogyam.patients p on p.org_id = e.org_id and p.id = e.patient_id
+           left join aarogyam.queue_tokens q on q.org_id = e.org_id and q.id = e.queue_token_id
+           left join aarogyam.rooms r on r.org_id = q.org_id and r.id = q.room_id
+           left join lateral (
+             select pr.id, pr.display_name, pr.calendar_color
+             from aarogyam.practitioners pr
+             where pr.org_id = e.org_id and pr.membership_id = e.clinician_id
+               and pr.active and pr.deleted_at is null
+             order by pr.id
+             limit 1
+           ) d on true
+           where e.appointment_id is null and e.started_at >= $1 and e.started_at < $2
+             and q.appointment_id is null
+             and ($3::uuid is null or q.room_id = $3)
+             and ($4::uuid is null or d.id = $4)
+             and ($5::uuid is null or e.clinician_id = $5)
+           order by e.started_at, e.id"#,
+        from,
+        to,
+        room_id,
+        practitioner_id,
+        member
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
 /// One appointment, unless deleted.
 ///
 /// # Errors

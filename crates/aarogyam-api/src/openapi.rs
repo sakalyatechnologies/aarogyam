@@ -89,6 +89,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::schedule::add_leave,
         crate::v1::schedule::remove_leave,
         crate::v1::appointments::list,
+        crate::v1::appointments::list_walk_ins,
         crate::v1::appointments::missed,
         crate::v1::appointments::book,
         crate::v1::appointments::change,

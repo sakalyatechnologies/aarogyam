@@ -2,9 +2,9 @@ import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import "./calendar.css";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
-import { apiErrorOf, type AppointmentStatus, type PractitionerId } from "@aarogyam/api-client";
+import { apiErrorOf, type AppointmentStatus, type CalendarWalkIn, type PractitionerId } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
 import { Select } from "@sakalya/ui";
 
@@ -16,7 +16,7 @@ import { gridHours, nowMinutes, placementOf } from "../../lib/time-grid.js";
 import { formatHm, shiftsOn } from "../../lib/slots.js";
 import { addDays, addMonths, mondayOf, monthStartOf, monthWeeks, todayIn } from "../../lib/time.js";
 import { formatTime } from "@aarogyam/app-kit";
-import { useAppointments, usePractitioners, useRooms, useWorkingHoursMany } from "../../queries.js";
+import { useAppointments, usePractitioners, useRooms, useWalkIns, useWorkingHoursMany } from "../../queries.js";
 import { useTimeOff } from "../../lib/time-off-queries.js";
 import { awayOn, isAway } from "./away.js";
 import { AppointmentDialog } from "./appointment-dialog.js";
@@ -99,6 +99,28 @@ const STATUS_WORD: Readonly<Record<EventStatus, string>> = {
   emergency: "emergency",
 };
 
+/** The day view's lane for walk-ins with no chair (by chair) or no doctor (by doctor). */
+const UNASSIGNED = "unassigned";
+/** Grid event ids of walk-ins, so a click opens the patient rather than an appointment. */
+const WALK_IN_PREFIX = "walk-in:";
+/** How long an open walk-in is drawn: the booking form's default visit length. */
+const OPEN_VISIT_MINUTES = 30;
+
+/**
+ * How a walk-in looks: closed in the completed green, open today like a patient in the chair, and open from an
+ * earlier day neutral (it was never closed, so nobody is in the chair now). Open ones take the default visit length.
+ */
+export function walkInLook(w: Pick<CalendarWalkIn, "status" | "starts_at" | "ends_at">, today: string, timeZone: string): { tone: string; status?: EventStatus; word: string; endsAt: string } {
+  const defaultEnd = new Date(Date.parse(w.starts_at) + OPEN_VISIT_MINUTES * 60_000).toISOString();
+  if (w.status === "closed") {
+    return { tone: CHIP.completed, status: "completed", word: "done", endsAt: w.ends_at ?? defaultEnd };
+  }
+  if (placementOf(w.starts_at, w.starts_at, timeZone).date === today) {
+    return { tone: CHIP.in_chair, status: "in_chair", word: "in the chair", endsAt: defaultEnd };
+  }
+  return { tone: CHIP.cancelled, word: "not closed", endsAt: defaultEnd };
+}
+
 /** The days the view shows, which is exactly what is requested: a week, a day, or the month grid (at most 42 days). */
 export function visibleRange(view: View, anchor: string): { from: string; to: string } {
   if (view === "week") {
@@ -173,7 +195,11 @@ export function CalendarPage() {
       { replace: true },
     );
   }, [from, to, setSearchParams]);
-  const appointments = useAppointments({ from, to, ...(newLook && doctorId !== undefined ? { practitionerId: doctorId } : {}) });
+  const filter = { from, to, ...(newLook && doctorId !== undefined ? { practitionerId: doctorId } : {}) };
+  const appointments = useAppointments(filter);
+  // Same range and filters; a failure here never blocks the appointments.
+  const walkIns = useWalkIns(filter);
+  const navigate = useNavigate();
   const rooms = useRooms();
   const practitioners = usePractitioners();
   // Approved time off for the days in view; a failure here never blocks the schedule.
@@ -240,6 +266,51 @@ export function CalendarPage() {
         },
       ];
     });
+  // Walk-ins: visits with no appointment, drawn beside the bookings with a dashed outline. They never block the schedule.
+  const walkInItems = walkIns.data?.items ?? [];
+  const walkInPlaced = walkInItems.flatMap((w): { event: GridEvent; startMin: number; endMin: number }[] => {
+    const look = walkInLook(w, today, timeZone);
+    const place = placementOf(w.starts_at, look.endsAt, timeZone);
+    const columnId = view === "week" ? place.date : lane === "chair" ? (w.room_id ?? UNASSIGNED) : (w.practitioner?.id ?? UNASSIGNED);
+    const time = formatTime(w.starts_at, timeZone);
+    // Like the bookings: the week names the chair and the doctor; a day by chair names the doctor, by doctor the chair.
+    const parts = [view === "week" || lane === "chair" ? w.practitioner?.display_name : undefined, view === "week" || lane === "doctor" ? w.room : undefined].filter((part): part is string => part != null && part !== "");
+    const detail = parts.join(" · ");
+    return [
+      {
+        startMin: place.startMin,
+        endMin: place.endMin,
+        event: {
+          id: `${WALK_IN_PREFIX}${w.visit_id}`,
+          columnId,
+          startMin: place.startMin,
+          endMin: place.endMin,
+          title: w.patient.full_name,
+          subtitle: `${time} · Walk-in${detail === "" ? "" : ` · ${detail}`}`,
+          tone: look.tone,
+          ...(look.status === undefined ? {} : { status: look.status }),
+          ...(w.practitioner == null ? {} : { doctorTone: doctorToneOf(w.practitioner.id) }),
+          tag: "Walk-in",
+          walkIn: true,
+          label: `${w.patient.full_name}, walk-in at ${time}${parts.map((part) => `, ${part}`).join("")}, ${look.word}. Opens the patient`,
+        },
+      },
+    ];
+  });
+  const openWalkIn = (id: string): boolean => {
+    if (!id.startsWith(WALK_IN_PREFIX)) return false;
+    const found = walkInItems.find((w) => `${WALK_IN_PREFIX}${w.visit_id}` === id);
+    if (found !== undefined) void navigate(`/patients/${found.patient.id}`);
+    return true;
+  };
+  const select = (id: string) => {
+    if (!openWalkIn(id)) setSelectedId(id);
+  };
+  const walkInsByDay: Record<string, number> = {};
+  for (const w of walkInItems) {
+    const date = placementOf(w.starts_at, w.starts_at, timeZone).date;
+    walkInsByDay[date] = (walkInsByDay[date] ?? 0) + 1;
+  }
   const monthItems: MonthItem[] = items
     .filter((a) => a.status !== "cancelled")
     .map((a) => {
@@ -247,7 +318,10 @@ export function CalendarPage() {
       return { id: a.id, date: place.date, startMin: place.startMin, tone: toneOf(a), doctorTone: doctorToneOf(a.practitioner.id), label: `${a.status === "requested" ? "? " : ""}${formatTime(a.starts_at, timeZone).replace(/ ?[ap]m$/i, "")} ${a.patient.full_name}` };
     });
   const monthAway: MonthAway[] = view === "month" ? monthWeeks(anchor).flat().flatMap((date) => awayFor(date).map((band) => ({ id: band.id, date, name: band.name }))) : [];
-  const events = placed.map((p) => p.event);
+  const allPlaced = [...placed, ...walkInPlaced];
+  const events = allPlaced.map((p) => p.event);
+  // Day view: walk-ins with no chair (by chair) or no doctor (by doctor) go in an Unassigned lane at the end.
+  const gridColumns: GridColumn[] = view === "day" && columns.length > 0 && events.some((e) => e.columnId === UNASSIGNED) ? [...columns, { id: UNASSIGNED, label: "Unassigned", showNow: anchor === today }] : columns;
   const bookSlot = ({ columnId, startMin }: BookSlot) => {
     setBookDate(view === "week" ? columnId : anchor);
     setBookAt({
@@ -257,7 +331,7 @@ export function CalendarPage() {
     });
     setBookingOpen(true);
   };
-  const hours = gridHours(placed);
+  const hours = gridHours(allPlaced);
   const nowOnClinicClock = nowMinutes(clock, timeZone);
 
   const stepBy = view === "week" ? 7 : 1;
@@ -268,7 +342,7 @@ export function CalendarPage() {
       <PageHeader
         eyebrow={`Schedule · ${new Date(`${anchor}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })}`}
         title="Calendar"
-        subtitle={`${session.clinic.name} · ${appointments.isPending ? "loading the schedule" : `${String(items.filter((a) => a.status !== "cancelled").length)} booked in view`}`}
+        subtitle={`${session.clinic.name} · ${appointments.isPending ? "loading the schedule" : `${String(items.filter((a) => a.status !== "cancelled").length)} booked in view${walkInItems.length === 0 ? "" : ` · ${String(walkInItems.length)} ${walkInItems.length === 1 ? "walk-in" : "walk-ins"}`}`}`}
         actions={
           canWrite ? (
             <button
@@ -393,6 +467,7 @@ export function CalendarPage() {
               month={anchor}
               today={today}
               items={monthItems}
+              walkIns={walkInsByDay}
               away={monthAway}
               onSelect={setSelectedId}
               onOpenDay={(date) => {
@@ -414,20 +489,25 @@ export function CalendarPage() {
           />
         ) : (
           <TimeGrid
-            columns={columns}
+            columns={gridColumns}
             events={events}
             startHour={hours.start}
             endHour={hours.end}
             nowMinute={nowOnClinicClock.minutes}
             workingMinutes={WORKING_MINUTES}
             summary={`Appointments from ${from} to ${to}`}
-            onSelect={setSelectedId}
+            onSelect={select}
             {...(canWrite ? { onBook: bookSlot } : {})}
           />
         )}
         {appointments.isSuccess && view !== "month" && columns.length > 0 && events.length === 0 ? (
           <p role="status" className="cal-calm">
             {view === "week" ? COPY.calmWeek : COPY.calmDay}
+          </p>
+        ) : null}
+        {appointments.isSuccess && walkIns.isError && apiErrorOf(walkIns.error)?.status !== 404 ? (
+          <p role="status" className="cal-calm">
+            Walk-ins couldn&apos;t be loaded. Appointments are shown.
           </p>
         ) : null}
       </MkCard>

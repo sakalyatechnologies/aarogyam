@@ -150,12 +150,12 @@ Run it once, over the owner connection and with the Supabase secret key, the way
 ```sh
 set -a; . ./.env.supabase; set +a
 # Paste the password from your password manager into this prompt; it never goes in a file, history or chat.
-read -rs ARO_REVIEW_PASSWORD; export ARO_REVIEW_PASSWORD; echo
+read -rs AAROGYAM_REVIEW_PASSWORD; export AAROGYAM_REVIEW_PASSWORD; echo
 ./target/debug/aarogyam admin review-account --clinic sunrise --email reviewer@<your-domain>
-unset ARO_REVIEW_PASSWORD
+unset AAROGYAM_REVIEW_PASSWORD
 ```
 
-It prints the clinic, the email and "password set from ARO_REVIEW_PASSWORD", nothing else. Type the same password into App Store Connect and the Play Console. Running it again changes the password. After review is approved:
+It prints the clinic, the email and "password set from AAROGYAM_REVIEW_PASSWORD", nothing else. Type the same password into App Store Connect and the Play Console. Running it again changes the password. After review is approved:
 
 ```sh
 set -a; . ./.env.supabase; set +a
@@ -166,10 +166,20 @@ That ends the membership (`left`) and sets the Supabase password to a random val
 
 Rules:
 
-- Only the synthetic demo clinics in `REVIEW_CLINICS` (`sunrise`, `lotus`, `suhasyadental`; `crates/aarogyam-app/src/review_account.rs`) are accepted; any other slug, a real clinic, is refused.
-- The password is read only from `ARO_REVIEW_PASSWORD`, at least 16 characters, from a password manager. It is never printed or logged.
+- Only the synthetic demo clinics in `REVIEW_CLINICS` (`sunrise`, `lotus`, `suhasyadental`, `review`; `crates/aarogyam-app/src/review_account.rs`) are accepted; any other slug, a real clinic, is refused.
+- The password is read only from `AAROGYAM_REVIEW_PASSWORD`, at least 16 characters, from a password manager. It is never printed or logged.
 - Platform staff are refused (they can't hold a clinic membership).
 - Turn it off after review.
+
+The clinic made for review is `review` (Aarogyam Demo Dental): `db/seed/review-clinic.sql` creates it with
+synthetic data on every portal tab (150 patients, visits, bills, expenses, labs, stock), as the owner, once
+(a second run does nothing). Its automatic patient messages are switched off because its phone numbers are
+made up. Pass the deployed host template so `/me` shows a working address; the outbox job then readies the
+address like any new clinic's:
+
+```sh
+psql "$ARO_DB__OWNER_URL" -v ON_ERROR_STOP=1 -v portal_host_template='{slug}-aarogyam.spring-snow-130f.workers.dev' -f db/seed/review-clinic.sql
+```
 
 ## Public website (Cloudflare Pages)
 

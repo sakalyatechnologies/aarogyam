@@ -109,4 +109,28 @@ describe("TimeGrid working spans", () => {
     expect(container.querySelectorAll(".mk-tg-off").length).toBe(1);
     expect(Number.parseFloat(container.querySelector<HTMLElement>(".mk-tg-off")?.style.height ?? "100")).toBe(100);
   });
+
+  it("draws a walk-in with a dashed outline and its tag, opening it like any other event", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(
+      <TimeGrid
+        columns={COLUMNS}
+        events={[event("walk-in:v1", 600, 640, { title: "Ravi Kumar", label: "Ravi Kumar, walk-in at 10:00 am, done", tone: "g", status: "completed", tag: "Walk-in", walkIn: true }), event("A", 700, 730)]}
+        startHour={8}
+        endHour={18}
+        onSelect={onSelect}
+        summary="Grid"
+      />,
+    );
+    const walkIn = screen.getByRole("button", { name: "Ravi Kumar, walk-in at 10:00 am, done" });
+    expect(walkIn.className).toContain("walkin");
+    expect(walkIn.className).toContain(" g");
+    expect(walkIn.hasAttribute("data-walk-in")).toBe(true);
+    expect(walkIn.textContent).toContain("Walk-in");
+    expect(walkIn.getAttribute("draggable")).toBeNull();
+    expect(screen.getByRole("button", { name: "A label" }).className).not.toContain("walkin");
+    await user.click(walkIn);
+    expect(onSelect).toHaveBeenCalledWith("walk-in:v1");
+  });
 });

@@ -112,6 +112,8 @@ val apiModels =
         "WithdrawConsent",
         "WalkIn",
         "WalkInConsent",
+        "CalendarWalkIn",
+        "CalendarWalkInList",
         "SetConsentSignature",
         "QueueDay",
         "StartedVisit",

@@ -60,6 +60,7 @@ import type {
   AppointmentChanges,
   AppointmentId,
   AppointmentPage,
+  CalendarWalkInPage,
   ApproveApplication,
   ApprovedApplication,
   Attachment,
@@ -515,6 +516,11 @@ export interface ApiClient {
 
   /** Clinic host: appointments starting in the local days given. Needs `appointments.read`. */
   listAppointments(filter: AppointmentFilter, options?: RequestOptions): Promise<ApiResult<AppointmentPage>>;
+  /**
+   * Clinic host: visits with no appointment (walk-ins) that started in the local days given, by
+   * start. Same range, filters and reach as `listAppointments`. Needs `appointments.read`.
+   */
+  listWalkIns(filter: AppointmentFilter, options?: RequestOptions): Promise<ApiResult<CalendarWalkInPage>>;
   /** Clinic host: books an appointment. `409` when the chair is taken; `warnings` for anything else worth knowing. Needs `appointments.write`. */
   bookAppointment(input: NewAppointmentBody, options?: RequestOptions): Promise<ApiResult<SavedAppointment>>;
   /** Clinic host: moves, reassigns or edits an appointment. Needs `appointments.write`. */

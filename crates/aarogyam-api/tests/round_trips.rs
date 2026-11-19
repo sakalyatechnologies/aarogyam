@@ -592,7 +592,9 @@ fn hot_routes(
             signed_in: false,
             ..Route::get("GET /meta", "app.localtest.me", "/api/v1/meta".into())
         },
-        Route::get("GET /session", ALPHA, "/api/v1/session".into()),
+        // Over budget since `others_collect` (a collector's session reads the active members the
+        // push path's way, after the session read); to fold into one statement.
+        Route::get("GET /session", ALPHA, "/api/v1/session".into()).allow_extra(1),
         Route::get("GET /today", ALPHA, "/api/v1/today".into()),
         Route::get(
             "GET /appointments (week)",

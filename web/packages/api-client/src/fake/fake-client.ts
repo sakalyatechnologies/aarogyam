@@ -1357,10 +1357,21 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return caller;
           }
           const { clinic, membership, user } = caller;
+          // As the server: sent only to a collector; true when another active, non-clinical member collects.
+          const collects = (role: FakeRole) => role.permissions.includes("billing.write") || role.permissions.includes("payments.collect");
+          const othersCollect = state.memberships.some(
+            (m) =>
+              m.clinic_id === clinic.id &&
+              m.id !== membership.id &&
+              (m.status ?? "active") === "active" &&
+              collects(m.role) &&
+              !m.role.permissions.includes("clinical.write"),
+          );
           return reply({
             clinic: { id: clinic.id, slug: clinic.slug, name: clinic.name, timezone: clinic.timezone, branding: clinic.branding },
             membership: { id: membership.id, role_key: membership.role.key, permissions: [...membership.role.permissions] },
             user: { id: user.id, display_name: user.display_name, ...(user.avatar === undefined ? {} : { avatar: user.avatar }) },
+            ...(collects(membership.role) ? { others_collect: othersCollect } : {}),
           } satisfies C.Session);
         }),
 
@@ -2669,6 +2680,49 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               return wired === undefined ? [] : [wired];
             });
           return reply({ items } satisfies C.AppointmentList);
+        }),
+
+      listWalkIns: (filter, opts) =>
+        respond(S.calendarWalkInList, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const fromIso = atLocalTime(filter.from, 0, caller.clinic.timezone).toISOString();
+          const toIso = atLocalTime(filter.to, 1440, caller.clinic.timezone).toISOString();
+          const now = clock();
+          const items = state.visits
+            .filter((v) => v.clinic_id === caller.clinic.id && v.appointment_id == null && v.started_at >= fromIso && v.started_at < toIso)
+            .sort((a, b) => a.started_at.localeCompare(b.started_at))
+            .flatMap((v): C.CalendarWalkIn[] => {
+              const token = v.queue_token_id == null ? undefined : state.queueTokens.find((t) => t.id === v.queue_token_id);
+              const patient = state.patients.find((p) => p.id === v.patient_id);
+              // A visit tied to an appointment through its token shows as that appointment.
+              if (patient === undefined || token?.appointment_id != null) {
+                return [];
+              }
+              const practitioner = state.practitioners.find((p) => p.clinic_id === caller.clinic.id && p.membership_id === v.clinician_membership_id && p.active);
+              const room = token?.room_id == null ? undefined : state.rooms.find((r) => r.id === token.room_id);
+              if (filter.roomId !== undefined && token?.room_id !== filter.roomId) {
+                return [];
+              }
+              if (filter.practitionerId !== undefined && practitioner?.id !== filter.practitionerId) {
+                return [];
+              }
+              return [
+                {
+                  visit_id: v.id,
+                  patient: wirePatientBrief(patient, now),
+                  ...(practitioner === undefined ? {} : { practitioner: wirePractitionerBrief(practitioner) }),
+                  ...(room === undefined ? {} : { room_id: room.id, room: room.name }),
+                  ...(token === undefined ? {} : { token_number: token.token_number }),
+                  starts_at: v.started_at,
+                  ...(v.ended_at == null ? {} : { ends_at: v.ended_at }),
+                  status: v.status,
+                },
+              ];
+            });
+          return reply({ items } satisfies C.CalendarWalkInList);
         }),
 
       bookAppointment: (input, opts) =>

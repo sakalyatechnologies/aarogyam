@@ -45,14 +45,15 @@ enum DoctorV10Format {
     }
 
     /// "Visit closed · Rx sent · follow-up 8 Nov · desk asked for ₹1,500". Holds no patient name.
-    static func celebration(rxIssued: Bool, followUpOn: String?, collected: Bool, totalPaise: Int64?, locale: Locale = .current) -> String {
+    static func celebration(rxIssued: Bool, followUpOn: String?, collected: Bool, totalPaise: Int64?, billsLater: Bool = false,
+                            locale: Locale = .current) -> String {
         var parts = [dv10("dv10.done.visit")]
         if rxIssued { parts.append(dv10("dv10.done.rx")) }
         if let followUpOn { parts.append(dv10f("dv10.done.followup", shortDate(iso: followUpOn, locale: locale))) }
         if let total = totalPaise, total > 0 {
             let amount = V9Close.rupees(paise: total)
-            parts.append(collected ? dv10f("dv10.done.collect", amount) : dv10f("dv10.done.desk", amount))
-        } else if !collected {
+            parts.append(collected ? dv10f("dv10.done.collect", amount) : dv10f(billsLater ? "dv10.done.later" : "dv10.done.desk", amount))
+        } else if !collected, !billsLater {
             parts.append(dv10("dv10.done.desk.nofee"))
         }
         return parts.joined(separator: " · ")

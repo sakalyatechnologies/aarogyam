@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 
 // The linked @sakalya packages would otherwise load React, Base UI and icons from their own
@@ -24,6 +25,16 @@ export default defineConfig(({ mode }) => {
       // Same-origin /api goes to the local API with the browser's Host header kept
       // (changeOrigin stays false), because the API picks the clinic or console from it.
       proxy: { "/api": { target: env["VITE_API_PROXY_TARGET"] ?? "http://localhost:8080" } },
+    },
+    // Two pages: the portal, and the small patient-link page (`shared.html`, served for
+    // `/shared/*` by the portal Worker) that loads none of the portal's code.
+    build: {
+      rollupOptions: {
+        input: {
+          index: fileURLToPath(new URL("./index.html", import.meta.url)),
+          shared: fileURLToPath(new URL("./shared.html", import.meta.url)),
+        },
+      },
     },
     preview: { port: 4173, host: "127.0.0.1", allowedHosts: [".localtest.me"] },
   };

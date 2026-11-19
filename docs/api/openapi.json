@@ -2232,6 +2232,132 @@
         ]
       }
     },
+    "/api/v1/console/insights/frontend": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Page speed (LCP, INP, CLS, TTFB at the 75th percentile) and front-end error classes.",
+        "operationId": "getConsoleFrontEndInsights",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "description": "1h (default), 6h, 24h, 7d or 30d; up to a day shows yesterday and today",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrontEndInsights"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown range"
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/console/insights/pages": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "Top pages by time and views per app, roles across all clinics, and each clinic's totals.",
+        "operationId": "getConsolePageInsights",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "description": "1h (default), 6h, 24h, 7d or 30d; up to a day shows yesterday and today",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageInsights"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown range"
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/console/insights/routes": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "API routes by traffic, latency and errors, durable across instances.",
+        "operationId": "getConsoleRouteInsights",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "description": "1h (default), 6h, 24h, 7d or 30d",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRouteInsights"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown range"
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/console/insights/usage": {
       "get": {
         "tags": [
@@ -18253,6 +18379,53 @@
         ]
       }
     },
+    "/api/v1/telemetry": {
+      "post": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Adds page counters, page speed and error classes (staff only, counts only).",
+        "operationId": "sendTelemetry",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelemetryBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Added, or dropped when over the day's allowance"
+          },
+          "400": {
+            "description": "More than 50 entries"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "On the console host: not Sakalya staff"
+          },
+          "404": {
+            "description": "Not a member of the clinic named by the host"
+          },
+          "413": {
+            "description": "Larger than 8 KB"
+          },
+          "429": {
+            "description": "Too many batches from this address"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/templates": {
       "get": {
         "tags": [
@@ -20317,6 +20490,97 @@
           "uses_clinic_hours": {
             "type": "boolean",
             "description": "Whether its open minutes come from its branch's opening hours (`GET /clinic-hours`);\notherwise `open_minutes_per_day` is assumed on every day."
+          }
+        }
+      },
+      "ApiRouteInsights": {
+        "type": "object",
+        "description": "API routes over a window, from the counters every instance flushes each minute.",
+        "required": [
+          "generated_at",
+          "range",
+          "since",
+          "routes"
+        ],
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "description": "When this was produced (RFC 3339)."
+          },
+          "range": {
+            "type": "string",
+            "description": "The window: `1h`, `6h`, `24h`, `7d` or `30d`."
+          },
+          "routes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiRouteStat"
+            },
+            "description": "Each method and route with requests, busiest first."
+          },
+          "since": {
+            "type": "string",
+            "description": "The start of the first hour counted (RFC 3339); counters are kept per hour."
+          }
+        }
+      },
+      "ApiRouteStat": {
+        "type": "object",
+        "description": "One method and route over the window.",
+        "required": [
+          "method",
+          "route",
+          "requests",
+          "errors_4xx",
+          "errors_5xx",
+          "errors_429",
+          "error_rate",
+          "p50_ms",
+          "p95_ms"
+        ],
+        "properties": {
+          "error_rate": {
+            "type": "number",
+            "format": "double",
+            "description": "Share that failed (5xx or 429), 0 to 1."
+          },
+          "errors_429": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Answered 429."
+          },
+          "errors_4xx": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Answered 4xx, not counting 429."
+          },
+          "errors_5xx": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Answered 5xx."
+          },
+          "method": {
+            "type": "string",
+            "description": "`GET`, `POST` ... or `OTHER`."
+          },
+          "p50_ms": {
+            "type": "number",
+            "format": "double",
+            "description": "Median latency in milliseconds, estimated from the buckets."
+          },
+          "p95_ms": {
+            "type": "number",
+            "format": "double",
+            "description": "95th percentile latency in milliseconds."
+          },
+          "requests": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Requests answered."
+          },
+          "route": {
+            "type": "string",
+            "description": "The route template, such as `/api/v1/patients/{id}`, or `unmatched` or `other`."
           }
         }
       },
@@ -22591,6 +22855,43 @@
           "status": {
             "type": "string",
             "description": "`invited`, `active`, `suspended` or `left`."
+          }
+        }
+      },
+      "ClinicPages": {
+        "type": "object",
+        "description": "One clinic's totals: no role, no page.",
+        "required": [
+          "org_id",
+          "slug",
+          "name",
+          "views"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "org_id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Its subdomain."
+          },
+          "views": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Page views by all its staff."
+          },
+          "visible_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Visible time in milliseconds; `null` with fewer than 5 views."
           }
         }
       },
@@ -25258,6 +25559,35 @@
           }
         }
       },
+      "ErrorStat": {
+        "type": "object",
+        "description": "Errors of one class on one page of one app.",
+        "required": [
+          "app",
+          "route",
+          "class",
+          "count"
+        ],
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "`portal` or `console`."
+          },
+          "class": {
+            "type": "string",
+            "description": "`type_error`, `reference_error`, `range_error`, `syntax_error`, `chunk_load`, `network`,\n`unhandled_rejection` or `other`."
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many."
+          },
+          "route": {
+            "type": "string",
+            "description": "The route template, or `other`."
+          }
+        }
+      },
       "Expense": {
         "type": "object",
         "description": "Money the clinic spent.",
@@ -25813,6 +26143,58 @@
           "practitioner_id": {
             "type": "string",
             "description": "The doctor."
+          }
+        }
+      },
+      "FrontEndInsights": {
+        "type": "object",
+        "description": "The front end over a window: page speed per page and error classes.",
+        "required": [
+          "generated_at",
+          "range",
+          "from",
+          "to",
+          "thresholds",
+          "vitals",
+          "errors"
+        ],
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ErrorStat"
+            },
+            "description": "Errors per app, page and class, most first."
+          },
+          "from": {
+            "type": "string",
+            "description": "First day (`YYYY-MM-DD`)."
+          },
+          "generated_at": {
+            "type": "string",
+            "description": "When this was produced (RFC 3339)."
+          },
+          "range": {
+            "type": "string",
+            "description": "The window: `1h`, `6h`, `24h`, `7d` or `30d`. Counters are daily, so up to a day shows\nyesterday and today."
+          },
+          "thresholds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VitalThreshold"
+            },
+            "description": "The good and poor thresholds of each vital."
+          },
+          "to": {
+            "type": "string",
+            "description": "Last day, included."
+          },
+          "vitals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VitalStat"
+            },
+            "description": "Each app, page and vital with readings."
           }
         }
       },
@@ -33065,6 +33447,98 @@
           }
         }
       },
+      "PageInsights": {
+        "type": "object",
+        "description": "Pages over a window: where staff spend time, per app, per role across all clinics, and each\nclinic's totals.",
+        "required": [
+          "generated_at",
+          "range",
+          "from",
+          "to",
+          "pages",
+          "roles",
+          "clinics"
+        ],
+        "properties": {
+          "clinics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClinicPages"
+            },
+            "description": "Each clinic's totals across its staff and pages, most visible time first."
+          },
+          "from": {
+            "type": "string",
+            "description": "First day (`YYYY-MM-DD`)."
+          },
+          "generated_at": {
+            "type": "string",
+            "description": "When this was produced (RFC 3339)."
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PageStat"
+            },
+            "description": "Each app's pages, all clinics together, most visible time first."
+          },
+          "range": {
+            "type": "string",
+            "description": "The window: `1h`, `6h`, `24h`, `7d` or `30d`; up to a day shows yesterday and today."
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RolePages"
+            },
+            "description": "Each app's roles across all clinics; never per clinic."
+          },
+          "to": {
+            "type": "string",
+            "description": "Last day, included."
+          }
+        }
+      },
+      "PageStat": {
+        "type": "object",
+        "description": "One page of one app, all clinics together.",
+        "required": [
+          "app",
+          "route",
+          "views"
+        ],
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "`portal` or `console`."
+          },
+          "avg_visible_ms": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Visible time per view in milliseconds; `null` with fewer than 5 views."
+          },
+          "route": {
+            "type": "string",
+            "description": "The route template, or `other`."
+          },
+          "views": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Views."
+          },
+          "visible_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Visible time in milliseconds; `null` with fewer than 5 views."
+          }
+        }
+      },
       "PatchAudience": {
         "type": "object",
         "description": "Changes to an audience; absent fields stay.",
@@ -37629,6 +38103,38 @@
           }
         }
       },
+      "RolePages": {
+        "type": "object",
+        "description": "One role in one app, across all clinics.",
+        "required": [
+          "app",
+          "role_key",
+          "views"
+        ],
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "`portal` or `console`."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "A standard role key, `custom` for a clinic's own roles, or a console role."
+          },
+          "views": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Views."
+          },
+          "visible_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Visible time in milliseconds; `null` with fewer than 5 views."
+          }
+        }
+      },
       "RolePermission": {
         "type": "object",
         "description": "A permission a role holds.",
@@ -41366,6 +41872,109 @@
           }
         }
       },
+      "TelemetryBatch": {
+        "type": "object",
+        "description": "What a page sends when its tab is hidden or 50 entries have queued: at most 50 entries in all.",
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TelemetryError"
+            },
+            "description": "Error counts per page and class."
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TelemetryPage"
+            },
+            "description": "Views and visible time per page."
+          },
+          "vitals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TelemetryVital"
+            },
+            "description": "Page-speed readings."
+          }
+        }
+      },
+      "TelemetryError": {
+        "type": "object",
+        "description": "Front-end errors of one class on one page.",
+        "required": [
+          "route",
+          "class",
+          "count"
+        ],
+        "properties": {
+          "class": {
+            "type": "string",
+            "description": "`type_error`, `reference_error`, `range_error`, `syntax_error`, `chunk_load`, `network`,\n`unhandled_rejection` or `other`; anything else counts as `other`."
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many.",
+            "minimum": 0
+          },
+          "route": {
+            "type": "string",
+            "description": "The route template."
+          }
+        }
+      },
+      "TelemetryPage": {
+        "type": "object",
+        "description": "Views and visible time for one page.",
+        "required": [
+          "route",
+          "views",
+          "visible_ms"
+        ],
+        "properties": {
+          "route": {
+            "type": "string",
+            "description": "The router's route template, such as `/patients/:id`; anything not in the app's list is\ncounted as `other`."
+          },
+          "views": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Times the page was opened.",
+            "minimum": 0
+          },
+          "visible_ms": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Milliseconds the page was visible.",
+            "minimum": 0
+          }
+        }
+      },
+      "TelemetryVital": {
+        "type": "object",
+        "description": "One page-speed reading.",
+        "required": [
+          "route",
+          "name",
+          "value"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "`lcp`, `inp`, `cls` or `ttfb`; anything else is dropped."
+          },
+          "route": {
+            "type": "string",
+            "description": "The route template."
+          },
+          "value": {
+            "type": "number",
+            "format": "double",
+            "description": "Milliseconds, or the layout-shift score for `cls`."
+          }
+        }
+      },
       "TemplateInfo": {
         "type": "object",
         "description": "A starting layout.",
@@ -42855,6 +43464,98 @@
             ],
             "format": "int32",
             "description": "FDI tooth number."
+          }
+        }
+      },
+      "VitalStat": {
+        "type": "object",
+        "description": "One vital on one page of one app.",
+        "required": [
+          "app",
+          "route",
+          "vital",
+          "samples",
+          "good",
+          "needs_work",
+          "poor"
+        ],
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "`portal` or `console`."
+          },
+          "good": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Readings that were good."
+          },
+          "needs_work": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Readings that needed work."
+          },
+          "p75": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "The 75th percentile; `null` with fewer than 5 readings."
+          },
+          "poor": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Readings that were poor."
+          },
+          "rating": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`good`, `needs_work` or `poor` for the 75th percentile; `null` with it."
+          },
+          "route": {
+            "type": "string",
+            "description": "The route template, or `other`."
+          },
+          "samples": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Readings."
+          },
+          "vital": {
+            "type": "string",
+            "description": "`lcp`, `inp`, `cls` or `ttfb`."
+          }
+        }
+      },
+      "VitalThreshold": {
+        "type": "object",
+        "description": "Where a vital turns from good to needs work, and from needs work to poor.",
+        "required": [
+          "vital",
+          "good",
+          "poor",
+          "unit"
+        ],
+        "properties": {
+          "good": {
+            "type": "number",
+            "format": "double",
+            "description": "Readings up to this are good."
+          },
+          "poor": {
+            "type": "number",
+            "format": "double",
+            "description": "Readings above this are poor."
+          },
+          "unit": {
+            "type": "string",
+            "description": "`ms`, or empty for `cls`."
+          },
+          "vital": {
+            "type": "string",
+            "description": "`lcp`, `inp`, `cls` or `ttfb`."
           }
         }
       },

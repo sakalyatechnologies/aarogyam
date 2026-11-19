@@ -715,6 +715,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/insights/frontend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Page speed (LCP, INP, CLS, TTFB at the 75th percentile) and front-end error classes. */
+        get: operations["getConsoleFrontEndInsights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/insights/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Top pages by time and views per app, roles across all clinics, and each clinic's totals. */
+        get: operations["getConsolePageInsights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/console/insights/routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** API routes by traffic, latency and errors, durable across instances. */
+        get: operations["getConsoleRouteInsights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/insights/usage": {
         parameters: {
             query?: never;
@@ -5642,6 +5693,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/telemetry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds page counters, page speed and error classes (staff only, counts only). */
+        post: operations["sendTelemetry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/templates": {
         parameters: {
             query?: never;
@@ -6429,6 +6497,59 @@ export interface components {
              *     otherwise `open_minutes_per_day` is assumed on every day.
              */
             uses_clinic_hours: boolean;
+        };
+        /** @description API routes over a window, from the counters every instance flushes each minute. */
+        ApiRouteInsights: {
+            /** @description When this was produced (RFC 3339). */
+            generated_at: string;
+            /** @description The window: `1h`, `6h`, `24h`, `7d` or `30d`. */
+            range: string;
+            /** @description Each method and route with requests, busiest first. */
+            routes: components["schemas"]["ApiRouteStat"][];
+            /** @description The start of the first hour counted (RFC 3339); counters are kept per hour. */
+            since: string;
+        };
+        /** @description One method and route over the window. */
+        ApiRouteStat: {
+            /**
+             * Format: double
+             * @description Share that failed (5xx or 429), 0 to 1.
+             */
+            error_rate: number;
+            /**
+             * Format: int64
+             * @description Answered 429.
+             */
+            errors_429: number;
+            /**
+             * Format: int64
+             * @description Answered 4xx, not counting 429.
+             */
+            errors_4xx: number;
+            /**
+             * Format: int64
+             * @description Answered 5xx.
+             */
+            errors_5xx: number;
+            /** @description `GET`, `POST` ... or `OTHER`. */
+            method: string;
+            /**
+             * Format: double
+             * @description Median latency in milliseconds, estimated from the buckets.
+             */
+            p50_ms: number;
+            /**
+             * Format: double
+             * @description 95th percentile latency in milliseconds.
+             */
+            p95_ms: number;
+            /**
+             * Format: int64
+             * @description Requests answered.
+             */
+            requests: number;
+            /** @description The route template, such as `/api/v1/patients/{id}`, or `unmatched` or `other`. */
+            route: string;
         };
         /** @description A clinic's application. */
         Application: {
@@ -7379,6 +7500,25 @@ export interface components {
             role_name: string;
             /** @description `invited`, `active`, `suspended` or `left`. */
             status: string;
+        };
+        /** @description One clinic's totals: no role, no page. */
+        ClinicPages: {
+            /** @description Its name. */
+            name: string;
+            /** @description The clinic. */
+            org_id: string;
+            /** @description Its subdomain. */
+            slug: string;
+            /**
+             * Format: int64
+             * @description Page views by all its staff.
+             */
+            views: number;
+            /**
+             * Format: int64
+             * @description Visible time in milliseconds; `null` with fewer than 5 views.
+             */
+            visible_ms?: number | null;
         };
         /** @description The clinic's settings. */
         ClinicSettings: {
@@ -8522,6 +8662,23 @@ export interface components {
             /** @description A message for people, without patient data. */
             message: string;
         };
+        /** @description Errors of one class on one page of one app. */
+        ErrorStat: {
+            /** @description `portal` or `console`. */
+            app: string;
+            /**
+             * @description `type_error`, `reference_error`, `range_error`, `syntax_error`, `chunk_load`, `network`,
+             *     `unhandled_rejection` or `other`.
+             */
+            class: string;
+            /**
+             * Format: int64
+             * @description How many.
+             */
+            count: number;
+            /** @description The route template, or `other`. */
+            route: string;
+        };
         /** @description Money the clinic spent. */
         Expense: {
             /**
@@ -8733,6 +8890,26 @@ export interface components {
             in_hours: boolean;
             /** @description The doctor. */
             practitioner_id: string;
+        };
+        /** @description The front end over a window: page speed per page and error classes. */
+        FrontEndInsights: {
+            /** @description Errors per app, page and class, most first. */
+            errors: components["schemas"]["ErrorStat"][];
+            /** @description First day (`YYYY-MM-DD`). */
+            from: string;
+            /** @description When this was produced (RFC 3339). */
+            generated_at: string;
+            /**
+             * @description The window: `1h`, `6h`, `24h`, `7d` or `30d`. Counters are daily, so up to a day shows
+             *     yesterday and today.
+             */
+            range: string;
+            /** @description The good and poor thresholds of each vital. */
+            thresholds: components["schemas"]["VitalThreshold"][];
+            /** @description Last day, included. */
+            to: string;
+            /** @description Each app, page and vital with readings. */
+            vitals: components["schemas"]["VitalStat"][];
         };
         /**
          * @description Who handled a notification: confirmed, declined or cancelled its appointment, or received,
@@ -11702,6 +11879,48 @@ export interface components {
              */
             status: string;
         };
+        /**
+         * @description Pages over a window: where staff spend time, per app, per role across all clinics, and each
+         *     clinic's totals.
+         */
+        PageInsights: {
+            /** @description Each clinic's totals across its staff and pages, most visible time first. */
+            clinics: components["schemas"]["ClinicPages"][];
+            /** @description First day (`YYYY-MM-DD`). */
+            from: string;
+            /** @description When this was produced (RFC 3339). */
+            generated_at: string;
+            /** @description Each app's pages, all clinics together, most visible time first. */
+            pages: components["schemas"]["PageStat"][];
+            /** @description The window: `1h`, `6h`, `24h`, `7d` or `30d`; up to a day shows yesterday and today. */
+            range: string;
+            /** @description Each app's roles across all clinics; never per clinic. */
+            roles: components["schemas"]["RolePages"][];
+            /** @description Last day, included. */
+            to: string;
+        };
+        /** @description One page of one app, all clinics together. */
+        PageStat: {
+            /** @description `portal` or `console`. */
+            app: string;
+            /**
+             * Format: double
+             * @description Visible time per view in milliseconds; `null` with fewer than 5 views.
+             */
+            avg_visible_ms?: number | null;
+            /** @description The route template, or `other`. */
+            route: string;
+            /**
+             * Format: int64
+             * @description Views.
+             */
+            views: number;
+            /**
+             * Format: int64
+             * @description Visible time in milliseconds; `null` with fewer than 5 views.
+             */
+            visible_ms?: number | null;
+        };
         /** @description Changes to an audience; absent fields stay. */
         PatchAudience: {
             filter?: components["schemas"]["AudienceFilterBody"] | null;
@@ -13516,6 +13735,23 @@ export interface components {
             /** @description The standard role its defaults come from; its own key for a standard role. */
             template_key?: string | null;
         };
+        /** @description One role in one app, across all clinics. */
+        RolePages: {
+            /** @description `portal` or `console`. */
+            app: string;
+            /** @description A standard role key, `custom` for a clinic's own roles, or a console role. */
+            role_key: string;
+            /**
+             * Format: int64
+             * @description Views.
+             */
+            views: number;
+            /**
+             * Format: int64
+             * @description Visible time in milliseconds; `null` with fewer than 5 views.
+             */
+            visible_ms?: number | null;
+        };
         /** @description A permission a role holds. */
         RolePermission: {
             /** @description Permission key, such as `patients.read`. */
@@ -15093,6 +15329,60 @@ export interface components {
             /** @description Specialty. */
             specialty?: string | null;
         };
+        /** @description What a page sends when its tab is hidden or 50 entries have queued: at most 50 entries in all. */
+        TelemetryBatch: {
+            /** @description Error counts per page and class. */
+            errors?: components["schemas"]["TelemetryError"][];
+            /** @description Views and visible time per page. */
+            pages?: components["schemas"]["TelemetryPage"][];
+            /** @description Page-speed readings. */
+            vitals?: components["schemas"]["TelemetryVital"][];
+        };
+        /** @description Front-end errors of one class on one page. */
+        TelemetryError: {
+            /**
+             * @description `type_error`, `reference_error`, `range_error`, `syntax_error`, `chunk_load`, `network`,
+             *     `unhandled_rejection` or `other`; anything else counts as `other`.
+             */
+            class: string;
+            /**
+             * Format: int32
+             * @description How many.
+             */
+            count: number;
+            /** @description The route template. */
+            route: string;
+        };
+        /** @description Views and visible time for one page. */
+        TelemetryPage: {
+            /**
+             * @description The router's route template, such as `/patients/:id`; anything not in the app's list is
+             *     counted as `other`.
+             */
+            route: string;
+            /**
+             * Format: int32
+             * @description Times the page was opened.
+             */
+            views: number;
+            /**
+             * Format: int64
+             * @description Milliseconds the page was visible.
+             */
+            visible_ms: number;
+        };
+        /** @description One page-speed reading. */
+        TelemetryVital: {
+            /** @description `lcp`, `inp`, `cls` or `ttfb`; anything else is dropped. */
+            name: string;
+            /** @description The route template. */
+            route: string;
+            /**
+             * Format: double
+             * @description Milliseconds, or the layout-shift score for `cls`.
+             */
+            value: number;
+        };
         /** @description A starting layout. */
         TemplateInfo: {
             /** @description What it is for. */
@@ -15716,6 +16006,59 @@ export interface components {
              * @description FDI tooth number.
              */
             tooth?: number | null;
+        };
+        /** @description One vital on one page of one app. */
+        VitalStat: {
+            /** @description `portal` or `console`. */
+            app: string;
+            /**
+             * Format: int64
+             * @description Readings that were good.
+             */
+            good: number;
+            /**
+             * Format: int64
+             * @description Readings that needed work.
+             */
+            needs_work: number;
+            /**
+             * Format: double
+             * @description The 75th percentile; `null` with fewer than 5 readings.
+             */
+            p75?: number | null;
+            /**
+             * Format: int64
+             * @description Readings that were poor.
+             */
+            poor: number;
+            /** @description `good`, `needs_work` or `poor` for the 75th percentile; `null` with it. */
+            rating?: string | null;
+            /** @description The route template, or `other`. */
+            route: string;
+            /**
+             * Format: int64
+             * @description Readings.
+             */
+            samples: number;
+            /** @description `lcp`, `inp`, `cls` or `ttfb`. */
+            vital: string;
+        };
+        /** @description Where a vital turns from good to needs work, and from needs work to poor. */
+        VitalThreshold: {
+            /**
+             * Format: double
+             * @description Readings up to this are good.
+             */
+            good: number;
+            /**
+             * Format: double
+             * @description Readings above this are poor.
+             */
+            poor: number;
+            /** @description `ms`, or empty for `cls`. */
+            unit: string;
+            /** @description `lcp`, `inp`, `cls` or `ttfb`. */
+            vital: string;
         };
         /** @description What a walk-in did. */
         WalkIn: {
@@ -18179,6 +18522,114 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DbInsights"];
+                };
+            };
+            /** @description Unknown range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Sakalya staff */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getConsoleFrontEndInsights: {
+        parameters: {
+            query?: {
+                /** @description 1h (default), 6h, 24h, 7d or 30d; up to a day shows yesterday and today */
+                range?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrontEndInsights"];
+                };
+            };
+            /** @description Unknown range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Sakalya staff */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getConsolePageInsights: {
+        parameters: {
+            query?: {
+                /** @description 1h (default), 6h, 24h, 7d or 30d; up to a day shows yesterday and today */
+                range?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageInsights"];
+                };
+            };
+            /** @description Unknown range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Sakalya staff */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getConsoleRouteInsights: {
+        parameters: {
+            query?: {
+                /** @description 1h (default), 6h, 24h, 7d or 30d */
+                range?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiRouteInsights"];
                 };
             };
             /** @description Unknown range */
@@ -34126,6 +34577,70 @@ export interface operations {
             };
             /** @description No such task in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sendTelemetry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelemetryBatch"];
+            };
+        };
+        responses: {
+            /** @description Added, or dropped when over the day's allowance */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description More than 50 entries */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description On the console host: not Sakalya staff */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a member of the clinic named by the host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Larger than 8 KB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many batches from this address */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

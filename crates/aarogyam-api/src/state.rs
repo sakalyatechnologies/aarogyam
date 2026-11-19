@@ -28,8 +28,9 @@ use crate::dev::DevTokens;
 use crate::error_report::ErrorReporting;
 use crate::failure::ApiFailure;
 use crate::live::Hub;
-use crate::metrics::ServiceMetrics;
+use crate::metrics::{RouteHour, RouteSink, ServiceMetrics, SinkFuture};
 use crate::v1::client_errors::Budget;
+use crate::v1::telemetry::ConsoleQuota;
 
 /// How long a host lookup or a member's permissions are reused before asking the database again.
 const CACHE_TTL: Duration = Duration::from_secs(30);
@@ -156,8 +157,37 @@ struct Inner {
     /// Whether `GET /events` streams; off answers 404 so clients fall back to polling.
     live_events: bool,
     client_errors: Budget,
+    console_telemetry: ConsoleQuota,
     live: Hub,
     insights: Insights,
+}
+
+/// Adds each finished minute of per-route counters to the database
+/// (`app.add_route_hours`, docs/plans/console-insights-design.md 2a).
+#[derive(Debug)]
+struct DbRouteSink {
+    db: Db,
+}
+
+impl RouteSink for DbRouteSink {
+    fn add(&self, rows: Vec<RouteHour>) -> SinkFuture<'_> {
+        Box::pin(async move {
+            let count = |n: u32| i32::try_from(n).unwrap_or(i32::MAX);
+            let mut columns = aarogyam_app::telemetry::RouteHourColumns::default();
+            for row in rows {
+                columns.hours.push(row.hour);
+                columns.methods.push(row.method.to_owned());
+                columns.routes.push(row.route.into());
+                columns.requests.push(count(row.requests));
+                columns.err_4xx.push(count(row.err_4xx));
+                columns.err_5xx.push(count(row.err_5xx));
+                columns.err_429.push(count(row.err_429));
+                columns.buckets.extend(row.buckets.map(count));
+            }
+            aarogyam_app::telemetry::add_route_hours(&self.db, &columns).await?;
+            Ok(())
+        })
+    }
 }
 
 /// Where the console's Insights page reads from beyond the database.
@@ -210,6 +240,7 @@ impl AppState {
                 staff_mfa: true,
                 live_events: true,
                 client_errors: Budget::default(),
+                console_telemetry: ConsoleQuota::default(),
                 live: Hub::new(),
                 insights: Insights::default(),
             }),
@@ -354,6 +385,23 @@ impl AppState {
 
     pub(crate) fn insights(&self) -> &Insights {
         &self.inner.insights
+    }
+
+    /// Adds each finished minute of the per-route counters to the database, so the console's
+    /// routes survive instances stopping. Call before the state is shared (cloned).
+    #[must_use]
+    pub fn with_route_counters(mut self) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            let sink = Arc::new(DbRouteSink {
+                db: inner.db.clone(),
+            });
+            inner.metrics = Arc::new(ServiceMetrics::with_sink(sink));
+        }
+        self
+    }
+
+    pub(crate) fn console_telemetry(&self) -> &ConsoleQuota {
+        &self.inner.console_telemetry
     }
 
     pub(crate) fn error_reporting(&self) -> Option<&Arc<ErrorReporting>> {

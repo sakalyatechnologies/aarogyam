@@ -83,6 +83,8 @@ pub fn standard_throttle_with(
         // Errors from the web apps: a failing page may retry in a loop.
         RuleConfig::new("ip-client-errors", KeyKind::Ip, 20, 60)
             .on_paths(&["/api/v1/client-errors"]),
+        // Page counters: a tab sends a batch when hidden or at 50 entries, so a few a minute.
+        RuleConfig::new("ip-telemetry", KeyKind::Ip, 30, 60).on_paths(&["/api/v1/telemetry"]),
         RuleConfig::new("ip-registration", KeyKind::Ip, 5, 60 * 60)
             .on_paths(&["/api/v1/registrations"]),
         // Unsubscribe tokens are 192-bit secrets, but guessing is still throttled.

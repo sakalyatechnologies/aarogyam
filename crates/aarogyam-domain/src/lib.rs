@@ -109,6 +109,7 @@ pub mod staff;
 pub mod stock_import;
 pub mod support;
 pub mod tasks;
+pub mod telemetry;
 pub mod time_off;
 pub mod upi;
 pub mod vitals;

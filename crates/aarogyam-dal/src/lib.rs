@@ -85,6 +85,7 @@ pub mod support;
 pub mod support_grants;
 pub mod task_jobs;
 pub mod tasks;
+pub mod telemetry;
 pub mod time_off;
 pub mod timeline;
 pub mod today;

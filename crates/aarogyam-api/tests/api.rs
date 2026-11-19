@@ -597,6 +597,9 @@ async fn every_route_requires_sign_in_and_a_permission() {
                 "/api/v1/auth/handoff",
                 // A verified-email sign-in with no clinic membership: tests/self_booking.rs.
                 "/api/v1/public/bookings",
+                // Page counters: any member of the host's clinic, whatever the role; counts only,
+                // no clinic data read (tests/telemetry.rs).
+                "/api/v1/telemetry",
             ];
             // The patient app's own permission model: a patient account sees only its linked
             // records, at clinics that linked it (tests/patient_app.rs).

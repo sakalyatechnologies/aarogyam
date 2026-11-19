@@ -16,6 +16,7 @@ pub(crate) mod clinic_hours;
 pub(crate) mod consent_requests;
 pub(crate) mod consents;
 pub(crate) mod console;
+pub(crate) mod console_insights;
 pub(crate) mod console_support;
 pub(crate) mod dashboard;
 pub(crate) mod dental_terms;
@@ -76,6 +77,7 @@ pub(crate) mod stock_import;
 pub(crate) mod stock_insights;
 pub(crate) mod support_grants;
 pub(crate) mod tasks;
+pub(crate) mod telemetry;
 pub(crate) mod time_off;
 pub(crate) mod today;
 pub(crate) mod treatment;
@@ -856,7 +858,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .merge(tasks::routes())
         .merge(time_off::routes())
         .merge(stock_insights::routes())
-        .merge(staff_ops::routes());
+        .merge(staff_ops::routes())
+        // Page counters from staff, and the console's durable route and front-end insights.
+        .merge(telemetry::routes())
+        .merge(console_insights::routes());
     if local_dev {
         router
             .route("/dev/token", post(crate::dev::token))

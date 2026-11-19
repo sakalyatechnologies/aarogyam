@@ -1356,6 +1356,405 @@
    "offline": "server_only"
   },
   {
+   "name": "api_route_hours",
+   "domain": "platform",
+   "purpose": "API requests, errors and latency buckets per UTC hour, method and route template, durable across instances.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "private",
+   "notes": "Built (migration 0732). Primary key (hour, method, route). When an API instance's minute rolls over, the request that claims the flush adds the finished minutes through app.add_route_hours() (one autocommit statement, rows in key order, buckets added by app.add_buckets()); a failed flush is dropped, never retried. The drain job's app.fold_api_routes() folds hours older than 30 days into api_route_days. Read through app.console_api_routes(). No clinic, no person, no path. RLS on, no policies, no grants.",
+   "cols": [
+    {
+     "name": "hour",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "start of the UTC hour"
+    },
+    {
+     "name": "method",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "GET, POST ... or OTHER"
+    },
+    {
+     "name": "route",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "route template, such as /api/v1/patients/{id}, or unmatched or other"
+    },
+    {
+     "name": "requests",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "err_4xx",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "not counting 429"
+    },
+    {
+     "name": "err_5xx",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "err_429",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "buckets",
+     "type": "int[]",
+     "nullable": false,
+     "ref": null,
+     "note": "12 latency buckets ending at 5, 10, 25 ... 10 000 ms, then open"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "api_route_days",
+   "domain": "platform",
+   "purpose": "api_route_hours folded per UTC day after 30 days.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "private",
+   "notes": "Built (migration 0732). Primary key (day, method, route). Written only by app.fold_api_routes(); rows older than 400 days are deleted. RLS on, no policies, no grants.",
+   "cols": [
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": "UTC"
+    },
+    {
+     "name": "method",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "route",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "requests",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "err_4xx",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "err_5xx",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "err_429",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "buckets",
+     "type": "bigint[]",
+     "nullable": false,
+     "ref": null,
+     "note": "12 latency buckets"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "ui_daily",
+   "domain": "platform",
+   "purpose": "Page views and visible time per clinic, day and route template in the portal. Totals across the clinic's staff: no role.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "private",
+   "notes": "Built (migration 0733). Primary key (org_id, day, app, route). Added to by app.record_telemetry() from POST /api/v1/telemetry; deleted after 90 days by app.purge_telemetry(). No role, member or user id, so account deletion has nothing to remove. The console shows per-clinic totals only (app.console_ui_clinics). RLS on, no policies, no grants.",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": "on delete cascade"
+    },
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": "clinic time"
+    },
+    {
+     "name": "app",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "portal or console"
+    },
+    {
+     "name": "route",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "an allow-listed route template, or other"
+    },
+    {
+     "name": "views",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "visible_ms",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "ui_daily_all",
+   "domain": "platform",
+   "purpose": "Page views and visible time per day, app, role and route template across all clinics: no clinic.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "private",
+   "notes": "Built (migration 0733). Primary key (day, app, role_key, route). Written by app.record_telemetry() in the same statement as ui_daily; the console's own pages land here with app console. Kept 400 days. RLS on, no policies, no grants.",
+   "cols": [
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "app",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "portal or console"
+    },
+    {
+     "name": "role_key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "a standard role key, custom, or a console role"
+    },
+    {
+     "name": "route",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "an allow-listed route template, or other"
+    },
+    {
+     "name": "views",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "visible_ms",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "telemetry_quota",
+   "domain": "platform",
+   "purpose": "Telemetry batches per clinic per day, for the daily cap.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "private",
+   "notes": "Built (migration 0733). Primary key (org_id, day). Counted by app.record_telemetry(), which drops batches past the cap; deleted after 2 days. RLS on, no policies, no grants.",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": "on delete cascade"
+    },
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": "clinic time"
+    },
+    {
+     "name": "batches",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "vitals_daily",
+   "domain": "platform",
+   "purpose": "Page-speed histograms (LCP, INP, CLS, TTFB) per day, app and route template: no clinic, no role.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "private",
+   "notes": "Built (migration 0734). Primary key (day, app, route, vital). Added to by app.record_telemetry(); read through app.console_vitals(); kept 400 days. RLS on, no policies, no grants.",
+   "cols": [
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "app",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "portal or console"
+    },
+    {
+     "name": "route",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "an allow-listed route template, or other"
+    },
+    {
+     "name": "vital",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "lcp, inp, cls, ttfb"
+    },
+    {
+     "name": "buckets",
+     "type": "int[]",
+     "nullable": false,
+     "ref": null,
+     "note": "12 buckets with fixed bounds per vital"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "errors_daily",
+   "domain": "platform",
+   "purpose": "Front-end error counts per day, app, route template and fixed error class: no clinic, no role, no message.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "private",
+   "notes": "Built (migration 0734). Primary key (day, app, route, class). Added to by app.record_telemetry(); messages go only to the log through POST /api/v1/client-errors. Kept 400 days. RLS on, no policies, no grants.",
+   "cols": [
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "app",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "portal or console"
+    },
+    {
+     "name": "route",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "an allow-listed route template, or other"
+    },
+    {
+     "name": "class",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "type_error, reference_error, range_error, syntax_error, chunk_load, network, unhandled_rejection, other"
+    },
+    {
+     "name": "count",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
    "name": "users",
    "domain": "iam",
    "purpose": "Anyone who signs in: staff, doctors, patients, Sakalya staff.",
@@ -1729,6 +2128,8 @@
     "org_domains.org_id",
     "saas_invoices.org_id",
     "subscriptions.org_id",
+    "telemetry_quota.org_id",
+    "ui_daily.org_id",
     "usage_counters.org_id"
    ],
    "sensitivity": "internal",

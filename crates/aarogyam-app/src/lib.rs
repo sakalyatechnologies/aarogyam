@@ -91,6 +91,7 @@ pub mod stock_insights;
 pub mod support;
 pub mod tabular;
 pub mod tasks;
+pub mod telemetry;
 pub mod time_off;
 pub mod today;
 pub mod tokens;

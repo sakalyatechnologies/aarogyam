@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app as \"app!\", route as \"route!\", vital as \"vital!\", buckets as \"buckets!\"\n           from app.console_vitals($1, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "app!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "route!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "vital!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "buckets!",
+        "type_info": "Int8Array",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "84bb14527e0521dc13a4e7294119dd0611da8c4b778843f8b1813cb1392edc1e"
+}

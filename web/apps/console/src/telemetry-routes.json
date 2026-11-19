@@ -1,0 +1,14 @@
+[
+  "/",
+  "/sign-in",
+  "/auth/callback",
+  "/auth/handoff",
+  "/health",
+  "/quality",
+  "/applications",
+  "/clinics",
+  "/clinics/new",
+  "/clinics/:id",
+  "/support",
+  "/*"
+]

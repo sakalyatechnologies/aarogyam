@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app as \"app!\", route as \"route!\", views as \"views!\",\n                  visible_ms as \"visible_ms!\"\n           from app.console_ui_pages($1, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "app!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "route!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "views!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "visible_ms!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "472ed0e914c3d95d5729f2bf11ec1a726084406c5e504b156123d5c7219ff6b2"
+}

@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.fold_api_routes() as \"folded!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "folded!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "bd12a5b1bda15a4659476569b0d9ff83c12167698320c1af1bb295c7e90cb503"
+}

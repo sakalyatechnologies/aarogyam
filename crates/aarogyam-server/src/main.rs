@@ -323,7 +323,9 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         tracing::warn!("supabase.secret_key is not set: invited people get no sign-in account");
     }
     warn_on_local_site_addresses(&config.website.address_template, local);
-    let state = state.with_insights(insights(&config.insights));
+    let state = state
+        .with_insights(insights(&config.insights))
+        .with_route_counters();
     let state = state
         .with_client_policy(clients)
         .with_throttle(throttle)
@@ -747,11 +749,22 @@ async fn record_recurring_expenses(db: &Db) {
     }
 }
 
-/// The console's Insights: a database sample (at most every 5 minutes) and yesterday's journey
-/// and active staff for up to 20 clinics. Each step logs its failure and the run goes on.
+/// The console's Insights: a database sample (at most every 5 minutes), yesterday's journey
+/// and active staff for up to 20 clinics, and the counters' clean-up (API hours older than 30
+/// days folded into days, front-end rows past their retention deleted). Each step logs its
+/// failure and the run goes on.
 async fn record_insights(db: &Db) {
     if let Err(error) = aarogyam_app::insights::record_db_sample(db).await {
         tracing::warn!(error = %error, "could not take a database sample");
+    }
+    match aarogyam_app::telemetry::clean_up(db).await {
+        Ok(report) if report.folded + report.purged > 0 => tracing::info!(
+            folded = report.folded,
+            purged = report.purged,
+            "insight counters cleaned up"
+        ),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(error = %error, "could not clean up insight counters"),
     }
     match aarogyam_app::insights::record_journeys(db).await {
         Ok(report) if report.due > 0 => tracing::info!(

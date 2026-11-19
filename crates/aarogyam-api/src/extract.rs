@@ -408,6 +408,36 @@ impl FromRequestParts<AppState> for PlatformRequest {
     }
 }
 
+/// Who may send page counters to `POST /telemetry`: any active member of the clinic named by the
+/// host, whatever their role, or Sakalya staff on the console host (docs/plans/
+/// console-insights-design.md, 2b). One extractor for both callers, so the route declares one
+/// permission. Clinic hosts answer as [`ClinicRequest`] does (unknown host or non-member `404`,
+/// bad token `401`), and the console host as [`PlatformRequest`]. Support grants are not
+/// admitted: Sakalya staff reading a clinic are not its staff.
+#[derive(Debug)]
+pub enum TelemetrySender {
+    /// A member of the clinic named by the host.
+    Clinic(ClinicActor),
+    /// Sakalya staff on the console host.
+    Console(PlatformAccess),
+}
+
+impl FromRequestParts<AppState> for TelemetrySender {
+    type Rejection = ApiFailure;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        if edge(parts)?.host().as_str() == state.hosts().console {
+            let platform = PlatformRequest::from_request_parts(parts, state).await?;
+            return Ok(Self::Console(platform.staff));
+        }
+        let clinic = ClinicRequest::admit(parts, state, false).await?;
+        Ok(Self::Clinic(clinic.actor))
+    }
+}
+
 /// The `If-Match` header: the `row_version` (the `ETag` the API sent) of the record the client
 /// last read. `None` when the header is absent or `*`, which keeps the edit unconditional.
 #[derive(Debug, Clone, Copy)]

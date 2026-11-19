@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.purge_telemetry() as \"deleted!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "deleted!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "94996cdfbdd19f52c7cf8e509013dbcdf6b31edf341698cedd666cee72213c60"
+}

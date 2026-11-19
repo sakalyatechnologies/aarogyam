@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select method as \"method!\", route as \"route!\", requests as \"requests!\",\n                  err_4xx as \"err_4xx!\", err_5xx as \"err_5xx!\", err_429 as \"err_429!\",\n                  buckets as \"buckets!\"\n           from app.console_api_routes($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "method!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "route!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "requests!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "err_4xx!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "err_5xx!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "err_429!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "buckets!",
+        "type_info": "Int8Array",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "ff461481a66bcf912f1e60a858f54c54ea33ce1597c6eb50a9d797553ded7ed2"
+}

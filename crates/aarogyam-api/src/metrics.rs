@@ -42,11 +42,26 @@
 //!   as if its requests were spread evenly. A percentile in the open bucket reports 10 000 ms.
 //! - **Slots** are whole UTC minutes and hours. A slot is emptied when the clock comes round to
 //!   it again, so old counts never leak into a new period.
+//!
+//! # Durable per-route counters
+//!
+//! With a [`RouteSink`] ([`ServiceMetrics::with_sink`]) the finished minutes also go to the
+//! database, so routes survive Cloud Run scaling to zero (docs/plans/console-insights-design.md,
+//! 2a). There is no background task: when an instance's minute rolls over, the first request
+//! to win a compare-exchange on the last flushed minute copies the unflushed minutes' per-route
+//! slots under the lock, releases it, and awaits the sink in that request, for at most
+//! [`FLUSH_TIMEOUT`]. A flush that fails or times out is dropped, never retried, so nothing is
+//! counted twice; timeouts are counted in the log. The last minute before an instance stops is
+//! lost, and so is a request whose clock read fell in a minute just before another request
+//! claimed it; both are accepted.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
+use std::future::Future;
 use std::ops::RangeInclusive;
+use std::pin::Pin;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -82,13 +97,62 @@ pub async fn track(
     let started = Instant::now();
     let response = next.run(request).await;
     let route = route.as_ref().map_or(UNMATCHED, MatchedPath::as_str);
-    metrics.record(&method, route, response.status(), started.elapsed());
+    let now = unix_seconds(SystemTime::now());
+    metrics.record_at(now, &method, route, response.status(), started.elapsed());
+    metrics.flush(now).await;
     response
+}
+
+/// Longest a request waits for the route counters to be written before it drops them.
+pub const FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// One hour's share of a flush for one method and route: the finished minutes of that hour
+/// that had not been flushed yet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RouteHour {
+    /// When the UTC hour starts.
+    pub hour: OffsetDateTime,
+    /// `GET`, `POST` or another standard method, or `OTHER`.
+    pub method: &'static str,
+    /// The route template, or [`UNMATCHED`] or [`OTHER`].
+    pub route: Box<str>,
+    /// Requests answered.
+    pub requests: u32,
+    /// Answered with a 4xx status other than 429.
+    pub err_4xx: u32,
+    /// Answered with a 5xx status.
+    pub err_5xx: u32,
+    /// Answered with 429 Too Many Requests.
+    pub err_429: u32,
+    /// Requests per latency bucket (see the module docs for the bounds).
+    pub buckets: [u32; BUCKETS],
+}
+
+/// What a [`RouteSink`] returns.
+pub type SinkFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + 'a>>;
+
+/// Where finished minutes go: adds the rows to durable counters in one write.
+pub trait RouteSink: Send + Sync {
+    /// Adds `rows`, sorted by hour, method and route, each key once.
+    fn add(&self, rows: Vec<RouteHour>) -> SinkFuture<'_>;
 }
 
 /// Upper bounds of the latency buckets in milliseconds; an open bucket follows the last.
 const BOUNDS_MS: [u32; 11] = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10_000];
-const BUCKETS: usize = BOUNDS_MS.len() + 1;
+/// Latency buckets: one per bound, then an open one.
+pub const BUCKETS: usize = BOUNDS_MS.len() + 1;
+
+/// Estimates the latency under which a share `q` of the requests in `buckets` finished, in
+/// milliseconds, as the in-memory snapshot does (see the module docs). 0.0 with no requests.
+#[must_use]
+pub fn percentile_ms(buckets: &[u64; BUCKETS], q: f64) -> f64 {
+    Totals {
+        buckets: *buckets,
+        ..Totals::default()
+    }
+    .percentile(q)
+}
 const MINUTE: u64 = 60;
 const HOUR: u64 = 3600;
 /// Minute slots kept for each route: six hours.
@@ -106,15 +170,122 @@ const LAST_SECOND: u64 = 253_402_300_799;
 /// the route has been seen.
 pub struct ServiceMetrics {
     inner: Mutex<Inner>,
+    /// The last minute whose slots were claimed for a flush.
+    last_flushed: AtomicU32,
+    sink: Option<Arc<dyn RouteSink>>,
+    /// Flushes that took longer than [`FLUSH_TIMEOUT`] since the instance started.
+    flush_timeouts: AtomicU64,
 }
 
 impl ServiceMetrics {
-    /// Creates an empty collector.
+    /// Creates an empty collector that keeps its numbers in memory only.
     #[must_use]
     pub fn new() -> Self {
         Self {
             inner: Mutex::new(Inner::new()),
+            last_flushed: AtomicU32::new(0),
+            sink: None,
+            flush_timeouts: AtomicU64::new(0),
         }
+    }
+
+    /// Creates an empty collector that also adds each finished minute to `sink` (see the module
+    /// docs).
+    #[must_use]
+    pub fn with_sink(sink: Arc<dyn RouteSink>) -> Self {
+        Self {
+            sink: Some(sink),
+            ..Self::new()
+        }
+    }
+
+    /// Writes the minutes finished before `unix_seconds` to the sink, if this request claims
+    /// them; see the module docs. Does nothing without a sink.
+    async fn flush(&self, unix_seconds: u64) {
+        let Some(sink) = &self.sink else {
+            return;
+        };
+        let Some(rows) = self.take_flush(unix_seconds) else {
+            return;
+        };
+        if rows.is_empty() {
+            return;
+        }
+        match tokio::time::timeout(FLUSH_TIMEOUT, sink.add(rows)).await {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                tracing::warn!(error = %error, "could not write route counters; the minute is dropped");
+            }
+            Err(_) => {
+                let timeouts = self.flush_timeouts.fetch_add(1, Ordering::Relaxed) + 1;
+                tracing::warn!(
+                    flush_timeouts = timeouts,
+                    "writing route counters timed out; the minute is dropped"
+                );
+            }
+        }
+    }
+
+    /// Claims the minutes finished before `unix_seconds` that no request has claimed yet, and
+    /// copies their per-route slots. `None` when there is nothing to claim or another request
+    /// won the claim. At most the minutes the per-route rings still hold are copied.
+    fn take_flush(&self, unix_seconds: u64) -> Option<Vec<RouteHour>> {
+        let current = period(unix_seconds, MINUTE);
+        let done = current.checked_sub(1)?;
+        let last = self.last_flushed.load(Ordering::Acquire);
+        if last >= done
+            || self
+                .last_flushed
+                .compare_exchange(last, done, Ordering::AcqRel, Ordering::Acquire)
+                .is_err()
+        {
+            return None;
+        }
+        let first = last
+            .saturating_add(1)
+            .max(current.saturating_sub(ROUTE_MINUTE_SLOTS - 1));
+        // Copy under the lock; merging and sorting happen after it is released.
+        let copied: Vec<(usize, Box<str>, u32, Slot)> = {
+            let inner = self.lock();
+            let mut copied = Vec::new();
+            for (method, by_route) in inner.routes.iter().enumerate() {
+                for (route, series) in by_route {
+                    for minute in first..=done {
+                        if let Some(slot) = series.minutes.slot(minute) {
+                            copied.push((method, route.clone(), minute, *slot));
+                        }
+                    }
+                }
+            }
+            copied
+        };
+        let mut rows: BTreeMap<(u32, &'static str, Box<str>), RouteHour> = BTreeMap::new();
+        for (method, route, minute, slot) in copied {
+            let hour = minute / 60;
+            let method = method_name(method);
+            let row = rows
+                .entry((hour, method, route.clone()))
+                .or_insert_with(|| RouteHour {
+                    hour: start_of(hour, HOUR),
+                    method,
+                    route,
+                    requests: 0,
+                    err_4xx: 0,
+                    err_5xx: 0,
+                    err_429: 0,
+                    buckets: [0; BUCKETS],
+                });
+            for (total, count) in row.buckets.iter_mut().zip(slot.buckets) {
+                *total = total.saturating_add(count);
+            }
+            row.requests = row.buckets.iter().fold(0, |sum, n| sum.saturating_add(*n));
+            row.err_4xx = row
+                .err_4xx
+                .saturating_add(slot.client_errors.saturating_sub(slot.throttled));
+            row.err_5xx = row.err_5xx.saturating_add(slot.server_errors);
+            row.err_429 = row.err_429.saturating_add(slot.throttled);
+        }
+        Some(rows.into_values().filter(|row| row.requests > 0).collect())
     }
 
     /// Records one answered request under its method and matched route template (such as
@@ -726,6 +897,137 @@ mod tests {
             (actual - expected).abs() < 1e-9,
             "{actual} is not {expected}"
         );
+    }
+
+    /// A sink that keeps what it was given, or fails or hangs when told to.
+    #[derive(Default)]
+    struct Recorder {
+        rows: Mutex<Vec<RouteHour>>,
+        fail: bool,
+        hang: bool,
+    }
+
+    impl RouteSink for Recorder {
+        fn add(&self, rows: Vec<RouteHour>) -> SinkFuture<'_> {
+            Box::pin(async move {
+                if self.hang {
+                    std::future::pending::<()>().await;
+                }
+                if self.fail {
+                    return Err("database down".into());
+                }
+                self.rows.lock().unwrap().extend(rows);
+                Ok(())
+            })
+        }
+    }
+
+    #[test]
+    fn a_minute_is_claimed_once_and_flushed_once() {
+        let metrics = ServiceMetrics::new();
+        let minute = now() - now() % 60;
+        get(&metrics, minute + 1, "/a", 200, 3);
+        get(&metrics, minute + 2, "/a", 404, 30);
+        get(&metrics, minute + 3, "/a", 429, 30);
+        get(&metrics, minute + 4, "/b", 503, 3000);
+        // Still the same minute: nothing finished.
+        assert_eq!(metrics.take_flush(minute + 59), Some(Vec::new()));
+        // The next minute: the first caller takes it, the second gets nothing.
+        let rows = metrics.take_flush(minute + 60).unwrap();
+        assert!(metrics.take_flush(minute + 61).is_none());
+        assert_eq!(rows.len(), 2);
+        let a = &rows[0];
+        assert_eq!((a.method, &*a.route), ("GET", "/a"));
+        assert_eq!((a.requests, a.err_4xx, a.err_429, a.err_5xx), (3, 1, 1, 0));
+        assert_eq!(a.buckets[0], 1);
+        assert_eq!(a.buckets[3], 2);
+        assert_eq!(a.hour, start_of(period(minute, HOUR), HOUR));
+        assert_eq!((rows[1].requests, rows[1].err_5xx), (1, 1));
+        // A request in the new minute is flushed with that minute only, never the old one again.
+        get(&metrics, minute + 70, "/a", 200, 3);
+        let rows = metrics.take_flush(minute + 125).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].requests, 1);
+    }
+
+    #[test]
+    fn rows_are_merged_per_hour_and_sorted() {
+        let metrics = ServiceMetrics::new();
+        let hour = now() - now() % 3600;
+        get(&metrics, hour - 120, "/b", 200, 3);
+        get(&metrics, hour - 60, "/b", 200, 3);
+        get(&metrics, hour - 60, "/a", 200, 3);
+        get(&metrics, hour + 1, "/a", 200, 3);
+        let rows = metrics.take_flush(hour + 61).unwrap();
+        let keys: Vec<_> = rows
+            .iter()
+            .map(|r| (r.hour.unix_timestamp(), &*r.route, r.requests))
+            .collect();
+        let earlier = i64::try_from(hour).unwrap() - 3600;
+        let later = i64::try_from(hour).unwrap();
+        assert_eq!(
+            keys,
+            [(earlier, "/a", 1), (earlier, "/b", 2), (later, "/a", 1)]
+        );
+    }
+
+    #[test]
+    fn only_one_of_many_racing_requests_wins_the_claim() {
+        let metrics = Arc::new(ServiceMetrics::new());
+        let minute = now() - now() % 60;
+        get(&metrics, minute, "/a", 200, 3);
+        let winners: usize = std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..16)
+                .map(|_| {
+                    let metrics = Arc::clone(&metrics);
+                    scope.spawn(move || metrics.take_flush(minute + 60).is_some())
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|handle| usize::from(handle.join().unwrap()))
+                .sum()
+        });
+        assert_eq!(winners, 1);
+    }
+
+    #[tokio::test]
+    async fn a_failed_or_slow_flush_is_dropped_not_retried() {
+        let minute = now() - now() % 60;
+        let failing = Arc::new(Recorder {
+            fail: true,
+            ..Recorder::default()
+        });
+        let metrics = ServiceMetrics::with_sink(failing);
+        get(&metrics, minute, "/a", 200, 3);
+        metrics.flush(minute + 60).await;
+        // The minute was claimed: a later flush does not send it again.
+        assert!(metrics.take_flush(minute + 61).is_none());
+
+        let recorder = Arc::new(Recorder::default());
+        let sink: Arc<dyn RouteSink> = Arc::<Recorder>::clone(&recorder);
+        let metrics = ServiceMetrics::with_sink(sink);
+        get(&metrics, minute, "/a", 200, 3);
+        metrics.flush(minute + 60).await;
+        metrics.flush(minute + 61).await;
+        assert_eq!(recorder.rows.lock().unwrap().len(), 1);
+
+        let hanging = Arc::new(Recorder {
+            hang: true,
+            ..Recorder::default()
+        });
+        let metrics = ServiceMetrics::with_sink(hanging);
+        get(&metrics, minute, "/a", 200, 3);
+        metrics.flush(minute + 60).await;
+        assert_eq!(metrics.flush_timeouts.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn percentiles_from_stored_buckets_match_the_snapshot() {
+        let mut buckets = [0_u64; BUCKETS];
+        buckets[4] = 10; // 50-100 ms
+        assert_close(percentile_ms(&buckets, 0.5), 75.0);
+        assert_close(percentile_ms(&[0; BUCKETS], 0.5), 0.0);
     }
 
     #[test]

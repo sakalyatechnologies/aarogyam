@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.record_telemetry($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)\n             as \"added!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "added!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "TextArray",
+        "Int4Array",
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "Int4Array",
+        "TextArray",
+        "TextArray",
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e209bf6b3cff5e2cf21aab0a04dbb7dc8263ead80879a85d9d919ab71970dc03"
+}

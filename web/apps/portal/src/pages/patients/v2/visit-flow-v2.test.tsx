@@ -213,11 +213,57 @@ describe("Ending the visit and payment", () => {
     // The one top button now offers payment, not another visit.
     expect(await screen.findByRole("button", { name: "Collect payment" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "End visit" })).toBeNull();
+    // Farah at the front desk collects too, so the session says others_collect: true.
+    expect(screen.queryByRole("button", { name: "Bill later" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Send for payment" }));
     const done = await screen.findByRole("dialog", { name: "Visit completed" });
     // A consultation with nothing else done doesn't list "0 procedures · 0 medicines".
     expect(done.textContent).not.toMatch(/\b0 (procedures|medicines)/);
     expect(await statusOf()).toBe("ready_to_bill");
+  });
+
+  it("offers Bill later instead of Send for payment when nobody else collects, and it still makes the token ready to bill", async () => {
+    const user = userEvent.setup();
+    const { path, backend, patientId } = patientWithBackend((fixtures) => {
+      // The only front desk is suspended: the owner works alone.
+      const desk = fixtures.memberships.find((m) => m.user_id === PEOPLE.farah);
+      if (desk !== undefined) desk.status = "suspended";
+    });
+    const statusOf = await seatPatient(backend, patientId);
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await user.click(await screen.findByRole("button", { name: "Start visit" }));
+    await doctorsDay(user);
+    expect(await screen.findByRole("button", { name: "Collect payment" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Send for payment" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Bill later" }));
+    await screen.findByRole("dialog", { name: "Visit completed" });
+    expect(await statusOf()).toBe("ready_to_bill");
+  });
+
+  it("keeps Send for payment when an older server leaves others_collect out", async () => {
+    const user = userEvent.setup();
+    const { path, backend, patientId } = patientWithBackend((fixtures) => {
+      const desk = fixtures.memberships.find((m) => m.user_id === PEOPLE.farah);
+      if (desk !== undefined) desk.status = "suspended";
+    });
+    await seatPatient(backend, patientId);
+    renderPortal(path, {
+      as: PEOPLE.asha,
+      backend,
+      wrap: (client) => ({
+        ...client,
+        getSession: async (options) => {
+          const result = await client.getSession(options);
+          if (result.ok) delete result.value.others_collect;
+          return result;
+        },
+      }),
+    });
+    await user.click(await screen.findByRole("button", { name: "Start visit" }));
+    await doctorsDay(user);
+    expect(await screen.findByRole("button", { name: "Collect payment" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Send for payment" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Bill later" })).toBeNull();
   });
 
   it("collects cash: one POST /payments with an idempotency key, kept across a retry, then Finish", async () => {

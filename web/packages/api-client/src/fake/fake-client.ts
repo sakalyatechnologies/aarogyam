@@ -1357,10 +1357,21 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return caller;
           }
           const { clinic, membership, user } = caller;
+          // As the server: sent only to a collector; true when another active, non-clinical member collects.
+          const collects = (role: FakeRole) => role.permissions.includes("billing.write") || role.permissions.includes("payments.collect");
+          const othersCollect = state.memberships.some(
+            (m) =>
+              m.clinic_id === clinic.id &&
+              m.id !== membership.id &&
+              (m.status ?? "active") === "active" &&
+              collects(m.role) &&
+              !m.role.permissions.includes("clinical.write"),
+          );
           return reply({
             clinic: { id: clinic.id, slug: clinic.slug, name: clinic.name, timezone: clinic.timezone, branding: clinic.branding },
             membership: { id: membership.id, role_key: membership.role.key, permissions: [...membership.role.permissions] },
             user: { id: user.id, display_name: user.display_name, ...(user.avatar === undefined ? {} : { avatar: user.avatar }) },
+            ...(collects(membership.role) ? { others_collect: othersCollect } : {}),
           } satisfies C.Session);
         }),
 

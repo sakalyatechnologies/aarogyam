@@ -31,6 +31,13 @@ rollback;
 \else
 
 -- Helpers for this session only: a stable pseudo-random pick, and the Indian financial year.
+-- A stable id from a fixed key: md5 shaped as a standard UUID (version 4 nibble, RFC variant) when
+-- it is not one already, because the web client's z.uuid() rejects other shapes. Live rows seeded
+-- before this helper were rewritten with the same rule on 19 Nov 2026, so keys still match.
+create function pg_temp.sid(p_key text) returns uuid language sql immutable as $$
+  select case when m ~ '^[0-9a-f]{12}[1-8][0-9a-f]{3}[89ab]'
+              then m::uuid else overlay(overlay(m placing '4' from 13) placing '8' from 17)::uuid end
+  from md5(p_key) m $$;
 create function pg_temp.h(p_key text, p_n int) returns int language sql immutable
   as $$ select ((hashtext(p_key)::bigint % p_n) + p_n)::int % p_n $$;
 create function pg_temp.fy(t timestamptz) returns text language sql immutable as $$
@@ -69,7 +76,7 @@ values (:'branch', 'Chair 1', 1), (:'branch', 'Chair 2', 2), (:'branch', 'Chair 
 
 -- The team: three doctors, front desk, an assistant and finance. They never sign in.
 insert into aarogyam.users (id, auth_uid, display_name, email)
-select md5('review-user-' || t.k)::uuid, md5('review-auth-' || t.k)::uuid, t.name, t.email
+select pg_temp.sid('review-user-' || t.k), pg_temp.sid('review-auth-' || t.k), t.name, t.email
 from (values (1, 'Dr Kavita Menon', 'kavita.menon@example.com'),
              (2, 'Dr Rohan Iyer', 'rohan.iyer@example.com'),
              (3, 'Dr Sneha Kulkarni', 'sneha.kulkarni@example.com'),
@@ -78,20 +85,20 @@ from (values (1, 'Dr Kavita Menon', 'kavita.menon@example.com'),
              (6, 'Lata Deshpande', 'lata.deshpande@example.com')) as t(k, name, email)
 on conflict (id) do nothing;
 insert into aarogyam.memberships (id, org_id, user_id, role_id, status, joined_at)
-select md5('review-member-' || t.k)::uuid, :'org', md5('review-user-' || t.k)::uuid, r.id, 'active', now() - interval '400 days'
+select pg_temp.sid('review-member-' || t.k), :'org', pg_temp.sid('review-user-' || t.k), r.id, 'active', now() - interval '400 days'
 from (values (1, 'doctor'), (2, 'consultant'), (3, 'doctor'), (4, 'front_desk'), (5, 'assistant'), (6, 'finance')) as t(k, role_key)
 join aarogyam.roles r on r.org_id = :'org' and r.key = t.role_key;
 insert into aarogyam.membership_branches (membership_id, branch_id)
-select md5('review-member-' || k)::uuid, :'branch' from generate_series(1, 6) k;
+select pg_temp.sid('review-member-' || k), :'branch' from generate_series(1, 6) k;
 insert into aarogyam.practitioners (id, membership_id, display_name, registration_number, specialty, qualifications, calendar_color)
-values (md5('review-prac-1')::uuid, md5('review-member-1')::uuid, 'Dr Kavita Menon', 'A-90001', 'General dentistry', 'BDS', '#136650'),
-       (md5('review-prac-2')::uuid, md5('review-member-2')::uuid, 'Dr Rohan Iyer', 'A-90002', 'Endodontics', 'BDS, MDS (Endodontics)', '#4F46E5'),
-       (md5('review-prac-3')::uuid, md5('review-member-3')::uuid, 'Dr Sneha Kulkarni', 'A-90003', 'Orthodontics', 'BDS, MDS (Orthodontics)', '#B45309');
+values (pg_temp.sid('review-prac-1'), pg_temp.sid('review-member-1'), 'Dr Kavita Menon', 'A-90001', 'General dentistry', 'BDS', '#136650'),
+       (pg_temp.sid('review-prac-2'), pg_temp.sid('review-member-2'), 'Dr Rohan Iyer', 'A-90002', 'Endodontics', 'BDS, MDS (Endodontics)', '#4F46E5'),
+       (pg_temp.sid('review-prac-3'), pg_temp.sid('review-member-3'), 'Dr Sneha Kulkarni', 'A-90003', 'Orthodontics', 'BDS, MDS (Orthodontics)', '#B45309');
 insert into aarogyam.working_hours (practitioner_id, branch_id, weekday, starts, ends)
-select md5('review-prac-' || h.p)::uuid, :'branch', d, h.starts::time, h.ends::time
+select pg_temp.sid('review-prac-' || h.p), :'branch', d, h.starts::time, h.ends::time
 from (values (1, '09:30', '13:30'), (1, '16:30', '20:00'), (2, '10:00', '18:00'), (3, '11:00', '19:00')) as h(p, starts, ends)
 cross join generate_series(1, 7) d;
-select set_config('review.desk', md5('review-member-4')::uuid::text, true) \gset
+select set_config('review.desk', pg_temp.sid('review-member-4')::text, true) \gset
 
 -- Price list: clinical services, exempt (bill of supply); the clinic is not GST-registered.
 insert into aarogyam.price_items (code, name, category, sac_hsn, price_paise, taxable, tax_rate_bps) values
@@ -125,7 +132,7 @@ create function pg_temp.add_invoice(p_pat uuid, p_enc uuid, p_at timestamptz, p_
 returns uuid language plpgsql as $$
 declare
   org uuid := current_setting('app.tenant_id')::uuid;
-  inv uuid := md5('review-inv-' || p_key)::uuid;
+  inv uuid := pg_temp.sid('review-inv-' || p_key);
   line jsonb;
   item record;
   n int := 0;
@@ -185,7 +192,7 @@ begin
   end if;
   for k in 1 .. coalesce(array_length(pays, 1), 0) loop
     continue when pays[k] <= 0;
-    pid := md5('review-pay-' || p_key || '-' || k)::uuid;
+    pid := pg_temp.sid('review-pay-' || p_key || '-' || k);
     v_key := 'review-seed-' || pid::text;
     paid_at := least(p_at + (k * 5) * interval '1 minute' + (k - 1) * interval '3 days', now() - interval '1 minute');
     insert into aarogyam.payments (id, number, patient_id, received_at, amount_paise, method, reference, received_by,
@@ -209,8 +216,8 @@ create function pg_temp.make_visit(p_appt uuid, p_token uuid, p_pat uuid, p_memb
 returns uuid language plpgsql as $$
 declare
   org uuid := current_setting('app.tenant_id')::uuid;
-  enc uuid := md5('review-enc-' || p_key)::uuid;
-  v_proc uuid := md5('review-proc-' || p_key)::uuid;
+  enc uuid := pg_temp.sid('review-enc-' || p_key);
+  v_proc uuid := pg_temp.sid('review-proc-' || p_key);
   v_q int := 1 + pg_temp.h('q' || p_key, 4);
   v_tooth int;
   v_surf text;
@@ -227,7 +234,7 @@ declare
   v_reg text;
   v_soap jsonb;
   v_lines jsonb;
-  v_rx uuid := md5('review-rx-' || p_key)::uuid;
+  v_rx uuid := pg_temp.sid('review-rx-' || p_key);
   v_token text;
   pat record;
   x int;
@@ -386,8 +393,8 @@ declare
   v_today date := (now() at time zone 'Asia/Kolkata')::date;
   v_branch uuid := current_setting('review.branch')::uuid;
   v_series text := replace(current_setting('review.branch'), '-', '');
-  v_desk uuid := md5('review-member-4')::uuid;
-  v_finance uuid := md5('review-member-6')::uuid;
+  v_desk uuid := pg_temp.sid('review-member-4');
+  v_finance uuid := pg_temp.sid('review-member-6');
   females text[] := array['Aarti', 'Anjali', 'Bhavna', 'Deepa', 'Divya', 'Gauri', 'Isha', 'Jyoti', 'Kavya', 'Kiran',
                           'Lakshmi', 'Madhuri', 'Meena', 'Neha', 'Nisha', 'Pallavi', 'Priyanka', 'Radhika', 'Rekha', 'Ritu',
                           'Sakshi', 'Shalini', 'Shreya', 'Sunita', 'Swati', 'Tanvi', 'Uma', 'Vaishali', 'Vidya', 'Yamini'];
@@ -402,16 +409,16 @@ declare
   bloods text[] := array['O+', 'B+', 'A+', 'AB+', 'O-', 'B-', 'A-'];
   pats uuid[] := '{}';
   ages int[] := '{}';
-  pracs uuid[] := array[md5('review-prac-1')::uuid, md5('review-prac-2')::uuid, md5('review-prac-3')::uuid];
-  docs uuid[] := array[md5('review-member-1')::uuid, md5('review-member-2')::uuid, md5('review-member-3')::uuid];
+  pracs uuid[] := array[pg_temp.sid('review-prac-1'), pg_temp.sid('review-prac-2'), pg_temp.sid('review-prac-3')];
+  docs uuid[] := array[pg_temp.sid('review-member-1'), pg_temp.sid('review-member-2'), pg_temp.sid('review-member-3')];
   rooms uuid[];
   n int; j int; head int; v_sex text; v_first text; v_last text; v_age int; v_dob date; v_id uuid;
   d int; i int; s int; cnt int; tok int; slot int; v_chair int; v_r int; pn int; vt int; len int;
   v_day date; st timestamptz; v_key text; v_status text; v_kind text; v_appt uuid; v_tokid uuid; v_bill text;
   v_base timestamptz; v_arr timestamptz; v_seat timestamptz; v_comp timestamptz;
   rec record;
-  lab1 uuid := md5('review-lab-1')::uuid;
-  lab2 uuid := md5('review-lab-2')::uuid;
+  lab1 uuid := pg_temp.sid('review-lab-1');
+  lab2 uuid := pg_temp.sid('review-lab-2');
   v_order uuid; v_ostatus text; v_sent timestamptz; v_recv timestamptz; v_due date; v_vendor uuid; v_contact uuid;
   v_exp uuid; v_rule uuid;
 begin
@@ -433,7 +440,7 @@ begin
                   when head <> n then 32 + pg_temp.h('age' || n, 20)
                   else 6 + pg_temp.h('age' || n, 74) end;
     v_dob := v_today - make_interval(years => v_age) - (pg_temp.h('dob' || n, 360)) * interval '1 day';
-    v_id := md5('review-patient-' || n)::uuid;
+    v_id := pg_temp.sid('review-patient-' || n);
     insert into aarogyam.patients (id, number, full_name, sex, date_of_birth, birth_date_estimated, phone_e164, email,
                                    preferred_language, blood_group, allergies_reviewed, allergies_reviewed_at, tags)
     values (v_id, 'AD-' || app.next_number('patient'), v_first || ' ' || v_last, v_sex, v_dob, v_age > 70,
@@ -450,12 +457,12 @@ begin
 
   -- Family links, both ways.
   insert into aarogyam.patient_relations (patient_id, related_patient_id, relation, is_primary_contact)
-  select md5('review-patient-' || m)::uuid, md5('review-patient-' || h)::uuid,
+  select pg_temp.sid('review-patient-' || m), pg_temp.sid('review-patient-' || h),
          case when m - h = 1 then 'spouse' else 'parent' end, true
   from (values (1, 4), (20, 22), (40, 43), (60, 61), (80, 82), (100, 101), (120, 122)) as f(h, last)
   cross join lateral generate_series(f.h + 1, f.last) m;
   insert into aarogyam.patient_relations (patient_id, related_patient_id, relation, is_primary_contact)
-  select md5('review-patient-' || h)::uuid, md5('review-patient-' || m)::uuid,
+  select pg_temp.sid('review-patient-' || h), pg_temp.sid('review-patient-' || m),
          case when m - h = 1 then 'spouse' else 'child' end, false
   from (values (1, 4), (20, 22), (40, 43), (60, 61), (80, 82), (100, 101), (120, 122)) as f(h, last)
   cross join lateral generate_series(f.h + 1, f.last) m;
@@ -483,13 +490,13 @@ begin
 
   -- The clinic's privacy notice, version 1; consents below were given on it.
   insert into aarogyam.consent_notices (id, version, label, body, published_at, published_by)
-  values (md5('review-notice-1')::uuid, 1, 'v1 2026-10',
+  values (pg_temp.sid('review-notice-1'), 1, 'v1 2026-10',
           'Aarogyam Demo Dental keeps your health records to treat you, and with your permission sends reminders and offers. '
-          || 'You can withdraw any permission at the front desk at any time.', now() - interval '300 days', md5('review-member-1')::uuid);
+          || 'You can withdraw any permission at the front desk at any time.', now() - interval '300 days', pg_temp.sid('review-member-1'));
 
   -- Consents: care for most, reminders for many, promotional for some; one promotional withdrawn.
   insert into aarogyam.patient_consents (patient_id, purpose, notice_version, notice_id, given_at, method, recorded_by)
-  select pats[g], p.purpose, 'v1 2026-10', md5('review-notice-1')::uuid, now() - (70 + pg_temp.h('cg' || g, 200)) * interval '1 day',
+  select pats[g], p.purpose, 'v1 2026-10', pg_temp.sid('review-notice-1'), now() - (70 + pg_temp.h('cg' || g, 200)) * interval '1 day',
          (array['paper', 'app', 'verbal'])[1 + pg_temp.h('cm' || g, 3)], v_desk
   from generate_series(1, 150) g
   cross join (values ('care'), ('reminders'), ('promotional')) as p(purpose)
@@ -524,7 +531,7 @@ begin
       end if;
       v_kind := case vt when 1 then 'new' when 7 then 'follow_up' when 8 then 'follow_up' else 'procedure' end;
       if vt = 4 and v_r % 3 = 0 then v_kind := 'emergency'; end if;
-      v_appt := md5('review-appt-' || v_key)::uuid;
+      v_appt := pg_temp.sid('review-appt-' || v_key);
       v_arr := st - (5 + pg_temp.h('arr' || v_key, 15)) * interval '1 minute';
       v_seat := st + pg_temp.h('seat' || v_key, 10) * interval '1 minute';
       v_comp := v_seat + (len - 5) * interval '1 minute';
@@ -543,7 +550,7 @@ begin
                                                                   else st - interval '1 day' end);
       if v_status = 'completed' then
         tok := tok + 1;
-        v_tokid := md5('review-token-' || v_key)::uuid;
+        v_tokid := pg_temp.sid('review-token-' || v_key);
         insert into aarogyam.queue_tokens (id, branch_id, day, token_number, patient_id, appointment_id, practitioner_id, room_id,
                                            status, issued_at, called_at, done_at)
         values (v_tokid, v_branch, v_day, tok, pats[pn], v_appt, pracs[v_chair], rooms[v_chair],
@@ -574,7 +581,7 @@ begin
                when v_r < 15 then 5 when v_r < 16 then 6 when v_r < 18 then 8 else 9 end;
     v_status := case when s in (0, 1, 3, 5, 6) then 'completed' when s = 2 then 'no_show' when s = 4 then 'cancelled'
                      when s = 7 then 'in_chair' when s in (8, 9) then 'arrived' when s % 2 = 0 then 'confirmed' else 'booked' end;
-    v_appt := md5('review-appt-' || v_key)::uuid;
+    v_appt := pg_temp.sid('review-appt-' || v_key);
     v_arr := case when s = 8 then now() - interval '8 minutes' when s = 9 then now() - interval '15 minutes'
                   else st - interval '10 minutes' end;
     v_seat := st;
@@ -596,7 +603,7 @@ begin
       values (v_appt, 'status', 'booked', v_status, least(now(), coalesce(v_comp, st)));
     end if;
     if v_status in ('completed', 'in_chair', 'arrived') then
-      v_tokid := md5('review-token-' || v_key)::uuid;
+      v_tokid := pg_temp.sid('review-token-' || v_key);
       insert into _today_tokens values (v_tokid, v_appt, pats[pn], pracs[v_chair], rooms[v_chair],
         case when s in (5, 6) then 'ready_to_bill' when v_status = 'completed' then 'done' when s = 7 then 'in_chair'
              when s = 9 then 'called' else 'waiting' end,
@@ -610,9 +617,9 @@ begin
   end loop;
   -- Walk-ins: two waiting, one who left.
   insert into _today_tokens values
-    (md5('review-token-walkin-1')::uuid, null, pats[33], pracs[1], null, 'waiting', now() - interval '22 minutes', null, null, 'Walk-in: swelling near a lower tooth', null),
-    (md5('review-token-walkin-2')::uuid, null, pats[57], null, null, 'waiting', now() - interval '4 minutes', null, null, 'Walk-in: broken front tooth', null),
-    (md5('review-token-walkin-3')::uuid, null, pats[88], pracs[2], null, 'left', now() - interval '95 minutes', null, now() - interval '60 minutes', 'Walk-in: sensitivity', 'Could not wait');
+    (pg_temp.sid('review-token-walkin-1'), null, pats[33], pracs[1], null, 'waiting', now() - interval '22 minutes', null, null, 'Walk-in: swelling near a lower tooth', null),
+    (pg_temp.sid('review-token-walkin-2'), null, pats[57], null, null, 'waiting', now() - interval '4 minutes', null, null, 'Walk-in: broken front tooth', null),
+    (pg_temp.sid('review-token-walkin-3'), null, pats[88], pracs[2], null, 'left', now() - interval '95 minutes', null, now() - interval '60 minutes', 'Walk-in: sensitivity', 'Could not wait');
   insert into aarogyam.queue_tokens (id, branch_id, day, token_number, patient_id, appointment_id, practitioner_id, room_id, status,
                                      issued_at, called_at, done_at, reason, left_reason)
   select id, v_branch, v_today, row_number() over (order by issued), pat, appt, prac, room, status, issued, called, done, reason, left_reason
@@ -634,7 +641,7 @@ begin
       pn := 1 + pg_temp.h('pat' || v_key, 150);
       v_r := pg_temp.h('st' || v_key, 100);
       v_status := case when d in (2, 5) and i = 1 then 'requested' when v_r < 45 then 'confirmed' else 'booked' end;
-      v_appt := md5('review-appt-' || v_key)::uuid;
+      v_appt := pg_temp.sid('review-appt-' || v_key);
       insert into aarogyam.appointments (id, patient_id, practitioner_id, branch_id, room_id, starts_at, ends_at, status, kind, reason, source)
       values (v_appt, pats[pn], pracs[v_chair], v_branch, rooms[v_chair], st, st + interval '30 minutes', v_status,
               (array['new', 'follow_up', 'procedure', 'procedure'])[1 + v_r % 4],
@@ -652,7 +659,7 @@ begin
   -- Treatment plans for 15 patients whose consultation found caries.
   for rec in select distinct on (pat) * from _visits x where x.vt = 1 and tooth is not null order by pat, started limit 15 loop
     i := pg_temp.h('plan' || rec.enc::text, 3);
-    v_id := md5('review-plan-' || rec.enc::text)::uuid;
+    v_id := pg_temp.sid('review-plan-' || rec.enc::text);
     insert into aarogyam.treatment_plans (id, patient_id, clinician_id, encounter_id, title, status, accepted_at)
     values (v_id, rec.pat, rec.member, rec.enc, 'Restore and protect', (array['proposed', 'accepted', 'in_progress'])[1 + i],
             case when i > 0 then rec.started + interval '30 minutes' end);
@@ -683,18 +690,18 @@ begin
          (lab2, 'Crestline Ceramics', 'dental_lab', '+919000009102', 'hello.crestline@example.com', 'Shop 9, Sample Market', 'Pune',
           array['Zirconia crown', 'Night guard', 'Aligners'], 10, null);
   insert into aarogyam.lab_contacts (id, vendor_id, name, role, phone_e164, email, whatsapp, preferred_channel)
-  values (md5('review-labc-1')::uuid, lab1, 'Mahesh Gokhale', 'Owner', '+919000009111', 'mahesh.g@example.com', true, 'whatsapp'),
-         (md5('review-labc-2')::uuid, lab1, 'Ritu Sawant', 'Front office', '+919000009112', null, false, 'phone'),
-         (md5('review-labc-3')::uuid, lab2, 'Arun Pillai', 'Technician', '+919000009113', 'arun.p@example.com', true, 'email');
+  values (pg_temp.sid('review-labc-1'), lab1, 'Mahesh Gokhale', 'Owner', '+919000009111', 'mahesh.g@example.com', true, 'whatsapp'),
+         (pg_temp.sid('review-labc-2'), lab1, 'Ritu Sawant', 'Front office', '+919000009112', null, false, 'phone'),
+         (pg_temp.sid('review-labc-3'), lab2, 'Arun Pillai', 'Technician', '+919000009113', 'arun.p@example.com', true, 'email');
 
   -- About 22 lab orders: the newest are drafts and sent, older ones in progress, back, fitted; one rework, one cancelled.
   i := 0;
   for rec in (select * from _visits x where x.vt in (4, 6) order by started desc limit 18)
              union all (select * from _visits x where x.vt in (8, 2) order by started limit 4) loop
     i := i + 1;
-    v_order := md5('review-lab-order-' || i)::uuid;
+    v_order := pg_temp.sid('review-lab-order-' || i);
     v_vendor := case when i % 3 = 0 then lab2 else lab1 end;
-    v_contact := case when i % 3 = 0 then md5('review-labc-3')::uuid else md5('review-labc-1')::uuid end;
+    v_contact := case when i % 3 = 0 then pg_temp.sid('review-labc-3') else pg_temp.sid('review-labc-1') end;
     v_ostatus := case when i <= 2 then 'draft' when i <= 5 then 'sent' when i <= 9 then 'in_progress' when i <= 12 then 'received'
                       when i = 21 then 'returned_for_rework' when i = 22 then 'cancelled' else 'fitted' end;
     v_sent := case when v_ostatus in ('draft', 'cancelled') then null else least(rec.started + interval '1 day', now() - interval '2 hours') end;
@@ -732,20 +739,20 @@ begin
 
   -- Two lab payments, each recorded as a lab expense too.
   for i in 1 .. 2 loop
-    v_exp := md5('review-labpay-exp-' || i)::uuid;
+    v_exp := pg_temp.sid('review-labpay-exp-' || i);
     insert into aarogyam.expenses (id, category_id, spent_on, amount_paise, note, recorded_by, method)
     select v_exp, c.id, v_today - (5 + i * 9), case i when 1 then 660000 else 450000 end,
            'Lab payment: ' || case i when 1 then 'Navratna Dental Lab' else 'Crestline Ceramics' end, v_finance, 'bank'
     from aarogyam.expense_categories c where c.org_id = org and c.key = 'lab';
     insert into aarogyam.lab_payments (vendor_id, lab_order_id, paid_on, amount_paise, lab_invoice_ref, note, expense_id, recorded_by, method)
-    values (case i when 1 then lab1 else lab2 end, md5('review-lab-order-' || case i when 1 then 13 else 15 end)::uuid,
+    values (case i when 1 then lab1 else lab2 end, pg_temp.sid('review-lab-order-' || case i when 1 then 13 else 15 end),
             v_today - (5 + i * 9), case i when 1 then 660000 else 450000 end, 'INV-DEMO-' || (400 + i),
             'Monthly settlement', v_exp, v_finance, 'bank');
   end loop;
 
   -- Recurring rules: salaries on the 1st, rent on the 5th, internet on the 12th.
   insert into aarogyam.recurring_expenses (id, category_id, amount_paise, method, note, cadence, day_of_month, starts_on, next_due_on, recorded_by)
-  select md5('review-rule-' || r.k)::uuid, c.id, r.amount, 'bank', r.note, 'monthly', r.dom,
+  select pg_temp.sid('review-rule-' || r.k), c.id, r.amount, 'bank', r.note, 'monthly', r.dom,
          (date_trunc('month', v_today) - interval '11 months')::date + (r.dom - 1),
          case when extract(day from v_today) < r.dom then date_trunc('month', v_today)::date + (r.dom - 1)
               else (date_trunc('month', v_today) + interval '1 month')::date + (r.dom - 1) end,
@@ -762,7 +769,7 @@ begin
   select c.id, m.first_day + (p.day - 1),
          case when p.rule is not null then p.fixed
               else (p.base_rupees + (abs(hashtext(org::text || m.first_day::text || p.note)) % (p.spread_rupees + 1))) * 100 end,
-         p.note, v_finance, p.method, case when p.rule is not null then md5('review-rule-' || p.rule)::uuid end
+         p.note, v_finance, p.method, case when p.rule is not null then pg_temp.sid('review-rule-' || p.rule) end
   from (select (date_trunc('month', v_today) - make_interval(months => k))::date as first_day from generate_series(0, 11) k) m
   cross join (values ('salary', 1, 185000, 6000, 'Demo: staff salaries', 'bank', 'salary', 18500000::bigint),
                      ('rent', 5, 65000, 0, 'Demo: clinic rent', 'bank', 'rent', 6500000),
@@ -779,11 +786,11 @@ begin
 
   -- Stock: suppliers, 30 items, batches (some low, some expiring, one expired) and movements.
   insert into aarogyam.suppliers (id, name, phone_e164)
-  values (md5('review-sup-1')::uuid, 'Deccan Dental Supplies', '+919000009201'),
-         (md5('review-sup-2')::uuid, 'Sahyadri Medical Traders', '+919000009202'),
-         (md5('review-sup-3')::uuid, 'Konkan Surgicals', '+919000009203');
+  values (pg_temp.sid('review-sup-1'), 'Deccan Dental Supplies', '+919000009201'),
+         (pg_temp.sid('review-sup-2'), 'Sahyadri Medical Traders', '+919000009202'),
+         (pg_temp.sid('review-sup-3'), 'Konkan Surgicals', '+919000009203');
   insert into aarogyam.inventory_items (id, name, category, unit, reorder_level, max_level, lead_time_days)
-  select md5('review-item-' || t.k)::uuid, t.name, t.cat, t.unit, t.reorder, t.reorder * 4, t.lead
+  select pg_temp.sid('review-item-' || t.k), t.name, t.cat, t.unit, t.reorder, t.reorder * 4, t.lead
   from (values (1, 'Composite A2 syringe', 'restorative', 'piece', 10, 7), (2, 'Composite A3 syringe', 'restorative', 'piece', 8, 7),
                (3, 'GIC restorative kit', 'restorative', 'pack', 3, 10), (4, 'Bonding agent', 'restorative', 'piece', 4, 7),
                (5, 'Etchant gel 37%', 'restorative', 'piece', 5, 7), (6, 'K-files 21 mm assorted', 'endodontic', 'box', 6, 10),
@@ -802,42 +809,42 @@ begin
        as t(k, name, cat, unit, reorder, lead);
   for n in 1 .. 30 loop
     -- Received about 90 days ago; used since. Items 3, 7, 11, 14, 21 and 26 end up below their reorder level.
-    select reorder_level into cnt from aarogyam.inventory_items where org_id = org and id = md5('review-item-' || n)::uuid;
+    select reorder_level into cnt from aarogyam.inventory_items where org_id = org and id = pg_temp.sid('review-item-' || n);
     tok := cnt * (3 + pg_temp.h('rq' || n, 3));                                    -- received
     i := case when n in (3, 7, 11, 14, 21, 26) then tok - greatest(cnt / 2, 1) else tok / 3 end;  -- used
-    v_id := md5('review-batch-' || n)::uuid;
+    v_id := pg_temp.sid('review-batch-' || n);
     insert into aarogyam.stock_batches (id, item_id, supplier_id, batch_no, expiry, received_quantity, quantity, unit_cost_paise, received_on)
-    values (v_id, md5('review-item-' || n)::uuid, md5('review-sup-' || (1 + n % 3))::uuid, 'B' || (2600 + n * 7),
+    values (v_id, pg_temp.sid('review-item-' || n), pg_temp.sid('review-sup-' || (1 + n % 3)), 'B' || (2600 + n * 7),
             case when n in (11, 28) then v_today + 20 when n = 12 then v_today + 9 when n in (14, 15, 16, 17, 18, 19, 22, 30) then null
                  else v_today + 300 + pg_temp.h('exp' || n, 400) end,
             tok, tok - i, 500 + pg_temp.h('cost' || n, 40) * 500, v_today - 90);
     insert into aarogyam.stock_movements (item_id, batch_id, kind, quantity, reason)
-    values (md5('review-item-' || n)::uuid, v_id, 'receive', tok, null);
+    values (pg_temp.sid('review-item-' || n), v_id, 'receive', tok, null);
     if i > 0 then
       insert into aarogyam.stock_movements (item_id, batch_id, kind, quantity, reason)
-      select md5('review-item-' || n)::uuid, v_id, 'use', -q, null
+      select pg_temp.sid('review-item-' || n), v_id, 'use', -q, null
       from unnest(array[i - i / 2, i / 2]) q where q > 0;
     end if;
   end loop;
   -- A second, older batch of lignocaine that expired.
   insert into aarogyam.stock_batches (id, item_id, supplier_id, batch_no, expiry, received_quantity, quantity, unit_cost_paise, received_on)
-  values (md5('review-batch-expired')::uuid, md5('review-item-11')::uuid, md5('review-sup-1')::uuid, 'B2550', v_today - 10, 20, 0, 1800, v_today - 400);
+  values (pg_temp.sid('review-batch-expired'), pg_temp.sid('review-item-11'), pg_temp.sid('review-sup-1'), 'B2550', v_today - 10, 20, 0, 1800, v_today - 400);
   insert into aarogyam.stock_movements (item_id, batch_id, kind, quantity, reason)
-  values (md5('review-item-11')::uuid, md5('review-batch-expired')::uuid, 'receive', 20, null),
-         (md5('review-item-11')::uuid, md5('review-batch-expired')::uuid, 'use', -14, null),
-         (md5('review-item-11')::uuid, md5('review-batch-expired')::uuid, 'expire', -6, 'Expired on the shelf');
+  values (pg_temp.sid('review-item-11'), pg_temp.sid('review-batch-expired'), 'receive', 20, null),
+         (pg_temp.sid('review-item-11'), pg_temp.sid('review-batch-expired'), 'use', -14, null),
+         (pg_temp.sid('review-item-11'), pg_temp.sid('review-batch-expired'), 'expire', -6, 'Expired on the shelf');
 
   -- Purchase orders: one received, one ordered, one draft.
   for i in 1 .. 3 loop
-    v_id := md5('review-po-' || i)::uuid;
+    v_id := pg_temp.sid('review-po-' || i);
     insert into aarogyam.purchase_orders (id, number, supplier_id, status, expected_on, notes, ordered_at, received_at)
-    values (v_id, 'PO-' || app.next_number('purchase_order'), md5('review-sup-' || i)::uuid,
+    values (v_id, 'PO-' || app.next_number('purchase_order'), pg_temp.sid('review-sup-' || i),
             (array['received', 'ordered', 'draft'])[i], v_today + (array[-80, 3, 10])[i],
             (array['Quarterly restock', 'Gloves and masks running low', 'Endo files for next month'])[i],
             case when i < 3 then now() - (array[95, 2, 0])[i] * interval '1 day' end,
             case when i = 1 then now() - interval '90 days' end);
     insert into aarogyam.purchase_order_lines (order_id, line_no, item_id, quantity, unit_cost_paise, received_quantity)
-    select v_id, row_number() over (order by k), md5('review-item-' || k)::uuid, 10 + k, 1000 + k * 250,
+    select v_id, row_number() over (order by k), pg_temp.sid('review-item-' || k), 10 + k, 1000 + k * 250,
            case when i = 1 then 10 + k else 0 end
     from unnest((array[array[1, 6, 11], array[14, 15, 16], array[7, 8, 10]])[i:i]) as u(k);
   end loop;
@@ -852,15 +859,15 @@ begin
 
   -- Time off: one approved, one waiting for the owner, one declined.
   insert into aarogyam.leave_blocks (id, practitioner_id, starts_at, ends_at, reason)
-  values (md5('review-leave-1')::uuid, pracs[2], (v_today + 20)::timestamp at time zone tz, (v_today + 24)::timestamp at time zone tz, 'Vacation'),
-         (md5('review-leave-2')::uuid, pracs[3], (v_today + 2 + time '15:00') at time zone tz, (v_today + 2 + time '19:00') at time zone tz, 'Conference');
+  values (pg_temp.sid('review-leave-1'), pracs[2], (v_today + 20)::timestamp at time zone tz, (v_today + 24)::timestamp at time zone tz, 'Vacation'),
+         (pg_temp.sid('review-leave-2'), pracs[3], (v_today + 2 + time '15:00') at time zone tz, (v_today + 2 + time '19:00') at time zone tz, 'Conference');
   insert into aarogyam.time_off_requests (membership_id, kind, starts_at, ends_at, all_day, status, reason, decided_by, decided_at, decision_note, leave_block_id)
-  values (md5('review-member-2')::uuid, 'vacation', (v_today + 20)::timestamp at time zone tz, (v_today + 24)::timestamp at time zone tz, true,
-          'approved', 'Family trip', md5('review-member-1')::uuid, now() - interval '3 days', 'Enjoy!', md5('review-leave-1')::uuid),
-         (md5('review-member-5')::uuid, 'personal', (v_today + 6 + time '14:00') at time zone tz, (v_today + 6 + time '18:00') at time zone tz, false,
+  values (pg_temp.sid('review-member-2'), 'vacation', (v_today + 20)::timestamp at time zone tz, (v_today + 24)::timestamp at time zone tz, true,
+          'approved', 'Family trip', pg_temp.sid('review-member-1'), now() - interval '3 days', 'Enjoy!', pg_temp.sid('review-leave-1')),
+         (pg_temp.sid('review-member-5'), 'personal', (v_today + 6 + time '14:00') at time zone tz, (v_today + 6 + time '18:00') at time zone tz, false,
           'pending', 'Bank work', null, null, null, null),
-         (md5('review-member-4')::uuid, 'sick', (v_today - 12)::timestamp at time zone tz, (v_today - 11)::timestamp at time zone tz, true,
-          'declined', 'Fever', md5('review-member-1')::uuid, now() - interval '13 days', 'Please take it as sick leave in the register.', null);
+         (pg_temp.sid('review-member-4'), 'sick', (v_today - 12)::timestamp at time zone tz, (v_today - 11)::timestamp at time zone tz, true,
+          'declined', 'Fever', pg_temp.sid('review-member-1'), now() - interval '13 days', 'Please take it as sick leave in the register.', null);
 
   -- The standard daily tasks every clinic gets, plus one of the clinic's own.
   perform app.seed_default_tasks(org);

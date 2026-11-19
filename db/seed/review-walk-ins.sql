@@ -16,6 +16,13 @@ from (select 1) x left join aarogyam.organizations o on o.slug = 'review' \gset
 
 select set_config('app.tenant_id', :'org', true) \gset
 
+-- A stable id from a fixed key: md5 shaped as a standard UUID (version 4 nibble, RFC variant) when
+-- it is not one already, because the web client's z.uuid() rejects other shapes. Live rows seeded
+-- before this helper were rewritten with the same rule on 19 Nov 2026, so keys still match.
+create function pg_temp.sid(p_key text) returns uuid language sql immutable as $$
+  select case when m ~ '^[0-9a-f]{12}[1-8][0-9a-f]{3}[89ab]'
+              then m::uuid else overlay(overlay(m placing '4' from 13) placing '8' from 17)::uuid end
+  from md5(p_key) m $$;
 create function pg_temp.h(p_key text, p_n int) returns int language sql immutable
   as $$ select ((hashtext(p_key)::bigint % p_n) + p_n)::int % p_n $$;
 create function pg_temp.fy(t timestamptz) returns text language sql immutable as $$
@@ -46,8 +53,8 @@ create function pg_temp.add_invoice(p_pat uuid, p_enc uuid, p_at timestamptz, p_
 returns uuid language plpgsql as $$
 declare
   org uuid := current_setting('app.tenant_id')::uuid;
-  inv uuid := md5('review-wi-inv-' || p_key)::uuid;
-  pid uuid := md5('review-wi-pay-' || p_key)::uuid;
+  inv uuid := pg_temp.sid('review-wi-inv-' || p_key);
+  pid uuid := pg_temp.sid('review-wi-pay-' || p_key);
   line jsonb;
   item record;
   n int := 0;
@@ -175,9 +182,9 @@ begin
                               'assessment', 'Dentine hypersensitivity.',
                               'plan', 'Desensitising toothpaste advised. Review if it persists.')
     end;
-    v_tok := md5('review-wi-token-' || v_key)::uuid;
-    v_enc := md5('review-wi-enc-' || v_key)::uuid;
-    v_proc := md5('review-wi-proc-' || v_key)::uuid;
+    v_tok := pg_temp.sid('review-wi-token-' || v_key);
+    v_enc := pg_temp.sid('review-wi-enc-' || v_key);
+    v_proc := pg_temp.sid('review-wi-proc-' || v_key);
 
     insert into aarogyam.queue_tokens (id, branch_id, day, token_number, patient_id, appointment_id, practitioner_id, room_id,
                                        status, issued_at, called_at, done_at, reason)

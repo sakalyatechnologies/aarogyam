@@ -112,6 +112,7 @@ pub mod tasks;
 pub mod telemetry;
 pub mod time_off;
 pub mod upi;
+pub mod visit_message;
 pub mod vitals;
 pub mod website;
 pub mod whatsapp;

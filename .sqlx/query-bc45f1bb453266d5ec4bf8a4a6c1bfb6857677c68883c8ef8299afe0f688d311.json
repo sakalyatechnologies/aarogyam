@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(d.generic_name, i.drug_name) as \"generic!\",\n                  coalesce(i.strength, d.strength) as strength, i.frequency, i.timing,\n                  i.duration_days\n           from aarogyam.prescriptions r\n           join aarogyam.prescription_items i\n             on i.org_id = r.org_id and i.prescription_id = r.id\n           left join aarogyam.drug_catalog d on d.id = i.drug_id\n           where r.encounter_id = $1 and r.status = 'issued'\n           order by r.issued_at, r.id, i.line_no",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "generic!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "strength",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "frequency",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescription_items",
+            "name": "frequency"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "timing",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescription_items",
+            "name": "timing"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "duration_days",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescription_items",
+            "name": "duration_days"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "bc45f1bb453266d5ec4bf8a4a6c1bfb6857677c68883c8ef8299afe0f688d311"
+}

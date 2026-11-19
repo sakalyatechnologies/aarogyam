@@ -1,0 +1,104 @@
+{
+  "$comment": "Care at home after common dental treatments, in plain English, shown on the patient's visit page and (top three steps) in the doctor's WhatsApp summary. Keys are stable and lower_snake_case; each entry has 3 to 6 steps, most important first, and a 'call us if' line. Clinics cannot edit this in v1. Hindi and Marathi follow after review by a native-speaking dentist.",
+  "schema_version": 1,
+  "items": {
+    "extraction": {
+      "title": "After a tooth removal",
+      "steps": [
+        "Keep biting on the gauze pad for 30 to 45 minutes, then throw it away.",
+        "For 24 hours, don't spit, rinse hard, use a straw or smoke.",
+        "Eat soft, cool food today and chew on the other side.",
+        "From tomorrow, rinse gently with warm salt water after meals.",
+        "Take your medicines as prescribed and rest today."
+      ],
+      "call_if": "Call us if bleeding doesn't stop after an hour of firm pressure, or if pain or swelling gets worse after the third day."
+    },
+    "wisdom_extraction": {
+      "title": "After wisdom tooth removal",
+      "steps": [
+        "Keep biting on the gauze pad for 45 minutes; replace it if bleeding continues.",
+        "Hold an ice pack on your cheek for 10 minutes on, 10 minutes off, today.",
+        "For 24 hours, don't spit, rinse hard, use a straw or smoke.",
+        "Eat soft, cool food for 2 to 3 days and chew on the other side.",
+        "From tomorrow, rinse gently with warm salt water after meals.",
+        "Some swelling and stiff jaw for 3 to 4 days is normal; sleep with your head raised."
+      ],
+      "call_if": "Call us if you have fever, bleeding that doesn't stop, a bad taste with rising pain after day three, or numbness that lasts beyond tomorrow."
+    },
+    "root_canal": {
+      "title": "After root canal treatment",
+      "steps": [
+        "Don't eat until the numbness wears off, so you don't bite your cheek or tongue.",
+        "Avoid chewing hard food on this tooth until it has its crown.",
+        "Mild soreness for 2 to 3 days is normal; take your medicines as prescribed.",
+        "Get the crown done as planned; a root-treated tooth can crack without one.",
+        "Brush and floss as usual."
+      ],
+      "call_if": "Call us if you have swelling, severe pain that keeps getting worse, or your bite feels high."
+    },
+    "root_canal_between_sittings": {
+      "title": "Between root canal sittings",
+      "steps": [
+        "The tooth has a temporary filling; don't chew hard or sticky food on it.",
+        "Don't eat for an hour, and until the numbness wears off.",
+        "Some tenderness is normal; take your medicines as prescribed.",
+        "Come for your next sitting on time so the tooth doesn't get reinfected.",
+        "Brush gently around the tooth as usual."
+      ],
+      "call_if": "Call us if the temporary filling falls out, or you have swelling or severe pain."
+    },
+    "filling": {
+      "title": "After a filling",
+      "steps": [
+        "Wait until the numbness wears off before eating or drinking hot things.",
+        "Some sensitivity to cold for a few days is normal.",
+        "Brush twice a day with fluoride toothpaste and floss daily.",
+        "Cut down on sweets and sticky snacks between meals."
+      ],
+      "call_if": "Call us if your bite feels high, or pain or sensitivity lasts beyond a week."
+    },
+    "crown": {
+      "title": "After a crown or cap",
+      "steps": [
+        "If you have a temporary crown, avoid sticky and hard food on that side.",
+        "Slide floss out sideways instead of pulling it up around the crown.",
+        "Some sensitivity for a few days is normal.",
+        "Don't bite on very hard things like ice, bones or nut shells.",
+        "Brush and floss around the crown every day."
+      ],
+      "call_if": "Call us if the crown feels loose or high, comes off, or the tooth hurts when you bite."
+    },
+    "implant": {
+      "title": "After an implant",
+      "steps": [
+        "Hold an ice pack on your cheek for 10 minutes on, 10 minutes off, today.",
+        "Eat soft food and chew on the other side until we tell you otherwise.",
+        "Don't smoke; it is the main reason implants fail.",
+        "From tomorrow, rinse gently with warm salt water or the prescribed mouthwash.",
+        "Take your medicines as prescribed and keep every review visit."
+      ],
+      "call_if": "Call us if bleeding doesn't stop, swelling grows after the third day, you have fever, or the implant feels loose."
+    },
+    "scaling": {
+      "title": "After cleaning (scaling)",
+      "steps": [
+        "Some gum bleeding and sensitivity for a few days is normal.",
+        "Rinse with warm salt water twice a day for 3 days.",
+        "Brush twice a day with a soft brush and floss daily.",
+        "Avoid very hot, cold or spicy food for a day or two.",
+        "Get a cleaning every 6 months."
+      ],
+      "call_if": "Call us if gums keep bleeding after a week or you notice swelling."
+    },
+    "whitening": {
+      "title": "After teeth whitening",
+      "steps": [
+        "For 48 hours, avoid tea, coffee, cola, red sauces and turmeric-rich food.",
+        "Don't smoke or chew tobacco or paan.",
+        "Use a toothpaste for sensitive teeth if they feel sensitive.",
+        "Brush twice a day to keep the result longer."
+      ],
+      "call_if": "Call us if sensitivity is severe or lasts more than 3 days."
+    }
+  }
+}

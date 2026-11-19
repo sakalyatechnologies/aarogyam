@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, name, code, tooth, price_paise as estimate_paise\n           from aarogyam.procedures\n           where encounter_id = $1 and status = 'planned'\n           order by created_at, id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "tooth",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "tooth"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "estimate_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "price_paise"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "da4559007a031a465d7e1d768afe1817ef9f764a1b3d5ebe36b11da6e3e3cb9b"
+}

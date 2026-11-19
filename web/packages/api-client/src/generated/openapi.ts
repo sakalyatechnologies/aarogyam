@@ -6084,6 +6084,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visits/{id}/patient-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prepares the visit's summary for the doctor's `WhatsApp`: the message, a new visit link (7
+         *     days; at most three live per visit, the oldest revoked) and its PIN. Nothing is sent.
+         */
+        post: operations["prepareVisitPatientMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/visits/{id}/procedures": {
         parameters: {
             query?: never;
@@ -16069,6 +16089,38 @@ export interface components {
             visit_id: string;
             /** @description The visit's number, such as `V-318`. */
             visit_number: string;
+        };
+        /**
+         * @description A visit summary prepared for the doctor to send from their own `WhatsApp`. Keep it in memory
+         *     only: never store, log or queue it. Prepared is not sent: the doctor presses Send. (Named
+         *     apart from `PatientMessage`, the prescription's emailed-copy outcome.)
+         */
+        VisitPatientMessage: {
+            /**
+             * @description When the automatic summary was sent (or queued) for this visit, if it was: the button
+             *     then reads "Send again".
+             */
+            auto_sent_at?: string | null;
+            /** @description When the link stops working. */
+            expires_at: string;
+            /** @description The number to open `WhatsApp` with, in E.164. */
+            phone_e164: string;
+            /** @description The link's six-digit PIN. */
+            pin: string;
+            /**
+             * @description Who it goes to: `patient`, or `guardian` (a minor's guardian or parent, or an adult's
+             *     primary contact).
+             */
+            recipient: string;
+            /**
+             * @description Greeting, link, PIN and the don't-forward line only, with no clinical words: for
+             *     hand-offs that travel in a web URL (`wa.me`).
+             */
+            short_text: string;
+            /** @description The full message, with `WhatsApp` formatting (about 1,200 characters at most). */
+            text: string;
+            /** @description The visit page: `/shared/{token}` on the clinic's portal. */
+            url: string;
         };
         /** @description The prescription issued in the visit. */
         VisitPrescription: {
@@ -35825,6 +35877,57 @@ export interface operations {
                 content?: never;
             };
             /** @description The corrected reading isn't final, the visit is closed, or `id_conflict`: an id belongs to a different reading */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    prepareVisitPatientMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Prepared; `Cache-Control: no-store` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitPatientMessage"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read or patients.contact */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic, or the patient was erased */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `visit_open`, `no_phone`, `no_consent` or `opted_out` */
             409: {
                 headers: {
                     [name: string]: unknown;

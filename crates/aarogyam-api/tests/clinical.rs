@@ -2391,6 +2391,13 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Some(json!({ "body": "## History\n- **Diabetic**" })),
         ),
         (Method::POST, format!("/api/v1/visits/{visit}/share"), None),
+        // Needs clinical.read and patients.contact: the front desk and the assistant each lack
+        // one (tests/patient_message.rs covers the rest).
+        (
+            Method::POST,
+            format!("/api/v1/visits/{visit}/patient-message"),
+            None,
+        ),
         (Method::POST, format!("/api/v1/visits/{visit}/finish"), None),
         (Method::POST, format!("/api/v1/visits/{visit}/close"), None),
         (

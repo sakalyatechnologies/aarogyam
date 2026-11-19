@@ -50,6 +50,7 @@ pub(crate) mod notifications;
 pub(crate) mod onboarding;
 pub(crate) mod patient_app;
 pub(crate) mod patient_links;
+pub(crate) mod patient_message;
 pub(crate) mod patient_notes;
 pub(crate) mod patient_photos;
 pub(crate) mod patient_sessions;
@@ -403,6 +404,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/visits/{id}/close", post(visits::close))
         .route("/visits/{id}/finish", post(visits::finish))
         .route("/visits/{id}/share", post(visit_summary::create))
+        .route(
+            "/visits/{id}/patient-message",
+            post(patient_message::prepare),
+        )
         .route("/visits/{id}/notes", post(visits::create_note))
         .route("/notes/{id}", patch(visits::edit_note))
         .route("/notes/{id}/sign", post(visits::sign_note))

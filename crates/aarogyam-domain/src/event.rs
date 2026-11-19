@@ -88,6 +88,9 @@ pub enum Event {
     ShareLinkOpened,
     /// A link locked after too many wrong PINs.
     ShareLinkLocked,
+    /// A visit summary was prepared for the doctor to send from their own `WhatsApp`: prepared,
+    /// not sent.
+    VisitSummaryPrepared,
     /// A follow-up was planned.
     RecallCreated,
     /// An appointment was booked.
@@ -299,6 +302,7 @@ impl Event {
             Self::ShareLinkCreated => "share_link.created",
             Self::ShareLinkOpened => "share_link.opened",
             Self::ShareLinkLocked => "share_link.locked",
+            Self::VisitSummaryPrepared => "visit.summary_prepared",
             Self::RecallCreated => "recall.created",
             Self::AppointmentBooked => "appointment.booked",
             Self::AppointmentChanged => "appointment.changed",

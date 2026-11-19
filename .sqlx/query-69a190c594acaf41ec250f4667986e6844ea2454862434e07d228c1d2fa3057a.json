@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select starts_at from aarogyam.appointments\n           where patient_id = $1 and status in ('booked', 'confirmed') and starts_at > $2\n           order by starts_at limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "starts_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.appointments",
+            "name": "starts_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "69a190c594acaf41ec250f4667986e6844ea2454862434e07d228c1d2fa3057a"
+}

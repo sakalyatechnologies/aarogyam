@@ -94,6 +94,9 @@ pub enum AppError {
     /// Supabase could not create or find a sign-in account.
     #[error(transparent)]
     Accounts(#[from] crate::accounts::AccountsError),
+    /// A visit summary can't be prepared for the doctor's `WhatsApp` (`409`, the refusal's code).
+    #[error(transparent)]
+    MessageRefused(#[from] aarogyam_domain::visit_message::Refusal),
     /// Something that should be impossible happened, such as a random number generator failure.
     #[error("internal error: {0}")]
     Internal(&'static str),

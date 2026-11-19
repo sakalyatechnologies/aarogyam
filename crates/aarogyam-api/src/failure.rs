@@ -226,6 +226,9 @@ impl From<AppError> for ApiFailure {
                 "id_conflict",
                 "That id is already used by a different record.",
             )),
+            AppError::MessageRefused(refusal) => {
+                Self::Error(ApiError::conflict(refusal.code(), refusal.to_string()))
+            }
             AppError::VisitClosed => Self::Error(ApiError::conflict(
                 "visit_closed",
                 "This visit is already closed. Open it to see how it ended.",

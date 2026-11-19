@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.id as patient_id, p.phone_e164\n           from aarogyam.patient_relations r\n           join aarogyam.patients p on p.org_id = r.org_id and p.id = r.related_patient_id\n           where r.patient_id = $1 and p.deleted_at is null\n             and (r.is_primary_contact or ($2 and r.relation in ('guardian', 'parent')))\n           order by (p.phone_e164 is not null) desc, r.is_primary_contact desc,\n                    (r.relation = 'guardian') desc, r.created_at, r.id\n           limit 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "phone_e164",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "phone_e164"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "cc6fac34574cf996ae34a297ea74aafe23e9b1868905b0b451556e76e18178fa"
+}

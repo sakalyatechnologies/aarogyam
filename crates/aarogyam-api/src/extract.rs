@@ -93,7 +93,7 @@ impl FromRequestParts<AppState> for ClinicRequest {
 impl ClinicRequest {
     /// Checks the host, the token and the membership. With `allow_support`, Sakalya staff with
     /// an active support grant at the clinic are admitted too, read-only: only routes that name
-    /// a permission ([`Require`], [`RequireEither`]) allow them, never member-only routes.
+    /// a permission ([`Require`], [`RequireEither`], [`RequireBoth`]) allow them, never member-only routes.
     async fn admit(
         parts: &Parts,
         state: &AppState,
@@ -272,6 +272,33 @@ impl<A: Required, B: Required> FromRequestParts<AppState> for RequireEither<A, B
         if request.actor.require(A::PERMISSION).is_err() {
             request.actor.require(B::PERMISSION)?;
         }
+        Ok(Self {
+            request,
+            permissions: PhantomData,
+        })
+    }
+}
+
+/// A [`ClinicRequest`] whose role holds both permission `A` and permission `B`; otherwise `403`.
+/// For the few routes that combine two reaches, such as the visit summary for the doctor's
+/// `WhatsApp` (clinical text and the patient's phone number).
+#[derive(Debug)]
+pub struct RequireBoth<A: Required, B: Required> {
+    /// The checked request.
+    pub request: ClinicRequest,
+    permissions: PhantomData<(A, B)>,
+}
+
+impl<A: Required, B: Required> FromRequestParts<AppState> for RequireBoth<A, B> {
+    type Rejection = ApiFailure;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let request = ClinicRequest::admit(parts, state, true).await?;
+        request.actor.require(A::PERMISSION)?;
+        request.actor.require(B::PERMISSION)?;
         Ok(Self {
             request,
             permissions: PhantomData,

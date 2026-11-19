@@ -1,0 +1,28 @@
+{
+  "$comment": "The visit summary the doctor sends from their own WhatsApp (docs/plans/visit-story-design.md, C2). Placeholders in braces are filled by aarogyam_domain::visit_message. 'short' is the version for hand-offs that travel in a web URL: it must carry no clinical words and no patient name. English in v1; Hindi and Marathi follow after review by a native-speaking dentist.",
+  "schema_version": 1,
+  "language": "en",
+  "max_chars": 1200,
+  "greeting": "Hello {first_name}, thank you for visiting *{clinic}*{with_doctor}. 🙏",
+  "greeting_minor": "Hello, thank you for bringing {first_name} to *{clinic}*{with_doctor}. 🙏",
+  "with_doctor": " today with {doctor}",
+  "intro": "Here is a summary of your visit.",
+  "intro_minor": "Here is a summary of your child {first_name}'s visit.",
+  "why": "🦷 *Why you came*",
+  "why_minor": "🦷 *Why {first_name} came*",
+  "done": "✅ *Done today*",
+  "plan": "📅 *Your plan*",
+  "care": "🏠 *Care at home*",
+  "medicines": "💊 *Medicines*",
+  "booked": "Next visit booked: {date}",
+  "follow_up": "Next visit due: {date}",
+  "more": "…and {count} more on the page",
+  "days": "{count} days",
+  "one_day": "1 day",
+  "link": "🔗 Full details: {url}",
+  "pin": "🔒 PIN: *{pin}*",
+  "warning": "This link opens your health record. Please don't forward it.",
+  "short": {
+    "greeting": "Hello from *{clinic}*. Your visit summary is ready. 🙏"
+  }
+}

@@ -29,7 +29,7 @@ begin;
 set local timezone = 'UTC';
 
 create temp table _demo_orgs on commit drop as
-  select id, slug from aarogyam.organizations where slug in ('sunrise', 'lotus', 'suhasyadental');
+  select id, slug from aarogyam.organizations where slug in ('sunrise', 'lotus', 'suhasyadental', 'review');
 
 -- Days from the latest appointment (clinic-local date) to today, capped so that nothing already
 -- happened (bills, receipts, arrivals, visits) lands in the future. When appointments_only=1 the

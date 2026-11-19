@@ -69,6 +69,9 @@ pub struct Config {
     /// Which versions of the phone apps are served (`ARO_CLIENTS__*`).
     #[serde(default)]
     pub clients: ClientSettings,
+    /// The console's Insights page (`ARO_INSIGHTS__*`).
+    #[serde(default)]
+    pub insights: InsightsSettings,
 }
 
 impl Config {
@@ -100,6 +103,34 @@ impl Config {
             edge.workers_subdomain = plain("CLOUDFLARE_WORKERS_SUBDOMAIN");
         }
         Ok(config)
+    }
+}
+
+/// The console's Insights page: which Cloud Run service and job it reads from Cloud Monitoring,
+/// and the database plan's size limit it draws.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct InsightsSettings {
+    /// The Cloud Run service (`ARO_INSIGHTS__SERVICE`). Default `aarogyam-api`.
+    pub service: String,
+    /// The Cloud Run job that drains the outbox (`ARO_INSIGHTS__JOB`). Default `aarogyam-outbox`.
+    pub job: String,
+    /// Whether the console reads Cloud Monitoring (`ARO_INSIGHTS__CLOUD_MONITORING`). Unset, it
+    /// does when running on Cloud Run; elsewhere it shows this instance's own numbers.
+    pub cloud_monitoring: Option<bool>,
+    /// The database plan's size limit in MB (`ARO_INSIGHTS__DB_LIMIT_MB`). Default 500, the
+    /// Supabase free plan.
+    pub db_limit_mb: u64,
+}
+
+impl Default for InsightsSettings {
+    fn default() -> Self {
+        Self {
+            service: "aarogyam-api".into(),
+            job: "aarogyam-outbox".into(),
+            cloud_monitoring: None,
+            db_limit_mb: 500,
+        }
     }
 }
 

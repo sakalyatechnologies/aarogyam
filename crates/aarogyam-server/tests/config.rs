@@ -287,3 +287,23 @@ fn campaigns_are_on_until_the_kill_switch_is_set() {
         Ok(())
     });
 }
+
+#[test]
+fn insights_read_the_deployed_service_and_job_unless_told_otherwise() {
+    Jail::expect_with(|jail| {
+        set_required(jail);
+        let insights = load(NO_FILE).insights;
+        assert_eq!(
+            (insights.service.as_str(), insights.job.as_str()),
+            ("aarogyam-api", "aarogyam-outbox")
+        );
+        assert_eq!(insights.cloud_monitoring, None);
+        assert_eq!(insights.db_limit_mb, 500);
+        jail.set_env("ARO_INSIGHTS__JOB", "aarogyam-outbox-staging");
+        jail.set_env("ARO_INSIGHTS__CLOUD_MONITORING", "false");
+        let insights = load(NO_FILE).insights;
+        assert_eq!(insights.job, "aarogyam-outbox-staging");
+        assert_eq!(insights.cloud_monitoring, Some(false));
+        Ok(())
+    });
+}

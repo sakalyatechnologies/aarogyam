@@ -1,0 +1,136 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select org_id as \"org_id!\", slug as \"slug!\", name as \"name!\", day as \"day!\",\n                  visits as \"visits!\",\n                  arrive_to_seat_p50::float8 as arrive_to_seat_p50,\n                  arrive_to_seat_p90::float8 as arrive_to_seat_p90,\n                  seat_to_start_p50::float8 as seat_to_start_p50,\n                  seat_to_start_p90::float8 as seat_to_start_p90,\n                  visit_minutes_p50::float8 as visit_minutes_p50,\n                  visit_minutes_p90::float8 as visit_minutes_p90,\n                  end_to_paid_p50::float8 as end_to_paid_p50,\n                  end_to_paid_p90::float8 as end_to_paid_p90,\n                  booked as \"booked!\", no_shows as \"no_shows!\",\n                  booking_lead_days_p50::float8 as booking_lead_days_p50,\n                  active_staff as \"active_staff!\"\n           from app.console_journeys($1, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "org_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "day!",
+        "type_info": "Date",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "visits!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "arrive_to_seat_p50",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "arrive_to_seat_p90",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "seat_to_start_p50",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "seat_to_start_p90",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "visit_minutes_p50",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "visit_minutes_p90",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "end_to_paid_p50",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 12,
+        "name": "end_to_paid_p90",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 13,
+        "name": "booked!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "no_shows!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 15,
+        "name": "booking_lead_days_p50",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "active_staff!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9a9b84a00811cedaa7e9cac603cbd5158c7c4ffd603436e6fbf78677965e49d6"
+}

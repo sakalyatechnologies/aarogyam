@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select org_id as \"org_id!\", day as \"day!\", role_key as \"role_key!\",\n                  members as \"members!\"\n           from app.console_clinic_roles($1, $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "org_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "day!",
+        "type_info": "Date",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "role_key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "members!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "b37205ccc182a9a05c874e1b02e9bdacd43648ce149c251bb2ff7f25c6e5c041"
+}

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.record_journey_day($1, $2) as \"written!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "written!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9bf23d1a93329cdbb526e1f483a051d4344121579e57e6c6b537e216f7281aeb"
+}

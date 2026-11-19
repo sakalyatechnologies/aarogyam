@@ -40,6 +40,7 @@ pub mod handoff;
 pub mod identifiers;
 pub mod import_sessions;
 pub mod imports;
+pub mod insights;
 pub mod inventory;
 pub mod invitations;
 pub mod json;

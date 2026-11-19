@@ -2118,6 +2118,90 @@
         ]
       }
     },
+    "/api/v1/console/insights/db": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "The database over time: connections, size, cache, transactions, rows, deadlocks and spills.",
+        "operationId": "getConsoleDbInsights",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "description": "1h (default), 6h, 24h, 7d or 30d",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DbInsights"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown range"
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/console/insights/usage": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "How clinics are used: visits, timings, people signed in by role and onboarding.",
+        "operationId": "getConsoleUsageInsights",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "description": "1h (default), 6h, 24h, 7d or 30d; the first three show yesterday",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageInsights"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown range"
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/console/metrics": {
       "get": {
         "tags": [
@@ -2129,7 +2213,7 @@
           {
             "name": "range",
             "in": "query",
-            "description": "1h (default), 6h, 24h or 7d",
+            "description": "1h (default), 6h, 24h, 7d or 30d",
             "required": false,
             "schema": {
               "type": "string"
@@ -22531,6 +22615,72 @@
           }
         }
       },
+      "ClinicUsage": {
+        "type": "object",
+        "description": "One clinic over the window.",
+        "required": [
+          "org_id",
+          "slug",
+          "name",
+          "days",
+          "visits",
+          "booked",
+          "no_shows",
+          "active_staff",
+          "timings",
+          "roles"
+        ],
+        "properties": {
+          "active_staff": {
+            "type": "integer",
+            "format": "int32",
+            "description": "People signed in on the latest day, all roles together."
+          },
+          "booked": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Appointments booked."
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Days recorded."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "no_shows": {
+            "type": "integer",
+            "format": "int64",
+            "description": "No-shows."
+          },
+          "org_id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleCount"
+            },
+            "description": "People signed in by role on the latest day, only roles with 3 or more."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Its subdomain."
+          },
+          "timings": {
+            "$ref": "#/components/schemas/JourneyTimings",
+            "description": "Typical timings."
+          },
+          "visits": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Visits started."
+          }
+        }
+      },
       "ClinicalFlags": {
         "type": "object",
         "description": "Patient 360's safety banner. Anyone who can see the patient learns that flags exist and how\nmany; the substances and conditions need `clinical.read`.",
@@ -24183,6 +24333,133 @@
             "type": "integer",
             "format": "int64",
             "description": "Payments."
+          }
+        }
+      },
+      "DbInsights": {
+        "type": "object",
+        "description": "The database over a window: one point per bucket of the drain job's samples.",
+        "required": [
+          "generated_at",
+          "range",
+          "interval_seconds",
+          "size_limit_bytes",
+          "current",
+          "samples"
+        ],
+        "properties": {
+          "current": {
+            "type": "object",
+            "description": "Connections, cache hit ratio, size, the biggest tables and the slowest statements now\n(as `db` in `/console/metrics`)."
+          },
+          "generated_at": {
+            "type": "string",
+            "description": "When this was produced (RFC 3339)."
+          },
+          "interval_seconds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Seconds per point: 300 (`1h`, `6h`), 900 (`24h`), 7200 (`7d`) or 21 600 (`30d`)."
+          },
+          "range": {
+            "type": "string",
+            "description": "The window: `1h`, `6h`, `24h`, `7d` or `30d`."
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DbSamplePoint"
+            },
+            "description": "Oldest first; empty until the drain job has taken samples (at most one every 5 minutes)."
+          },
+          "size_limit_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The database plan's size limit in bytes, drawn on the size chart.",
+            "minimum": 0
+          }
+        }
+      },
+      "DbSamplePoint": {
+        "type": "object",
+        "description": "One point of the database history.",
+        "required": [
+          "at",
+          "connections",
+          "max_connections",
+          "db_bytes",
+          "deadlocks",
+          "temp_bytes"
+        ],
+        "properties": {
+          "at": {
+            "type": "string",
+            "description": "When the interval starts (RFC 3339)."
+          },
+          "cache_hit_ratio": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Share of reads served from memory, 0 to 1."
+          },
+          "commits_per_min": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Committed transactions per minute."
+          },
+          "connections": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The most connections in use."
+          },
+          "db_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Database size in bytes."
+          },
+          "deadlocks": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Deadlocks in the interval."
+          },
+          "max_connections": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The connection limit."
+          },
+          "rollbacks_per_min": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Rolled back transactions per minute."
+          },
+          "rows_read_per_min": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Rows read per minute."
+          },
+          "rows_written_per_min": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Rows inserted, updated or deleted per minute."
+          },
+          "temp_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bytes spilled to temporary files in the interval."
           }
         }
       },
@@ -26598,6 +26875,52 @@
           "org_id": {
             "type": "string",
             "description": "The clinic."
+          }
+        }
+      },
+      "JourneyTimings": {
+        "type": "object",
+        "description": "Typical timings: the visit-weighted mean of daily medians. `null` where every day had fewer\nthan 5 visits.",
+        "properties": {
+          "arrive_to_seat_minutes": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Arrived to seated, minutes."
+          },
+          "booking_lead_days": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Days between booking and appointment."
+          },
+          "end_to_paid_minutes": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Visit ended to first payment, minutes."
+          },
+          "seat_to_start_minutes": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Seated to visit started, minutes."
+          },
+          "visit_minutes": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Visit length, minutes."
           }
         }
       },
@@ -32036,6 +32359,87 @@
           }
         }
       },
+      "OnboardingClinic": {
+        "type": "object",
+        "description": "Where one clinic stands in onboarding. Times are RFC 3339; `null` means not yet.",
+        "required": [
+          "org_id",
+          "slug",
+          "name",
+          "status",
+          "created_at",
+          "setup_steps_done"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "Created."
+          },
+          "first_bill_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first bill issued."
+          },
+          "first_busy_week": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The Monday (`YYYY-MM-DD`) of the first week with 5 or more visits."
+          },
+          "first_patient_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first patient added."
+          },
+          "first_visit_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first visit started."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          },
+          "org_id": {
+            "type": "string",
+            "description": "The clinic."
+          },
+          "owner_joined_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first owner joined."
+          },
+          "setup_completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Setup completed."
+          },
+          "setup_steps_done": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Setup steps marked done."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Its subdomain."
+          },
+          "status": {
+            "type": "string",
+            "description": "`trial`, `active`, `suspended` or `churned`."
+          }
+        }
+      },
       "OnlineBooking": {
         "type": "object",
         "description": "Online booking: what patients may book on the clinic's public page.",
@@ -36973,6 +37377,25 @@
           }
         }
       },
+      "RoleCount": {
+        "type": "object",
+        "description": "People signed in in one role.",
+        "required": [
+          "role_key",
+          "members"
+        ],
+        "properties": {
+          "members": {
+            "type": "integer",
+            "format": "int32",
+            "description": "People, 3 or more (smaller numbers are not shown per clinic)."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "A standard role key (`owner`, `doctor`, `front_desk` ...) or `custom`."
+          }
+        }
+      },
       "RoleDetail": {
         "type": "object",
         "description": "A role in detail.",
@@ -37132,6 +37555,36 @@
               "$ref": "#/components/schemas/RolePermission"
             },
             "description": "Its default permissions, sorted by key."
+          }
+        }
+      },
+      "RoleUsage": {
+        "type": "object",
+        "description": "People signed in in one role across all clinics on one day.",
+        "required": [
+          "day",
+          "role_key",
+          "members",
+          "clinics"
+        ],
+        "properties": {
+          "clinics": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Clinics with at least one."
+          },
+          "day": {
+            "type": "string",
+            "description": "The day (`YYYY-MM-DD`)."
+          },
+          "members": {
+            "type": "integer",
+            "format": "int32",
+            "description": "People, summed over clinics (a person in two clinics counts in each)."
+          },
+          "role_key": {
+            "type": "string",
+            "description": "A standard role key or `custom`."
           }
         }
       },
@@ -37610,7 +38063,8 @@
         "required": [
           "generated_at",
           "range",
-          "db"
+          "db",
+          "source"
         ],
         "properties": {
           "api": {
@@ -37619,6 +38073,20 @@
               "null"
             ],
             "description": "This instance's API requests, error rates and latency."
+          },
+          "cloud": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Cloud Run's numbers from Cloud Monitoring: `interval_seconds`, `service` (requests by\nclass, latency percentiles, instances, cold starts, CPU and memory) and `job` (drain\nexecutions, billable, CPU and memory time). `null` when `source` is `instance`."
+          },
+          "cloud_error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why Cloud Monitoring could not be read, such as `Cloud Monitoring: 403`; `null` when it was\nread or is not set up."
           },
           "db": {
             "type": "object",
@@ -37637,7 +38105,11 @@
           },
           "range": {
             "type": "string",
-            "description": "The window: `1h`, `6h`, `24h` or `7d`."
+            "description": "The window: `1h`, `6h`, `24h`, `7d` or `30d`."
+          },
+          "source": {
+            "type": "string",
+            "description": "Where the service charts come from: `cloud_monitoring` (Cloud Run, every instance, in\n`cloud`) or `instance` (only the instance that answered, since it started, in `api`)."
           }
         }
       },
@@ -41600,6 +42072,114 @@
             "type": "integer",
             "format": "int64",
             "description": "Units used, 1 to 1000000."
+          }
+        }
+      },
+      "UsageDay": {
+        "type": "object",
+        "description": "All clinics together on one day.",
+        "required": [
+          "day",
+          "clinics",
+          "visits",
+          "booked",
+          "no_shows",
+          "active_staff",
+          "timings"
+        ],
+        "properties": {
+          "active_staff": {
+            "type": "integer",
+            "format": "int64",
+            "description": "People signed in (any clinic, web or phone), summed over clinics."
+          },
+          "booked": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Appointments for the day, not cancelled or still requested."
+          },
+          "clinics": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Clinics with a row that day."
+          },
+          "day": {
+            "type": "string",
+            "description": "The day (`YYYY-MM-DD`)."
+          },
+          "no_shows": {
+            "type": "integer",
+            "format": "int64",
+            "description": "No-shows."
+          },
+          "timings": {
+            "$ref": "#/components/schemas/JourneyTimings",
+            "description": "Typical timings across clinics."
+          },
+          "visits": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Visits started."
+          }
+        }
+      },
+      "UsageInsights": {
+        "type": "object",
+        "description": "How clinics are used over a window: daily totals, each clinic, active staff by role and the\nonboarding funnel. Counts, timings and dates only.",
+        "required": [
+          "generated_at",
+          "range",
+          "from",
+          "to",
+          "days",
+          "clinics",
+          "roles",
+          "onboarding"
+        ],
+        "properties": {
+          "clinics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClinicUsage"
+            },
+            "description": "Each clinic over the window, busiest first."
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageDay"
+            },
+            "description": "All clinics together per day, oldest first."
+          },
+          "from": {
+            "type": "string",
+            "description": "First day (`YYYY-MM-DD`), each clinic's own calendar."
+          },
+          "generated_at": {
+            "type": "string",
+            "description": "When this was produced (RFC 3339)."
+          },
+          "onboarding": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnboardingClinic"
+            },
+            "description": "Each clinic's onboarding, newest clinic first."
+          },
+          "range": {
+            "type": "string",
+            "description": "The window: `1h`, `6h`, `24h`, `7d` or `30d`. Usage is daily, so the first three show\nyesterday."
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleUsage"
+            },
+            "description": "People signed in by role across all clinics, per day."
+          },
+          "to": {
+            "type": "string",
+            "description": "Last day, included."
           }
         }
       },

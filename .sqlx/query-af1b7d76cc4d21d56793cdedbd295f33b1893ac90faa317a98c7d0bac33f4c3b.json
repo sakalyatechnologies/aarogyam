@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select app.record_db_sample() as \"taken!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "taken!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "af1b7d76cc4d21d56793cdedbd295f33b1893ac90faa317a98c7d0bac33f4c3b"
+}

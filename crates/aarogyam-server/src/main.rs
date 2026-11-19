@@ -6,8 +6,9 @@ mod erase;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use aarogyam_api::{AppState, DevTokens, Hosts, TokenCheck};
+use aarogyam_api::{AppState, DevTokens, Hosts, Insights, TokenCheck};
 use aarogyam_app::accounts::{SignInAccounts as _, SupabaseAdmin};
+use aarogyam_app::cloud_monitoring::CloudMonitoring;
 use aarogyam_app::files::{Files, LinkSigner, LocalDisk, Storage, SupabaseStorage};
 use aarogyam_app::review_account;
 use aarogyam_domain::access::PlatformRole;
@@ -20,7 +21,7 @@ use aarogyam_notify::whatsapp::{Costs, Meta};
 use aarogyam_notify::{
     Notifier, PortalAddresses, PortalLinks, Push, PushSetup, WhatsappSetup, WorkersDev,
 };
-use aarogyam_server::config::{AuthMode, Config, EdgeHosts, FileBackend};
+use aarogyam_server::config::{AuthMode, Config, EdgeHosts, FileBackend, InsightsSettings};
 use anyhow::Context;
 use axum::http::HeaderName;
 use clap::{Parser, Subcommand};
@@ -322,6 +323,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         tracing::warn!("supabase.secret_key is not set: invited people get no sign-in account");
     }
     warn_on_local_site_addresses(&config.website.address_template, local);
+    let state = state.with_insights(insights(&config.insights));
     let state = state
         .with_client_policy(clients)
         .with_throttle(throttle)
@@ -335,6 +337,29 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     )
     .await
     .context("the server stopped with an error")
+}
+
+/// Where the console's Insights page reads Cloud Run's metrics: Cloud Monitoring on Cloud Run
+/// (or as `insights.cloud_monitoring` says), otherwise the answering instance's own numbers.
+fn insights(settings: &InsightsSettings) -> Insights {
+    let enabled = settings
+        .cloud_monitoring
+        .unwrap_or_else(CloudMonitoring::on_cloud_run);
+    let cloud = if enabled {
+        match CloudMonitoring::new(&settings.service, &settings.job) {
+            Ok(cloud) => Some(Arc::new(cloud)),
+            Err(error) => {
+                tracing::warn!(error = %error, "Cloud Monitoring is off");
+                None
+            }
+        }
+    } else {
+        None
+    };
+    Insights {
+        cloud,
+        db_limit_bytes: settings.db_limit_mb.saturating_mul(1024 * 1024),
+    }
 }
 
 /// Deployed servers report 5xx answers and panics to Cloud Error Reporting (docs/deploy.md
@@ -623,7 +648,9 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
     let supabase = accounts(&config)?;
     let interval = every.map(|seconds| std::time::Duration::from_secs(seconds.max(1)));
     loop {
-        // Addresses first, so the invitation emails sent next link to hosts that work.
+        // Insights first: the active-staff snapshot reads sign-in activity before the run moves on.
+        record_insights(&db).await;
+        // Addresses next, so the invitation emails sent after link to hosts that work.
         match addresses
             .provision(&db, time::OffsetDateTime::now_utc())
             .await
@@ -674,17 +701,7 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not flag staff alerts"),
         }
-        // Rent, salaries and other recurring expenses that fell due: record them.
-        match aarogyam_app::recurring_expenses::generate(&db, time::OffsetDateTime::now_utc()).await
-        {
-            Ok(report) if report.rules > 0 => tracing::info!(
-                rules = report.rules,
-                recorded = report.recorded,
-                "recurring expenses recorded"
-            ),
-            Ok(_) => {}
-            Err(error) => tracing::warn!(error = %error, "could not record recurring expenses"),
-        }
+        record_recurring_expenses(&db).await;
         push_staff(&notifier, &db).await;
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(
@@ -714,6 +731,37 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             () = tokio::time::sleep(interval) => {}
             _ = tokio::signal::ctrl_c() => return Ok(()),
         }
+    }
+}
+
+/// Rent, salaries and other recurring expenses that fell due: record them.
+async fn record_recurring_expenses(db: &Db) {
+    match aarogyam_app::recurring_expenses::generate(db, time::OffsetDateTime::now_utc()).await {
+        Ok(report) if report.rules > 0 => tracing::info!(
+            rules = report.rules,
+            recorded = report.recorded,
+            "recurring expenses recorded"
+        ),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(error = %error, "could not record recurring expenses"),
+    }
+}
+
+/// The console's Insights: a database sample (at most every 5 minutes) and yesterday's journey
+/// and active staff for up to 20 clinics. Each step logs its failure and the run goes on.
+async fn record_insights(db: &Db) {
+    if let Err(error) = aarogyam_app::insights::record_db_sample(db).await {
+        tracing::warn!(error = %error, "could not take a database sample");
+    }
+    match aarogyam_app::insights::record_journeys(db).await {
+        Ok(report) if report.due > 0 => tracing::info!(
+            due = report.due,
+            written = report.written,
+            failed = report.failed,
+            "clinic journeys recorded"
+        ),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(error = %error, "could not record clinic journeys"),
     }
 }
 

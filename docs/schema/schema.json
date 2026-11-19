@@ -1105,6 +1105,257 @@
    "offline": "server_only"
   },
   {
+   "name": "db_samples",
+   "domain": "platform",
+   "purpose": "Database-wide counters for the console's Insights page, one row at most every 5 minutes.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "private",
+   "notes": "Built (migration 0729). No clinic, no person, no statement text. The outbox drain job writes it through app.record_db_sample() and deletes rows older than 90 days (about 4 MB); the console reads app.db_history(), which turns counters into rates per minute. RLS on, no policies, no grants.",
+   "cols": [
+    {
+     "name": "at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "primary key"
+    },
+    {
+     "name": "connections",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "max_connections",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "cache_hit_ratio",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "db_bytes",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "xact_commit",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "cumulative pg_stat_database counters, reset with statistics"
+    },
+    {
+     "name": "xact_rollback",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "deadlocks",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "temp_bytes",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "tup_read",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "returned + fetched"
+    },
+    {
+     "name": "tup_written",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "inserted + updated + deleted"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "journey_daily",
+   "domain": "platform",
+   "purpose": "Each clinic's day for the console: visits, timings from arrival to payment, bookings and no-shows. Aggregates only.",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "private",
+   "notes": "Built (migration 0730). Primary key (org_id, day). The drain job writes yesterday's row for up to 20 clinics a run through app.record_journey_day(), which calls app.journey_day() (the only reader of clinic rows; it returns aggregates) and inserts on conflict do nothing. Always written, zero for an idle clinic, so a clinic is never picked twice. Read through app.console_journeys(). RLS on, no policies, no grants.",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": "on delete cascade"
+    },
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": "clinic time"
+    },
+    {
+     "name": "visits",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "arrive_to_seat_p50",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": "minutes; null from fewer than 5 visits"
+    },
+    {
+     "name": "arrive_to_seat_p90",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "seat_to_start_p50",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "seat_to_start_p90",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "visit_minutes_p50",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "visit_minutes_p90",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "end_to_paid_p50",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "end_to_paid_p90",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "booked",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "not cancelled or still requested"
+    },
+    {
+     "name": "no_shows",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "booking_lead_days_p50",
+     "type": "numeric",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "active_daily",
+   "domain": "platform",
+   "purpose": "How many people in each role were signed in at each clinic on a day (any clinic, web or phone).",
+   "rls": "global",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "private",
+   "notes": "Built (migration 0730). Primary key (org_id, day, role_key). Written in the same transaction as the clinic's journey_daily row, from sessions.last_active_at shortly after the clinic's midnight. No member or user id, so account deletion has nothing to remove. The console shows a clinic's roles only where a row has 3 or more members (app.console_clinic_roles), otherwise totals; app.console_active_roles sums roles across clinics. RLS on, no policies, no grants.",
+   "cols": [
+    {
+     "name": "org_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "organizations",
+     "note": "on delete cascade"
+    },
+    {
+     "name": "day",
+     "type": "date",
+     "nullable": false,
+     "ref": null,
+     "note": "clinic time"
+    },
+    {
+     "name": "role_key",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "a standard role key, or custom"
+    },
+    {
+     "name": "members",
+     "type": "int",
+     "nullable": false,
+     "ref": null,
+     "note": "distinct people, at least 1"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
    "name": "users",
    "domain": "iam",
    "purpose": "Anyone who signs in: staff, doctors, patients, Sakalya staff.",
@@ -1469,9 +1720,11 @@
     }
    ],
    "referenced_by": [
+    "active_daily.org_id",
     "clinic_applications.created_org_id",
     "consents.grantee_org_id",
     "entitlement_overrides.org_id",
+    "journey_daily.org_id",
     "org_daily_stats.org_id",
     "org_domains.org_id",
     "saas_invoices.org_id",

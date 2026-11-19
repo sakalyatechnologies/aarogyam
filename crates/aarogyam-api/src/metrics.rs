@@ -243,10 +243,13 @@ pub enum Range {
     LastDay,
     /// `7d`: the current hour and the 167 before it, one point per hour.
     LastWeek,
+    /// `30d`: the current hour and the 719 before it, one point per hour. The collector keeps a
+    /// week of hours, so only the last 7 days have numbers; Cloud Monitoring has the rest.
+    LastMonth,
 }
 
 impl Range {
-    /// The text [`str::parse`] accepts for this range: `1h`, `6h`, `24h` or `7d`.
+    /// The text [`str::parse`] accepts for this range: `1h`, `6h`, `24h`, `7d` or `30d`.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -254,6 +257,7 @@ impl Range {
             Self::LastSixHours => "6h",
             Self::LastDay => "24h",
             Self::LastWeek => "7d",
+            Self::LastMonth => "30d",
         }
     }
 
@@ -265,6 +269,7 @@ impl Range {
             Self::LastSixHours => (MINUTE, 1, 360),
             Self::LastDay => (MINUTE, 5, 288),
             Self::LastWeek => (HOUR, 1, 168),
+            Self::LastMonth => (HOUR, 6, 120),
         }
     }
 
@@ -275,6 +280,7 @@ impl Range {
             Self::LastSixHours => (MINUTE, 360),
             Self::LastDay => (HOUR, 24),
             Self::LastWeek => (HOUR, HOUR_SLOTS),
+            Self::LastMonth => (HOUR, 720),
         }
     }
 }
@@ -288,6 +294,7 @@ impl FromStr for Range {
             "6h" => Ok(Self::LastSixHours),
             "24h" => Ok(Self::LastDay),
             "7d" => Ok(Self::LastWeek),
+            "30d" => Ok(Self::LastMonth),
             _ => Err(UnknownRange),
         }
     }
@@ -299,9 +306,9 @@ impl fmt::Display for Range {
     }
 }
 
-/// The text was not `1h`, `6h`, `24h` or `7d`.
+/// The text was not `1h`, `6h`, `24h`, `7d` or `30d`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-#[error("unknown range, expected 1h, 6h, 24h or 7d")]
+#[error("unknown range, expected 1h, 6h, 24h, 7d or 30d")]
 pub struct UnknownRange;
 
 /// Service health over one [`Range`], as the console's Service health page reads it.
@@ -327,7 +334,8 @@ pub struct ApiSnapshot {
     /// One point per minute (`1h`) or hour (`24h`, `7d`), oldest first; the last is the
     /// current, unfinished one.
     pub series: Box<[SeriesPoint]>,
-    /// Seconds between `timeline` points: 60 for `1h` and `6h`, 300 for `24h`, 3600 for `7d`.
+    /// Seconds between `timeline` points: 60 for `1h` and `6h`, 300 for `24h`, 3600 for `7d`,
+    /// 21 600 for `30d`.
     pub timeline_interval_seconds: u64,
     /// Requests, errors by class and latency percentiles per interval, oldest first; the last
     /// point is the current, unfinished one.
@@ -480,7 +488,7 @@ impl Series {
     const fn ring(&self, range: Range) -> &Ring {
         match range {
             Range::LastHour | Range::LastSixHours => &self.minutes,
-            Range::LastDay | Range::LastWeek => &self.hours,
+            Range::LastDay | Range::LastWeek | Range::LastMonth => &self.hours,
         }
     }
 }
@@ -819,6 +827,7 @@ mod tests {
             ),
             (Range::LastDay, 2, 24, hour, 3600),
             (Range::LastWeek, 3, 168, hour, 3600),
+            (Range::LastMonth, 3, 720, hour, 3600),
         ];
         for (range, requests, points, last, step) in cases {
             let snapshot = metrics.snapshot(range, at(now()));
@@ -837,6 +846,7 @@ mod tests {
             Range::LastSixHours,
             Range::LastDay,
             Range::LastWeek,
+            Range::LastMonth,
         ] {
             assert_eq!(range.as_str().parse(), Ok(range));
         }

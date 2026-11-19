@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use aarogyam_app::accounts::SignInAccounts;
+use aarogyam_app::cloud_monitoring::CloudMonitoring;
 use aarogyam_app::files::Files;
 use aarogyam_app::prescriptions::{AllergySource, RecordedAllergies};
 use aarogyam_dal::lookups::{self, HostClinic};
@@ -156,6 +157,25 @@ struct Inner {
     live_events: bool,
     client_errors: Budget,
     live: Hub,
+    insights: Insights,
+}
+
+/// Where the console's Insights page reads from beyond the database.
+#[derive(Debug, Clone)]
+pub struct Insights {
+    /// Cloud Run's metrics; `None` shows this instance's own numbers.
+    pub cloud: Option<Arc<CloudMonitoring>>,
+    /// The database plan's size limit, drawn on the size chart.
+    pub db_limit_bytes: u64,
+}
+
+impl Default for Insights {
+    fn default() -> Self {
+        Self {
+            cloud: None,
+            db_limit_bytes: 500 * 1024 * 1024,
+        }
+    }
 }
 
 /// Shared state; cheap to clone.
@@ -191,6 +211,7 @@ impl AppState {
                 live_events: true,
                 client_errors: Budget::default(),
                 live: Hub::new(),
+                insights: Insights::default(),
             }),
         }
     }
@@ -319,6 +340,20 @@ impl AppState {
             inner.error_reporting = Some(reporting);
         }
         self
+    }
+
+    /// Sets where the console's Insights page reads Cloud Run metrics and the database size
+    /// limit. Call before the state is shared (cloned).
+    #[must_use]
+    pub fn with_insights(mut self, insights: Insights) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.insights = insights;
+        }
+        self
+    }
+
+    pub(crate) fn insights(&self) -> &Insights {
+        &self.inner.insights
     }
 
     pub(crate) fn error_reporting(&self) -> Option<&Arc<ErrorReporting>> {

@@ -574,6 +574,8 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(console::clinics).post(console::create_clinic),
         )
         .route("/console/metrics", get(console::metrics))
+        .route("/console/insights/db", get(console::db_insights))
+        .route("/console/insights/usage", get(console::usage_insights))
         .route("/console/quality", get(quality::quality))
         .route("/console/clinics/{id}", get(onboarding::clinic))
         .route(

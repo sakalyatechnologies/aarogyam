@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select org_id as \"org_id!\", day as \"day!\" from app.journey_days_due($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "org_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "day!",
+        "type_info": "Date",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "2917cc240a6b5f7d56380fd9bf6d790ac3dba7027996bb63720383e4aa27f081"
+}

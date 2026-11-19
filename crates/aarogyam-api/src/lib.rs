@@ -49,7 +49,7 @@ pub use extract::{ClinicRequest, PlatformRequest, Require, SignedIn};
 pub use failure::ApiFailure;
 #[doc(inline)]
 pub use openapi::openapi;
-pub use state::{AppState, Hosts, TokenCheck, WebsiteLinks};
+pub use state::{AppState, Hosts, Insights, TokenCheck, WebsiteLinks};
 
 /// The per-IP request limits, applied before any token is checked. Sign-in itself is
 /// Supabase's, with its own limits. The public registration form gets a strict limit of its

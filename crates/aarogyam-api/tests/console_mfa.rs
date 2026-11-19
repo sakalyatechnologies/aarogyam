@@ -18,6 +18,8 @@ async fn console_routes_need_the_second_step() {
     let routes = [
         "/api/v1/console/clinics",
         "/api/v1/console/metrics",
+        "/api/v1/console/insights/db",
+        "/api/v1/console/insights/usage",
         "/api/v1/console/quality",
     ];
     for path in routes {

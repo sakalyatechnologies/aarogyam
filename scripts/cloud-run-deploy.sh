@@ -75,6 +75,8 @@ ENV_VARS="${ENV_VARS}#ARO_EMAIL__FROM=${ARO_EMAIL__FROM:-Aarogyam <noreply@aarog
 ENV_VARS="${ENV_VARS}#ARO_FILES__BACKEND=supabase#ARO_FILES__BUCKET=aarogyam-files"
 ENV_VARS="${ENV_VARS}#ARO_TELEMETRY__FORMAT=cloud-logging"
 ENV_VARS="${ENV_VARS}#ARO_TELEMETRY__FILTER=info"
+# The console's Insights page reads these two from Cloud Monitoring (see "Monitoring read access").
+ENV_VARS="${ENV_VARS}#ARO_INSIGHTS__SERVICE=${SERVICE}#ARO_INSIGHTS__JOB=${DRAIN_JOB}"
 
 # The migrate job gets the same plain settings (the config needs them to load) and only the
 # owner URL secret; it is also what the config requires as ARO_DB__URL, so the API's login URL
@@ -192,6 +194,13 @@ else
   done
   echo "  Migrations applied: ${APPLIED:-unknown (the job succeeded; count not in the logs yet)}"
 fi
+
+# ---- Monitoring read access ---------------------------------------------------------------
+# The console's Insights page reads the service's and the outbox job's Cloud Run metrics from
+# Cloud Monitoring as the run service account. Adding a binding that exists changes nothing.
+echo "== Monitoring read access"
+mutate gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:${RUN_SA}" \
+  --role roles/monitoring.viewer --condition=None --quiet >/dev/null
 
 # ---- Service ------------------------------------------------------------------------------
 echo "== Cloud Run service"

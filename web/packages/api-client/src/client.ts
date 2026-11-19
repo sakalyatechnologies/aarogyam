@@ -121,6 +121,7 @@ import type {
   MetricsRange,
   DbInsights,
   UsageInsights,
+  CostInsights,
   MySessions,
   NewAppointmentBody,
   NewBooking,
@@ -717,6 +718,8 @@ export interface ApiClient {
   getDbInsights(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<DbInsights>>;
   /** Console host: clinic usage (visits, timings, people signed in by role) and the onboarding funnel. */
   getUsageInsights(range: MetricsRange, options?: RequestOptions): Promise<ApiResult<UsageInsights>>;
+  /** Console host: this month's estimated Cloud Run cost after the free tier, and the free plans. */
+  getCostInsights(options?: RequestOptions): Promise<ApiResult<CostInsights>>;
   /** Console host: recent quality runs, each suite's pass-rate trend, and the newest failures. */
   getQuality(limit?: number, options?: RequestOptions): Promise<ApiResult<QualityReport>>;
 

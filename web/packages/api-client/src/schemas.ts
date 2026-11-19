@@ -1494,6 +1494,46 @@ export type UsageInsights = z.output<typeof usageInsights>;
 export type ClinicUsage = UsageInsights["clinics"][number];
 export type OnboardingClinic = UsageInsights["onboarding"][number];
 
+const amount = z.number().nonnegative();
+
+export const costInsights = z.object({
+  generated_at: timestamp,
+  period_start: timestamp,
+  period_end: timestamp,
+  elapsed_fraction: ratio,
+  source: z.enum(["cloud_monitoring", "unavailable"]),
+  error: z.string().nullable(),
+  items: z.array(
+    z.object({
+      key: z.string(),
+      provider: z.enum(["cloud_run", "supabase", "cloudflare"]),
+      resource: z.string(),
+      label: z.string(),
+      unit: z.string(),
+      used: amount.nullable(),
+      forecast_used: amount.nullable(),
+      free: amount.nullable(),
+      free_left: amount.nullable(),
+      unit_price_usd: amount.nullable(),
+      cost_usd: amount,
+      forecast_usd: amount,
+      note: z.string().nullable(),
+    }),
+  ),
+  total_usd: amount.nullable(),
+  forecast_usd: amount.nullable(),
+  inr_per_usd: amount,
+  gst_percent: amount,
+  total_inr: amount.nullable(),
+  total_gst_inr: amount.nullable(),
+  forecast_inr: amount.nullable(),
+  forecast_gst_inr: amount.nullable(),
+  label: z.string(),
+  billing_url: z.url(),
+}) satisfies z.ZodType<C.CostInsights>;
+export type CostInsights = z.output<typeof costInsights>;
+export type CostItem = CostInsights["items"][number];
+
 const qualityFailure = z.object({ test: z.string(), message: z.string() }) satisfies z.ZodType<C.QualityFailure>;
 
 const qualitySuite = z.object({

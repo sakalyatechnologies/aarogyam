@@ -698,6 +698,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console/insights/cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * This month's estimated cost: Cloud Run's service and drain job after the free tier, month to
+         *     date and forecast, in USD and INR with GST apart; Supabase and Cloudflare free plans against
+         *     their limits.
+         */
+        get: operations["getConsoleCostInsights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/console/insights/db": {
         parameters: {
             query?: never;
@@ -7967,6 +7988,127 @@ export interface components {
             created: boolean;
             /** @description The conversation. */
             id: string;
+        };
+        /** @description This month's estimated cost: Cloud Run usage after the free tier, and free plans. */
+        CostInsights: {
+            /** @description The Google Cloud Billing console, for the real bill. */
+            billing_url: string;
+            /**
+             * Format: double
+             * @description Share of the month that has passed, above 0 and at most 1.
+             */
+            elapsed_fraction: number;
+            /** @description Why usage could not be read, such as `Cloud Monitoring: 403`; `null` when read or not set up. */
+            error?: string | null;
+            /**
+             * Format: double
+             * @description GST on `forecast_inr`.
+             */
+            forecast_gst_inr?: number | null;
+            /**
+             * Format: double
+             * @description `forecast_usd` in rupees, before GST.
+             */
+            forecast_inr?: number | null;
+            /**
+             * Format: double
+             * @description USD for the whole month at this month's pace; `null` when unavailable.
+             */
+            forecast_usd?: number | null;
+            /** @description When this was produced (RFC 3339). */
+            generated_at: string;
+            /**
+             * Format: double
+             * @description The configured GST rate, percent.
+             */
+            gst_percent: number;
+            /**
+             * Format: double
+             * @description The configured rupees per dollar.
+             */
+            inr_per_usd: number;
+            /** @description Cloud Run lines (service first, then the drain job), then Supabase and Cloudflare. */
+            items: components["schemas"]["CostItem"][];
+            /** @description What the estimate covers, to show with it. */
+            label: string;
+            /** @description When usage was read up to (RFC 3339); now when `source` is `unavailable`. */
+            period_end: string;
+            /** @description The start of the month, midnight UTC (RFC 3339). */
+            period_start: string;
+            /**
+             * @description `cloud_monitoring` (Cloud Run usage read) or `unavailable` (not on Google Cloud, or the
+             *     read failed; see `error`). Cloud Run lines and totals are missing when unavailable.
+             */
+            source: string;
+            /**
+             * Format: double
+             * @description GST on `total_inr`.
+             */
+            total_gst_inr?: number | null;
+            /**
+             * Format: double
+             * @description `total_usd` in rupees, before GST.
+             */
+            total_inr?: number | null;
+            /**
+             * Format: double
+             * @description USD so far, Cloud Run only; `null` when unavailable.
+             */
+            total_usd?: number | null;
+        };
+        /** @description One line of the estimate. */
+        CostItem: {
+            /**
+             * Format: double
+             * @description USD so far after the free amount; `0` on free plans and context lines.
+             */
+            cost_usd: number;
+            /**
+             * Format: double
+             * @description USD for the month at the same pace after the free amount.
+             */
+            forecast_usd: number;
+            /**
+             * Format: double
+             * @description Used by the end of the month at the same pace; `null` for plan limits and unknowns.
+             */
+            forecast_used?: number | null;
+            /**
+             * Format: double
+             * @description The monthly free amount, or the free plan's limit; `null` when the line has none.
+             */
+            free?: number | null;
+            /**
+             * Format: double
+             * @description What is left of `free`; `null` when either is unknown.
+             */
+            free_left?: number | null;
+            /**
+             * @description A stable key: `service_cpu`, `service_memory`, `service_requests`, `service_egress`,
+             *     `service_billable`, `job_cpu`, `job_memory`, `job_billable`, `job_runs`, `supabase_db`,
+             *     `cloudflare`.
+             */
+            key: string;
+            /** @description What it is, in plain words. */
+            label: string;
+            /** @description One line of context, such as `Free plan; usage isn't read here`. */
+            note?: string | null;
+            /** @description `cloud_run`, `supabase` or `cloudflare`. */
+            provider: string;
+            /** @description What it belongs to: `service` (the API), `job` (the outbox drain), `database` or `edge`. */
+            resource: string;
+            /** @description The unit of `used` and `free`: `vCPU-s`, `GiB-s`, `requests`, `GiB`, `s`, `runs` or `bytes`. */
+            unit: string;
+            /**
+             * Format: double
+             * @description USD per unit beyond the free amount; `null` when not billed on its own.
+             */
+            unit_price_usd?: number | null;
+            /**
+             * Format: double
+             * @description Used this month so far (the database: its size now); `null` when not known.
+             */
+            used?: number | null;
         };
         /**
          * @description A `409` that carries one number to act on: `retry_after_seconds` for `remind_too_soon`,
@@ -18154,6 +18296,32 @@ export interface operations {
             };
             /** @description Supabase could not create the sign-in account */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getConsoleCostInsights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostInsights"];
+                };
+            };
+            /** @description Not Sakalya staff */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

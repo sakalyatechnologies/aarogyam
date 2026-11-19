@@ -125,7 +125,7 @@ describe("walk-in fast path (fake)", () => {
     for (const who of [FARAH, ASHA]) {
       const picks = value(await as(who).getQuickPicks());
       expect(picks.allergies.some((a) => a.label === "Penicillin")).toBe(true);
-      expect(picks.medicine_sets.find((s) => s.id === "post_extraction")?.items.length).toBe(3);
+      expect(picks.medicine_sets.find((s) => s.id === "post_extraction")?.items.length).toBe(4);
     }
   });
 });

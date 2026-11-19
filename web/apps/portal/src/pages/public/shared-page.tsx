@@ -10,6 +10,8 @@ import { Button, EmptyState, Field, Skeleton, TextInput } from "@sakalya/ui";
 import { useServices } from "../../clinic.js";
 import { LetterheadSheet } from "../../components/letterhead/letterhead.js";
 import { plainLetterhead } from "../../components/letterhead/sample.js";
+import { VisitPage } from "../../visit-page/visit-page.js";
+import "../../visit-page/visit-page.css";
 import "./shared-page.css";
 
 const TIMING_LABEL: Readonly<Record<string, string>> = {
@@ -49,6 +51,8 @@ const formatDay = (value: string) =>
  * locks after five wrong PINs. The clinic's letterhead sits on top before and after the PIN, the
  * sheet is A4-like on a desktop and reflows on a phone, and Print / Save as PDF uses the browser.
  */
+const stayHere = () => undefined;
+
 export function SharedPage() {
   useDocumentTitle("Your prescription", "Aarogyam");
   const params = useParams();
@@ -82,6 +86,10 @@ export function SharedPage() {
     );
   }
   const result = preview.data;
+  // A visit link opened through the portal (local dev, or an old cached page): the patient page.
+  if (result.ok && result.value.resource === "visit") {
+    return <VisitPage token={token} leave={stayHere} />;
+  }
   const clinicName = result.ok ? result.value.clinic_name : undefined;
   const document = letterhead.data.ok
     ? letterhead.data.value

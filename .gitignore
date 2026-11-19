@@ -12,3 +12,6 @@ __pycache__/
 
 # v7 mockup reference renders (tools on branch feat/mobile-v7, web/e2e/v7)
 /mobile/docs/screenshots/v7/reference/
+
+# Local wrangler dev state
+.wrangler/

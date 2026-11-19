@@ -18,6 +18,7 @@ pub mod chat;
 pub mod check_in;
 pub mod clinic_hours;
 pub mod clock;
+pub mod cloud_cost;
 pub mod cloud_monitoring;
 pub mod consent_requests;
 pub mod consents;

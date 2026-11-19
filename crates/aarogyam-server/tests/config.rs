@@ -307,3 +307,21 @@ fn insights_read_the_deployed_service_and_job_unless_told_otherwise() {
         Ok(())
     });
 }
+
+#[test]
+fn cost_prices_have_list_defaults_and_take_overrides() {
+    Jail::expect_with(|jail| {
+        jail.clear_env();
+        let local = load(LOCAL_FILE).cost;
+        assert_eq!(local, aarogyam_app::cloud_cost::CostPrices::default());
+        set_required(jail);
+        assert_eq!(load(NO_FILE).cost, local);
+        jail.set_env("ARO_COST__INR_PER_USD", "84.5");
+        jail.set_env("ARO_COST__JOB_FREE_VCPU_SECONDS", "200000");
+        let cost = load(NO_FILE).cost;
+        assert!((cost.inr_per_usd - 84.5).abs() < f64::EPSILON);
+        assert!((cost.job_free_vcpu_seconds - 200_000.0).abs() < f64::EPSILON);
+        assert!((cost.gst_percent - 18.0).abs() < f64::EPSILON);
+        Ok(())
+    });
+}

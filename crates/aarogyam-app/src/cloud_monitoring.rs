@@ -9,7 +9,7 @@
 //! falls back to the instance's own numbers.
 //!
 //! Answers are cached per window for five minutes, so the console costs a few hundred reads a
-//! day. Nothing runs in the background: a request that misses the cache makes the calls.
+//! day. The month's usage for the cost estimate ([`MonthUsage`], Phase 3) is cached fifteen. Nothing runs in the background: a request that misses the cache makes the calls.
 //! There is no clinic concept here, so this moves to `sakalya-backend` once a second product
 //! needs it.
 
@@ -24,6 +24,8 @@ use time::format_description::well_known::Rfc3339;
 const METADATA: &str = "http://metadata.google.internal/computeMetadata/v1";
 const MONITORING: &str = "https://monitoring.googleapis.com/v3";
 const CACHE_FOR: Duration = Duration::from_mins(5);
+/// How long month-to-date usage (for the cost estimate) is reused.
+const USAGE_CACHE_FOR: Duration = Duration::from_mins(15);
 const TIMEOUT: Duration = Duration::from_secs(10);
 /// Pages read per query at most; aggregated answers fit in one.
 const MAX_PAGES: usize = 5;
@@ -117,6 +119,57 @@ pub struct CloudSnapshot {
     pub job: JobSeries,
 }
 
+/// What the service and the job used from the start of the month (UTC) to `end`: the inputs of
+/// the cost estimate (docs/plans/console-insights-design.md, Phase 3).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MonthUsage {
+    /// The start of the month, UTC.
+    pub start: OffsetDateTime,
+    /// The end of the reading, on a whole minute.
+    pub end: OffsetDateTime,
+    /// The API service (request-based billing).
+    pub service: ServiceUsage,
+    /// The drain job (instance-based billing).
+    pub job: JobUsage,
+}
+
+/// The service's month so far.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct ServiceUsage {
+    /// `container/billable_instance_time`, seconds.
+    pub billable_seconds: f64,
+    /// `container/cpu/allocation_time`, vCPU seconds.
+    pub vcpu_seconds: f64,
+    /// `container/memory/allocation_time`, GiB seconds.
+    pub gib_seconds: f64,
+    /// `request_count`, requests.
+    pub requests: f64,
+    /// `container/network/sent_bytes_count`, bytes sent out of the instances.
+    pub sent_bytes: f64,
+}
+
+/// The job's month so far.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct JobUsage {
+    /// `job/completed_execution_count`, executions of any result.
+    pub executions: f64,
+    /// `container/billable_instance_time`, seconds.
+    pub billable_seconds: f64,
+    /// `container/cpu/allocation_time`, vCPU seconds.
+    pub vcpu_seconds: f64,
+    /// `container/memory/allocation_time`, GiB seconds.
+    pub gib_seconds: f64,
+}
+
+/// Midnight UTC on the first day of `now`'s month.
+#[must_use]
+pub fn month_start(now: OffsetDateTime) -> OffsetDateTime {
+    let now = now.to_offset(time::UtcOffset::UTC);
+    now.replace_day(1)
+        .unwrap_or(now)
+        .replace_time(time::Time::MIDNIGHT)
+}
+
 /// Reads Cloud Run metrics for one service and one job, with a five-minute cache per window.
 pub struct CloudMonitoring {
     client: reqwest::Client,
@@ -125,6 +178,7 @@ pub struct CloudMonitoring {
     token: Mutex<Option<(String, Instant)>>,
     project: Mutex<Option<String>>,
     cache: Mutex<HashMap<&'static str, (Instant, Arc<CloudSnapshot>)>>,
+    usage: Mutex<Option<(Instant, Arc<MonthUsage>)>>,
 }
 
 impl std::fmt::Debug for CloudMonitoring {
@@ -160,6 +214,7 @@ impl CloudMonitoring {
             token: Mutex::new(None),
             project: Mutex::new(None),
             cache: Mutex::new(HashMap::new()),
+            usage: Mutex::new(None),
         })
     }
 
@@ -184,6 +239,41 @@ impl CloudMonitoring {
         Ok(snapshot)
     }
 
+    /// Usage of the service and the job from the start of `now`'s month (UTC) to `now`, from the
+    /// cache when it is under fifteen minutes old and from the same month.
+    ///
+    /// # Errors
+    /// [`CloudError`] when the metadata server or Cloud Monitoring fails.
+    pub async fn month_usage(&self, now: OffsetDateTime) -> Result<Arc<MonthUsage>, CloudError> {
+        let start = month_start(now);
+        if let Some((at, usage)) = lock(&self.usage).as_ref()
+            && at.elapsed() < USAGE_CACHE_FOR
+            && usage.start == start
+        {
+            return Ok(Arc::clone(usage));
+        }
+        let token = self.token().await?;
+        let project = self.project().await?;
+        // One point per series: the whole month so far, ending on a whole minute.
+        let end_unix = now.unix_timestamp() - now.unix_timestamp().rem_euclid(60);
+        let end = OffsetDateTime::from_unix_timestamp(end_unix).unwrap_or(now);
+        let elapsed = u64::try_from((end - start).whole_seconds()).unwrap_or(0);
+        let step = (elapsed - elapsed % 60).max(60);
+        let answers = self
+            .fetch(
+                &token,
+                &project,
+                end - Duration::from_secs(step),
+                end,
+                step,
+                usage_queries(&self.service, &self.job),
+            )
+            .await?;
+        let usage = Arc::new(month_usage_from(start, end, &answers));
+        *lock(&self.usage) = Some((Instant::now(), Arc::clone(&usage)));
+        Ok(usage)
+    }
+
     async fn read(
         &self,
         token: &str,
@@ -195,7 +285,29 @@ impl CloudMonitoring {
         let end_unix = now.unix_timestamp() - now.unix_timestamp().rem_euclid(to_i64(step));
         let end = OffsetDateTime::from_unix_timestamp(end_unix).unwrap_or(now);
         let start = end - Duration::from_secs(window.seconds);
-        let queries = queries(&self.service, &self.job);
+        let answers = self
+            .fetch(
+                token,
+                project,
+                start,
+                end,
+                step,
+                queries(&self.service, &self.job),
+            )
+            .await?;
+        Ok(assemble(step, answers))
+    }
+
+    /// Sends `queries` side by side over `start`..`end`, one point per `step` seconds.
+    async fn fetch<K: Copy + Send + 'static>(
+        &self,
+        token: &str,
+        project: &str,
+        start: OffsetDateTime,
+        end: OffsetDateTime,
+        step: u64,
+        queries: Vec<Query<K>>,
+    ) -> Result<Vec<(K, Vec<LabelledSeries>)>, CloudError> {
         let mut tasks = Vec::with_capacity(queries.len());
         for query in queries {
             let request = Request {
@@ -216,7 +328,7 @@ impl CloudMonitoring {
                 .map_err(|_| CloudError::Monitoring("a read was cancelled".into()))??;
             answers.push(answer);
         }
-        Ok(assemble(step, answers))
+        Ok(answers)
     }
 
     async fn token(&self) -> Result<String, CloudError> {
@@ -311,10 +423,10 @@ enum Target {
     MemorySeconds,
 }
 
-/// One Cloud Monitoring query: a filter and how to aggregate it.
+/// One Cloud Monitoring query: a filter and how to aggregate it. `K` says where the answer goes.
 #[derive(Debug, Clone)]
-struct Query {
-    target: Target,
+struct Query<K> {
+    target: K,
     filter: String,
     aligner: &'static str,
     reducer: &'static str,
@@ -432,42 +544,152 @@ const QUERIES: [QuerySpec; 12] = [
 
 /// The queries for the service and the job. Request and latency metrics exist only for services;
 /// the job is described by executions and allocated resources.
-fn queries(service: &str, job: &str) -> Vec<Query> {
+fn queries(service: &str, job: &str) -> Vec<Query<Target>> {
     QUERIES
         .iter()
-        .map(|&(target, of_job, metric, aligner, reducer, group_by)| {
-            let (resource, label, name) = if of_job {
-                ("cloud_run_job", "job_name", job)
-            } else {
-                ("cloud_run_revision", "service_name", service)
-            };
-            Query {
+        .map(
+            |&(target, of_job, metric, aligner, reducer, group_by)| Query {
                 target,
-                filter: format!(
-                    "metric.type=\"run.googleapis.com/{metric}\" AND resource.type=\"{resource}\" \
-                     AND resource.labels.{label}=\"{name}\""
-                ),
+                filter: filter(of_job, metric, service, job),
                 aligner,
                 reducer,
                 group_by,
-            }
+            },
+        )
+        .collect()
+}
+
+/// Which month-to-date number a usage query fills.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UsageItem {
+    ServiceBillable,
+    ServiceCpu,
+    ServiceMemory,
+    ServiceRequests,
+    ServiceSentBytes,
+    JobExecutions,
+    JobBillable,
+    JobCpu,
+    JobMemory,
+}
+
+/// The usage queries: whether each is the job's, and its metric. Units, from Google's Cloud Run
+/// metrics list: billable time `s`, CPU allocation `s{CPU}`, memory allocation `GiBy.s`,
+/// requests and executions `1`, sent bytes `By`. All are DELTA metrics, summed over the month.
+const USAGE: [(UsageItem, bool, &str); 9] = [
+    (
+        UsageItem::ServiceBillable,
+        false,
+        "container/billable_instance_time",
+    ),
+    (
+        UsageItem::ServiceCpu,
+        false,
+        "container/cpu/allocation_time",
+    ),
+    (
+        UsageItem::ServiceMemory,
+        false,
+        "container/memory/allocation_time",
+    ),
+    (UsageItem::ServiceRequests, false, "request_count"),
+    (
+        UsageItem::ServiceSentBytes,
+        false,
+        "container/network/sent_bytes_count",
+    ),
+    (
+        UsageItem::JobExecutions,
+        true,
+        "job/completed_execution_count",
+    ),
+    (
+        UsageItem::JobBillable,
+        true,
+        "container/billable_instance_time",
+    ),
+    (UsageItem::JobCpu, true, "container/cpu/allocation_time"),
+    (
+        UsageItem::JobMemory,
+        true,
+        "container/memory/allocation_time",
+    ),
+];
+
+fn usage_queries(service: &str, job: &str) -> Vec<Query<UsageItem>> {
+    USAGE
+        .iter()
+        .map(|&(target, of_job, metric)| Query {
+            target,
+            filter: filter(of_job, metric, service, job),
+            aligner: "ALIGN_DELTA",
+            reducer: "REDUCE_SUM",
+            group_by: None,
         })
         .collect()
 }
 
+/// Adds every point of every series of each answer into its place.
+fn month_usage_from(
+    start: OffsetDateTime,
+    end: OffsetDateTime,
+    answers: &[(UsageItem, Vec<LabelledSeries>)],
+) -> MonthUsage {
+    let mut service = ServiceUsage::default();
+    let mut job = JobUsage::default();
+    for (item, series) in answers {
+        let total: f64 = series
+            .iter()
+            .flat_map(|series| &series.points)
+            .map(|point| point.value)
+            .sum();
+        let slot = match item {
+            UsageItem::ServiceBillable => &mut service.billable_seconds,
+            UsageItem::ServiceCpu => &mut service.vcpu_seconds,
+            UsageItem::ServiceMemory => &mut service.gib_seconds,
+            UsageItem::ServiceRequests => &mut service.requests,
+            UsageItem::ServiceSentBytes => &mut service.sent_bytes,
+            UsageItem::JobExecutions => &mut job.executions,
+            UsageItem::JobBillable => &mut job.billable_seconds,
+            UsageItem::JobCpu => &mut job.vcpu_seconds,
+            UsageItem::JobMemory => &mut job.gib_seconds,
+        };
+        *slot += total;
+    }
+    MonthUsage {
+        start,
+        end,
+        service,
+        job,
+    }
+}
+
+/// The filter for one Cloud Run `metric` of the service or (`of_job`) the job.
+fn filter(of_job: bool, metric: &str, service: &str, job: &str) -> String {
+    let (resource, label, name) = if of_job {
+        ("cloud_run_job", "job_name", job)
+    } else {
+        ("cloud_run_revision", "service_name", service)
+    };
+    format!(
+        "metric.type=\"run.googleapis.com/{metric}\" AND resource.type=\"{resource}\" \
+         AND resource.labels.{label}=\"{name}\""
+    )
+}
+
 /// One query, ready to send from its own task.
-struct Request {
+struct Request<K> {
     client: reqwest::Client,
     url: String,
     token: String,
     start: OffsetDateTime,
     end: OffsetDateTime,
     step: u64,
-    query: Query,
+    query: Query<K>,
 }
 
-impl Request {
-    async fn send(self) -> Result<(Target, Vec<LabelledSeries>), CloudError> {
+impl<K: Copy> Request<K> {
+    async fn send(self) -> Result<(K, Vec<LabelledSeries>), CloudError> {
         let format = |time: OffsetDateTime| time.format(&Rfc3339).unwrap_or_default();
         let period = format!("{}s", self.step);
         let mut params: Vec<(&str, String)> = vec![
@@ -759,6 +981,117 @@ mod tests {
         let snapshot = assemble(300, vec![(Target::Instances, empty)]);
         assert_eq!(snapshot.service.instances, []);
         assert_eq!(snapshot.job.executions, []);
+    }
+
+    /// A month-to-date answer: one point per revision, before the cross-series sum.
+    const CPU_MONTH: &str = r#"{
+      "timeSeries": [
+        {
+          "metric": { "type": "run.googleapis.com/container/cpu/allocation_time" },
+          "resource": { "type": "cloud_run_revision", "labels": { "service_name": "aarogyam-api", "revision_name": "aarogyam-api-00041" } },
+          "metricKind": "DELTA",
+          "valueType": "DOUBLE",
+          "points": [
+            { "interval": { "startTime": "2026-11-01T00:00:00Z", "endTime": "2026-11-19T10:30:00Z" }, "value": { "doubleValue": 1234.5 } }
+          ]
+        },
+        {
+          "metric": { "type": "run.googleapis.com/container/cpu/allocation_time" },
+          "points": [
+            { "interval": { "startTime": "2026-11-01T00:00:00Z", "endTime": "2026-11-19T10:30:00Z" }, "value": { "doubleValue": 765.5 } }
+          ]
+        }
+      ],
+      "unit": "s{CPU}"
+    }"#;
+
+    const SENT_MONTH: &str = r#"{
+      "timeSeries": [
+        {
+          "metric": { "type": "run.googleapis.com/container/network/sent_bytes_count", "labels": { "kind": "internet" } },
+          "metricKind": "DELTA",
+          "valueType": "INT64",
+          "points": [
+            { "interval": { "startTime": "2026-11-01T00:00:00Z", "endTime": "2026-11-19T10:30:00Z" }, "value": { "int64Value": "1073741824" } }
+          ]
+        }
+      ],
+      "unit": "By"
+    }"#;
+
+    const EXECUTIONS_MONTH: &str = r#"{
+      "timeSeries": [
+        {
+          "metric": { "type": "run.googleapis.com/job/completed_execution_count", "labels": { "result": "succeeded" } },
+          "resource": { "type": "cloud_run_job", "labels": { "job_name": "aarogyam-outbox" } },
+          "points": [
+            { "interval": { "startTime": "2026-11-01T00:00:00Z", "endTime": "2026-11-19T10:30:00Z" }, "value": { "int64Value": "13440" } }
+          ]
+        }
+      ]
+    }"#;
+
+    #[test]
+    fn month_usage_adds_every_series_into_its_place() {
+        let start = datetime!(2026-11-01 00:00 UTC);
+        let end = datetime!(2026-11-19 10:30 UTC);
+        let step = 1_593_000;
+        let usage = month_usage_from(
+            start,
+            end,
+            &[
+                (UsageItem::ServiceCpu, parse(&page(CPU_MONTH), None, step)),
+                (
+                    UsageItem::ServiceSentBytes,
+                    parse(&page(SENT_MONTH), None, step),
+                ),
+                (
+                    UsageItem::JobExecutions,
+                    parse(&page(EXECUTIONS_MONTH), None, step),
+                ),
+                (UsageItem::JobMemory, parse(&page("{}"), None, step)),
+            ],
+        );
+        assert_eq!(usage.service.vcpu_seconds, 2_000.0);
+        assert_eq!(usage.service.sent_bytes, 1_073_741_824.0);
+        assert_eq!(usage.job.executions, 13_440.0);
+        // Nothing ran: zero, not missing.
+        assert_eq!(usage.job.gib_seconds, 0.0);
+        assert_eq!(usage.service.requests, 0.0);
+        assert_eq!((usage.start, usage.end), (start, end));
+    }
+
+    #[test]
+    fn usage_queries_read_billing_metrics_of_both() {
+        let queries = usage_queries("aarogyam-api", "aarogyam-outbox");
+        assert_eq!(queries.len(), 9);
+        let service = queries
+            .iter()
+            .filter(|query| query.filter.contains("service_name=\"aarogyam-api\""))
+            .count();
+        assert_eq!(service, 5);
+        assert!(queries.iter().any(|query| {
+            query
+                .filter
+                .contains("run.googleapis.com/container/network/sent_bytes_count")
+        }));
+        assert!(
+            queries
+                .iter()
+                .all(|query| query.aligner == "ALIGN_DELTA" && query.reducer == "REDUCE_SUM")
+        );
+    }
+
+    #[test]
+    fn the_month_starts_at_midnight_utc_on_the_first() {
+        assert_eq!(
+            month_start(datetime!(2026-11-19 10:30:12 UTC)),
+            datetime!(2026-11-01 00:00 UTC)
+        );
+        assert_eq!(
+            month_start(datetime!(2026-12-01 03:00 +05:30)),
+            datetime!(2026-11-01 00:00 UTC)
+        );
     }
 
     #[test]

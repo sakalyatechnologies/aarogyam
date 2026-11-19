@@ -16,6 +16,7 @@ pub(crate) mod clinic_hours;
 pub(crate) mod consent_requests;
 pub(crate) mod consents;
 pub(crate) mod console;
+pub(crate) mod console_cost;
 pub(crate) mod console_support;
 pub(crate) mod dashboard;
 pub(crate) mod dental_terms;
@@ -577,6 +578,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/console/metrics", get(console::metrics))
         .route("/console/insights/db", get(console::db_insights))
         .route("/console/insights/usage", get(console::usage_insights))
+        .route("/console/insights/cost", get(console_cost::cost_insights))
         .route("/console/quality", get(quality::quality))
         .route("/console/clinics/{id}", get(onboarding::clinic))
         .route(

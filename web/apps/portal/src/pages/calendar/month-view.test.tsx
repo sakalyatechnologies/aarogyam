@@ -36,4 +36,16 @@ describe("MonthView", () => {
     expect(onOpenDay.mock.calls).toEqual([["2026-10-10"], ["2026-10-03"]]);
     expect(onSelect).toHaveBeenCalledWith("E");
   });
+
+  it("counts walk-ins in the day's number without listing them", () => {
+    render(<MonthView month="2026-10-03" today="2026-10-03" items={items} walkIns={{ "2026-10-03": 2, "2026-10-05": 1 }} onOpenDay={() => undefined} onSelect={() => undefined} />);
+    const busy = screen.getByRole("button", { name: "2026-10-03, 4 appointments and 2 walk-ins. Open day" });
+    expect(busy.querySelector(".mk-mcount")?.textContent).toBe("6");
+    const day = busy.parentElement;
+    if (day === null) throw new Error("expected the day cell");
+    expect(within(day).getAllByTitle(/label$/)).toHaveLength(2);
+    const only = screen.getByRole("button", { name: "2026-10-05, 0 appointments and 1 walk-in. Open day" });
+    expect(only.querySelector(".mk-mcount")?.textContent).toBe("1");
+    expect(screen.getByRole("button", { name: /^2026-10-10, 1 appointment\. Open day/ }).querySelector(".mk-mcount")?.textContent).toBe("1");
+  });
 });

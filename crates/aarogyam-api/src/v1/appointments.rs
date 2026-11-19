@@ -41,6 +41,27 @@ pub struct PatientBrief {
     pub registration_incomplete: bool,
 }
 
+impl PatientBrief {
+    /// The summary the calendar shows, the same for appointments and walk-ins.
+    const fn new(
+        id: Uuid,
+        number: String,
+        full_name: String,
+        sex: String,
+        age_years: Option<u16>,
+        registration_incomplete: bool,
+    ) -> Self {
+        Self {
+            id,
+            number,
+            full_name,
+            sex,
+            age_years,
+            registration_incomplete,
+        }
+    }
+}
+
 /// A doctor as the calendar shows them.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct PractitionerBrief {
@@ -128,14 +149,14 @@ impl From<AppointmentView> for Appointment {
             token_number: row.token_number,
             row_version: row.row_version,
             patient_type: row.patient_type,
-            patient: PatientBrief {
-                id: row.patient_id,
-                number: row.patient_number,
-                full_name: row.patient_name,
-                sex: row.patient_sex,
-                age_years: view.patient_age_years,
-                registration_incomplete: row.patient_registration_incomplete,
-            },
+            patient: PatientBrief::new(
+                row.patient_id,
+                row.patient_number,
+                row.patient_name,
+                row.patient_sex,
+                view.patient_age_years,
+                row.patient_registration_incomplete,
+            ),
             practitioner: PractitionerBrief {
                 id: row.practitioner_id,
                 display_name: row.practitioner_name,
@@ -165,6 +186,23 @@ pub struct AppointmentQuery {
     pub practitioner_id: Option<String>,
 }
 
+fn calendar_query(query: &AppointmentQuery) -> Result<CalendarQuery, ApiFailure> {
+    Ok(CalendarQuery {
+        from: parse_day("from", &query.from)?,
+        to: parse_day("to", &query.to)?,
+        room_id: query
+            .room_id
+            .as_deref()
+            .map(|text| parse_id("room_id", text).map(RoomId::from_uuid))
+            .transpose()?,
+        practitioner_id: query
+            .practitioner_id
+            .as_deref()
+            .map(|text| parse_id("practitioner_id", text).map(PractitionerId::from_uuid))
+            .transpose()?,
+    })
+}
+
 /// Appointments starting on the clinic's local days `from` to `to`, cancelled ones included.
 #[utoipa::path(
     get,
@@ -190,30 +228,128 @@ pub(crate) async fn list(
     Require { request, .. }: Require<AppointmentsRead>,
     ApiQuery(query): ApiQuery<AppointmentQuery>,
 ) -> Result<Json<AppointmentList>, ApiFailure> {
-    let calendar = CalendarQuery {
-        from: parse_day("from", &query.from)?,
-        to: parse_day("to", &query.to)?,
-        room_id: query
-            .room_id
-            .as_deref()
-            .map(|text| parse_id("room_id", text).map(RoomId::from_uuid))
-            .transpose()?,
-        practitioner_id: query
-            .practitioner_id
-            .as_deref()
-            .map(|text| parse_id("practitioner_id", text).map(PractitionerId::from_uuid))
-            .transpose()?,
-    };
     let rows = app::list(
         state.db(),
         &request.actor,
         request.request_id,
-        calendar,
+        calendar_query(&query)?,
         OffsetDateTime::now_utc(),
     )
     .await?;
     Ok(Json(AppointmentList {
         items: rows.into_iter().map(Appointment::from).collect(),
+    }))
+}
+
+/// A visit with no appointment (a walk-in), as the calendar shows it.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CalendarWalkIn {
+    /// The visit.
+    #[schema(value_type = String)]
+    pub visit_id: Uuid,
+    /// The patient.
+    pub patient: PatientBrief,
+    /// The clinician's doctor record; left out when the clinician has none.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub practitioner: Option<PractitionerBrief>,
+    /// Chair or room of the visit's queue token; left out when it has none.
+    #[schema(value_type = Option<String>, required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room_id: Option<Uuid>,
+    /// The room's name; left out when there is no room.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room: Option<String>,
+    /// The day's queue token number, when the visit was started from a token.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_number: Option<i32>,
+    /// When the visit started (RFC 3339, UTC).
+    pub starts_at: String,
+    /// When the visit ended (RFC 3339, UTC); left out while it is open.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ends_at: Option<String>,
+    /// `open` or `closed`; treat other values as `open`.
+    pub status: String,
+}
+
+impl From<app::WalkInView> for CalendarWalkIn {
+    fn from(view: app::WalkInView) -> Self {
+        let row = view.row;
+        let practitioner = row.practitioner_id.map(|id| PractitionerBrief {
+            id,
+            display_name: row.practitioner_name.unwrap_or_default(),
+            calendar_color: row.practitioner_color,
+        });
+        Self {
+            visit_id: row.visit_id,
+            patient: PatientBrief::new(
+                row.patient_id,
+                row.patient_number,
+                row.patient_name,
+                row.patient_sex,
+                view.patient_age_years,
+                row.patient_registration_incomplete,
+            ),
+            practitioner,
+            room_id: row.room_id,
+            room: row.room_name,
+            token_number: row.token_number,
+            starts_at: rfc3339(row.starts_at),
+            ends_at: row.ends_at.map(rfc3339),
+            status: row.status,
+        }
+    }
+}
+
+/// Walk-ins in a range.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CalendarWalkInList {
+    /// By start.
+    pub items: Vec<CalendarWalkIn>,
+}
+
+/// Visits with no appointment that started on the clinic's local days `from` to `to`.
+/// Neither the visit nor its queue token is tied to an appointment, so nothing shows twice on
+/// the calendar. A member limited to their own sees only the visits they are the clinician of.
+/// `room_id` matches the chair of the visit's queue token and `practitioner_id` the
+/// clinician's doctor record; visits without one are left out by that filter.
+#[utoipa::path(
+    get,
+    path = "/api/v1/calendar/walk-ins",
+    operation_id = "listWalkIns",
+    tag = "appointments",
+    params(
+        ("from" = String, Query, description = "First local day, `YYYY-MM-DD`"),
+        ("to" = String, Query, description = "Last local day, `YYYY-MM-DD`; at most 42 days counting both"),
+        ("room_id" = Option<String>, Query, description = "Only this chair or room"),
+        ("practitioner_id" = Option<String>, Query, description = "Only this doctor")
+    ),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = CalendarWalkInList),
+        (status = 400, description = "Bad dates, ids, or a range over 42 days"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks appointments.read")
+    )
+)]
+pub(crate) async fn list_walk_ins(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<AppointmentsRead>,
+    ApiQuery(query): ApiQuery<AppointmentQuery>,
+) -> Result<Json<CalendarWalkInList>, ApiFailure> {
+    let rows = app::list_walk_ins(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        calendar_query(&query)?,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(CalendarWalkInList {
+        items: rows.into_iter().map(CalendarWalkIn::from).collect(),
     }))
 }
 

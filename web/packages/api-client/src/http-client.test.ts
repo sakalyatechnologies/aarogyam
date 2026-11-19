@@ -400,6 +400,37 @@ describe("createHttpClient requests", () => {
     expect((await bad.listMyTasks()).ok).toBe(false);
   });
 
+  it("lists walk-ins with the calendar's range and filters, reads optional fields and an unknown status, and checks the body", async () => {
+    const fixtures = createFixtures({ now: new Date("2026-10-03T05:30:00Z") });
+    const fake = createFakeBackend(fixtures).client({ host: "sunrise.localtest.me", getToken: () => fakeTokenFor({ id: "a1a1a1a1-0000-4000-8000-000000000003" }), now: () => new Date("2026-10-03T05:30:00Z") });
+    const patient = (await unwrap(fake.listAppointments({ from: "2026-01-01", to: "2026-12-31" }))).items[0]?.patient;
+    const bare = { visit_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405170", patient, starts_at: "2026-10-03T04:00:00Z", status: "open" };
+    const full = {
+      ...bare,
+      visit_id: "0192f1c4-7a10-7c3e-9b2a-1d2e3f405171",
+      practitioner: { id: "01a103b1-ea26-7120-ad93-41b6b4b4ebf3", display_name: "Dr Dev", calendar_color: "#336699" },
+      room_id: "01a103b1-ea26-7120-ad93-41b6b4b4ebf4",
+      room: "Chair 1",
+      token_number: 7,
+      ends_at: "2026-10-03T04:40:00Z",
+      status: "paused",
+    };
+    const { fetch, calls } = stubFetch(json(200, { items: [bare, full] }));
+    const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });
+    const result = await client.listWalkIns({ from: "2026-10-01", to: "2026-10-07", practitionerId: practitionerId.parse("01a103b1-ea26-7120-ad93-41b6b4b4ebf3") });
+    const url = new URL(calls[0]?.url ?? "");
+    expect(url.pathname).toBe("/api/v1/calendar/walk-ins");
+    expect(url.searchParams.get("from")).toBe("2026-10-01");
+    expect(url.searchParams.get("to")).toBe("2026-10-07");
+    expect(url.searchParams.get("practitioner_id")).toBe("01a103b1-ea26-7120-ad93-41b6b4b4ebf3");
+    expect(url.searchParams.has("room_id")).toBe(false);
+    expect(result.ok && result.value.items[0]?.practitioner).toBeUndefined();
+    expect(result.ok && result.value.items[1]?.status).toBe("paused");
+    expect(result.ok && result.value.items[1]?.token_number).toBe(7);
+    const bad = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch: stubFetch(json(200, { items: [{ ...bare, starts_at: 5 }] })).fetch });
+    expect((await bad.listWalkIns({ from: "2026-10-01", to: "2026-10-07" })).ok).toBe(false);
+  });
+
   it("searches with a POST body, so the search term never appears in a URL", async () => {
     const { fetch, calls } = stubFetch(json(200, { items: [] }));
     const client = createHttpClient("http://sunrise.localtest.me/", () => Promise.resolve("abc"), { fetch });

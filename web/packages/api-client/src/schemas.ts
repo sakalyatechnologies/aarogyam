@@ -620,6 +620,24 @@ export type Appointment = z.output<typeof appointment>;
 export const appointmentList = z.object({ items: z.array(appointment) }) satisfies z.ZodType<C.AppointmentList>;
 export type AppointmentPage = z.output<typeof appointmentList>;
 
+/** A visit with no appointment, as the calendar draws it. */
+export const calendarWalkIn = z.object({
+  visit_id: visitId,
+  patient: patientBrief,
+  practitioner: practitionerBrief.nullable().exactOptional(),
+  room: optionalText,
+  room_id: roomId.nullable().exactOptional(),
+  token_number: count.nullable().exactOptional(),
+  starts_at: timestamp,
+  ends_at: optionalTimestamp,
+  /** `open` or `closed`; an open string, so anything else reads as `open`. */
+  status: z.string(),
+}) satisfies z.ZodType<C.CalendarWalkIn>;
+export type CalendarWalkIn = z.output<typeof calendarWalkIn>;
+
+export const calendarWalkInList = z.object({ items: z.array(calendarWalkIn) }) satisfies z.ZodType<C.CalendarWalkInList>;
+export type CalendarWalkInPage = z.output<typeof calendarWalkInList>;
+
 /** Body of `POST /api/v1/appointments`. */
 export type NewAppointmentBody = C.NewAppointmentBody;
 /** Body of `PATCH /api/v1/appointments/{id}`. Fields left out stay as they are. */

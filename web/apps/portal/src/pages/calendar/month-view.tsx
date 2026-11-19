@@ -32,6 +32,7 @@ export function MonthView({
   month,
   today,
   items,
+  walkIns = {},
   away = [],
   onOpenDay,
   onSelect,
@@ -40,6 +41,8 @@ export function MonthView({
   month: string;
   today: string;
   items: readonly MonthItem[];
+  /** Walk-ins (visits with no appointment) per clinic-local date; counted in the day's number, not listed. */
+  walkIns?: Readonly<Record<string, number>>;
   away?: readonly MonthAway[];
   onOpenDay: (date: string) => void;
   onSelect: (id: string) => void;
@@ -63,18 +66,20 @@ export function MonthView({
         const day = byDay.get(date) ?? [];
         const more = day.length - SHOWN;
         const gone = awayByDay.get(date) ?? [];
+        const walkedIn = walkIns[date] ?? 0;
+        const total = day.length + walkedIn;
         return (
           <div key={date} className={`mk-mday ${date.startsWith(monthKey) ? "" : "out"} ${date === today ? "today" : ""}`} {...(date === today ? { "aria-current": "date" as const } : {})}>
             <button
               type="button"
               className="mk-mnum"
-              aria-label={`${date}, ${String(day.length)} ${day.length === 1 ? "appointment" : "appointments"}. Open day`}
+              aria-label={`${date}, ${String(day.length)} ${day.length === 1 ? "appointment" : "appointments"}${walkedIn === 0 ? "" : ` and ${String(walkedIn)} ${walkedIn === 1 ? "walk-in" : "walk-ins"}`}. Open day`}
               onClick={() => {
                 onOpenDay(date);
               }}
             >
               {Number(date.slice(8, 10))}
-              {day.length > 0 ? <span className="mk-mcount">{day.length}</span> : null}
+              {total > 0 ? <span className="mk-mcount">{total}</span> : null}
             </button>
             {gone.length === 0 ? null : gone.length <= SHOWN ? (
               gone.map((a) => (

@@ -3,7 +3,7 @@
 //! their hours is allowed with a warning, but one on leave is refused (`422 practitioner_on_leave`). Every change appends to the appointment's
 //! history, and arriving issues a queue token.
 
-use aarogyam_dal::appointments::{self as dal, AppointmentRow, Booking};
+use aarogyam_dal::appointments::{self as dal, AppointmentRow, Booking, WalkInRow};
 use aarogyam_dal::{clinic, patients, queue, schedule};
 use aarogyam_domain::access::{ClinicActor, Reach};
 use aarogyam_domain::ids::{
@@ -146,6 +146,63 @@ pub async fn list(
         Ok(rows
             .into_iter()
             .map(|row| AppointmentView::new(row, today))
+            .collect())
+    })
+    .await
+}
+
+/// A visit with no appointment, as the calendar shows it.
+#[derive(Debug, Clone)]
+pub struct WalkInView {
+    /// The stored visit with names.
+    pub row: WalkInRow,
+    /// The patient's age in whole years today.
+    pub patient_age_years: Option<u16>,
+}
+
+/// Visits with no appointment that started on the local days asked for, by start. Same range
+/// rule, permission and filters as [`list`]; a member limited to their own sees only visits
+/// they are the clinician of.
+///
+/// # Errors
+/// [`AppError::Invalid`] for a bad range; [`AppError::Db`] on failures.
+pub async fn list_walk_ins(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    query: CalendarQuery,
+    now: OffsetDateTime,
+) -> Result<Vec<WalkInView>, AppError> {
+    actor.require(Permission::AppointmentsRead)?;
+    let CalendarQuery {
+        from,
+        to,
+        room_id,
+        practitioner_id,
+    } = query;
+    let span = DateSpan::new(from, to).map_err(|error| AppError::invalid("to", error))?;
+    let today = clinic_today(&actor.timezone, now);
+    let (start, end) = days_bounds(&actor.timezone, span.from(), span.to());
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let rows = dal::list_walk_ins(
+            tx.conn(),
+            start,
+            end,
+            room_id.map(RoomId::uuid),
+            practitioner_id.map(PractitionerId::uuid),
+            actor.reach(Permission::AppointmentsRead).member(),
+        )
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| WalkInView {
+                patient_age_years: age_on(
+                    row.patient_date_of_birth,
+                    row.patient_birth_date_estimated,
+                    today,
+                ),
+                row,
+            })
             .collect())
     })
     .await

@@ -12,6 +12,7 @@ import {
   applications,
   staffSupportGrants,
   appointmentList,
+  calendarWalkInList,
   approvedApplication,
   attachment,
   availability,
@@ -430,6 +431,14 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         method: "GET",
         path: "/api/v1/appointments",
         schema: appointmentList,
+        query: { ...dateQuery(filter), room_id: filter.roomId, practitioner_id: filter.practitionerId },
+        signal: opts?.signal,
+      }),
+    listWalkIns: (filter, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/calendar/walk-ins",
+        schema: calendarWalkInList,
         query: { ...dateQuery(filter), room_id: filter.roomId, practitioner_id: filter.practitionerId },
         signal: opts?.signal,
       }),

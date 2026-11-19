@@ -2671,6 +2671,49 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ items } satisfies C.AppointmentList);
         }),
 
+      listWalkIns: (filter, opts) =>
+        respond(S.calendarWalkInList, opts?.signal, async () => {
+          const caller = await inClinic("appointments.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const fromIso = atLocalTime(filter.from, 0, caller.clinic.timezone).toISOString();
+          const toIso = atLocalTime(filter.to, 1440, caller.clinic.timezone).toISOString();
+          const now = clock();
+          const items = state.visits
+            .filter((v) => v.clinic_id === caller.clinic.id && v.appointment_id == null && v.started_at >= fromIso && v.started_at < toIso)
+            .sort((a, b) => a.started_at.localeCompare(b.started_at))
+            .flatMap((v): C.CalendarWalkIn[] => {
+              const token = v.queue_token_id == null ? undefined : state.queueTokens.find((t) => t.id === v.queue_token_id);
+              const patient = state.patients.find((p) => p.id === v.patient_id);
+              // A visit tied to an appointment through its token shows as that appointment.
+              if (patient === undefined || token?.appointment_id != null) {
+                return [];
+              }
+              const practitioner = state.practitioners.find((p) => p.clinic_id === caller.clinic.id && p.membership_id === v.clinician_membership_id && p.active);
+              const room = token?.room_id == null ? undefined : state.rooms.find((r) => r.id === token.room_id);
+              if (filter.roomId !== undefined && token?.room_id !== filter.roomId) {
+                return [];
+              }
+              if (filter.practitionerId !== undefined && practitioner?.id !== filter.practitionerId) {
+                return [];
+              }
+              return [
+                {
+                  visit_id: v.id,
+                  patient: wirePatientBrief(patient, now),
+                  ...(practitioner === undefined ? {} : { practitioner: wirePractitionerBrief(practitioner) }),
+                  ...(room === undefined ? {} : { room_id: room.id, room: room.name }),
+                  ...(token === undefined ? {} : { token_number: token.token_number }),
+                  starts_at: v.started_at,
+                  ...(v.ended_at == null ? {} : { ends_at: v.ended_at }),
+                  status: v.status,
+                },
+              ];
+            });
+          return reply({ items } satisfies C.CalendarWalkInList);
+        }),
+
       bookAppointment: (input, opts) =>
         respond(S.savedAppointment, opts?.signal, async () => {
           const caller = await inClinic("appointments.write");

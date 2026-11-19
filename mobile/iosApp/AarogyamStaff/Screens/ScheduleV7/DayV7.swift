@@ -58,10 +58,16 @@ struct DayV7Screen: View {
             selectedIndex: loaded.mode == .chair ? 1 : 0
         ) { holder.setMode(newMode: $0 == 0 ? .doctor : .chair) }
         if let error = loaded.error { Text(error.message).skTextStyle(SkTypeScale.footnote).foregroundStyle(theme.roles.error.color) }
+        if loaded.walkInsFailed {
+            Text("calendar.walk_ins_failed").skTextStyle(SkTypeScale.footnote).foregroundStyle(theme.roles.onSurfaceVariant.color)
+        }
         if loaded.entries.isEmpty {
             SkEmptyState(String(localized: "calendar.empty.title"), message: String(localized: "calendar.empty.message"))
         } else {
-            DayColumns(loaded: loaded, clinic: clinic) { detail = $0 }
+            // A walk-in has no appointment to show: it opens the patient.
+            DayColumns(loaded: loaded, clinic: clinic) { entry in
+                if entry.walkIn { onOpenPatient(entry.patientId) } else { detail = entry }
+            }
         }
     }
 
@@ -184,6 +190,9 @@ private struct DayColumns: View {
         }
         return Button { onSelect(entry) } label: {
             VStack(alignment: .leading, spacing: 0) {
+                if entry.walkIn {
+                    Text(String(localized: "calendar.walk_in").uppercased()).font(.system(size: 9.5, weight: .heavy)).tracking(0.4).lineLimit(1)
+                }
                 Text(entry.patientName).font(.system(size: 11.5, weight: .bold)).lineLimit(1)
                 if let reason = entry.reason { Text(reason).font(.system(size: 11)).lineLimit(1) }
             }
@@ -191,6 +200,12 @@ private struct DayColumns: View {
             .padding(.horizontal, 7).padding(.vertical, 6)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(bg.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                if entry.walkIn {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(ink.color.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                }
+            }
         }
         .buttonStyle(.skPressable)
     }

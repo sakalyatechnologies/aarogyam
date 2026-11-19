@@ -3,6 +3,7 @@ package com.aarogyam.staff.api
 import com.aarogyam.staff.api.model.AppointmentList
 import com.aarogyam.staff.api.model.Attachment
 import com.aarogyam.staff.api.model.AttachmentList
+import com.aarogyam.staff.api.model.CalendarWalkInList
 import com.aarogyam.staff.api.model.ClinicalFlags
 import com.aarogyam.staff.api.model.DentalChart
 import com.aarogyam.staff.api.model.DentalTerm
@@ -309,6 +310,20 @@ class ClinicApi(
     ): Outcome<AppointmentList, ApiError> =
         client.call {
             url("api/v1/appointments")
+            parameter("from", from)
+            parameter("to", to)
+        }
+
+    /**
+     * `GET /api/v1/calendar/walk-ins` (`listWalkIns`): visits without an appointment, the
+     * clinic's local days [from] to [to] (`YYYY-MM-DD`). Same range rules as [appointments].
+     */
+    suspend fun calendarWalkIns(
+        from: String,
+        to: String,
+    ): Outcome<CalendarWalkInList, ApiError> =
+        client.call {
+            url("api/v1/calendar/walk-ins")
             parameter("from", from)
             parameter("to", to)
         }

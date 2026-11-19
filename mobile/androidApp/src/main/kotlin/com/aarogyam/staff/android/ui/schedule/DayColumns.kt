@@ -22,6 +22,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
@@ -210,9 +214,18 @@ private fun Block(
     Column(
         modifier
             .background(bg.color, RoundedCornerShape(12.dp))
+            .then(if (e.walkIn) Modifier.dashedOutline(ink.color) else Modifier)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 7.dp, vertical = 6.dp),
     ) {
+        if (e.walkIn) {
+            Text(
+                stringResource(R.string.calendar_walk_in).uppercase(),
+                style = v7(9.5f, FontWeight.ExtraBold).copy(letterSpacing = 0.4.sp),
+                color = ink.color,
+                maxLines = 1,
+            )
+        }
         Text(
             e.patientName,
             style = v7(11.5f, FontWeight.Bold),
@@ -223,3 +236,18 @@ private fun Block(
         e.reason?.let { Text(it, style = v7(11f), color = ink.color, maxLines = 1, overflow = TextOverflow.Ellipsis) }
     }
 }
+
+/** The dashed edge that tells a walk-in from an appointment. */
+private fun Modifier.dashedOutline(color: androidx.compose.ui.graphics.Color): Modifier =
+    drawBehind {
+        val radius = 12.dp.toPx()
+        drawRoundRect(
+            color = color.copy(alpha = 0.7f),
+            cornerRadius = CornerRadius(radius),
+            style =
+                Stroke(
+                    width = 1.5.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())),
+                ),
+        )
+    }

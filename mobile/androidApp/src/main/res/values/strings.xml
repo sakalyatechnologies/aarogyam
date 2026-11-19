@@ -115,6 +115,8 @@
     <string name="calendar_next">Next day</string>
     <string name="calendar_column_count">%1$s (%2$d)</string>
     <string name="calendar_empty_title">No appointments</string>
+    <string name="calendar_walk_in">Walk-in</string>
+    <string name="calendar_walk_ins_failed">Walk-ins couldn\'t load; pull down to try again.</string>
     <string name="calendar_empty_message">Nothing is booked for this day.</string>
     <string name="calendar_not_allowed_title">Calendar isn\'t available</string>
     <string name="calendar_not_allowed_message">Your role can\'t see the schedule at this clinic.</string>

@@ -41,6 +41,9 @@ struct WeekV7Screen: View {
             Button { holder.next() } label: { V7Icon(name: "chev", size: 20, label: String(localized: "v7.week.next")).frame(width: 44, height: 44) }
         }
         .buttonStyle(.skPressable)
+        if loaded.walkInsFailed {
+            Text("calendar.walk_ins_failed").skTextStyle(SkTypeScale.footnote).foregroundStyle(r.onSurfaceVariant.color)
+        }
         SkCard {
             VStack(alignment: .leading, spacing: 10) {
                 SkHeatmap(

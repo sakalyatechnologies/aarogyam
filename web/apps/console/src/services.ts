@@ -6,6 +6,8 @@ import type { ConsoleEnv } from "./env.js";
 export interface ConsoleServices {
   api: ApiClient;
   auth: AuthClient;
+  /** Whether page counters go to the API: only against the real one. */
+  telemetry?: boolean;
 }
 
 async function supabaseAuth(config: { url: string; anonKey: string }): Promise<AuthClient> {
@@ -20,7 +22,7 @@ async function supabaseAuth(config: { url: string; anonKey: string }): Promise<A
 export async function createServices(env: ConsoleEnv): Promise<ConsoleServices> {
   if (env.apiMode === "http" && env.supabase !== null) {
     const auth = await supabaseAuth(env.supabase);
-    return { auth, api: createHttpClient(env.apiBaseUrl, auth.getAccessToken) };
+    return { auth, api: createHttpClient(env.apiBaseUrl, auth.getAccessToken), telemetry: true };
   }
   if (import.meta.env.PROD && env.apiMode === "http") {
     throw new Error("Sign-in is not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
@@ -38,7 +40,7 @@ export async function createServices(env: ConsoleEnv): Promise<ConsoleServices> 
         })
       : await supabaseAuth(env.supabase);
   if (env.apiMode === "http") {
-    return { auth, api: createHttpClient(env.apiBaseUrl, auth.getAccessToken) };
+    return { auth, api: createHttpClient(env.apiBaseUrl, auth.getAccessToken), telemetry: true };
   }
   // A real Supabase session stands in for the first seeded team member, so fake data still loads.
   const standIn = team[0]?.id ?? "";

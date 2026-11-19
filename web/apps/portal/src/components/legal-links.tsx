@@ -35,3 +35,12 @@ export function LegalLinks({ className = "" }: { className?: string }) {
     </nav>
   );
 }
+
+/** What the portal counts for Sakalya's console (docs/plans/console-insights-design.md, privacy notice). */
+export const USAGE_NOTICE =
+  "We count which pages are used and how fast they load, as totals for your clinic, to improve the product. We never record patient details, and never what any one person did.";
+
+/** The staff privacy line under the signed-in portal's legal links. */
+export function UsageNotice() {
+  return <p className="mk-usage-notice text-xs text-muted">{USAGE_NOTICE}</p>;
+}

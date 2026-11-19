@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { createBrowserRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 
-import { createQueryClient } from "@aarogyam/app-kit";
+import { createQueryClient, installPageTelemetry, watchRouteTemplate } from "@aarogyam/app-kit";
 import { AuthProvider } from "@aarogyam/auth";
 import { createTheme, preset } from "@sakalya/tokens";
 import { ThemeScope, ToastProvider } from "@sakalya/ui";
@@ -40,6 +40,13 @@ export function App({ services }: { services: PortalServices }) {
     }),
   );
   const [router] = useState(() => createBrowserRouter(routes));
+  // Error reports and page counters name the route template, never the address.
+  useEffect(() => watchRouteTemplate(router), [router]);
+  // Page counters for the console's Insights: signed-in staff, against the real API only.
+  useEffect(
+    () => (services.mode === "http" ? installPageTelemetry({ router, getToken: services.auth.getAccessToken }) : undefined),
+    [router, services],
+  );
   // Patient data fetched for one person never survives their sign-out on a shared PC.
   useEffect(
     () =>

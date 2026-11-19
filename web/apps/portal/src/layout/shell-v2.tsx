@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 
-import { LegalLinks } from "../components/legal-links.js";
+import { LegalLinks, UsageNotice } from "../components/legal-links.js";
 import { unwrap } from "@aarogyam/api-client";
 
 import { useClinic } from "../clinic.js";
@@ -295,6 +295,7 @@ function FrameV2() {
         </main>
         <footer className="mk-foot">
           <LegalLinks />
+          <UsageNotice />
         </footer>
       </div>
     </m.div>

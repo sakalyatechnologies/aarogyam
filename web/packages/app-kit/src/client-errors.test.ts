@@ -8,12 +8,14 @@ function setup() {
     addEventListener: (type: string, listener: (event: Event) => void) => { events.addEventListener(type, listener); },
     removeEventListener: (type: string, listener: (event: Event) => void) => { events.removeEventListener(type, listener); },
     dispatchEvent: (event: Event) => events.dispatchEvent(event),
+    // The address carries a record number; only the route template may leave the page.
     location: { pathname: "/patients/SC-1042" },
   };
   const sent: { url: string; body: unknown }[] = [];
   const stop = installClientErrorReporting({
     app: "portal",
     release: "1.0.0",
+    page: () => "/patients/:id",
     target,
     send: (url, body) => {
       const parsed: unknown = JSON.parse(body);
@@ -35,7 +37,7 @@ describe("installClientErrorReporting", () => {
     fire(target, "error", { error: new TypeError("x is undefined") });
     expect(sent).toHaveLength(1);
     expect(sent[0]?.url).toBe("/api/v1/client-errors");
-    expect(sent[0]?.body).toMatchObject({ app: "portal", kind: "error", name: "TypeError", message: "x is undefined", page: "/patients/SC-1042", release: "1.0.0" });
+    expect(sent[0]?.body).toMatchObject({ app: "portal", kind: "error", name: "TypeError", message: "x is undefined", page: "/patients/:id", release: "1.0.0" });
     expect(sent[0]?.body).toHaveProperty("stack");
   });
 

@@ -2,11 +2,14 @@
  * Sends uncaught browser errors to the API (`POST /api/v1/client-errors`), which scrubs them
  * and logs them where Google Cloud Error Reporting groups them with the server's errors.
  *
- * Only an error's name, message and stack are sent, plus the page's path, never its query,
- * fragment, form values or storage. The server scrubs again, but nothing here should need it.
+ * Only an error's name, message and stack are sent, plus the page's route template (such as
+ * `/patients/:id`, from the router; never the address, its query, fragment, form values or
+ * storage). The server scrubs again, but nothing here should need it.
  * At most MAX_REPORTS go out per page load and each distinct error once, so a render loop
  * cannot flood the endpoint. Reporting never throws and never blocks the page.
  */
+
+import { currentRouteTemplate } from "./route-template.js";
 
 const MAX_REPORTS = 5;
 
@@ -14,7 +17,6 @@ const MAX_REPORTS = 5;
 export interface ErrorTarget {
   addEventListener: (type: string, listener: (event: Event) => void) => void;
   removeEventListener: (type: string, listener: (event: Event) => void) => void;
-  location: { pathname: string };
 }
 
 export interface ClientErrorReportingOptions {
@@ -24,6 +26,8 @@ export interface ClientErrorReportingOptions {
   release?: string;
   /** Where the API is; defaults to this site's own origin, where the Worker proxies `/api`. */
   apiBase?: string;
+  /** The page's route template; defaults to the one `watchRouteTemplate` keeps. */
+  page?: () => string;
   /** For tests. */
   target?: ErrorTarget;
   /** For tests. */
@@ -78,7 +82,7 @@ export function installClientErrorReporting(options: ClientErrorReportingOptions
         name,
         message: message.slice(0, 500) || name,
         stack: stack?.slice(0, 3000),
-        page: target.location.pathname,
+        page: (options.page ?? currentRouteTemplate)(),
         release: options.release,
       };
       send(url, JSON.stringify(payload));

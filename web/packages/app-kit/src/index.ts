@@ -19,3 +19,5 @@ export { lazyPage, reloadOnceForNewVersion } from "./lazy-page.js";
 export { Markdown } from "./markdown-view.js";
 export { applyFormat, parseInline, parseMarkdown, validateMarkdown, type Block, type FormatKind, type FormatResult, type Inline } from "./markdown.js";
 export { installClientErrorReporting, type ClientErrorReportingOptions } from "./client-errors.js";
+export { errorClass, installPageTelemetry, MAX_QUEUED, type PageTelemetryOptions } from "./page-telemetry.js";
+export { currentRouteTemplate, routeTemplate, watchRouteTemplate, type TemplateRouter } from "./route-template.js";

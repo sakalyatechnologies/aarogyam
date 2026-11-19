@@ -36,7 +36,7 @@ import { ClinicMark } from "./clinic-mark.js";
 import { CommandPalette } from "./command-palette.js";
 import { useNewLook } from "../lib/new-look.js";
 import { useStoredFlag } from "./use-stored-flag.js";
-import { LegalLinks } from "../components/legal-links.js";
+import { LegalLinks, UsageNotice } from "../components/legal-links.js";
 import { PeekProvider } from "./peek.js";
 import { PageTransition } from "./page-transition.js";
 import { ProgressBar } from "./progress-bar.js";
@@ -547,6 +547,7 @@ function ShellFrame() {
         </main>
         <footer className="mk-foot">
           <LegalLinks />
+          <UsageNotice />
         </footer>
       </div>
     </div>

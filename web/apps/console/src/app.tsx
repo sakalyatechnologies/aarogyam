@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { createBrowserRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 
-import { createQueryClient } from "@aarogyam/app-kit";
+import { createQueryClient, installPageTelemetry, watchRouteTemplate } from "@aarogyam/app-kit";
 import { AuthProvider } from "@aarogyam/auth";
 import { createTheme, preset } from "@sakalya/tokens";
 import { ThemeScope, ToastProvider } from "@sakalya/ui";
@@ -39,6 +39,13 @@ export function App({ services }: { services: ConsoleServices }) {
     }),
   );
   const [router] = useState(() => createBrowserRouter(routes));
+  // Error reports and page counters name the route template, never the address.
+  useEffect(() => watchRouteTemplate(router), [router]);
+  // The console's own pages count too (no clinic), against the real API only.
+  useEffect(
+    () => (services.telemetry === true ? installPageTelemetry({ router, getToken: services.auth.getAccessToken }) : undefined),
+    [router, services],
+  );
   // Nothing fetched for one person survives their sign-out.
   useEffect(
     () =>

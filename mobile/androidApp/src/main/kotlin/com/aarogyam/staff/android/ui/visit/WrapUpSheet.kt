@@ -126,7 +126,12 @@ internal fun WrapUpSheet(
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.ML.dp)) {
             when (phase) {
                 is FinishPhase.Done -> {
-                    Celebration(phase.summary, clinic.billsLater, onCollect, onClose)
+                    Celebration(
+                        phase.summary,
+                        clinic.billsLater,
+                        onCollect,
+                        onClose,
+                    ) { WhatsAppSummary(clinic, visitId) }
                 }
 
                 FinishPhase.Finishing -> {
@@ -267,6 +272,7 @@ private fun Celebration(
     billsLater: Boolean,
     onCollect: (String?) -> Unit,
     onClose: () -> Unit,
+    whatsApp: @Composable () -> Unit,
 ) {
     val collected = summary.outcome == FinishOutcome.Collected
     val parts = mutableListOf(stringResource(R.string.vv_dv10_done_visit))
@@ -292,6 +298,7 @@ private fun Celebration(
             onCollect(summary.invoiceId)
         }, variant = SkButtonVariant.Secondary, modifier = Modifier.fillMaxWidth())
     }
+    whatsApp()
     SkButton(stringResource(R.string.vv_dv10_done_button), onClick = onClose, modifier = Modifier.fillMaxWidth())
 }
 

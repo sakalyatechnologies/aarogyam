@@ -13,6 +13,12 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
+    <!-- "Send on WhatsApp" hands the visit summary to WhatsApp Business or WhatsApp (Android 11+ package visibility). -->
+    <queries>
+        <package android:name="com.whatsapp.w4b" />
+        <package android:name="com.whatsapp" />
+    </queries>
+
     <!-- No backup or device transfer (see data_extraction_rules.xml). -->
     <application
         android:name=".AarogyamApp"

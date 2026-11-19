@@ -47,6 +47,7 @@ import com.aarogyam.staff.today.TodayStateHolder
 import com.aarogyam.staff.visit.RecallsStateHolder
 import com.aarogyam.staff.visit.VisitShareStateHolder
 import com.aarogyam.staff.visit.VisitStateHolder
+import com.aarogyam.staff.visit.WhatsAppSummaryStateHolder
 import com.aarogyam.staff.walkin.WalkInStateHolder
 import com.sakalya.mobile.design.ThemeMode
 import com.sakalya.mobile.http.PathNetworkMonitor
@@ -268,6 +269,13 @@ fun AppGraph.visitShare(
     visitId: String,
     screen: ScreenScope,
 ): VisitShareStateHolder = VisitShareStateHolder(clinic, visitId, screen.scope)
+
+/** "Send on WhatsApp" on the Done screen for [visitId], living as long as [screen]. */
+fun AppGraph.whatsAppSummary(
+    clinic: ClinicContext,
+    visitId: String,
+    screen: ScreenScope,
+): WhatsAppSummaryStateHolder = WhatsAppSummaryStateHolder(clinic, visitId, screen.scope)
 
 /** The family section for [patientId] (desk flow), living as long as [screen]. */
 fun AppGraph.family(

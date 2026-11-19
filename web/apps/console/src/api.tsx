@@ -95,6 +95,17 @@ export function useUsageInsights(range: MetricsRange) {
   });
 }
 
+/** This month's estimated cost; the API reads Cloud Run usage at most every 15 minutes. */
+export function useCostInsights() {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["insights", "cost"],
+    queryFn: ({ signal }) => unwrap(api.getCostInsights({ signal })),
+    staleTime: 300_000,
+    refetchInterval: 900_000,
+  });
+}
+
 export function useClinics() {
   const api = useApi();
   return useQuery({

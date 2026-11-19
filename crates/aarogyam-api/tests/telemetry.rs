@@ -481,11 +481,100 @@ async fn the_console_reads_pages_vitals_and_errors_with_small_numbers_hidden() {
     // Two views are too few to time.
     let queue = list.iter().find(|p| p["route"] == "/queue").unwrap();
     assert!(queue["visible_ms"].is_null() && queue["avg_visible_ms"].is_null());
-    assert_eq!(pages["roles"][0]["role_key"], "owner");
     let clinic = &pages["clinics"][0];
     assert_eq!(clinic["slug"], "alpha");
     assert_eq!(clinic["views"], 10);
     // Per clinic: totals only, no role and no page.
     assert!(clinic.get("role_key").is_none() && clinic.get("route").is_none());
+
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn roles_across_clinics_need_three_clinics() {
+    let app = TestApp::start().await;
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            "/api/v1/telemetry",
+            Some(&app.token(ALPHA_OWNER)),
+            Some(batch()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let staff = app.token(STAFF);
+    let (status, pages) = app
+        .send(
+            Method::GET,
+            CONSOLE,
+            "/api/v1/console/insights/pages?range=7d",
+            Some(&staff),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{pages}");
+    // One clinic: no role breakdown "across all clinics", which would be its own.
+    assert_eq!(pages["roles"], json!([]));
+    // Two clinics: still none.
+    let (status, _) = app
+        .send(
+            Method::POST,
+            BETA,
+            "/api/v1/telemetry",
+            Some(&app.token(BETA_OWNER)),
+            Some(batch()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, pages) = app
+        .send(
+            Method::GET,
+            CONSOLE,
+            "/api/v1/console/insights/pages?range=7d",
+            Some(&staff),
+            None,
+        )
+        .await;
+    assert_eq!(pages["roles"], json!([]));
+    // A third clinic with page counters: roles across all three show, naming none.
+    let (status, created) = app
+        .send(
+            Method::POST,
+            CONSOLE,
+            "/api/v1/console/clinics",
+            Some(&staff),
+            Some(json!({ "name": "Gamma Dental", "owner_email": "owner@gamma.test" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    sqlx::query(
+        "insert into private.ui_daily (org_id, day, app, route, views, visible_ms)
+         select o.id, (now() at time zone 'UTC')::date, 'portal', '/today', 1, 100
+         from aarogyam.organizations o where o.slug not in ('alpha', 'beta')
+         on conflict do nothing",
+    )
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let (status, pages) = app
+        .send(
+            Method::GET,
+            CONSOLE,
+            "/api/v1/console/insights/pages?range=7d",
+            Some(&staff),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{pages}");
+    assert_eq!(pages["roles"][0]["role_key"], "owner");
+    assert!(
+        pages["roles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|row| row.get("org_id").is_none())
+    );
     app.finish().await;
 }

@@ -106,7 +106,9 @@ create function app.console_ui_pages(p_from date, p_to date)
     order by a.app, sum(a.visible_ms) desc, a.route
   $$;
 
--- The same per role, across all clinics: no clinic is named or can be picked out.
+-- The same per role, across all clinics: no clinic is named. Portal roles are shown only when 3
+-- or more clinics sent page counters in the range, so a breakdown "across all clinics" can never
+-- be one or two clinics' own. The console's rows are Sakalya staff and always shown.
 create function app.console_ui_roles(p_from date, p_to date)
   returns table (app text, role_key text, views bigint, visible_ms bigint)
   language sql stable security definer set search_path = ''
@@ -114,6 +116,9 @@ create function app.console_ui_roles(p_from date, p_to date)
     select a.app, a.role_key, sum(a.views)::bigint, sum(a.visible_ms)::bigint
     from private.ui_daily_all a
     where a.day between p_from and p_to
+      and (a.app = 'console'
+           or (select count(distinct u.org_id) from private.ui_daily u
+                where u.day between p_from and p_to and u.app = 'portal') >= 3)
     group by a.app, a.role_key
     order by a.app, sum(a.visible_ms) desc, a.role_key
   $$;

@@ -53,7 +53,9 @@ describe("console", () => {
     expect(screen.getByRole("tab", { name: "Overview" })).toHaveProperty("ariaSelected", "true");
     expect(await screen.findByText("API success rate")).toBeTruthy();
     expect(screen.getByText("Source: Cloud Monitoring")).toBeTruthy();
-    expect(screen.getAllByText("Coming soon").length).toBe(2);
+    expect(screen.queryAllByText("Coming soon")).toHaveLength(0);
+    expect(await screen.findByText("Pages shown within 2.5 s")).toBeTruthy();
+    expect(await screen.findByText("Est. cost this month")).toBeTruthy();
     expect(screen.getByRole("radio", { name: "30 days" })).toBeTruthy();
   });
 
@@ -96,9 +98,11 @@ describe("console", () => {
     expect(screen.getAllByRole("link", { name: /Sunrise Dental/ }).length).toBeGreaterThan(0);
   });
 
-  it("shows front end and cost as coming soon", async () => {
-    renderConsole("/health?tab=cost", true);
-    expect(await screen.findByText("Cost coming soon")).toBeTruthy();
+  it("links the overview's front-end tile to the Front end tab", async () => {
+    renderConsole("/health?range=7d", true);
+    const tile = await screen.findByText("Pages shown within 2.5 s");
+    expect(tile.closest("a")?.getAttribute("href")).toBe("/health?tab=frontend&range=7d");
+    expect(screen.queryByText("Front end coming soon")).toBeNull();
   });
 });
 

@@ -1,14 +1,15 @@
-import { AlertTriangle, CheckCircle2, Clock3, Cloud, Database, Gauge, Globe, IndianRupee, OctagonAlert, Server, Timer, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, Cloud, Database, Gauge, OctagonAlert, Server, Timer, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
 import { metricsRange, type CloudMetrics, type Metrics, type MetricsRange } from "@aarogyam/api-client";
 import { ApiErrorNotice, DEFAULT_TIME_ZONE, formatBytes, formatMs, formatNumber, formatPercent, formatTime, useDocumentTitle } from "@aarogyam/app-kit";
-import { Card, DataTable, EmptyState, LineChart, PageHeader, Pill, RadioGroup, StatCard, Tabs, type DataTableColumn } from "@sakalya/ui";
+import { Card, DataTable, LineChart, PageHeader, Pill, RadioGroup, StatCard, Tabs, type DataTableColumn } from "@sakalya/ui";
 
 import { useMetrics, useUsageInsights } from "../../api.js";
+import { CostTab, CostTile } from "./cost-tab.js";
 import { DatabaseTab } from "./database-tab.js";
-import { FrontEndTab } from "./frontend-tab.js";
+import { FrontEndTab, FrontEndTile } from "./frontend-tab.js";
 import { ChartCard, LoadingCharts, RANGE_WORDS, one, xAxis } from "./insight-parts.js";
 import {
   HEALTH_TONE,
@@ -100,22 +101,10 @@ export function HealthPage() {
             content: <FrontEndTab range={range} />,
           },
           { value: "usage", label: "Usage", content: <UsageTab range={range} /> },
-          {
-            value: "cost",
-            label: "Cost",
-            content: <ComingSoon title="Cost coming soon" description="An estimate of this month's Cloud Run cost for the API and the outbox job, after the free tier." icon={<IndianRupee className="size-7" />} />,
-          },
+          { value: "cost", label: "Cost", content: <CostTab /> },
         ]}
       />
     </>
-  );
-}
-
-function ComingSoon({ title, description, icon }: { title: string; description: string; icon: ReactNode }) {
-  return (
-    <Card>
-      <EmptyState title={title} description={description} icon={icon} />
-    </Card>
   );
 }
 
@@ -179,8 +168,8 @@ function OverviewTab({ metrics, range, link }: { metrics: MetricsQuery; range: M
           href={link("usage")}
           footer={<p className="text-xs text-muted">{usage.isError ? "Couldn't load usage" : `All clinics, ${usageWords}`}</p>}
         />
-        <StatCard label="Front end" value="Coming soon" tone="neutral" icon={<Globe className="size-7" />} href={link("frontend")} />
-        <StatCard label="Cost" value="Coming soon" tone="neutral" icon={<IndianRupee className="size-7" />} href={link("cost")} />
+        <FrontEndTile href={link("frontend")} range={range} />
+        <CostTile href={link("cost")} />
       </div>
     </div>
   );

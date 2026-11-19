@@ -74,6 +74,32 @@ function goodShare(vitals: readonly VitalStat[], vital: VitalName): { share: num
   return { share: samples === 0 ? null : good / samples, samples };
 }
 
+/** The Overview tile: the share of page loads, portal and console together, whose main content showed within 2.5 s. */
+export function FrontEndTile({ href, range }: { href: string; range: MetricsRange }) {
+  const front = useFrontEndInsights(range);
+  const lcp = front.data?.vitals.filter((stat) => stat.vital === "lcp") ?? [];
+  const samples = lcp.reduce((sum, stat) => sum + stat.samples, 0);
+  const good = lcp.reduce((sum, stat) => sum + stat.good, 0);
+  const share = samples === 0 ? null : good / samples;
+  const footer = front.isPending
+    ? "Loading…"
+    : front.isError
+      ? "Couldn't load front-end numbers"
+      : share === null
+        ? "No page loads counted yet"
+        : `${formatNumber(samples)} page loads, portal and console`;
+  return (
+    <StatCard
+      label="Pages shown within 2.5 s"
+      value={share === null ? "—" : formatPercent(share, 0)}
+      tone={share === null ? "neutral" : share >= 0.75 ? "success" : share >= 0.5 ? "warning" : "danger"}
+      icon={<Timer className="size-7" />}
+      href={href}
+      footer={<p className="text-xs text-muted">{footer}</p>}
+    />
+  );
+}
+
 export function FrontEndTab({ range }: { range: MetricsRange }) {
   const front = useFrontEndInsights(range);
   if (front.isPending) {

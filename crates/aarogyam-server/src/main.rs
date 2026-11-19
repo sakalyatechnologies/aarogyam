@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use aarogyam_api::{AppState, DevTokens, Hosts, Insights, TokenCheck};
 use aarogyam_app::accounts::{SignInAccounts as _, SupabaseAdmin};
+use aarogyam_app::cloud_cost::CostPrices;
 use aarogyam_app::cloud_monitoring::CloudMonitoring;
 use aarogyam_app::files::{Files, LinkSigner, LocalDisk, Storage, SupabaseStorage};
 use aarogyam_app::review_account;
@@ -324,7 +325,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     }
     warn_on_local_site_addresses(&config.website.address_template, local);
     let state = state
-        .with_insights(insights(&config.insights))
+        .with_insights(insights(&config.insights, config.cost))
         .with_route_counters();
     let state = state
         .with_client_policy(clients)
@@ -343,7 +344,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
 
 /// Where the console's Insights page reads Cloud Run's metrics: Cloud Monitoring on Cloud Run
 /// (or as `insights.cloud_monitoring` says), otherwise the answering instance's own numbers.
-fn insights(settings: &InsightsSettings) -> Insights {
+fn insights(settings: &InsightsSettings, cost: CostPrices) -> Insights {
     let enabled = settings
         .cloud_monitoring
         .unwrap_or_else(CloudMonitoring::on_cloud_run);
@@ -361,6 +362,7 @@ fn insights(settings: &InsightsSettings) -> Insights {
     Insights {
         cloud,
         db_limit_bytes: settings.db_limit_mb.saturating_mul(1024 * 1024),
+        cost,
     }
 }
 

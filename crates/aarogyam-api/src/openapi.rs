@@ -231,6 +231,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::console::metrics,
         crate::v1::console::db_insights,
         crate::v1::console::usage_insights,
+        crate::v1::console_cost::cost_insights,
         crate::v1::quality::quality,
         crate::v1::onboarding::clinic,
         crate::v1::onboarding::invite,

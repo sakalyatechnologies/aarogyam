@@ -2190,6 +2190,34 @@
         ]
       }
     },
+    "/api/v1/console/insights/cost": {
+      "get": {
+        "tags": [
+          "console"
+        ],
+        "summary": "This month's estimated cost: Cloud Run's service and drain job after the free tier, month to\ndate and forecast, in USD and INR with GST apart; Supabase and Cloudflare free plans against\ntheir limits.",
+        "operationId": "getConsoleCostInsights",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostInsights"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not Sakalya staff"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/console/insights/db": {
       "get": {
         "tags": [
@@ -24400,6 +24428,217 @@
           "id": {
             "type": "string",
             "description": "The conversation."
+          }
+        }
+      },
+      "CostInsights": {
+        "type": "object",
+        "description": "This month's estimated cost: Cloud Run usage after the free tier, and free plans.",
+        "required": [
+          "generated_at",
+          "period_start",
+          "period_end",
+          "elapsed_fraction",
+          "source",
+          "items",
+          "inr_per_usd",
+          "gst_percent",
+          "label",
+          "billing_url"
+        ],
+        "properties": {
+          "billing_url": {
+            "type": "string",
+            "description": "The Google Cloud Billing console, for the real bill."
+          },
+          "elapsed_fraction": {
+            "type": "number",
+            "format": "double",
+            "description": "Share of the month that has passed, above 0 and at most 1."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why usage could not be read, such as `Cloud Monitoring: 403`; `null` when read or not set up."
+          },
+          "forecast_gst_inr": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "GST on `forecast_inr`."
+          },
+          "forecast_inr": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "`forecast_usd` in rupees, before GST."
+          },
+          "forecast_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "USD for the whole month at this month's pace; `null` when unavailable."
+          },
+          "generated_at": {
+            "type": "string",
+            "description": "When this was produced (RFC 3339)."
+          },
+          "gst_percent": {
+            "type": "number",
+            "format": "double",
+            "description": "The configured GST rate, percent."
+          },
+          "inr_per_usd": {
+            "type": "number",
+            "format": "double",
+            "description": "The configured rupees per dollar."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CostItem"
+            },
+            "description": "Cloud Run lines (service first, then the drain job), then Supabase and Cloudflare."
+          },
+          "label": {
+            "type": "string",
+            "description": "What the estimate covers, to show with it."
+          },
+          "period_end": {
+            "type": "string",
+            "description": "When usage was read up to (RFC 3339); now when `source` is `unavailable`."
+          },
+          "period_start": {
+            "type": "string",
+            "description": "The start of the month, midnight UTC (RFC 3339)."
+          },
+          "source": {
+            "type": "string",
+            "description": "`cloud_monitoring` (Cloud Run usage read) or `unavailable` (not on Google Cloud, or the\nread failed; see `error`). Cloud Run lines and totals are missing when unavailable."
+          },
+          "total_gst_inr": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "GST on `total_inr`."
+          },
+          "total_inr": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "`total_usd` in rupees, before GST."
+          },
+          "total_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "USD so far, Cloud Run only; `null` when unavailable."
+          }
+        }
+      },
+      "CostItem": {
+        "type": "object",
+        "description": "One line of the estimate.",
+        "required": [
+          "key",
+          "provider",
+          "resource",
+          "label",
+          "unit",
+          "cost_usd",
+          "forecast_usd"
+        ],
+        "properties": {
+          "cost_usd": {
+            "type": "number",
+            "format": "double",
+            "description": "USD so far after the free amount; `0` on free plans and context lines."
+          },
+          "forecast_usd": {
+            "type": "number",
+            "format": "double",
+            "description": "USD for the month at the same pace after the free amount."
+          },
+          "forecast_used": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Used by the end of the month at the same pace; `null` for plan limits and unknowns."
+          },
+          "free": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "The monthly free amount, or the free plan's limit; `null` when the line has none."
+          },
+          "free_left": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "What is left of `free`; `null` when either is unknown."
+          },
+          "key": {
+            "type": "string",
+            "description": "A stable key: `service_cpu`, `service_memory`, `service_requests`, `service_egress`,\n`service_billable`, `job_cpu`, `job_memory`, `job_billable`, `job_runs`, `supabase_db`,\n`cloudflare`."
+          },
+          "label": {
+            "type": "string",
+            "description": "What it is, in plain words."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "One line of context, such as `Free plan; usage isn't read here`."
+          },
+          "provider": {
+            "type": "string",
+            "description": "`cloud_run`, `supabase` or `cloudflare`."
+          },
+          "resource": {
+            "type": "string",
+            "description": "What it belongs to: `service` (the API), `job` (the outbox drain), `database` or `edge`."
+          },
+          "unit": {
+            "type": "string",
+            "description": "The unit of `used` and `free`: `vCPU-s`, `GiB-s`, `requests`, `GiB`, `s`, `runs` or `bytes`."
+          },
+          "unit_price_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "USD per unit beyond the free amount; `null` when not billed on its own."
+          },
+          "used": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Used this month so far (the database: its size now); `null` when not known."
           }
         }
       },

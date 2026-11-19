@@ -52,3 +52,25 @@ portal_link = "http://{host}:5173"
 [telemetry]
 format = "pretty"
 filter = "debug,hyper=info,sqlx=warn,h2=info"
+
+[cost]
+# The console's cost estimate: Cloud Run list prices (USD) and monthly free amounts, tier 1
+# (asia-south1); the same values are the code defaults. Check https://cloud.google.com/run/pricing
+# The service uses request-based billing (CPU and memory only while serving, plus a fee per
+# request); the drain job uses instance-based billing, with its own prices and free tier.
+service_vcpu_second_usd = 0.000024
+service_gib_second_usd = 0.0000025
+service_million_requests_usd = 0.40
+service_free_vcpu_seconds = 180000.0
+service_free_gib_seconds = 360000.0
+service_free_requests = 2000000.0
+job_vcpu_second_usd = 0.000018
+job_gib_second_usd = 0.000002
+job_free_vcpu_seconds = 240000.0
+job_free_gib_seconds = 450000.0
+# Internet egress, premium tier, first TiB. Cloud Run's free GiB is for North America only.
+egress_gib_usd = 0.12
+egress_free_gib = 0.0
+# Rupees per dollar for the INR figures; GST is shown separately.
+inr_per_usd = 88.0
+gst_percent = 18.0

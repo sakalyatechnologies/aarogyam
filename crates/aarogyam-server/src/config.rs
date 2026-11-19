@@ -8,6 +8,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 use std::path::Path;
 use std::time::Duration;
 
+use aarogyam_app::cloud_cost::CostPrices;
 use sakalya_config::{ConfigError, Environment, Loader};
 use sakalya_db::DbConfig;
 use sakalya_http::HttpConfig;
@@ -72,6 +73,9 @@ pub struct Config {
     /// The console's Insights page (`ARO_INSIGHTS__*`).
     #[serde(default)]
     pub insights: InsightsSettings,
+    /// List prices and free tiers for the console's cost estimate (`ARO_COST__*`).
+    #[serde(default)]
+    pub cost: CostPrices,
 }
 
 impl Config {

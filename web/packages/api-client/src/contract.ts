@@ -263,6 +263,13 @@ export type UsageDay = Schemas["UsageDay"];
 export type ClinicUsage = Schemas["ClinicUsage"];
 export type RoleUsage = Schemas["RoleUsage"];
 export type OnboardingClinic = Schemas["OnboardingClinic"];
+
+/** `GET /api/v1/console/insights/cost`: this month's estimated Cloud Run cost and free plans. */
+export type CostItem = Omit<Schemas["CostItem"], "provider"> & { provider: "cloud_run" | "supabase" | "cloudflare" };
+export type CostInsights = Omit<Schemas["CostInsights"], "source" | "items"> & {
+  source: "cloud_monitoring" | "unavailable";
+  items: CostItem[];
+};
 export type JourneyTimings = Schemas["JourneyTimings"];
 
 // Not in the spec -----------------------------------------------------------------------------

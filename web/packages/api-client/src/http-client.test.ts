@@ -477,6 +477,52 @@ describe("createHttpClient requests", () => {
     expect((await client.getFrontEndInsights("7d")).ok).toBe(false);
   });
 
+  it("reads the cost estimate, unavailable off Cloud Run with null totals, and checks the source", async () => {
+    const supabase = {
+      key: "supabase_db",
+      provider: "supabase",
+      resource: "database",
+      label: "Supabase database size",
+      unit: "bytes",
+      used: 180_000_000,
+      forecast_used: null,
+      free: 524_288_000,
+      free_left: 344_288_000,
+      unit_price_usd: null,
+      cost_usd: 0,
+      forecast_usd: 0,
+      note: "Free plan",
+    };
+    const cost = {
+      generated_at: "2026-11-19T10:00:00Z",
+      period_start: "2026-11-01T00:00:00Z",
+      period_end: "2026-11-19T10:00:00Z",
+      elapsed_fraction: 0.6,
+      source: "unavailable",
+      error: null,
+      items: [supabase],
+      total_usd: null,
+      forecast_usd: null,
+      inr_per_usd: 88,
+      gst_percent: 18,
+      total_inr: null,
+      total_gst_inr: null,
+      forecast_inr: null,
+      forecast_gst_inr: null,
+      label: "Estimate — this project only; the free tier is shared across the billing account",
+      billing_url: "https://console.cloud.google.com/billing",
+    };
+    const replies = [json(200, cost), json(200, { ...cost, source: "instance" })];
+    const { fetch, calls } = stubFetch(() => Promise.resolve(replies.shift() ?? json(500, {})));
+    const client = createHttpClient("http://console.localtest.me/", () => Promise.resolve("abc"), { fetch });
+
+    const read = await client.getCostInsights();
+    expect(calls[0]?.url).toBe("http://console.localtest.me/api/v1/console/insights/cost");
+    expect(read.ok && read.value.total_usd).toBeNull();
+    expect(read.ok && read.value.items[0]?.free_left).toBe(344_288_000);
+    expect((await client.getCostInsights()).ok).toBe(false);
+  });
+
   it("lists walk-ins with the calendar's range and filters, reads optional fields and an unknown status, and checks the body", async () => {
     const fixtures = createFixtures({ now: new Date("2026-10-03T05:30:00Z") });
     const fake = createFakeBackend(fixtures).client({ host: "sunrise.localtest.me", getToken: () => fakeTokenFor({ id: "a1a1a1a1-0000-4000-8000-000000000003" }), now: () => new Date("2026-10-03T05:30:00Z") });

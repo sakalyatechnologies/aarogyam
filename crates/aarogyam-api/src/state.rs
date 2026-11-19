@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use aarogyam_app::accounts::SignInAccounts;
+use aarogyam_app::cloud_cost::CostPrices;
 use aarogyam_app::cloud_monitoring::CloudMonitoring;
 use aarogyam_app::files::Files;
 use aarogyam_app::prescriptions::{AllergySource, RecordedAllergies};
@@ -197,6 +198,8 @@ pub struct Insights {
     pub cloud: Option<Arc<CloudMonitoring>>,
     /// The database plan's size limit, drawn on the size chart.
     pub db_limit_bytes: u64,
+    /// List prices and free tiers for the cost estimate.
+    pub cost: CostPrices,
 }
 
 impl Default for Insights {
@@ -204,6 +207,7 @@ impl Default for Insights {
         Self {
             cloud: None,
             db_limit_bytes: 500 * 1024 * 1024,
+            cost: CostPrices::default(),
         }
     }
 }

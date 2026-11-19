@@ -89,6 +89,7 @@ import {
   type FakeLabs,
   type FakeLabVendor,
 } from "./labs.js";
+import { createCostInsights } from "./cost.js";
 import { createDbInsights, createFrontEndInsights, createMetrics, createPageInsights, createRouteInsights, createUsageInsights } from "./metrics.js";
 import { QUICK_PICKS } from "./quick-picks.js";
 import { buildPage, checkChanges, cleanContent, isPhotoKind, parseDomain, photosOf, siteOf, wirePhoto, wireSettings, type FakePhoto } from "./website.js";
@@ -6424,6 +6425,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
       getUsageInsights: (range, opts) =>
         respond(S.usageInsights, opts?.signal, () => inConsole(() => reply(createUsageInsights(range, clock()) satisfies C.UsageInsights))),
+
+      getCostInsights: (opts) => respond(S.costInsights, opts?.signal, () => inConsole(() => reply(createCostInsights(clock()) satisfies C.CostInsights))),
 
       getQuality: (limit, opts) =>
         respond(S.qualityReport, opts?.signal, () =>

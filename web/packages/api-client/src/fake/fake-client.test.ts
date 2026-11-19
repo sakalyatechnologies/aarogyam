@@ -266,6 +266,20 @@ describe("fake client: console", () => {
     expect(pages.pages.filter((row) => row.views < 5).every((row) => row.visible_ms === null)).toBe(true);
     expect(pages.clinics.every((clinic) => !("role_key" in clinic))).toBe(true);
   });
+
+  it("estimates this month's cost after the free tier, with free plans as $0 rows, for staff only", async () => {
+    const { as } = setup();
+    const cost = value(await as(PEOPLE.admin).getCostInsights());
+    expect(cost.source).toBe("cloud_monitoring");
+    expect(cost.items.map((item) => item.provider)).toContain("supabase");
+    const cpu = cost.items.find((item) => item.key === "service_cpu");
+    expect(cpu?.free).toBe(180_000);
+    const total = cost.items.reduce((sum, item) => sum + item.cost_usd, 0);
+    expect(cost.total_usd).toBeCloseTo(total);
+    expect(cost.forecast_usd ?? 0).toBeGreaterThanOrEqual(cost.total_usd ?? 0);
+    expect(cost.total_gst_inr).toBeCloseTo((cost.total_inr ?? 0) * 0.18);
+    expect(errorOf(await as(PEOPLE.asha).getCostInsights())?.status).toBe(403);
+  });
 });
 
 describe("fake client: editing a patient", () => {

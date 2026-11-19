@@ -104,6 +104,21 @@ async fn database_samples_are_taken_at_most_every_five_minutes() {
     app.finish().await;
 }
 
+/// The last 7 days of usage, as Sakalya staff see them.
+async fn usage_week(app: &TestApp) -> serde_json::Value {
+    let (status, body) = app
+        .send(
+            Method::GET,
+            CONSOLE,
+            "/api/v1/console/insights/usage?range=7d",
+            Some(&app.token(STAFF)),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    body
+}
+
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
 async fn journeys_are_recorded_once_a_day_and_roles_need_three_people() {
@@ -147,16 +162,7 @@ async fn journeys_are_recorded_once_a_day_and_roles_need_three_people() {
         .await
         .unwrap();
 
-    let (status, body) = app
-        .send(
-            Method::GET,
-            CONSOLE,
-            "/api/v1/console/insights/usage?range=7d",
-            Some(&app.token(STAFF)),
-            None,
-        )
-        .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
+    let body = usage_week(&app).await;
     let clinics = body["clinics"].as_array().unwrap();
     let alpha_row = clinics.iter().find(|row| row["slug"] == "alpha").unwrap();
     assert_eq!(alpha_row["visits"], 0);
@@ -167,6 +173,33 @@ async fn journeys_are_recorded_once_a_day_and_roles_need_three_people() {
         serde_json::json!([{ "role_key": "doctor", "members": 3 }])
     );
     assert!(alpha_row["timings"]["visit_minutes"].is_null());
+    // With fewer than 3 clinics signed in, roles "across clinics" would be theirs: none shown.
+    assert_eq!(body["roles"], serde_json::json!([]));
+
+    // A third clinic, and someone signed in at each: now the breakdown shows.
+    let (status, created) = app
+        .send(
+            Method::POST,
+            CONSOLE,
+            "/api/v1/console/clinics",
+            Some(&app.token(STAFF)),
+            Some(serde_json::json!({ "name": "Gamma Dental", "owner_email": "owner@gamma.test" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    sqlx::query(
+        "insert into private.active_daily (org_id, day, role_key, members)
+         select o.id, d.day, 'doctor', 1
+         from aarogyam.organizations o,
+              (select day from private.journey_daily where org_id = $1) d
+         where o.id <> $1
+         on conflict (org_id, day, role_key) do nothing",
+    )
+    .bind(alpha)
+    .execute(owner.pool())
+    .await
+    .unwrap();
+    let body = usage_week(&app).await;
     // Across clinics every role shows, without naming a clinic.
     let roles = body["roles"].as_array().unwrap();
     let front_desk = roles.iter().find(|row| row["role_key"] == "front_desk");

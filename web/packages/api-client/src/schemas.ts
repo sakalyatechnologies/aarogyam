@@ -2973,6 +2973,13 @@ export type IssueRequest = C.IssueRequest;
 export const issueBlocked = z.object({ code: z.string(), alerts: z.array(alert) }) satisfies z.ZodType<C.IssueBlocked>;
 export type IssueBlocked = z.output<typeof issueBlocked>;
 
+/** Body of `POST /api/v1/patients/{id}/allergy-check`: medicines as they are added. */
+export type AllergyCheckRequest = C.AllergyCheckRequest;
+
+/** What the medicines meet in the patient's recorded allergies; empty when nothing matches. */
+export const allergyCheck = z.object({ alerts: z.array(alert) }) satisfies z.ZodType<C.AllergyCheck>;
+export type AllergyCheck = z.output<typeof allergyCheck>;
+
 /** Body of `POST /api/v1/prescriptions/{id}/cancel`. */
 export type CancelRequest = C.CancelRequest;
 

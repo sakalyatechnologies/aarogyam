@@ -8949,6 +8949,27 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ ...wirePrescription(found, state), patient_message: patientMessage } satisfies C.IssuedPrescription);
         }),
 
+      checkAllergies: (patientId, items, opts) =>
+        respond(S.allergyCheck, opts?.signal, async () => {
+          const caller = await inClinic("prescriptions.issue");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const patient = state.patients.find((p) => p.id === patientId && p.clinic_id === caller.clinic.id);
+          if (patient === undefined) {
+            return notFound;
+          }
+          if (items.length > 50) {
+            return invalid("items", "at most 50 medicines");
+          }
+          if (items.some((item) => item.drug_name.trim() === "")) {
+            return invalid("items.drug_name", "is required");
+          }
+          const lines = items.map((item) => ({ drug_id: item.drug_id ?? null, drug_name: item.drug_name }));
+          const alerts = findAllergyAlerts(state, patient.id, caller.clinic.id, lines, state.drugs);
+          return reply({ alerts: alerts.map((a) => ({ ...a, line_no: a.line_no ?? null, action: null, override_reason: null })) } satisfies C.AllergyCheck);
+        }),
+
       cancelPrescription: (id, input, opts) =>
         respond(S.cancelled, opts?.signal, async () => {
           const caller = await inClinic("prescriptions.issue");
@@ -12016,7 +12037,15 @@ function buildRxItems(items: readonly C.RxItem[]): { items: FakeRxItem[] } | { e
   return { items: built };
 }
 
-/** Matches a prescription's medicines against the patient's active allergies, by substance text. */
+/** A few allergy classes and the medicines in them, so the fake meets a penicillin allergy in
+ * "Amoxicillin + Clavulanic acid" as the API's catalogue does. */
+const ALLERGY_CLASSES: Record<string, readonly string[]> = {
+  penicillin: ["amoxicillin", "amoxycillin", "ampicillin", "augmentin", "cloxacillin"],
+  nsaid: ["aceclofenac", "diclofenac", "ibuprofen", "ketorolac", "naproxen"],
+};
+
+/** Matches a prescription's medicines against the patient's active allergies, by substance text
+ * or class. */
 function findAllergyAlerts(
   state: Fixtures,
   patientId: string,
@@ -12036,7 +12065,8 @@ function findAllergyAlerts(
       .map((n) => n.toLowerCase());
     for (const allergy of allergies) {
       const substance = allergy.substance.toLowerCase();
-      if (names.some((name) => name.includes(substance) || substance.includes(name))) {
+      const members = ALLERGY_CLASSES[substance] ?? [];
+      if (names.some((name) => name.includes(substance) || substance.includes(name) || members.some((m) => name.includes(m)))) {
         alerts.push({
           kind: "allergy",
           severity: allergy.severity === "severe" ? "serious" : allergy.severity === "moderate" ? "caution" : "info",

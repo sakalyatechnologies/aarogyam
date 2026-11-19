@@ -1,9 +1,10 @@
 /** Prescriptions: compose, issue with allergy alerts, cancel and reissue, share links. Kept
  * separate from `queries.ts` so this work never touches the same file as patients/visits. */
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   unwrap,
+  type AllergyCheckRequest,
   type CancelRequest,
   type DrugSearch,
   type IssueRequest,
@@ -21,6 +22,18 @@ export function useDrugSearch(input: DrugSearch) {
     queryKey: ["drugs", input.q, input.limit],
     queryFn: ({ signal }) => unwrap(api.searchDrugs(input, { signal })),
     enabled: (input.q ?? "").trim() !== "",
+  });
+}
+
+/** The patient's recorded allergies these medicines meet, checked as they are added; Issue
+ * checks again. */
+export function useAllergyCheck(patientId: PatientId, items: AllergyCheckRequest["items"]) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["allergy-check", access.org_id, patientId, items],
+    queryFn: ({ signal }) => unwrap(api.checkAllergies(patientId, items, { signal })),
+    enabled: items.length > 0,
+    placeholderData: keepPreviousData,
   });
 }
 

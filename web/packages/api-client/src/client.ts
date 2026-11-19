@@ -109,6 +109,8 @@ import type {
   CollectSummary,
   InvoicePage,
   IssueRequest,
+  AllergyCheck,
+  AllergyCheckRequest,
   Leave,
   LeaveId,
   LeavePage,
@@ -1078,6 +1080,8 @@ export interface ApiClient {
   editPrescription(id: PrescriptionId, input: RxValues, options?: RequestOptions): Promise<ApiResult<Prescription>>;
   /** Clinic host: issues a draft; `409` with alerts when an override reason is needed. Needs `prescriptions.issue`. */
   issuePrescription(id: PrescriptionId, input: IssueRequest, options?: RequestOptions): Promise<ApiResult<IssuedPrescription>>;
+  /** Clinic host: checks medicines against the patient's recorded allergies as they are added; writes nothing. Needs `prescriptions.issue`. */
+  checkAllergies(patientId: PatientId, items: AllergyCheckRequest["items"], options?: RequestOptions): Promise<ApiResult<AllergyCheck>>;
   /** Clinic host: cancels an issued prescription, starting a corrected draft by default. Needs `prescriptions.issue`. */
   cancelPrescription(id: PrescriptionId, input: CancelRequest, options?: RequestOptions): Promise<ApiResult<Cancelled>>;
   /** Clinic host: makes a seven-day link with a PIN for the patient to open the prescription. Needs `prescriptions.issue`. */

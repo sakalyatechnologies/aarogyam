@@ -93,6 +93,7 @@ import {
   practitioner,
   practitionerList,
   issuedPrescription,
+  allergyCheck,
   prescription,
   prescriptionList,
   priceItem,
@@ -1120,6 +1121,14 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "PATCH", path: `/api/v1/prescriptions/${encodeURIComponent(id)}`, schema: prescription, body: input, signal: opts?.signal }),
     issuePrescription: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/issue`, schema: issuedPrescription, body: input, signal: opts?.signal }),
+    checkAllergies: (patientId, items, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/patients/${encodeURIComponent(patientId)}/allergy-check`,
+        schema: allergyCheck,
+        body: { items },
+        signal: opts?.signal,
+      }),
     cancelPrescription: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/cancel`, schema: cancelled, body: input, signal: opts?.signal }),
     createShareLink: (id, opts) =>

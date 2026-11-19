@@ -10057,6 +10057,64 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/allergy-check": {
+      "post": {
+        "tags": [
+          "prescriptions"
+        ],
+        "summary": "Checks medicines against the patient's recorded allergies as they are added, before\nIssue. Writes nothing; Issue checks again.",
+        "operationId": "checkAllergies",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllergyCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllergyCheck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Too many medicines, or a blank name"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks prescriptions.issue"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/app-access": {
       "get": {
         "tags": [
@@ -20280,6 +20338,58 @@
               "null"
             ],
             "description": "The member who recorded or last confirmed it; null while a patient-reported allergy\nwaits for a clinician to confirm it."
+          }
+        }
+      },
+      "AllergyCheck": {
+        "type": "object",
+        "description": "What the medicines meet in the patient's recorded allergies.",
+        "required": [
+          "alerts"
+        ],
+        "properties": {
+          "alerts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Alert"
+            },
+            "description": "Empty when nothing matches."
+          }
+        }
+      },
+      "AllergyCheckItem": {
+        "type": "object",
+        "description": "A medicine to check.",
+        "required": [
+          "drug_name"
+        ],
+        "properties": {
+          "drug_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The catalogue entry, when picked from it."
+          },
+          "drug_name": {
+            "type": "string",
+            "description": "The name as added or typed."
+          }
+        }
+      },
+      "AllergyCheckRequest": {
+        "type": "object",
+        "description": "Medicines to check against the patient's recorded allergies.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AllergyCheckItem"
+            },
+            "description": "At most as many as a prescription holds."
           }
         }
       },

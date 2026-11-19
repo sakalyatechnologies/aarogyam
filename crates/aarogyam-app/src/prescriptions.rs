@@ -841,15 +841,34 @@ pub(crate) fn override_text(text: Option<&str>) -> Result<Option<String>, AppErr
     }
 }
 
+/// A medicine line as the allergy check reads it.
+#[derive(Debug, Clone, Copy)]
+struct CheckLine<'a> {
+    line_no: i16,
+    drug_id: Option<Uuid>,
+    /// As printed.
+    name: &'a str,
+}
+
+impl<'a> From<&'a RxItemRow> for CheckLine<'a> {
+    fn from(item: &'a RxItemRow) -> Self {
+        Self {
+            line_no: item.line_no,
+            drug_id: item.drug_id,
+            name: &item.drug_name,
+        }
+    }
+}
+
 /// The allergy classes of each line that names no catalogue row (typed, or added from a
 /// medicine set), from the rows its name matches, so "Amoxycillin 500 mg cap" still meets a
 /// penicillin allergy. Lines with a `drug_id` get none here: their row's classes apply.
 async fn classes_by_name(
     tx: &mut ScopedTx,
-    items: &[RxItemRow],
+    lines: &[CheckLine<'_>],
 ) -> Result<Vec<Vec<String>>, AppError> {
-    if items.iter().all(|item| item.drug_id.is_some()) {
-        return Ok(vec![Vec::new(); items.len()]);
+    if lines.iter().all(|line| line.drug_id.is_some()) {
+        return Ok(vec![Vec::new(); lines.len()]);
     }
     let rows = dal::drug_names(tx.conn()).await?;
     let catalog: Vec<rules::CatalogNames<'_>> = rows
@@ -860,16 +879,114 @@ async fn classes_by_name(
             allergy_classes: &row.allergy_classes,
         })
         .collect();
-    Ok(items
+    Ok(lines
         .iter()
-        .map(|item| {
-            if item.drug_id.is_none() {
-                rules::classes_for_name(&item.drug_name, &catalog)
+        .map(|line| {
+            if line.drug_id.is_none() {
+                rules::classes_for_name(line.name, &catalog)
             } else {
                 Vec::new()
             }
         })
         .collect())
+}
+
+/// The patient's recorded allergies that these medicine lines meet. Issue and the check as
+/// medicines are added both ask this, so the doctor sees the same alerts at both.
+async fn allergy_alerts_for(
+    tx: &mut ScopedTx,
+    allergy_source: &dyn AllergySource,
+    patient: PatientId,
+    lines: &[CheckLine<'_>],
+) -> Result<Vec<rules::AllergyAlert>, AppError> {
+    let ids: Vec<Uuid> = lines.iter().filter_map(|line| line.drug_id).collect();
+    let drugs = dal::drugs(tx.conn(), &ids).await?;
+    let by_name = classes_by_name(tx, lines).await?;
+    let checked: Vec<CheckedDrug<'_>> = lines
+        .iter()
+        .zip(&by_name)
+        .map(|(line, named)| CheckedDrug {
+            line_no: u16::try_from(line.line_no).unwrap_or(0),
+            name: line.name,
+            classes: line
+                .drug_id
+                .and_then(|drug| drugs.iter().find(|d| d.id == drug))
+                .map_or(named, |d| &d.allergy_classes),
+        })
+        .collect();
+    let allergies = allergy_source.allergies(tx, patient).await?;
+    Ok(rules::allergy_alerts(&checked, &allergies))
+}
+
+/// An alert the doctor has not acted on yet.
+fn asking(alert: rules::AllergyAlert) -> AlertView {
+    AlertView {
+        line_no: i16::try_from(alert.line_no).ok(),
+        kind: "allergy".into(),
+        severity: alert.severity.as_str().into(),
+        message: alert.message,
+        action: None,
+        override_reason: None,
+    }
+}
+
+/// A medicine to check before it is on the prescription.
+#[derive(Debug, Clone)]
+pub struct AllergyCheckItem {
+    /// The catalogue entry.
+    pub drug_id: Option<Uuid>,
+    /// The name as added or typed.
+    pub drug_name: String,
+}
+
+/// Checks medicines against the patient's recorded allergies as they are added, so the doctor
+/// learns before Issue. Writes nothing; Issue checks again.
+///
+/// # Errors
+/// [`AppError::Denied`] without `prescriptions.issue`; [`AppError::NotFound`] for an unknown
+/// patient; [`AppError::Invalid`] for too many lines or a blank or long name.
+pub async fn check_allergies(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    patient_id: PatientId,
+    items: Vec<AllergyCheckItem>,
+    allergy_source: &dyn AllergySource,
+) -> Result<Vec<AlertView>, AppError> {
+    actor.require(Permission::PrescriptionsIssue)?;
+    if items.len() > MAX_LINES {
+        return Err(AppError::invalid("items", RxError::TooManyLines));
+    }
+    let names = items
+        .iter()
+        .map(|item| {
+            rules::required_text(&item.drug_name, 200)
+                .map(|name| printed_name(&name))
+                .map_err(rx("items.drug_name"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        patients::get(
+            tx.conn(),
+            patient_id.uuid(),
+            actor.reach(Permission::PrescriptionsIssue).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("patient"))?;
+        let lines: Vec<CheckLine<'_>> = items
+            .iter()
+            .zip(&names)
+            .enumerate()
+            .map(|(index, (item, name))| CheckLine {
+                line_no: i16::try_from(index + 1).unwrap_or(i16::MAX),
+                drug_id: item.drug_id,
+                name,
+            })
+            .collect();
+        let alerts = allergy_alerts_for(tx, allergy_source, patient_id, &lines).await?;
+        Ok(alerts.into_iter().map(asking).collect())
+    })
+    .await
 }
 
 /// [`issue`] inside the caller's clinic transaction. Nothing is written when it answers
@@ -905,38 +1022,12 @@ pub(crate) async fn issue_in(
     if items.is_empty() {
         return Err(AppError::invalid("items", RxError::NoLines));
     }
-    let ids: Vec<Uuid> = items.iter().filter_map(|item| item.drug_id).collect();
-    let drugs = dal::drugs(tx.conn(), &ids).await?;
-    let by_name = classes_by_name(tx, &items).await?;
-    let checked: Vec<CheckedDrug<'_>> = items
-        .iter()
-        .zip(&by_name)
-        .map(|(item, named)| CheckedDrug {
-            line_no: u16::try_from(item.line_no).unwrap_or(0),
-            name: &item.drug_name,
-            classes: item
-                .drug_id
-                .and_then(|drug| drugs.iter().find(|d| d.id == drug))
-                .map_or(named, |d| &d.allergy_classes),
-        })
-        .collect();
-    let allergies = allergy_source
-        .allergies(tx, PatientId::from_uuid(patient_id))
-        .await?;
-    let alerts = rules::allergy_alerts(&checked, &allergies);
+    let lines: Vec<CheckLine<'_>> = items.iter().map(CheckLine::from).collect();
+    let alerts =
+        allergy_alerts_for(tx, allergy_source, PatientId::from_uuid(patient_id), &lines).await?;
     if !alerts.is_empty() && override_reason.is_none() {
         return Ok(IssueOutcome::NeedsOverride(
-            alerts
-                .into_iter()
-                .map(|alert| AlertView {
-                    line_no: i16::try_from(alert.line_no).ok(),
-                    kind: "allergy".into(),
-                    severity: alert.severity.as_str().into(),
-                    message: alert.message,
-                    action: None,
-                    override_reason: None,
-                })
-                .collect(),
+            alerts.into_iter().map(asking).collect(),
         ));
     }
     record_overrides(tx, actor, id, &items, &alerts, override_reason.as_ref()).await?;

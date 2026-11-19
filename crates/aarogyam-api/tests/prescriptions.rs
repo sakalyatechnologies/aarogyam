@@ -636,6 +636,81 @@ async fn lines_without_a_catalogue_row_still_meet_the_allergy_check() {
     app.finish().await;
 }
 
+async fn rx_rows(app: &TestApp) -> i64 {
+    sqlx::query_scalar(
+        "select (select count(*) from aarogyam.prescriptions)
+              + (select count(*) from aarogyam.prescription_items)
+              + (select count(*) from aarogyam.prescription_alerts)",
+    )
+    .fetch_one(&app.owner)
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn medicines_are_checked_for_allergies_as_they_are_added() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let beta = app.token(BETA_OWNER);
+    let patient = patient(&app, ALPHA, &owner).await;
+    let allergy = json!({ "substance": "Penicillin", "severity": "severe" });
+    let (status, body) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/allergies"),
+            Some(&owner),
+            Some(allergy),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let before = rx_rows(&app).await;
+    let path = format!("/api/v1/patients/{patient}/allergy-check");
+    let check = |name: &str| json!({ "items": [{ "drug_name": "Paracetamol 650" }, { "drug_name": name }] });
+
+    let (status, body) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &path,
+            Some(&owner),
+            Some(check("Amoxycillin 500 mg cap")),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let alerts = body["alerts"].as_array().unwrap();
+    assert_eq!(alerts.len(), 1, "{body}");
+    assert_eq!(alerts[0]["line_no"], 2);
+    assert_eq!(alerts[0]["severity"], "serious");
+
+    let (status, body) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &path,
+            Some(&owner),
+            Some(check("Paracetamol 500")),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["alerts"], json!([]));
+
+    let (status, _) = app
+        .send(
+            Method::POST,
+            BETA,
+            &path,
+            Some(&beta),
+            Some(check("Amoxycillin 500 mg cap")),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "another clinic's patient");
+
+    assert_eq!(rx_rows(&app).await, before, "a check writes nothing");
+    app.finish().await;
+}
+
 async fn patient_with(app: &TestApp, token: &str, extra: Value) -> String {
     let mut body = json!({ "full_name": "Rahul Verma", "sex": "male", "age_years": 40 });
     body.as_object_mut()

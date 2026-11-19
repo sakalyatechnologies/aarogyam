@@ -64,19 +64,25 @@ describe("Prescriptions", () => {
     }
   });
 
-  it("adds a whole medicine set in one tap, each line still editable", async () => {
+  it("adds a whole medicine set in one tap, each line still editable, warning of an allergy before Issue", async () => {
     const user = userEvent.setup();
     let patientPath = "";
     const backend = fakeApi((fixtures) => {
       const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
-      const patient = fixtures.patients.find((p) => p.clinic_id === sunrise?.id);
-      patientPath = `/patients/${patient?.id ?? ""}/prescriptions`;
+      const allergy = fixtures.allergies.find((a) => a.clinic_id === sunrise?.id && a.substance === "Penicillin");
+      patientPath = `/patients/${allergy?.patient_id ?? ""}/prescriptions`;
     });
     renderPortal(patientPath, { as: PEOPLE.asha, backend });
     await user.click(await screen.findByRole("button", { name: "New prescription" }));
+    expect(screen.queryByText("Allergy warning")).toBeNull();
     await user.click(await screen.findByRole("button", { name: /Post-extraction/ }));
     expect(await screen.findByText(/Post-extraction: \d+ medicines added/)).toBeTruthy();
     expect(screen.getAllByPlaceholderText("Medicine name").length).toBeGreaterThan(1);
+    // Warned as the set lands, before Issue, without blocking anything.
+    const warning = (await screen.findByText("Allergy warning")).closest('[role="alert"]');
+    expect(warning?.textContent).toMatch(/amoxicillin.*penicillin/i);
+    expect(screen.queryByRole("heading", { name: "Allergy alert" })).toBeNull();
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Issue prescription" }).disabled).toBe(false);
   });
 
   it("starts Quick Rx from the last issued prescription", async () => {

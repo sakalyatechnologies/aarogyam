@@ -642,6 +642,74 @@ pub(crate) async fn issue(
     })
 }
 
+/// A medicine to check.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct AllergyCheckItem {
+    /// The catalogue entry, when picked from it.
+    #[schema(value_type = Option<String>)]
+    pub drug_id: Option<Uuid>,
+    /// The name as added or typed.
+    pub drug_name: String,
+}
+
+/// Medicines to check against the patient's recorded allergies.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct AllergyCheckRequest {
+    /// At most as many as a prescription holds.
+    pub items: Vec<AllergyCheckItem>,
+}
+
+/// What the medicines meet in the patient's recorded allergies.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct AllergyCheck {
+    /// Empty when nothing matches.
+    pub alerts: Vec<Alert>,
+}
+
+/// Checks medicines against the patient's recorded allergies as they are added, before
+/// Issue. Writes nothing; Issue checks again.
+#[utoipa::path(
+    post,
+    path = "/api/v1/patients/{id}/allergy-check",
+    operation_id = "checkAllergies",
+    tag = "prescriptions",
+    params(("id" = String, Path, description = "The patient")),
+    request_body = AllergyCheckRequest,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = AllergyCheck),
+        (status = 400, description = "Too many medicines, or a blank name"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks prescriptions.issue"),
+        (status = 404, description = "No such patient in this clinic")
+    )
+)]
+pub(crate) async fn check_allergies(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<PrescriptionsIssue>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<AllergyCheckRequest>,
+) -> Result<Json<AllergyCheck>, ApiFailure> {
+    let alerts = app::check_allergies(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PatientId::from_uuid(id),
+        body.items
+            .into_iter()
+            .map(|item| app::AllergyCheckItem {
+                drug_id: item.drug_id,
+                drug_name: item.drug_name,
+            })
+            .collect(),
+        state.allergies(),
+    )
+    .await?;
+    Ok(Json(AllergyCheck {
+        alerts: alerts.into_iter().map(Alert::from).collect(),
+    }))
+}
+
 /// Cancelling a prescription.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CancelRequest {

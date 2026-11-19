@@ -831,6 +831,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(prescriptions::for_patient).post(prescriptions::create),
         )
         .route(
+            "/patients/{id}/allergy-check",
+            post(prescriptions::check_allergies),
+        )
+        .route(
             "/patients/{id}/prescriptions/last",
             get(prescriptions::last),
         )

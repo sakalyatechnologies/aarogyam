@@ -83,7 +83,7 @@ Commit the bump before uploading. Keep the two marketing versions equal.
   - `review_information/notes.txt` tells the reviewer to use "Use a password" with the demo account. That is the owner of a synthetic demo clinic on prod, created by the backend's script.
   - The account is `review-aarogyam@gmail.com` (`review_information/demo_user.txt`). Its password is in the macOS Keychain as "Aarogyam store reviewer" (Keychain Access, or `security find-generic-password -s "Aarogyam store reviewer" -w`); never in git or chat.
   - `demo_password.txt` is git-ignored and filled from the Keychain, so `fastlane ios metadata` sends it; type it into the Play Console's App access page.
-  - The backend's `aarogyam admin review-account` reads the same Keychain entry into `ARO_REVIEW_PASSWORD`.
+  - The backend's `aarogyam admin review-account` reads the same Keychain entry into `AAROGYAM_REVIEW_PASSWORD` (not `ARO_*`: the strict config loader refuses unknown `ARO_` variables).
   - Add a contact phone number in `phone_number.txt`.
 - **Privacy:**
   - `iosApp/AarogyamStaff/PrivacyInfo.xcprivacy` declares the collected data (email, name, user id, health, photos, other content; all linked, for app functionality, no tracking) and the required-reason APIs.

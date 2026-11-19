@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -497,6 +497,34 @@ describe("tooth health and a quick note", () => {
     });
   });
 
+  it("dictates the tooth note like visit notes: words show as heard, a pause doesn't end it, stopping keeps them", async () => {
+    installVoiceDoubles();
+    const user = userEvent.setup();
+    const { path, backend, wrap, statuses } = seeded(() => [{ id: uuid(2), tooth: 26, finding: "watch" }]);
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const panel = await pickTooth(user, 26);
+    await user.click(within(panel).getByRole("button", { name: "Dictate the note" }));
+    const recogniser = FakeRecognition.instances.at(-1);
+    act(() => {
+      recogniser?.say("deep caries", true);
+    });
+    // The browser ends recognition after a silence: it starts again rather than stopping.
+    act(() => {
+      recogniser?.onend?.();
+    });
+    expect(recogniser?.started).toBe(2);
+    expect(statuses).toEqual([]);
+    act(() => {
+      recogniser?.say("distal", false);
+    });
+    expect(within(panel).getByText("distal")).toBeTruthy();
+    await user.click(within(panel).getByRole("button", { name: "Stop dictating" }));
+    await waitFor(() => {
+      expect(statuses.at(-1)?.input).toMatchObject({ note: "deep caries distal" });
+    });
+    expect(recogniser?.aborted).toBe(true);
+  });
+
   it("starts dictating on a long press, while a click stays a plain select", async () => {
     installVoiceDoubles();
     const user = userEvent.setup();
@@ -516,6 +544,24 @@ describe("tooth health and a quick note", () => {
       expect(FakeRecognition.instances.at(-1)?.started).toBe(1);
     });
     expect(within(panel).getByRole("button", { name: "Stop dictating" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("shows the health set for a tooth on the Classic chart too: a coloured dot and the hover text", async () => {
+    localStorage.setItem(chartPrefsKey(PEOPLE.asha), JSON.stringify({ look: "classic", dentition: "adult", view: "treatment" }));
+    const user = userEvent.setup();
+    const { path, backend, wrap } = seeded();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    await ready();
+    fireEvent.click(tooth(23));
+    const panel = await screen.findByRole("complementary", { name: "Tooth 23 panel" });
+    await user.click(within(panel).getByRole("button", { name: /Needs treatment/ }));
+    fireEvent.click(tooth(24));
+    await waitFor(() => {
+      expect(tooth(23).getAttribute("data-health")).toBe("needs_treatment");
+    });
+    expect(tooth(23).querySelector("title")?.textContent).toMatch(/Needs treatment$/);
+    expect(tooth(23).querySelector(".odo-health")).not.toBeNull();
+    expect(tooth(24).getAttribute("data-health")).toBeNull();
   });
 
   it("starts dictating on a long press in the Classic look too", async () => {

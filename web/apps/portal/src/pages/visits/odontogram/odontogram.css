@@ -135,3 +135,12 @@
 .odo-more > summary::-webkit-details-marker { display: none; }
 .odo-more > summary:focus-visible { outline: 2px solid var(--odo-focus); outline-offset: 2px; }
 .odo-more-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; display: grid; gap: 8px; padding: 10px; border: 1px solid var(--odo-border); border-radius: 14px; background: var(--odo-surface); box-shadow: 0 12px 30px -12px rgba(0, 0, 0, .3); white-space: nowrap; }
+
+/* The doctor's health status of a tooth (set in the tooth panel): a dot by the root, in the same colours as the other chart looks. */
+.odo-health { stroke: var(--odo-surface); stroke-width: 1.5; fill: var(--odo-muted); }
+.odo-tooth[data-health="healthy"] .odo-health { fill: var(--odo-success); }
+.odo-tooth[data-health="watch"] .odo-health { fill: var(--odo-warning); }
+.odo-tooth[data-health="needs_treatment"] .odo-health { fill: var(--odo-danger); }
+.odo-tooth[data-health="healthy"] .odo-number { fill: var(--odo-success); font-weight: 700; }
+.odo-tooth[data-health="watch"] .odo-number { fill: var(--odo-warning); font-weight: 700; }
+.odo-tooth[data-health="needs_treatment"] .odo-number { fill: var(--odo-danger); font-weight: 700; }

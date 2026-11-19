@@ -110,11 +110,11 @@ export function HealthRow({ patientId, tooth, entries, status, canWrite, who, di
   const dictation = useNoteDictation({
     language,
     onPhrase: (phrase) => {
-      setNote((before) => {
-        const next = before.trim() === "" ? phrase : `${before.trim()} ${phrase}`;
-        noteRef.current = next;
-        return next;
-      });
+      // Straight from the ref, so a phrase kept on stop is already in the note that onEnd saves.
+      const before = noteRef.current.trim();
+      const next = before === "" ? phrase : `${before} ${phrase}`;
+      noteRef.current = next;
+      setNote(next);
     },
     onEnd: () => {
       saveNote(noteRef.current);
@@ -210,6 +210,16 @@ export function HealthRow({ patientId, tooth, entries, status, canWrite, who, di
           </select>
         ) : null}
       </form>
+      {dictation.listening ? (
+        <p className="tc-meta tc-heard" aria-live="polite">
+          {dictation.interim === "" ? "Listening… tap the mic again to save." : dictation.interim}
+        </p>
+      ) : null}
+      {dictation.problem === undefined ? null : (
+        <p role="alert" className="tc-meta">
+          {dictation.problem}
+        </p>
+      )}
       {hint === undefined ? null : (
         <p role="alert" className="tc-meta">
           {hint}

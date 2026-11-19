@@ -19,6 +19,7 @@ import {
   type ArchName,
   type Dentition,
 } from "./model.js";
+import { healthLabel } from "../../patients/v2/tooth-chart/model.js";
 import { FindingSwatch, OdontogramDefs, StatusGlyph, ToothSvg } from "./tooth-svg.js";
 import { ToothPanel } from "./tooth-panel.js";
 
@@ -62,6 +63,7 @@ export function Odontogram({ patientId, chart, planItems, onRecord, panel, shown
   const touch = useRef<{ x: number; y: number } | undefined>(undefined);
 
   const states = toothStates(chart.current, treatmentsByTooth(planItems));
+  const healthOf = new Map((chart.statuses ?? []).map((s) => [s.tooth, { value: s.health, label: healthLabel(s.health), note: s.note }]));
   const arches = ARCHES[dentition];
   const layouts = { upper: layoutArch(arches.upper, "upper"), lower: layoutArch(arches.lower, "lower") };
   const summary = summarise([...arches.upper, ...arches.lower], states);
@@ -308,6 +310,7 @@ export function Odontogram({ patientId, chart, planItems, onRecord, panel, shown
                         onSelect={select}
                         onFocusTooth={setFocusTooth}
                         onLongPress={onLongPress}
+                        health={healthOf.get(placed.tooth)}
                       />
                     ))}
                   </svg>

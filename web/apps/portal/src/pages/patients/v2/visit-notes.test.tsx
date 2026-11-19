@@ -106,6 +106,56 @@ describe("Voice typing in the visit's notes", () => {
     expect(screen.queryByText(/no transcript/)).toBeNull();
   });
 
+  it("lets the doctor fix the transcript while paused, then dictate on and save the fixed text", async () => {
+    const user = userEvent.setup();
+    installVoiceDoubles();
+    const { path, backend } = patientWithBackend();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await startVisit(user);
+    await speak(
+      user,
+      (r) => {
+        r.say("pain on the lower lift", true);
+      },
+      false,
+    );
+    await user.click(screen.getByRole("button", { name: "Pause" }));
+    const box = screen.getByRole("textbox", { name: "Transcript" });
+    await user.clear(box);
+    await user.type(box, "pain on the lower left");
+    await user.click(screen.getByRole("button", { name: "Resume" }));
+    act(() => {
+      FakeRecognition.instances.at(-1)?.say("since two days", true);
+    });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(lines().map((li) => li.textContent)).toEqual([expect.stringMatching(/^\d\d:\d\dpain on the lower left since two days$/)]);
+    });
+  });
+
+  it("discards the note being recorded only after a second tap", async () => {
+    const user = userEvent.setup();
+    installVoiceDoubles();
+    const { path, backend } = patientWithBackend();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await startVisit(user);
+    await speak(
+      user,
+      (r) => {
+        r.say("wrong patient", true);
+      },
+      false,
+    );
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+    await user.click(screen.getByRole("button", { name: "Keep" }));
+    expect(screen.getByLabelText("Live transcript").textContent).toContain("wrong patient");
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+    await user.click(screen.getByRole("button", { name: "Yes, discard" }));
+    expect(await screen.findByRole("button", { name: "Start speaking" })).toBeTruthy();
+    expect(screen.queryByText("wrong patient")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Voice notes" })).toBeNull();
+  });
+
   it("says plainly that voice typing needs Chrome or Edge where there is no speech recognition, and still records", async () => {
     const user = userEvent.setup();
     installVoiceDoubles({ dictation: false });

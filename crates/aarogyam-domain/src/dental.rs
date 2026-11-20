@@ -12,8 +12,9 @@ pub const MODULE: &str = "dental";
 /// The record kind of a chart entry.
 pub const KIND: &str = "tooth";
 /// The version of [`ChartEntry`]'s JSON shape. Version 2 added the procedure and material;
-/// version 3 added a root canal's canals and sitting. Older entries read as having none.
-pub const SCHEMA_VERSION: i32 = 3;
+/// version 3 added a root canal's canals and sitting; version 4 added a caries entry's depth.
+/// Older entries read as having none.
+pub const SCHEMA_VERSION: i32 = 4;
 /// The record kind of a tooth's health status: one current per tooth, superseded by the next.
 pub const STATUS_KIND: &str = "tooth_status";
 /// The version of [`ToothStatus`]'s JSON shape.
@@ -94,6 +95,12 @@ pub enum ChartError {
     /// Advice on a healthy tooth.
     #[error("treat_within_months goes with watch or needs_treatment, not healthy")]
     TreatWithinHealthy,
+    /// Not a decay depth.
+    #[error("caries_depth must be enamel, dentin or near_pulp")]
+    CariesDepth,
+    /// A decay depth on a finding that isn't caries.
+    #[error("caries_depth belongs to a caries finding")]
+    CariesDepthOnly,
 }
 
 impl Tooth {
@@ -232,6 +239,18 @@ impl Finding {
     }
 }
 
+text_enum!(
+    /// How deep a cavity reaches, recorded on a `caries` entry (schema version 4).
+    CariesDepth {
+        /// Only the outer enamel.
+        Enamel => "enamel",
+        /// Into the dentin.
+        Dentin => "dentin",
+        /// Close to the nerve (pulp).
+        NearPulp => "near_pulp",
+    }
+);
+
 /// One canal of a root canal treatment: its name and, once measured, its working length.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Canal {
@@ -291,6 +310,7 @@ pub struct ChartEntry {
     sitting: Option<u8>,
     in_progress: bool,
     elsewhere: bool,
+    caries_depth: Option<CariesDepth>,
 }
 
 /// What else an entry says besides tooth, surface and finding: procedure and material ids
@@ -311,9 +331,11 @@ pub struct Detail<'a> {
     pub in_progress: bool,
     /// The work was done by another dentist, before or outside this clinic.
     pub elsewhere: bool,
+    /// How deep the decay reaches (only with `caries`).
+    pub caries_depth: Option<&'a str>,
 }
 
-/// The JSON shape stored in `specialty_records.data` (schema version 3).
+/// The JSON shape stored in `specialty_records.data` (schema version 4).
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ChartData {
     /// FDI tooth number.
@@ -344,6 +366,9 @@ pub struct ChartData {
     /// Work done by another dentist (additive, no version bump: absent reads as done here).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub elsewhere: bool,
+    /// How deep a cavity reaches: `enamel`, `dentin` or `near_pulp` (version 4, caries only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub caries_depth: Option<String>,
 }
 
 impl ChartEntry {
@@ -389,6 +414,15 @@ impl ChartEntry {
         {
             return Err(ChartError::RootCanalOnly);
         }
+        let caries_depth = match detail.caries_depth.map(str::trim) {
+            None | Some("") => None,
+            Some(text) => {
+                if finding != Finding::Caries {
+                    return Err(ChartError::CariesDepthOnly);
+                }
+                Some(CariesDepth::parse(text).map_err(|_| ChartError::CariesDepth)?)
+            }
+        };
         let canals = if detail.canals.is_empty() {
             Vec::new()
         } else {
@@ -414,7 +448,14 @@ impl ChartEntry {
             sitting,
             in_progress: detail.in_progress && finding != Finding::Sound,
             elsewhere: detail.elsewhere,
+            caries_depth,
         })
+    }
+
+    /// How deep the decay reaches, when recorded.
+    #[must_use]
+    pub const fn caries_depth(&self) -> Option<CariesDepth> {
+        self.caries_depth
     }
 
     /// The procedure, if recorded.
@@ -485,6 +526,7 @@ impl ChartEntry {
             sitting: self.sitting,
             in_progress: self.in_progress,
             elsewhere: self.elsewhere,
+            caries_depth: self.caries_depth.map(|d| d.as_str().to_owned()),
         }
     }
 
@@ -605,6 +647,29 @@ mod tests {
             note: Some(text),
             ..Detail::default()
         }
+    }
+
+    #[test]
+    fn caries_depth_goes_only_with_caries() {
+        let depth = |text| Detail {
+            caries_depth: Some(text),
+            ..Detail::default()
+        };
+        let deep = ChartEntry::new(36, Some("O"), "caries", depth("near_pulp")).unwrap();
+        assert_eq!(deep.caries_depth(), Some(CariesDepth::NearPulp));
+        assert_eq!(deep.data().caries_depth.as_deref(), Some("near_pulp"));
+        assert_eq!(
+            ChartEntry::new(36, Some("O"), "filled", depth("enamel")),
+            Err(ChartError::CariesDepthOnly)
+        );
+        assert_eq!(
+            ChartEntry::new(36, Some("O"), "caries", depth("deep")),
+            Err(ChartError::CariesDepth)
+        );
+        // Older entries read as having no depth.
+        let old: ChartData =
+            serde_json::from_str(r#"{"tooth":36,"surface":"O","finding":"caries"}"#).unwrap();
+        assert_eq!(old.caries_depth, None);
     }
 
     #[test]

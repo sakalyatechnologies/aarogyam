@@ -17,6 +17,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::rfc3339;
+use super::tooth_details::{ToothCondition, ToothEruption, absent_or_null};
 use crate::AppState;
 use crate::extract::Require;
 use crate::failure::ApiFailure;
@@ -94,6 +95,11 @@ pub struct ChartEntry {
     #[schema(required = false)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    /// How deep the decay reaches on a caries entry: `enamel`, `dentin` or `near_pulp`. Left
+    /// out when not recorded.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub caries_depth: Option<String>,
 }
 
 impl From<ChartEntryView> for ChartEntry {
@@ -116,6 +122,7 @@ impl From<ChartEntryView> for ChartEntry {
             in_progress: view.in_progress,
             elsewhere: view.elsewhere,
             source: (view.source != "clinician").then_some(view.source),
+            caries_depth: view.caries_depth.map(|d| d.as_str().to_owned()),
         }
     }
 }
@@ -221,6 +228,15 @@ pub struct DentalChart {
     #[schema(required = false)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub statuses: Vec<ToothStatus>,
+    /// The current condition (infection, gums, mobility) of each tooth that has one, by tooth.
+    /// Left out when none.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub conditions: Vec<ToothCondition>,
+    /// The current eruption of each permanent tooth that has one, by tooth. Left out when none.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub eruptions: Vec<ToothEruption>,
 }
 
 impl From<ChartView> for DentalChart {
@@ -230,6 +246,16 @@ impl From<ChartView> for DentalChart {
             history: view.history.into_iter().map(ChartEntry::from).collect(),
             terms: view.terms.into_iter().map(DentalTerm::from).collect(),
             statuses: view.statuses.into_iter().map(ToothStatus::from).collect(),
+            conditions: view
+                .conditions
+                .into_iter()
+                .map(ToothCondition::from)
+                .collect(),
+            eruptions: view
+                .eruptions
+                .into_iter()
+                .map(ToothEruption::from)
+                .collect(),
         }
     }
 }
@@ -279,6 +305,10 @@ pub(crate) async fn get(
 
 /// One finding to record.
 #[derive(Debug, Deserialize, ToSchema)]
+#[expect(
+    clippy::option_option,
+    reason = "absent keeps the depth (DT1), null clears it"
+)]
 pub struct NewChartEntry {
     /// FDI tooth number: 11-48, or 51-85 for primary teeth.
     pub tooth: i64,
@@ -309,6 +339,12 @@ pub struct NewChartEntry {
     /// `implant`, `root_canal`, `bridge` or `missing`, and never with `in_progress`.
     #[serde(default)]
     pub elsewhere: bool,
+    /// Only with `caries`: how deep the decay reaches, `enamel`, `dentin` or `near_pulp`. Left
+    /// out, a caries entry replacing a caries entry on the same tooth and surface keeps its
+    /// depth; `null` clears it.
+    #[serde(default, deserialize_with = "absent_or_null")]
+    #[schema(value_type = Option<String>, nullable, required = false)]
+    pub caries_depth: Option<Option<String>>,
 }
 
 /// Findings recorded together.
@@ -372,6 +408,7 @@ pub(crate) async fn record(
                 sitting: entry.sitting,
                 in_progress: entry.in_progress,
                 elsewhere: entry.elsewhere,
+                caries_depth: entry.caries_depth,
             })
             .collect(),
     };

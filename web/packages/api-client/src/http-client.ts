@@ -45,6 +45,9 @@ import {
   createdInvitation,
   dentalChart,
   toothStatus,
+  toothCondition,
+  toothEruption,
+  mouthSnapshot,
   dashboardLayoutView,
   dentalTerm,
   devTokenResponse,
@@ -676,6 +679,15 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       }),
     clearToothStatus: (id, tooth, opts) =>
       call({ method: "DELETE", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/status`, schema: voidResponse, signal: opts?.signal }),
+    setToothCondition: (id, tooth, input, opts) =>
+      call({ method: "PUT", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/condition`, schema: toothCondition, body: input, signal: opts?.signal }),
+    markToothConditionInError: (id, tooth, input, opts) =>
+      call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/condition/entered-in-error`, schema: voidResponse, body: input, signal: opts?.signal }),
+    setToothEruption: (id, tooth, input, opts) =>
+      call({ method: "PUT", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/eruption`, schema: toothEruption, body: input, signal: opts?.signal }),
+    markToothEruptionInError: (id, tooth, input, opts) =>
+      call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/eruption/entered-in-error`, schema: voidResponse, body: input, signal: opts?.signal }),
+    getVisitMouth: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}/mouth`, schema: mouthSnapshot, signal: opts?.signal }),
     addDentalTerm: (input, opts) => call({ method: "POST", path: "/api/v1/dental-terms", schema: dentalTerm, body: input, signal: opts?.signal }),
     listOwnDentalTerms: (opts) => call({ method: "GET", path: "/api/v1/dental-terms", schema: ownDentalTermList, signal: opts?.signal }),
     renameDentalTerm: (id, input, opts) =>

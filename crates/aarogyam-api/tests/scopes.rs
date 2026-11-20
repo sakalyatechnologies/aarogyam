@@ -248,6 +248,7 @@ fn colleague_reads(w: &World) -> Vec<String> {
         format!("/api/v1/patients/{p}/timeline"),
         format!("/api/v1/patients/{p}/notes"),
         format!("/api/v1/visits/{}", w.visit_b),
+        format!("/api/v1/visits/{}/mouth", w.visit_b),
         format!("/api/v1/prescriptions/{}", w.rx_b),
     ]
 }
@@ -382,6 +383,22 @@ fn colleague_writes(w: &World) -> Vec<(Method, String, Value)> {
                 w.patient_b
             ),
             json!({ "health": "watch" }),
+        ),
+        (
+            Method::PUT,
+            format!(
+                "/api/v1/patients/{}/dental-chart/teeth/36/condition",
+                w.patient_b
+            ),
+            json!({ "bleeding": true }),
+        ),
+        (
+            Method::PUT,
+            format!(
+                "/api/v1/patients/{}/dental-chart/teeth/38/eruption",
+                w.patient_b
+            ),
+            json!({ "eruption": "partial" }),
         ),
     ]
 }

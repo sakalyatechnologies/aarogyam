@@ -2376,6 +2376,27 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             None,
         ),
         (
+            Method::PUT,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/36/condition"),
+            Some(json!({ "bleeding": true, "mobility": 1 })),
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/36/condition/entered-in-error"),
+            Some(json!({ "reason": "Wrong tooth" })),
+        ),
+        (
+            Method::PUT,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/38/eruption"),
+            Some(json!({ "eruption": "impacted", "angulation": "mesioangular" })),
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/38/eruption/entered-in-error"),
+            Some(json!({ "reason": "Wrong tooth" })),
+        ),
+        (Method::GET, format!("/api/v1/visits/{visit}/mouth"), None),
+        (
             Method::GET,
             format!("/api/v1/patients/{patient}/timeline"),
             None,

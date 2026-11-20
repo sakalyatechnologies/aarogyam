@@ -25,6 +25,7 @@
     "fractured": "the tooth was broken",
     "deep_caries": "deep decay was found on this tooth",
     "abscess": "an infection was found at the root of this tooth",
+    "near_pulp": "decay close to the nerve was found on this tooth",
     "fractured_crown": "the tooth was broken"
   },
   "material_today": {

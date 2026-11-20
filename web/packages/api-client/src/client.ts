@@ -138,6 +138,12 @@ import type {
   NewChartEntries,
   NewToothStatus,
   ToothStatus,
+  NewToothCondition,
+  ToothCondition,
+  NewToothEruption,
+  ToothEruption,
+  DetailInError,
+  MouthSnapshot,
   NewDentalTerm,
   NewPlan,
   NewClinic,
@@ -864,6 +870,16 @@ export interface ApiClient {
   setToothStatus(id: PatientId, tooth: number, input: NewToothStatus, options?: RequestOptions): Promise<ApiResult<ToothStatus>>;
   /** Clinic host: clears a tooth's health status so its findings suggest it again (superseded, never deleted). Needs `clinical.write`. */
   clearToothStatus(id: PatientId, tooth: number, options?: RequestOptions): Promise<ApiResult<undefined>>;
+  /** Clinic host: merges a change into a tooth's condition (omitted fields kept, `null` clears) under a lock. Needs `clinical.write`. */
+  setToothCondition(id: PatientId, tooth: number, input: NewToothCondition, options?: RequestOptions): Promise<ApiResult<ToothCondition>>;
+  /** Clinic host: marks a tooth's current condition entered in error, with a reason. Needs `clinical.write`. */
+  markToothConditionInError(id: PatientId, tooth: number, input: DetailInError, options?: RequestOptions): Promise<ApiResult<undefined>>;
+  /** Clinic host: sets a permanent tooth's eruption (it supersedes the current one). Needs `clinical.write`. */
+  setToothEruption(id: PatientId, tooth: number, input: NewToothEruption, options?: RequestOptions): Promise<ApiResult<ToothEruption>>;
+  /** Clinic host: marks a tooth's current eruption entered in error, with a reason. Needs `clinical.write`. */
+  markToothEruptionInError(id: PatientId, tooth: number, input: DetailInError, options?: RequestOptions): Promise<ApiResult<undefined>>;
+  /** Clinic host: the visit's mouth snapshot for Present mode, the same JSON the patient's page shows. Needs `clinical.read`; works while the visit is open. */
+  getVisitMouth(id: VisitId, options?: RequestOptions): Promise<ApiResult<MouthSnapshot>>;
   /** Clinic host: adds a procedure or material to the clinic's list; a label already there (or seeded) returns that term. Needs `clinical.write`. */
   addDentalTerm(input: NewDentalTerm, options?: RequestOptions): Promise<ApiResult<DentalTerm>>;
   /** Clinic host: the clinic's own terms, retired ones included, by kind then label. Needs `clinical.read` or `settings.manage`. */

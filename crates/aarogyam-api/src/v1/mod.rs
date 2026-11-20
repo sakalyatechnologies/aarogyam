@@ -45,6 +45,7 @@ pub(crate) mod message_feedback;
 pub(crate) mod message_templates;
 pub(crate) mod messages;
 pub(crate) mod meta;
+pub(crate) mod mouth;
 pub(crate) mod notices;
 pub(crate) mod notifications;
 pub(crate) mod onboarding;
@@ -82,6 +83,7 @@ pub(crate) mod tasks;
 pub(crate) mod telemetry;
 pub(crate) mod time_off;
 pub(crate) mod today;
+pub(crate) mod tooth_details;
 pub(crate) mod treatment;
 pub(crate) mod visit_summary;
 pub(crate) mod visits;
@@ -404,6 +406,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/visits/{id}/close", post(visits::close))
         .route("/visits/{id}/finish", post(visits::finish))
         .route("/visits/{id}/share", post(visit_summary::create))
+        .route("/visits/{id}/mouth", get(mouth::get))
         .route(
             "/visits/{id}/patient-message",
             post(patient_message::prepare),
@@ -460,6 +463,22 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/patients/{id}/dental-chart/teeth/{tooth}/status",
             put(chart::set_status).delete(chart::clear_status),
+        )
+        .route(
+            "/patients/{id}/dental-chart/teeth/{tooth}/condition",
+            put(tooth_details::set_condition),
+        )
+        .route(
+            "/patients/{id}/dental-chart/teeth/{tooth}/condition/entered-in-error",
+            post(tooth_details::condition_in_error),
+        )
+        .route(
+            "/patients/{id}/dental-chart/teeth/{tooth}/eruption",
+            put(tooth_details::set_eruption),
+        )
+        .route(
+            "/patients/{id}/dental-chart/teeth/{tooth}/eruption/entered-in-error",
+            post(tooth_details::eruption_in_error),
         )
         .route(
             "/dental-terms",

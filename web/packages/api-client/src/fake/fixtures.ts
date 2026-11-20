@@ -731,6 +731,10 @@ export interface Fixtures {
   chartEntries: FakeChartEntry[];
   /** Tooth health statuses, made on first use. */
   toothStatuses?: FakeToothStatus[];
+  /** Tooth conditions (infection, gums, mobility), made on first use. */
+  toothConditions?: import("./tooth-details.js").FakeToothCondition[];
+  /** Permanent teeth's eruptions, made on first use. */
+  toothEruptions?: import("./tooth-details.js").FakeToothEruption[];
   /** Procedures and materials clinics added, made on first use. */
   dentalTerms?: import("./dental-terms.js").FakeDentalTerm[];
   /** Support grants clinics gave Sakalya staff, made on first use; the console lists a staff member's own. */

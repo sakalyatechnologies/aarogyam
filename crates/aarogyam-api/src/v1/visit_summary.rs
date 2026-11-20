@@ -181,6 +181,11 @@ pub struct VisitSummary {
     /// The visit doctor's practitioner id, to preselect on the booking page.
     #[schema(value_type = Option<String>)]
     pub practitioner_id: Option<Uuid>,
+    /// The mouth snapshot (the interactive mouth view): the same allowlisted shape as
+    /// `GET /visits/{id}/mouth`. Left out by older servers.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chart: Option<super::mouth::MouthSnapshot>,
 }
 
 fn day(date: time::Date) -> String {
@@ -253,6 +258,7 @@ impl From<Summary> for VisitSummary {
             ),
             clinic_phone: summary.clinic_phone,
             practitioner_id: summary.practitioner_id,
+            chart: summary.chart.map(super::mouth::MouthSnapshot::from),
         }
     }
 }

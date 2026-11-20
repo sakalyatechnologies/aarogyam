@@ -199,6 +199,9 @@ pub struct Summary {
     pub clinic_phone: Option<String>,
     /// The visit doctor's practitioner record, for booking.
     pub practitioner_id: Option<Uuid>,
+    /// The mouth snapshot (section 1.12 of the visit story v2 design): the same allowlisted
+    /// shape the doctor's Present mode shows.
+    pub chart: Option<aarogyam_domain::mouth::MouthSnapshot>,
 }
 
 /// What the page shows beyond the visit row: treatments, plan, medicines, care, contact.
@@ -362,6 +365,7 @@ pub async fn open(
             .await?
             .map(|(name, _)| name);
         let extras = extras_in(tx, visit.id, visit.patient_id).await?;
+        let chart = crate::mouth::of_visit(tx, &visit, now).await?;
         let visited_on = clinic_today(&timezone, visit.started_at);
         let follow_up_on = dal::next_follow_up(tx.conn(), visit.patient_id, visited_on).await?;
         let booking_host = aarogyam_dal::staff::portal_host(tx.conn()).await?;
@@ -397,6 +401,7 @@ pub async fn open(
             aftercare: extras.aftercare,
             clinic_phone: extras.clinic_phone,
             practitioner_id: extras.practitioner_id,
+            chart: Some(chart),
         })))
     })
     .await

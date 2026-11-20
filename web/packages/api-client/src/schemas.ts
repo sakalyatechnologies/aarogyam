@@ -3095,6 +3095,8 @@ export const visitPatientMessage = z.object({
   phone_e164: z.string(),
   text: z.string(),
   short_text: z.string(),
+  /** The text for `whatsapp://` links (no emoji, fits once URL-encoded); null when it can't fit, absent from older servers. */
+  desktop_text: z.string().nullable().exactOptional(),
   url: z.string(),
   pin: z.string(),
   expires_at: timestamp,

@@ -378,6 +378,9 @@ describe("Front desk (New look)", () => {
       expect(prepared).toEqual([done.visit_id]);
       expect(opened).toHaveLength(1);
       expect(opened[0]).toMatch(/^whatsapp:\/\/send\?phone=\d+&text=/);
+      // The desktop link carries the server's desktop text: no emoji.
+      expect(decodeURIComponent(opened[0] ?? "")).toContain("*Done today*");
+      expect(decodeURIComponent(opened[0] ?? "")).not.toContain("✅");
     } finally {
       handoff.open = open;
     }

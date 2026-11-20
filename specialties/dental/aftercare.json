@@ -1,5 +1,5 @@
 {
-  "$comment": "Care at home after common dental treatments, in plain English, shown on the patient's visit page and (top three steps) in the doctor's WhatsApp summary. Keys are stable and lower_snake_case; each entry has 3 to 6 steps, most important first, and a 'call us if' line. Clinics cannot edit this in v1. Hindi and Marathi follow after review by a native-speaking dentist.",
+  "$comment": "Care at home after common dental treatments, in plain English, shown on the patient's visit page and (top three steps) in the doctor's WhatsApp summary. Keys are stable and lower_snake_case; each entry has 3 to 6 steps, most important first, and a 'call us if' line. Clinics cannot edit this in v1. Hindi and Marathi follow after review by a native-speaking dentist. The general_* entries are everyday care by age band (under 6, 6 to 12, 13 to 17, adult) that fill the summary's care section when a visit has little treatment-specific care; the minor bands speak to the parent. Reviewed by: pending (founder).",
   "schema_version": 1,
   "items": {
     "extraction": {
@@ -39,13 +39,14 @@
     "root_canal_between_sittings": {
       "title": "Between root canal sittings",
       "steps": [
-        "The tooth has a temporary filling; don't chew hard or sticky food on it.",
+        "Don't bite hard or sticky food on this tooth until the treatment is finished.",
+        "If the filling on top feels loose or falls out, call us; don't wait for the next visit.",
         "Don't eat for an hour, and until the numbness wears off.",
         "Some tenderness is normal; take your medicines as prescribed.",
         "Come for your next sitting on time so the tooth doesn't get reinfected.",
         "Brush gently around the tooth as usual."
       ],
-      "call_if": "Call us if the temporary filling falls out, or you have swelling or severe pain."
+      "call_if": "Call us if the filling on top falls out, or you have swelling or severe pain."
     },
     "filling": {
       "title": "After a filling",
@@ -99,6 +100,46 @@
         "Brush twice a day to keep the result longer."
       ],
       "call_if": "Call us if sensitivity is severe or lasts more than 3 days."
+    },
+    "general_under_6": {
+      "title": "Everyday care for your child's teeth",
+      "steps": [
+        "Brush your child's teeth for them twice a day: a smear of fluoride toothpaste under age 3, a pea-sized amount from 3 to 6.",
+        "Don't put your child to sleep with a bottle of milk or juice.",
+        "Keep sweets and sugary drinks to mealtimes, not between meals.",
+        "Bring your child for a check-up every 6 months."
+      ],
+      "call_if": "Call us if your child has tooth pain, swelling, or a tooth that looks dark or broken."
+    },
+    "general_6_12": {
+      "title": "Everyday care for your child's teeth",
+      "steps": [
+        "Help your child brush twice a day with a pea-sized amount of fluoride toothpaste until about age 8.",
+        "Keep sweets, biscuits and sugary drinks to mealtimes only.",
+        "Have your child rinse with water after eating something sticky or sweet.",
+        "Bring your child for a check-up every 6 months."
+      ],
+      "call_if": "Call us if your child has tooth pain, swelling, or a broken tooth."
+    },
+    "general_teen": {
+      "title": "Everyday care for your child's teeth",
+      "steps": [
+        "Make sure your child brushes twice a day with fluoride toothpaste and cleans between the teeth daily.",
+        "Encourage water instead of sugary or fizzy drinks.",
+        "If your child plays contact sports, ask us about a mouthguard.",
+        "Bring your child for a check-up every 6 months."
+      ],
+      "call_if": "Call us if your child has tooth pain, swelling, bleeding gums, or a broken tooth."
+    },
+    "general_adult": {
+      "title": "Everyday care for your teeth",
+      "steps": [
+        "Brush twice a day for two minutes with fluoride toothpaste.",
+        "Clean between your teeth once a day with floss or an interdental brush.",
+        "Keep sugary snacks and drinks to mealtimes.",
+        "Come for a check-up and cleaning every 6 months."
+      ],
+      "call_if": "Call us if you have tooth pain, swelling, or bleeding gums."
     }
   }
 }

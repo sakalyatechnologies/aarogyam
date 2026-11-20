@@ -22,9 +22,14 @@ export const handoff = {
 
 const digits = (phone: string) => phone.replace(/\D/g, "");
 
+/** The text a desktop link carries: the server's `desktop_text` (no emoji, short enough once URL-encoded); the short
+ * text when even that can't fit (the doctor copies the full summary); the full text from an older server. */
+const desktopText = (message: VisitPatientMessage) =>
+  message.desktop_text === undefined ? message.text : (message.desktop_text ?? message.short_text);
+
 /** The WhatsApp Desktop link with the full text (local protocol, never a web URL). */
 export const desktopLink = (message: VisitPatientMessage) =>
-  `whatsapp://send?phone=${digits(message.phone_e164)}&text=${encodeURIComponent(message.text)}`;
+  `whatsapp://send?phone=${digits(message.phone_e164)}&text=${encodeURIComponent(desktopText(message))}`;
 
 /** The WhatsApp Web chat: only the short text (no clinical words), because it travels in a web URL. The doctor pastes
  * the full summary from "Copy full summary". */

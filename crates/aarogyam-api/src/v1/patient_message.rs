@@ -28,11 +28,16 @@ use crate::failure::ApiFailure;
 pub struct VisitPatientMessage {
     /// The number to open `WhatsApp` with, in E.164.
     pub phone_e164: String,
-    /// The full message, with `WhatsApp` formatting (about 1,200 characters at most).
+    /// The full message, with `WhatsApp` formatting (about 1,600 characters at most): for
+    /// phones and for copying.
     pub text: String,
     /// Greeting, link, PIN and the don't-forward line only, with no clinical words: for
     /// hand-offs that travel in a web URL (`wa.me`).
     pub short_text: String,
+    /// The message for desktop `whatsapp://send` links: the full message without emoji, cut so
+    /// the URL-encoded link stays within 2,000 characters. Null when it can't fit (copy `text`
+    /// instead). Older servers don't send it.
+    pub desktop_text: Option<String>,
     /// The visit page: `/shared/{token}` on the clinic's portal.
     pub url: String,
     /// The link's six-digit PIN.
@@ -93,6 +98,7 @@ pub(crate) async fn prepare(
         phone_e164: prepared.phone.as_e164().to_owned(),
         text: prepared.text,
         short_text: prepared.short_text,
+        desktop_text: prepared.desktop_text,
         url: prepared.url,
         pin: prepared.pin,
         expires_at: rfc3339(prepared.expires_at),

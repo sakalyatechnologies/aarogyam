@@ -195,15 +195,25 @@ async fn a_closed_visit_gives_the_message_a_link_and_a_pin_and_never_more_than_t
     for part in [
         "Hello Meera",
         "*Alpha Dental*",
-        "Pain lower right",
-        "Extraction, lower right back tooth (first molar)",
-        "Implant, lower right back tooth (first molar)",
+        "• Extraction on the lower right back tooth (46).",
+        "  Next: Implant.",
+        "Implant, lower right back tooth (46) (about ₹25,000)",
+        "Scaling (about ₹800)",
         "Keep biting on the gauze",
         "AMOXICILLIN 500 mg: 1-0-1, 5 days",
+        "To book, reply here",
         "Please don't forward it.",
     ] {
         assert!(text.contains(part), "missing {part}: {text}");
     }
+    // The typed complaint stays on the page, out of the text.
+    assert!(!text.contains("Pain lower right"), "{text}");
+    let desktop = body["desktop_text"].as_str().unwrap();
+    assert!(desktop.contains(url) && desktop.contains(pin), "{desktop}");
+    assert!(
+        !desktop.contains('✅') && !desktop.contains('🙏'),
+        "{desktop}"
+    );
     assert!(text.contains(url) && text.contains(pin));
     let short = body["short_text"].as_str().unwrap();
     assert!(short.contains(url) && short.contains(pin));
@@ -544,13 +554,18 @@ async fn treatments_recorded_on_the_chart_are_in_the_summary_once() {
     let (text, page) = message_and_page(&app, &owner, &visit).await;
     for part in [
         "Done today",
-        "Root canal treatment (sitting 4, continuing), upper left front tooth",
+        "• Root canal treatment on the upper left front tooth (21), sitting 4, continuing.",
+        "  Today: a medicine (calcium hydroxide) was placed inside the tooth.",
         // The first step of the between-sittings care.
-        "The tooth has a temporary filling",
+        "Don't bite hard or sticky food on this tooth",
     ] {
         assert!(text.contains(part), "missing {part}: {text}");
     }
-    assert!(!text.to_lowercase().contains("calcium"), "{text}");
+    // Only recorded facts: no finding on 21, so no Why; no temporary filling recorded.
+    assert!(
+        !text.contains("Why:") && !text.contains("temporary"),
+        "{text}"
+    );
     let treatments = page["treatments"].as_array().unwrap();
     assert_eq!(treatments.len(), 1, "{page}");
     assert_eq!(
@@ -585,4 +600,90 @@ async fn treatments_recorded_on_the_chart_are_in_the_summary_once() {
     let treatments = page["treatments"].as_array().unwrap();
     assert_eq!(treatments.len(), 1, "{page}");
     assert_eq!(treatments[0]["name"], "Composite filling");
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_summary_reads_chips_findings_and_health_but_never_note_text() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(
+        &app,
+        &owner,
+        json!({ "full_name": "Kiran Rao", "sex": "male", "age_years": 52,
+                "phone": "98765 43212" }),
+    )
+    .await;
+
+    // A check-up: chips and free text in the note, decay charted, a tooth needing treatment.
+    let visit = start_visit(&app, &owner, &patient).await;
+    let (status, note) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/visits/{visit}/notes"),
+        Some(json!({ "sections": {
+            "subjective": "k/c/o diabetes\nComplains of toothache",
+            "objective": "Deep caries\nBP 150/95",
+            "plan": "Soft, cold diet for 24 hours.\nRecall after HbA1c"
+        } })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{note}");
+    chart(
+        &app,
+        &owner,
+        &patient,
+        &visit,
+        json!({ "tooth": 36, "finding": "caries" }),
+    )
+    .await;
+    let (status, health) = app
+        .send(
+            Method::PUT,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/dental-chart/teeth/47/status"),
+            Some(&owner),
+            Some(json!({ "health": "needs_treatment", "treat_within_months": 3 })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{health}");
+    close(&app, &owner, &visit).await;
+    let (text, _) = message_and_page(&app, &owner, &visit).await;
+    for part in [
+        "• Toothache",
+        "• Check-up and examination of 2 teeth",
+        "*What we found*",
+        "• Decay: lower left back tooth (36)",
+        "• Needs treatment: lower right back tooth (47), within 3 months",
+        "• Deep decay",
+        "• Soft, cold diet for 24 hours.",
+        "*Care at home*",
+    ] {
+        assert!(text.contains(part), "missing {part}: {text}");
+    }
+    for word in ["diabetes", "150/95", "HbA1c", "Pain lower right"] {
+        assert!(!text.contains(word), "note text {word} leaked: {text}");
+    }
+
+    // The next visit fills 36: the decay found before explains it, the material says how.
+    let visit = start_visit(&app, &owner, &patient).await;
+    chart(
+        &app,
+        &owner,
+        &patient,
+        &visit,
+        json!({ "tooth": 36, "finding": "filled", "procedure": "filling",
+                "material": "composite" }),
+    )
+    .await;
+    close(&app, &owner, &visit).await;
+    let (text, _) = message_and_page(&app, &owner, &visit).await;
+    for part in [
+        "• Filling on the lower left back tooth (36).",
+        "  Why: decay was found on this tooth.",
+        "  Today: filled with a tooth-coloured filling (composite).",
+    ] {
+        assert!(text.contains(part), "missing {part}: {text}");
+    }
 }

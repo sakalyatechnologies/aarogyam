@@ -11,17 +11,19 @@ use aarogyam_dal::auto_messages as reach_dal;
 use aarogyam_dal::chart::{self, ChartRow};
 use aarogyam_dal::visit_messages as dal;
 use aarogyam_dal::visit_summaries::next_follow_up;
-use aarogyam_dal::{dental_terms, patients, prescriptions as links, treatment, visits};
+use aarogyam_dal::{dental_terms, facts, patients, prescriptions as links, treatment, visits};
 use aarogyam_domain::access::ClinicActor;
-use aarogyam_domain::clinical::{EncounterStatus, ProcedureStatus};
+use aarogyam_domain::clinical::{EncounterStatus, NoteBody, ProcedureStatus};
 use aarogyam_domain::consent::Purpose;
-use aarogyam_domain::dental::{ChartData, Tooth};
+use aarogyam_domain::dental::{ChartData, Tooth, ToothStatusData};
 use aarogyam_domain::dental_terms::{TermKind, TermRef};
 use aarogyam_domain::ids::{EncounterId, ShareLinkId};
 use aarogyam_domain::permission::Permission;
+use aarogyam_domain::quick_picks;
 use aarogyam_domain::share::ShareChannel;
 use aarogyam_domain::visit_message::{
-    self as message, MedicineLine, MessageInput, NextVisit, Recipient, Refusal, Work, WorkLine,
+    self as message, DoneDetail, FoundLine, MedicineLine, MessageInput, NextVisit, RecLine,
+    Recipient, Refusal, Work,
 };
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::{Paise, PhoneE164};
@@ -115,6 +117,12 @@ pub(crate) struct DoneWork {
     pub tooth: Option<Tooth>,
     /// Started and not finished, such as a root canal between sittings.
     pub in_progress: bool,
+    /// The name in patient words, without the sitting, for the message.
+    pub label: String,
+    /// The sitting recorded on the chart entry.
+    pub sitting: Option<u8>,
+    /// The material recorded on the chart entry.
+    pub material: Option<String>,
 }
 
 impl DoneWork {
@@ -139,10 +147,13 @@ pub(crate) async fn done_in(
         .into_iter()
         .filter(|row| row.status == ProcedureStatus::Done.as_str())
         .map(|row| DoneWork {
+            label: row.name.clone(),
             name: row.name,
             code: row.code,
             tooth: tooth_of(row.tooth),
             in_progress: false,
+            sitting: None,
+            material: None,
         })
         .collect();
     let entries = chart_work(&chart::of_encounter(tx.conn(), encounter_id).await?);
@@ -159,6 +170,10 @@ pub(crate) async fn done_in(
     let procedures = done.len();
     for (tooth, data) in entries {
         let Some(code) = data.procedure else { continue };
+        let seeded = matches!(
+            TermRef::stored(TermKind::Procedure, &code),
+            Some(TermRef::Seeded(_))
+        );
         let label = match TermRef::stored(TermKind::Procedure, &code) {
             Some(TermRef::Seeded(term)) => term.label.clone(),
             Some(TermRef::Clinic(id)) => terms
@@ -170,13 +185,20 @@ pub(crate) async fn done_in(
         let name = if data.in_progress {
             message::continuing_name(&label, data.sitting)
         } else {
-            label
+            label.clone()
         };
+        let words = seeded
+            .then(|| message::procedure_words(&code))
+            .flatten()
+            .map_or(label, str::to_owned);
         let work = DoneWork {
             name,
             code: Some(code),
             tooth,
             in_progress: data.in_progress,
+            label: words,
+            sitting: data.sitting,
+            material: data.material,
         };
         let duplicate = done[..procedures]
             .iter()
@@ -192,6 +214,14 @@ pub(crate) async fn done_in(
 /// are left out, and so is one superseded by a later entry of the same visit on the same tooth;
 /// one superseded by a later visit (the next root canal sitting) still counts for this one.
 fn chart_work(rows: &[ChartRow]) -> Vec<(Option<Tooth>, ChartData)> {
+    live_entries(rows)
+        .into_iter()
+        .filter(|(_, data)| data.procedure.is_some() && !data.elsewhere)
+        .collect()
+}
+
+/// The visit's chart entries that still stand for it (see [`chart_work`]), in order.
+fn live_entries(rows: &[ChartRow]) -> Vec<(Option<Tooth>, ChartData)> {
     rows.iter()
         .enumerate()
         .filter(|(i, row)| match row.status.as_str() {
@@ -203,7 +233,7 @@ fn chart_work(rows: &[ChartRow]) -> Vec<(Option<Tooth>, ChartData)> {
         })
         .filter_map(|(_, row)| {
             let data: ChartData = serde_json::from_value(row.data.clone()).ok()?;
-            (data.procedure.is_some() && !data.elsewhere).then(|| (tooth_of(row.tooth), data))
+            Some((tooth_of(row.tooth), data))
         })
         .collect()
 }
@@ -230,6 +260,194 @@ pub(crate) fn care_keys(done: &[DoneWork], plan: &[PlanItem]) -> Vec<&'static st
         })
         .collect();
     message::aftercare_keys(&done, &planned)
+}
+
+/// What the message says beyond the treatments' names, from recorded facts only: chip lines of
+/// the visit's notes (never their other text), chart entries, tooth health levels and coded
+/// conditions of the visit, and the plan.
+struct Facts {
+    complaints: Vec<String>,
+    advice: Vec<String>,
+    found: Vec<FoundLine>,
+    charted_teeth: usize,
+    details: Vec<DoneDetail>,
+    recommend: Vec<RecLine>,
+}
+
+fn add_found(found: &mut Vec<FoundLine>, words: &str, tooth: Option<Tooth>, months: Option<u8>) {
+    let index = found
+        .iter()
+        .position(|f| f.words == words && f.within_months == months)
+        .unwrap_or_else(|| {
+            found.push(FoundLine {
+                words: words.to_owned(),
+                teeth: Vec::new(),
+                within_months: months,
+            });
+            found.len() - 1
+        });
+    if let Some(line) = found.get_mut(index)
+        && let Some(tooth) = tooth.filter(|t| !line.teeth.contains(t))
+    {
+        line.teeth.push(tooth);
+    }
+}
+
+/// Findings on a chart entry that the message reports when no procedure goes with them.
+const FOUND_ON_CHART: [&str; 4] = ["caries", "fractured", "watch", "missing"];
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "one pass over the visit's recorded facts"
+)]
+async fn facts_in(
+    tx: &mut ScopedTx,
+    visit: &visits::EncounterRow,
+    done: &[DoneWork],
+    plan: &[PlanItem],
+    estimates: bool,
+    now: OffsetDateTime,
+) -> Result<Facts, AppError> {
+    let picks = quick_picks::dental();
+    let (mut complaints, mut advice, mut chips) = (Vec::new(), Vec::new(), Vec::new());
+    for note in visits::list_notes(tx.conn(), visit.id).await? {
+        if note.status != "signed" && note.status != "draft" {
+            continue;
+        }
+        let Ok(body) = serde_json::from_value::<NoteBody>(note.body) else {
+            continue;
+        };
+        let section = |text: &Option<String>| text.clone().unwrap_or_default();
+        for pick in message::chip_lines(&section(&body.subjective), &picks.complaints) {
+            if !complaints.contains(&pick.label) {
+                complaints.push(pick.label.clone());
+            }
+        }
+        for pick in message::chip_lines(&section(&body.plan), &picks.advice) {
+            if !advice.contains(&pick.text) {
+                advice.push(pick.text.clone());
+            }
+        }
+        for pick in message::chip_lines(&section(&body.objective), &picks.findings) {
+            if !chips.iter().any(|(id, _)| *id == pick.id) {
+                chips.push((pick.id.clone(), pick.patient_text.clone()));
+            }
+        }
+    }
+
+    // What was charted and found today.
+    let mut found: Vec<FoundLine> = Vec::new();
+    let mut touched: Vec<Tooth> = Vec::new();
+    for (tooth, data) in live_entries(&chart::of_encounter(tx.conn(), visit.id).await?) {
+        if let Some(tooth) = tooth.filter(|t| !touched.contains(t)) {
+            touched.push(tooth);
+        }
+        if data.procedure.is_none()
+            && FOUND_ON_CHART.contains(&data.finding.as_str())
+            && let Some(words) = message::chart_finding_words(&data.finding)
+        {
+            add_found(&mut found, words, tooth, None);
+        }
+    }
+    let mut months: Vec<(Tooth, u8)> = Vec::new();
+    for row in chart::current_statuses(tx.conn(), visit.patient_id).await? {
+        let Ok(status) = serde_json::from_value::<ToothStatusData>(row.data) else {
+            continue;
+        };
+        let tooth = tooth_of(row.tooth);
+        if let (Some(tooth), Some(within)) = (tooth, status.treat_within_months) {
+            months.push((tooth, within));
+        }
+        if row.encounter_id != Some(visit.id) {
+            continue;
+        }
+        if let Some(tooth) = tooth.filter(|t| !touched.contains(t)) {
+            touched.push(tooth);
+        }
+        if status.health == "needs_treatment"
+            && let Some(words) = message::needs_treatment_words()
+        {
+            add_found(&mut found, words, tooth, status.treat_within_months);
+        }
+    }
+    // Teeth charted or given a health level today.
+    let charted_teeth = touched.len();
+    for condition in facts::list_conditions(tx.conn(), visit.patient_id).await? {
+        if condition.encounter_id != Some(visit.id) || condition.status == "entered_in_error" {
+            continue;
+        }
+        if let (Some(system), Some(code)) = (&condition.code_system, &condition.code)
+            && let Some(words) = message::diagnosis_words(system, code)
+        {
+            add_found(&mut found, words, None, None);
+        }
+    }
+    for (_, words) in &chips {
+        if let Some(words) = words {
+            add_found(&mut found, words, None, None);
+        }
+    }
+
+    // Each treatment's details, only as recorded.
+    for work in done {
+        if let Some(tooth) = work.tooth.filter(|t| !touched.contains(t)) {
+            touched.push(tooth);
+        }
+    }
+    let until = visit.ended_at.unwrap_or(now);
+    let chip_ids: Vec<&str> = chips.iter().map(|(id, _)| id.as_str()).collect();
+    let mut details = Vec::with_capacity(done.len());
+    for work in done {
+        let mut recorded: Vec<String> = Vec::new();
+        if let Some(tooth) = work.tooth {
+            let number = i16::from(tooth.number());
+            for row in chart::history(tx.conn(), visit.patient_id, number).await? {
+                if row.status == "entered_in_error" || row.effective_at > until {
+                    continue;
+                }
+                if let Ok(data) = serde_json::from_value::<ChartData>(row.data) {
+                    recorded.push(data.finding);
+                }
+            }
+        }
+        let recorded: Vec<&str> = recorded.iter().map(String::as_str).collect();
+        let why = work
+            .tooth
+            .and_then(|_| message::why_key(&recorded, &chip_ids, touched.len()));
+        details.push(DoneDetail {
+            name: work.label.clone(),
+            tooth: work.tooth,
+            sitting: work.sitting,
+            continuing: work.in_progress,
+            why: why.map(str::to_owned),
+            material: work.material.clone(),
+            next_planned: plan
+                .iter()
+                .find(|p| p.tooth.is_some() && p.tooth == work.tooth)
+                .map(|p| p.name.clone()),
+        });
+    }
+
+    let recommend = plan
+        .iter()
+        .map(|item| RecLine {
+            name: item.name.clone(),
+            tooth: item.tooth,
+            within_months: item
+                .tooth
+                .and_then(|tooth| months.iter().find(|(t, _)| *t == tooth))
+                .map(|(_, within)| *within),
+            estimate: item.estimate.filter(|_| estimates),
+        })
+        .collect();
+    Ok(Facts {
+        complaints,
+        advice,
+        found,
+        charted_teeth,
+        details,
+        recommend,
+    })
 }
 
 /// Who the summary goes to and their number, after the consent and opt-out checks.
@@ -302,6 +520,9 @@ pub struct Prepared {
     pub text: String,
     /// The message without clinical words, for web hand-offs.
     pub short_text: String,
+    /// The message for desktop `whatsapp://` links: no emoji, short enough once URL-encoded;
+    /// none when it can't fit (copy the message instead).
+    pub desktop_text: Option<String>,
     /// The visit page's address.
     pub url: String,
     /// The link's PIN.
@@ -361,6 +582,7 @@ pub async fn prepare(
             .ok_or(AppError::NotFound("clinic"))?;
         let today = clinic_today(&timezone, now);
         let minor = message::is_minor(patient.date_of_birth, today);
+        let age_band = message::age_band(patient.date_of_birth, today);
 
         let (recipient, phone) =
             recipient_in(tx, patient.id, patient.phone_e164.as_deref(), minor).await?;
@@ -381,6 +603,10 @@ pub async fn prepare(
                 .map(NextVisit::Due),
         };
         let auto_sent_at = dal::auto_summary_at(tx.conn(), visit.id).await?;
+        let context = dal::page_context(tx.conn(), visit.id)
+            .await?
+            .ok_or(AppError::NotFound("visit"))?;
+        let facts = facts_in(tx, &visit, &done, &plan, context.patient_estimates, now).await?;
 
         // The link: earlier ones stay valid, but no more than three at once.
         dal::keep_newest_links(tx.conn(), visit.id, LIVE_VISIT_LINKS - 1).await?;
@@ -397,25 +623,25 @@ pub async fn prepare(
             .unwrap_or_else(|| request_host.to_owned());
         let link = url(&host, &made.token);
 
-        let lines = |items: Vec<(String, Option<Tooth>)>| -> Vec<WorkLine> {
-            items
-                .into_iter()
-                .map(|(name, tooth)| WorkLine { name, tooth })
-                .collect()
-        };
-        let done_lines = lines(done.into_iter().map(|w| (w.name, w.tooth)).collect());
-        let plan_lines = lines(plan.into_iter().map(|p| (p.name, p.tooth)).collect());
+        // The typed complaint stays on the visit page; it never goes into the text.
         let composed = message::compose(&MessageInput {
             clinic_name: &clinic_name,
             doctor_name: doctor_name.as_deref(),
             patient_name: &patient.full_name,
             minor,
-            chief_complaint: visit.chief_complaint.as_deref(),
-            done: &done_lines,
-            plan: &plan_lines,
+            age_band,
+            complaints: &facts.complaints,
+            done: &facts.details,
+            charted_teeth: facts.charted_teeth,
+            found: &facts.found,
+            recommend: &facts.recommend,
             next_visit,
             care_keys: &keys,
+            advice: &facts.advice,
             medicines: &medicines,
+            clinic_phone: context.clinic_phone.as_deref(),
+            // The public learn page comes with the learn site (P9).
+            learn_url: None,
             url: &link,
             pin: &made.pin,
         });
@@ -423,6 +649,7 @@ pub async fn prepare(
             phone,
             text: composed.text,
             short_text: composed.short_text,
+            desktop_text: composed.desktop_text,
             url: link,
             pin: made.pin,
             link_id: made.id,

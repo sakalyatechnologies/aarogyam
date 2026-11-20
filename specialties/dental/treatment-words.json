@@ -1,0 +1,49 @@
+{
+  "$comment": "Plain words for the treatment detail lines of the visit summary (docs/plans/visit-story-v2-offers-design.md, section 1.2). Each line states only a recorded fact: 'procedures' names a seeded chart procedure, 'why' a finding recorded on that tooth (chart finding or finding chip id), 'material_today' the material stored on today's chart entry. A key that is not here gives no line. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "procedures": {
+    "filling": "Filling",
+    "inlay": "Inlay",
+    "onlay": "Onlay",
+    "veneer": "Veneer",
+    "crown": "Crown",
+    "bridge": "Bridge",
+    "bridge_abutment": "Bridge (supporting tooth)",
+    "bridge_pontic": "Bridge (replacement tooth)",
+    "root_canal": "Root canal treatment",
+    "post_core": "Post and core",
+    "core_build_up": "Core build-up",
+    "pulpotomy": "Pulpotomy (milk tooth nerve treatment)",
+    "implant": "Implant",
+    "extraction": "Tooth removal",
+    "sealant": "Sealant (protective coating)",
+    "scaling": "Cleaning (scaling and polishing)"
+  },
+  "why": {
+    "caries": "decay was found on this tooth",
+    "fractured": "the tooth was broken",
+    "deep_caries": "deep decay was found on this tooth",
+    "abscess": "an infection was found at the root of this tooth",
+    "fractured_crown": "the tooth was broken"
+  },
+  "material_today": {
+    "calcium_hydroxide": "a medicine (calcium hydroxide) was placed inside the tooth",
+    "mta": "a medicine (MTA) was placed inside the tooth",
+    "temporary": "a temporary filling was placed",
+    "composite": "filled with a tooth-coloured filling (composite)",
+    "flowable_composite": "filled with a tooth-coloured filling (composite)",
+    "glass_ionomer": "filled with a tooth-coloured filling (glass ionomer)",
+    "amalgam": "filled with a silver filling (amalgam)",
+    "gutta_percha": "the root was filled and sealed (gutta-percha)",
+    "zirconia": "a zirconia crown",
+    "layered_zirconia": "a zirconia crown",
+    "emax": "a ceramic crown (e.max)",
+    "ceramic": "a ceramic crown",
+    "pfm": "a metal-ceramic crown",
+    "cast_metal": "a metal crown",
+    "gold": "a gold crown",
+    "resin_sealant": "a protective sealant was placed",
+    "gic_sealant": "a protective sealant was placed"
+  }
+}

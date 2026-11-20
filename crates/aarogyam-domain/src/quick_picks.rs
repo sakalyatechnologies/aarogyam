@@ -36,6 +36,9 @@ pub struct TextPick {
     pub label: String,
     /// The line it writes.
     pub text: String,
+    /// The finding in the patient's words, for the visit summary (findings only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patient_text: Option<String>,
 }
 
 /// One medicine of a set, as a prescription line starts.

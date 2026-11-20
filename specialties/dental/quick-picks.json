@@ -26,14 +26,14 @@
     { "id": "cleaning", "label": "Cleaning", "text": "Came for cleaning" }
   ],
   "findings": [
-    { "id": "deep_caries", "label": "Deep caries", "text": "Deep caries" },
-    { "id": "tender_on_percussion", "label": "Tender on percussion", "text": "Tender on percussion" },
-    { "id": "calculus", "label": "Calculus", "text": "Calculus and stains present" },
-    { "id": "gingivitis", "label": "Gingivitis", "text": "Gingival inflammation" },
-    { "id": "mobility", "label": "Mobility", "text": "Tooth mobile" },
-    { "id": "abscess", "label": "Abscess", "text": "Periapical abscess" },
-    { "id": "fractured_crown", "label": "Fractured crown", "text": "Fractured crown" },
-    { "id": "impacted_third_molar", "label": "Impacted wisdom tooth", "text": "Impacted third molar" }
+    { "id": "deep_caries", "label": "Deep caries", "text": "Deep caries", "patient_text": "Deep decay" },
+    { "id": "tender_on_percussion", "label": "Tender on percussion", "text": "Tender on percussion", "patient_text": "A tooth that hurts when tapped" },
+    { "id": "calculus", "label": "Calculus", "text": "Calculus and stains present", "patient_text": "Tartar (hard deposits) and stains" },
+    { "id": "gingivitis", "label": "Gingivitis", "text": "Gingival inflammation", "patient_text": "Swollen gums (gingivitis)" },
+    { "id": "mobility", "label": "Mobility", "text": "Tooth mobile", "patient_text": "A loose tooth" },
+    { "id": "abscess", "label": "Abscess", "text": "Periapical abscess", "patient_text": "An infection at the root of a tooth" },
+    { "id": "fractured_crown", "label": "Fractured crown", "text": "Fractured crown", "patient_text": "A broken tooth" },
+    { "id": "impacted_third_molar", "label": "Impacted wisdom tooth", "text": "Impacted third molar", "patient_text": "A wisdom tooth stuck under the gum" }
   ],
   "procedures": [
     { "id": "consultation", "label": "Consultation" },

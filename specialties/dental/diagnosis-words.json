@@ -1,0 +1,28 @@
+{
+  "$comment": "Plain words for the 'What we found' lines of the visit summary (docs/plans/visit-story-v2-offers-design.md, section 1.1). 'chart' maps a chart finding recorded today without a procedure; 'needs_treatment' is a tooth given that health level today; 'icd10' and 'icd11' map a coded condition recorded today by its code or the longest matching prefix (K02 covers K02.1). Free text (condition names, notes) is never read. A code that is not here gives no line. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "chart": {
+    "caries": "Decay",
+    "fractured": "Broken tooth",
+    "watch": "To keep an eye on",
+    "missing": "Missing tooth"
+  },
+  "needs_treatment": "Needs treatment",
+  "icd10": {
+    "K00.6": "Milk tooth not falling out on time",
+    "K01": "Tooth stuck under the gum",
+    "K02": "Decay",
+    "K03.6": "Tartar (hard deposits) on the teeth",
+    "K04": "Infection or inflammation inside the tooth",
+    "K05": "Gum disease",
+    "K07": "Bite or jaw alignment problem",
+    "K08.1": "Missing tooth",
+    "K12": "Mouth ulcer",
+    "S02.5": "Broken tooth"
+  },
+  "icd11": {
+    "DA08": "Decay",
+    "DA09": "Infection or inflammation inside the tooth"
+  }
+}

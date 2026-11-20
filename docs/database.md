@@ -33,24 +33,24 @@ flowchart LR
   scheduling["Scheduling<br/>4 tables"]
   clinical["Clinical<br/>24 tables"]
   ops["Clinic operations<br/>25 tables"]
-  billing["Money<br/>11 tables"]
-  notify["Notifications<br/>19 tables"]
+  billing["Money<br/>13 tables"]
+  notify["Notifications<br/>17 tables"]
   web["Websites<br/>8 tables"]
   trust["Trust and audit<br/>14 tables"]
   onboarding["Onboarding<br/>7 tables"]
-  billing -->|3| clinical
-  billing -->|3| people
-  billing -->|10| tenancy
+  billing -->|4| clinical
+  billing -->|6| people
+  billing -->|14| tenancy
   clinical -->|1| ops
   clinical -->|16| people
   clinical -->|2| scheduling
   clinical -->|18| tenancy
   iam -->|1| people
-  notify -->|2| billing
+  notify -->|1| billing
   notify -->|2| clinical
   notify -->|1| iam
   notify -->|2| ops
-  notify -->|5| people
+  notify -->|4| people
   notify -->|5| scheduling
   notify -->|4| tenancy
   onboarding -->|1| billing
@@ -941,7 +941,7 @@ Every permission the API checks, such as patients.read.
 | `description` | `text` |  |
 | `scopes` | `text[]` | which of all, own, assigned it can be narrowed to; always all |
 
-Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and "No known allergies" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills.
+Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and "No known allergies" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills. offers.give (migration 0741: owner and doctor, backfilled) gives patients offer and referral codes within the role's caps; a payments.collect holder without billing.write applies only the bill patient's own offer or reward.
 
 ### `role_templates` (★ foundation)
 
@@ -1037,7 +1037,7 @@ A user's place in a clinic: role, branches, status. The link between users and c
 
 Unique (org_id, user_id): one membership per person per clinic. Before the clinic scope is set it is read only through app.authorize(). At most one of avatar_preset and avatar_file_id; the member sets their own with PUT /me/avatar, and app.my_clinics returns both for the clinic switcher.
 
-Referenced by: `allergies.verified_by`, `chat_messages.author_membership_id`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `consent_notices.published_by`, `consent_requests.requested_by`, `conversation_members.membership_id`, `daily_closings.closed_by`, `dashboard_layouts.membership_id`, `dental_terms.added_by`, `dental_terms.retired_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `lab_order_events.actor_id`, `lab_orders.doctor_id`, `lab_orders.last_contacted_by`, `lab_payments.recorded_by`, `lab_payments.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_duplicates.resolved_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `recurring_expenses.recorded_by`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `staff_notification_reads.membership_id`, `staff_notifications.handled_by`, `support_grants.granted_by`, `support_grants.revoked_by`, `task_occurrences.assignee_membership_id`, `task_occurrences.completed_by`, `task_templates.assignee_membership_id`, `time_off_requests.decided_by`, `time_off_requests.membership_id`, `treatment_plans.clinician_id`
+Referenced by: `allergies.verified_by`, `chat_messages.author_membership_id`, `clinical_notes.author_id`, `clinical_notes.error_by`, `clinical_notes.signed_by`, `conditions.verified_by`, `consent_notices.published_by`, `consent_requests.requested_by`, `conversation_members.membership_id`, `daily_closings.closed_by`, `dashboard_layouts.membership_id`, `dental_terms.added_by`, `dental_terms.retired_by`, `document_extractions.confirmed_by`, `encounters.clinician_id`, `expenses.recorded_by`, `expenses.voided_by`, `invoices.issued_by`, `invoices.voided_by`, `lab_order_events.actor_id`, `lab_orders.doctor_id`, `lab_orders.last_contacted_by`, `lab_payments.recorded_by`, `lab_payments.voided_by`, `medical_history_items.verified_by`, `member_setup.membership_id`, `membership_branches.membership_id`, `note_addenda.author_id`, `observations.verified_by`, `patient_consents.recorded_by`, `patient_consents.withdrawn_by`, `patient_duplicates.resolved_by`, `patient_links.decided_by`, `payments.received_by`, `payments.voided_by`, `payroll_entries.membership_id`, `practitioners.membership_id`, `prescription_alerts.acted_by`, `prescriptions.cancelled_by`, `prescriptions.issued_by`, `procedures.clinician_id`, `promo_codes.issued_by`, `promo_codes.revoked_by`, `promo_redemptions.applied_by`, `promo_redemptions.reversed_by`, `recurring_expenses.recorded_by`, `salary_structures.membership_id`, `specialty_records.verified_by`, `staff_advances.membership_id`, `staff_notification_reads.membership_id`, `staff_notifications.handled_by`, `support_grants.granted_by`, `support_grants.revoked_by`, `task_occurrences.assignee_membership_id`, `task_occurrences.completed_by`, `task_templates.assignee_membership_id`, `time_off_requests.decided_by`, `time_off_requests.membership_id`, `treatment_plans.clinician_id`
 
 ### `dashboard_layouts`
 
@@ -1145,7 +1145,7 @@ A clinic's own record of a patient. Two clinics never share this row.
 | `preferred_language` | `text` |  |
 | `blood_group` | `blood_group?` |  |
 | `referral_source_id` | `uuid?` | → `referral_sources` |
-| `referred_by_patient_id` | `uuid?` | → `patients` |
+| `referred_by_patient_id` | `uuid?` | → `patients`. set once when a referral code's use becomes final (migration 0740), never overwritten |
 | `tags` | `text[]` |  |
 | `status` | `patient_status` | active, inactive, deceased, merged, erased |
 | `merged_into_id` | `uuid?` | → `patients`. set by a merge, cleared by an unmerge |
@@ -1160,7 +1160,7 @@ A clinic's own record of a patient. Two clinics never share this row.
 
 A phone number is contact information, never identity: families share numbers and numbers change. A merge only sets merged_into_id; records stay on the original patient and reads resolve to the canonical one, so a wrong merge can be undone. Number, phone and name-prefix search use plain indexes; fuzzy name search goes through app.search_patients(), because trigram matching can't use an index under row-level security. Same-phone registrations get a duplicate warning, never an automatic merge.
 
-Referenced by: `allergies.patient_id`, `appointments.patient_id`, `attachments.patient_id`, `care_episodes.patient_id`, `chat_messages.patient_id`, `clinical_notes.patient_id`, `conditions.patient_id`, `consent_forms.patient_id`, `consent_requests.patient_id`, `contact_preferences.patient_id`, `data_requests.patient_id`, `document_extractions.patient_id`, `encounters.patient_id`, `family_links.patient_id`, `family_links.related_patient_id`, `import_rows.patient_id`, `invoices.patient_id`, `lab_orders.patient_id`, `medical_history_items.patient_id`, `messages.patient_id`, `observations.patient_id`, `patient_consents.patient_id`, `patient_duplicates.candidate_id`, `patient_duplicates.patient_id`, `patient_gaps.patient_id`, `patient_identifiers.patient_id`, `patient_link_codes.patient_id`, `patient_links.patient_id`, `patient_notes.patient_id`, `patient_photos.patient_id`, `patient_relations.patient_id`, `patient_relations.related_patient_id`, `patients.merged_into_id`, `patients.referred_by_patient_id`, `payment_allocations.patient_id`, `payments.patient_id`, `prescriptions.patient_id`, `procedures.patient_id`, `promo_redemptions.patient_id`, `queue_tokens.patient_id`, `recalls.patient_id`, `share_links.patient_id`, `specialty_records.patient_id`, `treatment_plan_items.patient_id`, `treatment_plans.patient_id`, `visit_plan_responses.patient_id`
+Referenced by: `allergies.patient_id`, `appointments.patient_id`, `attachments.patient_id`, `care_episodes.patient_id`, `chat_messages.patient_id`, `clinical_notes.patient_id`, `conditions.patient_id`, `consent_forms.patient_id`, `consent_requests.patient_id`, `contact_preferences.patient_id`, `data_requests.patient_id`, `document_extractions.patient_id`, `encounters.patient_id`, `family_links.patient_id`, `family_links.related_patient_id`, `import_rows.patient_id`, `invoices.patient_id`, `lab_orders.patient_id`, `medical_history_items.patient_id`, `messages.patient_id`, `observations.patient_id`, `patient_consents.patient_id`, `patient_duplicates.candidate_id`, `patient_duplicates.patient_id`, `patient_gaps.patient_id`, `patient_identifiers.patient_id`, `patient_link_codes.patient_id`, `patient_links.patient_id`, `patient_notes.patient_id`, `patient_photos.patient_id`, `patient_relations.patient_id`, `patient_relations.related_patient_id`, `patients.merged_into_id`, `patients.referred_by_patient_id`, `payment_allocations.patient_id`, `payments.patient_id`, `prescriptions.patient_id`, `procedures.patient_id`, `promo_codes.patient_id`, `promo_codes.source_patient_id`, `promo_redemptions.patient_id`, `queue_tokens.patient_id`, `recalls.patient_id`, `share_links.patient_id`, `specialty_records.patient_id`, `treatment_plan_items.patient_id`, `treatment_plans.patient_id`, `visit_plan_responses.patient_id`
 
 ### `patient_identifiers` (★ foundation)
 
@@ -1594,7 +1594,7 @@ One visit. Visit-level clinical data (complaint, vitals, notes, procedures, file
 
 Unique (org_id, id, patient_id): every child row carries patient_id and a composite foreign key (org_id, encounter_id, patient_id), so a visit's notes, vitals, procedures and files can't belong to another patient. Patient-level facts (allergies, active conditions, history) live on the patient and may be updated during a visit; they do not require one. Opening a visit writes access_log.
 
-Referenced by: `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `invoices.encounter_id`, `lab_orders.encounter_id`, `observations.encounter_id`, `prescriptions.encounter_id`, `procedures.encounter_id`, `share_links.encounter_id`, `specialty_records.encounter_id`, `staff_notifications.encounter_id`, `treatment_plans.encounter_id`, `visit_plan_responses.encounter_id`, `voice_notes.encounter_id`
+Referenced by: `attachments.encounter_id`, `clinical_notes.encounter_id`, `conditions.encounter_id`, `invoices.encounter_id`, `lab_orders.encounter_id`, `observations.encounter_id`, `prescriptions.encounter_id`, `procedures.encounter_id`, `promo_codes.issued_encounter_id`, `share_links.encounter_id`, `specialty_records.encounter_id`, `staff_notifications.encounter_id`, `treatment_plans.encounter_id`, `visit_plan_responses.encounter_id`, `voice_notes.encounter_id`
 
 ### `clinical_notes` (★ foundation)
 
@@ -2611,7 +2611,7 @@ Referenced by: `staff_notifications.task_occurrence_id`, `stock_movements.task_o
 
 ## Money (`billing`)
 
-Price list, bills, payments, refunds, expenses and daily cash closing.
+Price list, bills, payments, refunds, expenses, daily cash closing, and offer and referral codes.
 
 ```mermaid
 erDiagram
@@ -2625,6 +2625,9 @@ erDiagram
   recurring_expenses |o--o{ expenses : "recurring_expense_id"
   expenses ||--o{ expense_files : "expense_id"
   expense_categories ||--o{ recurring_expenses : "category_id"
+  promo_codes |o--o{ promo_codes : "source_code_id"
+  promo_codes ||--o{ promo_redemptions : "promo_code_id"
+  invoices ||--o{ promo_redemptions : "invoice_id"
   daily_closings {
     uuid id
   }
@@ -2706,7 +2709,8 @@ Lines on a bill, each optionally tied to a price item or procedure. GST is compu
 | `category` | `text?` |  |
 | `quantity` | `int` |  |
 | `unit_price_paise` | `bigint` |  |
-| `discount_paise` | `bigint` |  |
+| `discount_paise` | `bigint` | the manual discount on a draft; once issued manual + the code's share |
+| `promo_discount_paise` | `bigint` | an offer or referral code's share (migration 0740): apart from discount_paise on a draft, folded into it at issue and kept as a breakdown |
 | `tax_rate_bps` | `int` |  |
 | `taxable_paise` | `bigint` |  |
 | `cgst_paise` | `bigint` |  |
@@ -2869,9 +2873,63 @@ End-of-day cash count against what the system expects.
 | `closed_by` | `uuid` | → `memberships` |
 | `closed_at` | `timestamptz` |  |
 
+### `promo_codes`
+
+Offer, referral and reward codes given to patients (migration 0740; docs/plans/visit-story-v2-offers-design.md Part 2).
+
+*Clinic-scoped: org_id + row-level security · sensitivity: financial · offline: server only · lifecycle: mutable*
+
+| Column | Type | Notes |
+|---|---|---|
+| `code` | `text` | 8 Crockford base32 symbols without the hyphen (K7QM4XRD, shown K7QM-4XRD); unique per clinic; masked in the change history, never in URLs or logs |
+| `purpose` | `text` | patient_offer (only the patient redeems), referral (the patient is the owner; new patients redeem, never the owner), referrer_reward (the owner's reward for a friend's first bill) |
+| `kind` | `text` | percent_bps, fixed (no Postgres enum) |
+| `value` | `bigint` | percent_bps 1-10,000; fixed > 0 paise |
+| `max_discount_paise` | `bigint?` | required for percent_bps: the issuer's role cap, or the referral caps in org_settings.billing.offers |
+| `patient_id` | `uuid` | → `patients`. redeemer (offer, reward) or owner (referral) |
+| `issued_encounter_id` | `uuid?` | → `encounters`. same patient; required except for rewards |
+| `source_code_id` | `uuid?` | → `promo_codes`. rewards: the referral code |
+| `source_patient_id` | `uuid?` | → `patients`. rewards: the friend |
+| `issued_by` | `uuid` | → `memberships` |
+| `valid_from` | `date` |  |
+| `valid_to` | `date` | clinic dates, valid_to >= valid_from |
+| `max_uses` | `int` | 1 for offers and rewards |
+| `used_count` | `int` | live uses (held + final), 0 to max_uses |
+| `applies_to` | `jsonb?` | a target label {plan_item_id?, procedure_id?, tooth?, procedure_term?, words}; null = the next treatment. Checked against what the bill's visit recorded, never used to pick lines |
+| `revoked_at` | `timestamptz?` |  |
+| `revoked_by` | `uuid?` | → `memberships` |
+| `revoke_reason` | `text?` | undo, staff, erased, source_void, replaced |
+
+Unique (org_id, issued_encounter_id, purpose) while live (issuing again returns the code); one live referral per patient; unique (org_id, source_code_id, source_patient_id), so a void and re-bill restores the same reward. No support reads. Erasure step 25 revokes the patient's codes (reason erased).
+
+Referenced by: `promo_codes.source_code_id`, `promo_redemptions.promo_code_id`
+
+### `promo_redemptions`
+
+Each use of a code on a bill: held on a draft, final at issue, or reversed.
+
+*Clinic-scoped: org_id + row-level security · sensitivity: financial · offline: server only · lifecycle: mutable*
+
+| Column | Type | Notes |
+|---|---|---|
+| `promo_code_id` | `uuid` | → `promo_codes` |
+| `patient_id` | `uuid` | → `patients` |
+| `invoice_id` | `uuid` | → `invoices`. composite with patient_id |
+| `status` | `text` | held, final, reversed |
+| `discount_paise` | `bigint` | the sum of the lines' promo_discount_paise; recomputed on every draft edit, frozen at issue |
+| `applied_at` | `timestamptz` |  |
+| `applied_by` | `uuid?` | → `memberships` |
+| `override` | `bool` | a billing.write caller applied a targeted code to a visit that didn't record the target |
+| `redeemed_at` | `timestamptz?` | at issue |
+| `reversed_at` | `timestamptz?` |  |
+| `reversed_by` | `uuid?` | → `memberships` |
+| `reverse_reason` | `text?` | removed, void, replaced, revoked, moved, stale |
+
+One live use per bill (no stacking) and per code and patient. app.promo_release_stale_holds (security definer, actor system) reverses holds on drafts past the code's valid_to + 7 in each clinic's time zone, from the outbox job. Kept with the bills on erasure (step 100). No support reads. Issuing a referral bill sets patients.referred_by_patient_id once and mints the owner's reward in a savepoint that never fails the issue.
+
 ## Notifications (`notify`)
 
-Templates, rules, consent, recalls, campaigns, promo codes, the outbox and every message sent.
+Templates, rules, consent, recalls, campaigns, the outbox and every message sent.
 
 ```mermaid
 erDiagram
@@ -2885,7 +2943,6 @@ erDiagram
   chat_messages ||--o{ chat_attachments : "message_id"
   audiences ||--o{ campaigns : "audience_id"
   message_templates ||--o{ campaigns : "template_id"
-  promo_codes ||--o{ promo_redemptions : "promo_code_id"
   campaigns |o--o{ messages : "campaign_id"
   messages ||--o{ message_events : "message_id"
   contact_preferences {
@@ -3159,39 +3216,6 @@ A one-off promotional send of a clinic's template to an audience.
 Built (migrations 0381, 0383). Messages name their campaign (messages.campaign_id) under dedupe key campaign:<id>:<patient>; counts are group by status, skip_reason over them, never stored. app.campaigns_fan_out_next expands 500 patients a call, resumable and idempotent. Holds no patient; retention class campaigns.
 
 Referenced by: `messages.campaign_id`
-
-### `promo_codes`
-
-Discount codes a clinic can share.
-
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
-
-| Column | Type | Notes |
-|---|---|---|
-| `code` | `text` | unique per clinic |
-| `kind` | `discount_kind` | percent_bps, fixed |
-| `value` | `bigint` |  |
-| `valid_from` | `date` |  |
-| `valid_to` | `date?` |  |
-| `max_uses` | `int?` |  |
-| `used_count` | `int` |  |
-| `applies_to` | `jsonb?` | price items or categories |
-
-Referenced by: `promo_redemptions.promo_code_id`
-
-### `promo_redemptions`
-
-Each use of a promo code on a bill.
-
-*Clinic-scoped: org_id + row-level security · sensitivity: personal · offline: server only*
-
-| Column | Type | Notes |
-|---|---|---|
-| `promo_code_id` | `uuid` | → `promo_codes` |
-| `patient_id` | `uuid` | → `patients` |
-| `invoice_id` | `uuid` | → `invoices` |
-| `discount_paise` | `bigint` |  |
-| `redeemed_at` | `timestamptz` |  |
 
 ### `outbox_events` (★ foundation)
 

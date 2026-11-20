@@ -38,12 +38,12 @@
   {
    "key": "billing",
    "label": "Money",
-   "purpose": "Price list, bills, payments, refunds, expenses and daily cash closing."
+   "purpose": "Price list, bills, payments, refunds, expenses, daily cash closing, and offer and referral codes."
   },
   {
    "key": "notify",
    "label": "Notifications",
-   "purpose": "Templates, rules, consent, recalls, campaigns, promo codes, the outbox and every message sent."
+   "purpose": "Templates, rules, consent, recalls, campaigns, the outbox and every message sent."
   },
   {
    "key": "web",
@@ -2557,7 +2557,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and \"No known allergies\" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills.",
+   "notes": "Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and \"No known allergies\" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills. offers.give (migration 0741: owner and doctor, backfilled) gives patients offer and referral codes within the role's caps; a payments.collect holder without billing.write applies only the bill patient's own offer or reward.",
    "cols": [
     {
      "name": "key",
@@ -2932,6 +2932,10 @@
     "prescriptions.cancelled_by",
     "prescriptions.issued_by",
     "procedures.clinician_id",
+    "promo_codes.issued_by",
+    "promo_codes.revoked_by",
+    "promo_redemptions.applied_by",
+    "promo_redemptions.reversed_by",
     "recurring_expenses.recorded_by",
     "salary_structures.membership_id",
     "specialty_records.verified_by",
@@ -3233,7 +3237,7 @@
      "type": "uuid",
      "nullable": true,
      "ref": "patients",
-     "note": ""
+     "note": "set once when a referral code's use becomes final (migration 0740), never overwritten"
     },
     {
      "name": "tags",
@@ -3352,6 +3356,8 @@
     "payments.patient_id",
     "prescriptions.patient_id",
     "procedures.patient_id",
+    "promo_codes.patient_id",
+    "promo_codes.source_patient_id",
     "promo_redemptions.patient_id",
     "queue_tokens.patient_id",
     "recalls.patient_id",
@@ -4634,6 +4640,7 @@
     "observations.encounter_id",
     "prescriptions.encounter_id",
     "procedures.encounter_id",
+    "promo_codes.issued_encounter_id",
     "share_links.encounter_id",
     "specialty_records.encounter_id",
     "staff_notifications.encounter_id",
@@ -8827,7 +8834,14 @@
      "type": "bigint",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "the manual discount on a draft; once issued manual + the code's share"
+    },
+    {
+     "name": "promo_discount_paise",
+     "type": "bigint",
+     "nullable": false,
+     "ref": null,
+     "note": "an offer or referral code's share (migration 0740): apart from discount_paise on a draft, folded into it at issue and kept as a breakdown"
     },
     {
      "name": "tax_rate_bps",
@@ -10579,34 +10593,83 @@
   },
   {
    "name": "promo_codes",
-   "domain": "notify",
-   "purpose": "Discount codes a clinic can share.",
+   "domain": "billing",
+   "purpose": "Offer, referral and reward codes given to patients (migration 0740; docs/plans/visit-story-v2-offers-design.md Part 2).",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "Unique (org_id, issued_encounter_id, purpose) while live (issuing again returns the code); one live referral per patient; unique (org_id, source_code_id, source_patient_id), so a void and re-bill restores the same reward. No support reads. Erasure step 25 revokes the patient's codes (reason erased).",
    "cols": [
     {
      "name": "code",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "unique per clinic"
+     "note": "8 Crockford base32 symbols without the hyphen (K7QM4XRD, shown K7QM-4XRD); unique per clinic; masked in the change history, never in URLs or logs"
+    },
+    {
+     "name": "purpose",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "patient_offer (only the patient redeems), referral (the patient is the owner; new patients redeem, never the owner), referrer_reward (the owner's reward for a friend's first bill)"
     },
     {
      "name": "kind",
-     "type": "discount_kind",
+     "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "percent_bps, fixed"
+     "note": "percent_bps, fixed (no Postgres enum)"
     },
     {
      "name": "value",
      "type": "bigint",
      "nullable": false,
      "ref": null,
+     "note": "percent_bps 1-10,000; fixed > 0 paise"
+    },
+    {
+     "name": "max_discount_paise",
+     "type": "bigint",
+     "nullable": true,
+     "ref": null,
+     "note": "required for percent_bps: the issuer's role cap, or the referral caps in org_settings.billing.offers"
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "redeemer (offer, reward) or owner (referral)"
+    },
+    {
+     "name": "issued_encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": "same patient; required except for rewards"
+    },
+    {
+     "name": "source_code_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "promo_codes",
+     "note": "rewards: the referral code"
+    },
+    {
+     "name": "source_patient_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "patients",
+     "note": "rewards: the friend"
+    },
+    {
+     "name": "issued_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
      "note": ""
     },
     {
@@ -10619,48 +10682,70 @@
     {
      "name": "valid_to",
      "type": "date",
-     "nullable": true,
+     "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "clinic dates, valid_to >= valid_from"
     },
     {
      "name": "max_uses",
      "type": "int",
-     "nullable": true,
+     "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "1 for offers and rewards"
     },
     {
      "name": "used_count",
      "type": "int",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "live uses (held + final), 0 to max_uses"
     },
     {
      "name": "applies_to",
      "type": "jsonb",
      "nullable": true,
      "ref": null,
-     "note": "price items or categories"
+     "note": "a target label {plan_item_id?, procedure_id?, tooth?, procedure_term?, words}; null = the next treatment. Checked against what the bill's visit recorded, never used to pick lines"
+    },
+    {
+     "name": "revoked_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "revoked_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "revoke_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "undo, staff, erased, source_void, replaced"
     }
    ],
    "referenced_by": [
+    "promo_codes.source_code_id",
     "promo_redemptions.promo_code_id"
    ],
-   "sensitivity": "personal",
+   "sensitivity": "financial",
    "offline": "server_only"
   },
   {
    "name": "promo_redemptions",
-   "domain": "notify",
-   "purpose": "Each use of a promo code on a bill.",
+   "domain": "billing",
+   "purpose": "Each use of a code on a bill: held on a draft, final at issue, or reversed.",
    "rls": "clinic",
    "star": false,
    "partitioned": false,
-   "lifecycle": null,
+   "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "",
+   "notes": "One live use per bill (no stacking) and per code and patient. app.promo_release_stale_holds (security definer, actor system) reverses holds on drafts past the code's valid_to + 7 in each clinic's time zone, from the outbox job. Kept with the bills on erasure (step 100). No support reads. Issuing a referral bill sets patients.referred_by_patient_id once and mints the owner's reward in a savepoint that never fails the issue.",
    "cols": [
     {
      "name": "promo_code_id",
@@ -10681,25 +10766,74 @@
      "type": "uuid",
      "nullable": false,
      "ref": "invoices",
-     "note": ""
+     "note": "composite with patient_id"
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "held, final, reversed"
     },
     {
      "name": "discount_paise",
      "type": "bigint",
      "nullable": false,
      "ref": null,
-     "note": ""
+     "note": "the sum of the lines' promo_discount_paise; recomputed on every draft edit, frozen at issue"
     },
     {
-     "name": "redeemed_at",
+     "name": "applied_at",
      "type": "timestamptz",
      "nullable": false,
      "ref": null,
      "note": ""
+    },
+    {
+     "name": "applied_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "override",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "a billing.write caller applied a targeted code to a visit that didn't record the target"
+    },
+    {
+     "name": "redeemed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": "at issue"
+    },
+    {
+     "name": "reversed_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "reversed_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "memberships",
+     "note": ""
+    },
+    {
+     "name": "reverse_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "removed, void, replaced, revoked, moved, stale"
     }
    ],
    "referenced_by": [],
-   "sensitivity": "personal",
+   "sensitivity": "financial",
    "offline": "server_only"
   },
   {

@@ -15,6 +15,8 @@ struct DeskBoardScreen: View {
     var feed: DeskV10Feed?
     /// True when the Desk home draws the board inside its own scroll view.
     var embedded = false
+    /// For "Prepare WhatsApp summary" on finished cards; nil leaves it out.
+    var graph: AppGraph?
     @State private var net = V9Connectivity()
     @Environment(\.skTheme) private var theme
     @Environment(\.scenePhase) private var scenePhase
@@ -141,6 +143,10 @@ struct DeskBoardScreen: View {
                 DeskV10Collect.mayBeCollecting(status: "ready_to_bill", endedAt: $0, now: Date())
             } ?? false
             card(row, loaded, badge: dvf("d9.board.wait", Int(row.waitMinutes)), note: collecting ? dx("dx.pay.may_collect") : nil)
+            // A finished visit: its WhatsApp summary, as on the Done screen (shown only with both keys).
+            if let graph, let visitId = row.summaryVisitId {
+                DoctorWhatsAppSummary(graph: graph, clinic: clinic, visitId: visitId, compact: true).padding(.horizontal, 6)
+            }
         }
     }
 

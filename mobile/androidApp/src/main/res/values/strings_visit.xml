@@ -131,6 +131,7 @@
     <string name="vv_wa_title">Visit summary for the patient</string>
     <string name="vv_wa_hint">Why they came, what you did, their plan, care at home and medicines, with a link that needs a PIN.</string>
     <string name="vv_wa_send">Send on WhatsApp</string>
+    <string name="vv_wa_prepare">Prepare WhatsApp summary</string>
     <string name="vv_wa_preparing">Preparing…</string>
     <string name="vv_wa_prepared">Summary prepared %1$s. Press Send in WhatsApp.</string>
     <string name="vv_wa_prepared_guardian">Summary prepared %1$s for the parent or guardian. Press Send in WhatsApp.</string>

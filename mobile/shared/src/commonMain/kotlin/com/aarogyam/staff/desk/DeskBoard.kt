@@ -31,7 +31,12 @@ data class BoardTicket(
     val doctor: String?,
     val waitMinutes: Long,
     val welcome: WelcomeNote? = null,
-)
+    /** The newest visit started from this token; null before one starts. */
+    val visitId: String? = null,
+) {
+    /** A finished visit whose WhatsApp summary the board can prepare (today's board only). */
+    val summaryVisitId: String? get() = visitId.takeIf { state == PatientState.Done }
+}
 
 /** What the board draws. */
 sealed interface DeskBoardState {
@@ -177,6 +182,7 @@ class DeskBoardStateHolder(
                                 doctor = token.practitioner?.displayName,
                                 waitMinutes = token.waitMinutes,
                                 welcome = welcomeNote(token.welcomeStatus, token.welcomeSkipReason),
+                                visitId = token.visitId,
                             )
                         }
                     mutableState.value =

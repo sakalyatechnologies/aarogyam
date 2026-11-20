@@ -48,7 +48,7 @@ struct DeskBoardEntry: View {
                     DeskBoardScreen(holder: holder, state: state, clinic: clinic, onOpenPatient: { id in
                         open = false
                         onOpenPatient(id)
-                    }, onCollect: { paying = $0 })
+                    }, onCollect: { paying = $0 }, graph: graph)
                 }
                 .navigationTitle(dv("d9.board.title"))
                 .navigationBarTitleDisplayMode(.inline)

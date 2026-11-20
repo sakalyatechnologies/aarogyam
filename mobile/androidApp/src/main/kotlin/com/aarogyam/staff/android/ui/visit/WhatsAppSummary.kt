@@ -70,13 +70,17 @@ private fun SummaryRefusal.message(): Int =
 
 private fun clock(minute: Int): String = LocalTime(minute / MINUTES, minute % MINUTES).display()
 
-/** "Send on WhatsApp" on the Done screen. Says "prepared", never "sent": we can't see WhatsApp. */
+/**
+ * "Send on WhatsApp" on the Done screen, or [compact] "Prepare WhatsApp summary" on a finished card of
+ * the queue board. Says "prepared", never "sent": we can't see WhatsApp.
+ */
 @Composable
 internal fun WhatsAppSummary(
     clinic: ClinicContext,
     visitId: String,
+    compact: Boolean = false,
 ) {
-    val holder = rememberHolder { WhatsAppSummaryStateHolder(clinic, visitId, it) }
+    val holder = rememberHolder(visitId) { WhatsAppSummaryStateHolder(clinic, visitId, it) }
     if (!holder.visible) return
     val state by holder.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -86,7 +90,13 @@ internal fun WhatsAppSummary(
         holder.prepare { if (!openWhatsApp(context, it)) holder.whatsAppMissing() }
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.SM.dp)) {
-        Text(stringResource(R.string.vv_wa_title), style = SkTypography.bodyStrong, color = SkTheme.colors.text.color)
+        if (!compact) {
+            Text(
+                stringResource(R.string.vv_wa_title),
+                style = SkTypography.bodyStrong,
+                color = SkTheme.colors.text.color,
+            )
+        }
         when (val s = state) {
             is WhatsAppSummaryState.Prepared -> {
                 val line =
@@ -103,19 +113,20 @@ internal fun WhatsAppSummary(
                     stringResource(R.string.vv_wa_again),
                     onClick = { if (!openWhatsApp(context, s.handoff)) holder.whatsAppMissing() },
                     variant = SkButtonVariant.Secondary,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = if (compact) Modifier else Modifier.fillMaxWidth(),
                 )
             }
 
             else -> {
-                Muted(stringResource(R.string.vv_wa_hint))
+                if (!compact) Muted(stringResource(R.string.vv_wa_hint))
                 val preparing = s == WhatsAppSummaryState.Preparing
+                val idle = if (compact) R.string.vv_wa_prepare else R.string.vv_wa_send
                 SkButton(
-                    stringResource(if (preparing) R.string.vv_wa_preparing else R.string.vv_wa_send),
+                    stringResource(if (preparing) R.string.vv_wa_preparing else idle),
                     onClick = ::send,
                     variant = SkButtonVariant.Secondary,
                     enabled = !preparing,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = if (compact) Modifier else Modifier.fillMaxWidth(),
                 )
                 val problem =
                     when (s) {

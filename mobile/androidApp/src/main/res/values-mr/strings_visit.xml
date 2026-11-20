@@ -131,6 +131,7 @@
     <string name="vv_wa_title">रुग्णासाठी भेटीचा सारांश</string>
     <string name="vv_wa_hint">ते का आले, तुम्ही काय केले, पुढची योजना, घरी काळजी आणि औषधे, PIN असलेल्या लिंकसह.</string>
     <string name="vv_wa_send">WhatsApp वर पाठवा</string>
+    <string name="vv_wa_prepare">WhatsApp सारांश तयार करा</string>
     <string name="vv_wa_preparing">तयार होत आहे…</string>
     <string name="vv_wa_prepared">सारांश %1$s ला तयार. WhatsApp मध्ये Send दाबा.</string>
     <string name="vv_wa_prepared_guardian">पालकांसाठी सारांश %1$s ला तयार. WhatsApp मध्ये Send दाबा.</string>

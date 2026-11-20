@@ -47,7 +47,7 @@ struct DeskHomeScreen: View {
                 if let tokenDone { doneCard(tokenDone) } else { finder }
                 if let board {
                     DeskBoardScreen(holder: board.holder, state: board.value, clinic: clinic, onOpenPatient: onOpenPatient,
-                                    onCollect: { paying = $0 }, feed: feed, embedded: true)
+                                    onCollect: { paying = $0 }, feed: feed, embedded: true, graph: graph)
                 }
                 ScreenHost(make: { graph.toCollect(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
                     DeskUnpaidSection(holder: holder, state: state, canCollect: canCollect,

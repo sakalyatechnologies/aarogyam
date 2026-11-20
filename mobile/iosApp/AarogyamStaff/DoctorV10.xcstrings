@@ -1864,6 +1864,29 @@
           }
         }
       }
+    },
+    "dv10.wa.prepare": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepare WhatsApp summary"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WhatsApp सारांश तैयार करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WhatsApp सारांश तयार करा"
+          }
+        }
+      }
     }
   }
 }

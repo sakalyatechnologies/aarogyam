@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.LoadingIndicator
 import com.aarogyam.staff.android.ui.message
+import com.aarogyam.staff.android.ui.visit.WhatsAppSummary
+import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.config.caps.ServerCaps
 import com.aarogyam.staff.desk.BoardTicket
 import com.aarogyam.staff.desk.DeskBoardState
@@ -45,6 +47,7 @@ import kotlin.time.Instant
 
 /** What the board reads from the desk and what it can do (the v10 live bits). */
 class DeskBoardContext(
+    val clinic: ClinicContext,
     val roleKey: String,
     val permissions: Set<String>,
     val feed: DeskFeedState,
@@ -206,6 +209,8 @@ private fun Ticket(
         if (collecting) DeskMutedText(stringResource(R.string.dk_dx_pay_may_collect))
         row.welcome?.let { DeskMutedText(welcomeText(it)) }
         if (wait != null && seconds != null && isNoReply(seconds)) NoReplyRow(row.id, wait, ctx, now)
+        // A finished visit: its WhatsApp summary, as on the Done screen (shown only with both keys).
+        row.summaryVisitId?.let { WhatsAppSummary(ctx.clinic, it, compact = true) }
     }
 }
 

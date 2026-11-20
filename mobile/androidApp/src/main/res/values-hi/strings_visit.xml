@@ -131,6 +131,7 @@
     <string name="vv_wa_title">मरीज़ के लिए विज़िट का सारांश</string>
     <string name="vv_wa_hint">वे क्यों आए, आपने क्या किया, आगे की योजना, घर पर देखभाल और दवाइयाँ, PIN वाले लिंक के साथ।</string>
     <string name="vv_wa_send">WhatsApp पर भेजें</string>
+    <string name="vv_wa_prepare">WhatsApp सारांश तैयार करें</string>
     <string name="vv_wa_preparing">तैयार हो रहा है…</string>
     <string name="vv_wa_prepared">सारांश %1$s पर तैयार। WhatsApp में Send दबाएँ।</string>
     <string name="vv_wa_prepared_guardian">माता-पिता या अभिभावक के लिए सारांश %1$s पर तैयार। WhatsApp में Send दबाएँ।</string>

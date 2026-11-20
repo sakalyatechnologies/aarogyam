@@ -95,6 +95,7 @@ fun DeskBoardScreen(
                     board,
                     boardState,
                     DeskBoardContext(
+                        clinic = clinic,
                         roleKey = clinic.session.membership.roleKey,
                         permissions = clinic.permissions,
                         feed = feedState,

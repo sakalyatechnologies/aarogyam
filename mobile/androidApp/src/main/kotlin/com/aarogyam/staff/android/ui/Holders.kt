@@ -17,3 +17,10 @@ class HolderViewModel<T : Any>(
 @Composable
 inline fun <reified T : Any> rememberHolder(noinline create: (CoroutineScope) -> T): T =
     viewModel(key = T::class.qualifiedName) { HolderViewModel(create) }.holder
+
+/** One holder per [key] on the same destination (a row of a list), created once per key. */
+@Composable
+inline fun <reified T : Any> rememberHolder(
+    key: String,
+    noinline create: (CoroutineScope) -> T,
+): T = viewModel(key = "${T::class.qualifiedName}:$key") { HolderViewModel(create) }.holder

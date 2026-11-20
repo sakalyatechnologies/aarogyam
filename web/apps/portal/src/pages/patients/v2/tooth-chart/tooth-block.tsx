@@ -1,13 +1,13 @@
-import { MonitorSmartphone, Presentation } from "lucide-react";
+import { MonitorSmartphone } from "lucide-react";
 import { useNavigate } from "react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { Patient, ToothSurface } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
 
 import { SkeletonRows } from "../../../../components/skeleton-rows.js";
 import { useClinic } from "../../../../clinic.js";
-import { useDentalChart, useProcedures, useStaff, useVisits } from "../../../../queries.js";
+import { useDentalChart, useProcedures, useStaff, useVisitMouth, useVisits } from "../../../../queries.js";
 import { usePlans } from "../../../treatment-plans/queries.js";
 import { Odontogram } from "../../../visits/odontogram/odontogram.js";
 import { ExplainMode } from "../explain/explain-mode.js";
@@ -40,7 +40,13 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
   }, []);
   const [explaining, setExplaining] = useState(false);
   const navigate = useNavigate();
-  const presentId = visit.visit?.id;
+  const presentId = can("clinical.read") ? visit.visit?.id : undefined;
+  // warm Show patient: the mouth snapshot, then its route chunk and art, while the doctor charts (§1.12 speed)
+  const mouth = useVisitMouth(presentId);
+  useEffect(() => {
+    const snapshot = mouth.data;
+    if (snapshot !== undefined) void import("../../../visits/present/prefetch.js").then((m) => { m.prefetchPresent(snapshot); });
+  }, [mouth.data]);
 
   if (chart.isPending) {
     return (
@@ -103,27 +109,18 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
           <PopoverPill label="Key" title="Chart key">
             <ChartKey view={prefs.look === "classic" ? "treatment" : prefs.view} />
           </PopoverPill>
+          {/* one mode (§1.12): Show patient opens Present with Teeth and X-rays tabs; without a visit, the X-rays alone */}
           <PillButton
             variant="ghost"
             className="xp-open"
-            icon={<Presentation aria-hidden="true" />}
+            icon={<MonitorSmartphone aria-hidden="true" />}
             onClick={() => {
-              setExplaining(true);
+              if (presentId === undefined) setExplaining(true);
+              else void navigate(`/visits/${presentId}/mouth`);
             }}
           >
-            Explain to patient
+            Show patient
           </PillButton>
-          {presentId === undefined || !can("clinical.read") ? null : (
-            <PillButton
-              variant="ghost"
-              icon={<MonitorSmartphone aria-hidden="true" />}
-              onClick={() => {
-                void navigate(`/visits/${presentId}/mouth`);
-              }}
-            >
-              Show patient
-            </PillButton>
-          )}
         </div>
       }
     >

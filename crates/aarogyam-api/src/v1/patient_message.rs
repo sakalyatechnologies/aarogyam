@@ -188,6 +188,7 @@ pub(crate) async fn prepare(
         EncounterId::from_uuid(id),
         edge.host().as_str(),
         &url,
+        state.learn_origin(),
         sections,
         OffsetDateTime::now_utc(),
     )
@@ -251,6 +252,7 @@ pub(crate) async fn preview(
         EncounterId::from_uuid(id),
         edge.host().as_str(),
         &url,
+        state.learn_origin(),
         sections,
         OffsetDateTime::now_utc(),
     )

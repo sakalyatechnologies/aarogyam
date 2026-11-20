@@ -26,8 +26,8 @@ use aarogyam_domain::permission::Permission;
 use aarogyam_domain::quick_picks;
 use aarogyam_domain::share::ShareChannel;
 use aarogyam_domain::visit_message::{
-    self as message, DoneDetail, FoundLine, MedicineLine, MessageInput, MessageSection, NextVisit,
-    RecLine, Recipient, Refusal, SectionSet, Work,
+    self as message, DoneDetail, FoundLine, LearnLink, MedicineLine, MessageInput, MessageSection,
+    NextVisit, RecLine, Recipient, Refusal, SectionSet, Work,
 };
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::{Paise, PhoneE164};
@@ -651,12 +651,25 @@ struct Draft {
     next_visit: Option<NextVisit>,
     keys: Vec<&'static str>,
     medicines: Vec<MedicineLine>,
+    /// The public learn page for today's treatment (design §1.9).
+    learn: Option<message::LearnTopic>,
 }
 
 impl Draft {
-    /// The message's input with this link, PIN and ticks. The typed complaint stays on the visit
-    /// page; it never goes into the text.
-    fn input<'a>(&'a self, url: &'a str, pin: &'a str, sections: SectionSet) -> MessageInput<'a> {
+    /// The learn page's address on the learn host, when there is a topic and a host.
+    fn learn_url(&self, learn_origin: Option<&str>) -> Option<String> {
+        Some(message::learn_url(learn_origin?, self.learn?))
+    }
+
+    /// The message's input with this link, PIN, ticks and learn page address. The typed
+    /// complaint stays on the visit page; it never goes into the text.
+    fn input<'a>(
+        &'a self,
+        url: &'a str,
+        pin: &'a str,
+        sections: SectionSet,
+        learn_url: Option<&'a str>,
+    ) -> MessageInput<'a> {
         MessageInput {
             clinic_name: &self.clinic_name,
             doctor_name: self.doctor_name.as_deref(),
@@ -673,8 +686,10 @@ impl Draft {
             advice: &self.facts.advice,
             medicines: &self.medicines,
             clinic_phone: self.clinic_phone.as_deref(),
-            // The public learn page comes with the learn site (P9).
-            learn_url: None,
+            learn: self.learn.zip(learn_url).map(|(topic, url)| LearnLink {
+                title: topic.title,
+                url,
+            }),
             url,
             pin,
             sections,
@@ -725,6 +740,7 @@ async fn draft_in(
     let done = done_in(tx, visit.id).await?;
     let plan = plan_in(tx, visit.id, patient.id).await?;
     let keys = care_keys(&done, &plan);
+    let learn = message::learn_topic(&done.iter().map(DoneWork::work).collect::<Vec<_>>());
     let medicines = medicine_lines(tx, visit.id).await?;
     let visited_on = clinic_today(&timezone, visit.started_at);
     let next_visit = match dal::next_booked(tx.conn(), patient.id, now).await? {
@@ -754,6 +770,7 @@ async fn draft_in(
         next_visit,
         keys,
         medicines,
+        learn,
     })
 }
 
@@ -769,6 +786,7 @@ pub fn parse_sections(names: &[String]) -> Result<SectionSet, AppError> {
 /// and opt-outs, mints a visit link (7 days; at most [`LIVE_VISIT_LINKS`] live per visit, the
 /// oldest revoked) and builds the text. `url` turns the clinic's portal host and the token into
 /// the link; `request_host` is the host used when the clinic has no verified portal address.
+/// `learn_origin` is the public learn host's origin; without it the text has no learn link.
 /// With `sections` the text has only the ticked ones and they become the doctor's defaults;
 /// without, it has every section (older clients).
 ///
@@ -788,6 +806,7 @@ pub async fn prepare(
     visit_id: EncounterId,
     request_host: &str,
     url: &(dyn Fn(&str, &str) -> String + Sync),
+    learn_origin: Option<&str>,
     sections: Option<SectionSet>,
     now: OffsetDateTime,
 ) -> Result<Prepared, AppError> {
@@ -824,8 +843,13 @@ pub async fn prepare(
         {
             prefs_dal::save_sections(tx.conn(), member, &owned_names(ticked)).await?;
         }
-        let composed =
-            message::compose(&draft.input(&link, &made.pin, sections.unwrap_or_default()));
+        let learn = draft.learn_url(learn_origin);
+        let composed = message::compose(&draft.input(
+            &link,
+            &made.pin,
+            sections.unwrap_or_default(),
+            learn.as_deref(),
+        ));
         Ok(Prepared {
             phone: draft.phone,
             text: composed.text,
@@ -858,6 +882,7 @@ pub async fn preview(
     visit_id: EncounterId,
     request_host: &str,
     url: &(dyn Fn(&str, &str) -> String + Sync),
+    learn_origin: Option<&str>,
     sections: SectionSet,
     now: OffsetDateTime,
 ) -> Result<String, AppError> {
@@ -869,7 +894,11 @@ pub async fn preview(
             .await?
             .unwrap_or_else(|| request_host.to_owned());
         let link = url(&host, message::PREVIEW_TOKEN);
-        Ok(message::compose(&draft.input(&link, message::PREVIEW_PIN, sections)).text)
+        let learn = draft.learn_url(learn_origin);
+        Ok(
+            message::compose(&draft.input(&link, message::PREVIEW_PIN, sections, learn.as_deref()))
+                .text,
+        )
     })
     .await
 }

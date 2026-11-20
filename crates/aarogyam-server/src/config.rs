@@ -380,6 +380,11 @@ pub struct HostSettings {
     pub console: String,
     /// The neutral host for the phone apps (`ARO_HOSTS__APP`).
     pub app: String,
+    /// The public learn site's origin, such as `https://learn.aarogyam.example`
+    /// (`ARO_HOSTS__LEARN_ORIGIN`): the assets-only Worker in `deploy/cloudflare/learn`. Unset,
+    /// visit summaries carry no learn link.
+    #[serde(default)]
+    pub learn_origin: Option<String>,
 }
 
 /// How portal hosts are made to work (`ARO_EDGE__HOSTS`).

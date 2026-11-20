@@ -213,9 +213,14 @@ describe("A visit, from the new Patient 360", () => {
     // The patient's summary goes from the doctor's own WhatsApp: the full text through WhatsApp Desktop, only the
     // short text (no clinical words) through a WhatsApp Web URL. The screen says "prepared", never "sent".
     const opened: string[] = [];
-    const open = handoff.open;
+    const copied: string[] = [];
+    const { open, copy } = handoff;
     handoff.open = (url) => {
       opened.push(url);
+    };
+    handoff.copy = (text) => {
+      copied.push(text);
+      return Promise.resolve();
     };
     try {
       await user.click(within(dialog).getByRole("button", { name: "Send on WhatsApp" }));
@@ -223,11 +228,17 @@ describe("A visit, from the new Patient 360", () => {
       expect(opened).toHaveLength(1);
       expect(opened[0]).toMatch(/^whatsapp:\/\/send\?phone=\d+&text=.*Done%20today/);
       const web = within(dialog).getByRole("link", { name: "Use WhatsApp Web" }).getAttribute("href") ?? "";
-      expect(web).toMatch(/^https:\/\/wa\.me\/\d+\?text=/);
+      expect(web).toMatch(/^https:\/\/web\.whatsapp\.com\/send\?phone=\d+&text=/);
       expect(decodeURIComponent(web)).not.toMatch(/Done today/);
+      // WhatsApp Web gets the full text by paste: "Copy full summary" puts it on this computer's clipboard only.
+      await user.click(within(dialog).getByRole("button", { name: "Copy full summary" }));
+      expect(copied).toHaveLength(1);
+      expect(copied[0]).toMatch(/Done today/);
+      expect(await within(dialog).findByText(/Copied\. Paste it/)).toBeTruthy();
       expect(within(dialog).queryByText(/sent/i)).toBeNull();
     } finally {
       handoff.open = open;
+      handoff.copy = copy;
     }
     await user.click(within(dialog).getByRole("button", { name: "Done" }));
     await waitFor(() => {

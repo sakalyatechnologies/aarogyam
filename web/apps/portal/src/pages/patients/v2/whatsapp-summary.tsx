@@ -9,13 +9,16 @@ import { PillButton } from "./kit.js";
 
 /**
  * How the summary leaves the browser. `whatsapp://` opens WhatsApp Desktop on this computer with the full text, a
- * local hand-off with nothing in a web URL; tests replace `open`.
+ * local hand-off with nothing in a web URL. `copy` puts the full text on this computer's clipboard so a doctor on
+ * WhatsApp Web can paste it (a web URL may only carry the short text). Tests replace both.
  */
 export const handoff = {
   open: (url: string) => {
     window.location.href = url;
   },
+  copy: (text: string): Promise<void> => navigator.clipboard.writeText(text),
 };
+
 
 const digits = (phone: string) => phone.replace(/\D/g, "");
 
@@ -23,9 +26,10 @@ const digits = (phone: string) => phone.replace(/\D/g, "");
 export const desktopLink = (message: VisitPatientMessage) =>
   `whatsapp://send?phone=${digits(message.phone_e164)}&text=${encodeURIComponent(message.text)}`;
 
-/** The WhatsApp Web link: only the short text (no clinical words), because it travels in a web URL. */
+/** The WhatsApp Web chat: only the short text (no clinical words), because it travels in a web URL. The doctor pastes
+ * the full summary from "Copy full summary". */
 export const webLink = (message: VisitPatientMessage) =>
-  `https://wa.me/${digits(message.phone_e164)}?text=${encodeURIComponent(message.short_text)}`;
+  `https://web.whatsapp.com/send?phone=${digits(message.phone_e164)}&text=${encodeURIComponent(message.short_text)}`;
 
 const REFUSALS: Readonly<Record<string, string>> = {
   visit_open: "Finish the visit first, then send the summary.",
@@ -48,6 +52,7 @@ export function WhatsAppSummary({ visitId, compact = false }: { visitId: VisitId
   const prepare = useMutation({ mutationFn: () => unwrap(api.prepareVisitPatientMessage(visitId)) });
   const [message, setMessage] = useState<VisitPatientMessage>();
   const [preparedAt, setPreparedAt] = useState<string>();
+  const [copied, setCopied] = useState<"yes" | "failed">();
 
   if (!can("clinical.read") || !can("patients.contact")) {
     return null;
@@ -61,6 +66,16 @@ export function WhatsAppSummary({ visitId, compact = false }: { visitId: VisitId
         handoff.open(desktopLink(made));
       },
     });
+  };
+  const copy = (text: string) => {
+    handoff.copy(text).then(
+      () => {
+        setCopied("yes");
+      },
+      () => {
+        setCopied("failed");
+      },
+    );
   };
   const error = prepare.error === null ? undefined : apiErrorOf(prepare.error);
   const refusal = error === undefined ? undefined : (REFUSALS[error.code] ?? error.message);
@@ -88,8 +103,12 @@ export function WhatsAppSummary({ visitId, compact = false }: { visitId: VisitId
         <>
           <p role="status" className="mk-hint" style={{ margin: "4px 0 8px" }}>
             Summary prepared {timeOf(preparedAt)}
-            {message.recipient === "guardian" ? " for the parent or guardian" : ""}. Press Send in WhatsApp.
+            {message.recipient === "guardian" ? " for the parent or guardian" : ""}. Check it in WhatsApp, then press Send
+            there.
             {message.auto_sent_at == null ? "" : ` An automatic summary also went at ${timeOf(message.auto_sent_at)}.`}
+          </p>
+          <p className="mk-hint" style={{ margin: "0 0 8px" }}>
+            No WhatsApp app on this computer? Copy the full summary, open WhatsApp Web and paste it into the chat.
           </p>
           <div className="p360-chips">
             <PillButton
@@ -98,12 +117,25 @@ export function WhatsAppSummary({ visitId, compact = false }: { visitId: VisitId
                 handoff.open(desktopLink(message));
               }}
             >
-              Open WhatsApp again
+              Open WhatsApp app
+            </PillButton>
+            <PillButton
+              variant="ghost"
+              onClick={() => {
+                copy(message.text);
+              }}
+            >
+              Copy full summary
             </PillButton>
             <a className="p360-chip" href={webLink(message)} target="_blank" rel="noreferrer">
               Use WhatsApp Web
             </a>
           </div>
+          {copied === undefined ? null : (
+            <p role="status" className="mk-hint" style={{ marginTop: 8, color: copied === "failed" ? "var(--red)" : undefined }}>
+              {copied === "yes" ? "Copied. Paste it into the patient's chat in WhatsApp Web." : "Couldn't copy here. Use the WhatsApp app instead."}
+            </p>
+          )}
         </>
       )}
     </div>

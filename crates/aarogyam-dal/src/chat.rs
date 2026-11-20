@@ -754,7 +754,8 @@ pub async fn badges(
                        or ($9 and i.id is not null and n.kind <> 'collect_payment')
                        or ($10 and rc.id is not null and app.patient_in_reach(rc.patient_id, $11))
                        or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16)
-                       or app.visit_notification_visible(n, $1, $17, $18))
+                       or app.visit_notification_visible(n, $1, $17, $18)
+                       or app.plan_response_visible(n, $1, $6, $4))
                   and app.staff_ops_notification_newest(n, $1, $13, $14)
                   and app.notification_counts_unread(n)
                   and not exists (select 1 from aarogyam.staff_notification_reads r

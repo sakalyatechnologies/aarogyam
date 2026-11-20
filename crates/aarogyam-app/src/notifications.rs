@@ -203,6 +203,8 @@ pub enum Subject {
     Item(NotifiedItem),
     /// A time-off request, by id only (`time_off_requested`, `time_off_decided`).
     TimeOff(Uuid),
+    /// A visit, by id only (`plan_response`).
+    Visit(Uuid),
 }
 
 fn status_of(text: &str) -> Result<AppointmentStatus, AppError> {
@@ -248,6 +250,9 @@ fn subject(row: FeedRow, offset: UtcOffset) -> Result<Subject, AppError> {
     }
     if let Some(id) = row.time_off_request_id {
         return Ok(Subject::TimeOff(id));
+    }
+    if let Some(id) = row.encounter_id {
+        return Ok(Subject::Visit(id));
     }
     if let Some(id) = row.queue_token_id {
         return Ok(Subject::QueueToken(NotifiedToken {
@@ -314,7 +319,8 @@ fn sees(actor: &ClinicActor, permission: Permission) -> Sees {
 /// its scope; a waiting or called-in patient when assigned to them or, if unassigned, when they
 /// hold `clinical.write` and are on duty (or nobody is); `collect_payment` with `billing.write`
 /// or `payments.collect`; tasks with `tasks.use` (the assignee or their role; escalations only the
-/// owner role), time-off requests with `time_off.manage`, stock alerts with `inventory.read`.
+/// owner role), time-off requests with `time_off.manage`, stock alerts with `inventory.read`; a
+/// patient's plan answer by the visit's doctor and by `appointments.read` reaching every doctor.
 /// `None` when none.
 #[must_use]
 pub fn viewer(actor: &ClinicActor) -> Option<Viewer> {

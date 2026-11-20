@@ -3,18 +3,20 @@
 //! plan, the medicines, care at home, the follow-up date, the clinic's phone and where to book;
 //! never notes, images or other staff.
 
+use aarogyam_app::error::AppError;
 use aarogyam_app::share::ShareOptions;
-use aarogyam_app::visit_summary::{self as app, OpenOutcome, Summary};
+use aarogyam_app::visit_summary::{self as app, OpenOutcome, Refused, Summary};
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::EncounterId;
 use aarogyam_domain::permission::require::ClinicalWrite;
+use aarogyam_domain::visit_message::PlanChoice;
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use sakalya_http::{ApiJson, ApiPath};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -287,35 +289,120 @@ pub(crate) async fn open(
         OffsetDateTime::now_utc(),
     )
     .await?;
-    let refuse = |status: StatusCode, code: &str, message: String| {
-        (
-            status,
-            Json(serde_json::json!({ "error": { "code": code, "message": message } })),
-        )
-            .into_response()
-    };
     Ok(match outcome {
         OpenOutcome::Opened(summary) => {
             tracing::info!(event = Event::ShareLinkOpened.as_str(), "share link opened");
             Json(VisitSummary::from(*summary)).into_response()
         }
-        OpenOutcome::WrongPin(left) => refuse(
+        OpenOutcome::WrongPin(left) => refusal(Refused::WrongPin(left)),
+        OpenOutcome::Locked => refusal(Refused::Locked),
+        OpenOutcome::Expired => refusal(Refused::Expired),
+    })
+}
+
+/// The answer to a link that did not unlock: 403 wrong PIN, 423 locked, 410 expired.
+fn refusal(refused: Refused) -> Response {
+    let (status, code, message) = match refused {
+        Refused::WrongPin(left) => (
             StatusCode::FORBIDDEN,
             "wrong_pin",
             format!("The PIN is wrong. {left} tries left."),
         ),
-        OpenOutcome::Locked => {
+        Refused::Locked => {
             tracing::info!(event = Event::ShareLinkLocked.as_str(), "share link locked");
-            refuse(
+            (
                 StatusCode::LOCKED,
                 "locked",
-                "Too many wrong PINs. Ask the clinic for a new link.".into(),
+                "Too many wrong PINs. Ask the clinic for a new link.".to_owned(),
             )
         }
-        OpenOutcome::Expired => refuse(
+        Refused::Expired => (
             StatusCode::GONE,
             "expired",
-            "This link has expired. Ask the clinic for a new one.".into(),
+            "This link has expired. Ask the clinic for a new one.".to_owned(),
         ),
+    };
+    (
+        status,
+        Json(serde_json::json!({ "error": { "code": code, "message": message } })),
+    )
+        .into_response()
+}
+
+/// The patient's answer to their plan, with the PIN again.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct PlanResponseRequest {
+    /// The six digits the clinic gave.
+    pub pin: String,
+    /// `go_ahead` ("Yes, I want to go ahead") or `question` ("I have a question").
+    pub choice: String,
+}
+
+/// The answer as saved.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PlanResponse {
+    /// `go_ahead` or `question`.
+    pub choice: String,
+    /// When it was saved (RFC 3339).
+    pub responded_at: String,
+}
+
+/// Public, no sign-in: the patient answers their plan from the visit page. The PIN is checked
+/// every time, with the same wrong-PIN count and lock as opening the link; it does not count as
+/// an open. One answer per link: the latest wins. A new or different answer tells the visit's
+/// doctor and the desk.
+#[utoipa::path(
+    post,
+    path = "/api/v1/shared/{token}/plan-response",
+    operation_id = "answerSharedVisitPlan",
+    tag = "public",
+    params(("token" = String, Path, description = "The link's token")),
+    request_body = PlanResponseRequest,
+    responses(
+        (status = 200, body = PlanResponse),
+        (status = 400, description = "The choice is not `go_ahead` or `question`"),
+        (status = 403, description = "Wrong PIN; the message says how many tries are left"),
+        (status = 404, description = "No such link, or not a link to a visit"),
+        (status = 410, description = "Expired or revoked"),
+        (status = 423, description = "Locked after too many wrong PINs")
+    )
+)]
+pub(crate) async fn answer(
+    State(state): State<AppState>,
+    public: ClinicHost,
+    ApiPath(token): ApiPath<String>,
+    ApiJson(body): ApiJson<PlanResponseRequest>,
+) -> Result<Response, ApiFailure> {
+    let choice = PlanChoice::parse(&body.choice).ok_or_else(|| AppError::Invalid {
+        field: "choice",
+        message: "must be go_ahead or question".into(),
+    })?;
+    let outcome = app::answer(
+        state.db(),
+        public.clinic_id,
+        public.request_id,
+        &token,
+        &body.pin,
+        choice,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(match outcome {
+        Ok(answer) => {
+            tracing::info!(
+                event = Event::VisitPlanAnswered.as_str(),
+                encounter_id = %answer.encounter_id.uuid(),
+                share_link_id = %answer.share_link_id.uuid(),
+                choice = answer.choice.as_str(),
+                changed = answer.changed,
+                "plan answered"
+            );
+            Json(PlanResponse {
+                choice: answer.choice.as_str().to_owned(),
+                responded_at: rfc3339(answer.responded_at),
+            })
+            .into_response()
+        }
+        Err(refused) => refusal(refused),
     })
 }

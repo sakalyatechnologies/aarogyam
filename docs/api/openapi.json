@@ -16609,6 +16609,62 @@
         }
       }
     },
+    "/api/v1/shared/{token}/plan-response": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: the patient answers their plan from the visit page. The PIN is checked\nevery time, with the same wrong-PIN count and lock as opening the link; it does not count as\nan open. One answer per link: the latest wins. A new or different answer tells the visit's\ndoctor and the desk.",
+        "operationId": "answerSharedVisitPlan",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The link's token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanResponseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The choice is not `go_ahead` or `question`"
+          },
+          "403": {
+            "description": "Wrong PIN; the message says how many tries are left"
+          },
+          "404": {
+            "description": "No such link, or not a link to a visit"
+          },
+          "410": {
+            "description": "Expired or revoked"
+          },
+          "423": {
+            "description": "Locked after too many wrong PINs"
+          }
+        }
+      }
+    },
     "/api/v1/shared/{token}/records": {
       "post": {
         "tags": [
@@ -32633,6 +32689,13 @@
             ],
             "description": "When the task falls due (RFC 3339, the clinic's offset), for a task notification."
           },
+          "encounter_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit, for `plan_response`. An id only: `href` opens the patient."
+          },
           "escalated_at": {
             "type": [
               "string",
@@ -32689,7 +32752,7 @@
           },
           "kind": {
             "type": "string",
-            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,\n`lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,\n`collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,\n`time_off_decided` or `stock_alert`. More kinds may come: clients show an unknown kind\nas a generic row."
+            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,\n`lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,\n`collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,\n`time_off_decided`, `stock_alert`, `booking_conflict` or `plan_response`. More kinds may\ncome: clients show an unknown kind as a generic row."
           },
           "lab_order": {
             "oneOf": [
@@ -35906,6 +35969,42 @@
               "$ref": "#/components/schemas/Plan"
             },
             "description": "The plans."
+          }
+        }
+      },
+      "PlanResponse": {
+        "type": "object",
+        "description": "The answer as saved.",
+        "required": [
+          "choice",
+          "responded_at"
+        ],
+        "properties": {
+          "choice": {
+            "type": "string",
+            "description": "`go_ahead` or `question`."
+          },
+          "responded_at": {
+            "type": "string",
+            "description": "When it was saved (RFC 3339)."
+          }
+        }
+      },
+      "PlanResponseRequest": {
+        "type": "object",
+        "description": "The patient's answer to their plan, with the PIN again.",
+        "required": [
+          "pin",
+          "choice"
+        ],
+        "properties": {
+          "choice": {
+            "type": "string",
+            "description": "`go_ahead` (\"Yes, I want to go ahead\") or `question` (\"I have a question\")."
+          },
+          "pin": {
+            "type": "string",
+            "description": "The six digits the clinic gave."
           }
         }
       },

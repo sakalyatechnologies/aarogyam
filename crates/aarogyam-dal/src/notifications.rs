@@ -3,7 +3,8 @@
 //! `appointments.read` and `app.practitioner_in_reach`, a lab one (0395) by `labs.read` and
 //! `app.clinical_in_reach`, each narrowed to a member (`own` scope) or not; the visit ones (0678,
 //! `app.visit_notification_visible`) by who is assigned or on duty, and by `billing.write` or
-//! `payments.collect`. The reminder job
+//! `payments.collect`; a plan answer (0739, `app.plan_response_visible`) by the visit's doctor and
+//! `appointments.read` reaching every doctor. The reminder job
 //! works across clinics through the definer functions, since it acts for no one clinic.
 
 use sakalya_db::DbError;
@@ -163,6 +164,8 @@ pub struct FeedRow {
     pub time_off_request_id: Option<Uuid>,
     /// Who the row was written for: `doctor` or `front_desk`; `None` for older rows.
     pub audience: Option<String>,
+    /// The visit, for `plan_response`; ids only.
+    pub encounter_id: Option<Uuid>,
     /// What the bill is worth, for `payment_due` and `collect_payment` (read now, never stored;
     /// a draft's is a preview).
     pub invoice_total_paise: Option<i64>,
@@ -250,6 +253,7 @@ pub async fn feed(
                   tk.due_at as "task_due_at?", n.inventory_item_id as "item_id?",
                   it.name as "item_name?", n.stock_days_cover::float8 as "days_cover?",
                   n.time_off_request_id as "time_off_request_id?", n.audience,
+                  n.encounter_id as "encounter_id?",
                   case when i.id is not null then app.invoice_total_paise(i) end as "invoice_total_paise?",
                   case when i.id is not null then app.invoice_balance_paise(i) end as "invoice_balance_paise?"
            from aarogyam.staff_notifications n
@@ -274,7 +278,8 @@ pub async fn feed(
                   or ($10 and i.id is not null and n.kind <> 'collect_payment')
                   or ($11 and rc.id is not null and app.patient_in_reach(rc.patient_id, $12))
                   or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16)
-                  or app.visit_notification_visible(n, $1, $17, $18))
+                  or app.visit_notification_visible(n, $1, $17, $18)
+                  or app.plan_response_visible(n, $1, $7, $2))
              and app.staff_ops_notification_newest(n, $1, $13, $14)
              and ($4::uuid is null
                   or (greatest(n.created_at, coalesce(n.reminded_at, n.created_at)), n.id)
@@ -332,7 +337,8 @@ pub async fn unread_count(
                   or ($8 and i.id is not null and n.kind <> 'collect_payment')
                   or ($9 and rc.id is not null and app.patient_in_reach(rc.patient_id, $10))
                   or app.staff_ops_notification_visible(n, $1, $11, $12, $13, $14)
-                  or app.visit_notification_visible(n, $1, $15, $16))
+                  or app.visit_notification_visible(n, $1, $15, $16)
+                  or app.plan_response_visible(n, $1, $5, $2))
                and app.staff_ops_notification_newest(n, $1, $11, $12)
                and app.notification_counts_unread(n)
                and not exists (select 1 from aarogyam.staff_notification_reads r
@@ -381,7 +387,8 @@ pub async fn mark_read(conn: &mut PgConnection, id: Uuid, viewer: Viewer) -> Res
                   or ($7 and i.id is not null and n.kind <> 'collect_payment')
                   or ($8 and rc.id is not null and app.patient_in_reach(rc.patient_id, $9))
                   or app.staff_ops_notification_visible(n, $2, $10, $11, $12, $13)
-                  or app.visit_notification_visible(n, $2, $14, $15))
+                  or app.visit_notification_visible(n, $2, $14, $15)
+                  or app.plan_response_visible(n, $2, $4, $3))
            ), saved as (
              insert into aarogyam.staff_notification_reads (notification_id, membership_id)
              select id, $2 from target
@@ -427,7 +434,8 @@ pub async fn mark_all_read(conn: &mut PgConnection, viewer: Viewer) -> Result<u6
                   or ($6 and i.id is not null and n.kind <> 'collect_payment')
                   or ($7 and rc.id is not null and app.patient_in_reach(rc.patient_id, $8))
                   or app.staff_ops_notification_visible(n, $1, $9, $10, $11, $12)
-                  or app.visit_notification_visible(n, $1, $13, $14))
+                  or app.visit_notification_visible(n, $1, $13, $14)
+                  or app.plan_response_visible(n, $1, $3, $2))
            on conflict do nothing"#,
         viewer.member,
         viewer.bookings.reach,
@@ -474,7 +482,8 @@ pub async fn visible_among(
                   or ($6 and i.id is not null and n.kind <> 'collect_payment')
                   or ($7 and rc.id is not null and app.patient_in_reach(rc.patient_id, $8))
                   or app.staff_ops_notification_visible(n, $1, $9, $10, $11, $12)
-                  or app.visit_notification_visible(n, $1, $13, $14))
+                  or app.visit_notification_visible(n, $1, $13, $14)
+                  or app.plan_response_visible(n, $1, $3, $2))
              and app.staff_ops_notification_newest(n, $1, $9, $10)"#,
         viewer.member,
         viewer.bookings.reach,

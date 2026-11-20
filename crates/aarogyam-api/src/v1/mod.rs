@@ -849,6 +849,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/shared/{token}/open", post(prescriptions::shared_open))
         .route("/shared/{token}/records", post(record_shares::open))
         .route("/shared/{token}/visit", post(visit_summary::open))
+        .route("/shared/{token}/plan-response", post(visit_summary::answer))
         .route(
             "/shared/{token}/records/xrays/{id}",
             get(record_shares::xray_content),

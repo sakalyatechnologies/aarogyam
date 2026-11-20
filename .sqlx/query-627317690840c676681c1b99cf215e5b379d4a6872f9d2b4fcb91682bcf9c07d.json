@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with saved as (\n             insert into aarogyam.staff_notifications (kind, encounter_id, href, audience)\n             values ('plan_response', $1, $2, 'front_desk')\n             on conflict (org_id, encounter_id, kind) where encounter_id is not null do update\n               set handled_at = null, handled_by = null\n             returning org_id, id\n           )\n           delete from aarogyam.staff_notification_reads r\n           using saved\n           where r.org_id = saved.org_id and r.notification_id = saved.id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "627317690840c676681c1b99cf215e5b379d4a6872f9d2b4fcb91682bcf9c07d"
+}

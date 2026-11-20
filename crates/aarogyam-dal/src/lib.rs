@@ -91,6 +91,7 @@ pub mod timeline;
 pub mod today;
 pub mod treatment;
 pub mod visit_messages;
+pub mod visit_plan_responses;
 pub mod visit_summaries;
 pub mod visits;
 pub mod vitals;

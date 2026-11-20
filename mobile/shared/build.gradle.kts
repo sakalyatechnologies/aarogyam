@@ -272,6 +272,9 @@ val apiModels =
         "SummaryPlanItem",
         "SummaryMedicine",
         "SummaryAftercare",
+        // C5: the patient's answer to their plan (public route; the phones don't call it).
+        "PlanResponseRequest",
+        "PlanResponse",
         "ShareRequest",
         "FinishRequest",
         "FinishedVisit",

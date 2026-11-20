@@ -3358,7 +3358,8 @@
     "share_links.patient_id",
     "specialty_records.patient_id",
     "treatment_plan_items.patient_id",
-    "treatment_plans.patient_id"
+    "treatment_plans.patient_id",
+    "visit_plan_responses.patient_id"
    ],
    "sensitivity": "personal",
    "offline": "read_write"
@@ -4635,7 +4636,9 @@
     "procedures.encounter_id",
     "share_links.encounter_id",
     "specialty_records.encounter_id",
+    "staff_notifications.encounter_id",
     "treatment_plans.encounter_id",
+    "visit_plan_responses.encounter_id",
     "voice_notes.encounter_id"
    ],
    "sensitivity": "health",
@@ -9687,14 +9690,14 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor. Since migration 0395 also lab_overdue, written by a trigger when the reminder job flags an order overdue (overdue_flagged_on) and handled when the work comes back, is cancelled or gets a new due date; seen by members with labs.read whose scope reaches the order (app.clinical_in_reach). Since migration 0617 also arrival (trigger on appointments, handled when the patient moves on; seen with appointments.read), payment_due (trigger when a bill is issued with a balance; handled when paid or voided; billing.read), recall_due (app.flag_due_recalls from the reminder job unless the clinic switched recall off; handled when the recall is booked, done or dismissed; patients.read within reach), patient_waiting and send_in, and collect_payment, which migration 0678 reworks (see below). Visit notifications (migration 0678): patient_waiting is written by a trigger when a token is created waiting (app.flag_waiting_tokens stays as a safety net), send_in when the token becomes called, and arrival is no longer written; both go to the token's practitioner's member, or when unassigned to the doctors on duty (a practitioner with a working_hours row for the token's weekday at its branch and no leave block or approved time off covering now), or when nobody is on duty to every clinical.write holder (app.visit_notification_visible). collect_payment is about the bill and is written when the visit's token reaches ready_to_bill, when a bill gets lines while the token is already there, or by the app when a visit without a token is sent for payment (app.write_collect_payment); it handles the bill's payment_due row, is handled by payment in full, a void, or the token becoming done or left, goes to billing.write or payments.collect holders, and Done writes none. A handled patient_waiting, send_in, collect_payment, arrival or payment_due row does not count as unread (app.notification_counts_unread). The feed reads the bill's total and balance (app.invoice_total_paise, app.invoice_balance_paise), never stored. Recall alerts go in the patient's erasure.",
+   "notes": "Built (migration 0320). IDs only, never patient details. Written in the same transaction as the online booking (public page or patient app) or the patient's cancellation (through app.notify_patient_cancelled). Who sees one is decided when reading: members whose role has appointments.read and whose scope reaches the appointment's doctor. Since migration 0395 also lab_overdue, written by a trigger when the reminder job flags an order overdue (overdue_flagged_on) and handled when the work comes back, is cancelled or gets a new due date; seen by members with labs.read whose scope reaches the order (app.clinical_in_reach). Since migration 0617 also arrival (trigger on appointments, handled when the patient moves on; seen with appointments.read), payment_due (trigger when a bill is issued with a balance; handled when paid or voided; billing.read), recall_due (app.flag_due_recalls from the reminder job unless the clinic switched recall off; handled when the recall is booked, done or dismissed; patients.read within reach), patient_waiting and send_in, and collect_payment, which migration 0678 reworks (see below). Visit notifications (migration 0678): patient_waiting is written by a trigger when a token is created waiting (app.flag_waiting_tokens stays as a safety net), send_in when the token becomes called, and arrival is no longer written; both go to the token's practitioner's member, or when unassigned to the doctors on duty (a practitioner with a working_hours row for the token's weekday at its branch and no leave block or approved time off covering now), or when nobody is on duty to every clinical.write holder (app.visit_notification_visible). collect_payment is about the bill and is written when the visit's token reaches ready_to_bill, when a bill gets lines while the token is already there, or by the app when a visit without a token is sent for payment (app.write_collect_payment); it handles the bill's payment_due row, is handled by payment in full, a void, or the token becoming done or left, goes to billing.write or payments.collect holders, and Done writes none. A handled patient_waiting, send_in, collect_payment, arrival or payment_due row does not count as unread (app.notification_counts_unread). The feed reads the bill's total and balance (app.invoice_total_paise, app.invoice_balance_paise), never stored. Since migration 0739 also plan_response: a patient answered their plan from the visit page (visit_plan_responses); one row per visit with href /patients/<patient id>, reopened (not handled, unread again) when a different answer arrives; seen by the visit's doctor and by appointments.read reaching every doctor (app.plan_response_visible). Recall alerts and plan answers go in the patient's erasure.",
    "cols": [
     {
      "name": "kind",
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, booking_conflict, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert"
+     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, booking_conflict, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert, booking_conflict, plan_response"
     },
     {
      "name": "appointment_id",
@@ -9750,7 +9753,14 @@
      "type": "uuid",
      "nullable": true,
      "ref": null,
-     "note": "stock_alert; exactly one of the eight subjects is set"
+     "note": "stock_alert"
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": "plan_response, one per visit; exactly one of the nine subjects is set"
     },
     {
      "name": "step_no",
@@ -11988,6 +11998,66 @@
      "name": "revoked_at",
      "type": "timestamptz",
      "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "visit_plan_responses.share_link_id"
+   ],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "visit_plan_responses",
+   "domain": "trust",
+   "purpose": "A patient's answer to their plan from the visit page: go ahead, or a question.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0739). Unique (org_id, share_link_id): one answer per link. Written under the public link scope by POST /shared/{token}/plan-response, which checks the PIN every time with the link's wrong-PIN counter and lock and does not count an open. No access-log row: the change history is the record. A new or different answer writes or reopens the visit's plan_response staff notification. Support never reads it. Erasure step 29, before the links.",
+   "cols": [
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "encounters",
+     "note": "the visit; the key includes patient_id, so it is the patient's visit"
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "share_link_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "share_links",
+     "note": "the link it came through"
+    },
+    {
+     "name": "choice",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "go_ahead, question; the latest answer wins"
+    },
+    {
+     "name": "shown",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "[{source: procedure or plan_item, id}] as the page showed the plan, so go ahead still means something after the plan changes"
+    },
+    {
+     "name": "responded_at",
+     "type": "timestamptz",
+     "nullable": false,
      "ref": null,
      "note": ""
     }

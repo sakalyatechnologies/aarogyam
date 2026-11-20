@@ -618,6 +618,36 @@ pub fn compose(input: &MessageInput<'_>) -> Composed {
     Composed { text, short_text }
 }
 
+/// The patient's answer to their plan on the visit page (C5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlanChoice {
+    /// "Yes, I want to go ahead": the clinic calls to book.
+    GoAhead,
+    /// "I have a question": the clinic gets back to them.
+    Question,
+}
+
+impl PlanChoice {
+    /// The value stored and sent over the API.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::GoAhead => "go_ahead",
+            Self::Question => "question",
+        }
+    }
+
+    /// Parses the stored or sent value.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "go_ahead" => Some(Self::GoAhead),
+            "question" => Some(Self::Question),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -850,5 +880,13 @@ mod tests {
         assert!(made.text.contains("Please don't forward it."));
         // Today's treatments are the last to go.
         assert!(made.text.contains("Composite filling number 0"));
+    }
+
+    #[test]
+    fn plan_choices_round_trip() {
+        for choice in [PlanChoice::GoAhead, PlanChoice::Question] {
+            assert_eq!(PlanChoice::parse(choice.as_str()), Some(choice));
+        }
+        assert_eq!(PlanChoice::parse("yes"), None);
     }
 }

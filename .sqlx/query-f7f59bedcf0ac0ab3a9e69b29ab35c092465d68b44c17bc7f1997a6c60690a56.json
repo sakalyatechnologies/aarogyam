@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with before as (\n             select choice from aarogyam.visit_plan_responses where share_link_id = $3\n           ), saved as (\n             insert into aarogyam.visit_plan_responses\n               (encounter_id, patient_id, share_link_id, choice, shown, responded_at)\n             values ($1, $2, $3, $4, $5, $6)\n             on conflict (org_id, share_link_id) do update\n               set choice = excluded.choice, shown = excluded.shown,\n                   responded_at = excluded.responded_at\n             returning responded_at\n           )\n           select saved.responded_at as \"responded_at!\",\n                  (select choice from before) as \"previous?\"\n           from saved",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "responded_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.visit_plan_responses",
+            "name": "responded_at"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "previous?",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "f7f59bedcf0ac0ab3a9e69b29ab35c092465d68b44c17bc7f1997a6c60690a56"
+}

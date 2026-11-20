@@ -496,6 +496,10 @@ async fn every_route_requires_sign_in_and_a_permission() {
             "/api/v1/shared/{token}",
             "/api/v1/shared/{token}/open",
             "/api/v1/shared/{token}/visit",
+            // The patient answers the plan on that page: the same token and PIN, checked every
+            // time with the same lock; it saves a choice and reveals nothing new
+            // (tests/plan_response.rs).
+            "/api/v1/shared/{token}/plan-response",
             // A link to records: the PIN opens it, a signed token serves an X-ray from it
             // (tests/mobile_records.rs).
             "/api/v1/shared/{token}/records",

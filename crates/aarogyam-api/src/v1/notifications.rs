@@ -115,8 +115,8 @@ pub struct Notification {
     /// `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,
     /// `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,
     /// `collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,
-    /// `time_off_decided` or `stock_alert`. More kinds may come: clients show an unknown kind
-    /// as a generic row.
+    /// `time_off_decided`, `stock_alert`, `booking_conflict` or `plan_response`. More kinds may
+    /// come: clients show an unknown kind as a generic row.
     pub kind: String,
     /// When it happened (RFC 3339).
     pub created_at: String,
@@ -164,6 +164,9 @@ pub struct Notification {
     /// it in the time-off screens.
     #[schema(value_type = Option<String>)]
     pub time_off_request_id: Option<Uuid>,
+    /// The visit, for `plan_response`. An id only: `href` opens the patient.
+    #[schema(value_type = Option<String>)]
+    pub encounter_id: Option<Uuid>,
 }
 
 impl From<NotificationView> for Notification {
@@ -195,6 +198,7 @@ impl From<NotificationView> for Notification {
             item_name: None,
             days_cover: None,
             time_off_request_id: None,
+            encounter_id: None,
         };
         match view.subject {
             Subject::Appointment(appointment) => {
@@ -247,6 +251,7 @@ impl From<NotificationView> for Notification {
                 out.days_cover = item.days_cover;
             }
             Subject::TimeOff(id) => out.time_off_request_id = Some(id),
+            Subject::Visit(id) => out.encounter_id = Some(id),
         }
         out
     }

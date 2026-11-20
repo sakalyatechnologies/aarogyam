@@ -5121,6 +5121,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shared/{token}/plan-response": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Public, no sign-in: the patient answers their plan from the visit page. The PIN is checked
+         *     every time, with the same wrong-PIN count and lock as opening the link; it does not count as
+         *     an open. One answer per link: the latest wins. A new or different answer tells the visit's
+         *     doctor and the desk.
+         */
+        post: operations["answerSharedVisitPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shared/{token}/records": {
         parameters: {
             query?: never;
@@ -11575,6 +11597,8 @@ export interface components {
             days_cover?: number | null;
             /** @description When the task falls due (RFC 3339, the clinic's offset), for a task notification. */
             due_at?: string | null;
+            /** @description The visit, for `plan_response`. An id only: `href` opens the patient. */
+            encounter_id?: string | null;
             /** @description When the owners were told (RFC 3339). */
             escalated_at?: string | null;
             handled?: components["schemas"]["HandledBy"] | null;
@@ -11594,8 +11618,8 @@ export interface components {
              * @description `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,
              *     `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,
              *     `collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,
-             *     `time_off_decided` or `stock_alert`. More kinds may come: clients show an unknown kind
-             *     as a generic row.
+             *     `time_off_decided`, `stock_alert`, `booking_conflict` or `plan_response`. More kinds may
+             *     come: clients show an unknown kind as a generic row.
              */
             kind: string;
             lab_order?: components["schemas"]["NotifiedLabOrder"] | null;
@@ -12932,6 +12956,20 @@ export interface components {
         PlanList: {
             /** @description The plans. */
             items: components["schemas"]["Plan"][];
+        };
+        /** @description The answer as saved. */
+        PlanResponse: {
+            /** @description `go_ahead` or `question`. */
+            choice: string;
+            /** @description When it was saved (RFC 3339). */
+            responded_at: string;
+        };
+        /** @description The patient's answer to their plan, with the PIN again. */
+        PlanResponseRequest: {
+            /** @description `go_ahead` ("Yes, I want to go ahead") or `question` ("I have a question"). */
+            choice: string;
+            /** @description The six digits the clinic gave. */
+            pin: string;
         };
         /** @description A self-registered record that may be an existing patient. */
         PossibleDuplicate: {
@@ -32980,6 +33018,67 @@ export interface operations {
                 content?: never;
             };
             /** @description Expired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Locked after too many wrong PINs */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    answerSharedVisitPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link's token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanResponseRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanResponse"];
+                };
+            };
+            /** @description The choice is not `go_ahead` or `question` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong PIN; the message says how many tries are left */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such link, or not a link to a visit */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Expired or revoked */
             410: {
                 headers: {
                     [name: string]: unknown;

@@ -5244,6 +5244,115 @@
         ]
       }
     },
+    "/api/v1/invoices/{id}/promo": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Applies a code to a draft bill: the discount comes off every line before GST. A\n`payments.collect` holder without `billing.write` applies only the patient's own offer or\nreward. Ten unknown codes in ten minutes from one member get 429.",
+        "operationId": "applyPromoCode",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The draft bill",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyPromoCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The bill with the code held",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.write and payments.collect, or `hold_elsewhere`"
+          },
+          "404": {
+            "description": "No such bill or code in this clinic"
+          },
+          "409": {
+            "description": "`promo_expired`, `promo_used`, `promo_revoked`, `promo_not_this_patient`, `promo_not_new_patient`, `promo_needs_billing_write`, `promo_no_eligible_line`, `promo_not_for_this_visit`, `not_draft` or `bill_has_promo`"
+          },
+          "429": {
+            "description": "Too many unknown codes"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Takes the code off a draft bill; the code can be used again.",
+        "operationId": "removePromoCode",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The draft bill",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The bill without the code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.write and payments.collect, or `not_applier`"
+          },
+          "404": {
+            "description": "No such bill in this clinic, or it has no code"
+          },
+          "409": {
+            "description": "`not_draft`"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/invoices/{id}/upi-link": {
       "get": {
         "tags": [
@@ -11620,6 +11729,61 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/offers": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "The patient's live offers and rewards for the desk. With `invoice_id`, each says whether\nthe bill's visit recorded its target.",
+        "operationId": "getPatientOffers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "invoice_id",
+            "in": "query",
+            "description": "A draft bill of the patient, for the visit check",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Codes; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientOffers"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks billing.read and payments.collect"
+          },
+          "404": {
+            "description": "No such patient, or bill of theirs, in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/photo": {
       "get": {
         "tags": [
@@ -13658,6 +13822,61 @@
           },
           "409": {
             "description": "Already marked"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/promo-codes/{id}/revoke": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Revokes a code: held uses come off their drafts; final ones stay.",
+        "operationId": "revokePromoCode",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The code's id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokePromoCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Revoked"
+          },
+          "400": {
+            "description": "Bad reason"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks offers.give (own codes) or settings.manage"
+          },
+          "404": {
+            "description": "No such code in this clinic"
+          },
+          "409": {
+            "description": "`already_revoked`"
           }
         },
         "security": [
@@ -16158,6 +16377,81 @@
           },
           "404": {
             "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/offers": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The clinic's offer settings.",
+        "operationId": "getOfferSettings",
+        "responses": {
+          "200": {
+            "description": "The settings, defaults filled in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage and offers.give"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Replaces the clinic's offer settings. Unknown keys, a missing `max_discount_paise` or a value\nout of range are refused.",
+        "operationId": "putOfferSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A field is missing, unknown or out of range"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
           }
         },
         "security": [
@@ -19612,6 +19906,122 @@
         ]
       }
     },
+    "/api/v1/visits/{id}/offers": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The visit's live offer and the patient's referral code, with the caller's presets.",
+        "operationId": "getVisitOffers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Codes and presets; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitOffers"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Gives the visit's patient an offer and/or a referral code, within the caller's caps. Asking\nagain returns the live ones (200); 201 when something was created.",
+        "operationId": "issueVisitOffers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewVisitOffers"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Already given; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitOffers"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Given; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitOffers"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`over_cap`, or a bad field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read or offers.give"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          },
+          "409": {
+            "description": "`visit_open` or `offer_disabled`"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/visits/{id}/patient-message": {
       "post": {
         "tags": [
@@ -20943,6 +21353,24 @@
             "description": "At most 500."
           }
         }
+      },
+      "ApplyPromoCode": {
+        "type": "object",
+        "description": "A code applied to a draft bill.",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The code as typed or shown (case, spaces and hyphens don't matter)."
+          },
+          "override": {
+            "type": "boolean",
+            "description": "Apply a targeted offer although the visit didn't record its target (`billing.write`)."
+          }
+        },
+        "additionalProperties": false
       },
       "Appointment": {
         "type": "object",
@@ -27395,6 +27823,17 @@
             ],
             "description": "Place of supply state code, when set."
           },
+          "promo": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InvoicePromo",
+                "description": "The offer or referral code used on it, if any (never the code itself; absent in lists)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "recipient": {
             "type": [
               "object",
@@ -27512,6 +27951,7 @@
           "quantity",
           "unit_price_paise",
           "discount_paise",
+          "promo_discount_paise",
           "gst_rate",
           "taxable_paise",
           "cgst_paise",
@@ -27532,7 +27972,7 @@
           "discount_paise": {
             "type": "integer",
             "format": "int64",
-            "description": "Discount on the line."
+            "description": "Discount on the line: on a draft the manual discount, once issued the whole discount\n(manual plus the code's share)."
           },
           "gst_rate": {
             "type": "integer",
@@ -27563,6 +28003,11 @@
               "null"
             ],
             "description": "The procedure it bills."
+          },
+          "promo_discount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The offer or referral code's share of the line. On a draft it comes off on top of\n`discount_paise`; once issued it is already in `discount_paise` (a breakdown only)."
           },
           "quantity": {
             "type": "integer",
@@ -27682,6 +28127,35 @@
           }
         }
       },
+      "InvoicePromo": {
+        "type": "object",
+        "description": "The use of an offer or referral code on a bill. The code text is never part of a bill.",
+        "required": [
+          "code_id",
+          "purpose",
+          "status",
+          "discount_paise"
+        ],
+        "properties": {
+          "code_id": {
+            "type": "string",
+            "description": "The code's id."
+          },
+          "discount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The discount it gives, in paise."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "`patient_offer`, `referral` or `referrer_reward` (a documented string, not an enum)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`held` (on a draft) or `final` (issued)."
+          }
+        }
+      },
       "IssueBlocked": {
         "type": "object",
         "description": "The alerts that stopped an issue.",
@@ -27720,6 +28194,60 @@
               "null"
             ],
             "description": "Why to go ahead despite the allergy alerts; needed only when there are alerts."
+          }
+        }
+      },
+      "IssuedCode": {
+        "type": "object",
+        "description": "A code as staff see it.",
+        "required": [
+          "id",
+          "code",
+          "purpose",
+          "kind",
+          "value",
+          "valid_to"
+        ],
+        "properties": {
+          "applies_to": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The target label `{plan_item_id?, procedure_id?, tooth?, procedure_term?, words}`; absent\nfor \"the next treatment\"."
+          },
+          "code": {
+            "type": "string",
+            "description": "The code as shown, `K7QM-4XRD`. Never put it in a URL or a log."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`percent_bps` or `fixed` (a documented string)."
+          },
+          "max_discount_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The cap on a percentage code's discount, in paise."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "`patient_offer`, `referral` or `referrer_reward` (a documented string)."
+          },
+          "valid_to": {
+            "type": "string",
+            "description": "The last clinic day it works, `YYYY-MM-DD`."
+          },
+          "value": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Basis points (`percent_bps`) or paise (`fixed`)."
           }
         }
       },
@@ -31885,6 +32413,43 @@
           }
         }
       },
+      "NewPatientOffer": {
+        "type": "object",
+        "description": "An offer's requested terms; anything left out comes from the presets.",
+        "properties": {
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`percent_bps` or `fixed`."
+          },
+          "plan_item_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient's plan item it targets."
+          },
+          "valid_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Days, from today."
+          },
+          "value": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Basis points or paise."
+          }
+        },
+        "additionalProperties": false
+      },
       "NewPayment": {
         "type": "object",
         "description": "A payment to record. Send an `Idempotency-Key` header (a UUID per payment form); a retry\nwith the same key returns the first payment instead of recording another.",
@@ -32547,6 +33112,28 @@
             "description": "A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out."
           }
         }
+      },
+      "NewVisitOffers": {
+        "type": "object",
+        "description": "What to give at the end of the visit.",
+        "properties": {
+          "patient_offer": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NewPatientOffer",
+                "description": "An offer (`{}` for the presets); absent or null for none."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "referral": {
+            "type": "boolean",
+            "description": "A referral code."
+          }
+        },
+        "additionalProperties": false
       },
       "NextAppointment": {
         "type": "object",
@@ -33357,6 +33944,94 @@
             "description": "Weekday by hour, chairs added; for the weekday-by-hour heatmap."
           }
         }
+      },
+      "OfferPresets": {
+        "type": "object",
+        "description": "The clinic's presets, lowered to the caller's caps.",
+        "required": [
+          "offer_enabled",
+          "offer_kind",
+          "offer_value",
+          "offer_valid_days",
+          "referral_enabled",
+          "referral_kind",
+          "referral_value",
+          "referral_max_discount_paise",
+          "referral_valid_days",
+          "max_percent_bps",
+          "max_fixed_paise",
+          "max_valid_days"
+        ],
+        "properties": {
+          "max_fixed_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The caller's highest fixed amount, paise."
+          },
+          "max_percent_bps": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The caller's highest percentage, basis points."
+          },
+          "max_valid_days": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The caller's longest validity, days."
+          },
+          "offer_enabled": {
+            "type": "boolean",
+            "description": "The clinic gives patient offers."
+          },
+          "offer_kind": {
+            "type": "string",
+            "description": "The one-tap offer: `percent_bps` or `fixed`."
+          },
+          "offer_max_discount_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Its cap, for a percentage."
+          },
+          "offer_valid_days": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Its validity in days."
+          },
+          "offer_value": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Its value."
+          },
+          "referral_enabled": {
+            "type": "boolean",
+            "description": "The clinic gives referral codes."
+          },
+          "referral_kind": {
+            "type": "string",
+            "description": "What a friend gets: `percent_bps` or `fixed`."
+          },
+          "referral_max_discount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The friend's cap, in paise."
+          },
+          "referral_valid_days": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The referral code's validity in days."
+          },
+          "referral_value": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Its value."
+          }
+        }
+      },
+      "OfferSettings": {
+        "type": "object",
+        "description": "The clinic's offer settings (`org_settings.billing.offers`). Every key is optional on read\nback; see docs/plans/visit-story-v2-offers-design.md §2.2 for the defaults."
       },
       "OnboardingClinic": {
         "type": "object",
@@ -34804,6 +35479,31 @@
           }
         }
       },
+      "PatientCode": {
+        "type": "object",
+        "description": "One of a patient's codes at the desk.",
+        "required": [
+          "offer",
+          "eligible"
+        ],
+        "properties": {
+          "eligible": {
+            "type": "boolean",
+            "description": "Passes the visit check on the bill asked about."
+          },
+          "offer": {
+            "$ref": "#/components/schemas/IssuedCode",
+            "description": "The code."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why not, such as `promo_not_for_this_visit`."
+          }
+        }
+      },
       "PatientFile": {
         "type": "object",
         "description": "A file a clinic shared with the patient.",
@@ -35139,6 +35839,22 @@
               "$ref": "#/components/schemas/VisitNote"
             },
             "description": "Visit notes, newest first (up to 100), limited to those the caller's role reaches."
+          }
+        }
+      },
+      "PatientOffers": {
+        "type": "object",
+        "description": "A patient's live offers and rewards.",
+        "required": [
+          "codes"
+        ],
+        "properties": {
+          "codes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientCode"
+            },
+            "description": "Codes, soonest to expire first."
           }
         }
       },
@@ -38396,6 +39112,20 @@
             "description": "The invitation link, with its new one-time secret."
           }
         }
+      },
+      "RevokePromoCode": {
+        "type": "object",
+        "description": "Why a code is revoked.",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "`undo` (the giver's Undo) or `staff`."
+          }
+        },
+        "additionalProperties": false
       },
       "RevokedSessions": {
         "type": "object",
@@ -43877,6 +44607,41 @@
           "visit_number": {
             "type": "string",
             "description": "The visit's number, such as `V-318`."
+          }
+        }
+      },
+      "VisitOffers": {
+        "type": "object",
+        "description": "A visit's live codes and the caller's presets.",
+        "required": [
+          "presets"
+        ],
+        "properties": {
+          "patient_offer": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IssuedCode",
+                "description": "The patient's offer from this visit."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "presets": {
+            "$ref": "#/components/schemas/OfferPresets",
+            "description": "The presets."
+          },
+          "referral": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IssuedCode",
+                "description": "The patient's referral code."
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },

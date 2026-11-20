@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.promo_codes set used_count = used_count + $2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8fc77780bed1c35edd7134e4734bc0eb9069e56e25c78c9d5fefa78541ba8c5a"
+}

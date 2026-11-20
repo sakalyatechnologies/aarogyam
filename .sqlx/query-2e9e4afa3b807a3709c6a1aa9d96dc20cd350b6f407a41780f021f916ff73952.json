@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.promo_codes\n             (id, code, purpose, kind, value, max_discount_paise, patient_id, issued_encounter_id,\n              source_code_id, source_patient_id, issued_by, valid_from, valid_to, max_uses, applies_to)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)\n           on conflict (org_id, code) do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Date",
+        "Int4",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2e9e4afa3b807a3709c6a1aa9d96dc20cd350b6f407a41780f021f916ff73952"
+}

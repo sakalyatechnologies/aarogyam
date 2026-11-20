@@ -138,6 +138,7 @@ impl Notifier {
             ..MessageReport::default()
         };
         self.fan_out_campaigns(db, &mut report).await?;
+        release_stale_offer_holds(db).await?;
         let claimed = dal::claim(
             db.pool(),
             "email",
@@ -368,6 +369,21 @@ impl Notifier {
         }
         Ok(())
     }
+}
+
+/// Releases offer holds on drafts left past the code's last day + 7 (each clinic's date), so
+/// the code can be used again. Counts only in the log.
+async fn release_stale_offer_holds(db: &Db) -> Result<(), DbError> {
+    for row in aarogyam_dal::promo::release_stale_holds(db.pool(), 500).await? {
+        tracing::info!(
+            event = Event::OfferReversed.as_str(),
+            org_id = %row.org_id,
+            released = row.released,
+            reason = "stale",
+            "stale offer holds released"
+        );
+    }
+    Ok(())
 }
 
 #[cfg(test)]

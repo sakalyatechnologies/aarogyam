@@ -66,6 +66,7 @@ pub mod patients;
 pub mod payments;
 pub mod prescriptions;
 pub mod profile;
+pub mod promo;
 pub mod purchase_orders;
 pub mod push;
 pub mod quality;

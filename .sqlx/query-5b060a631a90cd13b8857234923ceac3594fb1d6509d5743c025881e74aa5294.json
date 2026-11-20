@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"count!\" from aarogyam.promo_codes\n           where patient_id = $1 and purpose = 'referrer_reward'\n             and valid_from between $2 and $3\n             and (revoke_reason is null or revoke_reason <> 'source_void')",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5b060a631a90cd13b8857234923ceac3594fb1d6509d5743c025881e74aa5294"
+}

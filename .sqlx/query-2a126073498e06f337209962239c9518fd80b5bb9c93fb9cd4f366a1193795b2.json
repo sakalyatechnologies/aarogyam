@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select org_id as \"org_id!\", released as \"released!\"\n           from app.promo_release_stale_holds($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "org_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "released!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "2a126073498e06f337209962239c9518fd80b5bb9c93fb9cd4f366a1193795b2"
+}

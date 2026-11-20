@@ -458,8 +458,11 @@ pub struct InvoiceLineRow {
     pub quantity: i32,
     /// Price of one.
     pub unit_price_paise: i64,
-    /// Discount on the line.
+    /// Manual discount on a draft line; on an issued line, the whole discount (manual and the
+    /// code's share, folded at issue).
     pub discount_paise: i64,
+    /// An offer or referral code's share of the line (migration 0740).
+    pub promo_discount_paise: i64,
     /// GST rate.
     pub tax_rate_bps: i32,
     /// Taxable value, at issue.
@@ -485,8 +488,8 @@ pub async fn invoice_lines(
     let rows = sqlx::query_as!(
         InvoiceLineRow,
         r#"select id, line_no, price_item_id, procedure_id, description, sac_hsn, category, quantity,
-                  unit_price_paise, discount_paise, tax_rate_bps, taxable_paise, cgst_paise, sgst_paise,
-                  igst_paise, total_paise
+                  unit_price_paise, discount_paise, promo_discount_paise, tax_rate_bps, taxable_paise,
+                  cgst_paise, sgst_paise, igst_paise, total_paise
            from aarogyam.invoice_items where invoice_id = $1 order by line_no"#,
         invoice_id
     )

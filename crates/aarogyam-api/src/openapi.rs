@@ -17,6 +17,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::tasks::Doc::openapi(),
         crate::v1::time_off::Doc::openapi(),
         crate::v1::stock_insights::Doc::openapi(),
+        crate::v1::offers::Doc::openapi(),
         crate::v1::staff_ops::Doc::openapi(),
         crate::v1::telemetry::Doc::openapi(),
         crate::v1::console_insights::Doc::openapi(),

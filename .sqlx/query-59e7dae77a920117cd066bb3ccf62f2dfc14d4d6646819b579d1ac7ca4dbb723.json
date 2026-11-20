@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.promo_codes\n           set revoked_at = null, revoked_by = null, revoke_reason = null\n           where id = $1 and revoke_reason = 'source_void'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "59e7dae77a920117cd066bb3ccf62f2dfc14d4d6646819b579d1ac7ca4dbb723"
+}

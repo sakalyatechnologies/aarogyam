@@ -229,6 +229,20 @@ impl From<AppError> for ApiFailure {
             AppError::MessageRefused(refusal) => {
                 Self::Error(ApiError::conflict(refusal.code(), refusal.to_string()))
             }
+            AppError::Promo(refusal) => {
+                use aarogyam_domain::promo::RefusalStatus;
+                Self::Error(match refusal.status() {
+                    RefusalStatus::Conflict => {
+                        ApiError::conflict(refusal.code(), refusal.to_string())
+                    }
+                    RefusalStatus::Forbidden => {
+                        ApiError::forbidden(refusal.code(), refusal.to_string())
+                    }
+                    RefusalStatus::BadRequest => {
+                        ApiError::bad_request(refusal.code(), refusal.to_string())
+                    }
+                })
+            }
             AppError::VisitClosed => Self::Error(ApiError::conflict(
                 "visit_closed",
                 "This visit is already closed. Open it to see how it ended.",

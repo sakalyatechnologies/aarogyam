@@ -236,8 +236,12 @@ pub struct InvoiceLine {
     pub quantity: i32,
     /// Price of one, in paise.
     pub unit_price_paise: i64,
-    /// Discount on the line.
+    /// Discount on the line: on a draft the manual discount, once issued the whole discount
+    /// (manual plus the code's share).
     pub discount_paise: i64,
+    /// The offer or referral code's share of the line. On a draft it comes off on top of
+    /// `discount_paise`; once issued it is already in `discount_paise` (a breakdown only).
+    pub promo_discount_paise: i64,
     /// GST percentage.
     pub gst_rate: u32,
     /// Taxable value.
@@ -318,6 +322,23 @@ pub struct Invoice {
     pub created_at: String,
     /// Lines; empty in lists.
     pub items: Vec<InvoiceLine>,
+    /// The offer or referral code used on it, if any (never the code itself; absent in lists).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub promo: Option<InvoicePromo>,
+}
+
+/// The use of an offer or referral code on a bill. The code text is never part of a bill.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct InvoicePromo {
+    /// The code's id.
+    #[schema(value_type = String)]
+    pub code_id: Uuid,
+    /// `patient_offer`, `referral` or `referrer_reward` (a documented string, not an enum).
+    pub purpose: String,
+    /// `held` (on a draft) or `final` (issued).
+    pub status: String,
+    /// The discount it gives, in paise.
+    pub discount_paise: i64,
 }
 
 impl From<InvoiceView> for Invoice {
@@ -364,6 +385,7 @@ impl From<InvoiceView> for Invoice {
                     quantity: line.quantity,
                     unit_price_paise: line.unit_price.get(),
                     discount_paise: line.discount.get(),
+                    promo_discount_paise: line.promo.get(),
                     gst_rate: line.gst_rate,
                     taxable_paise: line.amounts.taxable.get(),
                     cgst_paise: line.amounts.cgst.get(),
@@ -372,6 +394,12 @@ impl From<InvoiceView> for Invoice {
                     total_paise: line.amounts.total.get(),
                 })
                 .collect(),
+            promo: view.promo.map(|promo| InvoicePromo {
+                code_id: promo.code_id,
+                purpose: promo.purpose.as_str().to_owned(),
+                status: promo.status,
+                discount_paise: promo.discount.get(),
+            }),
         }
     }
 }

@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select billing -> 'offers' from aarogyam.org_settings",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "?column?",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a9319b4a8d45de1061339d2ebff773b88f6605d328ce7f98b1e9f4aa706794a8"
+}

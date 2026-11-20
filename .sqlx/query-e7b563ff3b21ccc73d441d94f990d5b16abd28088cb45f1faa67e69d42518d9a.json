@@ -1,0 +1,232 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, code, purpose, kind, value, max_discount_paise, patient_id, issued_encounter_id,\n                  source_code_id, source_patient_id, issued_by, valid_from, valid_to, max_uses,\n                  used_count, applies_to, revoked_at, revoke_reason\n           from aarogyam.promo_codes where code = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "purpose",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "purpose"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "value",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "value"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "max_discount_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "max_discount_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "issued_encounter_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "issued_encounter_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "source_code_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "source_code_id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "source_patient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "source_patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "issued_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "issued_by"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "valid_from",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "valid_from"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "valid_to",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "valid_to"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "max_uses",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "max_uses"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "used_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "used_count"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "applies_to",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "applies_to"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "revoked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "revoked_at"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "revoke_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "revoke_reason"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "e7b563ff3b21ccc73d441d94f990d5b16abd28088cb45f1faa67e69d42518d9a"
+}

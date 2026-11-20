@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.org_settings set billing = jsonb_set(coalesce(billing, '{}'), '{offers}', $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5a16d261edc843eb3795d6b34426d21c19eb8f2631f3dff535b6367f016bda7f"
+}

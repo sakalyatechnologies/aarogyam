@@ -11735,6 +11735,7 @@ function wireInvoiceLine(l: FakeInvoiceLine): C.InvoiceLine {
     quantity: l.quantity,
     unit_price_paise: l.unit_price_paise,
     discount_paise: l.discount_paise,
+    promo_discount_paise: 0,
     gst_rate: l.gst_rate,
     sac_hsn: l.sac_hsn ?? null,
     taxable_paise: l.taxable_paise,

@@ -1712,6 +1712,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/invoices/{id}/promo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Applies a code to a draft bill: the discount comes off every line before GST. A
+         *     `payments.collect` holder without `billing.write` applies only the patient's own offer or
+         *     reward. Ten unknown codes in ten minutes from one member get 429.
+         */
+        post: operations["applyPromoCode"];
+        /** Takes the code off a draft bill; the code can be used again. */
+        delete: operations["removePromoCode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invoices/{id}/upi-link": {
         parameters: {
             query?: never;
@@ -3711,6 +3733,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The patient's live offers and rewards for the desk. With `invoice_id`, each says whether
+         *     the bill's visit recorded its target.
+         */
+        get: operations["getPatientOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/photo": {
         parameters: {
             query?: never;
@@ -4199,6 +4241,23 @@ export interface paths {
         put?: never;
         /** Marks a procedure entered in error with a reason; its plan item is open again. */
         post: operations["markProcedureEnteredInError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/promo-codes/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revokes a code: held uses come off their drafts; final ones stay. */
+        post: operations["revokePromoCode"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4987,6 +5046,27 @@ export interface paths {
         head?: never;
         /** Changes the notification switches and quiet hours. The change history records each change. */
         patch: operations["updateNotificationSettings"];
+        trace?: never;
+    };
+    "/api/v1/settings/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's offer settings. */
+        get: operations["getOfferSettings"];
+        /**
+         * Replaces the clinic's offer settings. Unknown keys, a missing `max_discount_paise` or a value
+         *     out of range are refused.
+         */
+        put: operations["putOfferSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/settings/onboarding": {
@@ -6126,6 +6206,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visits/{id}/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The visit's live offer and the patient's referral code, with the caller's presets. */
+        get: operations["getVisitOffers"];
+        put?: never;
+        /**
+         * Gives the visit's patient an offer and/or a referral code, within the caller's caps. Asking
+         *     again returns the live ones (200); 201 when something was created.
+         */
+        post: operations["issueVisitOffers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/visits/{id}/patient-message": {
         parameters: {
             query?: never;
@@ -6693,6 +6794,13 @@ export interface components {
         Applications: {
             /** @description At most 500. */
             items: components["schemas"]["Application"][];
+        };
+        /** @description A code applied to a draft bill. */
+        ApplyPromoCode: {
+            /** @description The code as typed or shown (case, spaces and hyphens don't matter). */
+            code: string;
+            /** @description Apply a targeted offer although the visit didn't record its target (`billing.write`). */
+            override?: boolean;
         };
         /** @description An appointment. */
         Appointment: {
@@ -9445,6 +9553,7 @@ export interface components {
             payment_state?: string | null;
             /** @description Place of supply state code, when set. */
             place_of_supply?: string | null;
+            promo?: components["schemas"]["InvoicePromo"] | null;
             /** @description The patient as printed: name and number. */
             recipient?: Record<string, unknown> | null;
             /** @description The voided bill this one replaces. */
@@ -9513,7 +9622,8 @@ export interface components {
             description: string;
             /**
              * Format: int64
-             * @description Discount on the line.
+             * @description Discount on the line: on a draft the manual discount, once issued the whole discount
+             *     (manual plus the code's share).
              */
             discount_paise: number;
             /**
@@ -9535,6 +9645,12 @@ export interface components {
             price_item_id?: string | null;
             /** @description The procedure it bills. */
             procedure_id?: string | null;
+            /**
+             * Format: int64
+             * @description The offer or referral code's share of the line. On a draft it comes off on top of
+             *     `discount_paise`; once issued it is already in `discount_paise` (a breakdown only).
+             */
+            promo_discount_paise: number;
             /**
              * Format: int32
              * @description How many.
@@ -9602,6 +9718,20 @@ export interface components {
             /** @description Newest first. */
             items: components["schemas"]["Invoice"][];
         };
+        /** @description The use of an offer or referral code on a bill. The code text is never part of a bill. */
+        InvoicePromo: {
+            /** @description The code's id. */
+            code_id: string;
+            /**
+             * Format: int64
+             * @description The discount it gives, in paise.
+             */
+            discount_paise: number;
+            /** @description `patient_offer`, `referral` or `referrer_reward` (a documented string, not an enum). */
+            purpose: string;
+            /** @description `held` (on a draft) or `final` (issued). */
+            status: string;
+        };
         /** @description The alerts that stopped an issue. */
         IssueBlocked: {
             /** @description Send again with `override_reason` to issue anyway. */
@@ -9615,6 +9745,34 @@ export interface components {
             notify_patient?: boolean | null;
             /** @description Why to go ahead despite the allergy alerts; needed only when there are alerts. */
             override_reason?: string | null;
+        };
+        /** @description A code as staff see it. */
+        IssuedCode: {
+            /**
+             * @description The target label `{plan_item_id?, procedure_id?, tooth?, procedure_term?, words}`; absent
+             *     for "the next treatment".
+             */
+            applies_to?: Record<string, unknown> | null;
+            /** @description The code as shown, `K7QM-4XRD`. Never put it in a URL or a log. */
+            code: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description `percent_bps` or `fixed` (a documented string). */
+            kind: string;
+            /**
+             * Format: int64
+             * @description The cap on a percentage code's discount, in paise.
+             */
+            max_discount_paise?: number | null;
+            /** @description `patient_offer`, `referral` or `referrer_reward` (a documented string). */
+            purpose: string;
+            /** @description The last clinic day it works, `YYYY-MM-DD`. */
+            valid_to: string;
+            /**
+             * Format: int64
+             * @description Basis points (`percent_bps`) or paise (`fixed`).
+             */
+            value: number;
         };
         /** @description An issued prescription and what happened to the patient's copy. */
         IssuedPrescription: components["schemas"]["Prescription"] & {
@@ -11269,6 +11427,23 @@ export interface components {
             /** @description `female`, `male`, `other` or `unknown` (default). */
             sex?: string | null;
         };
+        /** @description An offer's requested terms; anything left out comes from the presets. */
+        NewPatientOffer: {
+            /** @description `percent_bps` or `fixed`. */
+            kind?: string | null;
+            /** @description The patient's plan item it targets. */
+            plan_item_id?: string | null;
+            /**
+             * Format: int64
+             * @description Days, from today.
+             */
+            valid_days?: number | null;
+            /**
+             * Format: int64
+             * @description Basis points or paise.
+             */
+            value?: number | null;
+        };
         /**
          * @description A payment to record. Send an `Idempotency-Key` header (a UUID per payment form); a retry
          *     with the same key returns the first payment instead of recording another.
@@ -11536,6 +11711,12 @@ export interface components {
             chief_complaint?: string | null;
             /** @description A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out. */
             id?: string | null;
+        };
+        /** @description What to give at the end of the visit. */
+        NewVisitOffers: {
+            patient_offer?: components["schemas"]["NewPatientOffer"] | null;
+            /** @description A referral code. */
+            referral?: boolean;
         };
         /** @description A patient's next booking. */
         NextAppointment: {
@@ -11844,6 +12025,67 @@ export interface components {
             /** @description Weekday by hour, chairs added; for the weekday-by-hour heatmap. */
             by_weekday_hour: components["schemas"]["WeekdayHour"][];
         };
+        /** @description The clinic's presets, lowered to the caller's caps. */
+        OfferPresets: {
+            /**
+             * Format: int64
+             * @description The caller's highest fixed amount, paise.
+             */
+            max_fixed_paise: number;
+            /**
+             * Format: int64
+             * @description The caller's highest percentage, basis points.
+             */
+            max_percent_bps: number;
+            /**
+             * Format: int64
+             * @description The caller's longest validity, days.
+             */
+            max_valid_days: number;
+            /** @description The clinic gives patient offers. */
+            offer_enabled: boolean;
+            /** @description The one-tap offer: `percent_bps` or `fixed`. */
+            offer_kind: string;
+            /**
+             * Format: int64
+             * @description Its cap, for a percentage.
+             */
+            offer_max_discount_paise?: number | null;
+            /**
+             * Format: int64
+             * @description Its validity in days.
+             */
+            offer_valid_days: number;
+            /**
+             * Format: int64
+             * @description Its value.
+             */
+            offer_value: number;
+            /** @description The clinic gives referral codes. */
+            referral_enabled: boolean;
+            /** @description What a friend gets: `percent_bps` or `fixed`. */
+            referral_kind: string;
+            /**
+             * Format: int64
+             * @description The friend's cap, in paise.
+             */
+            referral_max_discount_paise: number;
+            /**
+             * Format: int64
+             * @description The referral code's validity in days.
+             */
+            referral_valid_days: number;
+            /**
+             * Format: int64
+             * @description Its value.
+             */
+            referral_value: number;
+        };
+        /**
+         * @description The clinic's offer settings (`org_settings.billing.offers`). Every key is optional on read
+         *     back; see docs/plans/visit-story-v2-offers-design.md §2.2 for the defaults.
+         */
+        OfferSettings: Record<string, unknown>;
         /** @description Where one clinic stands in onboarding. Times are RFC 3339; `null` means not yet. */
         OnboardingClinic: {
             /** @description Created. */
@@ -12479,6 +12721,15 @@ export interface components {
              */
             prescriptions: number;
         };
+        /** @description One of a patient's codes at the desk. */
+        PatientCode: {
+            /** @description Passes the visit check on the bill asked about. */
+            eligible: boolean;
+            /** @description The code. */
+            offer: components["schemas"]["IssuedCode"];
+            /** @description Why not, such as `promo_not_for_this_visit`. */
+            reason?: string | null;
+        };
         /** @description A file a clinic shared with the patient. */
         PatientFile: {
             /** @description A caption. */
@@ -12608,6 +12859,11 @@ export interface components {
             summary?: components["schemas"]["SummaryNote"] | null;
             /** @description Visit notes, newest first (up to 100), limited to those the caller's role reaches. */
             visit_notes: components["schemas"]["VisitNote"][];
+        };
+        /** @description A patient's live offers and rewards. */
+        PatientOffers: {
+            /** @description Codes, soonest to expire first. */
+            codes: components["schemas"]["PatientCode"][];
         };
         /** @description Another appointment of the same patient at the same time, with any doctor or chair. */
         PatientOverlap: {
@@ -13893,6 +14149,11 @@ export interface components {
             id: string;
             /** @description The invitation link, with its new one-time secret. */
             invite_link: string;
+        };
+        /** @description Why a code is revoked. */
+        RevokePromoCode: {
+            /** @description `undo` (the giver's Undo) or `staff`. */
+            reason: string;
         };
         /** @description How many sessions a sign-out-everywhere-else ended. */
         RevokedSessions: {
@@ -16213,6 +16474,13 @@ export interface components {
             visit_id: string;
             /** @description The visit's number, such as `V-318`. */
             visit_number: string;
+        };
+        /** @description A visit's live codes and the caller's presets. */
+        VisitOffers: {
+            patient_offer?: components["schemas"]["IssuedCode"] | null;
+            /** @description The presets. */
+            presets: components["schemas"]["OfferPresets"];
+            referral?: components["schemas"]["IssuedCode"] | null;
         };
         /**
          * @description A visit summary prepared for the doctor to send from their own `WhatsApp`. Keep it in memory
@@ -21751,6 +22019,119 @@ export interface operations {
                 content?: never;
             };
             /** @description Already issued or void */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    applyPromoCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft bill */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyPromoCode"];
+            };
+        };
+        responses: {
+            /** @description The bill with the code held */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.write and payments.collect, or `hold_elsewhere` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such bill or code in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `promo_expired`, `promo_used`, `promo_revoked`, `promo_not_this_patient`, `promo_not_new_patient`, `promo_needs_billing_write`, `promo_no_eligible_line`, `promo_not_for_this_visit`, `not_draft` or `bill_has_promo` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many unknown codes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removePromoCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft bill */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bill without the code */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.write and payments.collect, or `not_applier` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such bill in this clinic, or it has no code */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `not_draft` */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -28017,6 +28398,53 @@ export interface operations {
             };
         };
     };
+    getPatientOffers: {
+        parameters: {
+            query?: {
+                /** @description A draft bill of the patient, for the visit check */
+                invoice_id?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Codes; `Cache-Control: no-store` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientOffers"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks billing.read and payments.collect */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient, or bill of theirs, in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getPatientPhoto: {
         parameters: {
             query?: never;
@@ -30027,6 +30455,66 @@ export interface operations {
                 content?: never;
             };
             /** @description Already marked */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokePromoCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The code's id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokePromoCode"];
+            };
+        };
+        responses: {
+            /** @description Revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad reason */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks offers.give (own codes) or settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such code in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `already_revoked` */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -32587,6 +33075,85 @@ export interface operations {
             };
             /** @description Not a clinic, or not a member of it */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getOfferSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings, defaults filled in */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferSettings"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage and offers.give */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    putOfferSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferSettings"];
+                };
+            };
+            /** @description A field is missing, unknown or out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -36128,6 +36695,121 @@ export interface operations {
                 content?: never;
             };
             /** @description The corrected reading isn't final, the visit is closed, or `id_conflict`: an id belongs to a different reading */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getVisitOffers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Codes and presets; `Cache-Control: no-store` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitOffers"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    issueVisitOffers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewVisitOffers"];
+            };
+        };
+        responses: {
+            /** @description Already given; `Cache-Control: no-store` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitOffers"];
+                };
+            };
+            /** @description Given; `Cache-Control: no-store` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitOffers"];
+                };
+            };
+            /** @description `over_cap`, or a bad field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read or offers.give */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `visit_open` or `offer_disabled` */
             409: {
                 headers: {
                     [name: string]: unknown;

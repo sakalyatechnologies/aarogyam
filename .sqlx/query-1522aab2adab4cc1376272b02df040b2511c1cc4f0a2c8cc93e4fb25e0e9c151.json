@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.promo_redemptions\n           set status = 'reversed', reversed_at = now(), reversed_by = $2, reverse_reason = $3,\n               discount_paise = case when status = 'held' then 0 else discount_paise end\n           where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1522aab2adab4cc1376272b02df040b2511c1cc4f0a2c8cc93e4fb25e0e9c151"
+}

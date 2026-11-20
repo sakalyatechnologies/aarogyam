@@ -2503,6 +2503,8 @@ export const invoiceLine = z.object({
   quantity: z.number().int(),
   unit_price_paise: paise,
   discount_paise: paise,
+  /** An offer or referral code's share: on top of `discount_paise` on a draft, already in it once issued. */
+  promo_discount_paise: paise,
   gst_rate: z.number().int(),
   sac_hsn: optionalText,
   taxable_paise: paise,
@@ -2543,6 +2545,71 @@ export const collectSummary = z.object({
 }) satisfies z.ZodType<C.CollectSummary>;
 export type CollectSummary = z.output<typeof collectSummary>;
 
+/** The use of an offer or referral code on a bill; never the code itself. `purpose` and `status` are plain strings. */
+export const invoicePromo = z.object({
+  code_id: z.string(),
+  purpose: z.string(),
+  status: z.string(),
+  discount_paise: paise,
+}) satisfies z.ZodType<C.InvoicePromo>;
+export type InvoicePromo = z.output<typeof invoicePromo>;
+
+/** A code as staff see it (`K7QM-4XRD`). Never put it in a URL or a log. */
+export const issuedCode = z.object({
+  id: z.string(),
+  code: z.string(),
+  purpose: z.string(),
+  kind: z.string(),
+  value: z.number().int(),
+  max_discount_paise: paise.nullable().exactOptional(),
+  valid_to: z.string(),
+  applies_to: z.record(z.string(), z.unknown()).nullable().exactOptional(),
+}) satisfies z.ZodType<C.IssuedCode>;
+export type IssuedCode = z.output<typeof issuedCode>;
+
+/** The clinic's offer presets, bounded by the caller's caps. */
+export const offerPresets = z.object({
+  offer_enabled: z.boolean(),
+  offer_kind: z.string(),
+  offer_value: z.number().int(),
+  offer_valid_days: z.number().int(),
+  offer_max_discount_paise: paise.nullable().exactOptional(),
+  referral_enabled: z.boolean(),
+  referral_kind: z.string(),
+  referral_value: z.number().int(),
+  referral_max_discount_paise: paise,
+  referral_valid_days: z.number().int(),
+  max_percent_bps: z.number().int(),
+  max_fixed_paise: paise,
+  max_valid_days: z.number().int(),
+}) satisfies z.ZodType<C.OfferPresets>;
+export type OfferPresets = z.output<typeof offerPresets>;
+
+/** `GET`/`POST /api/v1/visits/{id}/offers`. */
+export const visitOffers = z.object({
+  patient_offer: issuedCode.nullable().exactOptional(),
+  referral: issuedCode.nullable().exactOptional(),
+  presets: offerPresets,
+}) satisfies z.ZodType<C.VisitOffers>;
+export type VisitOffers = z.output<typeof visitOffers>;
+
+/** `GET /api/v1/patients/{id}/offers`: live codes, each with the visit check for the bill asked about. */
+export const patientOffers = z.object({
+  codes: z.array(
+    z.object({
+      offer: issuedCode,
+      eligible: z.boolean(),
+      reason: optionalText,
+    }) satisfies z.ZodType<C.PatientCode>,
+  ),
+}) satisfies z.ZodType<C.PatientOffers>;
+export type PatientOffers = z.output<typeof patientOffers>;
+
+/** Body of `POST /api/v1/visits/{id}/offers`. */
+export type NewVisitOffers = C.NewVisitOffers;
+/** Body of `POST /api/v1/invoices/{id}/promo`. */
+export type ApplyPromoCode = C.ApplyPromoCode;
+
 export const invoice = z.object({
   id: invoiceId,
   status: invoiceStatus,
@@ -2573,6 +2640,7 @@ export const invoice = z.object({
   voided_at: optionalTimestamp,
   created_at: timestamp,
   issued_at: optionalTimestamp,
+  promo: invoicePromo.exactOptional(),
 }) satisfies z.ZodType<C.Invoice>;
 export type Invoice = z.output<typeof invoice>;
 

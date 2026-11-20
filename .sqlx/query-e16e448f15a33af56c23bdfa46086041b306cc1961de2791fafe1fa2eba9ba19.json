@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.promo_code_id, c.purpose, r.status, r.discount_paise\n           from aarogyam.promo_redemptions r\n           join aarogyam.promo_codes c on c.org_id = r.org_id and c.id = r.promo_code_id\n           where r.invoice_id = $1 and r.status <> 'reversed'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "promo_code_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_redemptions",
+            "name": "promo_code_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "purpose",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "purpose"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_redemptions",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "discount_paise",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_redemptions",
+            "name": "discount_paise"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e16e448f15a33af56c23bdfa46086041b306cc1961de2791fafe1fa2eba9ba19"
+}

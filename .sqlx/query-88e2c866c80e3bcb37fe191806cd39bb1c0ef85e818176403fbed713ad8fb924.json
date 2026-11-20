@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             exists (select 1 from aarogyam.patients o, aarogyam.patients f\n                     where o.id = $1 and f.id = $2\n                       and ((o.phone_e164 is not null and o.phone_e164 in (f.phone_e164, f.alt_phone_e164))\n                         or (o.alt_phone_e164 is not null\n                             and o.alt_phone_e164 in (f.phone_e164, f.alt_phone_e164)))) as \"shares_phone!\",\n             exists (select 1 from aarogyam.patient_relations r\n                     where (r.patient_id = $1 and r.related_patient_id = $2)\n                        or (r.patient_id = $2 and r.related_patient_id = $1)) as \"related!\",\n             (select p.referred_by_patient_id from aarogyam.patients p where p.id = $2) as referred_by,\n             case when $3::uuid is not null then\n               not exists (select 1 from aarogyam.encounters e, aarogyam.encounters b\n                           where b.id = $3 and e.patient_id = $2 and e.id <> b.id\n                             and e.started_at < b.started_at)\n             else\n               not exists (select 1 from aarogyam.encounters e\n                           where e.patient_id = $2 and e.started_at < $4)\n             end as \"first_visit!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "shares_phone!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "related!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "referred_by",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "first_visit!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "88e2c866c80e3bcb37fe191806cd39bb1c0ef85e818176403fbed713ad8fb924"
+}

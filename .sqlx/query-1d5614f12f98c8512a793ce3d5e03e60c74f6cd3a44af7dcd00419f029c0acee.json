@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists (\n             select 1 from aarogyam.procedures p\n             where p.encounter_id = $1 and p.status::text <> 'entered_in_error'\n               and (($2::uuid is not null and p.treatment_plan_item_id = $2)\n                 or ($3::uuid is not null and p.id = $3)))\n           or exists (\n             select 1 from aarogyam.specialty_records s\n             where s.encounter_id = $1 and s.kind = 'tooth'\n               and $4::smallint is not null and s.tooth = $4\n               and $5::text is not null and s.data ->> 'procedure' = $5\n               and (s.status::text = 'current'\n                 or (s.status::text = 'superseded' and exists (\n                       select 1 from aarogyam.specialty_records n\n                       where n.supersedes_id = s.id and n.status::text <> 'entered_in_error'\n                         and n.data ->> 'procedure' = $5)))) as \"found!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "found!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int2",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1d5614f12f98c8512a793ce3d5e03e60c74f6cd3a44af7dcd00419f029c0acee"
+}

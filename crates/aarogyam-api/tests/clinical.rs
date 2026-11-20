@@ -2400,6 +2400,12 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
         ),
         (Method::POST, format!("/api/v1/visits/{visit}/finish"), None),
         (Method::POST, format!("/api/v1/visits/{visit}/close"), None),
+        (Method::GET, format!("/api/v1/visits/{visit}/offers"), None),
+        (
+            Method::POST,
+            format!("/api/v1/visits/{visit}/offers"),
+            Some(json!({ "referral": true })),
+        ),
         (
             Method::PATCH,
             format!("/api/v1/dental-terms/{term}"),

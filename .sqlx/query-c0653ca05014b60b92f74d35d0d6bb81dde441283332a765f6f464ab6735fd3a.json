@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.invoice_items\n           set discount_paise = discount_paise + promo_discount_paise\n           where id = $1 and promo_discount_paise > 0",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c0653ca05014b60b92f74d35d0d6bb81dde441283332a765f6f464ab6735fd3a"
+}

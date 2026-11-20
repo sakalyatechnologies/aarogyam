@@ -106,6 +106,8 @@ pub fn standard_throttle_with(
             .on_paths(&["/api/v1/public/bookings"])
             .on_methods(&["POST"]),
         RuleConfig::new("public-booking-identity", KeyKind::Custom, 6, 60 * 60),
+        // Unknown offer codes per member (the handler checks on each miss); per instance.
+        RuleConfig::new("member-promo-miss", KeyKind::Custom, 10, 10 * 60),
         // The patient app: link codes are 50-bit secrets, but guessing is throttled per IP and
         // per account; bookings from the app count with the public page's.
         RuleConfig::new("ip-patient-link", KeyKind::Ip, 20, 10 * 60)

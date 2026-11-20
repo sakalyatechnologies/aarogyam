@@ -47,6 +47,7 @@ pub(crate) mod messages;
 pub(crate) mod meta;
 pub(crate) mod notices;
 pub(crate) mod notifications;
+pub(crate) mod offers;
 pub(crate) mod onboarding;
 pub(crate) mod patient_app;
 pub(crate) mod patient_links;
@@ -870,6 +871,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .merge(tasks::routes())
         .merge(time_off::routes())
         .merge(stock_insights::routes())
+        .merge(offers::routes())
         .merge(staff_ops::routes())
         // Page counters from staff, and the console's durable route and front-end insights.
         .merge(telemetry::routes())

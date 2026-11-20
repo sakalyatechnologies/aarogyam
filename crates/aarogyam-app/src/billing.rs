@@ -425,8 +425,11 @@ pub struct LineView {
     pub quantity: i32,
     /// Price of one.
     pub unit_price: Paise,
-    /// Discount.
+    /// Manual discount on a draft; the whole discount (manual and code) once issued.
     pub discount: Paise,
+    /// The offer or referral code's share of the line (on an issued line, already in
+    /// `discount`: a breakdown only).
+    pub promo: Paise,
     /// GST percentage.
     pub gst_rate: u32,
     /// The line's amounts (a preview on drafts).
@@ -478,6 +481,8 @@ pub struct InvoiceView {
     pub created_at: OffsetDateTime,
     /// Lines (empty in lists).
     pub lines: Vec<LineView>,
+    /// The offer or referral code used on it (not in lists).
+    pub promo: Option<crate::promo::PromoView>,
 }
 
 fn invoice_view(
@@ -531,6 +536,7 @@ fn invoice_view(
         voided_at: row.voided_at,
         created_at: row.created_at,
         lines,
+        promo: None,
     }
 }
 
@@ -592,6 +598,7 @@ async fn build_lines(
         )?;
         let sac_hsn = pattern(sac_hsn, "items.sac_hsn", is_sac_hsn)?;
         let line = Line {
+            promo: Paise::ZERO,
             quantity: item.quantity.unwrap_or(1),
             unit_price: Paise::new(unit_price),
             discount: Paise::new(item.discount_paise.unwrap_or(0)),
@@ -609,6 +616,7 @@ async fn build_lines(
             quantity: i32::try_from(line.quantity).unwrap_or(i32::MAX),
             unit_price_paise: unit_price,
             discount_paise: line.discount.get(),
+            promo_discount_paise: 0,
             tax_rate_bps: i32::try_from(rate.bps()).unwrap_or(0),
             taxable_paise: 0,
             cgst_paise: 0,
@@ -660,7 +668,10 @@ impl TaxSetup {
                 GstRate::Zero
             };
             any_taxed |= rate != GstRate::Zero;
+            // Drafts only: the code's share is apart from the manual discount until issue folds
+            // it in (an issued line's promo is a breakdown no arithmetic reads).
             let line = Line {
+                promo: Paise::new(row.promo_discount_paise),
                 quantity: u32::try_from(row.quantity).unwrap_or(0),
                 unit_price: Paise::new(row.unit_price_paise),
                 discount: Paise::new(row.discount_paise),
@@ -679,7 +690,8 @@ impl TaxSetup {
     }
 }
 
-fn line_view(row: &InvoiceLineRow) -> LineView {
+fn line_view(row: &InvoiceLineRow, draft: bool) -> LineView {
+    let promo = if draft { row.promo_discount_paise } else { 0 };
     LineView {
         line_no: row.line_no,
         price_item_id: row.price_item_id,
@@ -689,10 +701,11 @@ fn line_view(row: &InvoiceLineRow) -> LineView {
         quantity: row.quantity,
         unit_price: Paise::new(row.unit_price_paise),
         discount: Paise::new(row.discount_paise),
+        promo: Paise::new(row.promo_discount_paise),
         gst_rate: GstRate::from_bps(row.tax_rate_bps).map_or(0, GstRate::percent),
         amounts: LineAmounts {
             gross: Paise::new(row.unit_price_paise.saturating_mul(i64::from(row.quantity))),
-            discount: Paise::new(row.discount_paise),
+            discount: Paise::new(row.discount_paise.saturating_add(promo)),
             taxable: Paise::new(row.taxable_paise),
             cgst: Paise::new(row.cgst_paise),
             sgst: Paise::new(row.sgst_paise),
@@ -704,6 +717,13 @@ fn line_view(row: &InvoiceLineRow) -> LineView {
 
 /// Loads a bill with its lines; drafts get a preview of their amounts.
 async fn load(tx: &mut ScopedTx, id: Uuid) -> Result<InvoiceView, AppError> {
+    let mut view = load_bare(tx, id).await?;
+    view.promo = crate::promo::bill_promo(tx, id).await?;
+    Ok(view)
+}
+
+/// [`load`] without the code use: one round trip fewer where the view needs no `promo`.
+async fn load_bare(tx: &mut ScopedTx, id: Uuid) -> Result<InvoiceView, AppError> {
     let row = dal::invoices(
         tx.conn(),
         &InvoiceFilter {
@@ -717,7 +737,8 @@ async fn load(tx: &mut ScopedTx, id: Uuid) -> Result<InvoiceView, AppError> {
     .next()
     .ok_or(AppError::NotFound("invoice"))?;
     let mut lines = dal::invoice_lines(tx.conn(), id).await?;
-    let preview = if row.status == InvoiceStatus::Draft.as_str() {
+    let draft = row.status == InvoiceStatus::Draft.as_str();
+    let preview = if draft {
         let supplier = dal::supplier(tx.conn())
             .await?
             .ok_or(AppError::NotFound("clinic"))?;
@@ -727,8 +748,13 @@ async fn load(tx: &mut ScopedTx, id: Uuid) -> Result<InvoiceView, AppError> {
     } else {
         None
     };
-    let lines = lines.iter().map(line_view).collect();
+    let lines = lines.iter().map(|line| line_view(line, draft)).collect();
     Ok(invoice_view(row, lines, preview))
+}
+
+/// [`load`] for the promo code use cases.
+pub(crate) async fn load_view(tx: &mut ScopedTx, id: Uuid) -> Result<InvoiceView, AppError> {
+    load(tx, id).await
 }
 
 /// Starts a draft bill for a patient.
@@ -754,7 +780,18 @@ pub async fn create(
     }
     let place = place_of_supply(input.place_of_supply.as_deref())?;
     let notes = trimmed(input.notes.as_deref(), "notes", 1000)?;
+    let replaced = input.replaces_invoice_id.map(InvoiceId::uuid);
+    let patient_id = input.patient_id.uuid();
+    let manual: Vec<Paise> = input
+        .items
+        .iter()
+        .map(|item| Paise::new(item.discount_paise.unwrap_or(0)))
+        .collect();
     db.scoped(&scope(actor, request_id), async |tx| {
+        if let Some(old) = replaced {
+            // F2: the voided bill's offer is held again by itself, never copied as a discount.
+            crate::promo::check_rebill(tx, old, &manual).await?;
+        }
         if writer == BillWriter::VisitDraft {
             let visit = visit_in_reach(tx, actor, input.encounter_id).await?;
             if visit.patient_id != input.patient_id.uuid() {
@@ -764,7 +801,20 @@ pub async fn create(
                 ));
             }
         }
-        create_in(tx, input, place.as_deref(), notes.as_deref()).await
+        let view = create_in(tx, input, place.as_deref(), notes.as_deref()).await?;
+        let Some(old) = replaced else {
+            return Ok(view);
+        };
+        crate::promo::rehold(
+            tx,
+            actor,
+            old,
+            view.id.uuid(),
+            patient_id,
+            OffsetDateTime::now_utc(),
+        )
+        .await?;
+        load(tx, view.id.uuid()).await
     })
     .await
 }
@@ -910,7 +960,9 @@ pub async fn edit(
     }
     db.scoped(&scope(actor, request_id), async |tx| {
         dal::lock_invoices(tx.conn(), &[id.uuid()]).await?;
-        let current = load(tx, id.uuid()).await?;
+        // The code before the lines (the lock order of docs: bill, code, use, lines).
+        let hold = crate::promo::lock_hold(tx, id.uuid()).await?;
+        let current = load_bare(tx, id.uuid()).await?;
         if writer == BillWriter::VisitDraft {
             // A bill that is no visit's, or a visit out of reach, is as good as absent.
             visit_in_reach(tx, actor, current.encounter_id)
@@ -944,6 +996,9 @@ pub async fn edit(
             dal::clear_draft_lines(tx.conn(), id.uuid()).await?;
             for line in &lines {
                 dal::insert_line(tx.conn(), id.uuid(), line).await?;
+            }
+            if hold.is_some() {
+                crate::promo::recompute_in(tx, id.uuid()).await?;
             }
         }
         load(tx, id.uuid()).await
@@ -988,6 +1043,7 @@ pub(crate) async fn issue_in(
     if locked.status != InvoiceStatus::Draft.as_str() {
         return Err(AppError::Conflict("this bill is already issued or void"));
     }
+    let hold = crate::promo::before_issue(tx, id.uuid()).await?;
     let mut lines = dal::invoice_lines(tx.conn(), id.uuid()).await?;
     if lines.is_empty() {
         return Err(AppError::invalid(
@@ -1002,6 +1058,8 @@ pub(crate) async fn issue_in(
     let (totals, any_taxed) = setup.compute(locked.place_of_supply.as_deref(), &mut lines)?;
     for line in &lines {
         dal::set_line_amounts(tx.conn(), line).await?;
+        // N8: an issued line's discount is manual + code, so taxable = gross − discount.
+        aarogyam_dal::promo::fold_line_promo(tx.conn(), line.id).await?;
     }
     let year = FinancialYear::of(clinic_today(&supplier.timezone, now));
     let label = year.label();
@@ -1044,6 +1102,9 @@ pub(crate) async fn issue_in(
         },
     )
     .await?;
+    if let Some(hold) = hold {
+        crate::promo::after_issue(tx, actor, hold, totals.total, now).await?;
+    }
     load(tx, id.uuid()).await
 }
 
@@ -1090,6 +1151,7 @@ pub async fn void(
                 "void the payments towards this bill first",
             ));
         }
+        crate::promo::on_void(tx, actor, id.uuid()).await?;
         dal::void_invoice(
             tx.conn(),
             id.uuid(),
@@ -1172,7 +1234,7 @@ pub async fn upi_link(
 ) -> Result<UpiLink, AppError> {
     actor.require(Permission::BillingRead)?;
     db.scoped(&scope(actor, request_id), async |tx| {
-        let view = load(tx, id.uuid()).await?;
+        let view = load_bare(tx, id.uuid()).await?;
         let (InvoiceStatus::Issued, Some(number)) = (view.status, view.number) else {
             return Err(AppError::Conflict("only an issued bill can be paid"));
         };
@@ -1257,7 +1319,7 @@ pub async fn collect_summary(
         actor.require(Permission::PaymentsCollect)?;
     }
     db.scoped(&scope(actor, request_id), async |tx| {
-        let view = load(tx, id.uuid()).await?;
+        let view = load_bare(tx, id.uuid()).await?;
         let (total, balance) = match view.status {
             InvoiceStatus::Draft => (view.amounts.total, view.amounts.total),
             InvoiceStatus::Issued => (view.amounts.total, view.balance),
@@ -1398,6 +1460,7 @@ mod tests {
             quantity,
             unit_price_paise: unit,
             discount_paise: 0,
+            promo_discount_paise: 0,
             tax_rate_bps: rate_bps,
             taxable_paise: 0,
             cgst_paise: 0,

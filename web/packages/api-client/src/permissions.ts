@@ -36,6 +36,8 @@ export const PERMISSIONS = [
   "chat.use",
   /** Post pinned notices in chat conversations (owner only by default). */
   "chat.notice",
+  /** Give patients offer and referral codes within the role's caps (owner and doctor by default). */
+  "offers.give",
   /** Labs, their contacts and lab orders (costs also need finance.view). */
   "labs.read",
   /** Keep labs and contacts, record and move lab orders, remind a lab. */

@@ -183,8 +183,8 @@ describe("overview layout", () => {
   it("never overlaps neighbouring milk teeth at 390 px", () => {
     const child = [51, 52, 53, 54, 55, 61, 62, 63, 64, 65, 71, 72, 73, 74, 75, 81, 82, 83, 84, 85];
     const mixed = [11, 12, 53, 54, 55, 16, 21, 22, 63, 64, 65, 26, 31, 32, 73, 74, 75, 36, 41, 42, 83, 84, 85, 46];
-    for (const set of [child, mixed]) {
-      const { slots } = archLayout(set, { width: 358 });
+    for (const [set, depth] of [[child, undefined], [mixed, undefined], [mixed, 1.02]] as const) {
+      const { slots } = archLayout([...set], { width: 358, ...(depth === undefined ? {} : { depth }) });
       expect(slots.length).toBe(set.length);
       for (const a of slots) for (const b of slots) {
         if (a === b || Math.floor(a.fdi / 10) !== Math.floor(b.fdi / 10) || Math.abs((a.fdi % 10) - (b.fdi % 10)) !== 1) continue;

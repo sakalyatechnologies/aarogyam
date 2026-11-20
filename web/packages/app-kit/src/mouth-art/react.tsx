@@ -19,14 +19,19 @@ export interface ArtSvgProps {
   label?: string;
   className?: string;
   labelColor?: string;
+  /** Position and size when nested inside another SVG (the overview arch). */
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
 }
 
 /** Renders a resolved Scene as inline SVG. */
-export function ArtSvg({ scene, label, className, labelColor = "currentColor" }: ArtSvgProps): ReactElement {
+export function ArtSvg({ scene, label, className, labelColor = "currentColor", x: fx, y: fy, width, height }: ArtSvgProps): ReactElement {
   const pre = useId().replace(/:/g, "") + "-";
   const [x, y, w, h] = scene.box;
   return (
-    <svg viewBox={`${String(x)} ${String(y)} ${String(w)} ${String(h)}`} className={className} role={label === undefined ? "presentation" : "img"} aria-label={label} aria-hidden={label === undefined ? true : undefined}>
+    <svg viewBox={`${String(x)} ${String(y)} ${String(w)} ${String(h)}`} x={fx} y={fy} width={width} height={height} className={className} role={label === undefined ? "presentation" : "img"} aria-label={label} aria-hidden={label === undefined ? true : undefined}>
       <defs>
         {scene.gradients.map((g) => {
           const id = pre + g.id;

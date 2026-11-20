@@ -1,4 +1,5 @@
-import { Presentation } from "lucide-react";
+import { MonitorSmartphone, Presentation } from "lucide-react";
+import { useNavigate } from "react-router";
 import { useCallback, useState } from "react";
 
 import type { Patient, ToothSurface } from "@aarogyam/api-client";
@@ -38,6 +39,8 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
     setDictate(undefined);
   }, []);
   const [explaining, setExplaining] = useState(false);
+  const navigate = useNavigate();
+  const presentId = visit.visit?.id;
 
   if (chart.isPending) {
     return (
@@ -77,6 +80,8 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
       }}
       entries={chart.data.current.filter((e) => e.tooth === selected)}
       status={statuses.find((s) => s.tooth === selected)}
+      condition={chart.data.conditions?.find((c) => c.tooth === selected)}
+      eruption={chart.data.eruptions?.find((e) => e.tooth === selected)}
       dictate={dictate === selected}
       onDictateStarted={dictated}
     />
@@ -108,6 +113,17 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
           >
             Explain to patient
           </PillButton>
+          {presentId === undefined || !can("clinical.read") ? null : (
+            <PillButton
+              variant="ghost"
+              icon={<MonitorSmartphone aria-hidden="true" />}
+              onClick={() => {
+                void navigate(`/visits/${presentId}/mouth`);
+              }}
+            >
+              Show patient
+            </PillButton>
+          )}
         </div>
       }
     >

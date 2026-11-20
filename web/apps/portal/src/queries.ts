@@ -23,6 +23,8 @@ import {
   type MembershipId,
   type NewAppointmentBody,
   type NewChartEntries,
+  type NewToothCondition,
+  type NewToothEruption,
   type NewToothStatus,
   type ToothStatus,
   type NewDentalTerm,
@@ -533,6 +535,7 @@ function invalidateSchedule(queryClient: ReturnType<typeof useQueryClient>, orgI
   void queryClient.invalidateQueries({ queryKey: ["appointments", orgId] });
   void queryClient.invalidateQueries({ queryKey: ["today", orgId] });
   void queryClient.invalidateQueries({ queryKey: ["queue", orgId] });
+  invalidateMouth(queryClient, orgId);
 }
 
 export function useBookAppointment() {
@@ -904,6 +907,7 @@ export function useRecordProcedure(visitId: VisitId, patientId: PatientId) {
       void queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
       void queryClient.invalidateQueries({ queryKey: ["procedures", access.org_id, patientId] });
       void queryClient.invalidateQueries({ queryKey: ["timeline", access.org_id, patientId] });
+      invalidateMouth(queryClient, access.org_id);
     },
   });
 }
@@ -913,7 +917,54 @@ export function useCompleteProcedure(visitId: VisitId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: ProcedureId) => unwrap(api.completeProcedure(id)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] }),
+    onSuccess: () => {
+      invalidateMouth(queryClient, access.org_id);
+      return queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
+    },
+  });
+}
+
+/** Present mode's mouth snapshot (design §1.12): the same JSON the patient's page shows. */
+export function useVisitMouth(visitId: VisitId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["visit-mouth", access.org_id, visitId],
+    queryFn: ({ signal }) => (visitId === undefined ? Promise.reject(new Error("no visit")) : unwrap(api.getVisitMouth(visitId, { signal }))),
+    enabled: visitId !== undefined,
+  });
+}
+
+/**
+ * Refetches every open mouth view (DF6): after chart entries, tooth details, tooth-status saves, procedures, plan changes and
+ * bookings, which can each change a tooth or `next_visit`.
+ */
+export function invalidateMouth(queryClient: ReturnType<typeof useQueryClient>, orgId: string) {
+  void queryClient.invalidateQueries({ queryKey: ["visit-mouth", orgId] });
+}
+
+/** Merges a change into a tooth's condition (§1.13): omitted fields stay, `null` clears. */
+export function useSetToothCondition(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tooth, input }: { tooth: number; input: NewToothCondition }) => unwrap(api.setToothCondition(patientId, tooth, input)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] });
+      invalidateMouth(queryClient, access.org_id);
+    },
+  });
+}
+
+/** Sets a permanent tooth's eruption and angle (§1.13, VS1 B5). */
+export function useSetToothEruption(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tooth, input }: { tooth: number; input: NewToothEruption }) => unwrap(api.setToothEruption(patientId, tooth, input)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] });
+      invalidateMouth(queryClient, access.org_id);
+    },
   });
 }
 
@@ -946,7 +997,10 @@ export function useRecordChartEntries(patientId: PatientId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: NewChartEntries) => unwrap(api.recordChartEntries(patientId, input)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] }),
+    onSuccess: () => {
+      invalidateMouth(queryClient, access.org_id);
+      return queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] });
+    },
   });
 }
 
@@ -980,6 +1034,7 @@ export function useSetToothStatus(patientId: PatientId) {
     },
     onSuccess: (saved, { tooth }) => {
       queryClient.setQueriesData<DentalChart>({ queryKey: key }, (chart) => withStatus(chart, tooth, saved));
+      invalidateMouth(queryClient, access.org_id);
     },
   });
 }
@@ -999,6 +1054,9 @@ export function useClearToothStatus(patientId: PatientId) {
     },
     onError: (_error, _tooth, context) => {
       for (const [queryKey, chart] of context?.before ?? []) queryClient.setQueryData(queryKey, chart);
+    },
+    onSuccess: () => {
+      invalidateMouth(queryClient, access.org_id);
     },
   });
 }

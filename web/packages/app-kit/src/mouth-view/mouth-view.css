@@ -37,9 +37,9 @@
 .mv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; padding: 0; }
 .mv-card { background: linear-gradient(170deg, var(--mv-brand-soft), var(--mv-card) 46%); border: 1px solid var(--mv-line); border-radius: 18px; padding: 16px 14px 14px; box-shadow: var(--mv-shadow); overflow: hidden; }
 .mv-head { padding: 0 4px; }
-.mv-title { margin: 0; font-size: 20px; line-height: 1.25; letter-spacing: -.01em; }
+.mv-title { margin: 0; font-weight: 750; font-size: 20px; line-height: 1.25; letter-spacing: -.01em; }
 .mv-sum { margin: 4px 0 0; font-size: 14px; color: var(--mv-muted); }
-.mv-sum b { color: var(--mv-text); }
+.mv-sum b { color: var(--mv-text); font-weight: 650; }
 .mv-next { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 0; padding: 5px 10px; border-radius: 999px; background: var(--mv-amber-soft); color: var(--mv-amber); font-size: 13px; font-weight: 600; }
 .mv-next svg { width: 14px; height: 14px; }
 .mv-arch-wrap { position: relative; margin: 6px -6px 0; }
@@ -95,7 +95,7 @@
 .mv-backbtn svg { width: 20px; height: 20px; }
 .mv-d-head { margin: 14px 4px 10px; }
 .mv-d-eyebrow { margin: 0; font-size: 13px; color: var(--mv-muted); font-weight: 600; }
-.mv-d-title { margin: 2px 0 8px; font-size: 21px; line-height: 1.25; letter-spacing: -.01em; }
+.mv-d-title { margin: 2px 0 8px; font-weight: 750; font-size: 21px; line-height: 1.25; letter-spacing: -.01em; }
 .mv-d-note { margin: 8px 0 0; font-size: 13.5px; color: var(--mv-muted); }
 .mv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .mv-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--mv-brand-soft); color: var(--mv-brand); border: 1px solid transparent; line-height: 1.3; }
@@ -146,12 +146,12 @@
 .mv-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--mv-line); transition: all .2s; }
 .mv-dots i.mv-on { background: var(--mv-brand); width: 18px; border-radius: 4px; }
 .mv-generic { margin-top: 14px; padding: 14px; border-radius: 14px; background: var(--mv-bg); border: 1px dashed var(--mv-line); }
-.mv-generic h4 { margin: 0; font-size: 15px; }
+.mv-generic h4 { margin: 0; font-size: 15px; font-weight: 700; }
 .mv-gl { margin: 2px 0 8px; font-size: 12.5px; color: var(--mv-muted); }
-.mv-generic ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14.5px; }
+.mv-generic ul { margin: 0; padding-left: 18px; list-style: disc; display: grid; gap: 4px; font-size: 14.5px; }
 .mv-originbox { margin-top: 14px; padding: 14px; border-radius: 14px; border: 1px solid var(--mv-line); background: var(--mv-card); display: flex; gap: 12px; align-items: center; }
 .mv-originbox svg { width: 34px; height: 34px; }
-.mv-originbox b { display: block; }
+.mv-originbox b { display: block; font-weight: 650; }
 .mv-originbox span { color: var(--mv-muted); font-size: 14px; }
 
 /* Present mode: full screen, 56 px targets, larger type */

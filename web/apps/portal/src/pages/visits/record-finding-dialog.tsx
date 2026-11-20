@@ -3,6 +3,8 @@ import { useState } from "react";
 import { apiErrorOf, type ChartFinding, type DentalTerm, type PatientId, type ToothSurface, type VisitId } from "@aarogyam/api-client";
 import { Button, Dialog, Field, Select, TextInput, useToast } from "@sakalya/ui";
 
+import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
+
 import { useAddDentalTerm, useRecordChartEntries } from "../../queries.js";
 import { SURFACES, isWholeToothFinding, surfaceLabel } from "./odontogram/model.js";
 import { TermCombobox } from "./term-combobox.js";
@@ -57,6 +59,7 @@ export function RecordFindingDialog({
   const [procedure, setProcedure] = useState<DentalTerm | undefined>(undefined);
   const [material, setMaterial] = useState<DentalTerm | undefined>(undefined);
   const [note, setNote] = useState("");
+  const [depth, setDepth] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const record = useRecordChartEntries(patientId);
   const addTerm = useAddDentalTerm();
@@ -81,6 +84,7 @@ export function RecordFindingDialog({
       ...(sound || procedure === undefined ? {} : { procedure: procedure.id }),
       ...(sound || material === undefined ? {} : { material: material.id }),
       ...(note.trim() === "" ? {} : { note: note.trim() }),
+      ...(finding === "caries" && depth !== undefined ? { caries_depth: depth } : {}),
     };
     const entries = teeth.flatMap((tooth) => (chosen.length === 0 ? [{ tooth, ...detail }] : chosen.map((surface) => ({ tooth, surface, ...detail }))));
     record.mutate(
@@ -115,6 +119,18 @@ export function RecordFindingDialog({
         <Field label="Finding" required error={missingFinding && finding === "" ? "Choose a finding." : undefined}>
           <Select options={FINDINGS} value={finding} placeholder="Choose a finding" onValueChange={setFinding} />
         </Field>
+        {finding === "caries" ? (
+          <div role="group" aria-label="Depth (optional)">
+            <p className="mb-1.5 text-sm font-semibold">Depth <span className="font-normal text-muted">(optional)</span></p>
+            <div className="odo-surface-toggles">
+              {DETAIL_VALUES.caries_depth.map((d) => (
+                <button key={d} type="button" aria-pressed={depth === d} onClick={() => { setDepth(depth === d ? undefined : d); }}>
+                  {DETAIL_CHIPS.caries_depth[d]}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div role="group" aria-label="Surfaces">
           <p className="mb-1.5 text-sm font-semibold">Surfaces</p>
           <div className="odo-surface-toggles">

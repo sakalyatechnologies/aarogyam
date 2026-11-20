@@ -67,6 +67,10 @@ class ToothSheetStateHolder(
 
     /** The tooth's health being saved, and its note being typed or dictated ([ToothHealthEditor]). */
     val health: StateFlow<HealthSaveState> = editor.state
+    private val details = ToothDetailEditor(clinic, chart, scope, log)
+
+    /** A detail chip being saved, or the last one refused ([ToothDetailEditor]). */
+    val detail: StateFlow<DetailSaveState> = details.state
     private val queuedIds = mutableSetOf<String>()
 
     init {
@@ -199,6 +203,52 @@ class ToothSheetStateHolder(
     ) = editor.dictate(tooth, language)
 
     fun stopHealthDictation() = editor.stopDictation()
+
+    /** Decay depth on the tooth's current decay marks (one chart save). */
+    fun setCariesDepth(
+        tooth: Int,
+        depth: CariesDepth,
+    ) = chart.recordCariesDepth(tooth, depth)
+
+    /** Infection or abscess; null clears it. */
+    fun setInfection(
+        tooth: Int,
+        infection: RootInfection?,
+    ) = details.setInfection(tooth, infection)
+
+    fun setBleeding(
+        tooth: Int,
+        on: Boolean,
+    ) = details.setBleeding(tooth, on)
+
+    /** The deepest pocket in mm (the "7+" chip is 7); null clears it. */
+    fun setPocket(
+        tooth: Int,
+        mm: Int?,
+    ) = details.setPocket(tooth, mm)
+
+    /** Mobility grade 1 to 3; null clears it. */
+    fun setMobility(
+        tooth: Int,
+        grade: Int?,
+    ) = details.setMobility(tooth, grade)
+
+    /** "Infection resolved" after the tooth was treated. */
+    fun resolveInfection(tooth: Int) = details.resolveInfection(tooth)
+
+    /** A wisdom tooth's eruption. */
+    fun setEruption(
+        tooth: Int,
+        eruption: Eruption,
+    ) = details.setEruption(tooth, eruption)
+
+    /** The angle of a wisdom tooth that is not fully through. */
+    fun setAngulation(
+        tooth: Int,
+        angulation: Angulation,
+    ) = details.setAngulation(tooth, angulation)
+
+    fun dismissDetailError() = details.dismissError()
 
     /** Saves the procedure on the phone; the sheet closes and shows it as waiting to send. */
     private fun queue(

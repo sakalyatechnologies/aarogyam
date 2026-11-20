@@ -272,6 +272,12 @@ val apiModels =
         "VisitLink",
         // Phase C: the visit summary for the doctor's own WhatsApp.
         "VisitPatientMessage",
+        // P2 (visit-story-v2 §1.6): the ticks, live preview, defaults and hand-off count.
+        "NewPatientMessage",
+        "MessagePreview",
+        "HandOff",
+        "MessagePrefs",
+        "NewMessagePrefs",
         "SummaryPlanItem",
         "SummaryMedicine",
         "SummaryAftercare",

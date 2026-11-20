@@ -92,6 +92,7 @@
     <string name="rx_duration">Duration</string>
     <string name="rx_allergy_warning">%1$s: recorded allergy to %2$s (%3$s)</string>
     <string name="rx_server_alert">The clinic\'s allergy check flagged this prescription.</string>
+    <string name="rx_check_title">Allergy warning</string>
     <string name="rx_override_label">Reason to issue anyway</string>
     <string name="rx_override_help">Needed because of the allergy alert. It is saved with the prescription.</string>
     <string name="rx_issue">Issue prescription</string>

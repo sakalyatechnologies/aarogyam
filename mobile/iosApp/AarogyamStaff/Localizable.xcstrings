@@ -8489,6 +8489,29 @@
           }
         }
       }
+    },
+    "rx.check.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allergy warning"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एलर्जी की चेतावनी"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ॲलर्जीचा इशारा"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

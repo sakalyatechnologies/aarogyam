@@ -118,6 +118,7 @@ struct V9RxCard: View {
             V9MedCard(rx: rx, line: line, warned: state.warnings.contains { $0.lineKey == line.key }, editable: !locked)
                 .transition(.opacity.combined(with: .scale(scale: 0.97)))
         }
+        RxCheckBanner(state: state)
         if state.needsOverride { V9AllergyCard(rx: rx, state: state) }
         if let error = state.error {
             Text(error.message).v7Text(12.5, .semibold).foregroundStyle(r.error.color)

@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.RxCheckBanner
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.prescriptions.DraftSave
 import com.aarogyam.staff.prescriptions.DrugView
@@ -169,6 +170,7 @@ private fun Composer(
         Muted(stringResource(R.string.vv_v9v_rx_how))
     }
     state.lines.forEach { line -> MedCard(rx, line, state.warnings.any { it.lineKey == line.key }, !locked) }
+    RxCheckBanner(state)
     if (state.needsOverride) AllergyCard(rx, state)
     state.error?.let { ErrorLine(stringResource(it.message())) }
     if (state.lines.isNotEmpty()) {

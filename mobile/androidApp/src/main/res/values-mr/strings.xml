@@ -74,6 +74,7 @@
     <string name="rx_duration">कालावधी</string>
     <string name="rx_allergy_warning">%1$s: %2$s ची ॲलर्जी नोंदवलेली (%3$s)</string>
     <string name="rx_server_alert">क्लिनिकच्या ॲलर्जी तपासणीने या प्रिस्क्रिप्शनवर इशारा दिला आहे.</string>
+    <string name="rx_check_title">ॲलर्जीचा इशारा</string>
     <string name="rx_override_label">तरीही देण्याचे कारण</string>
     <string name="rx_override_help">ॲलर्जी इशाऱ्यामुळे आवश्यक. हे प्रिस्क्रिप्शनसोबत जतन होते.</string>
     <string name="rx_issue">प्रिस्क्रिप्शन द्या</string>

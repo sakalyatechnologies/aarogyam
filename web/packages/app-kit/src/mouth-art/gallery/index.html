@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mouth art gallery</title>
+    <style>
+      :root { --bg: #f5f3ee; --card: #fff; --ink: #1f2a27; --muted: #5d6b66; --line: #e3ded4; color-scheme: light dark; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #121715; --card: #1b2220; --ink: #e8efec; --muted: #9fb0aa; --line: #2c3633; } }
+      body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
+      main { max-width: 1240px; margin: 0 auto; padding: 16px; }
+      h1 { font-size: 24px; margin: 8px 0 4px; } h2 { font-size: 19px; margin: 28px 0 8px; } h3 { font-size: 15px; margin: 14px 0 6px; color: var(--muted); }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+      .grid.wide { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+      figure { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+      figure svg { display: block; width: 100%; height: 150px; }
+      .wide figure svg { height: 220px; }
+      figcaption { font-size: 12px; color: var(--muted); text-align: center; margin-top: 4px; }
+      .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+      .row3 svg { height: 120px; }
+      .note { font-size: 12px; color: #9a5b00; }
+      .arch { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+      .arch svg { position: absolute; }
+      .brush figure svg { height: auto; aspect-ratio: 320 / 220; }
+      [data-brushing-animation] button { margin-top: 6px; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; }
+      [data-brushing-animation] button[aria-pressed="true"] { background: #1e5e52; color: #fff; }
+      [data-brushing-stills] { display: grid; gap: 8px; }
+      [data-brushing-stills] figcaption { text-align: left; }
+      .brush p { font-size: 13px; margin: 6px 0 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./gallery.tsx"></script>
+  </body>
+</html>

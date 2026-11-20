@@ -1,0 +1,162 @@
+{
+  "textures.ts": {
+    "raw": 3669,
+    "gz": 1386
+  },
+  "teeth/u1.ts": {
+    "raw": 25824,
+    "gz": 7931
+  },
+  "teeth/u2.ts": {
+    "raw": 25152,
+    "gz": 7808
+  },
+  "teeth/u3.ts": {
+    "raw": 25974,
+    "gz": 8004
+  },
+  "teeth/u4.ts": {
+    "raw": 27549,
+    "gz": 8257
+  },
+  "teeth/u5.ts": {
+    "raw": 25836,
+    "gz": 7808
+  },
+  "teeth/u6.ts": {
+    "raw": 31308,
+    "gz": 9379
+  },
+  "teeth/u7.ts": {
+    "raw": 30022,
+    "gz": 9060
+  },
+  "teeth/u8.ts": {
+    "raw": 26977,
+    "gz": 8301
+  },
+  "teeth/l1.ts": {
+    "raw": 24879,
+    "gz": 7612
+  },
+  "teeth/l2.ts": {
+    "raw": 25089,
+    "gz": 7683
+  },
+  "teeth/l3.ts": {
+    "raw": 26133,
+    "gz": 7969
+  },
+  "teeth/l4.ts": {
+    "raw": 25763,
+    "gz": 7818
+  },
+  "teeth/l5.ts": {
+    "raw": 26831,
+    "gz": 8137
+  },
+  "teeth/l6.ts": {
+    "raw": 34143,
+    "gz": 9925
+  },
+  "teeth/l7.ts": {
+    "raw": 30764,
+    "gz": 9126
+  },
+  "teeth/l8.ts": {
+    "raw": 32277,
+    "gz": 9458
+  },
+  "teeth/pu1.ts": {
+    "raw": 24922,
+    "gz": 7652
+  },
+  "teeth/pu2.ts": {
+    "raw": 24752,
+    "gz": 7504
+  },
+  "teeth/pu3.ts": {
+    "raw": 25889,
+    "gz": 7903
+  },
+  "teeth/pu4.ts": {
+    "raw": 29083,
+    "gz": 8592
+  },
+  "teeth/pu5.ts": {
+    "raw": 31554,
+    "gz": 9356
+  },
+  "teeth/pl1.ts": {
+    "raw": 24353,
+    "gz": 7372
+  },
+  "teeth/pl2.ts": {
+    "raw": 24609,
+    "gz": 7433
+  },
+  "teeth/pl3.ts": {
+    "raw": 25436,
+    "gz": 7706
+  },
+  "teeth/pl4.ts": {
+    "raw": 29894,
+    "gz": 8916
+  },
+  "teeth/pl5.ts": {
+    "raw": 34093,
+    "gz": 9880
+  },
+  "shapes.ts": {
+    "raw": 4231,
+    "gz": 1769
+  },
+  "stages/root_canal.ts": {
+    "raw": 2003,
+    "gz": 665
+  },
+  "stages/filling.ts": {
+    "raw": 802,
+    "gz": 365
+  },
+  "stages/extraction.ts": {
+    "raw": 1216,
+    "gz": 456
+  },
+  "stages/wisdom_extraction.ts": {
+    "raw": 2136,
+    "gz": 848
+  },
+  "stages/crown.ts": {
+    "raw": 751,
+    "gz": 377
+  },
+  "stages/scaling.ts": {
+    "raw": 626,
+    "gz": 338
+  },
+  "stages/implant.ts": {
+    "raw": 1733,
+    "gz": 461
+  },
+  "stages/sealant.ts": {
+    "raw": 510,
+    "gz": 278
+  },
+  "brushing/general_under_6.ts": {
+    "raw": 16271,
+    "gz": 5595
+  },
+  "brushing/general_6_12.ts": {
+    "raw": 18145,
+    "gz": 6280
+  },
+  "brushing/general_teen.ts": {
+    "raw": 15903,
+    "gz": 5891
+  },
+  "brushing/general_adult.ts": {
+    "raw": 15904,
+    "gz": 5893
+  }
+}

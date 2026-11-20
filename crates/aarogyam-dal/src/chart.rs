@@ -321,3 +321,116 @@ pub async fn status_by_id(
     .await?;
     Ok(row)
 }
+
+/// Every chart entry of the patient not made in error (current and superseded), oldest first:
+/// the mouth snapshot reads a treatment's earlier sittings from it.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn all_entries(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+) -> Result<Vec<ChartRow>, DbError> {
+    let rows = sqlx::query_as!(
+        ChartRow,
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                  source
+           from aarogyam.specialty_records
+           where patient_id = $1 and module = 'dental' and kind = 'tooth'
+             and status <> 'entered_in_error'
+           order by effective_at, id"#,
+        patient_id
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// The patient's current dental rows of one whole-tooth kind (`tooth_condition`,
+/// `tooth_eruption`), by tooth.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn current_of_kind(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    kind: &str,
+) -> Result<Vec<ChartRow>, DbError> {
+    let rows = sqlx::query_as!(
+        ChartRow,
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                  source
+           from aarogyam.specialty_records
+           where patient_id = $1 and module = 'dental' and kind = $2 and status = 'current'
+           order by tooth"#,
+        patient_id,
+        kind
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// Serialises writes to one tooth's row of a kind until the transaction ends, even when the
+/// tooth has no current row yet to lock.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn lock_tooth(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    kind: &str,
+    tooth: i16,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"select pg_advisory_xact_lock(hashtextextended($1::text, 0)) as "locked!: bool""#,
+        format!("tooth:{patient_id}:{kind}:{tooth}")
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(())
+}
+
+/// The tooth's current row of a whole-tooth kind, locked until the transaction ends.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn current_of_kind_for_tooth(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    kind: &str,
+    tooth: i16,
+) -> Result<Option<ChartRow>, DbError> {
+    let row = sqlx::query_as!(
+        ChartRow,
+        r#"select id, encounter_id, tooth, data, status, supersedes_id, effective_at, verified_by,
+                  source
+           from aarogyam.specialty_records
+           where patient_id = $1 and module = 'dental' and kind = $2 and tooth = $3
+             and status = 'current'
+           for update"#,
+        patient_id,
+        kind,
+        tooth
+    )
+    .fetch_optional(conn)
+    .await?;
+    Ok(row)
+}
+
+/// Marks a current row entered in error with the reason. The freeze trigger refuses any other
+/// change.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn mark_in_error(conn: &mut PgConnection, id: Uuid, reason: &str) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"update aarogyam.specialty_records set status = 'entered_in_error', error_reason = $2
+           where id = $1 and status = 'current'"#,
+        id,
+        reason
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}

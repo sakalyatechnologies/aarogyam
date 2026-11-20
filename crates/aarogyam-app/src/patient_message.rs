@@ -16,7 +16,10 @@ use aarogyam_dal::{dental_terms, facts, patients, prescriptions as links, treatm
 use aarogyam_domain::access::{ActorKind, ClinicActor, Denied};
 use aarogyam_domain::clinical::{EncounterStatus, NoteBody, ProcedureStatus};
 use aarogyam_domain::consent::Purpose;
-use aarogyam_domain::dental::{ChartData, Tooth, ToothStatusData};
+use aarogyam_domain::dental::{CariesDepth, ChartData, Tooth, ToothStatusData};
+use aarogyam_domain::dental_details::{
+    self as details, CONDITION_KIND, ERUPTION_KIND, ToothConditionData, ToothEruptionData,
+};
 use aarogyam_domain::dental_terms::{TermKind, TermRef};
 use aarogyam_domain::ids::{EncounterId, ShareLinkId};
 use aarogyam_domain::permission::Permission;
@@ -347,9 +350,18 @@ async fn facts_in(
             && FOUND_ON_CHART.contains(&data.finding.as_str())
             && let Some(words) = message::chart_finding_words(&data.finding)
         {
+            // A recorded depth says more ("Decay close to the nerve"); none says nothing more.
+            let depth = data
+                .caries_depth
+                .as_deref()
+                .and_then(|d| CariesDepth::parse(d).ok());
+            let words = details::caries_words(depth)
+                .filter(|_| data.finding == "caries")
+                .unwrap_or(words);
             add_found(&mut found, words, tooth, None);
         }
     }
+    let abscesses = detail_found(tx, visit, &mut found, &mut touched).await?;
     let mut months: Vec<(Tooth, u8)> = Vec::new();
     for row in chart::current_statuses(tx.conn(), visit.patient_id).await? {
         let Ok(status) = serde_json::from_value::<ToothStatusData>(row.data) else {
@@ -407,8 +419,14 @@ async fn facts_in(
                     continue;
                 }
                 if let Ok(data) = serde_json::from_value::<ChartData>(row.data) {
+                    if data.caries_depth.as_deref() == Some(CariesDepth::NearPulp.as_str()) {
+                        recorded.push(CariesDepth::NearPulp.as_str().to_owned());
+                    }
                     recorded.push(data.finding);
                 }
+            }
+            if abscesses.contains(&tooth) {
+                recorded.push("abscess".to_owned());
             }
         }
         let recorded: Vec<&str> = recorded.iter().map(String::as_str).collect();
@@ -449,6 +467,83 @@ async fn facts_in(
         details,
         recommend,
     })
+}
+
+/// The "What we found" lines from detail taps recorded in the visit (section 1.13), only as
+/// recorded: an infection, a loose tooth, a tooth not through, and gums that bleed (one line,
+/// counted). Infection and mobility are left out on a missing tooth (DT3); pocket depths stay on
+/// the page. Returns the teeth with a recorded abscess, a valid "why" for their treatment.
+async fn detail_found(
+    tx: &mut ScopedTx,
+    visit: &visits::EncounterRow,
+    found: &mut Vec<FoundLine>,
+    touched: &mut Vec<Tooth>,
+) -> Result<Vec<Tooth>, AppError> {
+    let missing: Vec<Option<i16>> = chart::current(tx.conn(), visit.patient_id)
+        .await?
+        .into_iter()
+        .filter(|row| {
+            row.data.get("finding").and_then(serde_json::Value::as_str) == Some("missing")
+        })
+        .map(|row| row.tooth)
+        .collect();
+    let mut abscesses = Vec::new();
+    let mut bleeding = 0;
+    for row in chart::current_of_kind(tx.conn(), visit.patient_id, CONDITION_KIND).await? {
+        let Ok(data) = serde_json::from_value::<ToothConditionData>(row.data) else {
+            continue;
+        };
+        let Some(tooth) = tooth_of(row.tooth) else {
+            continue;
+        };
+        if data.infection.as_deref() == Some("abscess") {
+            abscesses.push(tooth);
+        }
+        if row.encounter_id != Some(visit.id) {
+            continue;
+        }
+        if !touched.contains(&tooth) {
+            touched.push(tooth);
+        }
+        if data.bleeding == Some(true) {
+            bleeding += 1;
+        }
+        if missing.contains(&row.tooth) {
+            continue;
+        }
+        if let Some(words) = data.infection.as_deref().and_then(details::infection_words) {
+            add_found(found, words, Some(tooth), None);
+        }
+        if let Some(words) = data
+            .mobility
+            .and_then(|grade| details::mobility_words(tooth, grade))
+        {
+            add_found(found, &words, Some(tooth), None);
+        }
+    }
+    if let Some(words) = details::bleeding_words(bleeding) {
+        add_found(found, &words, None, None);
+    }
+    for row in chart::current_of_kind(tx.conn(), visit.patient_id, ERUPTION_KIND).await? {
+        if row.encounter_id != Some(visit.id) {
+            continue;
+        }
+        let (Ok(data), Some(tooth)) = (
+            serde_json::from_value::<ToothEruptionData>(row.data),
+            tooth_of(row.tooth),
+        ) else {
+            continue;
+        };
+        if !touched.contains(&tooth) {
+            touched.push(tooth);
+        }
+        if let Some(words) =
+            details::eruption_words(tooth, &data.eruption, data.angulation.as_deref())
+        {
+            add_found(found, &words, Some(tooth), None);
+        }
+    }
+    Ok(abscesses)
 }
 
 /// Who the summary goes to and their number, after the consent and opt-out checks.

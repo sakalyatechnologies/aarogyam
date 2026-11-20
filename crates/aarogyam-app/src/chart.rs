@@ -7,8 +7,8 @@ use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::clinical::{EncounterStatus, NoteRefusal, RecordSource};
 pub use aarogyam_domain::dental::Canal;
 use aarogyam_domain::dental::{
-    ChartData, ChartEntry, ChartError, Detail, Finding, KIND, MODULE, SCHEMA_VERSION, STATUS_KIND,
-    STATUS_SCHEMA_VERSION, Surface, Tooth, ToothHealth, ToothStatus, ToothStatusData,
+    CariesDepth, ChartData, ChartEntry, ChartError, Detail, Finding, KIND, MODULE, SCHEMA_VERSION,
+    STATUS_KIND, STATUS_SCHEMA_VERSION, Surface, Tooth, ToothHealth, ToothStatus, ToothStatusData,
 };
 use aarogyam_domain::dental_terms::{TermKind, TermRef, seeded, seeded_match, term_label};
 use aarogyam_domain::ids::{DentalTermId, EncounterId, MembershipId, PatientId, SpecialtyRecordId};
@@ -20,6 +20,7 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::idempotency::{replayed, request_hash};
 use crate::scope::staff_scope as scope;
+use crate::tooth_details::{self, ToothConditionView, ToothEruptionView};
 use crate::visits::require_patient;
 
 /// Most entries recorded at once: every surface of a full mouth would be more than a visit
@@ -61,6 +62,8 @@ pub struct ChartEntryView {
     pub in_progress: bool,
     /// The work was done by another dentist.
     pub elsewhere: bool,
+    /// How deep the decay reaches (caries only), when recorded.
+    pub caries_depth: Option<CariesDepth>,
     /// Where the entry came from: `clinician`, `import`...
     pub source: String,
 }
@@ -191,6 +194,12 @@ fn view(row: ChartRow, own: &[TermView]) -> Result<ChartEntryView, AppError> {
         sitting: data.sitting,
         in_progress: data.in_progress,
         elsewhere: data.elsewhere,
+        caries_depth: data
+            .caries_depth
+            .as_deref()
+            .map(CariesDepth::parse)
+            .transpose()
+            .map_err(|_| stored())?,
         source: row.source,
     })
 }
@@ -240,6 +249,10 @@ pub struct DentalChart {
     pub terms: Vec<TermView>,
     /// The current health status of each tooth that has one, by tooth.
     pub statuses: Vec<ToothStatusView>,
+    /// The current condition (infection, gums, mobility) of each tooth that has one, by tooth.
+    pub conditions: Vec<ToothConditionView>,
+    /// The current eruption of each permanent tooth that has one, by tooth.
+    pub eruptions: Vec<ToothEruptionView>,
 }
 
 async fn load(
@@ -276,11 +289,14 @@ async fn load(
         .map(TermView::seeded)
         .chain(own.into_iter().filter(|t| !t.retired))
         .collect();
+    let (conditions, eruptions) = tooth_details::current(tx, patient_id).await?;
     Ok(DentalChart {
         current,
         history,
         terms,
         statuses,
+        conditions,
+        eruptions,
     })
 }
 
@@ -338,6 +354,11 @@ pub struct EntryInput {
     /// false so older retries keep their hash.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub elsewhere: bool,
+    /// How deep the decay reaches (only with `caries`): absent keeps the depth of the caries
+    /// entry it replaces on the same tooth and surface (DT1), `null` clears it. Left out when
+    /// absent so older retries keep their hash.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub caries_depth: Option<Option<String>>,
 }
 
 /// Entries recorded together, as received.
@@ -397,8 +418,8 @@ async fn check_own_terms(tx: &mut ScopedTx, entries: &[ChartEntry]) -> Result<()
 }
 
 /// Supersedes the entry a correction names: it must be one of this patient's current dental
-/// entries. The audit trigger records the change of status.
-async fn correct(tx: &mut ScopedTx, patient_id: Uuid, id: Uuid) -> Result<(), AppError> {
+/// entries. The audit trigger records the change of status. Returns the corrected entry.
+async fn correct(tx: &mut ScopedTx, patient_id: Uuid, id: Uuid) -> Result<ChartRow, AppError> {
     let row = chart::entry_for_update(tx.conn(), patient_id, id)
         .await?
         .ok_or_else(|| AppError::invalid("supersedes_id", "not a chart entry of this patient"))?;
@@ -408,7 +429,26 @@ async fn correct(tx: &mut ScopedTx, patient_id: Uuid, id: Uuid) -> Result<(), Ap
         ));
     }
     chart::supersede(tx.conn(), row.id).await?;
-    Ok(())
+    Ok(row)
+}
+
+/// The depth a new caries entry carries forward when the request leaves `caries_depth` out
+/// (DT1): the replaced entry's, when it was caries on the same tooth and surface.
+fn carried_depth(
+    entry: &ChartEntry,
+    given: &EntryInput,
+    replaced: Option<&ChartRow>,
+) -> Option<String> {
+    if entry.finding() != Finding::Caries || given.caries_depth.is_some() {
+        return None;
+    }
+    let old: ChartData = serde_json::from_value(replaced?.data.clone()).ok()?;
+    let surface = entry.surface().map(|s| s.as_str().to_owned());
+    (old.finding == Finding::Caries.as_str()
+        && old.tooth == entry.tooth().number()
+        && old.surface == surface)
+        .then_some(old.caries_depth)
+        .flatten()
 }
 
 /// Records chart entries. Each supersedes the current entry for its tooth and surface; a
@@ -457,6 +497,7 @@ pub async fn record(
                     sitting: entry.sitting,
                     in_progress: entry.in_progress,
                     elsewhere: entry.elsewhere,
+                    caries_depth: entry.caries_depth.as_ref().and_then(Option::as_deref),
                 },
             )
         })
@@ -464,6 +505,9 @@ pub async fn record(
         .map_err(|error| match error {
             ChartError::Elsewhere | ChartError::ElsewhereInProgress => {
                 AppError::invalid("elsewhere", error)
+            }
+            ChartError::CariesDepth | ChartError::CariesDepthOnly => {
+                AppError::invalid("caries_depth", error)
             }
             _ => AppError::invalid("entries", error),
         })?;
@@ -503,21 +547,25 @@ pub async fn record(
         check_own_terms(tx, &entries).await?;
         for (index, (entry, given)) in entries.iter().zip(&input.entries).enumerate() {
             let tooth = i16::from(entry.tooth().number());
-            let mut replaced = None;
+            let mut replaced: Option<ChartRow> = None;
             if let Some(id) = given.supersedes_id {
-                correct(tx, patient.id, id).await?;
-                replaced = Some(id);
+                replaced = Some(correct(tx, patient.id, id).await?);
             }
             for row in chart::current_for_tooth(tx.conn(), patient.id, tooth).await? {
                 let surface = stored_surface(&row)?;
                 if entry.replaces(surface) {
                     chart::supersede(tx.conn(), row.id).await?;
                     if surface == entry.surface() && given.supersedes_id.is_none() {
-                        replaced = Some(row.id);
+                        replaced = Some(row);
                     }
                 }
             }
-            let data = serde_json::to_value(entry.data())
+            let mut stored = entry.data();
+            if let Some(depth) = carried_depth(entry, given, replaced.as_ref()) {
+                stored.caries_depth = Some(depth);
+            }
+            let replaced = replaced.map(|row| row.id);
+            let data = serde_json::to_value(stored)
                 .map_err(|_| AppError::Internal("chart entry did not serialise"))?;
             chart::insert(
                 tx.conn(),
@@ -620,7 +668,7 @@ fn status_error(error: ChartError) -> AppError {
 }
 
 /// The patient's open visit, if any, in the actor's reach: a status set during it belongs to it.
-async fn open_visit(
+pub(crate) async fn open_visit(
     tx: &mut ScopedTx,
     patient_id: Uuid,
     member: Option<Uuid>,

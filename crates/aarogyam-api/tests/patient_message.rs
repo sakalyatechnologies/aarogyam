@@ -238,6 +238,10 @@ async fn a_closed_visit_gives_the_message_a_link_and_a_pin_and_never_more_than_t
     assert_eq!(page["plan"][0]["source"], "procedure");
     assert_eq!(page["plan"][0]["name"], "Implant");
     assert_eq!(page["plan"][0]["tooth"], 46);
+    // The page's chart is the mouth snapshot, the same builder as Present mode.
+    assert_eq!(page["chart"]["story_version"], 1, "{page}");
+    assert!(page["chart"]["positions"].is_array(), "{page}");
+    assert!(!page["chart"].to_string().contains("\"note\""), "{page}");
     assert_eq!(page["plan"][0]["estimate_paise"], 2_500_000);
     assert_eq!(page["plan"][1]["source"], "plan_item");
     assert_eq!(page["plan"][1]["estimate_paise"], 80_000);

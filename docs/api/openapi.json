@@ -11016,6 +11016,272 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/condition": {
+      "put": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Sets a tooth's condition. Under a lock on the tooth's condition, the change merges onto the\ncurrent row (an omitted field keeps its value, `null` clears it) and the merged row\nsupersedes it, in the open visit when there is one; concurrent changes both land. Returns the\ncondition.",
+        "operationId": "setToothCondition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tooth",
+            "in": "path",
+            "description": "FDI tooth number",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewToothCondition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToothCondition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad tooth or value, nothing left after the merge, or infection, pocket or mobility on a missing tooth"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "The tooth changed at the same moment"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/condition/entered-in-error": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a tooth's current condition entered in error. The tooth has no condition until the\nnext change; the history keeps the row with the reason.",
+        "operationId": "toothConditionInError",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tooth",
+            "in": "path",
+            "description": "FDI tooth number",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetailInError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Marked"
+          },
+          "400": {
+            "description": "A bad tooth or reason"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or no condition on the tooth"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/eruption": {
+      "put": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Sets a permanent tooth's eruption: it supersedes the current one, in the open visit when\nthere is one. Returns the eruption.",
+        "operationId": "setToothEruption",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tooth",
+            "in": "path",
+            "description": "FDI tooth number (permanent)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewToothEruption"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToothEruption"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A primary tooth, an unknown eruption or angle, or an angle on an erupted tooth"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "The tooth changed at the same moment"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/eruption/entered-in-error": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a tooth's current eruption entered in error. The history keeps the row with the reason.",
+        "operationId": "toothEruptionInError",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tooth",
+            "in": "path",
+            "description": "FDI tooth number",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetailInError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Marked"
+          },
+          "400": {
+            "description": "A bad tooth or reason"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic, or no eruption on the tooth"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/status": {
       "put": {
         "tags": [
@@ -19557,6 +19823,52 @@
         ]
       }
     },
+    "/api/v1/visits/{id}/mouth": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The mouth snapshot of a visit for the doctor's Present mode: exactly the shape the patient's\npage shows as `chart`, and nothing else. It works while the visit is open (no messaging\nchecks); refetch it after any chart, plan, procedure, tooth status or booking change.",
+        "operationId": "getVisitMouth",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The snapshot; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MouthSnapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such visit in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/visits/{id}/notes": {
       "post": {
         "tags": [
@@ -22596,6 +22908,13 @@
             },
             "description": "For a root canal: its canals with their working lengths. Empty for any other entry."
           },
+          "caries_depth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How deep the decay reaches on a caries entry: `enamel`, `dentin` or `near_pulp`. Left\nout when not recorded."
+          },
           "effective_at": {
             "type": "string",
             "description": "When the finding was made (RFC 3339)."
@@ -25605,12 +25924,26 @@
           "terms"
         ],
         "properties": {
+          "conditions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToothCondition"
+            },
+            "description": "The current condition (infection, gums, mobility) of each tooth that has one, by tooth.\nLeft out when none."
+          },
           "current": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ChartEntry"
             },
             "description": "The current entries, by tooth (the whole-tooth entry first, then surfaces)."
+          },
+          "eruptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToothEruption"
+            },
+            "description": "The current eruption of each permanent tooth that has one, by tooth. Left out when none."
           },
           "history": {
             "type": "array",
@@ -25683,6 +26016,19 @@
           "purpose": {
             "type": "string",
             "description": "`care`, `reminders`, `promotional`, `sharing` or `research`."
+          }
+        }
+      },
+      "DetailInError": {
+        "type": "object",
+        "description": "Why a detail row is wrong.",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "3 to 500 characters."
           }
         }
       },
@@ -31112,6 +31458,420 @@
           }
         }
       },
+      "MouthDetails": {
+        "type": "object",
+        "description": "Detail taps recorded on the tooth's current rows; a field is absent unless recorded.",
+        "properties": {
+          "angulation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`vertical`, `mesioangular`, `distoangular` or `horizontal`."
+          },
+          "bleeding": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Gums bleed on probing."
+          },
+          "caries_depth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`enamel`, `dentin` or `near_pulp`. Absent: draw a neutral cavity labelled\n\"Illustration: depth not recorded\"."
+          },
+          "condition_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the condition was recorded (`YYYY-MM-DD`): \"Infection: recorded 12 Nov\"."
+          },
+          "eruption": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`erupted`, `partial`, `impacted` or `unerupted`."
+          },
+          "infection": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`infection` or `abscess`."
+          },
+          "mobility": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Mobility grade 0 to 3.",
+            "minimum": 0
+          },
+          "pocket_mm": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Deepest pocket in mm (tooth detail only).",
+            "minimum": 0
+          }
+        }
+      },
+      "MouthOtherTooth": {
+        "type": "object",
+        "description": "The tooth not drawn at a mixed position.",
+        "required": [
+          "tooth",
+          "finding"
+        ],
+        "properties": {
+          "finding": {
+            "type": "string",
+            "description": "Its headline finding, or `sound`."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth.",
+            "minimum": 0
+          }
+        }
+      },
+      "MouthPosition": {
+        "type": "object",
+        "description": "One tooth position to draw.",
+        "required": [
+          "quadrant",
+          "index",
+          "tooth",
+          "shown"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Position 1 to 8 from the midline.",
+            "minimum": 0
+          },
+          "other": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MouthOtherTooth",
+                "description": "The other tooth charted at this position (mixed dentition), for tooth detail (\"Milk\ntooth 55: caries\", \"Permanent 15: missing\")."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quadrant": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI quadrant of the drawn tooth (5 to 8 for a primary tooth).",
+            "minimum": 0
+          },
+          "shown": {
+            "type": "string",
+            "description": "`tooth` (listed in `teeth`), `sound`, or `not_recorded` (mixed dentition, nothing\ncharted: a neutral outline labelled \"Not recorded\", never sound)."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The FDI tooth drawn there.",
+            "minimum": 0
+          }
+        }
+      },
+      "MouthSnapshot": {
+        "type": "object",
+        "description": "The patient's mouth: every position to draw, the teeth with anything to show, and the next\nbooked visit. Sound teeth are implied.",
+        "required": [
+          "story_version",
+          "dentition",
+          "positions",
+          "teeth",
+          "focus"
+        ],
+        "properties": {
+          "dentition": {
+            "type": "string",
+            "description": "`adult`, `child` or `mixed`. A plain string, never a strict enum: render unknown values\nas `adult`."
+          },
+          "focus": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "Up to three key teeth for the story: treated today, then planned and needing treatment,\nthen found."
+          },
+          "next_visit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient's next booked visit (`YYYY-MM-DD`), shown once on the overview."
+          },
+          "positions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MouthPosition"
+            },
+            "description": "Every tooth position to draw, in quadrant order."
+          },
+          "story_version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The story contract the page and video follow (an integer; bumped when scenes change).",
+            "minimum": 0
+          },
+          "teeth": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MouthTooth"
+            },
+            "description": "The teeth with a finding, health level, detail, work, treatment, plan or something today."
+          }
+        }
+      },
+      "MouthStep": {
+        "type": "object",
+        "description": "One treatment step.",
+        "required": [
+          "key",
+          "scene",
+          "words",
+          "after_words",
+          "state"
+        ],
+        "properties": {
+          "after_words": {
+            "type": "string",
+            "description": "What usually follows; shown under \"Usually\"."
+          },
+          "key": {
+            "type": "string",
+            "description": "Step key, such as `dressing`."
+          },
+          "on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit day (`YYYY-MM-DD`)."
+          },
+          "scene": {
+            "type": "string",
+            "description": "The stage art scene."
+          },
+          "sitting": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The recorded sitting.",
+            "minimum": 0
+          },
+          "state": {
+            "type": "string",
+            "description": "`done` or `current` (backed by a record here: \"Visit {sitting}\", else \"Visit on {on}\";\n\"You are here\" on current), `next` (the booked visit on `on`), or `usual` (under \"Usual\nsteps\", with no visit number, date or price)."
+          },
+          "words": {
+            "type": "string",
+            "description": "What happens."
+          }
+        }
+      },
+      "MouthTooth": {
+        "type": "object",
+        "description": "One tooth with what is recorded on it.",
+        "required": [
+          "tooth"
+        ],
+        "properties": {
+          "details": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MouthDetails",
+                "description": "Detail taps, only those recorded."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finding": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The headline finding (a chart finding value)."
+          },
+          "health": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The doctor's health level (`healthy`, `watch`, `needs_treatment`); absent without one."
+          },
+          "material": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How the headline work looks: `composite`, `amalgam`, `porcelain`, `metal`, `zirconia` or\n`temporary`."
+          },
+          "planned": {
+            "type": "boolean",
+            "description": "Something is planned on it (accepted plan items and planned procedures only)."
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Recorded problem findings: `caries`, `fractured`, `watch`, `missing`."
+          },
+          "sitting": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The sitting of a treatment in progress.",
+            "minimum": 0
+          },
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "`M`, `O`, `D`, `B` or `L` of a caries or filled headline (`O` on a front tooth is the\nbiting edge)."
+          },
+          "today": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`treated`, `in_progress` or `found` in this visit."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth: 11-48, or 51-85 for primary teeth.",
+            "minimum": 0
+          },
+          "treat_within_months": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Treat within this many months.",
+            "minimum": 0
+          },
+          "treatments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MouthTreatment"
+            },
+            "description": "Treatments in progress, done here, or planned, with their steps."
+          },
+          "work": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MouthWork"
+            },
+            "description": "Finished work: filling, crown, root canal, implant, bridge or missing."
+          }
+        }
+      },
+      "MouthTreatment": {
+        "type": "object",
+        "description": "A treatment with its steps, resolved on the server.",
+        "required": [
+          "model",
+          "state",
+          "typical_visits",
+          "steps",
+          "recovery"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "The model: `root_canal`, `filling`, `extraction`, `wisdom_extraction`, `crown`,\n`scaling` or `implant` (a plain string; more may come)."
+          },
+          "recovery": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Shown under \"What to expect\", never as patient-specific."
+          },
+          "state": {
+            "type": "string",
+            "description": "`in_progress`, `done` or `planned`."
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MouthStep"
+            },
+            "description": "The steps in order."
+          },
+          "typical_visits": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Visits it usually takes.",
+            "minimum": 0
+          }
+        }
+      },
+      "MouthWork": {
+        "type": "object",
+        "description": "Finished work on a tooth.",
+        "required": [
+          "finding",
+          "origin"
+        ],
+        "properties": {
+          "done_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit day (`YYYY-MM-DD`), only for `here`."
+          },
+          "finding": {
+            "type": "string",
+            "description": "The work finding."
+          },
+          "material": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How it looks."
+          },
+          "origin": {
+            "type": "string",
+            "description": "`here` (\"Done here\"), `elsewhere` (\"Done elsewhere\") or `before` (\"Done before\"). Never\na clinic or dentist name."
+          },
+          "today": {
+            "type": "boolean",
+            "description": "Recorded in this visit: Present mode labels it \"Done here · today\"."
+          }
+        }
+      },
       "MoveRefused": {
         "type": "object",
         "description": "The `409` answer to a move the record's state doesn't allow (an appointment that is already\ncancelled can't arrive): the usual error and the record as it is, so the client can show it.",
@@ -31476,6 +32236,13 @@
               "$ref": "#/components/schemas/RootCanal"
             },
             "description": "Only with `root_canal`: 1 to 8 canals, each with a name and an optional working length."
+          },
+          "caries_depth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Only with `caries`: how deep the decay reaches, `enamel`, `dentin` or `near_pulp`. Left\nout, a caries entry replacing a caries entry on the same tooth and surface keeps its\ndepth; `null` clears it."
           },
           "elsewhere": {
             "type": "boolean",
@@ -32789,6 +33556,62 @@
           }
         },
         "additionalProperties": false
+      },
+      "NewToothCondition": {
+        "type": "object",
+        "description": "A change to a tooth's condition: an omitted field keeps its value, `null` clears it.",
+        "properties": {
+          "bleeding": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Gums bleed on probing."
+          },
+          "infection": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`infection` or `abscess`; `null` clears it (\"Infection resolved\")."
+          },
+          "mobility": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Mobility grade, 0 to 3; allowed on primary teeth."
+          },
+          "pocket_mm": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Deepest pocket in mm, 1 to 15 (the \"7+\" chip sends 7)."
+          }
+        }
+      },
+      "NewToothEruption": {
+        "type": "object",
+        "description": "A permanent tooth's eruption.",
+        "required": [
+          "eruption"
+        ],
+        "properties": {
+          "angulation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`vertical`, `mesioangular`, `distoangular` or `horizontal`; only with `partial`,\n`impacted` or `unerupted`."
+          },
+          "eruption": {
+            "type": "string",
+            "description": "`erupted`, `partial`, `impacted` or `unerupted`."
+          }
+        }
       },
       "NewToothStatus": {
         "type": "object",
@@ -43498,6 +44321,128 @@
           }
         }
       },
+      "ToothCondition": {
+        "type": "object",
+        "description": "A tooth's current condition. Each field is present only when recorded.",
+        "required": [
+          "id",
+          "tooth",
+          "recorded_at"
+        ],
+        "properties": {
+          "bleeding": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Gums bleed on probing."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier of the current row."
+          },
+          "infection": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`infection` or `abscess`."
+          },
+          "mobility": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Mobility grade, 0 to 3.",
+            "minimum": 0
+          },
+          "pocket_mm": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Deepest pocket in mm, 1 to 15.",
+            "minimum": 0
+          },
+          "recorded_at": {
+            "type": "string",
+            "description": "When it was recorded (RFC 3339)."
+          },
+          "recorded_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who recorded it."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth number (primary teeth included).",
+            "minimum": 0
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it was recorded in, if one was open."
+          }
+        }
+      },
+      "ToothEruption": {
+        "type": "object",
+        "description": "A permanent tooth's current eruption.",
+        "required": [
+          "id",
+          "tooth",
+          "eruption",
+          "recorded_at"
+        ],
+        "properties": {
+          "angulation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`vertical`, `mesioangular`, `distoangular` or `horizontal`, only when not through."
+          },
+          "eruption": {
+            "type": "string",
+            "description": "`erupted`, `partial`, `impacted` or `unerupted`."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier of the current row."
+          },
+          "recorded_at": {
+            "type": "string",
+            "description": "When it was recorded (RFC 3339)."
+          },
+          "recorded_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who recorded it."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth number (permanent only).",
+            "minimum": 0
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it was recorded in, if one was open."
+          }
+        }
+      },
       "ToothHealth": {
         "type": "string",
         "description": "How a tooth is, as the doctor judges it.",
@@ -44381,6 +45326,17 @@
               "null"
             ],
             "description": "Where to book the next visit: the clinic's public booking page, when it has a portal."
+          },
+          "chart": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MouthSnapshot",
+                "description": "The mouth snapshot (the interactive mouth view): the same allowlisted shape as\n`GET /visits/{id}/mouth`. Left out by older servers."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "chief_complaint": {
             "type": [

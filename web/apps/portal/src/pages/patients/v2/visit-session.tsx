@@ -137,6 +137,11 @@ export function paiseOf(text: string): number | undefined {
 
 const Context = createContext<VisitSession | null>(null);
 
+/** The visit session when there is a provider (Patient 360), else null. */
+export function useOptionalVisitSession(): VisitSession | null {
+  return useContext(Context);
+}
+
 export function useVisitSession(): VisitSession {
   const value = useContext(Context);
   if (value === null) {

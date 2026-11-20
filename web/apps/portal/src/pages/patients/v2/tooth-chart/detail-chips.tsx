@@ -1,12 +1,13 @@
 /**
  * The tooth panel's optional one-tap details (design §1.13): a Condition row on every tooth (infection, bleeding, pocket,
- * mobility), the wisdom tooth's position and angle on the 8s, and "Infection resolved" after a treatment is done. Each tap
+ * mobility), the wisdom tooth's position and angle on the 8s (other permanent teeth behind "More"), and "Infection resolved" after a treatment is done. Each tap
  * saves at once (one PUT, merged on the server); skipping them costs no taps.
  */
 import type { ChartEntry, NewToothCondition, PatientId, Procedure, ToothCondition, ToothEruption } from "@aarogyam/api-client";
 import { formatDate } from "@aarogyam/app-kit";
 import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
 import { useToast } from "@sakalya/ui";
+import { useState } from "react";
 
 import { useSetToothCondition, useSetToothEruption } from "../../../../queries.js";
 
@@ -44,7 +45,10 @@ export function DetailChips({ patientId, tooth, entries, procedures, condition, 
   const put = (input: NewToothCondition) => {
     setCondition.mutate({ tooth, input }, { onError: failed });
   };
-  const wisdom = tooth % 10 === 8 && Math.floor(tooth / 10) <= 4;
+  const permanent = Math.floor(tooth / 10) <= 4;
+  const [more, setMore] = useState(false);
+  // position and angle: on the 8s by default; any other permanent tooth through "More" (§1.13), open when already recorded
+  const wisdom = permanent && (tooth % 10 === 8 || more || eruption !== undefined);
   const angled = eruption !== undefined && eruption.eruption !== "erupted";
   const resolved = condition?.infection !== undefined && treatedToday(tooth, entries, procedures);
   const chip = (label: string, pressed: boolean, onClick: () => void, extra?: string) => (
@@ -74,15 +78,22 @@ export function DetailChips({ patientId, tooth, entries, procedures, condition, 
           </button>
         </div>
       ) : null}
+      {permanent && !wisdom ? (
+        <div className="tc-chip-row">
+          <button type="button" className="tc-chip tc-chip-more" aria-expanded={false} onClick={() => { setMore(true); }}>
+            More
+          </button>
+        </div>
+      ) : null}
       {wisdom ? (
-        <div className="tc-chip-row" role="group" aria-label="Wisdom tooth position">
+        <div className="tc-chip-row" role="group" aria-label={tooth % 10 === 8 ? "Wisdom tooth position" : "Tooth position"}>
           <span className="tc-chip-label">Position</span>
           {DETAIL_VALUES.eruption.map((v) => chip(DETAIL_CHIPS.eruption[v], eruption?.eruption === v, () => { setEruption.mutate({ tooth, input: { eruption: v } }, { onError: failed }); }))}
           {eruption === undefined ? null : <span className="tc-chip-date">{`Recorded ${formatDate(eruption.recorded_at)}`}</span>}
         </div>
       ) : null}
       {wisdom && angled ? (
-        <div className="tc-chip-row" role="group" aria-label="Wisdom tooth angle">
+        <div className="tc-chip-row" role="group" aria-label={tooth % 10 === 8 ? "Wisdom tooth angle" : "Tooth angle"}>
           <span className="tc-chip-label">Angle</span>
           {DETAIL_VALUES.angulation.map((v) => chip(DETAIL_CHIPS.angulation[v], eruption.angulation === v, () => { setEruption.mutate({ tooth, input: { eruption: eruption.eruption, angulation: v } }, { onError: failed }); }))}
         </div>

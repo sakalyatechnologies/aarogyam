@@ -163,6 +163,39 @@ export function spokenLabel(s: PositionState, present = false): string {
   return `${i.name}, ${String(s.fdi)}: ${parts.join("; ")}`;
 }
 
+const SHORT_DEPTH: Readonly<Record<string, string>> = { enamel: "enamel", dentin: "dentin", near_pulp: "near nerve" };
+/** A tooth with something from today: found today, or treated or in progress today. */
+export const isToday = (s: PositionState): boolean => s.today || s.found;
+
+/** Present's one line for the doctor: "Today: 46 decay (near nerve), 21 root canal sitting 4". Undefined when nothing is from today. */
+export function todayLine(states: readonly PositionState[]): string | undefined {
+  const parts = states.filter(isToday).map((s) => {
+    const t = s.tooth;
+    if (t === undefined) return String(s.fdi);
+    const words: string[] = [];
+    if (s.today) {
+      const tr = mainTreatment(t);
+      words.push(`${modelTitle(tr?.model ?? "").toLowerCase().replace(/ treatment$/, "")}${t.sitting === undefined ? "" : ` sitting ${String(t.sitting)}`}`);
+    }
+    if (s.found) {
+      for (const p of (t.problems ?? []).filter((x) => x !== "missing")) {
+        const depth = p === "caries" ? t.details?.caries_depth : undefined;
+        words.push(`${findingWord(p).toLowerCase()}${depth === undefined ? "" : ` (${SHORT_DEPTH[depth] ?? depth})`}`);
+      }
+      if (t.details?.infection !== undefined) words.push(t.details.infection);
+    }
+    return `${String(s.fdi)} ${words.join(", ")}`.trim();
+  });
+  return parts.length === 0 ? undefined : `Today: ${parts.join(", ")}`;
+}
+
+/** Proposed plan work the server marks `recommended` (optional field): a dashed "Recommended" ring, not "Planned". */
+export function isRecommended(t: SnapTooth | undefined): boolean {
+  if (t === undefined) return false;
+  const flag = (o: object) => "recommended" in o && o.recommended === true;
+  return flag(t) || (t.treatments ?? []).some(flag);
+}
+
 /** Recorded problems in patient words ("Decay into the tooth", "Broken tooth"). */
 export function problemWords(t: SnapTooth): string[] {
   return (t.problems ?? []).filter((p) => p !== "missing" || t.finding === "missing").map((p) => {
@@ -315,6 +348,61 @@ export function detailOverlays(t: SnapTooth): Overlay[] {
   if (d.pocket_mm !== undefined) out.push({ kind: "pocket", mm: d.pocket_mm });
   if (d.mobility === 1 || d.mobility === 2 || d.mobility === 3) out.push({ kind: "mobility", grade: d.mobility });
   return out;
+}
+
+/**
+ * A stage step drawn in the tooth's other views (§1.12): what that step looks like from the front or
+ * the chewing side, as overlays. Undefined when the kit has no such picture: the view is then hidden
+ * for that step rather than showing the tooth as charted.
+ */
+export function stepOverlays(artKey: string, t: SnapTooth | undefined): Overlay[] | undefined {
+  const surfaces = (t?.surfaces ?? []).map(asSurface).filter((s): s is Surface => s !== undefined);
+  const material = t?.material === undefined ? {} : { material: t.material };
+  const crownMaterial = t?.finding === "crown" ? material : {};
+  switch (artKey) {
+    case "root_canal.obturation": return [{ kind: "root_canal" }];
+    case "root_canal.crown": return [{ kind: "root_canal" }, { kind: "crown", ...crownMaterial }];
+    case "filling.decay": return (t === undefined ? [] : overlaysFor(t, false)).filter((o) => o.kind === "caries");
+    case "filling.filled": return [{ kind: "filled", surfaces: surfaces.length === 0 ? [...OCCLUSAL] : surfaces, ...(t?.finding === "filled" ? material : {}) }];
+    case "crown.crown": return [{ kind: "crown", ...crownMaterial }];
+    case "extraction.socket_healing": case "extraction.healed": case "wisdom_extraction.socket_healing": case "wisdom_extraction.healed":
+    case "implant.post": case "implant.abutment":
+      return [{ kind: "missing" }];
+    case "implant.crown": return [{ kind: "implant", ...(t?.finding === "implant" ? material : {}) }];
+    default: return undefined;
+  }
+}
+
+const MATERIAL_WORDS: Readonly<Record<string, string>> = { calcium_hydroxide: "calcium hydroxide", mta: "MTA" };
+/** Words for a recorded material in a callout ("calcium hydroxide"); none for unknown or custom ids. */
+export const materialWords = (m: string | undefined): string | undefined => (m === undefined ? undefined : MATERIAL_WORDS[m]);
+
+export interface WaitFrame {
+  /** "Now" for the recorded frame, "Later" for the usual ones. */
+  when: "now" | "later";
+  caption: string;
+  overlays: Overlay[];
+}
+const DEPTHS = ["enamel", "dentin", "near_pulp"] as const;
+const WAIT_WORDS: Readonly<Record<(typeof DEPTHS)[number], string>> = { enamel: "Early decay", dentin: "Decay into the tooth", near_pulp: "Close to the nerve" };
+
+/**
+ * "If you wait" (VS1 B6, DT4): from a recorded decay depth on a tooth with decay, the recorded frame
+ * then up to two usual later frames (deeper decay; past `near_pulp`, the nerve and a root canal).
+ * Only the first frame is recorded; the caller shows the later frames under "Usually". Undefined
+ * without a recorded depth.
+ */
+export function ifWaitFrames(t: SnapTooth | undefined): { surface: Surface; frames: WaitFrame[] } | undefined {
+  if (t === undefined) return undefined;
+  const depth = depthOf(t.details?.caries_depth);
+  const caries = t.finding === "caries" || (t.problems ?? []).includes("caries");
+  if (depth === undefined || !caries) return undefined;
+  const surface = (t.surfaces ?? []).map(asSurface).find((s): s is Surface => s !== undefined) ?? "O";
+  const at = DEPTHS.indexOf(depth);
+  const frames: WaitFrame[] = [{ when: "now", caption: WAIT_WORDS[depth], overlays: [{ kind: "caries", surface, depth }] }];
+  for (const d of DEPTHS.slice(at + 1)) frames.push({ when: "later", caption: WAIT_WORDS[d], overlays: [{ kind: "caries", surface, depth: d }] });
+  frames.push({ when: "later", caption: "Reaches the nerve: a root canal", overlays: [{ kind: "caries", surface, depth: "near_pulp" }, { kind: "infection", type: "infection" }] });
+  return { surface, frames: frames.slice(0, 3) };
 }
 
 /** Layer params for a stage scene: the first recorded surface, the recorded depth, the material. */

@@ -93,4 +93,31 @@ describe("Present mode (§1.12)", () => {
     await user.click(within(panel).getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog", { name: /How to brush/ })).toBeNull();
   });
+
+  it("one mode: Teeth and X-rays tabs; X-rays shows Explain mode's image, chart and summary with an upload", async () => {
+    const user = userEvent.setup();
+    const { path, backend, wrap } = present();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    const tabs = within(within(shell).getByRole("tablist", { name: "Show" }));
+    expect(tabs.getByRole("tab", { name: "Teeth" }).getAttribute("aria-selected")).toBe("true");
+    await user.click(tabs.getByRole("tab", { name: "X-rays" }));
+    expect(await within(shell).findByRole("region", { name: "Image" }, WAIT)).toBeTruthy();
+    expect(within(shell).getByRole("region", { name: "Chart" })).toBeTruthy();
+    expect(within(shell).queryByRole("button", { name: "How to brush" })).toBeNull();
+    await user.click(within(shell).getByRole("button", { name: "Add X-ray or OPG" }));
+    expect(await screen.findByRole("dialog", { name: /upload|X-ray/i }, WAIT)).toBeTruthy();
+  });
+
+  it("Today: one line for the doctor, and the chip dims every tooth without today's work or findings", async () => {
+    const user = userEvent.setup();
+    const { path, backend, wrap } = present();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    expect(await within(shell).findByText(/^Today: /, undefined, WAIT)).toBeTruthy();
+    await user.click(within(shell).getByRole("button", { name: "Today" }));
+    expect(within(shell).getByRole("button", { name: "Today" }).getAttribute("aria-pressed")).toBe("true");
+    expect(shell.querySelector('.mv-tooth[data-fdi="21"]')?.classList.contains("mv-dim")).toBe(false);
+    expect(shell.querySelector('.mv-tooth[data-fdi="65"]')?.classList.contains("mv-dim")).toBe(true);
+  });
 });

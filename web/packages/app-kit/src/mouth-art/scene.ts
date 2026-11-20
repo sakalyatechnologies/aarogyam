@@ -87,7 +87,7 @@ export class SceneBuilder {
   private readonly grads = new Map<string, Scene["gradients"][number]>();
   private readonly clipMap: Scene["clips"] = {};
 
-  add(layers: ArtLayer[], src: ResolveSource): void {
+  add(layers: ArtLayer[], src: ResolveSource, mark?: ReadonlySet<string>): void {
     const gmap = new Map<string, GradientSpec>();
     for (const g of [...(src.shapes?.g ?? []), ...src.gradients]) gmap.set(g.id, g);
     const p = src.prefix ?? "";
@@ -151,6 +151,7 @@ export class SceneBuilder {
         if (clip !== undefined) node.clip = clip;
         if (src.group) node.group = src.group;
         if (m) node.m = m;
+        if (mark?.has(layer.n) === true) node.n = layer.n;
         this.nodes.push(node);
       }
     }
@@ -207,6 +208,8 @@ export interface ToothSceneOptions {
   /** Extra hide/add, e.g. from overlays or a stage scene. */
   parts?: ScenePart[];
   params?: LayerParams;
+  /** Layer names to keep on their nodes (`data-n` in ArtSvg), e.g. callout anchors. */
+  mark?: readonly string[];
 }
 
 export interface ScenePart {
@@ -233,7 +236,7 @@ export function toothScene(art: ToothArt, view: ViewName, opts: ToothSceneOption
   const add = parts.flatMap((p) => p.add.map((l) => (p.params ? { ...l, ...substitute(l, p.params) } : l)));
   const layers = composeLayers(v.layers, hide, add);
   const b = new SceneBuilder();
-  b.add(layers, viewSource(art, view, { shade, shapes: opts.shapes, params: opts.params }));
+  b.add(layers, viewSource(art, view, { shade, shapes: opts.shapes, params: opts.params }), opts.mark === undefined ? undefined : new Set(opts.mark));
   const grow = Math.max(0, ...parts.map((p) => p.grow ?? 0)) * MM;
   const vb: Box = grow ? [v.box[0], v.box[1] - grow, v.box[2], v.box[3] + grow] : v.box;
   const { outer, box } = placement(art, vb, opts.fdi);

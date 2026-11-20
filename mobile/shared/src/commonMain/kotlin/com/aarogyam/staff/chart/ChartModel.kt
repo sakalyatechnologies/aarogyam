@@ -260,4 +260,6 @@ data class ToothSelection(
     val history: HistoryState,
     /** The doctor's health status on the tooth; null means [ToothView.suggestedHealth] applies. */
     val status: ToothStatusView? = null,
+    /** The optional detail chips: decay depth, condition and a wisdom tooth's eruption. */
+    val details: ToothDetailsView = ToothDetailsView(),
 )

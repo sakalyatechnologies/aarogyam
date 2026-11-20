@@ -68,3 +68,30 @@ export const DETAIL_CHIPS = {
   eruption: fields.eruption.chips,
   angulation: fields.angulation.chips,
 } as const;
+
+/**
+ * Callout labels on stage art (§1.12): art step -> [layer name in that stage scene, label, sub?].
+ * A sub of "{material}" is the recorded material's words (none when not recorded). Tested against the gen files.
+ */
+export const STAGE_CALLOUTS: Readonly<Record<string, readonly (readonly [string, string, string?])[]>> = {
+  "root_canal.access_clean": [["canalVoid", "Cleaned, empty canal"], ["accessVoid", "Opening to reach the canal"]],
+  "root_canal.dressing": [["medCanals", "Medicine inside", "{material}"], ["tempFilling", "Temporary filling"]],
+  "root_canal.obturation": [["gutta", "Root filling"], ["core", "Filling on top"]],
+  "root_canal.crown": [["crownShell", "Crown"], ["gutta", "Root filling"]],
+  "filling.decay": [["cariesLesion", "Decay"]],
+  "filling.cleaned": [["cavity", "Decay cleaned out"]],
+  "filling.filled": [["filling", "Filling"]],
+  "crown.prep": [["prepTooth", "Tooth shaped"], ["originalOutline", "Old outline"]],
+  "crown.crown": [["crownShell", "Crown"]],
+  "extraction.remove": [["socket", "Empty socket"]],
+  "extraction.socket_healing": [["clot", "Healing"]],
+  "wisdom_extraction.remove": [["socket", "Empty socket"]],
+  "wisdom_extraction.socket_healing": [["clot", "Healing"]],
+  "implant.post": [["fixture", "Implant post"]],
+  "implant.abutment": [["abutment", "Connector"], ["fixture", "Implant post"]],
+  "implant.crown": [["implantCrown", "Crown"], ["fixture", "Implant post"]],
+  "scaling.calculus": [["calculus", "Tartar"], ["gumInflamed", "Swollen gum"]],
+  "scaling.clean": [["gumHealthy", "Healthier gum"]],
+  "sealant.fissures": [["stain", "Deep grooves"]],
+  "sealant.sealed": [["sealant", "Sealant"]],
+};

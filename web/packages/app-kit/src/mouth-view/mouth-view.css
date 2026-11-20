@@ -16,14 +16,14 @@
     --mv-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
   }
 }
-:root[data-theme="light"] .mv-theme, [data-theme-mode="light"] .mv-theme {
+:root[data-theme="light"] .mv-theme, [data-theme-mode="light"] .mv-theme, .mv-theme.mv-theme[data-mv-theme="light"], [data-mv-theme="light"] .mv-theme.mv-theme {
   --mv-bg: #f6f4ef; --mv-card: #ffffff; --mv-text: #1d2a26; --mv-muted: #5c6b66; --mv-line: #e4e0d6;
   --mv-brand: #136650; --mv-brand-soft: #e3f1ec; --mv-on-brand: #ffffff; --mv-amber: #9a5b00; --mv-amber-soft: #fbf0dc;
   --mv-stage: #f3efe8; --mv-stage-2: #ebe5da; --mv-found: #7a4a1e; --mv-found-soft: #f3e6d6; --mv-slate: #50606a;
   --mv-nr: #b9b0a2; --mv-nr-fill: rgba(255, 255, 255, .45); --mv-gum: #f6e2df; --mv-ring: #136650; --ma-label-halo: #f3efe8;
   --mv-shadow: 0 1px 2px rgba(29, 42, 38, .05), 0 8px 24px rgba(29, 42, 38, .06);
 }
-:root[data-theme="dark"] .mv-theme, [data-theme-mode="dark"] .mv-theme {
+:root[data-theme="dark"] .mv-theme, [data-theme-mode="dark"] .mv-theme, .mv-theme.mv-theme[data-mv-theme="dark"], [data-mv-theme="dark"] .mv-theme.mv-theme {
   --mv-bg: #101614; --mv-card: #18201d; --mv-text: #e8efec; --mv-muted: #a3b2ad; --mv-line: #2a3531;
   --mv-brand: #4fbf9a; --mv-brand-soft: #1d3a31; --mv-on-brand: #0b1411; --mv-amber: #f0b45b; --mv-amber-soft: #3a2c14;
   --mv-stage: #121a17; --mv-stage-2: #1c2622; --mv-found: #e0a66b; --mv-found-soft: #3a2a1a; --mv-slate: #a9b6bd;
@@ -59,6 +59,12 @@
 .mv-loading { fill: var(--mv-stage-2); stroke: var(--mv-line); stroke-width: 1; }
 .mv-ring-today { fill: none; stroke: var(--mv-ring); stroke-width: 2.6; }
 .mv-ring-plan { fill: none; stroke: var(--mv-amber); stroke-width: 2; stroke-dasharray: 4.6 3.4; stroke-linecap: round; }
+.mv-ring-rec { fill: none; stroke: var(--mv-slate); stroke-width: 1.6; stroke-dasharray: 1.2 3; stroke-linecap: round; }
+.mv-tag-rec rect { fill: var(--mv-card); stroke: var(--mv-slate); stroke-width: .8; stroke-dasharray: 2 1.4; }
+.mv-tag-rec text { fill: var(--mv-slate); font-size: 6.6px; font-weight: 700; text-anchor: middle; dominant-baseline: central; letter-spacing: .05em; }
+.mv-tooth.mv-dim { opacity: .28; }
+.mv-only-today .mv-gum { opacity: .55; }
+.mv-today { margin: 6px 0 0; font-size: 14px; font-weight: 600; color: var(--mv-found); }
 .mv-tag-today rect { fill: var(--mv-ring); }
 .mv-tag-today text { fill: var(--mv-on-brand); font-size: 8.4px; font-weight: 700; text-anchor: middle; dominant-baseline: central; letter-spacing: .06em; }
 .mv-b-found { fill: var(--mv-found); }
@@ -154,6 +160,31 @@
 .mv-originbox b { display: block; font-weight: 650; }
 .mv-originbox span { color: var(--mv-muted); font-size: 14px; }
 
+.mv-callouts { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.mv-co-lines { position: absolute; inset: 0; overflow: visible; }
+.mv-co-lines polyline { fill: none; stroke: var(--mv-text); stroke-width: 1; opacity: .5; }
+.mv-co-lines circle { fill: var(--mv-card); stroke: var(--mv-text); stroke-width: 1.4; }
+.mv-co { position: absolute; display: grid; max-width: 46%; line-height: 1.2; transform: translateY(calc(-100% - 3px)); animation: mv-co-in .45s ease-out both; text-shadow: 0 0 3px var(--mv-stage), 0 0 3px var(--mv-stage), 0 0 6px var(--mv-stage); }
+@keyframes mv-co-in { from { opacity: 0; } to { opacity: 1; } }
+.mv-co[data-side="end"] { text-align: right; justify-items: end; }
+.mv-co b { font-size: 13.5px; font-weight: 700; color: var(--mv-text); letter-spacing: .005em; }
+.mv-co small { position: absolute; top: calc(100% + 6px); font-size: 12px; color: var(--mv-muted); white-space: nowrap; }
+.mv-co[data-side="end"] small { right: 0; }
+
+.mv-wait { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--mv-line); }
+.mv-steppanel > .mv-wait:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.mv-wait-k { margin: 0; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--mv-muted); }
+.mv-wait-row { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.mv-wait-f { display: grid; justify-items: center; gap: 4px; padding: 8px 6px; border-radius: 12px; background: radial-gradient(120% 80% at 50% 40%, var(--mv-stage), var(--mv-stage-2)); border: 1px solid var(--mv-line); text-align: center; position: relative; }
+.mv-wait-f + .mv-wait-f::before { content: ""; position: absolute; left: -8px; top: 50%; width: 8px; border-top: 2px dotted var(--mv-muted); opacity: .6; }
+.mv-wait-f[data-when="later"] { border-style: dashed; }
+.mv-wait-f[data-when="later"] .mv-wait-art { opacity: .88; }
+.mv-wait-tag { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--mv-card); border: 1px solid var(--mv-line); color: var(--mv-muted); white-space: nowrap; }
+.mv-wait-f[data-when="now"] .mv-wait-tag { background: var(--mv-found-soft); color: var(--mv-found); border-color: transparent; }
+.mv-wait-art { width: 100%; height: 108px; }
+.mv-wait-art svg { width: 100%; height: 100%; overflow: hidden; border-radius: 8px; }
+.mv-wait-c { font-size: 12.5px; font-weight: 600; line-height: 1.25; color: var(--mv-text); }
+
 /* Present mode: full screen, 56 px targets, larger type */
 .mv-present .mv-card { border: 0; box-shadow: none; background: transparent; padding: 0; }
 .mv-present .mv-title { font-size: 28px; }
@@ -167,8 +198,49 @@
 .mv-present .mv-viewtabs button, .mv-present .mv-stepnav .mv-btn { min-height: 56px; font-size: 16px; padding: 0 20px; }
 .mv-present .mv-st-w { font-size: 22px; }
 .mv-present .mv-chip { font-size: 15px; padding: 6px 12px; }
+.mv-present .mv-co b { font-size: 16px; }
+.mv-present .mv-co small { font-size: 13.5px; }
+.mv-present .mv-wait-art { height: 150px; }
+.mv-present .mv-wait-c { font-size: 14.5px; }
+.mv-present .mv-usually, .mv-present .mv-fine { font-size: 16px; }
 @media (min-width: 760px) {
   .mv-present .mv-legend { grid-template-columns: repeat(4, minmax(0, 1fr)); font-size: 14px; }
+  .mv-present .mv-arch { max-height: calc(100dvh - 330px); }
+}
+/* Present on a chair-side tablet or monitor: the arch fills the height beside the summary and key;
+   tooth detail puts the art beside the stepper. */
+@media (min-width: 1000px) and (min-aspect-ratio: 5/4) {
+  .mv-present .mv-overview .mv-card { display: grid; grid-template-columns: minmax(250px, 22vw) minmax(0, 1fr); grid-template-areas: "head arch" "legend arch" "hint arch"; grid-template-rows: auto auto 1fr; column-gap: clamp(24px, 3vw, 64px); align-items: start; }
+  .mv-present .mv-head { grid-area: head; padding-top: 4vh; }
+  .mv-present .mv-title { font-size: clamp(28px, 2.4vw, 44px); }
+  .mv-present .mv-sum { font-size: clamp(16px, 1.25vw, 22px); }
+  .mv-present .mv-next { font-size: clamp(14px, 1.05vw, 18px); padding: 7px 14px; }
+  .mv-present .mv-arch-wrap { grid-area: arch; margin: 0; display: flex; justify-content: center; }
+  .mv-present .mv-arch { max-height: calc(100dvh - 120px); height: calc(100dvh - 120px); width: auto; }
+  .mv-present .mv-legend { grid-area: legend; grid-template-columns: 1fr; gap: 10px; font-size: clamp(14px, 1.05vw, 18px); margin-top: 24px; }
+  .mv-present .mv-legend svg { width: clamp(20px, 1.5vw, 28px); height: clamp(20px, 1.5vw, 28px); }
+  .mv-present .mv-hint { grid-area: hint; text-align: left; font-size: clamp(13px, 1vw, 17px); }
+  .mv-present .mv-detail-card { max-width: none; }
+  .mv-present .mv-d-body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(360px, 1fr); grid-template-areas: "art head" "art info"; grid-template-rows: auto 1fr; column-gap: clamp(24px, 3vw, 56px); align-items: start; }
+  .mv-present .mv-d-head { grid-area: head; margin-top: 18px; }
+  .mv-present .mv-stagebox { grid-area: art; margin-top: 18px; position: sticky; top: 0; }
+  .mv-present .mv-art { height: calc(100dvh - 300px); min-height: 360px; }
+  .mv-present .mv-d-info { grid-area: info; }
+  .mv-present .mv-d-title { font-size: clamp(24px, 2vw, 36px); }
+  .mv-present .mv-d-eyebrow { font-size: clamp(14px, 1.05vw, 18px); }
+  .mv-present .mv-st-w { font-size: clamp(22px, 1.6vw, 30px); }
+  .mv-present .mv-lbl { font-size: clamp(14px, 1.05vw, 18px); }
+  .mv-present .mv-step { min-height: 64px; }
+  .mv-present .mv-co b { font-size: clamp(16px, 1.15vw, 21px); }
+  .mv-present .mv-co small { font-size: clamp(13px, .95vw, 17px); }
+  .mv-present .mv-today { font-size: clamp(15px, 1.1vw, 20px); }
+  .mv-present .mv-generic ul, .mv-present .mv-originbox span, .mv-present .mv-usually { font-size: clamp(15px, 1.05vw, 20px); }
+  .mv-present .mv-generic h4 { font-size: clamp(16px, 1.15vw, 22px); }
+  .mv-present .mv-gl, .mv-present .mv-st-k, .mv-present .mv-fine { font-size: clamp(13px, .9vw, 17px); }
+  .mv-present .mv-chip { font-size: clamp(15px, 1vw, 19px); }
+  .mv-present .mv-viewtabs button, .mv-present .mv-stepnav .mv-btn { font-size: clamp(16px, 1.05vw, 20px); min-height: clamp(56px, 3.5vw, 68px); }
+  .mv-present .mv-backbtn { min-height: clamp(60px, 3.8vw, 72px); font-size: clamp(18px, 1.2vw, 23px); }
+  .mv-present .mv-here { font-size: clamp(11px, .75vw, 14px); }
 }
 @media (max-width: 380px) { .mv-legend { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) {

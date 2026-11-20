@@ -69,7 +69,7 @@ function patient() {
 }
 
 async function openExplain(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole("button", { name: "Explain to patient" }, WAIT));
+  await user.click(await screen.findByRole("button", { name: "Show patient" }, WAIT));
   return screen.findByRole("dialog", { name: "Your teeth today" });
 }
 

@@ -4,24 +4,29 @@
  * back to the overview; only the press-and-hold Exit leaves, so a patient tapping around can't land
  * in Patient 360. The query refetches after chart, plan, procedure, tooth-status and booking saves.
  */
-import { Brush } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Brush, Moon, Sun } from "lucide-react";
+import { Suspense, lazy, useEffect, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 
 import { apiErrorOf, visitId as parseVisitId, type ChartEntry, type MouthSnapshot, type NewChartEntry, type PatientId, type VisitId } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
-import { BAND_INFO, BrushingAnimation, DETAIL_CHIPS, DETAIL_VALUES, loadBrushingArt, type BrushingArt, type BrushingBand } from "@aarogyam/app-kit/mouth-art";
-import { MouthView, brushingBand } from "@aarogyam/app-kit/mouth-view";
+import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
+import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import "@aarogyam/app-kit/mouth-view.css";
 import { useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
 import { useDentalChart, usePatient, useRecordChartEntries, useVisit, useVisitMouth } from "../../../queries.js";
-import { HoldToExit } from "../../patients/v2/explain/explain-mode.js";
+import { HoldToExit } from "../../patients/v2/explain/hold-to-exit.js";
 import "../../patients/v2/explain/explain.css";
 import "./present.css";
 
 const load3d = () => import("@aarogyam/app-kit/real-teeth-3d");
+// loaded only when asked: the X-rays tab (Explain mode's viewer and pins) and "How to brush"
+const XraysTab = lazy(() => import("./xrays-tab.js").then((m) => ({ default: m.XraysTab })));
+const BrushingPanel = lazy(() => import("./brushing-panel.js").then((m) => ({ default: m.BrushingPanel })));
+type Tab = "teeth" | "xrays";
+const TABS: readonly Tab[] = ["teeth", "xrays"];
 
 export function PresentPage() {
   const params = useParams();
@@ -39,20 +44,43 @@ export function PresentPage() {
   const first = patient.data?.full_name.trim().split(/\s+/)[0];
   const age = patient.data?.age_years ?? undefined;
   const band = brushingBand(mouth.data, [], age);
+  const [theme, setTheme] = useSchemeTheme();
+  const [search] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(search.get("tab") === "xrays" ? "xrays" : "teeth");
+  const [onlyToday, setOnlyToday] = useState(false);
+  // all art chunks start together the moment the snapshot is here (a no-op when Show patient prefetched them)
+  if (mouth.data !== undefined) preloadArt(mouth.data);
   return (
-    <div className="pm-shell mv-theme" role="dialog" aria-modal="true" aria-label="Present mode">
+    <div className="pm-shell mv-theme" data-mv-theme={theme} role="dialog" aria-modal="true" aria-label="Present mode">
       <header className="pm-bar">
         <div className="pm-who">
           {first === undefined ? "Present mode" : `${first}${age === undefined ? "" : `, ${String(age)}`}`}
-          <small>Present mode · the same mouth view as the patient's page</small>
+          <small>Show patient · the same mouth view as the patient's page</small>
         </div>
-        <button type="button" className="pm-chip" onClick={() => { setBrushing(true); }}>
-          <Brush aria-hidden="true" />
-          How to brush
+        <div className="pm-tabs" role="tablist" aria-label="Show">
+          {TABS.map((t) => (
+            <button key={t} type="button" role="tab" className="pm-tab" aria-selected={tab === t} onClick={() => { setTab(t); }}>
+              {t === "teeth" ? "Teeth" : "X-rays"}
+            </button>
+          ))}
+        </div>
+        {tab === "teeth" ? (
+          <button type="button" className="pm-chip pm-today" aria-pressed={onlyToday} onClick={() => { setOnlyToday(!onlyToday); }}>
+            Today
+          </button>
+        ) : null}
+        <button type="button" className="pm-chip pm-icon" aria-label={theme === "dark" ? "Use light screen" : "Use dark screen"} onClick={() => { setTheme(theme === "dark" ? "light" : "dark"); }}>
+          {theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
         </button>
+        {tab === "teeth" ? (
+          <button type="button" className="pm-chip pm-brushchip" onClick={() => { setBrushing(true); }}>
+            <Brush aria-hidden="true" />
+            How to brush
+          </button>
+        ) : null}
         <HoldToExit onExit={exit} />
       </header>
-      <div className="pm-body">
+      <div className="pm-body" hidden={tab !== "teeth"}>
         {visitId === undefined ? (
           <p role="alert">We couldn't find that visit.</p>
         ) : mouth.isPending ? (
@@ -64,14 +92,41 @@ export function PresentPage() {
             snapshot={mouth.data}
             name={first}
             mode="present"
+            filter={onlyToday ? "today" : undefined}
             load3d={load3d}
             toothExtras={patientId === undefined ? undefined : (tooth) => <AddDepth snapshot={mouth.data} tooth={tooth} patientId={patientId} visitId={visitId} />}
           />
         )}
       </div>
-      {brushing ? <BrushingPanel band={band} name={first} onClose={() => { setBrushing(false); }} /> : null}
+      {tab === "xrays" && patientId !== undefined && visitId !== undefined ? (
+        <div className="pm-body pm-body-xrays">
+          <Suspense fallback={<p role="status" className="pm-wait">Loading the X-rays…</p>}>
+            <XraysTab patientId={patientId} visitId={visitId} imageId={search.get("image") ?? undefined} />
+          </Suspense>
+        </div>
+      ) : null}
+      {brushing ? (
+        <Suspense fallback={null}>
+          <BrushingPanel band={band} name={first} onClose={() => { setBrushing(false); }} />
+        </Suspense>
+      ) : null}
     </div>
   );
+}
+
+/** Light or dark: follows the system (prefers-color-scheme) until the doctor taps the toggle. */
+function useSchemeTheme(): ["light" | "dark", (t: "light" | "dark") => void] {
+  const query = () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const [system, setSystem] = useState(query);
+  const [chosen, setChosen] = useState<"light" | "dark" | undefined>(undefined);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const on = () => { setSystem(mq.matches); };
+    mq.addEventListener("change", on);
+    return () => { mq.removeEventListener("change", on); };
+  }, []);
+  return [chosen ?? (system ? "dark" : "light"), setChosen];
 }
 
 /** Caries recorded without a depth: one tap records it before the patient sees the "not recorded" illustration (§1.13). */
@@ -111,29 +166,5 @@ export function AddDepth({ snapshot, tooth, patientId, visitId }: { snapshot: Mo
         </button>
       ))}
     </span>
-  );
-}
-
-function BrushingPanel({ band, name, onClose }: { band: BrushingBand; name: string | undefined; onClose: () => void }) {
-  const [art, setArt] = useState<BrushingArt | undefined>(undefined);
-  useEffect(() => {
-    let live = true;
-    void loadBrushingArt(band).then((a) => { if (live) setArt(a); }, () => undefined);
-    return () => { live = false; };
-  }, [band]);
-  const info = BAND_INFO[band];
-  const child = band === "general_under_6" || band === "general_6_12";
-  return (
-    <div className="pm-brush" role="dialog" aria-modal="true" aria-label={info.title} onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
-      <div className="pm-brush-card">
-        <div className="pm-brush-head">
-          <h2>{info.title}</h2>
-          <button type="button" className="pm-chip" onClick={onClose} autoFocus>Close</button>
-        </div>
-        {child && name !== undefined ? <p className="pm-muted">{`Help ${name} brush.`}</p> : null}
-        {art === undefined ? <div className="pm-brush-wait" aria-hidden="true" /> : <BrushingAnimation art={art} band={band} className="pm-brush-art" />}
-        <div className="pm-chips">{info.chips.map((c) => <span key={c} className="mv-chip">{c}</span>)}</div>
-      </div>
-    </div>
   );
 }

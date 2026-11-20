@@ -3,6 +3,7 @@ package com.aarogyam.staff.chart
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.model.DentalChart
 import com.aarogyam.staff.api.model.NewChartEntries
+import com.aarogyam.staff.api.model.NewChartEntry
 import com.aarogyam.staff.api.model.NewDentalTerm
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.Logger
@@ -13,6 +14,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * A patient's dental chart: one request loads every tooth, picking a tooth fetches its history,
@@ -23,6 +27,7 @@ class ChartStateHolder(
     internal val patientId: String,
     private val scope: CoroutineScope,
     private val log: Logger = Logger("aarogyam.chart"),
+    private val now: () -> Instant = { Clock.System.now() },
 ) {
     private data class Model(
         val teeth: Map<Int, ToothView>,
@@ -41,6 +46,9 @@ class ChartStateHolder(
         val refreshing: Boolean = false,
         val error: ScreenError? = null,
         val statuses: Map<Int, ToothStatusView> = emptyMap(),
+        val conditions: Map<Int, ToothConditionView> = emptyMap(),
+        val eruptions: Map<Int, ToothEruptionView> = emptyMap(),
+        val caries: Map<Int, List<CariesMark>> = emptyMap(),
     )
 
     private val canRecord = CLINICAL_WRITE in clinic.permissions
@@ -69,14 +77,10 @@ class ChartStateHolder(
             when (val result = clinic.api.dentalChart(patientId, tooth)) {
                 is Outcome.Success -> {
                     val base = model ?: Model(emptyMap(), defaultDentition(result.value.current))
-                    val teeth = if (base.saving) base.teeth else teethOf(result.value.current)
                     val next =
-                        base.copy(
-                            teeth = teeth,
-                            terms = termsOf(result.value.terms),
-                            statuses = statusesOf(result.value.statuses, clinic.timeZone),
-                            refreshing = false,
-                        )
+                        base
+                            .withChart(result.value, keepPending = true)
+                            .copy(statuses = statusesOf(result.value.statuses, clinic.timeZone), refreshing = false)
                     publish(if (tooth != null && next.selected == tooth) next.withHistory(result.value) else next)
                 }
 
@@ -200,12 +204,10 @@ class ChartStateHolder(
                 is Outcome.Success -> {
                     val now = model ?: return@launch
                     publish(
-                        now.copy(
-                            teeth = teethOf(result.value.current),
-                            terms = termsOf(result.value.terms),
-                            statuses = statusesOf(result.value.statuses, clinic.timeZone),
-                            saving = false,
-                        ),
+                        now
+                            .copy(saving = false)
+                            .withChart(result.value, keepPending = false)
+                            .copy(statuses = statusesOf(result.value.statuses, clinic.timeZone)),
                     )
                     now.selected?.takeIf { it in teeth }?.let { loadHistory(it) }
                 }
@@ -271,8 +273,7 @@ class ChartStateHolder(
                 when (result) {
                     is Outcome.Success -> {
                         // The answer also carries the current chart; keep a pending change on screen.
-                        val teeth = if (now.saving) now.teeth else teethOf(result.value.current)
-                        publish(now.copy(teeth = teeth, terms = termsOf(result.value.terms)).withHistory(result.value))
+                        publish(now.withChart(result.value, keepPending = true).withHistory(result.value))
                     }
 
                     is Outcome.Failure -> {
@@ -281,6 +282,24 @@ class ChartStateHolder(
                     }
                 }
             }
+    }
+
+    /**
+     * The teeth, terms and details from a chart answer. With [keepPending], a change still on its
+     * way keeps its teeth and decay marks on screen.
+     */
+    private fun Model.withChart(
+        chart: DentalChart,
+        keepPending: Boolean,
+    ): Model {
+        val keep = keepPending && saving
+        return copy(
+            teeth = if (keep) teeth else teethOf(chart.current),
+            caries = if (keep) caries else cariesOf(chart.current),
+            terms = termsOf(chart.terms),
+            conditions = conditionsOf(chart.conditions, clinic.timeZone),
+            eruptions = eruptionsOf(chart.eruptions, clinic.timeZone),
+        )
     }
 
     private fun Model.withHistory(chart: DentalChart): Model =
@@ -304,6 +323,14 @@ class ChartStateHolder(
                             next.surface,
                             next.history,
                             next.statuses[it],
+                            detailsOf(
+                                view(it),
+                                next.conditions[it],
+                                next.eruptions[it],
+                                next.caries[it].orEmpty(),
+                                next.history,
+                                now().toLocalDateTime(clinic.timeZone).date,
+                            ),
                         )
                     },
                 several = next.several,
@@ -319,6 +346,106 @@ class ChartStateHolder(
                 error = next.error,
                 statuses = next.statuses,
             )
+    }
+
+    /**
+     * Records [depth] on every current decay mark of [tooth], keeping each mark's surface, note,
+     * procedure and material. It shows at once; a refusal puts the marks back and sets `recordError`.
+     */
+    fun recordCariesDepth(
+        tooth: Int,
+        depth: CariesDepth,
+    ) {
+        val current = model ?: return
+        val marks = current.caries[tooth].orEmpty()
+        if (marks.isEmpty() || !canRecord || current.saving) return
+        if (marks.all { it.depth == depth }) return
+        val entries =
+            marks.map {
+                NewChartEntry(
+                    finding = Finding.Caries.wire,
+                    tooth = tooth.toLong(),
+                    surface = it.surface?.name,
+                    note = it.note,
+                    procedure = it.procedure,
+                    material = it.material,
+                    cariesDepth = depth.wire,
+                )
+            }
+        val before = current.caries
+        publish(
+            current.copy(
+                caries =
+                    before + (
+                        tooth to
+                            marks.map {
+                                it.copy(depth = depth)
+                            }
+                    ),
+                saving = true,
+                recordError = null,
+            ),
+        )
+        scope.launch {
+            when (val result = clinic.api.recordDentalChart(patientId, NewChartEntries(entries))) {
+                is Outcome.Success -> {
+                    log.info("chart.caries_depth_set")
+                    val now = model ?: return@launch
+                    publish(now.copy(saving = false).withChart(result.value, keepPending = false))
+                    now.selected?.takeIf { it == tooth }?.let { loadHistory(it) }
+                }
+
+                is Outcome.Failure -> {
+                    logFailure("chart.caries_depth_failed", result.error.code.value)
+                    val now = model ?: return@launch
+                    publish(now.copy(caries = before, saving = false, recordError = ScreenError.of(result.error)))
+                }
+            }
+        }
+    }
+
+    internal fun conditionOf(tooth: Int): ToothConditionView? = model?.conditions?.get(tooth)
+
+    internal fun eruptionOf(tooth: Int): ToothEruptionView? = model?.eruptions?.get(tooth)
+
+    /** Shows [condition] on [tooth] (null: none); the tooth sheet saves it. */
+    internal fun applyCondition(
+        tooth: Int,
+        condition: ToothConditionView?,
+    ) {
+        val current = model ?: return
+        publish(
+            current.copy(
+                conditions =
+                    if (condition ==
+                        null
+                    ) {
+                        current.conditions - tooth
+                    } else {
+                        current.conditions + (tooth to condition)
+                    },
+            ),
+        )
+    }
+
+    /** Shows [eruption] on [tooth] (null: none); the tooth sheet saves it. */
+    internal fun applyEruption(
+        tooth: Int,
+        eruption: ToothEruptionView?,
+    ) {
+        val current = model ?: return
+        publish(
+            current.copy(
+                eruptions =
+                    if (eruption ==
+                        null
+                    ) {
+                        current.eruptions - tooth
+                    } else {
+                        current.eruptions + (tooth to eruption)
+                    },
+            ),
+        )
     }
 
     /** [tooth] as the chart shows it now (sound when nothing is recorded). */

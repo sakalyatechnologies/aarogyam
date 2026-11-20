@@ -94,6 +94,7 @@ internal fun ToothSheet(
         } else {
             NowCard(tooth)
             ToothHealthCard(sheet, tooth, selection.status, chart.canRecord, graph.voiceLanguage(), dictate)
+            if (chart.canRecord) ToothDetailsCard(sheet, tooth.number, selection.details)
             HistoryCard(tooth, selection.history, chart.canRecord) { entry ->
                 sheet.startEdit(entry, chart.terms)
                 adding = true

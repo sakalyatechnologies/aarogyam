@@ -10,7 +10,7 @@ import { overlayPart } from "./overlays.js";
 import { BrushingAnimation } from "./react.js";
 import { drawScene, sceneToSvg, type Canvas2D } from "./render.js";
 import { composeLayers, stagePart, toothScene } from "./scene.js";
-import { BRUSHING_BANDS, DETAIL_VALUES, EXTRA_SCENES, SCENE_ART, STAGE_MODELS, STAGE_STEPS, sceneArt } from "./stage-steps.js";
+import { BRUSHING_BANDS, DETAIL_VALUES, EXTRA_SCENES, SCENE_ART, STAGE_CALLOUTS, STAGE_MODELS, STAGE_STEPS, sceneArt } from "./stage-steps.js";
 import stagesJson from "../../../../../specialties/dental/treatment-stages.json" with { type: "json" };
 import detailsJson from "../../../../../specialties/dental/chart-details.json" with { type: "json" };
 import { TOOTH_TYPES, type ArtLayer } from "./types.js";
@@ -85,6 +85,22 @@ describe("stage art", () => {
       expect((await loadStageArt(art.model)).scenes[art.step], scene).toBeDefined();
     }
     for (const model of Object.keys(models)) expect(STAGE_MODELS, model).toContain(model);
+  });
+
+  it("points every stage callout at a layer its scene adds, and marks it in the scene", async () => {
+    for (const [key, calls] of Object.entries(STAGE_CALLOUTS)) {
+      const [m = "", step = ""] = key.split(".");
+      const model = STAGE_MODELS.find((x) => x === m);
+      if (model === undefined) throw new Error(key);
+      const set = await loadStageArt(model);
+      const names = (set.scenes[step]?.add ?? []).map((l) => l.n);
+      for (const [layer] of calls) expect(names, `${key} ${layer}`).toContain(layer);
+    }
+    const art = await loadToothArt("u1");
+    const dressing = (await loadStageArt("root_canal")).scenes["dressing"];
+    if (dressing === undefined) throw new Error("no dressing scene");
+    const scene = toothScene(art, "section", { fdi: 21, parts: [stagePart(dressing)], mark: ["medCanals", "tempFilling"] });
+    expect(scene.nodes.filter((n) => n.n !== undefined).map((n) => n.n).sort()).toEqual(["medCanals", "tempFilling"]);
   });
 
   it("has a scene for every step id, and the extra scenes", async () => {

@@ -151,3 +151,14 @@
 .tc-hoverhint { margin-top: 2px; color: var(--odo-muted); font-size: 11px; }
 /* The tooth note's dictation language, beside the mic: EN, HI, MR, GU. */
 .tc-lang { flex: none; height: 32px; padding: 0 4px; border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; }
+
+/* §1.13 detail chips: optional, one tap each */
+.tc-details { display: grid; gap: 6px; margin: 4px 0 8px; }
+.tc-chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tc-chip-label { font-size: 12px; font-weight: 700; color: var(--color-muted, #5c6b66); min-width: 64px; }
+.tc-chip { min-height: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--color-border, #e4e0d6); background: transparent; color: inherit; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.tc-chip[aria-pressed="true"] { background: var(--color-primary, #136650); border-color: var(--color-primary, #136650); color: var(--color-on-primary, #fff); }
+.tc-chip:disabled { opacity: .6; cursor: default; }
+.tc-chip:focus-visible { outline: 2px solid var(--color-primary, #136650); outline-offset: 2px; }
+.tc-chip-resolve { border-style: dashed; }
+.tc-chip-date { font-size: 12px; color: var(--color-muted, #5c6b66); }

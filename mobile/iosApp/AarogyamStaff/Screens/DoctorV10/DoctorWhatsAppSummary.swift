@@ -47,6 +47,8 @@ private struct WhatsAppSummaryCard: View {
     let compact: Bool
     @Environment(\.openURL) private var openURL
     @Environment(\.skTheme) private var theme
+    @State private var ticks: MessageTicks?
+    @State private var choosing = false
 
     var body: some View {
         let r = theme.roles
@@ -63,6 +65,14 @@ private struct WhatsAppSummaryCard: View {
                 SkPillButton(dv10("dv10.wa.again"), variant: .tonal, icon: V7Icon.path("wa"), wide: !compact) { open(prepared.handoff) }
             default:
                 if !compact { Text(dv10("dv10.wa.hint")).v7Text(13).foregroundStyle(r.onSurfaceVariant.color) }
+                if let ticks, ticks.ticked != nil {
+                    if !compact || choosing {
+                        MessageTicksView(holder: holder, ticks: ticks)
+                    } else {
+                        Button(dv10("dv10.wa.choose")) { choosing = true }
+                            .v7Text(12.5, .semibold).foregroundStyle(r.primary.color)
+                    }
+                }
                 let preparing = state is WhatsAppSummaryStatePreparing
                 let idle: String.LocalizationValue = compact ? "dv10.wa.prepare" : "dv10.wa.send"
                 SkPillButton(dv10(preparing ? "dv10.wa.preparing" : idle), variant: .tonal, icon: V7Icon.path("wa"), wide: !compact) {
@@ -75,6 +85,9 @@ private struct WhatsAppSummaryCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .task(id: ObjectIdentifier(holder)) {
+            for await next in holder.ticks { ticks = next }
+        }
     }
 
     private var problem: String? {
@@ -98,6 +111,65 @@ private struct WhatsAppSummaryCard: View {
 
     private func open(_ handoff: WhatsAppHandoff) {
         guard let url = URL(string: handoff.appLink) else { holder.whatsAppMissing(); return }
-        openURL(url) { accepted in if !accepted { holder.whatsAppMissing() } }
+        openURL(url) { accepted in
+            if accepted { holder.handedOff() } else { holder.whatsAppMissing() }
+        }
+    }
+}
+
+/// The ticks and the live preview, with the stand-in link and PIN greyed out. Saves nothing.
+private struct MessageTicksView: View {
+    let holder: WhatsAppSummaryStateHolder
+    let ticks: MessageTicks
+    @State private var whole = false
+    @Environment(\.skTheme) private var theme
+
+    private static let sections: [MessageSection] = [.done, .detail, .found, .plan, .medicines, .care, .offer]
+
+    var body: some View {
+        let r = theme.roles
+        VStack(alignment: .leading, spacing: SkSpacing.sm) {
+            Text(dv10("dv10.wa.ticks")).v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color)
+            SkChoiceChips(
+                Self.sections,
+                selected: Set(Self.sections.filter { ticks.isOn(section: $0) }),
+                label: Self.label
+            ) { section in holder.toggle(section: section, on: !ticks.isOn(section: section)) }
+            let parts = ticks.previewParts
+            if !parts.isEmpty {
+                VStack(alignment: .leading, spacing: SkSpacing.xs) {
+                    Text(preview(parts, muted: r.onSurfaceVariant.color))
+                        .v7Text(12.5).foregroundStyle(r.onSurface.color)
+                        .lineLimit(whole ? nil : 6)
+                    Button(dv10(whole ? "dv10.wa.preview_less" : "dv10.wa.preview_more")) { whole.toggle() }
+                        .v7Text(12.5, .semibold).foregroundStyle(r.primary.color)
+                    Text(dv10("dv10.wa.stand_in")).v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
+                }
+                .padding(SkSpacing.sm)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(r.surface2.color, in: RoundedRectangle(cornerRadius: 12))
+            }
+        }
+        .onAppear { holder.showPreview() }
+    }
+
+    private func preview(_ parts: [PreviewPart], muted: Color) -> AttributedString {
+        parts.reduce(into: AttributedString()) { text, part in
+            var run = AttributedString(part.text)
+            if part.standIn { run.foregroundColor = muted }
+            text += run
+        }
+    }
+
+    private static func label(_ section: MessageSection) -> String {
+        switch section {
+        case .done: dv10("dv10.wa.tick.done")
+        case .detail: dv10("dv10.wa.tick.detail")
+        case .found: dv10("dv10.wa.tick.found")
+        case .plan: dv10("dv10.wa.tick.plan")
+        case .medicines: dv10("dv10.wa.tick.medicines")
+        case .care: dv10("dv10.wa.tick.care")
+        case .offer: dv10("dv10.wa.tick.offer")
+        }
     }
 }

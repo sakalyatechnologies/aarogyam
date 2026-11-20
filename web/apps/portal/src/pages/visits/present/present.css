@@ -1,0 +1,32 @@
+/* Present mode (design §1.12): a full-screen shell around MouthView with large targets. */
+.pm-shell { --odo-border: var(--mv-line); --odo-surface: var(--mv-card); --odo-text: var(--mv-text); --odo-primary: var(--mv-brand); --odo-muted: var(--mv-muted); --odo-focus: var(--mv-brand); position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; background: var(--mv-bg); color: var(--mv-text); padding: max(12px, env(safe-area-inset-top)) 20px 16px; overflow: hidden; }
+.pm-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pm-who { margin-right: auto; font-weight: 700; font-size: 18px; }
+.pm-who small { display: block; font-weight: 500; color: var(--mv-muted); font-size: 13px; }
+.pm-chip { min-height: 56px; padding: 0 20px; border-radius: 999px; border: 1px solid var(--mv-line); background: var(--mv-card); color: var(--mv-text); font: inherit; font-weight: 650; font-size: 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.pm-chip svg { width: 20px; height: 20px; }
+.pm-chip:focus-visible, .pm-depth-chip:focus-visible { outline: 3px solid var(--mv-brand); outline-offset: 2px; }
+.pm-shell .xp-exit-wrap { display: inline-flex; }
+.pm-shell .xp-exit { min-height: 56px; border-width: 1px; font-size: 16px; }
+.pm-body { flex: 1; min-height: 0; overflow: auto; padding-top: 8px; display: grid; justify-items: center; align-items: start; }
+.pm-body > .mv { width: min(100%, 1000px); }
+.pm-wait { color: var(--mv-muted); padding: 48px 0; }
+.pm-depth { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 4px 6px 4px 12px; border-radius: 999px; border: 1.5px dashed var(--mv-found); }
+.pm-depth-label { font-size: 14px; font-weight: 700; color: var(--mv-found); }
+.pm-depth-chip { min-height: 44px; padding: 0 14px; border-radius: 999px; border: 0; background: var(--mv-found-soft); color: var(--mv-found); font: inherit; font-weight: 650; cursor: pointer; }
+.pm-depth-chip:disabled { opacity: .5; }
+.pm-brush { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .5); display: grid; place-items: center; padding: 16px; }
+.pm-brush-card { width: min(100%, 720px); background: var(--mv-card); border-radius: 20px; padding: 18px; display: grid; gap: 12px; }
+.pm-brush-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pm-brush-head h2 { margin: 0; font-size: 22px; }
+.pm-muted { margin: 0; color: var(--mv-muted); }
+.pm-brush-wait { aspect-ratio: 16 / 10; border-radius: 16px; background: var(--mv-stage); }
+.pm-brush-art { border-radius: 16px; overflow: hidden; background: radial-gradient(120% 90% at 50% 45%, var(--mv-stage), var(--mv-stage-2)); border: 1px solid var(--mv-line); position: relative; }
+.pm-brush-art svg { display: block; width: 100%; height: auto; }
+.pm-brush-art > p { margin: 0; padding: 10px 110px 14px 16px; font-size: 16px; color: var(--mv-muted); min-height: 64px; }
+.pm-brush-art > p strong { display: block; color: var(--mv-text); }
+.pm-brush-art > button { position: absolute; right: 12px; bottom: 14px; min-height: 48px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--mv-line); background: var(--mv-card); color: var(--mv-text); font: inherit; font-weight: 650; cursor: pointer; }
+.pm-brush-art[data-brushing-stills] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; background: none; border: 0; }
+.pm-brush-art[data-brushing-stills] figure { margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--mv-line); background: var(--mv-stage); }
+.pm-brush-art[data-brushing-stills] figcaption { font-size: 13px; padding: 6px 8px 8px; }
+.pm-chips { display: flex; flex-wrap: wrap; gap: 6px; }

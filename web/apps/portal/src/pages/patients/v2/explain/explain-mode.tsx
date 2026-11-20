@@ -525,7 +525,7 @@ function PinPicker({
 }
 
 /** Exit: a one-second press and hold (mouse, finger, Space or Enter), with a fill that shows the hold. A tap does nothing. */
-function HoldToExit({ onExit }: { onExit: () => void }) {
+export function HoldToExit({ onExit }: { onExit: () => void }) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [holding, setHolding] = useState(false);
   const hintId = useId();

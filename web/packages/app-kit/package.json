@@ -7,7 +7,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./mouth-art": "./src/mouth-art/index.ts",
-    "./real-teeth-3d": "./src/real-teeth-3d/index.ts"
+    "./real-teeth-3d": "./src/real-teeth-3d/index.ts",
+    "./mouth-view": "./src/mouth-view/index.ts",
+    "./mouth-view.css": "./src/mouth-view/mouth-view.css"
   },
   "scripts": {
     "typecheck": "tsc -p ."

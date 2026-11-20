@@ -366,6 +366,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::prescriptions::get,
         crate::v1::prescriptions::edit,
         crate::v1::prescriptions::issue,
+        crate::v1::prescriptions::check_allergies,
         crate::v1::prescriptions::cancel,
         crate::v1::prescriptions::create_share,
         crate::v1::prescriptions::shared_preview,

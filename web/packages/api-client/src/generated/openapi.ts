@@ -3285,6 +3285,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/allergy-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Checks medicines against the patient's recorded allergies as they are added, before
+         *     Issue. Writes nothing; Issue checks again.
+         */
+        post: operations["checkAllergies"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/app-access": {
         parameters: {
             query?: never;
@@ -6438,6 +6458,23 @@ export interface components {
              *     waits for a clinician to confirm it.
              */
             verified_by?: string | null;
+        };
+        /** @description What the medicines meet in the patient's recorded allergies. */
+        AllergyCheck: {
+            /** @description Empty when nothing matches. */
+            alerts: components["schemas"]["Alert"][];
+        };
+        /** @description A medicine to check. */
+        AllergyCheckItem: {
+            /** @description The catalogue entry, when picked from it. */
+            drug_id?: string | null;
+            /** @description The name as added or typed. */
+            drug_name: string;
+        };
+        /** @description Medicines to check against the patient's recorded allergies. */
+        AllergyCheckRequest: {
+            /** @description At most as many as a prescription holds. */
+            items: components["schemas"]["AllergyCheckItem"][];
         };
         /** @description An allergy to record or edit. On an edit, fields left out stay as they are. */
         AllergyFields: {
@@ -26459,6 +26496,60 @@ export interface operations {
                 content?: never;
             };
             /** @description No such allergy for this patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    checkAllergies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllergyCheckRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllergyCheck"];
+                };
+            };
+            /** @description Too many medicines, or a blank name */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks prescriptions.issue */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
             404: {
                 headers: {
                     [name: string]: unknown;

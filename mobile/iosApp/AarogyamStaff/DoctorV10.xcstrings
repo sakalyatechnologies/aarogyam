@@ -1565,6 +1565,305 @@
           }
         }
       }
+    },
+    "dv10.wa.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visit summary for the patient"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मरीज़ के लिए विज़िट का सारांश"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्णासाठी भेटीचा सारांश"
+          }
+        }
+      }
+    },
+    "dv10.wa.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Why they came, what you did, their plan, care at home and medicines, with a link that needs a PIN."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वे क्यों आए, आपने क्या किया, आगे की योजना, घर पर देखभाल और दवाइयाँ, PIN वाले लिंक के साथ।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ते का आले, तुम्ही काय केले, पुढची योजना, घरी काळजी आणि औषधे, PIN असलेल्या लिंकसह."
+          }
+        }
+      }
+    },
+    "dv10.wa.send": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send on WhatsApp"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WhatsApp पर भेजें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WhatsApp वर पाठवा"
+          }
+        }
+      }
+    },
+    "dv10.wa.preparing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing…"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तैयार हो रहा है…"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तयार होत आहे…"
+          }
+        }
+      }
+    },
+    "dv10.wa.prepared": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summary prepared %@. Press Send in WhatsApp."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सारांश %@ पर तैयार। WhatsApp में Send दबाएँ।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सारांश %@ ला तयार. WhatsApp मध्ये Send दाबा."
+          }
+        }
+      }
+    },
+    "dv10.wa.prepared_guardian": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summary prepared %@ for the parent or guardian. Press Send in WhatsApp."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "माता-पिता या अभिभावक के लिए सारांश %@ पर तैयार। WhatsApp में Send दबाएँ।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पालकांसाठी सारांश %@ ला तयार. WhatsApp मध्ये Send दाबा."
+          }
+        }
+      }
+    },
+    "dv10.wa.auto": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An automatic summary also went at %@."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ पर एक अपने-आप भेजा गया सारांश भी गया।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ला आपोआप पाठवलेला सारांशही गेला."
+          }
+        }
+      }
+    },
+    "dv10.wa.again": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open WhatsApp again"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WhatsApp फिर खोलें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WhatsApp पुन्हा उघडा"
+          }
+        }
+      }
+    },
+    "dv10.wa.visit_open": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish the visit first, then send the summary."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पहले विज़िट पूरी करें, फिर सारांश भेजें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आधी भेट पूर्ण करा, मग सारांश पाठवा."
+          }
+        }
+      }
+    },
+    "dv10.wa.no_phone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This patient has no mobile number. Add one to send the summary."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस मरीज़ का मोबाइल नंबर नहीं है। सारांश भेजने के लिए नंबर जोड़ें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या रुग्णाचा मोबाईल नंबर नाही. सारांश पाठवण्यासाठी नंबर जोडा."
+          }
+        }
+      }
+    },
+    "dv10.wa.no_consent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The patient hasn't agreed to messages about their care."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मरीज़ ने अपनी देखभाल के संदेशों के लिए सहमति नहीं दी है।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्णाने त्यांच्या उपचारांबद्दलच्या संदेशांना संमती दिलेली नाही."
+          }
+        }
+      }
+    },
+    "dv10.wa.opted_out": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The patient has turned off WhatsApp messages from the clinic."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मरीज़ ने क्लिनिक के WhatsApp संदेश बंद किए हैं।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्णाने क्लिनिकचे WhatsApp संदेश बंद केले आहेत."
+          }
+        }
+      }
+    },
+    "dv10.wa.no_whatsapp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WhatsApp isn't installed on this phone."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस फ़ोन पर WhatsApp इंस्टॉल नहीं है।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या फोनवर WhatsApp इन्स्टॉल केलेले नाही."
+          }
+        }
+      }
     }
   }
 }

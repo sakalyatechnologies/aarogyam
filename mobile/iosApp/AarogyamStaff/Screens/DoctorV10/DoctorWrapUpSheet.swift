@@ -229,6 +229,7 @@ private struct WrapUpBody: View {
             if summary.outcome == .collected, summary.invoiceId != nil {
                 SkPillButton(dv10("dv10.done.pay"), variant: .tonal, wide: true) { pay = DeskPayTarget(patientId: patientId, name: patientName) }
             }
+            DoctorWhatsAppSummary(graph: graph, clinic: clinic, visitId: visitId)
             SkPillButton(dv10("dv10.done.button"), variant: .fill, wide: true, action: onClose)
         }
         .frame(maxWidth: .infinity)

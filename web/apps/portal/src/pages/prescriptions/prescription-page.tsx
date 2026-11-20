@@ -1,11 +1,12 @@
 import { ChevronLeft, Copy, Pill, Printer, RotateCcw, Share2, Trash2 } from "lucide-react";
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
 import {
   apiErrorOf,
   prescriptionId as prescriptionIdSchema,
   type Alert,
+  type AllergyCheckRequest,
   type PatientMessage,
   type Prescription,
   type RxItem,
@@ -15,6 +16,7 @@ import { Button, Card, Dialog, Field, FormActions, Pill as StatusPill, Select, S
 
 import { useClinic } from "../../clinic.js";
 import {
+  useAllergyCheck,
   useCancelPrescription,
   useCreateShareLink,
   useDrugSearch,
@@ -270,6 +272,18 @@ export function DraftEditor({ rx, onIssued, handle }: { rx: Prescription; onIssu
   const [error, setError] = useState<string>();
   const debouncedQuery = useDebouncedValue(query, 250);
   const search = useDrugSearch({ q: debouncedQuery, limit: 8 });
+  // The allergy check as medicines are added (a set, a pick, a typed name), before Issue.
+  const toCheck = useMemo<AllergyCheckRequest["items"]>(
+    () =>
+      items
+        .filter((item) => (item.drug_name ?? "").trim() !== "")
+        .slice(0, 50)
+        .map((item) => ({ drug_id: item.drug_id ?? null, drug_name: (item.drug_name ?? "").trim() })),
+    [items],
+  );
+  const checkItems = useDebouncedValue(toCheck, 400);
+  const allergyCheck = useAllergyCheck(rx.patient.id, checkItems);
+  const earlyAlerts = checkItems.length === 0 ? [] : (allergyCheck.data?.alerts ?? []);
 
   const addDrug = (drug: NonNullable<typeof search.data>["items"][number]) => {
     setItems((prev) => [
@@ -416,6 +430,7 @@ export function DraftEditor({ rx, onIssued, handle }: { rx: Prescription; onIssu
             </li>
           ))}
         </ul>
+        <AllergyWarning alerts={earlyAlerts} />
         <div className="relative mt-3">
           <Field label="Search a medicine" hint="By generic or brand name">
             <TextInput
@@ -508,6 +523,25 @@ export function DraftEditor({ rx, onIssued, handle }: { rx: Prescription; onIssu
           });
         }}
       />
+    </div>
+  );
+}
+
+/** The allergies the medicines meet, shown as they are added. It never blocks: Issue asks for a
+ * reason as before. */
+function AllergyWarning({ alerts }: { alerts: Alert[] }) {
+  if (alerts.length === 0) return null;
+  const serious = alerts.some((alert) => alert.severity === "serious");
+  return (
+    <div role="alert" className={`mt-3 rounded-xl px-4 py-3 text-sm ${serious ? "bg-danger-soft text-danger-text" : "bg-warning-soft text-warning-text"}`}>
+      <p className="font-semibold">Allergy warning</p>
+      <ul className="mt-1 list-disc pl-5">
+        {alerts.map((alert, index) => (
+          <li key={index} className={alert.severity === "serious" ? "text-danger-text" : "text-warning-text"}>
+            {alert.message}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

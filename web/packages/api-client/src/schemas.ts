@@ -2973,6 +2973,13 @@ export type IssueRequest = C.IssueRequest;
 export const issueBlocked = z.object({ code: z.string(), alerts: z.array(alert) }) satisfies z.ZodType<C.IssueBlocked>;
 export type IssueBlocked = z.output<typeof issueBlocked>;
 
+/** Body of `POST /api/v1/patients/{id}/allergy-check`: medicines as they are added. */
+export type AllergyCheckRequest = C.AllergyCheckRequest;
+
+/** What the medicines meet in the patient's recorded allergies; empty when nothing matches. */
+export const allergyCheck = z.object({ alerts: z.array(alert) }) satisfies z.ZodType<C.AllergyCheck>;
+export type AllergyCheck = z.output<typeof allergyCheck>;
+
 /** Body of `POST /api/v1/prescriptions/{id}/cancel`. */
 export type CancelRequest = C.CancelRequest;
 
@@ -3012,6 +3019,20 @@ export const visitLink = z.object({
   channel: z.string(),
 }) satisfies z.ZodType<C.VisitLink>;
 export type VisitLink = z.output<typeof visitLink>;
+
+/** The doctor's WhatsApp hand-off: the server-built text, a short text with no clinical words (for a web URL), the link and its PIN. Kept in memory only. */
+export const visitPatientMessage = z.object({
+  phone_e164: z.string(),
+  text: z.string(),
+  short_text: z.string(),
+  url: z.string(),
+  pin: z.string(),
+  expires_at: timestamp,
+  auto_sent_at: optionalTimestamp,
+  /** `patient` or `guardian`; a plain string, so a later value doesn't break old pages. */
+  recipient: z.string(),
+}) satisfies z.ZodType<C.VisitPatientMessage>;
+export type VisitPatientMessage = z.output<typeof visitPatientMessage>;
 
 export const visitSummary = z.object({
   clinic_name: z.string(),

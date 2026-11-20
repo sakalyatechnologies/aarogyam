@@ -100,6 +100,7 @@ private fun Composing(
         )
     }
     state.lines.forEach { line -> LineCard(holder, line, editable = !locked) }
+    RxCheckBanner(state, Modifier.padding(top = Spacing.M.dp))
     Warnings(holder, state)
     state.error?.let { RxError(stringResource(it.message())) }
     SkButton(

@@ -109,6 +109,8 @@ import type {
   CollectSummary,
   InvoicePage,
   IssueRequest,
+  AllergyCheck,
+  AllergyCheckRequest,
   Leave,
   LeaveId,
   LeavePage,
@@ -239,6 +241,7 @@ import type {
   FinishedVisit,
   FinishVisitInput,
   VisitLink,
+  VisitPatientMessage,
   VisitSummary,
   SavedMedicineSet,
   SavedMedicineSetList,
@@ -786,6 +789,12 @@ export interface ApiClient {
   finishVisit(id: VisitId, input?: FinishVisitInput, options?: RequestOptions): Promise<ApiResult<FinishedVisit>>;
   /** Clinic host: makes a link and PIN for the patient to open the visit summary at `/shared/{token}/visit`. Needs `clinical.write`. */
   shareVisit(id: VisitId, input?: ShareInput, options?: RequestOptions): Promise<ApiResult<VisitLink>>;
+  /**
+   * Clinic host: prepares the patient's WhatsApp summary of a closed visit (text, link and PIN) for the doctor to send
+   * from their own WhatsApp. Needs `clinical.read` and `patients.contact`. 409 codes: `visit_open`, `no_phone`,
+   * `no_consent`, `opted_out`. Never cache or log the result.
+   */
+  prepareVisitPatientMessage(id: VisitId, options?: RequestOptions): Promise<ApiResult<VisitPatientMessage>>;
   /** Public: opens a visit summary link with its PIN. Five wrong PINs lock the link. */
   openSharedVisit(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<VisitSummary>>;
 
@@ -1071,6 +1080,8 @@ export interface ApiClient {
   editPrescription(id: PrescriptionId, input: RxValues, options?: RequestOptions): Promise<ApiResult<Prescription>>;
   /** Clinic host: issues a draft; `409` with alerts when an override reason is needed. Needs `prescriptions.issue`. */
   issuePrescription(id: PrescriptionId, input: IssueRequest, options?: RequestOptions): Promise<ApiResult<IssuedPrescription>>;
+  /** Clinic host: checks medicines against the patient's recorded allergies as they are added; writes nothing. Needs `prescriptions.issue`. */
+  checkAllergies(patientId: PatientId, items: AllergyCheckRequest["items"], options?: RequestOptions): Promise<ApiResult<AllergyCheck>>;
   /** Clinic host: cancels an issued prescription, starting a corrected draft by default. Needs `prescriptions.issue`. */
   cancelPrescription(id: PrescriptionId, input: CancelRequest, options?: RequestOptions): Promise<ApiResult<Cancelled>>;
   /** Clinic host: makes a seven-day link with a PIN for the patient to open the prescription. Needs `prescriptions.issue`. */

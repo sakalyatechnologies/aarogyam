@@ -95,6 +95,11 @@ data class RxSheetState(
     val serverAlert: Boolean = false,
     /** What the clinic's check said; empty when it stopped the issue without a readable body. */
     val serverAlerts: List<ServerAlert> = emptyList(),
+    /**
+     * The clinic's allergy check while medicines are added (it also knows drug classes). Only a
+     * warning: it never blocks Issue, which checks again.
+     */
+    val checkAlerts: List<ServerAlert> = emptyList(),
     val overrideReason: String = "",
     val phase: RxPhase = RxPhase.Composing,
     val error: ScreenError? = null,
@@ -105,6 +110,12 @@ data class RxSheetState(
     /** Medicine sets the doctor can add in one tap; empty until loaded or when unavailable. */
     val sets: List<RxSetChip> = emptyList(),
 ) {
+    /** The early check found something serious: the banner is danger-toned, not warning-toned. */
+    val checkSerious: Boolean get() = checkAlerts.any { it.severity == Severity.Severe }
+
+    /** The early check's banner; hidden once Issue's own check stopped it (that card shows the same). */
+    val showsCheck: Boolean get() = checkAlerts.isNotEmpty() && !serverAlert && phase == RxPhase.Composing
+
     /** Issuing needs an override reason while any allergy alert stands. */
     val needsOverride: Boolean get() = warnings.isNotEmpty() || serverAlert
 

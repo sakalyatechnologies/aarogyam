@@ -90,6 +90,7 @@ private struct RxComposer: View {
             SkPillButton(String(localized: "rx.quick"), variant: .tonal, wide: true) { holder.quickRx() }
         }
         ForEach(state.lines, id: \.key) { RxLineCard(holder: holder, line: $0, editable: !locked) }
+        RxCheckBanner(state: state)
         if state.needsOverride { RxAllergyCard(holder: holder, state: state) }
         if let error = state.error {
             Text(error.message).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(theme.roles.error.color)

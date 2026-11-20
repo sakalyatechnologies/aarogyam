@@ -45,6 +45,15 @@ final class DoctorV10FormatTests: XCTestCase {
         XCTAssertEqual(noFee, "Visit closed")
     }
 
+    func test_whatsapp_summary_says_prepared_never_sent() {
+        let text = WhatsAppSummaryText.prepared(minute: 17 * 60 + 42, guardian: true, autoMinute: 17 * 60)
+        XCTAssertTrue(text.hasPrefix("Summary prepared "))
+        XCTAssertTrue(text.contains("for the parent or guardian"))
+        XCTAssertTrue(text.contains("An automatic summary also went at"))
+        XCTAssertFalse(text.lowercased().contains("sent "))
+        XCTAssertEqual(WhatsAppSummaryText.refusal(.noWhatsApp), "WhatsApp isn't installed on this phone.")
+    }
+
     func test_age_and_sex_leave_out_what_is_missing() {
         XCTAssertEqual(DoctorV10Format.ageSex(age: 42, sex: "female"), "42 y · Female")
         XCTAssertEqual(DoctorV10Format.ageSex(age: nil, sex: "male"), "Male")

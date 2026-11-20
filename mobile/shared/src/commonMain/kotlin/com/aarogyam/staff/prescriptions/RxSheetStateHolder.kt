@@ -41,6 +41,7 @@ class RxSheetStateHolder(
     private var nextKey = 0
     private val sync = RxDraftSync(clinic, patientId, visitId)
     private val issuer = RxIssuer(clinic, patientId, mutableState, sync, scope, log)
+    private val allergyCheck = RxAllergyCheck(clinic, patientId, mutableState, scope, log)
     private var frozen = false
     private var sets: List<QuickMedicineSet> = emptyList()
 
@@ -80,6 +81,7 @@ class RxSheetStateHolder(
                 ),
             )
         }
+        allergyCheck.schedule()
     }
 
     /** Searches the catalogue as the doctor types. */
@@ -141,6 +143,7 @@ class RxSheetStateHolder(
                 ),
             )
         }
+        allergyCheck.schedule()
     }
 
     fun remove(key: Int) {
@@ -156,6 +159,7 @@ class RxSheetStateHolder(
                 ),
             )
         }
+        allergyCheck.schedule()
     }
 
     fun setDose(
@@ -218,6 +222,7 @@ class RxSheetStateHolder(
                 is Outcome.Success -> {
                     val lines = result.value.items.mapNotNull { it.toLine(nextKey++) }
                     mutableState.update { recompute(it.copy(lines = lines)) }
+                    allergyCheck.schedule()
                 }
 
                 is Outcome.Failure -> {

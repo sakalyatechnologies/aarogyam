@@ -93,6 +93,7 @@ import {
   practitioner,
   practitionerList,
   issuedPrescription,
+  allergyCheck,
   prescription,
   prescriptionList,
   priceItem,
@@ -146,6 +147,7 @@ import {
   closedVisit,
   finishedVisit,
   visitLink,
+  visitPatientMessage,
   visitSummary,
   savedMedicineSet,
   savedMedicineSetList,
@@ -581,6 +583,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/finish`, schema: finishedVisit, body: input ?? {}, signal: opts?.signal }),
     shareVisit: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/share`, schema: visitLink, body: input ?? {}, signal: opts?.signal }),
+    prepareVisitPatientMessage: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/patient-message`, schema: visitPatientMessage, body: {}, signal: opts?.signal }),
     openSharedVisit: (token, pin, opts) =>
       call({ method: "POST", path: `/api/v1/shared/${encodeURIComponent(token)}/visit`, schema: visitSummary, body: { pin }, signal: opts?.signal }),
     listMedicineSets: (opts) => call({ method: "GET", path: "/api/v1/medicine-sets", schema: savedMedicineSetList, signal: opts?.signal }),
@@ -1117,6 +1121,14 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "PATCH", path: `/api/v1/prescriptions/${encodeURIComponent(id)}`, schema: prescription, body: input, signal: opts?.signal }),
     issuePrescription: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/issue`, schema: issuedPrescription, body: input, signal: opts?.signal }),
+    checkAllergies: (patientId, items, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/patients/${encodeURIComponent(patientId)}/allergy-check`,
+        schema: allergyCheck,
+        body: { items },
+        signal: opts?.signal,
+      }),
     cancelPrescription: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/prescriptions/${encodeURIComponent(id)}/cancel`, schema: cancelled, body: input, signal: opts?.signal }),
     createShareLink: (id, opts) =>

@@ -74,6 +74,7 @@
     <string name="rx_duration">अवधि</string>
     <string name="rx_allergy_warning">%1$s: %2$s से एलर्जी दर्ज है (%3$s)</string>
     <string name="rx_server_alert">क्लिनिक की एलर्जी जांच ने इस पर्चे पर चेतावनी दी है.</string>
+    <string name="rx_check_title">एलर्जी की चेतावनी</string>
     <string name="rx_override_label">फिर भी देने का कारण</string>
     <string name="rx_override_help">एलर्जी चेतावनी के कारण ज़रूरी. यह पर्चे के साथ सहेजा जाता है.</string>
     <string name="rx_issue">पर्चा जारी करें</string>

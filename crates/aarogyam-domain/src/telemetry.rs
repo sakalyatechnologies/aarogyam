@@ -87,6 +87,7 @@ pub const PORTAL_ROUTES: &[&str] = &[
     "/patients/:id",
     "/patients/:id/edit",
     "/patients/:id/visits/:visitId",
+    "/visits/:visitId/mouth",
     "/patients/:patientId/prescriptions",
     "/calendar",
     "/queue",

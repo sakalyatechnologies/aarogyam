@@ -2339,6 +2339,7 @@ export const mouthStep = z.object({
 export const mouthTreatment = z.object({
   model: z.string(),
   state: z.string(),
+  recommended: z.boolean().exactOptional(),
   typical_visits: count,
   steps: z.array(mouthStep),
   recovery: z.array(z.string()),
@@ -2372,6 +2373,7 @@ export const mouthTooth = z.object({
   treat_within_months: count.exactOptional(),
   today: z.string().exactOptional(),
   planned: z.boolean().exactOptional(),
+  recommended: z.boolean().exactOptional(),
   sitting: count.exactOptional(),
   work: z.array(mouthWork).exactOptional(),
   problems: z.array(z.string()).exactOptional(),

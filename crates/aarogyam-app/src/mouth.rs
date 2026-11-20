@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
-use crate::patient_message::plan_in;
+use crate::patient_message::{PlanItem, plan_in, proposed_in};
 use crate::scope::staff_scope;
 use crate::tooth_details::{condition_data, eruption_data};
 
@@ -98,15 +98,23 @@ pub(crate) async fn of_visit(
         .map(|row| ProcedureRecord {
             tooth: tooth(row.tooth),
             code: row.code,
+            name: row.name,
         })
         .collect();
+    let record = |item: PlanItem| ProcedureRecord {
+        tooth: item.tooth.map(aarogyam_domain::dental::Tooth::number),
+        code: item.code,
+        name: item.name,
+    };
     let planned = plan_in(tx, visit.id, visit.patient_id)
         .await?
         .into_iter()
-        .map(|item| ProcedureRecord {
-            tooth: item.tooth.map(aarogyam_domain::dental::Tooth::number),
-            code: item.code,
-        })
+        .map(record)
+        .collect();
+    let recommended = proposed_in(tx, visit.id, visit.patient_id)
+        .await?
+        .into_iter()
+        .map(record)
         .collect();
     let next_visit = next_booked(tx.conn(), visit.patient_id, now)
         .await?
@@ -120,6 +128,7 @@ pub(crate) async fn of_visit(
         eruptions,
         done_today,
         planned,
+        recommended,
         next_visit,
     }))
 }

@@ -115,6 +115,11 @@ pub struct MouthTooth {
     #[schema(required = false)]
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub planned: bool,
+    /// Something is proposed on it and not yet accepted: a dashed "Recommended" ring. `planned`
+    /// wins when both are set.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub recommended: bool,
     /// The sitting of a treatment in progress.
     #[schema(required = false)]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -205,6 +210,10 @@ pub struct MouthTreatment {
     pub model: String,
     /// `in_progress`, `done` or `planned`.
     pub state: String,
+    /// A `planned` treatment that is only proposed, not yet accepted ("Recommended").
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub recommended: bool,
     /// Visits it usually takes.
     pub typical_visits: u8,
     /// The steps in order.
@@ -277,6 +286,7 @@ impl From<domain::MouthTooth> for MouthTooth {
             treat_within_months: t.treat_within_months,
             today: t.today,
             planned: t.planned,
+            recommended: t.recommended,
             sitting: t.sitting,
             work: t
                 .work
@@ -306,6 +316,7 @@ impl From<domain::MouthTooth> for MouthTooth {
                 .map(|tr| MouthTreatment {
                     model: tr.model,
                     state: tr.state,
+                    recommended: tr.recommended,
                     typical_visits: tr.typical_visits,
                     steps: tr
                         .steps

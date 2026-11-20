@@ -237,6 +237,29 @@ fn kind_of(work: &Work<'_>) -> Option<Kind> {
     })
 }
 
+/// The treatment model key (`treatment-stages.json`) a typed name points to, by the same keyword
+/// matcher the message uses: "Root canal treatment" → `root_canal`, an extraction on a third
+/// molar → `wisdom_extraction`. Only the key leaves; the name itself is never kept.
+#[must_use]
+pub fn model_of_name(name: &str, tooth: Option<Tooth>) -> Option<&'static str> {
+    let work = Work {
+        code: None,
+        name,
+        tooth,
+        in_progress: false,
+    };
+    Some(match kind_of(&work)? {
+        Kind::Extraction => "extraction",
+        Kind::Wisdom => "wisdom_extraction",
+        Kind::RootCanal => "root_canal",
+        Kind::Filling => "filling",
+        Kind::Crown => "crown",
+        Kind::Implant => "implant",
+        Kind::Scaling => "scaling",
+        Kind::Whitening => "whitening",
+    })
+}
+
 /// Whether two records are the same treatment on the same tooth: the same code, or the same kind.
 #[must_use]
 pub fn same_treatment(a: &Work<'_>, b: &Work<'_>) -> bool {

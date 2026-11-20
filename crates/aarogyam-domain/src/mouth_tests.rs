@@ -44,6 +44,7 @@ fn input(entries: Vec<EntryRecord>) -> MouthInput {
         eruptions: Vec::new(),
         done_today: Vec::new(),
         planned: Vec::new(),
+        recommended: Vec::new(),
         next_visit: None,
     }
 }
@@ -205,21 +206,77 @@ fn health_comes_only_from_a_status_and_plans_only_from_codes() {
     caries.data.surface = Some("O".to_owned());
     let mut plan = input(vec![caries]);
     plan.planned = vec![
-        ProcedureRecord {
-            tooth: Some(36),
-            code: None,
-        },
-        ProcedureRecord {
-            tooth: Some(38),
-            code: Some("extraction".to_owned()),
-        },
+        procedure(36, None, "Something special"),
+        procedure(38, Some("extraction"), ""),
+        procedure(
+            46,
+            Some("0190a1b2-0000-7000-8000-00000000000a"),
+            "Extraction",
+        ),
     ];
     let snap = snapshot(&plan);
     let t = tooth(&snap, 36);
     assert_eq!(t.health, None);
     assert!(t.planned);
-    assert!(t.treatments.is_empty(), "an uncoded item names no model");
+    assert!(t.treatments.is_empty(), "an unmatched name names no model");
     assert_eq!(tooth(&snap, 38).treatments[0].model, "wisdom_extraction");
+    assert!(
+        tooth(&snap, 46).treatments.is_empty(),
+        "a coded item's model comes from its code, not its name"
+    );
+}
+
+fn procedure(tooth: u8, code: Option<&str>, name: &str) -> ProcedureRecord {
+    ProcedureRecord {
+        tooth: Some(tooth),
+        code: code.map(str::to_owned),
+        name: name.to_owned(),
+    }
+}
+
+#[test]
+fn a_proposed_uncoded_item_is_recommended_by_its_name() {
+    let mut facts = input(Vec::new());
+    facts.recommended = vec![procedure(26, None, "Root canal treatment")];
+    let snap = snapshot(&facts);
+    let t = tooth(&snap, 26);
+    assert!(t.recommended);
+    assert!(!t.planned);
+    assert_eq!(t.treatments.len(), 1);
+    assert_eq!(t.treatments[0].model, "root_canal");
+    assert_eq!(t.treatments[0].state, "planned");
+    assert!(t.treatments[0].recommended);
+    let json = serde_json::to_string(&snap).unwrap();
+    assert!(
+        !json.contains("Root canal treatment"),
+        "typed name in {json}"
+    );
+    assert!(!json.to_ascii_lowercase().contains("canal treatment"));
+}
+
+#[test]
+fn an_accepted_item_stays_planned_and_wins_over_a_recommended_duplicate() {
+    let mut facts = input(Vec::new());
+    facts.planned = vec![procedure(26, None, "RCT 26")];
+    facts.recommended = vec![
+        procedure(26, Some("root_canal"), ""),
+        procedure(36, Some("crown"), ""),
+    ];
+    let snap = snapshot(&facts);
+    let t = tooth(&snap, 26);
+    assert!(t.planned);
+    assert_eq!(t.treatments.len(), 1, "one mark per model");
+    assert_eq!(t.treatments[0].model, "root_canal");
+    assert!(!t.treatments[0].recommended);
+    let crown = tooth(&snap, 36);
+    assert!(crown.recommended && !crown.planned);
+    let json = serde_json::to_string(&snap).unwrap();
+    assert!(!json.contains("RCT 26"), "typed name in {json}");
+    let planned_only = serde_json::to_value(t).unwrap();
+    assert!(
+        planned_only["treatments"][0].get("recommended").is_none(),
+        "skipped when false"
+    );
 }
 
 #[test]

@@ -11021,7 +11021,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Sets a tooth's condition. Under a lock on the tooth's condition, the change merges onto the\ncurrent row (an omitted field keeps its value, `null` clears it) and the merged row\nsupersedes it, in the open visit when there is one; concurrent changes both land. Returns the\ncondition.",
+        "summary": "Sets a tooth's condition. Under a lock on the tooth's condition, the change merges onto the\ncurrent row (an omitted field keeps its value, `null` clears it) and the merged row\nsupersedes it, in the open visit when there is one; concurrent changes both land. Returns the\ncondition. A change that clears every field (\"Infection resolved\" on the only field, or\nuntapping the last chip) supersedes the current row and leaves no current condition (history\nkept): the body then has no `infection`, `bleeding`, `pocket_mm` or `mobility`, and `id` is\nthe cleared row.",
         "operationId": "setToothCondition",
         "parameters": [
           {
@@ -11065,7 +11065,7 @@
             }
           },
           "400": {
-            "description": "A bad tooth or value, nothing left after the merge, or infection, pocket or mobility on a missing tooth"
+            "description": "A bad tooth or value, nothing to record on a tooth with no condition, or infection, pocket or mobility on a missing tooth"
           },
           "401": {
             "description": "Not signed in"
@@ -31741,6 +31741,10 @@
             },
             "description": "Recorded problem findings: `caries`, `fractured`, `watch`, `missing`."
           },
+          "recommended": {
+            "type": "boolean",
+            "description": "Something is proposed on it and not yet accepted: a dashed \"Recommended\" ring. `planned`\nwins when both are set."
+          },
           "sitting": {
             "type": [
               "integer",
@@ -31809,6 +31813,10 @@
           "model": {
             "type": "string",
             "description": "The model: `root_canal`, `filling`, `extraction`, `wisdom_extraction`, `crown`,\n`scaling` or `implant` (a plain string; more may come)."
+          },
+          "recommended": {
+            "type": "boolean",
+            "description": "A `planned` treatment that is only proposed, not yet accepted (\"Recommended\")."
           },
           "recovery": {
             "type": "array",
@@ -44339,7 +44347,7 @@
           },
           "id": {
             "type": "string",
-            "description": "Identifier of the current row."
+            "description": "Identifier of the current row; the cleared row when a change left no condition."
           },
           "infection": {
             "type": [

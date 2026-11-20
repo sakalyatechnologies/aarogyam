@@ -231,9 +231,13 @@ async fn insert_detail(
 /// change merges onto the current row (omitted fields keep their value, `null` clears) and the
 /// merged row supersedes it, in the open visit when there is one. Concurrent PUTs serialise on
 /// the lock, so the second merges onto the first (DT2). Mobility is allowed on primary teeth.
+/// A change that clears every field supersedes the current row and leaves no current condition
+/// (history kept); the view then has no fields, the cleared row's id, and this change's visit,
+/// member and time.
 ///
 /// # Errors
-/// [`AppError::Invalid`] for a bad tooth or value, nothing left after the merge, or infection,
+/// [`AppError::Invalid`] for a bad tooth or value, nothing to record on a tooth with no
+/// condition, or infection,
 /// pocket or mobility on a missing tooth; [`AppError::NotFound`] when the patient isn't in this
 /// clinic or reach.
 pub async fn set_condition(
@@ -264,6 +268,27 @@ pub async fn set_condition(
         };
         let merged =
             merge_condition(tooth, base.as_ref(), &change, missing).map_err(detail_error)?;
+        let Some(merged) = merged else {
+            // Every field cleared: supersede the current row and leave none (history kept).
+            let row = current.ok_or(AppError::Internal("cleared without a current row"))?;
+            chart::supersede(tx.conn(), row.id).await?;
+            let reach = actor.reach(Permission::ClinicalWrite);
+            return Ok(ToothConditionView {
+                tooth: number,
+                infection: None,
+                bleeding: None,
+                pocket_mm: None,
+                mobility: None,
+                recorded: Recorded {
+                    id: SpecialtyRecordId::from_uuid(row.id),
+                    visit_id: open_visit(tx, patient.id, reach.member())
+                        .await?
+                        .map(EncounterId::from_uuid),
+                    recorded_by: Some(actor.membership_id),
+                    recorded_at: now,
+                },
+            });
+        };
         if let Some(row) = current.as_ref().filter(|_| base.as_ref() == Some(&merged)) {
             return condition_view(row);
         }

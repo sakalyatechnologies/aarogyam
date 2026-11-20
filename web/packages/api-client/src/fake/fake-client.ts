@@ -4407,6 +4407,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             phone_e164: patient.phone,
             text: `${greeting} 😊\n\n✅ *Done today*\nVisit ${found.number}\n\nYour visit summary: ${url}\nPIN: ${link.pin}\n${warning}`,
             short_text: `${greeting} Your visit summary: ${url} PIN: ${link.pin}. ${warning}`,
+            desktop_text: `${greeting}\n\n*Done today*\nVisit ${found.number}\n\nYour visit summary: ${url}\nPIN: ${link.pin}\n${warning}`,
             url,
             pin: link.pin,
             expires_at: link.expires_at,

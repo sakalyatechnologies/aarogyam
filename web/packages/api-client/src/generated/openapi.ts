@@ -16225,6 +16225,12 @@ export interface components {
              *     then reads "Send again".
              */
             auto_sent_at?: string | null;
+            /**
+             * @description The message for desktop `whatsapp://send` links: the full message without emoji, cut so
+             *     the URL-encoded link stays within 2,000 characters. Null when it can't fit (copy `text`
+             *     instead). Older servers don't send it.
+             */
+            desktop_text?: string | null;
             /** @description When the link stops working. */
             expires_at: string;
             /** @description The number to open `WhatsApp` with, in E.164. */
@@ -16241,7 +16247,10 @@ export interface components {
              *     hand-offs that travel in a web URL (`wa.me`).
              */
             short_text: string;
-            /** @description The full message, with `WhatsApp` formatting (about 1,200 characters at most). */
+            /**
+             * @description The full message, with `WhatsApp` formatting (about 1,600 characters at most): for
+             *     phones and for copying.
+             */
             text: string;
             /** @description The visit page: `/shared/{token}` on the clinic's portal. */
             url: string;

@@ -46,6 +46,7 @@ private struct ToothSheetBody: View {
                 } else {
                     nowCard
                     ToothHealthCard(sheet: sheet, tooth: selection.tooth, status: selection.status, canRecord: chart.canRecord, voice: voice, dictate: dictate)
+                    if chart.canRecord { ToothDetailsCard(sheet: sheet, tooth: selection.tooth.number, details: selection.details) }
                     historyCard
                     if chart.canRecord {
                         SkPillButton(pv("pv.tooth.add"), wide: true) { sheet.reset(); adding = true }

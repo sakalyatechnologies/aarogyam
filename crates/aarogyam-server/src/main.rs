@@ -291,6 +291,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
             "http.edge_secret is required outside the local environment"
         ),
     }
+    let learn_origin = learn_origin(config.hosts.learn_origin)?;
     let hosts = Hosts {
         portal_host_template: config.hosts.portal_host_template,
         console: config.hosts.console,
@@ -333,13 +334,31 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         .with_notifier(notifier)
         .with_files(files)
         .with_staff_mfa(config.auth.staff_mfa)
-        .with_website(website_links(config.website));
+        .with_website(website_links(config.website))
+        .with_learn_origin(learn_origin);
     sakalya_http::serve(
         aarogyam_api::router(with_error_reporting(state, local)),
         config.http.bind,
     )
     .await
     .context("the server stopped with an error")
+}
+
+/// The learn site's origin, checked: an http(s) origin with no path. Blank means none.
+fn learn_origin(raw: Option<String>) -> anyhow::Result<Option<String>> {
+    let Some(raw) = raw.filter(|value| !value.trim().is_empty()) else {
+        return Ok(None);
+    };
+    let origin = raw.trim().trim_end_matches('/');
+    let host = origin
+        .strip_prefix("https://")
+        .or_else(|| origin.strip_prefix("http://"))
+        .unwrap_or("");
+    anyhow::ensure!(
+        !host.is_empty() && !host.contains(['/', '?', '#', '@']),
+        "hosts.learn_origin must look like https://learn.example.com"
+    );
+    Ok(Some(origin.to_owned()))
 }
 
 /// Where the console's Insights page reads Cloud Run's metrics: Cloud Monitoring on Cloud Run

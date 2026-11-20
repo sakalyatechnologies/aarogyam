@@ -1027,3 +1027,65 @@ async fn prefs_are_the_callers_own_and_hand_offs_count_clinic_days() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_learn_link_comes_first_with_an_opaque_address_in_send_and_the_preview() {
+    let app = TestApp::start_custom(sakalya_http::HttpConfig::default(), |state| {
+        state.with_learn_origin(Some("https://learn.aarogyam.example".to_owned()))
+    })
+    .await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(
+        &app,
+        &owner,
+        json!({ "full_name": "Ravi Kumar", "sex": "male", "age_years": 41,
+                "phone": "98765 43211" }),
+    )
+    .await;
+    let visit = start_visit(&app, &owner, &patient).await;
+    chart(
+        &app,
+        &owner,
+        &patient,
+        &visit,
+        json!({ "tooth": 21, "finding": "root_canal", "procedure": "root_canal", "sitting": 4,
+                "material": "calcium_hydroxide", "in_progress": true }),
+    )
+    .await;
+    close(&app, &owner, &visit).await;
+
+    let learn = "https://learn.aarogyam.example/learn/r3zxqv";
+    let (status, sent) = post(&app, ALPHA, &owner, &message_path(&visit), None).await;
+    assert_eq!(status, StatusCode::OK, "{sent}");
+    let text = sent["text"].as_str().unwrap();
+    assert!(
+        text.contains(&format!("📘 How a root canal works: {learn}")),
+        "{text}"
+    );
+    assert_eq!(text.find("https://"), text.find(learn), "{text}");
+    assert_eq!(
+        text.rfind("https://"),
+        text.find(sent["url"].as_str().unwrap())
+    );
+    // The desktop text keeps it; the web text (no clinical words) never has it.
+    assert!(sent["desktop_text"].as_str().unwrap().contains(learn));
+    assert!(!sent["short_text"].as_str().unwrap().contains("learn."));
+
+    let (status, preview) = post(&app, ALPHA, &owner, &preview_path(&visit), Some(json!({}))).await;
+    assert_eq!(status, StatusCode::OK, "{preview}");
+    let preview = preview["text"].as_str().unwrap();
+    assert_eq!(preview.find("https://"), preview.find(learn), "{preview}");
+
+    // A visit with nothing treated links everyday care.
+    let visit = closed_visit(&app, &owner, &patient).await;
+    let (status, sent) = post(&app, ALPHA, &owner, &message_path(&visit), None).await;
+    assert_eq!(status, StatusCode::OK, "{sent}");
+    let text = sent["text"].as_str().unwrap();
+    assert!(
+        text.contains(
+            "📘 Caring for your teeth at home: https://learn.aarogyam.example/learn/nzpzs8"
+        ),
+        "{text}"
+    );
+}

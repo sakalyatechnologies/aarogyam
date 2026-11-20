@@ -1,0 +1,141 @@
+{
+  "$comment": "Copy of the public learn pages, by topic (docs/plans/visit-story-v2-offers-design.md, section 1.9). General information only: it says what usually happens, never anything about one patient, and always defers to the dentist. 'art' picks the generic still (a tooth type and the stage steps of @aarogyam/app-kit/mouth-art; 'brushing' for everyday care). Each step's 'label' is drawn on the still. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "general_note": "General information about this treatment, not about your visit. If your dentist gave you different advice, follow your dentist's advice.",
+  "call_heading": "Call your clinic if",
+  "pages": {
+    "root_canal": {
+      "summary": "A root canal saves a tooth whose inner soft part (the pulp) is inflamed or infected. It often takes more than one sitting.",
+      "art": { "tooth": "l6", "model": "root_canal" },
+      "steps": [
+        { "scene": "access_clean", "label": "Clean", "text": "The dentist numbs the tooth, opens a small hole in the top and cleans the canals inside the roots." },
+        { "scene": "dressing", "label": "Medicine", "text": "Between sittings, a medicine may be placed inside and the tooth is closed with a temporary filling." },
+        { "scene": "obturation", "label": "Seal", "text": "When the canals are clean, they are filled and sealed." },
+        { "scene": "crown", "label": "Protect", "text": "A back tooth usually needs a crown afterwards, because a treated tooth can break more easily." }
+      ],
+      "expect": [
+        "Some tenderness for a few days is common.",
+        "Avoid biting hard food on the tooth until the treatment is finished.",
+        "Keep every sitting, so the tooth does not get infected again."
+      ],
+      "call": ["swelling appears or pain gets worse", "the temporary filling falls out"]
+    },
+    "filling": {
+      "summary": "A filling repairs a tooth after decay is removed, so the tooth can be used normally again.",
+      "art": { "tooth": "l6", "model": "filling", "params": { "M": "composite", "S": "O" } },
+      "steps": [
+        { "scene": "decay", "label": "Decay", "text": "Decay makes a soft, weak area in the tooth." },
+        { "scene": "cleaned", "label": "Clean", "text": "The dentist removes the decay, usually after numbing the tooth." },
+        { "scene": "filled", "label": "Fill", "text": "The space is filled and shaped so you can bite comfortably." }
+      ],
+      "expect": [
+        "If you were numbed, avoid chewing until the numbness wears off.",
+        "Mild sensitivity to cold for a few days can happen.",
+        "Brushing twice a day and fewer sweet snacks help the filling last."
+      ],
+      "call": ["your bite feels high after a day", "pain or sensitivity keeps getting worse"]
+    },
+    "extraction": {
+      "summary": "A tooth is removed when it cannot be saved or is causing problems. The gap then heals over a few weeks.",
+      "art": { "tooth": "l6", "model": "extraction" },
+      "steps": [
+        { "scene": "remove", "label": "Remove", "text": "The area is numbed and the tooth is gently loosened and taken out." },
+        { "scene": "socket_healing", "label": "Heal", "text": "A blood clot forms in the socket. It protects the area while it heals." }
+      ],
+      "expect": [
+        "Do not spit hard, rinse forcefully or use a straw on the first day.",
+        "Eat soft, lukewarm food and chew on the other side.",
+        "Keep brushing the rest of your mouth, gently near the area."
+      ],
+      "call": ["bleeding does not settle", "pain or swelling gets worse after the second day"]
+    },
+    "wisdom_extraction": {
+      "summary": "Wisdom teeth are the last teeth at the back. One may be removed when there is no room for it or it causes pain or infection.",
+      "art": { "tooth": "l8", "model": "wisdom_extraction" },
+      "steps": [
+        { "scene": "position", "label": "Position", "text": "An X-ray shows how the tooth sits in the jaw." },
+        { "scene": "remove", "label": "Remove", "text": "The area is numbed and the tooth is removed, sometimes in pieces." },
+        { "scene": "socket_healing", "label": "Heal", "text": "The area heals over the next few weeks." }
+      ],
+      "expect": [
+        "Swelling and stiffness for a few days are common.",
+        "Do not spit hard, rinse forcefully or use a straw on the first day.",
+        "Eat soft food and keep the area clean as your dentist advises."
+      ],
+      "call": ["bleeding does not settle", "pain, swelling or fever gets worse"]
+    },
+    "crown": {
+      "summary": "A crown is a cap that covers a weak or broken tooth to protect it and restore its shape.",
+      "art": { "tooth": "u6", "model": "crown", "params": { "M": "g:porc" } },
+      "steps": [
+        { "scene": "prep", "label": "Shape", "text": "The tooth is shaped so the crown can fit over it. A temporary crown may be placed." },
+        { "scene": "crown", "label": "Fit", "text": "The final crown is fixed in place." }
+      ],
+      "expect": [
+        "With a temporary crown, avoid sticky and hard food on that side.",
+        "Clean around the crown at the gum line every day.",
+        "A crown lasts longer with regular check-ups."
+      ],
+      "call": ["the temporary crown comes off", "your bite feels uneven"]
+    },
+    "scaling": {
+      "summary": "A cleaning removes hard deposits (tartar) that brushing cannot remove, so the gums can heal.",
+      "art": { "tooth": "l1", "model": "scaling" },
+      "steps": [
+        { "scene": "calculus", "label": "Tartar", "text": "Tartar builds up near the gums and can make them red and bleed." },
+        { "scene": "clean", "label": "Clean", "text": "The dentist removes the tartar and polishes the teeth." }
+      ],
+      "expect": [
+        "Gums may feel tender or bleed a little for a day or two.",
+        "Teeth can feel sensitive for a few days.",
+        "Brush twice a day and clean between your teeth to keep tartar away."
+      ],
+      "call": ["bleeding or sensitivity does not settle"]
+    },
+    "implant": {
+      "summary": "An implant replaces a missing tooth with a small post in the jaw that holds a new crown.",
+      "art": { "tooth": "l6", "model": "implant", "params": { "M": "g:porc" } },
+      "steps": [
+        { "scene": "post", "label": "Post", "text": "A small post is placed in the jaw. It joins with the bone over a few months." },
+        { "scene": "abutment", "label": "Connect", "text": "A connector is fixed on top of the post." },
+        { "scene": "crown", "label": "Crown", "text": "The new crown is fixed on the connector." }
+      ],
+      "expect": [
+        "Some swelling and tenderness after placing the post are common.",
+        "Eat soft food on that side while it heals.",
+        "Clean around the implant every day, like a natural tooth."
+      ],
+      "call": ["swelling or pain gets worse", "the implant or crown feels loose"]
+    },
+    "sealant": {
+      "summary": "A sealant is a thin protective coating on the grooves of back teeth, where decay often starts.",
+      "art": { "tooth": "l7", "model": "sealant" },
+      "steps": [
+        { "scene": "fissures", "label": "Grooves", "text": "Deep grooves on chewing surfaces trap food and germs." },
+        { "scene": "sealed", "label": "Seal", "text": "The grooves are cleaned and coated. No numbing is needed." }
+      ],
+      "expect": [
+        "You can eat normally soon after.",
+        "Keep brushing twice a day with fluoride toothpaste.",
+        "Sealants are checked at regular visits and touched up if needed."
+      ],
+      "call": ["the coating feels rough or chipped"]
+    },
+    "general_care": {
+      "summary": "Simple daily habits keep teeth and gums healthy between visits.",
+      "art": { "brushing": "general_adult" },
+      "steps": [
+        { "scene": "brush", "label": "Brush", "text": "Brush twice a day for about two minutes with a soft brush and fluoride toothpaste." },
+        { "scene": "between", "label": "Between", "text": "Clean between your teeth once a day with floss or small brushes." },
+        { "scene": "check", "label": "Check-up", "text": "Visit your dentist for regular check-ups, even when nothing hurts." }
+      ],
+      "expect": [
+        "Fewer sweet snacks and drinks between meals help prevent decay.",
+        "Help young children brush until they can do it well themselves.",
+        "Replace your toothbrush every few months."
+      ],
+      "call": ["a tooth hurts or a gum swells", "gums bleed often when you brush"]
+    }
+  }
+}

@@ -150,6 +150,7 @@ struct Inner {
     allergies: Arc<dyn AllergySource>,
     files: Option<Files>,
     website: WebsiteLinks,
+    learn_origin: Option<String>,
     accounts: Option<Arc<dyn SignInAccounts>>,
     quality_dir: PathBuf,
     clients: Arc<ClientPolicy>,
@@ -237,6 +238,7 @@ impl AppState {
                 allergies: Arc::new(RecordedAllergies),
                 files: None,
                 website: WebsiteLinks::default(),
+                learn_origin: None,
                 accounts: None,
                 quality_dir: PathBuf::from("var/quality"),
                 clients: Arc::new(ClientPolicy::default()),
@@ -320,6 +322,17 @@ impl AppState {
     pub fn with_website(mut self, website: WebsiteLinks) -> Self {
         if let Some(inner) = Arc::get_mut(&mut self.inner) {
             inner.website = website;
+        }
+        self
+    }
+
+    /// Sets the public learn host's origin (`https://learn.<root>`, design §1.9), which puts a
+    /// learn link first in the visit summary. Without it the summary has no learn link. Call
+    /// before the state is shared (cloned).
+    #[must_use]
+    pub fn with_learn_origin(mut self, origin: Option<String>) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.learn_origin = origin;
         }
         self
     }
@@ -486,6 +499,10 @@ impl AppState {
 
     pub(crate) fn hosts(&self) -> &Hosts {
         &self.inner.hosts
+    }
+
+    pub(crate) fn learn_origin(&self) -> Option<&str> {
+        self.inner.learn_origin.as_deref()
     }
 
     pub(crate) fn dev_tokens(&self) -> Option<&DevTokens> {

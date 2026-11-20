@@ -150,8 +150,11 @@ pub struct Line {
     pub quantity: u32,
     /// Price of one.
     pub unit_price: Paise,
-    /// Discount on the whole line.
+    /// Manual discount on the whole line.
     pub discount: Paise,
+    /// An offer or referral code's share of the line, on a draft (zero on issued and void
+    /// lines, where it is folded into `discount`).
+    pub promo: Paise,
     /// GST rate.
     pub rate: GstRate,
 }
@@ -184,13 +187,20 @@ impl Line {
         if !(1..=10_000).contains(&self.quantity) {
             return Err(BillingError::Quantity);
         }
-        if self.unit_price.is_negative() || self.discount.is_negative() {
+        if self.unit_price.is_negative() || self.discount.is_negative() || self.promo.is_negative()
+        {
             return Err(BillingError::Negative);
         }
-        if self.discount > self.gross()? {
+        if self.all_discounts()? > self.gross()? {
             return Err(BillingError::Discount);
         }
         Ok(())
+    }
+
+    fn all_discounts(&self) -> Result<Paise, BillingError> {
+        self.discount
+            .checked_add(self.promo)
+            .ok_or(BillingError::Overflow)
     }
 
     fn gross(&self) -> Result<Paise, BillingError> {
@@ -207,9 +217,8 @@ impl Line {
     pub fn amounts(&self, supply: Supply) -> Result<LineAmounts, BillingError> {
         self.check()?;
         let gross = self.gross()?;
-        let taxable = gross
-            .checked_sub(self.discount)
-            .ok_or(BillingError::Overflow)?;
+        let discount = self.all_discounts()?;
+        let taxable = gross.checked_sub(discount).ok_or(BillingError::Overflow)?;
         let (cgst, sgst, igst) = match supply {
             Supply::IntraState => {
                 let half = taxable
@@ -228,7 +237,7 @@ impl Line {
             Paise::checked_sum([taxable, cgst, sgst, igst]).ok_or(BillingError::Overflow)?;
         Ok(LineAmounts {
             gross,
-            discount: self.discount,
+            discount,
             taxable,
             cgst,
             sgst,
@@ -468,6 +477,7 @@ mod tests {
 
     fn line(quantity: u32, unit: i64, discount: i64, percent: u32) -> Line {
         Line {
+            promo: Paise::ZERO,
             quantity,
             unit_price: Paise::new(unit),
             discount: Paise::new(discount),

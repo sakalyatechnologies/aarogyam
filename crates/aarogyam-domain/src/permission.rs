@@ -75,11 +75,13 @@ pub enum Permission {
     PaymentsCollect,
     /// Post pinned notices in chat conversations.
     ChatNotice,
+    /// Give patients offer and referral codes, within the role's caps.
+    OffersGive,
 }
 
 impl Permission {
     /// Every permission, in catalogue order.
-    pub const ALL: [Self; 33] = [
+    pub const ALL: [Self; 34] = [
         Self::PatientsRead,
         Self::PatientsWrite,
         Self::PatientsContact,
@@ -113,6 +115,7 @@ impl Permission {
         Self::TimeOffManage,
         Self::PaymentsCollect,
         Self::ChatNotice,
+        Self::OffersGive,
     ];
 
     /// The catalogue key, such as `patients.read`.
@@ -152,6 +155,7 @@ impl Permission {
             Self::TimeOffManage => "time_off.manage",
             Self::PaymentsCollect => "payments.collect",
             Self::ChatNotice => "chat.notice",
+            Self::OffersGive => "offers.give",
         }
     }
 
@@ -383,6 +387,7 @@ required!(
     TimeOffManage,
     PaymentsCollect,
     ChatNotice,
+    OffersGive,
 );
 
 #[cfg(test)]
@@ -430,7 +435,7 @@ mod tests {
     fn bits_above_the_old_u32_limit_still_work() {
         // The set was a u32 until the 32nd permission arrived; every bit must stay distinct.
         let last = Permission::ALL[Permission::ALL.len() - 1];
-        assert_eq!(last, Permission::ChatNotice);
+        assert_eq!(last, Permission::OffersGive);
         let set = PermissionSet::EMPTY
             .with(last, Scope::All)
             .with(Permission::PatientsRead, Scope::Own);

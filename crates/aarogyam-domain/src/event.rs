@@ -215,6 +215,14 @@ pub enum Event {
     ChatAttachmentPosted,
     /// A pinned notice was posted in a staff chat conversation.
     ChatNoticePosted,
+    /// An offer or referral code was given (ids only, never the code).
+    OfferIssued,
+    /// A code was applied to a draft bill (held), or became final at issue.
+    OfferRedeemed,
+    /// A code's use was reversed (removed, void, revoked, moved or stale).
+    OfferReversed,
+    /// A referrer's reward was minted at the issue of a friend's first bill.
+    ReferralRewardIssued,
     /// A lab or a lab contact was added, changed or removed.
     LabChanged,
     /// A lab order was recorded.
@@ -367,6 +375,10 @@ impl Event {
             Self::ChatMessageDeleted => "chat_message.deleted",
             Self::ChatAttachmentPosted => "chat_attachment.posted",
             Self::ChatNoticePosted => "chat_notice.posted",
+            Self::OfferIssued => "offer.issued",
+            Self::OfferRedeemed => "offer.redeemed",
+            Self::OfferReversed => "offer.reversed",
+            Self::ReferralRewardIssued => "referral_reward.issued",
             Self::LabChanged => "lab.changed",
             Self::LabOrderCreated => "lab_order.created",
             Self::LabOrderUpdated => "lab_order.updated",

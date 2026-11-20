@@ -52,6 +52,7 @@ pub mod legal_hold;
 pub mod live;
 pub mod lookups;
 pub mod medicine_sets;
+pub mod member_message_prefs;
 pub mod merge;
 pub mod message_templates;
 pub mod message_worker;

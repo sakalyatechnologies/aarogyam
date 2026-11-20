@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.specialty_records set status = 'entered_in_error', error_reason = $2\n           where id = $1 and status = 'current'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dfc91a26eb83daadb4cc677688eefc4c05b8cf887df33b10acedad771f1915ed"
+}

@@ -2326,6 +2326,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/message-prefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's message defaults in this clinic and their hand-off count. */
+        get: operations["getMessagePrefs"];
+        /** Saves the caller's default ticks in this clinic. */
+        put: operations["saveMessagePrefs"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/onboarding": {
         parameters: {
             query?: never;
@@ -3540,6 +3558,85 @@ export interface paths {
          *     everything. Returns the updated chart.
          */
         post: operations["recordDentalChart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/condition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Sets a tooth's condition. Under a lock on the tooth's condition, the change merges onto the
+         *     current row (an omitted field keeps its value, `null` clears it) and the merged row
+         *     supersedes it, in the open visit when there is one; concurrent changes both land. Returns the
+         *     condition.
+         */
+        put: operations["setToothCondition"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/condition/entered-in-error": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marks a tooth's current condition entered in error. The tooth has no condition until the
+         *     next change; the history keeps the row with the reason.
+         */
+        post: operations["toothConditionInError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/eruption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Sets a permanent tooth's eruption: it supersedes the current one, in the open visit when
+         *     there is one. Returns the eruption.
+         */
+        put: operations["setToothEruption"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/eruption/entered-in-error": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marks a tooth's current eruption entered in error. The history keeps the row with the reason. */
+        post: operations["toothEruptionInError"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6165,6 +6262,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visits/{id}/mouth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The mouth snapshot of a visit for the doctor's Present mode: exactly the shape the patient's
+         *     page shows as `chart`, and nothing else. It works while the visit is open (no messaging
+         *     checks); refetch it after any chart, plan, procedure, tooth status or booking change.
+         */
+        get: operations["getVisitMouth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/visits/{id}/notes": {
         parameters: {
             query?: never;
@@ -6238,9 +6356,51 @@ export interface paths {
         put?: never;
         /**
          * Prepares the visit's summary for the doctor's `WhatsApp`: the message, a new visit link (7
-         *     days; at most three live per visit, the oldest revoked) and its PIN. Nothing is sent.
+         *     days; at most three live per visit, the oldest revoked) and its PIN. Nothing is sent. The
+         *     optional body's `sections` limit the text to the ticked ones and become the caller's
+         *     defaults; with no body (or no `Content-Type`) the text has every section.
          */
         post: operations["prepareVisitPatientMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}/patient-message/handed-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Counts that the caller handed the visit's summary to `WhatsApp`. It means "handed off",
+         *     never "sent".
+         */
+        post: operations["handOffVisitPatientMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}/patient-message/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The summary as Send would build it with these ticks, for the Done screen's live preview. It
+         *     mints, revokes and saves nothing; the link and PIN are stand-ins of the same length.
+         */
+        post: operations["previewVisitPatientMessage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7427,6 +7587,11 @@ export interface components {
         ChartEntry: {
             /** @description For a root canal: its canals with their working lengths. Empty for any other entry. */
             canals: components["schemas"]["RootCanal"][];
+            /**
+             * @description How deep the decay reaches on a caries entry: `enamel`, `dentin` or `near_pulp`. Left
+             *     out when not recorded.
+             */
+            caries_depth?: string | null;
             /** @description When the finding was made (RFC 3339). */
             effective_at: string;
             /** @description The work was done by another dentist ("done elsewhere"). Left out when false. */
@@ -8728,8 +8893,15 @@ export interface components {
         };
         /** @description A patient's dental chart. Teeth without entries are absent: draw them as sound. */
         DentalChart: {
+            /**
+             * @description The current condition (infection, gums, mobility) of each tooth that has one, by tooth.
+             *     Left out when none.
+             */
+            conditions?: components["schemas"]["ToothCondition"][];
             /** @description The current entries, by tooth (the whole-tooth entry first, then surfaces). */
             current: components["schemas"]["ChartEntry"][];
+            /** @description The current eruption of each permanent tooth that has one, by tooth. Left out when none. */
+            eruptions?: components["schemas"]["ToothEruption"][];
             /** @description Every entry of the requested tooth, newest first; empty unless `tooth` was given. */
             history: components["schemas"]["ChartEntry"][];
             /**
@@ -8762,6 +8934,11 @@ export interface components {
             method: string;
             /** @description `care`, `reminders`, `promotional`, `sharing` or `research`. */
             purpose: string;
+        };
+        /** @description Why a detail row is wrong. */
+        DetailInError: {
+            /** @description 3 to 500 characters. */
+            reason: string;
         };
         /** @description Who to sign in as. */
         DevTokenRequest: {
@@ -9239,6 +9416,11 @@ export interface components {
             to: string;
             /** @description Each app, page and vital with readings. */
             vitals: components["schemas"]["VitalStat"][];
+        };
+        /** @description A summary was handed to `WhatsApp` (not "sent": the doctor presses Send there). */
+        HandOff: {
+            /** @description The message template's version the client used, 1 to 40 characters. */
+            template_version?: string | null;
         };
         /**
          * @description Who handled a notification: confirmed, declined or cancelled its appointment, or received,
@@ -10800,6 +10982,34 @@ export interface components {
             /** @description Up to 100 messages. */
             items: components["schemas"]["MessageSummary"][];
         };
+        /**
+         * @description The caller's message defaults in this clinic and their hand-off count. No auto-send fields
+         *     yet.
+         */
+        MessagePrefs: {
+            /**
+             * Format: int32
+             * @description Clinic days with at least one hand-off.
+             */
+            handoff_days: number;
+            /**
+             * Format: int32
+             * @description Summaries handed to `WhatsApp`.
+             */
+            handoffs: number;
+            /** @description The clinic day of the last hand-off (`YYYY-MM-DD`). */
+            last_handoff_on?: string | null;
+            /** @description The sections ticked by default (every one until saved). */
+            sections: string[];
+        };
+        /**
+         * @description The summary as Send would build it, with a stand-in link (`/shared/` and 43 × `x`) and PIN
+         *     `XXXXXX` as long as real ones. Nothing was minted or saved.
+         */
+        MessagePreview: {
+            /** @description The full message with the stand-ins; grey them out in the preview. */
+            text: string;
+        };
         /** @description The clinic's message numbers for the month so far. */
         MessageStats: {
             /** @description One entry per channel (`email`, `sms`, `whatsapp`), used or not. */
@@ -11026,6 +11236,197 @@ export interface components {
             /** @description The month, `YYYY-MM`. */
             month: string;
         };
+        /** @description Detail taps recorded on the tooth's current rows; a field is absent unless recorded. */
+        MouthDetails: {
+            /** @description `vertical`, `mesioangular`, `distoangular` or `horizontal`. */
+            angulation?: string | null;
+            /** @description Gums bleed on probing. */
+            bleeding?: boolean | null;
+            /**
+             * @description `enamel`, `dentin` or `near_pulp`. Absent: draw a neutral cavity labelled
+             *     "Illustration: depth not recorded".
+             */
+            caries_depth?: string | null;
+            /** @description When the condition was recorded (`YYYY-MM-DD`): "Infection: recorded 12 Nov". */
+            condition_on?: string | null;
+            /** @description `erupted`, `partial`, `impacted` or `unerupted`. */
+            eruption?: string | null;
+            /** @description `infection` or `abscess`. */
+            infection?: string | null;
+            /**
+             * Format: int32
+             * @description Mobility grade 0 to 3.
+             */
+            mobility?: number | null;
+            /**
+             * Format: int32
+             * @description Deepest pocket in mm (tooth detail only).
+             */
+            pocket_mm?: number | null;
+        };
+        /** @description The tooth not drawn at a mixed position. */
+        MouthOtherTooth: {
+            /** @description Its headline finding, or `sound`. */
+            finding: string;
+            /**
+             * Format: int32
+             * @description FDI tooth.
+             */
+            tooth: number;
+        };
+        /** @description One tooth position to draw. */
+        MouthPosition: {
+            /**
+             * Format: int32
+             * @description Position 1 to 8 from the midline.
+             */
+            index: number;
+            other?: components["schemas"]["MouthOtherTooth"] | null;
+            /**
+             * Format: int32
+             * @description FDI quadrant of the drawn tooth (5 to 8 for a primary tooth).
+             */
+            quadrant: number;
+            /**
+             * @description `tooth` (listed in `teeth`), `sound`, or `not_recorded` (mixed dentition, nothing
+             *     charted: a neutral outline labelled "Not recorded", never sound).
+             */
+            shown: string;
+            /**
+             * Format: int32
+             * @description The FDI tooth drawn there.
+             */
+            tooth: number;
+        };
+        /**
+         * @description The patient's mouth: every position to draw, the teeth with anything to show, and the next
+         *     booked visit. Sound teeth are implied.
+         */
+        MouthSnapshot: {
+            /**
+             * @description `adult`, `child` or `mixed`. A plain string, never a strict enum: render unknown values
+             *     as `adult`.
+             */
+            dentition: string;
+            /**
+             * @description Up to three key teeth for the story: treated today, then planned and needing treatment,
+             *     then found.
+             */
+            focus: number[];
+            /** @description The patient's next booked visit (`YYYY-MM-DD`), shown once on the overview. */
+            next_visit?: string | null;
+            /** @description Every tooth position to draw, in quadrant order. */
+            positions: components["schemas"]["MouthPosition"][];
+            /**
+             * Format: int32
+             * @description The story contract the page and video follow (an integer; bumped when scenes change).
+             */
+            story_version: number;
+            /** @description The teeth with a finding, health level, detail, work, treatment, plan or something today. */
+            teeth: components["schemas"]["MouthTooth"][];
+        };
+        /** @description One treatment step. */
+        MouthStep: {
+            /** @description What usually follows; shown under "Usually". */
+            after_words: string;
+            /** @description Step key, such as `dressing`. */
+            key: string;
+            /** @description The visit day (`YYYY-MM-DD`). */
+            on?: string | null;
+            /** @description The stage art scene. */
+            scene: string;
+            /**
+             * Format: int32
+             * @description The recorded sitting.
+             */
+            sitting?: number | null;
+            /**
+             * @description `done` or `current` (backed by a record here: "Visit {sitting}", else "Visit on {on}";
+             *     "You are here" on current), `next` (the booked visit on `on`), or `usual` (under "Usual
+             *     steps", with no visit number, date or price).
+             */
+            state: string;
+            /** @description What happens. */
+            words: string;
+        };
+        /** @description One tooth with what is recorded on it. */
+        MouthTooth: {
+            details?: components["schemas"]["MouthDetails"] | null;
+            /** @description The headline finding (a chart finding value). */
+            finding?: string | null;
+            /** @description The doctor's health level (`healthy`, `watch`, `needs_treatment`); absent without one. */
+            health?: string | null;
+            /**
+             * @description How the headline work looks: `composite`, `amalgam`, `porcelain`, `metal`, `zirconia` or
+             *     `temporary`.
+             */
+            material?: string | null;
+            /** @description Something is planned on it (accepted plan items and planned procedures only). */
+            planned?: boolean;
+            /** @description Recorded problem findings: `caries`, `fractured`, `watch`, `missing`. */
+            problems?: string[];
+            /**
+             * Format: int32
+             * @description The sitting of a treatment in progress.
+             */
+            sitting?: number | null;
+            /**
+             * @description `M`, `O`, `D`, `B` or `L` of a caries or filled headline (`O` on a front tooth is the
+             *     biting edge).
+             */
+            surfaces?: string[];
+            /** @description `treated`, `in_progress` or `found` in this visit. */
+            today?: string | null;
+            /**
+             * Format: int32
+             * @description FDI tooth: 11-48, or 51-85 for primary teeth.
+             */
+            tooth: number;
+            /**
+             * Format: int32
+             * @description Treat within this many months.
+             */
+            treat_within_months?: number | null;
+            /** @description Treatments in progress, done here, or planned, with their steps. */
+            treatments?: components["schemas"]["MouthTreatment"][];
+            /** @description Finished work: filling, crown, root canal, implant, bridge or missing. */
+            work?: components["schemas"]["MouthWork"][];
+        };
+        /** @description A treatment with its steps, resolved on the server. */
+        MouthTreatment: {
+            /**
+             * @description The model: `root_canal`, `filling`, `extraction`, `wisdom_extraction`, `crown`,
+             *     `scaling` or `implant` (a plain string; more may come).
+             */
+            model: string;
+            /** @description Shown under "What to expect", never as patient-specific. */
+            recovery: string[];
+            /** @description `in_progress`, `done` or `planned`. */
+            state: string;
+            /** @description The steps in order. */
+            steps: components["schemas"]["MouthStep"][];
+            /**
+             * Format: int32
+             * @description Visits it usually takes.
+             */
+            typical_visits: number;
+        };
+        /** @description Finished work on a tooth. */
+        MouthWork: {
+            /** @description The visit day (`YYYY-MM-DD`), only for `here`. */
+            done_on?: string | null;
+            /** @description The work finding. */
+            finding: string;
+            /** @description How it looks. */
+            material?: string | null;
+            /**
+             * @description `here` ("Done here"), `elsewhere` ("Done elsewhere") or `before` ("Done before"). Never
+             *     a clinic or dentist name.
+             */
+            origin: string;
+            /** @description Recorded in this visit: Present mode labels it "Done here · today". */
+            today?: boolean;
+        };
         /**
          * @description The `409` answer to a move the record's state doesn't allow (an appointment that is already
          *     cancelled can't arrive): the usual error and the record as it is, so the client can show it.
@@ -11160,6 +11561,12 @@ export interface components {
         NewChartEntry: {
             /** @description Only with `root_canal`: 1 to 8 canals, each with a name and an optional working length. */
             canals?: components["schemas"]["RootCanal"][];
+            /**
+             * @description Only with `caries`: how deep the decay reaches, `enamel`, `dentin` or `near_pulp`. Left
+             *     out, a caries entry replacing a caries entry on the same tooth and surface keeps its
+             *     depth; `null` clears it.
+             */
+            caries_depth?: string | null;
             /**
              * @description The work was done by another dentist. Defaults to false; only on `filled`, `crown`,
              *     `implant`, `root_canal`, `bridge` or `missing`, and never with `in_progress`.
@@ -11398,6 +11805,11 @@ export interface components {
             /** @description The clinic's address name, such as `sunrise` (from `sunrise.aarogyam.example`). */
             clinic: string;
         };
+        /** @description New default ticks. */
+        NewMessagePrefs: {
+            /** @description The sections to tick by default; an unknown name is a 400. */
+            sections: string[];
+        };
         /** @description A draft note to start. */
         NewNote: {
             /** @description A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out. */
@@ -11426,6 +11838,14 @@ export interface components {
             preferred_language?: string | null;
             /** @description `female`, `male`, `other` or `unknown` (default). */
             sex?: string | null;
+        };
+        /**
+         * @description The doctor's ticks for a visit summary. Section names: `done`, `detail`, `found`, `plan`,
+         *     `medicines`, `care`, `offer`, `video`; more may come, and an unknown name is a 400.
+         */
+        NewPatientMessage: {
+            /** @description The ticked sections. Absent means every section. */
+            sections?: string[] | null;
         };
         /** @description An offer's requested terms; anything left out comes from the presets. */
         NewPatientOffer: {
@@ -11684,6 +12104,33 @@ export interface components {
             reason?: string | null;
             /** @description Start (RFC 3339), with `ends_at`. */
             starts_at?: string | null;
+        };
+        /** @description A change to a tooth's condition: an omitted field keeps its value, `null` clears it. */
+        NewToothCondition: {
+            /** @description Gums bleed on probing. */
+            bleeding?: boolean | null;
+            /** @description `infection` or `abscess`; `null` clears it ("Infection resolved"). */
+            infection?: string | null;
+            /**
+             * Format: int64
+             * @description Mobility grade, 0 to 3; allowed on primary teeth.
+             */
+            mobility?: number | null;
+            /**
+             * Format: int64
+             * @description Deepest pocket in mm, 1 to 15 (the "7+" chip sends 7).
+             */
+            pocket_mm?: number | null;
+        };
+        /** @description A permanent tooth's eruption. */
+        NewToothEruption: {
+            /**
+             * @description `vertical`, `mesioangular`, `distoangular` or `horizontal`; only with `partial`,
+             *     `impacted` or `unerupted`.
+             */
+            angulation?: string | null;
+            /** @description `erupted`, `partial`, `impacted` or `unerupted`. */
+            eruption: string;
         };
         /** @description A tooth's health status to set. */
         NewToothStatus: {
@@ -16180,6 +16627,56 @@ export interface components {
              */
             status: string;
         };
+        /** @description A tooth's current condition. Each field is present only when recorded. */
+        ToothCondition: {
+            /** @description Gums bleed on probing. */
+            bleeding?: boolean | null;
+            /** @description Identifier of the current row. */
+            id: string;
+            /** @description `infection` or `abscess`. */
+            infection?: string | null;
+            /**
+             * Format: int32
+             * @description Mobility grade, 0 to 3.
+             */
+            mobility?: number | null;
+            /**
+             * Format: int32
+             * @description Deepest pocket in mm, 1 to 15.
+             */
+            pocket_mm?: number | null;
+            /** @description When it was recorded (RFC 3339). */
+            recorded_at: string;
+            /** @description The member who recorded it. */
+            recorded_by?: string | null;
+            /**
+             * Format: int32
+             * @description FDI tooth number (primary teeth included).
+             */
+            tooth: number;
+            /** @description The visit it was recorded in, if one was open. */
+            visit_id?: string | null;
+        };
+        /** @description A permanent tooth's current eruption. */
+        ToothEruption: {
+            /** @description `vertical`, `mesioangular`, `distoangular` or `horizontal`, only when not through. */
+            angulation?: string | null;
+            /** @description `erupted`, `partial`, `impacted` or `unerupted`. */
+            eruption: string;
+            /** @description Identifier of the current row. */
+            id: string;
+            /** @description When it was recorded (RFC 3339). */
+            recorded_at: string;
+            /** @description The member who recorded it. */
+            recorded_by?: string | null;
+            /**
+             * Format: int32
+             * @description FDI tooth number (permanent only).
+             */
+            tooth: number;
+            /** @description The visit it was recorded in, if one was open. */
+            visit_id?: string | null;
+        };
         /**
          * @description How a tooth is, as the doctor judges it.
          * @enum {string}
@@ -16575,6 +17072,7 @@ export interface components {
             booking_host?: string | null;
             /** @description Where to book the next visit: the clinic's public booking page, when it has a portal. */
             booking_path?: string | null;
+            chart?: components["schemas"]["MouthSnapshot"] | null;
             /** @description Why the patient came. */
             chief_complaint?: string | null;
             /** @description The clinic's name. */
@@ -24313,6 +24811,85 @@ export interface operations {
             };
         };
     };
+    getMessagePrefs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every section until saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePrefs"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    saveMessagePrefs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewMessagePrefs"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePrefs"];
+                };
+            };
+            /** @description An unknown section */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read, or Sakalya support */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getMySetup: {
         parameters: {
             query?: never;
@@ -27746,6 +28323,242 @@ export interface operations {
             };
             /** @description The visit is closed, the corrected entry is no longer current, the chart changed at the same moment, or `id_conflict`: the client_id made other entries */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setToothCondition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description FDI tooth number */
+                tooth: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewToothCondition"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToothCondition"];
+                };
+            };
+            /** @description A bad tooth or value, nothing left after the merge, or infection, pocket or mobility on a missing tooth */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The tooth changed at the same moment */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    toothConditionInError: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description FDI tooth number */
+                tooth: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DetailInError"];
+            };
+        };
+        responses: {
+            /** @description Marked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A bad tooth or reason */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or no condition on the tooth */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setToothEruption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description FDI tooth number (permanent) */
+                tooth: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewToothEruption"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToothEruption"];
+                };
+            };
+            /** @description A primary tooth, an unknown eruption or angle, or an angle on an erupted tooth */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The tooth changed at the same moment */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    toothEruptionInError: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description FDI tooth number */
+                tooth: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DetailInError"];
+            };
+        };
+        responses: {
+            /** @description Marked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A bad tooth or reason */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic, or no eruption on the tooth */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -36588,6 +37401,50 @@ export interface operations {
             };
         };
     };
+    getVisitMouth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The snapshot; `Cache-Control: no-store` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MouthSnapshot"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic or the caller's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     createNote: {
         parameters: {
             query?: never;
@@ -36837,7 +37694,12 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        /** @description Optional: the ticked sections */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NewPatientMessage"] | null;
+            };
+        };
         responses: {
             /** @description Prepared; `Cache-Control: no-store` */
             200: {
@@ -36847,6 +37709,128 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["VisitPatientMessage"];
                 };
+            };
+            /** @description Not JSON, or an unknown section */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read or patients.contact */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic, or the patient was erased */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `visit_open`, `no_phone`, `no_consent` or `opted_out` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    handOffVisitPatientMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandOff"];
+            };
+        };
+        responses: {
+            /** @description Counted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `template_version` is blank or longer than 40 characters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read or patients.contact */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    previewVisitPatientMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPatientMessage"];
+            };
+        };
+        responses: {
+            /** @description The text; `Cache-Control: no-store` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePreview"];
+                };
+            };
+            /** @description An unknown section */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not signed in */
             401: {

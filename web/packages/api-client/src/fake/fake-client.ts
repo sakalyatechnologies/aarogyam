@@ -64,6 +64,7 @@ import { EXPENSE_NAMES, buildAnalytics, daysInclusive, wireExpense, type FakeExp
 import { changeRecurring, isRefusal, newRecurring, recordDue, resumeRecurring, wireRecurring, type FakeRecurring } from "./recurring-expenses.js";
 import { DASHBOARD_CATALOGUE, builtInLayout, validateLayout } from "./dashboard-layout.js";
 import { clinicTerms, type FakeDentalTerm } from "./dental-terms.js";
+import { ANGULATIONS, ERUPTIONS, FIXTURE_MOUTH, mergeCondition, wireCondition as wireToothCondition, wireDetails, wireEruption } from "./tooth-details.js";
 import { MAX_GRANT_MS, MIN_GRANT_MS, grantStatus, wireGrant, type FakeSupportGrant } from "./support-grants.js";
 import {
   atLab,
@@ -4364,7 +4365,87 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ id: link.id, token: link.token, pin: link.pin, expires_at: link.expires_at, channel: share.channel } satisfies C.VisitLink);
         }),
 
-      prepareVisitPatientMessage: (id, opts) =>
+      previewVisitPatientMessage: (id, input, opts) =>
+        respond(S.messagePreview, opts?.signal, async () => {
+          const reader = await inClinic("clinical.read");
+          if (!isCaller(reader)) {
+            return reader;
+          }
+          const caller = await inClinic("patients.contact");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const unknown = (input.sections ?? []).find((s) => !isSection(s));
+          if (unknown !== undefined) {
+            return invalid("sections", "unknown section");
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          const patient = found === undefined ? undefined : state.patients.find((p) => p.id === found.patient_id);
+          if (found === undefined || patient === undefined) {
+            return notFound;
+          }
+          if (found.status !== "closed") {
+            return refuse(409, "visit_open", "Finish the visit first.");
+          }
+          if (patient.phone == null) {
+            return refuse(409, "no_phone", "This patient has no mobile number.");
+          }
+          // Mints nothing: a stand-in link and PIN as long as real ones.
+          const url = `https://${caller.clinic.host}/shared/${"x".repeat(43)}`;
+          return reply({ text: fakeSummaryText(caller.clinic.name, found.number, url, "XXXXXX", input.sections) } satisfies C.MessagePreview);
+        }),
+
+      handOffVisitPatientMessage: (id, input, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const reader = await inClinic("clinical.read");
+          if (!isCaller(reader)) {
+            return reader;
+          }
+          const caller = await inClinic("patients.contact");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const version = input.template_version?.trim();
+          if (version !== undefined && (version === "" || version.length > 40)) {
+            return invalid("template_version", "1 to 40 characters");
+          }
+          if (!state.visits.some((v) => v.id === id && v.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          const prefs = memberPrefs(state, caller.membership.id);
+          const today = clock().toISOString().slice(0, 10);
+          prefs.handoffs += 1;
+          if (prefs.last_handoff_on !== today) {
+            prefs.handoff_days += 1;
+          }
+          prefs.last_handoff_on = today;
+          return reply(undefined);
+        }),
+
+      getMessagePrefs: (opts) =>
+        respond(S.messagePrefs, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(wirePrefs(memberPrefs(state, caller.membership.id)));
+        }),
+
+      saveMessagePrefs: (input, opts) =>
+        respond(S.messagePrefs, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (input.sections.some((s) => !isSection(s))) {
+            return invalid("sections", "unknown section");
+          }
+          const prefs = memberPrefs(state, caller.membership.id);
+          prefs.sections = S.MESSAGE_SECTIONS.filter((s) => input.sections.includes(s));
+          return reply(wirePrefs(prefs));
+        }),
+
+      prepareVisitPatientMessage: (id, opts, input) =>
         respond(S.visitPatientMessage, opts?.signal, async () => {
           const reader = await inClinic("clinical.read");
           if (!isCaller(reader)) {
@@ -4384,6 +4465,14 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           if (patient.phone == null) {
             return refuse(409, "no_phone", "This patient has no mobile number.");
+          }
+          const sections = input?.sections ?? undefined;
+          if (sections != null) {
+            if (sections.some((s) => !isSection(s))) {
+              return invalid("sections", "unknown section");
+            }
+            // Send saves the ticks as the doctor's defaults.
+            memberPrefs(state, caller.membership.id).sections = S.MESSAGE_SECTIONS.filter((s) => sections.includes(s));
           }
           const now = clock();
           const link: FakeShareLink = {
@@ -4405,7 +4494,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           const warning = "This link opens your health record. Please don't forward it.";
           return reply({
             phone_e164: patient.phone,
-            text: `${greeting} 😊\n\n✅ *Done today*\nVisit ${found.number}\n\nYour visit summary: ${url}\nPIN: ${link.pin}\n${warning}`,
+            text: fakeSummaryText(caller.clinic.name, found.number, url, link.pin, sections),
             short_text: `${greeting} Your visit summary: ${url} PIN: ${link.pin}. ${warning}`,
             desktop_text: `${greeting}\n\n*Done today*\nVisit ${found.number}\n\nYour visit summary: ${url}\nPIN: ${link.pin}\n${warning}`,
             url,
@@ -5026,7 +5115,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               : state.chartEntries
                   .filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.tooth === tooth)
                   .sort((a, b) => b.effective_at.localeCompare(a.effective_at));
-          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: history.map((c) => wireChartEntry(c, state)), terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id) } satisfies C.DentalChart);
+          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: history.map((c) => wireChartEntry(c, state)), terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id) } satisfies C.DentalChart);
         }),
 
       recordChartEntries: (id, input, opts) =>
@@ -5047,7 +5136,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               current: state.chartEntries.filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "current").map((c) => wireChartEntry(c, state)),
               history: [],
               terms: clinicTerms(state.dentalTerms, caller.clinic.id),
-              ...wireStatuses(state, caller.clinic.id, id),
+              ...wireStatuses(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id),
             } satisfies C.DentalChart);
           if (input.client_id != null) {
             const key = `${caller.clinic.id}:${input.client_id}`;
@@ -5137,7 +5226,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             state.chartEntries.push(record);
           }
           const current = state.chartEntries.filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "current");
-          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: [], terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id) } satisfies C.DentalChart);
+          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: [], terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id) } satisfies C.DentalChart);
         }),
 
       setToothStatus: (id, tooth, input, opts) =>
@@ -5216,6 +5305,112 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             if (s.clinic_id === caller.clinic.id && s.patient_id === id && s.tooth === tooth && s.status === "current") s.status = "superseded";
           }
           return { ok: true, body: undefined };
+        }),
+
+      setToothCondition: (id, tooth, input, opts) =>
+        respond(S.toothCondition, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (!validTooth(tooth)) {
+            return invalid("tooth", "tooth must be an FDI number: 11-48, or 51-85 for primary teeth");
+          }
+          const rows = (state.toothConditions ??= []);
+          const current = rows.find((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.tooth === tooth && c.status === "current");
+          const merged = mergeCondition(current, input);
+          if ("problem" in merged) {
+            return invalid(merged.field, merged.problem);
+          }
+          if (current !== undefined) current.status = "superseded";
+          const record = { id: fakeUuid(random, clock()), clinic_id: caller.clinic.id, patient_id: id, tooth, ...merged, status: "current" as const, recorded_by: caller.membership.id, recorded_at: clock().toISOString() };
+          rows.push(record);
+          return reply(wireToothCondition(record));
+        }),
+
+      markToothConditionInError: (id, tooth, input, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const reason = input.reason.trim();
+          if (reason.length < 3 || reason.length > 500) {
+            return invalid("reason", "reason must be 3 to 500 characters");
+          }
+          const current = (state.toothConditions ?? []).find((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.tooth === tooth && c.status === "current");
+          if (current === undefined) {
+            return notFound;
+          }
+          current.status = "entered_in_error";
+          return { ok: true, body: undefined };
+        }),
+
+      setToothEruption: (id, tooth, input, opts) =>
+        respond(S.toothEruption, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (!validTooth(tooth) || tooth > 48) {
+            return invalid("tooth", "eruption is recorded on permanent teeth only");
+          }
+          if (!ERUPTIONS.includes(input.eruption)) {
+            return invalid("eruption", "eruption must be erupted, partial, impacted or unerupted");
+          }
+          const angulation = input.angulation ?? undefined;
+          if (angulation !== undefined && (input.eruption === "erupted" || !ANGULATIONS.includes(angulation))) {
+            return invalid("angulation", "angulation goes with partial, impacted or unerupted");
+          }
+          const rows = (state.toothEruptions ??= []);
+          for (const e of rows) {
+            if (e.clinic_id === caller.clinic.id && e.patient_id === id && e.tooth === tooth && e.status === "current") e.status = "superseded";
+          }
+          const record = { id: fakeUuid(random, clock()), clinic_id: caller.clinic.id, patient_id: id, tooth, eruption: input.eruption, ...(angulation === undefined ? {} : { angulation }), status: "current" as const, recorded_by: caller.membership.id, recorded_at: clock().toISOString() };
+          rows.push(record);
+          return reply(wireEruption(record));
+        }),
+
+      markToothEruptionInError: (id, tooth, input, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const reason = input.reason.trim();
+          if (reason.length < 3 || reason.length > 500) {
+            return invalid("reason", "reason must be 3 to 500 characters");
+          }
+          const current = (state.toothEruptions ?? []).find((e) => e.clinic_id === caller.clinic.id && e.patient_id === id && e.tooth === tooth && e.status === "current");
+          if (current === undefined) {
+            return notFound;
+          }
+          current.status = "entered_in_error";
+          return { ok: true, body: undefined };
+        }),
+
+      getVisitMouth: (id, opts) =>
+        respond(S.mouthSnapshot, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!state.visits.some((v) => v.id === id && v.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          return reply(FIXTURE_MOUTH);
         }),
 
       addDentalTerm: (input, opts) =>
@@ -12137,4 +12332,35 @@ function wirePrescription(rx: FakePrescription, state: Fixtures): C.Prescription
     issued_at: rx.issued_at ?? null,
     print: rx.status === "issued" ? buildPrintData(rx, state) : null,
   };
+}
+
+type FakeMessagePrefs = NonNullable<Fixtures["messagePrefs"]>[string];
+
+/** Whether a name is one of the message's sections. */
+const isSection = (name: string): boolean => S.MESSAGE_SECTIONS.some((section) => section === name);
+
+/** The member's message ticks and hand-off count, made on first use (every section until saved). */
+function memberPrefs(state: Fixtures, membershipId: string): FakeMessagePrefs {
+  state.messagePrefs ??= {};
+  return (state.messagePrefs[membershipId] ??= { sections: null, handoffs: 0, handoff_days: 0, last_handoff_on: null });
+}
+
+function wirePrefs(prefs: FakeMessagePrefs): C.MessagePrefs {
+  return {
+    sections: prefs.sections ?? [...S.MESSAGE_SECTIONS],
+    handoffs: prefs.handoffs,
+    handoff_days: prefs.handoff_days,
+    last_handoff_on: prefs.last_handoff_on,
+  };
+}
+
+/** The fake's visit summary: Done always, Care at home when ticked (no ticks = every section). */
+function fakeSummaryText(clinic: string, visitNumber: string, url: string, pin: string, sections: readonly string[] | null | undefined): string {
+  const has = (s: string) => sections == null || sections.includes(s);
+  const blocks = [`Hello from ${clinic}! 😊`, `✅ *Done today*\n${has("done") ? `Visit ${visitNumber}` : "Visit today"}`];
+  if (has("care")) {
+    blocks.push("🏠 *Care at home*\n• Brush twice a day");
+  }
+  blocks.push(`Your visit summary: ${url}\nPIN: ${pin}\nThis link opens your health record. Please don't forward it.`);
+  return blocks.join("\n\n");
 }

@@ -26,6 +26,8 @@ import type {
   TimeOffPage,
 } from "./schemas.js";
 import type { AudienceFilter, NewAudience, NewCampaign, NewChatMessage, NewConversation, ScheduleCampaign, SendMessages } from "./contract.js";
+import type { HandOff, NewMessagePrefs, NewPatientMessage } from "./contract.js";
+import type { MessagePrefs, MessagePreview } from "./schemas.js";
 import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
 import type {
@@ -136,6 +138,12 @@ import type {
   NewChartEntries,
   NewToothStatus,
   ToothStatus,
+  NewToothCondition,
+  ToothCondition,
+  NewToothEruption,
+  ToothEruption,
+  DetailInError,
+  MouthSnapshot,
   NewDentalTerm,
   NewPlan,
   NewClinic,
@@ -792,9 +800,21 @@ export interface ApiClient {
   /**
    * Clinic host: prepares the patient's WhatsApp summary of a closed visit (text, link and PIN) for the doctor to send
    * from their own WhatsApp. Needs `clinical.read` and `patients.contact`. 409 codes: `visit_open`, `no_phone`,
-   * `no_consent`, `opted_out`. Never cache or log the result.
+   * `no_consent`, `opted_out`. Never cache or log the result. With `input.sections` the text has only the ticked
+   * sections and they become the caller's defaults; without, every section (spec 1.6).
    */
-  prepareVisitPatientMessage(id: VisitId, options?: RequestOptions): Promise<ApiResult<VisitPatientMessage>>;
+  prepareVisitPatientMessage(id: VisitId, options?: RequestOptions, input?: NewPatientMessage): Promise<ApiResult<VisitPatientMessage>>;
+  /**
+   * Clinic host: the summary as Send would build it with these ticks, for the Done screen's live preview. Mints,
+   * revokes and saves nothing; the link and PIN are same-length stand-ins. Same permissions and 409s as prepare.
+   */
+  previewVisitPatientMessage(id: VisitId, input: NewPatientMessage, options?: RequestOptions): Promise<ApiResult<MessagePreview>>;
+  /** Clinic host: counts that the caller handed the summary to WhatsApp (never "sent"). */
+  handOffVisitPatientMessage(id: VisitId, input: HandOff, options?: RequestOptions): Promise<ApiResult<void>>;
+  /** Clinic host: the caller's default ticks and hand-off count. Needs `clinical.read`. */
+  getMessagePrefs(options?: RequestOptions): Promise<ApiResult<MessagePrefs>>;
+  /** Clinic host: saves the caller's default ticks. Needs `clinical.read`. */
+  saveMessagePrefs(input: NewMessagePrefs, options?: RequestOptions): Promise<ApiResult<MessagePrefs>>;
   /** Public: opens a visit summary link with its PIN. Five wrong PINs lock the link. */
   openSharedVisit(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<VisitSummary>>;
 
@@ -850,6 +870,16 @@ export interface ApiClient {
   setToothStatus(id: PatientId, tooth: number, input: NewToothStatus, options?: RequestOptions): Promise<ApiResult<ToothStatus>>;
   /** Clinic host: clears a tooth's health status so its findings suggest it again (superseded, never deleted). Needs `clinical.write`. */
   clearToothStatus(id: PatientId, tooth: number, options?: RequestOptions): Promise<ApiResult<undefined>>;
+  /** Clinic host: merges a change into a tooth's condition (omitted fields kept, `null` clears) under a lock. Needs `clinical.write`. */
+  setToothCondition(id: PatientId, tooth: number, input: NewToothCondition, options?: RequestOptions): Promise<ApiResult<ToothCondition>>;
+  /** Clinic host: marks a tooth's current condition entered in error, with a reason. Needs `clinical.write`. */
+  markToothConditionInError(id: PatientId, tooth: number, input: DetailInError, options?: RequestOptions): Promise<ApiResult<undefined>>;
+  /** Clinic host: sets a permanent tooth's eruption (it supersedes the current one). Needs `clinical.write`. */
+  setToothEruption(id: PatientId, tooth: number, input: NewToothEruption, options?: RequestOptions): Promise<ApiResult<ToothEruption>>;
+  /** Clinic host: marks a tooth's current eruption entered in error, with a reason. Needs `clinical.write`. */
+  markToothEruptionInError(id: PatientId, tooth: number, input: DetailInError, options?: RequestOptions): Promise<ApiResult<undefined>>;
+  /** Clinic host: the visit's mouth snapshot for Present mode, the same JSON the patient's page shows. Needs `clinical.read`; works while the visit is open. */
+  getVisitMouth(id: VisitId, options?: RequestOptions): Promise<ApiResult<MouthSnapshot>>;
   /** Clinic host: adds a procedure or material to the clinic's list; a label already there (or seeded) returns that term. Needs `clinical.write`. */
   addDentalTerm(input: NewDentalTerm, options?: RequestOptions): Promise<ApiResult<DentalTerm>>;
   /** Clinic host: the clinic's own terms, retired ones included, by kind then label. Needs `clinical.read` or `settings.manage`. */

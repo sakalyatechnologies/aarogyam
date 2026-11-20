@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Real teeth 3D gallery</title>
+  <style>
+    :root { --bg: #f6f4f0; --card: #ffffff; --ink: #1d2a27; --muted: #5d6b67; --stage: #ebe7e1; color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #111615; --card: #1a2120; --ink: #e8efec; --muted: #9aa9a4; --stage: #222b29; } }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
+    main { max-width: 1240px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 22px; margin: 4px 0 2px; }
+    h2 { font-size: 17px; margin: 28px 0 10px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .grid.small { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    figure { margin: 0; background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    figure img { display: block; width: 100%; aspect-ratio: 9 / 8; background: var(--stage); }
+    figcaption { padding: 8px 10px 10px; font-size: 13px; }
+    figcaption small { display: block; color: var(--muted); }
+    #stage { position: fixed; left: -2000px; top: 0; width: 450px; height: 400px; }
+    #stage canvas { width: 450px; height: 400px; display: block; }
+    #stats { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Real teeth 3D</h1>
+    <p id="stats">Rendering…</p>
+    <div id="out"></div>
+  </main>
+  <div id="stage"></div>
+  <script type="module" src="./gallery.ts"></script>
+</body>
+</html>

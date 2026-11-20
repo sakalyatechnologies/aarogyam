@@ -2376,6 +2376,27 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             None,
         ),
         (
+            Method::PUT,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/36/condition"),
+            Some(json!({ "bleeding": true, "mobility": 1 })),
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/36/condition/entered-in-error"),
+            Some(json!({ "reason": "Wrong tooth" })),
+        ),
+        (
+            Method::PUT,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/38/eruption"),
+            Some(json!({ "eruption": "impacted", "angulation": "mesioangular" })),
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/38/eruption/entered-in-error"),
+            Some(json!({ "reason": "Wrong tooth" })),
+        ),
+        (Method::GET, format!("/api/v1/visits/{visit}/mouth"), None),
+        (
             Method::GET,
             format!("/api/v1/patients/{patient}/timeline"),
             None,
@@ -2397,6 +2418,16 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Method::POST,
             format!("/api/v1/visits/{visit}/patient-message"),
             None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/visits/{visit}/patient-message/preview"),
+            Some(json!({ "sections": ["done"] })),
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/visits/{visit}/patient-message/handed-off"),
+            Some(json!({})),
         ),
         (Method::POST, format!("/api/v1/visits/{visit}/finish"), None),
         (Method::POST, format!("/api/v1/visits/{visit}/close"), None),
@@ -2457,9 +2488,12 @@ async fn every_clinical_route_is_checked() {
             // proves clinics can't see or use each other's terms.
             // The quick picks are specialty data, the same for every clinic: no record, no 404
             // (tests/walk_ins.rs reads them).
+            // The caller's own message defaults name no record either; tests/patient_message.rs
+            // checks them per member, per clinic and by role.
             let skipped = path.ends_with("/content")
                 || path.ends_with("/dental-terms")
                 || path.ends_with("/quick-picks")
+                || path.ends_with("/me/message-prefs")
                 || (path.ends_with("/attachments") && method == "post");
             if clinical && !skipped {
                 documented.push(format!("{} {}", method.to_uppercase(), template(path)));

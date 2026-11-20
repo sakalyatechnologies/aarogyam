@@ -1,0 +1,285 @@
+{
+  "$comment": "Maps every seeded dental value (dental.rs Finding, vocabulary.json procedures and materials, the \u00a71.13 detail values) to 2D art in @aarogyam/app-kit/mouth-art, or to an explicit text_only label drawn on a plain tooth. Clinic-custom terms (UUID ids) are always text_only. A coverage test in web/packages/app-kit fails on any unmapped value (design \u00a71.13).",
+  "schema_version": 1,
+  "custom_term": {
+    "text_only": true,
+    "label": "Clinic term"
+  },
+  "findings": {
+    "sound": {
+      "art": "tooth"
+    },
+    "caries": {
+      "art": "overlay:caries"
+    },
+    "filled": {
+      "art": "overlay:filled"
+    },
+    "crown": {
+      "art": "overlay:crown"
+    },
+    "missing": {
+      "art": "overlay:missing"
+    },
+    "implant": {
+      "art": "overlay:implant"
+    },
+    "root_canal": {
+      "art": "overlay:root_canal"
+    },
+    "bridge": {
+      "art": "overlay:bridge_abutment"
+    },
+    "fractured": {
+      "art": "overlay:fracture"
+    },
+    "watch": {
+      "text_only": true,
+      "label": "To watch at the next visit"
+    }
+  },
+  "procedures": {
+    "filling": {
+      "art": "scene:filling"
+    },
+    "inlay": {
+      "art": "overlay:inlay"
+    },
+    "onlay": {
+      "art": "overlay:inlay"
+    },
+    "veneer": {
+      "art": "overlay:veneer"
+    },
+    "crown": {
+      "art": "scene:crown"
+    },
+    "bridge_abutment": {
+      "art": "overlay:bridge_abutment"
+    },
+    "bridge_pontic": {
+      "art": "overlay:bridge_pontic"
+    },
+    "root_canal": {
+      "art": "scene:root_canal"
+    },
+    "post_core": {
+      "art": "overlay:post_core"
+    },
+    "core_build_up": {
+      "art": "overlay:core_build_up"
+    },
+    "pulpotomy": {
+      "art": "overlay:pulpotomy"
+    },
+    "implant": {
+      "art": "scene:implant"
+    },
+    "extraction": {
+      "art": "scene:extraction"
+    },
+    "sealant": {
+      "art": "scene:sealant"
+    },
+    "scaling": {
+      "art": "scene:scaling"
+    },
+    "bridge": {
+      "art": "overlay:bridge_abutment"
+    }
+  },
+  "materials": {
+    "zirconia": {
+      "art": "material:porcelain"
+    },
+    "pfm": {
+      "art": "material:porcelain"
+    },
+    "cast_metal": {
+      "art": "material:metal"
+    },
+    "composite": {
+      "art": "material:composite"
+    },
+    "amalgam": {
+      "art": "material:amalgam"
+    },
+    "glass_ionomer": {
+      "art": "material:glass_ionomer"
+    },
+    "emax": {
+      "art": "material:porcelain"
+    },
+    "gold": {
+      "art": "material:gold"
+    },
+    "ceramic": {
+      "art": "material:porcelain"
+    },
+    "temporary": {
+      "art": "material:temporary"
+    },
+    "flowable_composite": {
+      "art": "material:composite"
+    },
+    "inlay_onlay": {
+      "art": "material:porcelain"
+    },
+    "layered_zirconia": {
+      "art": "material:porcelain"
+    },
+    "gutta_percha": {
+      "art": "material:gutta_percha"
+    },
+    "calcium_hydroxide": {
+      "art": "material:calcium_hydroxide"
+    },
+    "bioceramic_sealer": {
+      "art": "material:gutta_percha"
+    },
+    "mta": {
+      "art": "material:mta"
+    },
+    "ah_plus_sealer": {
+      "art": "material:gutta_percha"
+    },
+    "titanium_4_2x10": {
+      "art": "material:titanium"
+    },
+    "titanium_3_5x11_5": {
+      "art": "material:titanium"
+    },
+    "zirconia_abutment": {
+      "art": "material:zirconia_abutment"
+    },
+    "ultrasonic": {
+      "text_only": true,
+      "label": "Ultrasonic cleaning"
+    },
+    "resin_sealant": {
+      "art": "material:resin_sealant"
+    },
+    "gic_sealant": {
+      "art": "material:gic_sealant"
+    },
+    "composite_veneer": {
+      "art": "material:composite"
+    }
+  },
+  "details": {
+    "caries_depth": {
+      "enamel": {
+        "art": "overlay:caries.enamel"
+      },
+      "dentin": {
+        "art": "overlay:caries.dentin"
+      },
+      "near_pulp": {
+        "art": "overlay:caries.near_pulp"
+      }
+    },
+    "infection": {
+      "infection": {
+        "art": "overlay:infection"
+      },
+      "abscess": {
+        "art": "overlay:abscess"
+      }
+    },
+    "bleeding": {
+      "true": {
+        "art": "overlay:bleeding"
+      }
+    },
+    "pocket_mm": {
+      "1": {
+        "art": "overlay:pocket"
+      },
+      "2": {
+        "art": "overlay:pocket"
+      },
+      "3": {
+        "art": "overlay:pocket"
+      },
+      "4": {
+        "art": "overlay:pocket"
+      },
+      "5": {
+        "art": "overlay:pocket"
+      },
+      "6": {
+        "art": "overlay:pocket"
+      },
+      "7": {
+        "art": "overlay:pocket"
+      },
+      "8": {
+        "art": "overlay:pocket"
+      },
+      "9": {
+        "art": "overlay:pocket"
+      },
+      "10": {
+        "art": "overlay:pocket"
+      },
+      "11": {
+        "art": "overlay:pocket"
+      },
+      "12": {
+        "art": "overlay:pocket"
+      },
+      "13": {
+        "art": "overlay:pocket"
+      },
+      "14": {
+        "art": "overlay:pocket"
+      },
+      "15": {
+        "art": "overlay:pocket"
+      }
+    },
+    "mobility": {
+      "0": {
+        "text_only": true,
+        "label": "Not loose"
+      },
+      "1": {
+        "art": "overlay:mobility.1"
+      },
+      "2": {
+        "art": "overlay:mobility.2"
+      },
+      "3": {
+        "art": "overlay:mobility.3"
+      }
+    },
+    "eruption": {
+      "erupted": {
+        "art": "scene:wisdom_extraction.position.erupted"
+      },
+      "partial": {
+        "art": "scene:wisdom_extraction.position.partial_vertical"
+      },
+      "impacted": {
+        "art": "scene:wisdom_extraction.position.impacted_vertical"
+      },
+      "unerupted": {
+        "art": "scene:wisdom_extraction.position.unerupted_vertical"
+      }
+    },
+    "angulation": {
+      "vertical": {
+        "art": "scene:wisdom_extraction.position.impacted_vertical"
+      },
+      "mesioangular": {
+        "art": "scene:wisdom_extraction.position.impacted_mesioangular"
+      },
+      "distoangular": {
+        "art": "scene:wisdom_extraction.position.impacted_distoangular"
+      },
+      "horizontal": {
+        "art": "scene:wisdom_extraction.position.impacted_horizontal"
+      }
+    }
+  }
+}

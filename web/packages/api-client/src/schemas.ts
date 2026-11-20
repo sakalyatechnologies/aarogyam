@@ -2251,6 +2251,8 @@ export const chartEntry = z.object({
   elsewhere: z.boolean().exactOptional(),
   /** Where the entry came from when not a clinician in the app, such as `import`. */
   source: z.string().nullable().exactOptional(),
+  /** How deep the decay reaches on a caries entry (`enamel`, `dentin`, `near_pulp`); a plain string. */
+  caries_depth: z.string().exactOptional(),
 }) satisfies z.ZodType<C.ChartEntry>;
 export type ChartEntry = z.output<typeof chartEntry>;
 
@@ -2268,12 +2270,42 @@ export const toothStatus = z.object({
 }) satisfies z.ZodType<C.ToothStatus>;
 export type ToothStatus = z.output<typeof toothStatus>;
 
+/** A tooth's current condition (section 1.13 of the visit story v2 design); fields only when recorded. */
+export const toothCondition = z.object({
+  id: z.string(),
+  tooth: count,
+  infection: z.string().exactOptional(),
+  bleeding: z.boolean().exactOptional(),
+  pocket_mm: count.exactOptional(),
+  mobility: z.number().int().min(0).exactOptional(),
+  visit_id: z.string().nullable().exactOptional(),
+  recorded_by: z.string().nullable().exactOptional(),
+  recorded_at: timestamp,
+}) satisfies z.ZodType<C.ToothCondition>;
+export type ToothCondition = z.output<typeof toothCondition>;
+
+/** A permanent tooth's current eruption; values are plain strings. */
+export const toothEruption = z.object({
+  id: z.string(),
+  tooth: count,
+  eruption: z.string(),
+  angulation: z.string().exactOptional(),
+  visit_id: z.string().nullable().exactOptional(),
+  recorded_by: z.string().nullable().exactOptional(),
+  recorded_at: timestamp,
+}) satisfies z.ZodType<C.ToothEruption>;
+export type ToothEruption = z.output<typeof toothEruption>;
+
 export const dentalChart = z.object({
   current: z.array(chartEntry),
   history: z.array(chartEntry),
   terms: z.array(dentalTerm),
   /** Each tooth's current status; absent when none (and from older servers). */
   statuses: z.array(toothStatus).exactOptional(),
+  /** Each tooth's current condition; absent when none (and from older servers). */
+  conditions: z.array(toothCondition).exactOptional(),
+  /** Each permanent tooth's current eruption; absent when none (and from older servers). */
+  eruptions: z.array(toothEruption).exactOptional(),
 }) satisfies z.ZodType<C.DentalChart>;
 export type DentalChart = z.output<typeof dentalChart>;
 
@@ -2282,6 +2314,89 @@ export type NewChartEntries = C.NewChartEntries;
 export type NewChartEntry = C.NewChartEntry;
 /** Body of `PUT /api/v1/patients/{id}/dental-chart/teeth/{tooth}/status`. */
 export type NewToothStatus = C.NewToothStatus;
+/** Body of `PUT …/teeth/{tooth}/condition`: an omitted field keeps its value, `null` clears it. */
+export type NewToothCondition = C.NewToothCondition;
+/** Body of `PUT …/teeth/{tooth}/eruption`. */
+export type NewToothEruption = C.NewToothEruption;
+/** Body of `POST …/condition/entered-in-error` and `…/eruption/entered-in-error`. */
+export type DetailInError = C.DetailInError;
+
+// The mouth snapshot (section 1.12): built only on the server; every value is a plain string so
+// old clients never fail on a new one. --------------------------------------------------------
+
+const day = z.string();
+
+export const mouthStep = z.object({
+  key: z.string(),
+  scene: z.string(),
+  words: z.string(),
+  after_words: z.string(),
+  state: z.string(),
+  sitting: count.exactOptional(),
+  on: day.exactOptional(),
+}) satisfies z.ZodType<C.MouthStep>;
+
+export const mouthTreatment = z.object({
+  model: z.string(),
+  state: z.string(),
+  typical_visits: count,
+  steps: z.array(mouthStep),
+  recovery: z.array(z.string()),
+}) satisfies z.ZodType<C.MouthTreatment>;
+
+export const mouthWork = z.object({
+  finding: z.string(),
+  material: z.string().exactOptional(),
+  origin: z.string(),
+  done_on: day.exactOptional(),
+  today: z.boolean().exactOptional(),
+}) satisfies z.ZodType<C.MouthWork>;
+
+export const mouthDetails = z.object({
+  caries_depth: z.string().exactOptional(),
+  infection: z.string().exactOptional(),
+  bleeding: z.boolean().exactOptional(),
+  pocket_mm: count.exactOptional(),
+  mobility: z.number().int().min(0).exactOptional(),
+  condition_on: day.exactOptional(),
+  eruption: z.string().exactOptional(),
+  angulation: z.string().exactOptional(),
+}) satisfies z.ZodType<C.MouthDetails>;
+
+export const mouthTooth = z.object({
+  tooth: count,
+  finding: z.string().exactOptional(),
+  surfaces: z.array(z.string()).exactOptional(),
+  material: z.string().exactOptional(),
+  health: z.string().exactOptional(),
+  treat_within_months: count.exactOptional(),
+  today: z.string().exactOptional(),
+  planned: z.boolean().exactOptional(),
+  sitting: count.exactOptional(),
+  work: z.array(mouthWork).exactOptional(),
+  problems: z.array(z.string()).exactOptional(),
+  details: mouthDetails.exactOptional(),
+  treatments: z.array(mouthTreatment).exactOptional(),
+}) satisfies z.ZodType<C.MouthTooth>;
+
+export const mouthPosition = z.object({
+  quadrant: count,
+  index: count,
+  tooth: count,
+  shown: z.string(),
+  other: z.object({ tooth: count, finding: z.string() }).exactOptional(),
+}) satisfies z.ZodType<C.MouthPosition>;
+
+/** `GET /api/v1/visits/{id}/mouth`, and the visit page's `chart`. */
+export const mouthSnapshot = z.object({
+  story_version: count,
+  dentition: z.string(),
+  positions: z.array(mouthPosition),
+  teeth: z.array(mouthTooth),
+  focus: z.array(count),
+  next_visit: day.exactOptional(),
+}) satisfies z.ZodType<C.MouthSnapshot>;
+export type MouthSnapshot = z.output<typeof mouthSnapshot>;
 
 // Patient files (M4) ------------------------------------------------------------------------------
 
@@ -3106,6 +3221,26 @@ export const visitPatientMessage = z.object({
 }) satisfies z.ZodType<C.VisitPatientMessage>;
 export type VisitPatientMessage = z.output<typeof visitPatientMessage>;
 
+/**
+ * The Done screen's tick boxes, in order (spec 1.6). Sections stay plain strings on the wire, so a
+ * section added later never breaks an old page. `video` is saved but not shown until the video lands.
+ */
+export const MESSAGE_SECTIONS = ["done", "detail", "found", "plan", "medicines", "care", "offer", "video"] as const;
+export type MessageSectionName = (typeof MESSAGE_SECTIONS)[number];
+
+/** The summary as Send would build it, with a stand-in link (`/shared/` + 43 × `x`) and PIN `XXXXXX`. */
+export const messagePreview = z.object({ text: z.string() }) satisfies z.ZodType<C.MessagePreview>;
+export type MessagePreview = z.output<typeof messagePreview>;
+
+/** The caller's default ticks in this clinic and their hand-off count ("handed to WhatsApp", never "sent"). */
+export const messagePrefs = z.object({
+  sections: z.array(z.string()),
+  handoffs: z.number().int(),
+  handoff_days: z.number().int(),
+  last_handoff_on: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.MessagePrefs>;
+export type MessagePrefs = z.output<typeof messagePrefs>;
+
 export const visitSummary = z.object({
   clinic_name: z.string(),
   patient_name: z.string(),
@@ -3148,6 +3283,8 @@ export const visitSummary = z.object({
     .exactOptional(),
   clinic_phone: z.string().nullable().exactOptional(),
   practitioner_id: z.string().nullable().exactOptional(),
+  /** The mouth snapshot; older servers leave it out. */
+  chart: mouthSnapshot.exactOptional(),
 }) satisfies z.ZodType<C.VisitSummary>;
 export type VisitSummary = z.output<typeof visitSummary>;
 

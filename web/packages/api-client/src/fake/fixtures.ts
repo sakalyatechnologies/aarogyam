@@ -731,6 +731,10 @@ export interface Fixtures {
   chartEntries: FakeChartEntry[];
   /** Tooth health statuses, made on first use. */
   toothStatuses?: FakeToothStatus[];
+  /** Tooth conditions (infection, gums, mobility), made on first use. */
+  toothConditions?: import("./tooth-details.js").FakeToothCondition[];
+  /** Permanent teeth's eruptions, made on first use. */
+  toothEruptions?: import("./tooth-details.js").FakeToothEruption[];
   /** Procedures and materials clinics added, made on first use. */
   dentalTerms?: import("./dental-terms.js").FakeDentalTerm[];
   /** Support grants clinics gave Sakalya staff, made on first use; the console lists a staff member's own. */
@@ -764,6 +768,8 @@ export interface Fixtures {
   drugs: FakeDrug[];
   prescriptions: FakePrescription[];
   shareLinks: FakeShareLink[];
+  /** Each member's message ticks and hand-off count, by membership id, made on first use. */
+  messagePrefs?: Record<string, { sections: string[] | null; handoffs: number; handoff_days: number; last_handoff_on: string | null }>;
   /** `client_id`s already used on the dental chart, with a fingerprint of the request that used them. */
   chartClientIds?: Record<string, string>;
   /** The clinics' own medicine sets, made on first use. */

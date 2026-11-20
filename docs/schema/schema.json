@@ -2557,7 +2557,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and \"No known allergies\" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills. offers.give (migration 0741: owner and doctor, backfilled) gives patients offer and referral codes within the role's caps; a payments.collect holder without billing.write applies only the bill patient's own offer or reward.",
+   "notes": "Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and \"No known allergies\" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills. offers.give (migration 0744: owner and doctor, backfilled) gives patients offer and referral codes within the role's caps; a payments.collect holder without billing.write applies only the bill patient's own offer or reward.",
    "cols": [
     {
      "name": "key",
@@ -2916,6 +2916,7 @@
     "lab_payments.recorded_by",
     "lab_payments.voided_by",
     "medical_history_items.verified_by",
+    "member_message_prefs.membership_id",
     "member_setup.membership_id",
     "membership_branches.membership_id",
     "note_addenda.author_id",
@@ -3237,7 +3238,7 @@
      "type": "uuid",
      "nullable": true,
      "ref": "patients",
-     "note": "set once when a referral code's use becomes final (migration 0740), never overwritten"
+     "note": "set once when a referral code's use becomes final (migration 0743), never overwritten"
     },
     {
      "name": "tags",
@@ -6085,7 +6086,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "tooth (dental chart entry), tooth_status (a tooth's health: one current per tooth, no surface), pregnancy, growth"
+     "note": "tooth (dental chart entry), tooth_status (a tooth's health: one current per tooth, no surface), tooth_condition (infection, gums, mobility: one current per tooth, merged on each change), tooth_eruption (a permanent tooth's eruption: one current per tooth), pregnancy, growth"
     },
     {
      "name": "schema_version",
@@ -6099,7 +6100,7 @@
      "type": "jsonb",
      "nullable": false,
      "ref": null,
-     "note": "validated against the module's schema on write; dental tooth: tooth, surface, finding, procedure, material, note, in_progress, elsewhere (procedure and material are term ids: seeded or dental_terms; elsewhere marks work by another dentist); dental tooth_status: tooth, health (healthy, watch, needs_treatment), note, treat_within_months (1, 3, 6, 12)"
+     "note": "validated against the module's schema on write; dental tooth: tooth, surface, finding, procedure, material, note, in_progress, elsewhere, caries_depth (enamel, dentin, near_pulp; caries only, schema 4) (procedure and material are term ids: seeded or dental_terms; elsewhere marks work by another dentist); dental tooth_status: tooth, health (healthy, watch, needs_treatment), note, treat_within_months (1, 3, 6, 12); dental tooth_condition: tooth, infection (infection, abscess), bleeding, pocket_mm (1-15), mobility (0-3); dental tooth_eruption: tooth, eruption (erupted, partial, impacted, unerupted), angulation (vertical, mesioangular, distoangular, horizontal)"
     },
     {
      "name": "tooth",
@@ -8841,7 +8842,7 @@
      "type": "bigint",
      "nullable": false,
      "ref": null,
-     "note": "an offer or referral code's share (migration 0740): apart from discount_paise on a draft, folded into it at issue and kept as a breakdown"
+     "note": "an offer or referral code's share (migration 0743): apart from discount_paise on a draft, folded into it at issue and kept as a breakdown"
     },
     {
      "name": "tax_rate_bps",
@@ -9913,6 +9914,64 @@
    "offline": "server_only"
   },
   {
+   "name": "member_message_prefs",
+   "domain": "notify",
+   "purpose": "A member's default ticks for the visit summary on the Done screen, and how often they handed a summary to WhatsApp.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0742). Saved on Send (POST /visits/{id}/patient-message with sections) or PUT /me/message-prefs; toggling and the preview save nothing. Counted by POST /visits/{id}/patient-message/handed-off. Each member reads and writes only their own row (the app filters by the caller's membership). Support never reads it and keeps none. No patient data, so no erasure step. No auto-send columns until that phase is decided.",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": "unique per clinic"
+    },
+    {
+     "name": "sections",
+     "type": "text[]",
+     "nullable": true,
+     "ref": null,
+     "note": "done, detail, found, plan, medicines, care, offer, video; null until saved = every section"
+    },
+    {
+     "name": "handoffs",
+     "type": "integer",
+     "nullable": false,
+     "ref": null,
+     "note": "summaries handed to WhatsApp (never 'sent')"
+    },
+    {
+     "name": "handoff_days",
+     "type": "integer",
+     "nullable": false,
+     "ref": null,
+     "note": "clinic days with a hand-off; up only when last_handoff_on is not the clinic's today"
+    },
+    {
+     "name": "last_handoff_on",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "template_version",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "1 to 40 characters, from the client"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
    "name": "staff_inbox_messages",
    "domain": "notify",
    "purpose": "The clinic inbox: a reminder about a booking request nobody answered, or its escalation to the owners. Open until the booking is handled.",
@@ -10594,7 +10653,7 @@
   {
    "name": "promo_codes",
    "domain": "billing",
-   "purpose": "Offer, referral and reward codes given to patients (migration 0740; docs/plans/visit-story-v2-offers-design.md Part 2).",
+   "purpose": "Offer, referral and reward codes given to patients (migration 0743; docs/plans/visit-story-v2-offers-design.md Part 2).",
    "rls": "clinic",
    "star": false,
    "partitioned": false,

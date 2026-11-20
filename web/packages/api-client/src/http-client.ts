@@ -48,6 +48,7 @@ import {
   toothCondition,
   toothEruption,
   mouthSnapshot,
+  visitStory,
   dashboardLayoutView,
   dentalTerm,
   devTokenResponse,
@@ -688,6 +689,7 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     markToothEruptionInError: (id, tooth, input, opts) =>
       call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/eruption/entered-in-error`, schema: voidResponse, body: input, signal: opts?.signal }),
     getVisitMouth: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}/mouth`, schema: mouthSnapshot, signal: opts?.signal }),
+    getVisitStory: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}/story`, schema: visitStory, signal: opts?.signal }),
     addDentalTerm: (input, opts) => call({ method: "POST", path: "/api/v1/dental-terms", schema: dentalTerm, body: input, signal: opts?.signal }),
     listOwnDentalTerms: (opts) => call({ method: "GET", path: "/api/v1/dental-terms", schema: ownDentalTermList, signal: opts?.signal }),
     renameDentalTerm: (id, input, opts) =>

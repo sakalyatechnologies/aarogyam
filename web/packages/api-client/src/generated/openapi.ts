@@ -6343,6 +6343,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visits/{id}/story": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The data for the patient's video, rendered on the doctor's own device and shared from there;
+         *     nothing is uploaded. Runs the same refusals as Send, so a video is made only when the text
+         *     could be. Mints, revokes and saves nothing.
+         */
+        get: operations["getVisitStory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/walk-ins": {
         parameters: {
             query?: never;
@@ -16795,6 +16816,27 @@ export interface components {
              * @description Walk-in tokens issued in the range, not counting those who left unseen.
              */
             walk_in: number;
+        };
+        /**
+         * @description What the doctor's device renders the patient's video from (design section 1.7): the mouth
+         *     snapshot plus the visit number, day and clinic name. Never a patient name, phone, link or PIN.
+         */
+        VisitStory: {
+            /** @description The same snapshot as `GET /visits/{id}/mouth`. */
+            chart: components["schemas"]["MouthSnapshot"];
+            /** @description The clinic's name, for the title and end cards. */
+            clinic_name: string;
+            /** @description The patient's next booked visit (`YYYY-MM-DD`), for the end card. */
+            next_visit?: string | null;
+            /**
+             * Format: int32
+             * @description The story contract the renderer follows (the same as `chart.story_version`).
+             */
+            story_version: number;
+            /** @description The clinic's visit number (`V-318`): the file name and the end card's small type. */
+            visit_number: string;
+            /** @description The visit's day (`YYYY-MM-DD`) in the clinic's time zone, for the title card. */
+            visited_on: string;
         };
         /** @description What a visit summary shows. */
         VisitSummary: {
@@ -37288,6 +37330,57 @@ export interface operations {
             };
             /** @description No such visit in this clinic */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getVisitStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The story; `Cache-Control: no-store` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitStory"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read or patients.contact */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic, or the patient was erased */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `visit_open`, `no_phone`, `no_consent` or `opted_out` */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

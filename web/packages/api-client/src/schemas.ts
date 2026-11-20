@@ -2398,6 +2398,17 @@ export const mouthSnapshot = z.object({
 }) satisfies z.ZodType<C.MouthSnapshot>;
 export type MouthSnapshot = z.output<typeof mouthSnapshot>;
 
+/** `GET /api/v1/visits/{id}/story`: the patient's video data (section 1.7). No patient name. */
+export const visitStory = z.object({
+  story_version: count,
+  visit_number: z.string(),
+  visited_on: day,
+  clinic_name: z.string(),
+  next_visit: day.exactOptional(),
+  chart: mouthSnapshot,
+}) satisfies z.ZodType<C.VisitStory>;
+export type VisitStory = z.output<typeof visitStory>;
+
 // Patient files (M4) ------------------------------------------------------------------------------
 
 export const attachmentList = z.object({ items: z.array(attachment) }) satisfies z.ZodType<C.AttachmentList>;

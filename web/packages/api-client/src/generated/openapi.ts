@@ -2304,6 +2304,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/message-prefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's message defaults in this clinic and their hand-off count. */
+        get: operations["getMessagePrefs"];
+        /** Saves the caller's default ticks in this clinic. */
+        put: operations["saveMessagePrefs"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/onboarding": {
         parameters: {
             query?: never;
@@ -6137,9 +6155,51 @@ export interface paths {
         put?: never;
         /**
          * Prepares the visit's summary for the doctor's `WhatsApp`: the message, a new visit link (7
-         *     days; at most three live per visit, the oldest revoked) and its PIN. Nothing is sent.
+         *     days; at most three live per visit, the oldest revoked) and its PIN. Nothing is sent. The
+         *     optional body's `sections` limit the text to the ticked ones and become the caller's
+         *     defaults; with no body (or no `Content-Type`) the text has every section.
          */
         post: operations["prepareVisitPatientMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}/patient-message/handed-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Counts that the caller handed the visit's summary to `WhatsApp`. It means "handed off",
+         *     never "sent".
+         */
+        post: operations["handOffVisitPatientMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}/patient-message/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The summary as Send would build it with these ticks, for the Done screen's live preview. It
+         *     mints, revokes and saves nothing; the link and PIN are stand-ins of the same length.
+         */
+        post: operations["previewVisitPatientMessage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9132,6 +9192,11 @@ export interface components {
             /** @description Each app, page and vital with readings. */
             vitals: components["schemas"]["VitalStat"][];
         };
+        /** @description A summary was handed to `WhatsApp` (not "sent": the doctor presses Send there). */
+        HandOff: {
+            /** @description The message template's version the client used, 1 to 40 characters. */
+            template_version?: string | null;
+        };
         /**
          * @description Who handled a notification: confirmed, declined or cancelled its appointment, or received,
          *     cancelled or re-dated its lab work.
@@ -10642,6 +10707,34 @@ export interface components {
             /** @description Up to 100 messages. */
             items: components["schemas"]["MessageSummary"][];
         };
+        /**
+         * @description The caller's message defaults in this clinic and their hand-off count. No auto-send fields
+         *     yet.
+         */
+        MessagePrefs: {
+            /**
+             * Format: int32
+             * @description Clinic days with at least one hand-off.
+             */
+            handoff_days: number;
+            /**
+             * Format: int32
+             * @description Summaries handed to `WhatsApp`.
+             */
+            handoffs: number;
+            /** @description The clinic day of the last hand-off (`YYYY-MM-DD`). */
+            last_handoff_on?: string | null;
+            /** @description The sections ticked by default (every one until saved). */
+            sections: string[];
+        };
+        /**
+         * @description The summary as Send would build it, with a stand-in link (`/shared/` and 43 × `x`) and PIN
+         *     `XXXXXX` as long as real ones. Nothing was minted or saved.
+         */
+        MessagePreview: {
+            /** @description The full message with the stand-ins; grey them out in the preview. */
+            text: string;
+        };
         /** @description The clinic's message numbers for the month so far. */
         MessageStats: {
             /** @description One entry per channel (`email`, `sms`, `whatsapp`), used or not. */
@@ -11240,6 +11333,11 @@ export interface components {
             /** @description The clinic's address name, such as `sunrise` (from `sunrise.aarogyam.example`). */
             clinic: string;
         };
+        /** @description New default ticks. */
+        NewMessagePrefs: {
+            /** @description The sections to tick by default; an unknown name is a 400. */
+            sections: string[];
+        };
         /** @description A draft note to start. */
         NewNote: {
             /** @description A version 7 UUID the client made. A retry with the same `id` and the same content returns the record that exists instead of making another; `id_conflict` (`409`) when the id belongs to a different record. The server makes one when left out. */
@@ -11268,6 +11366,14 @@ export interface components {
             preferred_language?: string | null;
             /** @description `female`, `male`, `other` or `unknown` (default). */
             sex?: string | null;
+        };
+        /**
+         * @description The doctor's ticks for a visit summary. Section names: `done`, `detail`, `found`, `plan`,
+         *     `medicines`, `care`, `offer`, `video`; more may come, and an unknown name is a 400.
+         */
+        NewPatientMessage: {
+            /** @description The ticked sections. Absent means every section. */
+            sections?: string[] | null;
         };
         /**
          * @description A payment to record. Send an `Idempotency-Key` header (a UUID per payment form); a retry
@@ -23932,6 +24038,85 @@ export interface operations {
             };
         };
     };
+    getMessagePrefs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every section until saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePrefs"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    saveMessagePrefs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewMessagePrefs"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePrefs"];
+                };
+            };
+            /** @description An unknown section */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read, or Sakalya support */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getMySetup: {
         parameters: {
             query?: never;
@@ -36155,7 +36340,12 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        /** @description Optional: the ticked sections */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NewPatientMessage"] | null;
+            };
+        };
         responses: {
             /** @description Prepared; `Cache-Control: no-store` */
             200: {
@@ -36165,6 +36355,128 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["VisitPatientMessage"];
                 };
+            };
+            /** @description Not JSON, or an unknown section */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read or patients.contact */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic, or the patient was erased */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `visit_open`, `no_phone`, `no_consent` or `opted_out` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    handOffVisitPatientMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandOff"];
+            };
+        };
+        responses: {
+            /** @description Counted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `template_version` is blank or longer than 40 characters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read or patients.contact */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    previewVisitPatientMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPatientMessage"];
+            };
+        };
+        responses: {
+            /** @description The text; `Cache-Control: no-store` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePreview"];
+                };
+            };
+            /** @description An unknown section */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not signed in */
             401: {

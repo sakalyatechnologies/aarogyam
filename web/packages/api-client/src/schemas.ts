@@ -3038,6 +3038,26 @@ export const visitPatientMessage = z.object({
 }) satisfies z.ZodType<C.VisitPatientMessage>;
 export type VisitPatientMessage = z.output<typeof visitPatientMessage>;
 
+/**
+ * The Done screen's tick boxes, in order (spec 1.6). Sections stay plain strings on the wire, so a
+ * section added later never breaks an old page. `video` is saved but not shown until the video lands.
+ */
+export const MESSAGE_SECTIONS = ["done", "detail", "found", "plan", "medicines", "care", "offer", "video"] as const;
+export type MessageSectionName = (typeof MESSAGE_SECTIONS)[number];
+
+/** The summary as Send would build it, with a stand-in link (`/shared/` + 43 × `x`) and PIN `XXXXXX`. */
+export const messagePreview = z.object({ text: z.string() }) satisfies z.ZodType<C.MessagePreview>;
+export type MessagePreview = z.output<typeof messagePreview>;
+
+/** The caller's default ticks in this clinic and their hand-off count ("handed to WhatsApp", never "sent"). */
+export const messagePrefs = z.object({
+  sections: z.array(z.string()),
+  handoffs: z.number().int(),
+  handoff_days: z.number().int(),
+  last_handoff_on: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.MessagePrefs>;
+export type MessagePrefs = z.output<typeof messagePrefs>;
+
 export const visitSummary = z.object({
   clinic_name: z.string(),
   patient_name: z.string(),

@@ -386,6 +386,90 @@ describe("Front desk (New look)", () => {
     }
   });
 
+  it("ticks start from the doctor's defaults, the live preview mints nothing, and Send saves the ticks", async () => {
+    const user = userEvent.setup();
+    let state: Fixtures | undefined;
+    const backend = fakeApi((fixtures) => {
+      seenDoneToken(fixtures);
+      state = fixtures;
+    });
+    const shareLinks = () => state?.shareLinks.length ?? -1;
+    const done = (await tokens(backend)).find((t) => t.status === "done" && t.visit_id != null);
+    if (done?.visit_id == null) throw new Error("expected a done token with a visit");
+    // The doctor's saved defaults leave Medicines out.
+    await asha(backend).saveMessagePrefs({ sections: ["done", "detail", "found", "plan", "care", "offer", "video"] });
+    const sent: (readonly string[] | null | undefined)[] = [];
+    const previews: string[][] = [];
+    const handedOff: string[] = [];
+    renderPortal("/queue", {
+      as: PEOPLE.asha,
+      backend,
+      wrap: (client: ApiClient) => ({
+        ...client,
+        previewVisitPatientMessage: (visitId, input, options) => {
+          previews.push([...(input.sections ?? [])]);
+          return client.previewVisitPatientMessage(visitId, input, options);
+        },
+        prepareVisitPatientMessage: (visitId, options, input) => {
+          sent.push(input?.sections);
+          return client.prepareVisitPatientMessage(visitId, options, input);
+        },
+        handOffVisitPatientMessage: (visitId, input, options) => {
+          handedOff.push(visitId);
+          return client.handOffVisitPatientMessage(visitId, input, options);
+        },
+      }),
+    });
+    const open = handoff.open;
+    handoff.open = () => undefined;
+    try {
+      await screen.findByRole("heading", { name: "Front desk" });
+      const card = await waitFor(() => cardOf(done.patient.full_name));
+      await user.click(within(card).getByText("Choose what goes in"));
+      const ticks = await within(card).findByRole("group", { name: "What goes in the message" });
+      expect(within(ticks).getAllByRole("checkbox")).toHaveLength(7);
+      expect(within(ticks).getByRole("checkbox", { name: "Medicines" })).toHaveProperty("checked", false);
+      expect(within(ticks).getByRole("checkbox", { name: "Care at home" })).toHaveProperty("checked", true);
+      // The preview shows the stand-in link and PIN, never a real one.
+      const preview = await within(card).findByTestId("message-preview");
+      expect(preview.textContent).toContain("Care at home");
+      expect(preview.textContent).toContain(`/shared/${"x".repeat(43)}`);
+      expect(preview.textContent).toContain("XXXXXX");
+      const links = shareLinks();
+      expect(links).toBeGreaterThanOrEqual(0);
+
+      await user.click(within(ticks).getByRole("checkbox", { name: "Care at home" }));
+      await waitFor(
+        () => {
+          expect(within(card).getByTestId("message-preview").textContent).not.toContain("Care at home");
+        },
+        { timeout: 2000 },
+      );
+      expect(previews.at(-1)).not.toContain("care");
+      expect(shareLinks()).toBe(links);
+      expect(sent).toEqual([]);
+      // Toggling saved nothing.
+      const before = await asha(backend).getMessagePrefs();
+      expect(before.ok ? before.value.sections : []).toContain("care");
+
+      // One tap sends with the ticks, and they become the defaults.
+      await user.click(within(card).getByRole("button", { name: "Prepare WhatsApp summary" }));
+      expect(await within(card).findByText(/Summary prepared/)).toBeTruthy();
+      expect(sent).toHaveLength(1);
+      expect(sent[0]).not.toContain("care");
+      expect(sent[0]).not.toContain("medicines");
+      const after = await asha(backend).getMessagePrefs();
+      expect(after.ok ? after.value.sections : []).toEqual(["done", "detail", "found", "plan", "offer", "video"]);
+      await waitFor(() => {
+        expect(handedOff).toEqual([done.visit_id]);
+      });
+      const counted = await asha(backend).getMessagePrefs();
+      expect(counted.ok ? counted.value.handoffs : 0).toBe(1);
+    } finally {
+      handoff.open = open;
+    }
+  });
+
   it("offers no WhatsApp summary on a done card without patients.contact", async () => {
     const backend = fakeApi((fixtures) => {
       seenDoneToken(fixtures);

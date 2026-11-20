@@ -764,6 +764,8 @@ export interface Fixtures {
   drugs: FakeDrug[];
   prescriptions: FakePrescription[];
   shareLinks: FakeShareLink[];
+  /** Each member's message ticks and hand-off count, by membership id, made on first use. */
+  messagePrefs?: Record<string, { sections: string[] | null; handoffs: number; handoff_days: number; last_handoff_on: string | null }>;
   /** `client_id`s already used on the dental chart, with a fingerprint of the request that used them. */
   chartClientIds?: Record<string, string>;
   /** The clinics' own medicine sets, made on first use. */

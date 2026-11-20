@@ -45,7 +45,7 @@ export function ArtSvg({ scene, label, className, labelColor = "currentColor", x
       </defs>
       <g transform={scene.outer ? mat(scene.outer) : undefined}>
         {scene.nodes.map((node, i) => {
-          let el = <path key={i} {...toProps(pathAttrs(node, pre))} />;
+          let el = <path key={i} {...toProps(pathAttrs(node, pre))} data-n={node.n} />;
           if (node.clip !== undefined) el = <g key={i} clipPath={`url(#${pre}${node.clip})`}>{el}</g>;
           if (node.group) el = <g key={i} transform={mat(node.group)}>{el}</g>;
           return el;

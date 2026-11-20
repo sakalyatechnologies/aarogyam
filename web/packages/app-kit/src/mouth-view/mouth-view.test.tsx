@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import fixture from "../../../../../specialties/dental/fixtures/mouth-aarav.json" with { type: "json" };
 import { MouthView } from "./mouth-view.js";
-import { archStates, brushingBand, brushHighlight, summaryCounts, type Snapshot } from "./model.js";
+import { archStates, brushingBand, brushHighlight, ifWaitFrames, stepOverlays, summaryCounts, type Snapshot } from "./model.js";
 
 afterEach(cleanup);
 
@@ -124,6 +124,55 @@ describe("tooth detail and stepper", () => {
     fireEvent.click(tooth(55));
     expect(await screen.findByText("Illustration: depth not recorded", {}, { timeout: 3000 })).toBeTruthy();
     expect(document.querySelectorAll(".mv-layer svg path").length).toBeGreaterThan(5);
+  });
+});
+
+describe("callouts, views per step and If you wait (§1.12, DT4)", () => {
+  it("labels the stage art from the kit's callouts", async () => {
+    render(<MouthView snapshot={aarav()} name="Aarav" reducedMotion />);
+    fireEvent.click(tooth(21));
+    const calls = await screen.findByText("Medicine inside", {}, { timeout: 3000 });
+    expect(calls.closest(".mv-callouts")).toBeTruthy();
+    expect(document.querySelectorAll('.mv-layer [data-n="medCanals"]').length).toBeGreaterThan(0);
+  });
+
+  it("hides a view the kit can't draw for the step instead of showing the tooth as charted", async () => {
+    render(<MouthView snapshot={aarav()} name="Aarav" reducedMotion />);
+    fireEvent.click(tooth(21));
+    await screen.findByText("Medicine inside", {}, { timeout: 3000 });
+    const tabs = within(screen.getByRole("group", { name: "View" }));
+    expect(tabs.queryByRole("button", { name: "Outside" })).toBeNull();
+    expect(stepOverlays("root_canal.crown", undefined)).toEqual([{ kind: "root_canal" }, { kind: "crown" }]);
+    expect(stepOverlays("root_canal.access_clean", undefined)).toBeUndefined();
+  });
+
+  it("If you wait: the recorded depth first, every later frame under Usually (DT4)", async () => {
+    const snap = aarav();
+    const t55 = snap.teeth.find((t) => t.tooth === 55);
+    expect(ifWaitFrames(t55)?.frames.map((f) => [f.when, f.caption])).toEqual([["now", "Decay into the tooth"], ["later", "Close to the nerve"], ["later", "Reaches the nerve: a root canal"]]);
+    render(<MouthView snapshot={snap} name="Aarav" reducedMotion />);
+    fireEvent.click(tooth(55));
+    const wait = (await screen.findByText("If you wait", {}, { timeout: 3000 })).closest(".mv-wait");
+    if (!(wait instanceof HTMLElement)) throw new Error("no If you wait");
+    const tags = [...wait.querySelectorAll(".mv-wait-tag")].map((e) => e.textContent);
+    expect(tags).toEqual(["Recorded", "Usually", "Usually"]);
+    expect(within(wait).getByText(/they are not a prediction/)).toBeTruthy();
+    if (t55 !== undefined) delete t55.details;
+    expect(ifWaitFrames(t55)).toBeUndefined();
+  });
+});
+
+describe("Present: today line and recommended work", () => {
+  it("says what is from today in one line, and rings recommended work apart from planned", () => {
+    const snap = aarav();
+    const t65 = snap.teeth.find((t) => t.tooth === 65);
+    if (t65 === undefined) throw new Error("65");
+    Object.assign(t65, { recommended: true });
+    render(<MouthView snapshot={snap} name="Aarav" mode="present" />);
+    expect(screen.getByText(/^Today: /).textContent).toContain("21 root canal sitting 4");
+    expect(tooth(65).querySelector(".mv-ring-rec")).toBeTruthy();
+    expect(tooth(55).querySelector(".mv-ring-rec")).toBeNull();
+    expect(screen.getByText("RECOMMENDED")).toBeTruthy();
   });
 });
 

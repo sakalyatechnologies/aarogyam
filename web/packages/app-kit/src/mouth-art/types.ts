@@ -167,6 +167,8 @@ export interface SceneNode {
   group?: Matrix;
   /** Layer transform, applied inside the clip. */
   m?: Matrix;
+  /** Layer name, kept only for layers a caller asked to mark (callout anchors). */
+  n?: string;
 }
 
 export interface SceneLabel {

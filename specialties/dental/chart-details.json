@@ -1,0 +1,49 @@
+{
+  "$comment": "Optional one-tap chart details (docs/plans/visit-story-v2-offers-design.md, section 1.13). 'values' must equal the Rust enums (CariesDepth, Infection, Eruption, Angulation in crates/aarogyam-domain/src/dental_details.rs; a test checks). 'chips' are the charting chip labels; 'words' are the patient's words for 'What we found', said only when the detail was recorded. Mobility (0-3) and pocket_mm (1-15, chip '7+' stored as 7) are bounded numbers, not lists; pocket depths stay on the page only. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "fields": {
+    "caries_depth": {
+      "values": ["enamel", "dentin", "near_pulp"],
+      "chips": { "enamel": "Enamel", "dentin": "Dentin", "near_pulp": "Near nerve" },
+      "words": {
+        "enamel": "Early decay",
+        "dentin": "Decay into the tooth",
+        "near_pulp": "Decay close to the nerve"
+      }
+    },
+    "infection": {
+      "values": ["infection", "abscess"],
+      "chips": { "infection": "Infection", "abscess": "Abscess" },
+      "words": {
+        "infection": "An infection at the root",
+        "abscess": "An infection (abscess) at the root"
+      }
+    },
+    "eruption": {
+      "values": ["erupted", "partial", "impacted", "unerupted"],
+      "chips": { "erupted": "Erupted", "partial": "Partial", "impacted": "Impacted", "unerupted": "Unerupted" },
+      "words": {
+        "partial": "is partly through the gum",
+        "impacted": "is impacted",
+        "unerupted": "has not come through yet"
+      }
+    },
+    "angulation": {
+      "values": ["vertical", "mesioangular", "distoangular", "horizontal"],
+      "chips": { "vertical": "Vertical", "mesioangular": "Mesio", "distoangular": "Disto", "horizontal": "Horizontal" },
+      "words": {
+        "vertical": "upright",
+        "mesioangular": "tilted forward",
+        "distoangular": "tilted back",
+        "horizontal": "lying on its side"
+      }
+    }
+  },
+  "mobility_words": "Tooth is loose (grade {grade})",
+  "mobility_primary_words": "Loose milk tooth (grade {grade})",
+  "bleeding_words": "Gums bleed around {count} teeth",
+  "bleeding_one_words": "Gums bleed around 1 tooth",
+  "wisdom_subject": "Wisdom tooth",
+  "tooth_subject": "Tooth"
+}

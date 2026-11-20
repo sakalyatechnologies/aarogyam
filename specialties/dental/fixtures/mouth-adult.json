@@ -1,0 +1,675 @@
+{
+  "$comment": "Golden fixture for the mouth snapshot builder (docs/plans/visit-story-v2-offers-design.md, sections 1.12 and 1.13). An adult with two treatments in progress (36 root canal with MTA, 46 crown at the lab), so no step is 'next' and the booked day shows once as next_visit; 47 root canal in progress with a clinic's own material (no current step); 16 filled here today ('Done here · today'); 26 filled with no procedure ('before', DF4); 37 decay close to the nerve; 14 missing with an old mobility record (hidden, DT3); 38 extraction planned (wisdom model from the code); 31 loose (grade 2) with bleeding. 'snapshot' is generated: UPDATE_FIXTURES=1 cargo test -p aarogyam-domain mouth, then review the diff.",
+  "input": {
+    "age": 41,
+    "conditions": [
+      {
+        "data": {
+          "mobility": 1,
+          "tooth": 14
+        },
+        "on": "2025-01-10"
+      },
+      {
+        "data": {
+          "bleeding": true,
+          "mobility": 2,
+          "tooth": 31
+        },
+        "on": "2026-11-20",
+        "today": true
+      }
+    ],
+    "done_today": [
+      {
+        "code": "filling",
+        "tooth": 16
+      }
+    ],
+    "entries": [
+      {
+        "current": true,
+        "data": {
+          "finding": "filled",
+          "material": "amalgam",
+          "surface": "O",
+          "tooth": 26
+        },
+        "in_visit": true,
+        "on": "2026-11-20",
+        "today": true
+      },
+      {
+        "current": true,
+        "data": {
+          "finding": "missing",
+          "tooth": 14
+        },
+        "in_visit": true,
+        "on": "2025-06-11"
+      },
+      {
+        "current": true,
+        "data": {
+          "finding": "root_canal",
+          "in_progress": true,
+          "material": "mta",
+          "procedure": "root_canal",
+          "sitting": 2,
+          "tooth": 36
+        },
+        "in_visit": true,
+        "on": "2026-11-12"
+      },
+      {
+        "current": true,
+        "data": {
+          "finding": "crown",
+          "in_progress": true,
+          "material": "zirconia",
+          "procedure": "crown",
+          "tooth": 46
+        },
+        "in_visit": true,
+        "on": "2026-11-12"
+      },
+      {
+        "current": true,
+        "data": {
+          "finding": "root_canal",
+          "in_progress": true,
+          "material": "0190a1b2-0000-7000-8000-00000000c0de",
+          "procedure": "root_canal",
+          "sitting": 1,
+          "tooth": 47
+        },
+        "in_visit": true,
+        "on": "2026-11-20",
+        "today": true
+      },
+      {
+        "current": false,
+        "data": {
+          "finding": "caries",
+          "surface": "O",
+          "tooth": 16
+        },
+        "in_visit": true,
+        "on": "2026-11-12"
+      },
+      {
+        "current": true,
+        "data": {
+          "finding": "filled",
+          "material": "composite",
+          "procedure": "filling",
+          "surface": "O",
+          "tooth": 16
+        },
+        "in_visit": true,
+        "on": "2026-11-20",
+        "today": true
+      },
+      {
+        "current": true,
+        "data": {
+          "caries_depth": "near_pulp",
+          "finding": "caries",
+          "surface": "O",
+          "tooth": 37
+        },
+        "in_visit": true,
+        "on": "2026-11-20",
+        "today": true
+      }
+    ],
+    "eruptions": [
+      {
+        "data": {
+          "angulation": "mesioangular",
+          "eruption": "impacted",
+          "tooth": 38
+        },
+        "on": "2026-11-20",
+        "today": true
+      }
+    ],
+    "next_visit": "2026-11-26",
+    "planned": [
+      {
+        "code": "extraction",
+        "tooth": 38
+      },
+      {
+        "code": "root_canal",
+        "tooth": 37
+      }
+    ],
+    "statuses": [
+      {
+        "data": {
+          "health": "needs_treatment",
+          "tooth": 37,
+          "treat_within_months": 1
+        }
+      }
+    ],
+    "visit_on": "2026-11-20"
+  },
+  "snapshot": {
+    "dentition": "adult",
+    "focus": [
+      16,
+      47,
+      37
+    ],
+    "next_visit": "2026-11-26",
+    "positions": [
+      {
+        "index": 1,
+        "quadrant": 1,
+        "shown": "sound",
+        "tooth": 11
+      },
+      {
+        "index": 2,
+        "quadrant": 1,
+        "shown": "sound",
+        "tooth": 12
+      },
+      {
+        "index": 3,
+        "quadrant": 1,
+        "shown": "sound",
+        "tooth": 13
+      },
+      {
+        "index": 4,
+        "quadrant": 1,
+        "shown": "tooth",
+        "tooth": 14
+      },
+      {
+        "index": 5,
+        "quadrant": 1,
+        "shown": "sound",
+        "tooth": 15
+      },
+      {
+        "index": 6,
+        "quadrant": 1,
+        "shown": "tooth",
+        "tooth": 16
+      },
+      {
+        "index": 7,
+        "quadrant": 1,
+        "shown": "sound",
+        "tooth": 17
+      },
+      {
+        "index": 8,
+        "quadrant": 1,
+        "shown": "sound",
+        "tooth": 18
+      },
+      {
+        "index": 1,
+        "quadrant": 2,
+        "shown": "sound",
+        "tooth": 21
+      },
+      {
+        "index": 2,
+        "quadrant": 2,
+        "shown": "sound",
+        "tooth": 22
+      },
+      {
+        "index": 3,
+        "quadrant": 2,
+        "shown": "sound",
+        "tooth": 23
+      },
+      {
+        "index": 4,
+        "quadrant": 2,
+        "shown": "sound",
+        "tooth": 24
+      },
+      {
+        "index": 5,
+        "quadrant": 2,
+        "shown": "sound",
+        "tooth": 25
+      },
+      {
+        "index": 6,
+        "quadrant": 2,
+        "shown": "tooth",
+        "tooth": 26
+      },
+      {
+        "index": 7,
+        "quadrant": 2,
+        "shown": "sound",
+        "tooth": 27
+      },
+      {
+        "index": 8,
+        "quadrant": 2,
+        "shown": "sound",
+        "tooth": 28
+      },
+      {
+        "index": 1,
+        "quadrant": 3,
+        "shown": "tooth",
+        "tooth": 31
+      },
+      {
+        "index": 2,
+        "quadrant": 3,
+        "shown": "sound",
+        "tooth": 32
+      },
+      {
+        "index": 3,
+        "quadrant": 3,
+        "shown": "sound",
+        "tooth": 33
+      },
+      {
+        "index": 4,
+        "quadrant": 3,
+        "shown": "sound",
+        "tooth": 34
+      },
+      {
+        "index": 5,
+        "quadrant": 3,
+        "shown": "sound",
+        "tooth": 35
+      },
+      {
+        "index": 6,
+        "quadrant": 3,
+        "shown": "tooth",
+        "tooth": 36
+      },
+      {
+        "index": 7,
+        "quadrant": 3,
+        "shown": "tooth",
+        "tooth": 37
+      },
+      {
+        "index": 8,
+        "quadrant": 3,
+        "shown": "tooth",
+        "tooth": 38
+      },
+      {
+        "index": 1,
+        "quadrant": 4,
+        "shown": "sound",
+        "tooth": 41
+      },
+      {
+        "index": 2,
+        "quadrant": 4,
+        "shown": "sound",
+        "tooth": 42
+      },
+      {
+        "index": 3,
+        "quadrant": 4,
+        "shown": "sound",
+        "tooth": 43
+      },
+      {
+        "index": 4,
+        "quadrant": 4,
+        "shown": "sound",
+        "tooth": 44
+      },
+      {
+        "index": 5,
+        "quadrant": 4,
+        "shown": "sound",
+        "tooth": 45
+      },
+      {
+        "index": 6,
+        "quadrant": 4,
+        "shown": "tooth",
+        "tooth": 46
+      },
+      {
+        "index": 7,
+        "quadrant": 4,
+        "shown": "tooth",
+        "tooth": 47
+      },
+      {
+        "index": 8,
+        "quadrant": 4,
+        "shown": "sound",
+        "tooth": 48
+      }
+    ],
+    "story_version": 1,
+    "teeth": [
+      {
+        "finding": "missing",
+        "problems": [
+          "missing"
+        ],
+        "tooth": 14,
+        "work": [
+          {
+            "finding": "missing",
+            "origin": "before"
+          }
+        ]
+      },
+      {
+        "finding": "filled",
+        "material": "composite",
+        "surfaces": [
+          "O"
+        ],
+        "today": "treated",
+        "tooth": 16,
+        "treatments": [
+          {
+            "model": "filling",
+            "recovery": [
+              "Some sensitivity to cold for a few days is common"
+            ],
+            "state": "done",
+            "steps": [
+              {
+                "after_words": "Usually done with the tooth numbed",
+                "key": "remove_decay",
+                "on": "2026-11-20",
+                "scene": "filling_clean",
+                "state": "done",
+                "words": "The decay is removed"
+              },
+              {
+                "after_words": "Usually you can eat once the numbness wears off",
+                "key": "fill",
+                "on": "2026-11-20",
+                "scene": "filling_fill",
+                "state": "done",
+                "words": "The tooth is filled and shaped to your bite"
+              }
+            ],
+            "typical_visits": 1
+          }
+        ],
+        "work": [
+          {
+            "done_on": "2026-11-20",
+            "finding": "filled",
+            "material": "composite",
+            "origin": "here",
+            "today": true
+          }
+        ]
+      },
+      {
+        "finding": "filled",
+        "material": "amalgam",
+        "surfaces": [
+          "O"
+        ],
+        "tooth": 26,
+        "work": [
+          {
+            "finding": "filled",
+            "material": "amalgam",
+            "origin": "before"
+          }
+        ]
+      },
+      {
+        "details": {
+          "bleeding": true,
+          "condition_on": "2026-11-20",
+          "mobility": 2
+        },
+        "today": "found",
+        "tooth": 31
+      },
+      {
+        "finding": "root_canal",
+        "sitting": 2,
+        "tooth": 36,
+        "treatments": [
+          {
+            "model": "root_canal",
+            "recovery": [
+              "Mild soreness for 2 to 3 days is common",
+              "Avoid chewing hard food on this side until the treatment is finished"
+            ],
+            "state": "in_progress",
+            "steps": [
+              {
+                "after_words": "Usually a temporary filling closes the tooth until the next visit",
+                "key": "access_clean",
+                "scene": "rct_access",
+                "state": "usual",
+                "words": "The tooth is opened and the infected nerve is cleaned out"
+              },
+              {
+                "after_words": "Usually the medicine stays for one to two weeks",
+                "key": "dressing",
+                "scene": "rct_dressing",
+                "sitting": 2,
+                "state": "current",
+                "words": "A medicine is placed inside the tooth to settle the infection"
+              },
+              {
+                "after_words": "Usually the tooth feels tender for a few days",
+                "key": "obturation",
+                "scene": "rct_fill",
+                "state": "usual",
+                "words": "The cleaned roots are filled and sealed"
+              },
+              {
+                "after_words": "Usually a crown keeps a root-treated back tooth from breaking",
+                "key": "restore",
+                "scene": "rct_crown",
+                "state": "usual",
+                "words": "The tooth is protected with a filling or a crown"
+              }
+            ],
+            "typical_visits": 3
+          }
+        ]
+      },
+      {
+        "details": {
+          "caries_depth": "near_pulp"
+        },
+        "finding": "caries",
+        "health": "needs_treatment",
+        "planned": true,
+        "problems": [
+          "caries"
+        ],
+        "surfaces": [
+          "O"
+        ],
+        "today": "found",
+        "tooth": 37,
+        "treat_within_months": 1,
+        "treatments": [
+          {
+            "model": "root_canal",
+            "recovery": [
+              "Mild soreness for 2 to 3 days is common",
+              "Avoid chewing hard food on this side until the treatment is finished"
+            ],
+            "state": "planned",
+            "steps": [
+              {
+                "after_words": "Usually a temporary filling closes the tooth until the next visit",
+                "key": "access_clean",
+                "scene": "rct_access",
+                "state": "usual",
+                "words": "The tooth is opened and the infected nerve is cleaned out"
+              },
+              {
+                "after_words": "Usually the medicine stays for one to two weeks",
+                "key": "dressing",
+                "scene": "rct_dressing",
+                "state": "usual",
+                "words": "A medicine is placed inside the tooth to settle the infection"
+              },
+              {
+                "after_words": "Usually the tooth feels tender for a few days",
+                "key": "obturation",
+                "scene": "rct_fill",
+                "state": "usual",
+                "words": "The cleaned roots are filled and sealed"
+              },
+              {
+                "after_words": "Usually a crown keeps a root-treated back tooth from breaking",
+                "key": "restore",
+                "scene": "rct_crown",
+                "state": "usual",
+                "words": "The tooth is protected with a filling or a crown"
+              }
+            ],
+            "typical_visits": 3
+          }
+        ]
+      },
+      {
+        "details": {
+          "angulation": "mesioangular",
+          "eruption": "impacted"
+        },
+        "planned": true,
+        "today": "found",
+        "tooth": 38,
+        "treatments": [
+          {
+            "model": "wisdom_extraction",
+            "recovery": [
+              "Swelling for 2 to 3 days is common",
+              "Cold packs on the cheek help on the first day"
+            ],
+            "state": "planned",
+            "steps": [
+              {
+                "after_words": "Usually the numbness lasts 3 to 4 hours",
+                "key": "numb",
+                "scene": "wisdom_numb",
+                "state": "usual",
+                "words": "The area is numbed"
+              },
+              {
+                "after_words": "Usually a few stitches close the gum",
+                "key": "remove",
+                "scene": "wisdom_remove",
+                "state": "usual",
+                "words": "The wisdom tooth is removed, sometimes in pieces"
+              },
+              {
+                "after_words": "Usually about a week later",
+                "key": "review",
+                "scene": "wisdom_heal",
+                "state": "usual",
+                "words": "A check-up to see the gum healing"
+              }
+            ],
+            "typical_visits": 2
+          }
+        ]
+      },
+      {
+        "finding": "crown",
+        "material": "zirconia",
+        "tooth": 46,
+        "treatments": [
+          {
+            "model": "crown",
+            "recovery": [
+              "Avoid sticky food on a temporary crown"
+            ],
+            "state": "in_progress",
+            "steps": [
+              {
+                "after_words": "Usually the lab makes the crown in about a week",
+                "key": "prepare",
+                "on": "2026-11-12",
+                "scene": "crown_prepare",
+                "state": "current",
+                "words": "The tooth is shaped and measured, and a temporary crown is placed"
+              },
+              {
+                "after_words": "Usually the bite feels normal in a day or two",
+                "key": "fit",
+                "scene": "crown_fit",
+                "state": "usual",
+                "words": "The crown is fitted and fixed"
+              }
+            ],
+            "typical_visits": 2
+          }
+        ]
+      },
+      {
+        "finding": "root_canal",
+        "sitting": 1,
+        "today": "in_progress",
+        "tooth": 47,
+        "treatments": [
+          {
+            "model": "root_canal",
+            "recovery": [
+              "Mild soreness for 2 to 3 days is common",
+              "Avoid chewing hard food on this side until the treatment is finished"
+            ],
+            "state": "in_progress",
+            "steps": [
+              {
+                "after_words": "Usually a temporary filling closes the tooth until the next visit",
+                "key": "access_clean",
+                "scene": "rct_access",
+                "state": "usual",
+                "words": "The tooth is opened and the infected nerve is cleaned out"
+              },
+              {
+                "after_words": "Usually the medicine stays for one to two weeks",
+                "key": "dressing",
+                "scene": "rct_dressing",
+                "state": "usual",
+                "words": "A medicine is placed inside the tooth to settle the infection"
+              },
+              {
+                "after_words": "Usually the tooth feels tender for a few days",
+                "key": "obturation",
+                "scene": "rct_fill",
+                "state": "usual",
+                "words": "The cleaned roots are filled and sealed"
+              },
+              {
+                "after_words": "Usually a crown keeps a root-treated back tooth from breaking",
+                "key": "restore",
+                "scene": "rct_crown",
+                "state": "usual",
+                "words": "The tooth is protected with a filling or a crown"
+              }
+            ],
+            "typical_visits": 3
+          }
+        ]
+      }
+    ]
+  }
+}

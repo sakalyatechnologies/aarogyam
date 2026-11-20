@@ -406,6 +406,9 @@ pub fn diagnosis_words(code_system: &str, code: &str) -> Option<&'static str> {
 
 /// Findings that explain a treatment when recorded on that tooth (chart finding ids).
 const WHY_RECORDED: [&str; 2] = ["caries", "fractured"];
+/// Recorded detail taps that explain a treatment better than the finding (section 1.13): decay
+/// close to the nerve, an abscess at the root.
+const WHY_DETAILS: [&str; 2] = ["near_pulp", "abscess"];
 /// Finding chips that explain a treatment, when only one tooth was touched today.
 const WHY_CHIPS: [&str; 3] = ["deep_caries", "abscess", "fractured_crown"];
 
@@ -421,7 +424,12 @@ pub fn why_key<'a>(
 ) -> Option<&'a str> {
     recorded
         .iter()
-        .find(|finding| WHY_RECORDED.contains(finding))
+        .find(|detail| WHY_DETAILS.contains(detail))
+        .or_else(|| {
+            recorded
+                .iter()
+                .find(|finding| WHY_RECORDED.contains(finding))
+        })
         .or_else(|| {
             (teeth_touched == 1)
                 .then(|| chips.iter().find(|chip| WHY_CHIPS.contains(chip)))
@@ -1951,6 +1959,9 @@ mod tests {
         }
         // Why comes from a finding on that tooth, or a chip only when one tooth was touched.
         assert_eq!(why_key(&["caries"], &[], 3), Some("caries"));
+        // A recorded detail explains it better than the finding (section 1.13).
+        assert_eq!(why_key(&["caries", "near_pulp"], &[], 3), Some("near_pulp"));
+        assert_eq!(why_key(&["caries", "abscess"], &[], 2), Some("abscess"));
         assert_eq!(why_key(&["watch", "root_canal"], &[], 1), None);
         assert_eq!(why_key(&[], &["deep_caries"], 1), Some("deep_caries"));
         assert_eq!(why_key(&[], &["deep_caries"], 2), None);

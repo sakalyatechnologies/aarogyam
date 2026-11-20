@@ -1,0 +1,151 @@
+{
+  "$comment": "Treatment models for the interactive mouth view (docs/plans/visit-story-v2-offers-design.md, section 1.12). The server (crates/aarogyam-domain/src/mouth.rs) resolves each step: 'done' and 'current' only when a record done here backs them (record_map), 'next' only for the one treatment in progress when a visit is booked, every other step 'usual' (shown under 'Usual steps' with no visit number, date or price). 'after_words' and 'recovery' are always shown under 'Usually' or 'What to expect', never as patient-specific. 'terms' maps a seeded procedure id or a procedure code to a model; a typed name is never read. 'medicaments' holds seeded vocabulary.json material ids only (DF5). 'material_appearance' maps seeded material ids to how they look; a clinic's own material takes 'custom_default' by finding. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "terms": {
+    "root_canal": "root_canal",
+    "rct": "root_canal",
+    "pulpotomy": "root_canal",
+    "filling": "filling",
+    "composite_filling": "filling",
+    "core_build_up": "filling",
+    "sealant": "filling",
+    "extraction": "extraction",
+    "surgical_extraction": "wisdom_extraction",
+    "crown": "crown",
+    "bridge": "crown",
+    "bridge_abutment": "crown",
+    "bridge_pontic": "crown",
+    "veneer": "crown",
+    "inlay": "crown",
+    "onlay": "crown",
+    "post_core": "crown",
+    "scaling": "scaling",
+    "implant": "implant"
+  },
+  "work_findings": {
+    "root_canal": "root_canal",
+    "crown": "crown",
+    "bridge": "crown",
+    "implant": "implant",
+    "filled": "filling",
+    "missing": "extraction"
+  },
+  "models": {
+    "root_canal": {
+      "typical_visits": 3,
+      "steps": [
+        { "key": "access_clean", "scene": "rct_access", "words": "The tooth is opened and the infected nerve is cleaned out", "after_words": "Usually a temporary filling closes the tooth until the next visit" },
+        { "key": "dressing", "scene": "rct_dressing", "words": "A medicine is placed inside the tooth to settle the infection", "after_words": "Usually the medicine stays for one to two weeks" },
+        { "key": "obturation", "scene": "rct_fill", "words": "The cleaned roots are filled and sealed", "after_words": "Usually the tooth feels tender for a few days" },
+        { "key": "restore", "scene": "rct_crown", "words": "The tooth is protected with a filling or a crown", "after_words": "Usually a crown keeps a root-treated back tooth from breaking" }
+      ],
+      "recovery": ["Mild soreness for 2 to 3 days is common", "Avoid chewing hard food on this side until the treatment is finished"],
+      "record_map": {
+        "in_progress_step": "access_clean",
+        "plain_materials": ["temporary"],
+        "medicaments": ["calcium_hydroxide", "mta"],
+        "medicament_step": "dressing",
+        "done_steps": ["obturation"]
+      }
+    },
+    "filling": {
+      "typical_visits": 1,
+      "steps": [
+        { "key": "remove_decay", "scene": "filling_clean", "words": "The decay is removed", "after_words": "Usually done with the tooth numbed" },
+        { "key": "fill", "scene": "filling_fill", "words": "The tooth is filled and shaped to your bite", "after_words": "Usually you can eat once the numbness wears off" }
+      ],
+      "recovery": ["Some sensitivity to cold for a few days is common"],
+      "record_map": {
+        "in_progress_step": "remove_decay",
+        "done_steps": ["remove_decay", "fill"]
+      }
+    },
+    "extraction": {
+      "typical_visits": 1,
+      "steps": [
+        { "key": "numb", "scene": "extraction_numb", "words": "The area is numbed", "after_words": "Usually the numbness lasts 2 to 3 hours" },
+        { "key": "remove", "scene": "extraction_remove", "words": "The tooth is removed", "after_words": "Usually a gauze pad is bitten on for 30 minutes" },
+        { "key": "heal", "scene": "extraction_heal", "words": "The gum heals over the space", "after_words": "Usually the gum closes in 1 to 2 weeks" }
+      ],
+      "recovery": ["No spitting, rinsing or straws for 24 hours", "Soft, cool food for the first day"],
+      "record_map": {
+        "done_steps": ["numb", "remove"]
+      }
+    },
+    "wisdom_extraction": {
+      "typical_visits": 2,
+      "steps": [
+        { "key": "numb", "scene": "wisdom_numb", "words": "The area is numbed", "after_words": "Usually the numbness lasts 3 to 4 hours" },
+        { "key": "remove", "scene": "wisdom_remove", "words": "The wisdom tooth is removed, sometimes in pieces", "after_words": "Usually a few stitches close the gum" },
+        { "key": "review", "scene": "wisdom_heal", "words": "A check-up to see the gum healing", "after_words": "Usually about a week later" }
+      ],
+      "recovery": ["Swelling for 2 to 3 days is common", "Cold packs on the cheek help on the first day"],
+      "record_map": {
+        "done_steps": ["numb", "remove"]
+      }
+    },
+    "crown": {
+      "typical_visits": 2,
+      "steps": [
+        { "key": "prepare", "scene": "crown_prepare", "words": "The tooth is shaped and measured, and a temporary crown is placed", "after_words": "Usually the lab makes the crown in about a week" },
+        { "key": "fit", "scene": "crown_fit", "words": "The crown is fitted and fixed", "after_words": "Usually the bite feels normal in a day or two" }
+      ],
+      "recovery": ["Avoid sticky food on a temporary crown"],
+      "record_map": {
+        "in_progress_step": "prepare",
+        "done_steps": ["fit"]
+      }
+    },
+    "scaling": {
+      "typical_visits": 1,
+      "steps": [
+        { "key": "scale", "scene": "scaling_clean", "words": "Tartar is cleaned off the teeth", "after_words": "Usually the gums bleed a little for a day" },
+        { "key": "polish", "scene": "scaling_polish", "words": "The teeth are polished", "after_words": "Usually a cleaning every 6 months keeps gums healthy" }
+      ],
+      "recovery": ["Some sensitivity for a few days is common"],
+      "record_map": {
+        "done_steps": ["scale", "polish"]
+      }
+    },
+    "implant": {
+      "typical_visits": 3,
+      "steps": [
+        { "key": "place", "scene": "implant_place", "words": "The implant is placed in the jaw bone", "after_words": "Usually a few stitches close the gum" },
+        { "key": "heal", "scene": "implant_heal", "words": "The bone grows around the implant", "after_words": "Usually this takes 3 to 6 months" },
+        { "key": "crown", "scene": "implant_crown", "words": "The crown is fixed on the implant", "after_words": "Usually it looks and works like a natural tooth" }
+      ],
+      "recovery": ["Swelling for 2 to 3 days is common", "Soft food on that side while it heals"],
+      "record_map": {
+        "in_progress_step": "place",
+        "done_steps": ["crown"]
+      }
+    }
+  },
+  "material_appearance": {
+    "composite": "composite",
+    "flowable_composite": "composite",
+    "composite_veneer": "composite",
+    "glass_ionomer": "composite",
+    "resin_sealant": "composite",
+    "gic_sealant": "composite",
+    "amalgam": "amalgam",
+    "emax": "porcelain",
+    "ceramic": "porcelain",
+    "pfm": "porcelain",
+    "inlay_onlay": "porcelain",
+    "cast_metal": "metal",
+    "gold": "metal",
+    "titanium_4_2x10": "metal",
+    "titanium_3_5x11_5": "metal",
+    "zirconia": "zirconia",
+    "layered_zirconia": "zirconia",
+    "zirconia_abutment": "zirconia",
+    "temporary": "temporary"
+  },
+  "custom_default": {
+    "filled": "composite",
+    "crown": "porcelain",
+    "bridge": "porcelain"
+  }
+}

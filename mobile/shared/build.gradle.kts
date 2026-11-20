@@ -59,6 +59,13 @@ val apiModels =
         "ToothStatus",
         "ToothHealth",
         "NewToothStatus",
+        // Visit story v2 §1.13: the chart's detail taps (the phones write them; the mouth
+        // snapshot goes raw to the WebView, so it has no models here).
+        "ToothCondition",
+        "ToothEruption",
+        "NewToothCondition",
+        "NewToothEruption",
+        "DetailInError",
         "ChartEntry",
         "NewChartEntries",
         "NewChartEntry",

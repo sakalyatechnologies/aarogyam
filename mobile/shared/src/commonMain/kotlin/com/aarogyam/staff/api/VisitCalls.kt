@@ -6,6 +6,7 @@ import com.aarogyam.staff.api.model.ProcedureList
 import com.aarogyam.staff.api.model.ShareRequest
 import com.aarogyam.staff.api.model.VisitDetail
 import com.aarogyam.staff.api.model.VisitLink
+import com.aarogyam.staff.api.model.VisitPatientMessage
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.http.call
@@ -46,4 +47,15 @@ suspend fun ClinicApi.shareVisit(visitId: String): Outcome<VisitLink, ApiError> 
         url("api/v1/visits/${visitId.encodeURLPathPart()}/share")
         contentType(ContentType.Application.Json)
         setBody(ShareRequest(channel = "link"))
+    }
+
+/**
+ * `POST /api/v1/visits/{id}/patient-message` (`prepareVisitPatientMessage`, clinical.read and
+ * patients.contact): the patient's visit summary for the doctor's own WhatsApp. `no-store`: keep it
+ * in memory only, never store, queue, retry or log it.
+ */
+suspend fun ClinicApi.prepareVisitPatientMessage(visitId: String): Outcome<VisitPatientMessage, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/visits/${visitId.encodeURLPathPart()}/patient-message")
     }

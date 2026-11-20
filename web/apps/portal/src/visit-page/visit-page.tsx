@@ -6,13 +6,13 @@
  */
 import { useEffect, useState, type SubmitEvent } from "react";
 
-import { openVisit, previewLink, type Failure, type Visit } from "./public-client.js";
+import { answerPlan, openVisit, previewLink, type Failure, type PlanChoice, type Visit } from "./public-client.js";
 import { dayWords, doses, firstName, rupees, timingWords, toothWords } from "./words.js";
 
 type Stage =
   | { readonly kind: "loading" }
   | { readonly kind: "pin"; readonly clinicName: string }
-  | { readonly kind: "open"; readonly visit: Visit }
+  | { readonly kind: "open"; readonly visit: Visit; readonly pin: string }
   | { readonly kind: "stopped"; readonly failure: Failure; readonly clinicName?: string };
 
 /** The token in `/shared/{token}`, or empty. */
@@ -70,8 +70,8 @@ export function VisitPage({ token, leave = leavePage }: { token: string; leave?:
         <PinGate
           clinicName={stage.clinicName}
           token={token}
-          onOpened={(visit) => {
-            setStage({ kind: "open", visit });
+          onOpened={(visit, pin) => {
+            setStage({ kind: "open", visit, pin });
           }}
           onStopped={(failure) => {
             setStage({ kind: "stopped", failure, clinicName: stage.clinicName });
@@ -81,11 +81,22 @@ export function VisitPage({ token, leave = leavePage }: { token: string; leave?:
     case "stopped":
       return <Stopped failure={stage.failure} clinicName={stage.clinicName} />;
     case "open":
-      return <VisitStory visit={stage.visit} />;
+      return <VisitStory visit={stage.visit} token={token} pin={stage.pin} />;
   }
 }
 
-function PinGate({ clinicName, token, onOpened, onStopped }: { clinicName: string; token: string; onOpened: (visit: Visit) => void; onStopped: (failure: Failure) => void }) {
+/** The PIN stays in memory only (the page state), for the plan answer; it is never stored. */
+function PinGate({
+  clinicName,
+  token,
+  onOpened,
+  onStopped,
+}: {
+  clinicName: string;
+  token: string;
+  onOpened: (visit: Visit, pin: string) => void;
+  onStopped: (failure: Failure) => void;
+}) {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -98,7 +109,7 @@ function PinGate({ clinicName, token, onOpened, onStopped }: { clinicName: strin
     void openVisit(token, pin).then((result) => {
       setBusy(false);
       if (result.ok) {
-        onOpened(result.value);
+        onOpened(result.value, pin);
       } else if (result.failure.kind === "wrong_pin") {
         setError(result.failure.message);
         setPin("");
@@ -183,7 +194,7 @@ export function bookingUrl(visit: Visit): string | undefined {
 
 const SLOTS = ["Morning", "Afternoon", "Night"];
 
-function VisitStory({ visit }: { visit: Visit }) {
+function VisitStory({ visit, token, pin }: { visit: Visit; token: string; pin: string }) {
   const book = bookingUrl(visit);
   const total = visit.plan.reduce((sum, item) => sum + (item.estimatePaise ?? 0), 0);
   const phone = visit.clinicPhone === null || visit.clinicPhone === undefined ? undefined : visit.clinicPhone;
@@ -240,6 +251,7 @@ function VisitStory({ visit }: { visit: Visit }) {
           {visit.followUpOn === null || visit.followUpOn === undefined ? null : (
             <p className="vp-next">Next visit due by {dayWords(visit.followUpOn)}</p>
           )}
+          <PlanReply token={token} pin={pin} phone={phone} />
           {book === undefined ? null : (
             <a className="vp-button vp-button-wide" href={book}>
               Book my next visit
@@ -325,6 +337,81 @@ function VisitStory({ visit }: { visit: Visit }) {
         <p>This link works until {dayWords(visit.expiresAt)}. It opens your health record, so please don't forward it.</p>
       </footer>
     </main>
+  );
+}
+
+const ANSWER_FAILED: Readonly<Record<Failure["kind"], string>> = {
+  wrong_pin: "We couldn't check your PIN. Please open the link again.",
+  locked: "This link is locked. Please ask the clinic for a new link.",
+  expired: "This link has expired. Please ask the clinic for a new one.",
+  missing: "We couldn't send your answer. Please call the clinic.",
+  offline: "No connection. Check your internet and try again.",
+};
+
+/** "Go ahead" or "I have a question" about the plan, sent with the PIN the page was opened with. */
+function PlanReply({ token, pin, phone }: { token: string; pin: string; phone: string | undefined }) {
+  const [busy, setBusy] = useState<PlanChoice>();
+  const [answered, setAnswered] = useState<PlanChoice>();
+  const [error, setError] = useState<string>();
+
+  const send = (choice: PlanChoice) => {
+    if (busy !== undefined) return;
+    setBusy(choice);
+    setError(undefined);
+    void answerPlan(token, pin, choice).then((result) => {
+      setBusy(undefined);
+      if (result.ok) {
+        setAnswered(result.value.choice);
+      } else {
+        setError(ANSWER_FAILED[result.failure.kind]);
+      }
+    });
+  };
+
+  if (answered !== undefined) {
+    return (
+      <div className="vp-reply">
+        <p className="vp-thanks" role="status">
+          {answered === "go_ahead" ? "Thanks, the clinic will call you to book." : "Thanks, the clinic will get back to you."}
+        </p>
+        {answered === "question" && phone !== undefined ? (
+          <a className="vp-button vp-button-wide" href={`https://wa.me/${digits(phone)}`} rel="noreferrer">
+            WhatsApp the clinic
+          </a>
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <div className="vp-reply">
+      <div className="vp-actions">
+        <button
+          className="vp-button"
+          type="button"
+          disabled={busy !== undefined}
+          onClick={() => {
+            send("go_ahead");
+          }}
+        >
+          {busy === "go_ahead" ? "Sending…" : "Yes, I want to go ahead"}
+        </button>
+        <button
+          className="vp-button vp-button-soft"
+          type="button"
+          disabled={busy !== undefined}
+          onClick={() => {
+            send("question");
+          }}
+        >
+          {busy === "question" ? "Sending…" : "I have a question"}
+        </button>
+      </div>
+      {error === undefined ? null : (
+        <p className="vp-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

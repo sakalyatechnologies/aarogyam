@@ -86,6 +86,55 @@ describe("Visit page (patient link)", () => {
     expect(fetchMock.mock.calls.every(([, init]) => init?.credentials === "omit")).toBe(true);
   });
 
+  async function openWith(replies: Record<string, Reply | Reply[]>, visit: unknown = VISIT) {
+    const user = userEvent.setup();
+    const fetchMock = serve({
+      [`/api/v1/shared/${TOKEN}`]: preview("visit"),
+      [`/api/v1/shared/${TOKEN}/visit`]: { status: 200, body: visit },
+      ...replies,
+    });
+    render(<VisitPage token={TOKEN} />);
+    await user.type(await screen.findByLabelText("PIN"), "123456");
+    await user.click(screen.getByRole("button", { name: "Open" }));
+    await screen.findByRole("heading", { name: "Hi Rahul, here's your visit" });
+    return { user, fetchMock };
+  }
+
+  const ANSWER = `/api/v1/shared/${TOKEN}/plan-response`;
+
+  it("answers the plan with the PIN it was opened with: go ahead", async () => {
+    const { user, fetchMock } = await openWith({ [ANSWER]: { status: 200, body: { choice: "go_ahead", responded_at: "2026-11-19T10:00:00Z" } } });
+    await user.click(screen.getByRole("button", { name: "Yes, I want to go ahead" }));
+    expect(await screen.findByText("Thanks, the clinic will call you to book.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "I have a question" })).toBeNull();
+    const call = fetchMock.mock.calls.find(([url]) => url === ANSWER);
+    expect(call?.[1]?.method).toBe("POST");
+    expect(call?.[1]?.body).toBe(JSON.stringify({ pin: "123456", choice: "go_ahead" }));
+    expect(await axe.run(document.body, AXE).then((r) => r.violations.map((v) => v.id))).toEqual([]);
+  });
+
+  it("a question offers WhatsApp straight away, and failures are said plainly", async () => {
+    const { user } = await openWith({
+      [ANSWER]: [
+        { status: 410, body: { error: { code: "expired", message: "x" } } },
+        { status: 200, body: { choice: "question", responded_at: "2026-11-19T10:00:00Z" } },
+      ],
+    });
+    await user.click(screen.getByRole("button", { name: "I have a question" }));
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "This link has expired. Please ask the clinic for a new one.");
+    await user.click(screen.getByRole("button", { name: "I have a question" }));
+    expect(await screen.findByText("Thanks, the clinic will get back to you.")).toBeTruthy();
+    const links = screen.getAllByRole("link", { name: "WhatsApp the clinic" });
+    expect(links.length).toBe(2);
+    expect(links[0]?.getAttribute("href")).toBe("https://wa.me/919000009000");
+  });
+
+  it("shows no answer buttons without a plan", async () => {
+    await openWith({}, { ...VISIT, plan: [] });
+    expect(screen.queryByRole("button", { name: "Yes, I want to go ahead" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "I have a question" })).toBeNull();
+  });
+
   it("hands other links to the portal page and explains expired or unknown links", async () => {
     serve({ [`/api/v1/shared/${TOKEN}`]: preview("prescription") });
     const leave = vi.fn();

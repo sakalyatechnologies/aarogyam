@@ -185,6 +185,34 @@ export function parseVisit(body: unknown): Visit | undefined {
   };
 }
 
+/** The patient's answer to their plan. */
+export type PlanChoice = "go_ahead" | "question";
+
+/** The answer as the clinic saved it. */
+export interface PlanAnswer {
+  readonly choice: PlanChoice;
+  readonly respondedAt: string;
+}
+
+/** Sends the answer to the plan; the PIN is checked again, as when opening. */
+export async function answerPlan(token: string, pin: string, choice: PlanChoice): Promise<Result<PlanAnswer>> {
+  const result = await call(`${linkPath(token)}/plan-response`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ pin, choice }),
+  });
+  if (!result.ok) return result;
+  const body = result.value;
+  const saved = isObject(body) ? text(body["choice"]) : undefined;
+  return {
+    ok: true,
+    value: {
+      choice: saved === "go_ahead" || saved === "question" ? saved : choice,
+      respondedAt: isObject(body) ? (text(body["responded_at"]) ?? "") : "",
+    },
+  };
+}
+
 /** Opens the visit with the PIN. */
 export async function openVisit(token: string, pin: string): Promise<Result<Visit>> {
   const result = await call(`${linkPath(token)}/visit`, {

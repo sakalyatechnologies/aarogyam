@@ -1,4 +1,4 @@
-import { AlarmClock, Bell, BellRing, CalendarCheck, CalendarDays, CalendarPlus, CalendarX, Check, FlaskConical, Footprints, HandCoins, PackageMinus, TriangleAlert, UserRound, type LucideIcon } from "lucide-react";
+import { AlarmClock, Bell, BellRing, CalendarCheck, CalendarDays, CalendarPlus, CalendarX, Check, FlaskConical, Footprints, HandCoins, MessageCircle, PackageMinus, TriangleAlert, UserRound, type LucideIcon } from "lucide-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
@@ -236,6 +236,8 @@ export function describeNotification(item: Notification, timeZone: string, name?
       const amount = amountOf(item);
       return { title: amount === null ? "Payment due" : `Payment due · ${amount}`, body: item.invoice?.number == null ? "A bill is still unpaid." : `${item.invoice.number} is still unpaid.`, icon: HandCoins };
     }
+    case "plan_response":
+      return { title: "A patient replied to their plan", body: "Open the patient to see the plan and call them back.", icon: MessageCircle };
     case "recall_due":
       return { title: "Follow-up due", body: item.recall === null || item.recall === undefined ? "A patient is due for a follow-up." : `A patient is due back on ${item.recall.due_on}.`, icon: CalendarCheck };
     default:

@@ -57,6 +57,8 @@ body {
 .vp-button-wide { width: 100%; margin-top: 14px; }
 .vp-button-soft { background: var(--vp-brand-soft); color: var(--vp-brand); }
 .vp-actions { display: grid; gap: 10px; }
+.vp-reply { margin-top: 14px; }
+.vp-thanks { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--vp-brand-soft); color: var(--vp-brand); font-weight: 600; }
 .vp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .vp-item { display: flex; gap: 10px; align-items: baseline; }
 .vp-grow { flex: 1; min-width: 0; }

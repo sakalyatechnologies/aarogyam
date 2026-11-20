@@ -10,7 +10,9 @@ import { overlayPart } from "./overlays.js";
 import { BrushingAnimation } from "./react.js";
 import { drawScene, sceneToSvg, type Canvas2D } from "./render.js";
 import { composeLayers, stagePart, toothScene } from "./scene.js";
-import { BRUSHING_BANDS, DETAIL_VALUES, EXTRA_SCENES, STAGE_MODELS, STAGE_STEPS } from "./stage-steps.js";
+import { BRUSHING_BANDS, DETAIL_VALUES, EXTRA_SCENES, SCENE_ART, STAGE_MODELS, STAGE_STEPS, sceneArt } from "./stage-steps.js";
+import stagesJson from "../../../../../specialties/dental/treatment-stages.json" with { type: "json" };
+import detailsJson from "../../../../../specialties/dental/chart-details.json" with { type: "json" };
 import { TOOTH_TYPES, type ArtLayer } from "./types.js";
 import dentalRs from "../../../../../crates/aarogyam-domain/src/dental.rs?raw";
 import vocab from "../../../../../specialties/dental/vocabulary.json" with { type: "json" };
@@ -50,7 +52,11 @@ describe("art-map coverage (§1.13)", () => {
     }
   });
 
-  it("maps every §1.13 detail value (DETAIL_VALUES until chart-details.json is seeded)", () => {
+  it("maps every §1.13 detail value in chart-details.json", () => {
+    for (const [field, spec] of Object.entries(detailsJson.fields)) {
+      if (!isField(field)) throw new Error(field);
+      expect([...DETAIL_VALUES[field]]).toEqual(spec.values);
+    }
     const fields = Object.entries(DETAIL_VALUES);
     for (const [field, values] of fields) {
       if (!isField(field)) throw new Error(field);
@@ -66,6 +72,21 @@ describe("art-map coverage (§1.13)", () => {
 });
 
 describe("stage art", () => {
+  it("draws every server step scene in treatment-stages.json", async () => {
+    const models: Record<string, { steps: { scene: string }[] }> = stagesJson.models;
+    const scenes = Object.values(models).flatMap((m) => m.steps.map((s) => s.scene));
+    expect(scenes.length).toBeGreaterThan(10);
+    for (const scene of scenes) {
+      expect(SCENE_ART[scene], scene).toBeDefined();
+      if (SCENE_ART[scene] === "tooth") continue;
+      const art = sceneArt(scene);
+      expect(art, scene).toBeDefined();
+      if (art === undefined) continue;
+      expect((await loadStageArt(art.model)).scenes[art.step], scene).toBeDefined();
+    }
+    for (const model of Object.keys(models)) expect(STAGE_MODELS, model).toContain(model);
+  });
+
   it("has a scene for every step id, and the extra scenes", async () => {
     for (const m of STAGE_MODELS) {
       const set = await loadStageArt(m);

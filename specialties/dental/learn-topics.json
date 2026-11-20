@@ -1,0 +1,114 @@
+{
+  "$comment": "Public learn pages (docs/plans/visit-story-v2-offers-design.md, sections 1.8 and 1.9): opaque id -> topic. Ids are random (no vowels, so they spell nothing) and never name a procedure, because they appear in URLs (AGENTS.md rule 6). 'title' is the og:title and the message's learn line. 'still' and 'square' are written by web/apps/learn/scripts/render-stills.mjs. Never reuse or change an id: sent messages point at it.",
+  "schema_version": 1,
+  "topics": {
+    "r3zxqv": {
+      "topic": "root_canal",
+      "title": "How a root canal works",
+      "still": {
+        "bytes": 61680,
+        "sha256": "292fd6b86081dc0467933fe5a0ed223fcff3e0cfe281a9c95d172462f6acf757"
+      },
+      "square": {
+        "bytes": 66259,
+        "sha256": "c37914311f4554166287da4222c9229fed4ac1b3b28fea43cd3f6a1a469f1de7"
+      }
+    },
+    "p8f2gf": {
+      "topic": "filling",
+      "title": "How a filling works",
+      "still": {
+        "bytes": 50507,
+        "sha256": "ac33832cce79d53fe0fdf94139a87b9d0dbdf30e678266e726a71bb3401bdca3"
+      },
+      "square": {
+        "bytes": 54902,
+        "sha256": "63d12d28dc4713bea436ad28d0ab0466df7008917e15623361f6a09db094b146"
+      }
+    },
+    "qdh5x4": {
+      "topic": "extraction",
+      "title": "How a tooth is removed",
+      "still": {
+        "bytes": 38820,
+        "sha256": "a4f05c84cdb8eceb5ed2067fc7b3d2e3b16c74c3e37a31d534ee0e05af0ad944"
+      },
+      "square": {
+        "bytes": 57598,
+        "sha256": "71c3ba5bd767f2ad7afb7da965ebf43e6a4805bf73a7ea49f10148d488a8f4a5"
+      }
+    },
+    "9gckrk": {
+      "topic": "wisdom_extraction",
+      "title": "How a wisdom tooth is removed",
+      "still": {
+        "bytes": 55849,
+        "sha256": "c56389cc4eaab4665c1940a3eb75e01b53b2de7c6bd0c2eaa5b3d10be1c2539b"
+      },
+      "square": {
+        "bytes": 63629,
+        "sha256": "0393d6e951181e9ba40fdea56b43413778412e80c8a4a7f36007953184b799f2"
+      }
+    },
+    "k94qxz": {
+      "topic": "crown",
+      "title": "How a crown works",
+      "still": {
+        "bytes": 39935,
+        "sha256": "e71be82eac404159172a42931d6348c7e152943f3bafdd9c633c672d95d34790"
+      },
+      "square": {
+        "bytes": 62103,
+        "sha256": "c192751a2c6a8a244acdcc2e6915680ef8a141265be34be7f25a4ab488245122"
+      }
+    },
+    "tmxtn3": {
+      "topic": "scaling",
+      "title": "How a cleaning works",
+      "still": {
+        "bytes": 32909,
+        "sha256": "f2c1cfb55f24c4d28486ba79d966aab60ce0db2deeedeb668106ef06250aa19a"
+      },
+      "square": {
+        "bytes": 48970,
+        "sha256": "7530701d7f86ed6fee836976c1ce1c0bcdca55aaa8167b5466ba9b7764fe3d78"
+      }
+    },
+    "f7qq4d": {
+      "topic": "implant",
+      "title": "How an implant works",
+      "still": {
+        "bytes": 45606,
+        "sha256": "2a4a8876876f078c9f3bcb5f193d95d2ab1504681a539afa2cb221addd0870e4"
+      },
+      "square": {
+        "bytes": 51403,
+        "sha256": "34560e143d1665443b4e42f1ab62673f16f882feb0b7b2be6737398c16b5ba98"
+      }
+    },
+    "tb242q": {
+      "topic": "sealant",
+      "title": "How a sealant works",
+      "still": {
+        "bytes": 36130,
+        "sha256": "53cb0ddf1d5b599cfb17bec22be5f5b7709ea3df3a6e72f70ca9dba87165943e"
+      },
+      "square": {
+        "bytes": 47866,
+        "sha256": "6ea6d3450923ae9b3a7dd3d5199e8c8b1cd94df23210f3073c2cf53e9795ef55"
+      }
+    },
+    "nzpzs8": {
+      "topic": "general_care",
+      "title": "Caring for your teeth at home",
+      "still": {
+        "bytes": 47316,
+        "sha256": "7323c72dcebc3cdc3d043839906f622a596712752a3b85fffde6d2a8560bd6fa"
+      },
+      "square": {
+        "bytes": 70881,
+        "sha256": "3adf9d6d783d4fc6fdf5d493a447547f76867ee065c7a535d184ad1f8f932cd4"
+      }
+    }
+  }
+}

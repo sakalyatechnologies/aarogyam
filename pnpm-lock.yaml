@@ -210,7 +210,7 @@ importers:
         version: 1.8.0(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@hookform/resolvers':
         specifier: ^5.9.1
-        version: 5.9.1(react-hook-form@7.89.0(@types/react@19.3.0)(react@19.3.0))(zod@4.6.5)
+        version: 5.9.1(@standard-schema/spec@1.1.0)(react-hook-form@7.89.0(@types/react@19.3.0)(react@19.3.0))(zod@4.6.5)
       '@sakalya/tokens':
         specifier: link:../../../../sakalya-web/packages/tokens
         version: link:../../../../sakalya-web/packages/tokens
@@ -266,6 +266,12 @@ importers:
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
+      vite:
+        specifier: ^8.3.2
+        version: 8.3.2(@types/node@24.19.1)(jiti@2.7.0)
+
+  web/apps/learn:
+    devDependencies:
       vite:
         specifier: ^8.3.2
         version: 8.3.2(@types/node@24.19.1)(jiti@2.7.0)
@@ -3052,13 +3058,6 @@ snapshots:
       react-hook-form: 7.89.0(@types/react@19.3.0)(react@19.3.0)
     optionalDependencies:
       '@standard-schema/spec': 1.1.0
-      zod: 4.6.5
-
-  '@hookform/resolvers@5.9.1(react-hook-form@7.89.0(@types/react@19.3.0)(react@19.3.0))(zod@4.6.5)':
-    dependencies:
-      '@standard-schema/utils': 0.3.0
-      react-hook-form: 7.89.0(@types/react@19.3.0)(react@19.3.0)
-    optionalDependencies:
       zod: 4.6.5
 
   '@humanfs/core@0.19.2':

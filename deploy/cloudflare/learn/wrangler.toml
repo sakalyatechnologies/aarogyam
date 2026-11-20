@@ -1,0 +1,16 @@
+# Learn site Worker (docs/plans/visit-story-v2-offers-design.md, section 1.9): the public
+# /learn/<id> pages whose generic still is the picture in WhatsApp's link preview.
+#
+# Assets only, on purpose: there is no `main`, so no code of ours runs and nothing of ours logs
+# a path or an IP. Cloudflare's zone analytics show only aggregate paths and IPs. Headers
+# (cache, noindex, no-referrer, CSP) come from the `_headers` file the build writes.
+# Deploy: LEARN_ORIGIN=https://learn.<root> pnpm --filter @aarogyam/learn build, then
+# `wrangler deploy` here; the API's ARO_HOSTS__LEARN_ORIGIN must name the same origin.
+name = "aarogyam-learn"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[assets]
+directory = "../../../web/apps/learn/dist"
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"

@@ -9,10 +9,11 @@
 
 use aarogyam_dal::auto_messages as reach_dal;
 use aarogyam_dal::chart::{self, ChartRow};
+use aarogyam_dal::member_message_prefs as prefs_dal;
 use aarogyam_dal::visit_messages as dal;
 use aarogyam_dal::visit_summaries::next_follow_up;
 use aarogyam_dal::{dental_terms, facts, patients, prescriptions as links, treatment, visits};
-use aarogyam_domain::access::ClinicActor;
+use aarogyam_domain::access::{ActorKind, ClinicActor, Denied};
 use aarogyam_domain::clinical::{EncounterStatus, NoteBody, ProcedureStatus};
 use aarogyam_domain::consent::Purpose;
 use aarogyam_domain::dental::{ChartData, Tooth, ToothStatusData};
@@ -22,12 +23,12 @@ use aarogyam_domain::permission::Permission;
 use aarogyam_domain::quick_picks;
 use aarogyam_domain::share::ShareChannel;
 use aarogyam_domain::visit_message::{
-    self as message, DoneDetail, FoundLine, MedicineLine, MessageInput, NextVisit, RecLine,
-    Recipient, Refusal, Work,
+    self as message, DoneDetail, FoundLine, MedicineLine, MessageInput, MessageSection, NextVisit,
+    RecLine, Recipient, Refusal, SectionSet, Work,
 };
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::{Paise, PhoneE164};
-use time::OffsetDateTime;
+use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::clock::clinic_today;
@@ -537,16 +538,154 @@ pub struct Prepared {
     pub recipient: Recipient,
 }
 
+/// Everything the summary says, gathered after the refusals: the recipient, the visit's facts and
+/// the clinic's names. The link and PIN come last, from Send or the preview.
+struct Draft {
+    visit_id: Uuid,
+    patient_id: Uuid,
+    phone: PhoneE164,
+    recipient: Recipient,
+    auto_sent_at: Option<OffsetDateTime>,
+    clinic_name: String,
+    clinic_phone: Option<String>,
+    doctor_name: Option<String>,
+    patient_name: String,
+    minor: bool,
+    age_band: message::AgeBand,
+    facts: Facts,
+    next_visit: Option<NextVisit>,
+    keys: Vec<&'static str>,
+    medicines: Vec<MedicineLine>,
+}
+
+impl Draft {
+    /// The message's input with this link, PIN and ticks. The typed complaint stays on the visit
+    /// page; it never goes into the text.
+    fn input<'a>(&'a self, url: &'a str, pin: &'a str, sections: SectionSet) -> MessageInput<'a> {
+        MessageInput {
+            clinic_name: &self.clinic_name,
+            doctor_name: self.doctor_name.as_deref(),
+            patient_name: &self.patient_name,
+            minor: self.minor,
+            age_band: self.age_band,
+            complaints: &self.facts.complaints,
+            done: &self.facts.details,
+            charted_teeth: self.facts.charted_teeth,
+            found: &self.facts.found,
+            recommend: &self.facts.recommend,
+            next_visit: self.next_visit,
+            care_keys: &self.keys,
+            advice: &self.facts.advice,
+            medicines: &self.medicines,
+            clinic_phone: self.clinic_phone.as_deref(),
+            // The public learn page comes with the learn site (P9).
+            learn_url: None,
+            url,
+            pin,
+            sections,
+        }
+    }
+}
+
+/// Reads the visit and checks the refusals: open visit, no mobile, no consent, opted out.
+/// Writes nothing.
+async fn draft_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    visit_id: EncounterId,
+    now: OffsetDateTime,
+) -> Result<Draft, AppError> {
+    let visit = visits::get_encounter(
+        tx.conn(),
+        visit_id.uuid(),
+        false,
+        actor.reach(Permission::ClinicalRead).member(),
+    )
+    .await?
+    .ok_or(AppError::NotFound("visit"))?;
+    let patient = patients::get(
+        tx.conn(),
+        visit.patient_id,
+        actor.reach(Permission::PatientsContact).member(),
+    )
+    .await?
+    .ok_or(AppError::NotFound("patient"))?;
+    if visit.status != EncounterStatus::Closed.as_str() {
+        return Err(Refusal::VisitOpen.into());
+    }
+    let (clinic_name, timezone) = links::clinic_name(tx.conn())
+        .await?
+        .ok_or(AppError::NotFound("clinic"))?;
+    let today = clinic_today(&timezone, now);
+    let minor = message::is_minor(patient.date_of_birth, today);
+    let age_band = message::age_band(patient.date_of_birth, today);
+
+    let (recipient, phone) =
+        recipient_in(tx, patient.id, patient.phone_e164.as_deref(), minor).await?;
+
+    // What it says.
+    let doctor_name = links::doctor(tx.conn(), visit.clinician_id)
+        .await?
+        .map(|(name, _)| name);
+    let done = done_in(tx, visit.id).await?;
+    let plan = plan_in(tx, visit.id, patient.id).await?;
+    let keys = care_keys(&done, &plan);
+    let medicines = medicine_lines(tx, visit.id).await?;
+    let visited_on = clinic_today(&timezone, visit.started_at);
+    let next_visit = match dal::next_booked(tx.conn(), patient.id, now).await? {
+        Some(at) => Some(NextVisit::Booked(clinic_today(&timezone, at))),
+        None => next_follow_up(tx.conn(), patient.id, visited_on)
+            .await?
+            .map(NextVisit::Due),
+    };
+    let auto_sent_at = dal::auto_summary_at(tx.conn(), visit.id).await?;
+    let context = dal::page_context(tx.conn(), visit.id)
+        .await?
+        .ok_or(AppError::NotFound("visit"))?;
+    let facts = facts_in(tx, &visit, &done, &plan, context.patient_estimates, now).await?;
+    Ok(Draft {
+        visit_id: visit.id,
+        patient_id: patient.id,
+        phone,
+        recipient,
+        auto_sent_at,
+        clinic_name,
+        clinic_phone: context.clinic_phone,
+        doctor_name,
+        patient_name: patient.full_name,
+        minor,
+        age_band,
+        facts,
+        next_visit,
+        keys,
+        medicines,
+    })
+}
+
+/// The ticks from a request: every name must be a section.
+///
+/// # Errors
+/// [`AppError::Invalid`] on `sections` for an unknown name (not echoed).
+pub fn parse_sections(names: &[String]) -> Result<SectionSet, AppError> {
+    SectionSet::parse(names).map_err(|_| AppError::invalid("sections", "unknown section"))
+}
+
 /// Prepares the visit's summary for the doctor's `WhatsApp`: picks the recipient, checks consent
 /// and opt-outs, mints a visit link (7 days; at most [`LIVE_VISIT_LINKS`] live per visit, the
 /// oldest revoked) and builds the text. `url` turns the clinic's portal host and the token into
 /// the link; `request_host` is the host used when the clinic has no verified portal address.
+/// With `sections` the text has only the ticked ones and they become the doctor's defaults;
+/// without, it has every section (older clients).
 ///
 /// # Errors
 /// [`AppError::Denied`] without `clinical.read` and `patients.contact`;
 /// [`AppError::NotFound`] for a visit out of reach or an erased patient;
 /// [`AppError::MessageRefused`] when the visit is open, nobody has a mobile, consent doesn't
 /// allow care messages, or the recipient opted out of them on `WhatsApp`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the request's parts, passed through"
+)]
 pub async fn prepare(
     db: &Db,
     actor: &ClinicActor,
@@ -554,99 +693,46 @@ pub async fn prepare(
     visit_id: EncounterId,
     request_host: &str,
     url: &(dyn Fn(&str, &str) -> String + Sync),
+    sections: Option<SectionSet>,
     now: OffsetDateTime,
 ) -> Result<Prepared, AppError> {
     actor.require(Permission::ClinicalRead)?;
     actor.require(Permission::PatientsContact)?;
     db.scoped(&staff_scope(actor, request_id), async |tx| {
-        let visit = visits::get_encounter(
-            tx.conn(),
-            visit_id.uuid(),
-            false,
-            actor.reach(Permission::ClinicalRead).member(),
-        )
-        .await?
-        .ok_or(AppError::NotFound("visit"))?;
-        let patient = patients::get(
-            tx.conn(),
-            visit.patient_id,
-            actor.reach(Permission::PatientsContact).member(),
-        )
-        .await?
-        .ok_or(AppError::NotFound("patient"))?;
-        if visit.status != EncounterStatus::Closed.as_str() {
-            return Err(Refusal::VisitOpen.into());
-        }
-        let (clinic_name, timezone) = links::clinic_name(tx.conn())
-            .await?
-            .ok_or(AppError::NotFound("clinic"))?;
-        let today = clinic_today(&timezone, now);
-        let minor = message::is_minor(patient.date_of_birth, today);
-        let age_band = message::age_band(patient.date_of_birth, today);
+        let draft = draft_in(tx, actor, visit_id, now).await?;
 
-        let (recipient, phone) =
-            recipient_in(tx, patient.id, patient.phone_e164.as_deref(), minor).await?;
-
-        // What it says.
-        let doctor_name = links::doctor(tx.conn(), visit.clinician_id)
-            .await?
-            .map(|(name, _)| name);
-        let done = done_in(tx, visit.id).await?;
-        let plan = plan_in(tx, visit.id, patient.id).await?;
-        let keys = care_keys(&done, &plan);
-        let medicines = medicine_lines(tx, visit.id).await?;
-        let visited_on = clinic_today(&timezone, visit.started_at);
-        let next_visit = match dal::next_booked(tx.conn(), patient.id, now).await? {
-            Some(at) => Some(NextVisit::Booked(clinic_today(&timezone, at))),
-            None => next_follow_up(tx.conn(), patient.id, visited_on)
-                .await?
-                .map(NextVisit::Due),
-        };
-        let auto_sent_at = dal::auto_summary_at(tx.conn(), visit.id).await?;
-        let context = dal::page_context(tx.conn(), visit.id)
-            .await?
-            .ok_or(AppError::NotFound("visit"))?;
-        let facts = facts_in(tx, &visit, &done, &plan, context.patient_estimates, now).await?;
-
-        // The link: earlier ones stay valid, but no more than three at once.
-        dal::keep_newest_links(tx.conn(), visit.id, LIVE_VISIT_LINKS - 1).await?;
+        // The link: earlier ones stay valid, but no more than three at once. Only Send gets
+        // here; the preview never revokes or mints (B1).
+        dal::keep_newest_links(tx.conn(), draft.visit_id, LIVE_VISIT_LINKS - 1).await?;
         let options = ShareOptions {
             channel: ShareChannel::Whatsapp,
             lifetime: ShareOptions::parse(None, None)?.lifetime,
         };
-        let made =
-            visit_summary::create_in(tx, actor, request_id, visit.id, patient.id, options, now)
-                .await?
-                .link;
+        let made = visit_summary::create_in(
+            tx,
+            actor,
+            request_id,
+            draft.visit_id,
+            draft.patient_id,
+            options,
+            now,
+        )
+        .await?
+        .link;
         let host = aarogyam_dal::staff::portal_host(tx.conn())
             .await?
             .unwrap_or_else(|| request_host.to_owned());
         let link = url(&host, &made.token);
 
-        // The typed complaint stays on the visit page; it never goes into the text.
-        let composed = message::compose(&MessageInput {
-            clinic_name: &clinic_name,
-            doctor_name: doctor_name.as_deref(),
-            patient_name: &patient.full_name,
-            minor,
-            age_band,
-            complaints: &facts.complaints,
-            done: &facts.details,
-            charted_teeth: facts.charted_teeth,
-            found: &facts.found,
-            recommend: &facts.recommend,
-            next_visit,
-            care_keys: &keys,
-            advice: &facts.advice,
-            medicines: &medicines,
-            clinic_phone: context.clinic_phone.as_deref(),
-            // The public learn page comes with the learn site (P9).
-            learn_url: None,
-            url: &link,
-            pin: &made.pin,
-        });
+        if let Some(ticked) = sections
+            && let Some(member) = own_member(actor)
+        {
+            prefs_dal::save_sections(tx.conn(), member, &owned_names(ticked)).await?;
+        }
+        let composed =
+            message::compose(&draft.input(&link, &made.pin, sections.unwrap_or_default()));
         Ok(Prepared {
-            phone,
+            phone: draft.phone,
             text: composed.text,
             short_text: composed.short_text,
             desktop_text: composed.desktop_text,
@@ -654,9 +740,172 @@ pub async fn prepare(
             pin: made.pin,
             link_id: made.id,
             expires_at: made.expires_at,
-            auto_sent_at,
-            recipient,
+            auto_sent_at: draft.auto_sent_at,
+            recipient: draft.recipient,
         })
+    })
+    .await
+}
+
+/// The summary as Send would build it with these ticks, with a stand-in link and PIN of the same
+/// length (N5). Runs the same refusals as [`prepare`] but mints, revokes and saves nothing (B1).
+///
+/// # Errors
+/// As [`prepare`].
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the request's parts, passed through"
+)]
+pub async fn preview(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    visit_id: EncounterId,
+    request_host: &str,
+    url: &(dyn Fn(&str, &str) -> String + Sync),
+    sections: SectionSet,
+    now: OffsetDateTime,
+) -> Result<String, AppError> {
+    actor.require(Permission::ClinicalRead)?;
+    actor.require(Permission::PatientsContact)?;
+    db.scoped(&staff_scope(actor, request_id), async |tx| {
+        let draft = draft_in(tx, actor, visit_id, now).await?;
+        let host = aarogyam_dal::staff::portal_host(tx.conn())
+            .await?
+            .unwrap_or_else(|| request_host.to_owned());
+        let link = url(&host, message::PREVIEW_TOKEN);
+        Ok(message::compose(&draft.input(&link, message::PREVIEW_PIN, sections)).text)
+    })
+    .await
+}
+
+/// The caller's own membership; none for Sakalya support, who keep no preferences.
+fn own_member(actor: &ClinicActor) -> Option<Uuid> {
+    (actor.kind() == ActorKind::Staff).then(|| actor.membership_id.uuid())
+}
+
+fn owned_names(sections: SectionSet) -> Vec<String> {
+    sections.names().into_iter().map(str::to_owned).collect()
+}
+
+/// A member's message defaults and hand-off count.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MessagePrefs {
+    /// The ticked sections (every one until saved).
+    pub sections: SectionSet,
+    /// Summaries handed to `WhatsApp` (not "sent").
+    pub handoffs: u32,
+    /// Clinic days with at least one hand-off.
+    pub handoff_days: u32,
+    /// The clinic day of the last hand-off.
+    pub last_handoff_on: Option<Date>,
+}
+
+impl From<prefs_dal::PrefsRow> for MessagePrefs {
+    fn from(row: prefs_dal::PrefsRow) -> Self {
+        Self {
+            // Names the database holds are checked there; an unknown one counts as unticked.
+            sections: row.sections.map_or(SectionSet::ALL, |names| {
+                names
+                    .iter()
+                    .filter_map(|n| MessageSection::parse(n))
+                    .fold(SectionSet::NONE, |set, s| set.with(s, true))
+            }),
+            handoffs: u32::try_from(row.handoffs).unwrap_or(0),
+            handoff_days: u32::try_from(row.handoff_days).unwrap_or(0),
+            last_handoff_on: row.last_handoff_on,
+        }
+    }
+}
+
+/// The caller's message defaults.
+///
+/// # Errors
+/// [`AppError::Denied`] without `clinical.read`.
+pub async fn prefs(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+) -> Result<MessagePrefs, AppError> {
+    actor.require(Permission::ClinicalRead)?;
+    let Some(member) = own_member(actor) else {
+        return Ok(prefs_dal::PrefsRow::default().into());
+    };
+    db.scoped(&staff_scope(actor, request_id), async |tx| {
+        Ok(prefs_dal::get(tx.conn(), member)
+            .await?
+            .unwrap_or_default()
+            .into())
+    })
+    .await
+}
+
+/// Saves the caller's ticked sections as their defaults.
+///
+/// # Errors
+/// [`AppError::Denied`] without `clinical.read`, or for Sakalya support.
+pub async fn save_prefs(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    sections: SectionSet,
+) -> Result<MessagePrefs, AppError> {
+    actor.require(Permission::ClinicalRead)?;
+    let member = own_member(actor).ok_or(AppError::Denied(Denied::NotAMember))?;
+    db.scoped(&staff_scope(actor, request_id), async |tx| {
+        Ok(
+            prefs_dal::save_sections(tx.conn(), member, &owned_names(sections))
+                .await?
+                .into(),
+        )
+    })
+    .await
+}
+
+/// Counts that the caller handed the visit's summary to `WhatsApp` (never "sent"):
+/// `handoff_days` goes up once per clinic day. Support hand-offs are not counted.
+///
+/// # Errors
+/// [`AppError::Denied`] without `clinical.read` and `patients.contact`;
+/// [`AppError::NotFound`] for a visit out of reach;
+/// [`AppError::Invalid`] on `template_version` longer than 40 characters or blank.
+pub async fn handed_off(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    visit_id: EncounterId,
+    template_version: Option<&str>,
+    now: OffsetDateTime,
+) -> Result<(), AppError> {
+    actor.require(Permission::ClinicalRead)?;
+    actor.require(Permission::PatientsContact)?;
+    let template_version = template_version.map(str::trim);
+    if template_version.is_some_and(|v| v.is_empty() || v.chars().count() > 40) {
+        return Err(AppError::invalid("template_version", "1 to 40 characters"));
+    }
+    db.scoped(&staff_scope(actor, request_id), async |tx| {
+        visits::get_encounter(
+            tx.conn(),
+            visit_id.uuid(),
+            false,
+            actor.reach(Permission::ClinicalRead).member(),
+        )
+        .await?
+        .ok_or(AppError::NotFound("visit"))?;
+        let Some(member) = own_member(actor) else {
+            return Ok(());
+        };
+        let (_, timezone) = links::clinic_name(tx.conn())
+            .await?
+            .ok_or(AppError::NotFound("clinic"))?;
+        prefs_dal::hand_off(
+            tx.conn(),
+            member,
+            clinic_today(&timezone, now),
+            template_version,
+        )
+        .await?;
+        Ok(())
     })
     .await
 }

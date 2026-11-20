@@ -4364,7 +4364,87 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ id: link.id, token: link.token, pin: link.pin, expires_at: link.expires_at, channel: share.channel } satisfies C.VisitLink);
         }),
 
-      prepareVisitPatientMessage: (id, opts) =>
+      previewVisitPatientMessage: (id, input, opts) =>
+        respond(S.messagePreview, opts?.signal, async () => {
+          const reader = await inClinic("clinical.read");
+          if (!isCaller(reader)) {
+            return reader;
+          }
+          const caller = await inClinic("patients.contact");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const unknown = (input.sections ?? []).find((s) => !isSection(s));
+          if (unknown !== undefined) {
+            return invalid("sections", "unknown section");
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          const patient = found === undefined ? undefined : state.patients.find((p) => p.id === found.patient_id);
+          if (found === undefined || patient === undefined) {
+            return notFound;
+          }
+          if (found.status !== "closed") {
+            return refuse(409, "visit_open", "Finish the visit first.");
+          }
+          if (patient.phone == null) {
+            return refuse(409, "no_phone", "This patient has no mobile number.");
+          }
+          // Mints nothing: a stand-in link and PIN as long as real ones.
+          const url = `https://${caller.clinic.host}/shared/${"x".repeat(43)}`;
+          return reply({ text: fakeSummaryText(caller.clinic.name, found.number, url, "XXXXXX", input.sections) } satisfies C.MessagePreview);
+        }),
+
+      handOffVisitPatientMessage: (id, input, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const reader = await inClinic("clinical.read");
+          if (!isCaller(reader)) {
+            return reader;
+          }
+          const caller = await inClinic("patients.contact");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const version = input.template_version?.trim();
+          if (version !== undefined && (version === "" || version.length > 40)) {
+            return invalid("template_version", "1 to 40 characters");
+          }
+          if (!state.visits.some((v) => v.id === id && v.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          const prefs = memberPrefs(state, caller.membership.id);
+          const today = clock().toISOString().slice(0, 10);
+          prefs.handoffs += 1;
+          if (prefs.last_handoff_on !== today) {
+            prefs.handoff_days += 1;
+          }
+          prefs.last_handoff_on = today;
+          return reply(undefined);
+        }),
+
+      getMessagePrefs: (opts) =>
+        respond(S.messagePrefs, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(wirePrefs(memberPrefs(state, caller.membership.id)));
+        }),
+
+      saveMessagePrefs: (input, opts) =>
+        respond(S.messagePrefs, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (input.sections.some((s) => !isSection(s))) {
+            return invalid("sections", "unknown section");
+          }
+          const prefs = memberPrefs(state, caller.membership.id);
+          prefs.sections = S.MESSAGE_SECTIONS.filter((s) => input.sections.includes(s));
+          return reply(wirePrefs(prefs));
+        }),
+
+      prepareVisitPatientMessage: (id, opts, input) =>
         respond(S.visitPatientMessage, opts?.signal, async () => {
           const reader = await inClinic("clinical.read");
           if (!isCaller(reader)) {
@@ -4384,6 +4464,14 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           if (patient.phone == null) {
             return refuse(409, "no_phone", "This patient has no mobile number.");
+          }
+          const sections = input?.sections ?? undefined;
+          if (sections != null) {
+            if (sections.some((s) => !isSection(s))) {
+              return invalid("sections", "unknown section");
+            }
+            // Send saves the ticks as the doctor's defaults.
+            memberPrefs(state, caller.membership.id).sections = S.MESSAGE_SECTIONS.filter((s) => sections.includes(s));
           }
           const now = clock();
           const link: FakeShareLink = {
@@ -4405,7 +4493,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           const warning = "This link opens your health record. Please don't forward it.";
           return reply({
             phone_e164: patient.phone,
-            text: `${greeting} 😊\n\n✅ *Done today*\nVisit ${found.number}\n\nYour visit summary: ${url}\nPIN: ${link.pin}\n${warning}`,
+            text: fakeSummaryText(caller.clinic.name, found.number, url, link.pin, sections),
             short_text: `${greeting} Your visit summary: ${url} PIN: ${link.pin}. ${warning}`,
             desktop_text: `${greeting}\n\n*Done today*\nVisit ${found.number}\n\nYour visit summary: ${url}\nPIN: ${link.pin}\n${warning}`,
             url,
@@ -12136,4 +12224,35 @@ function wirePrescription(rx: FakePrescription, state: Fixtures): C.Prescription
     issued_at: rx.issued_at ?? null,
     print: rx.status === "issued" ? buildPrintData(rx, state) : null,
   };
+}
+
+type FakeMessagePrefs = NonNullable<Fixtures["messagePrefs"]>[string];
+
+/** Whether a name is one of the message's sections. */
+const isSection = (name: string): boolean => S.MESSAGE_SECTIONS.some((section) => section === name);
+
+/** The member's message ticks and hand-off count, made on first use (every section until saved). */
+function memberPrefs(state: Fixtures, membershipId: string): FakeMessagePrefs {
+  state.messagePrefs ??= {};
+  return (state.messagePrefs[membershipId] ??= { sections: null, handoffs: 0, handoff_days: 0, last_handoff_on: null });
+}
+
+function wirePrefs(prefs: FakeMessagePrefs): C.MessagePrefs {
+  return {
+    sections: prefs.sections ?? [...S.MESSAGE_SECTIONS],
+    handoffs: prefs.handoffs,
+    handoff_days: prefs.handoff_days,
+    last_handoff_on: prefs.last_handoff_on,
+  };
+}
+
+/** The fake's visit summary: Done always, Care at home when ticked (no ticks = every section). */
+function fakeSummaryText(clinic: string, visitNumber: string, url: string, pin: string, sections: readonly string[] | null | undefined): string {
+  const has = (s: string) => sections == null || sections.includes(s);
+  const blocks = [`Hello from ${clinic}! 😊`, `✅ *Done today*\n${has("done") ? `Visit ${visitNumber}` : "Visit today"}`];
+  if (has("care")) {
+    blocks.push("🏠 *Care at home*\n• Brush twice a day");
+  }
+  blocks.push(`Your visit summary: ${url}\nPIN: ${pin}\nThis link opens your health record. Please don't forward it.`);
+  return blocks.join("\n\n");
 }

@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select sections, handoffs, handoff_days, last_handoff_on\n           from aarogyam.member_message_prefs where membership_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sections",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_message_prefs",
+            "name": "sections"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "handoffs",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_message_prefs",
+            "name": "handoffs"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "handoff_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_message_prefs",
+            "name": "handoff_days"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "last_handoff_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_message_prefs",
+            "name": "last_handoff_on"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "955ed730fb8cc253fcd9589e390b14c775aea9007d8a729602afe6dfe3a25c17"
+}

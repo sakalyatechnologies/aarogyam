@@ -497,6 +497,8 @@ struct Template {
     check_up: String,
     consultation: String,
     consultation_with: String,
+    visit_only: String,
+    visit_only_with: String,
     learn: String,
     found: String,
     within: String,
@@ -635,6 +637,125 @@ pub struct MessageInput<'a> {
     pub url: &'a str,
     /// The link's PIN.
     pub pin: &'a str,
+    /// The sections the doctor left ticked (spec 1.6).
+    pub sections: SectionSet,
+}
+
+/// One of the doctor's tick boxes on the Done screen (spec 1.6). `Video` is the device's own
+/// render and never changes the text; `Offer` builds nothing until offers exist (Part 2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MessageSection {
+    /// Today's treatment. Unticked, Done keeps only "Visit with {doctor} today".
+    Done,
+    /// The Why / Today / Next lines under each treatment.
+    Detail,
+    /// What we found.
+    Found,
+    /// Plan and recommendation.
+    Plan,
+    /// Medicines.
+    Medicines,
+    /// Care at home.
+    Care,
+    /// The offer.
+    Offer,
+    /// The personal video, rendered on the device.
+    Video,
+}
+
+impl MessageSection {
+    /// Every section, in the order the Done screen lists them.
+    pub const ALL: [Self; 8] = [
+        Self::Done,
+        Self::Detail,
+        Self::Found,
+        Self::Plan,
+        Self::Medicines,
+        Self::Care,
+        Self::Offer,
+        Self::Video,
+    ];
+
+    /// The name clients and the database use.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Done => "done",
+            Self::Detail => "detail",
+            Self::Found => "found",
+            Self::Plan => "plan",
+            Self::Medicines => "medicines",
+            Self::Care => "care",
+            Self::Offer => "offer",
+            Self::Video => "video",
+        }
+    }
+
+    /// The section a name stands for.
+    #[must_use]
+    pub fn parse(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|s| s.as_str() == name)
+    }
+
+    const fn bit(self) -> u8 {
+        1 << self as u8
+    }
+}
+
+/// The ticked sections; the default is every one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SectionSet(u8);
+
+impl SectionSet {
+    /// Every section ticked.
+    pub const ALL: Self = Self(u8::MAX);
+
+    /// Nothing ticked.
+    pub const NONE: Self = Self(0);
+
+    /// Whether the section is ticked.
+    #[must_use]
+    pub const fn has(self, section: MessageSection) -> bool {
+        self.0 & section.bit() != 0
+    }
+
+    /// The set with `section` ticked or unticked.
+    #[must_use]
+    pub const fn with(self, section: MessageSection, ticked: bool) -> Self {
+        if ticked {
+            Self(self.0 | section.bit())
+        } else {
+            Self(self.0 & !section.bit())
+        }
+    }
+
+    /// The set of these names.
+    ///
+    /// # Errors
+    /// The first name that is not a section.
+    pub fn parse<S: AsRef<str>>(names: &[S]) -> Result<Self, String> {
+        names.iter().try_fold(Self::NONE, |set, name| {
+            MessageSection::parse(name.as_ref())
+                .map(|section| set.with(section, true))
+                .ok_or_else(|| name.as_ref().to_owned())
+        })
+    }
+
+    /// The ticked sections' names, in the Done screen's order.
+    #[must_use]
+    pub fn names(self) -> Vec<&'static str> {
+        MessageSection::ALL
+            .into_iter()
+            .filter(|s| self.has(*s))
+            .map(MessageSection::as_str)
+            .collect()
+    }
+}
+
+impl Default for SectionSet {
+    fn default() -> Self {
+        Self::ALL
+    }
 }
 
 /// The finished summary.
@@ -650,6 +771,12 @@ pub struct Composed {
     /// lines don't fit (then desktops copy the message or use `short_text`).
     pub desktop_text: Option<String>,
 }
+
+/// The preview's stand-in for a link token: as long as a real one (43 characters), so the
+/// preview drops exactly what the real text drops (N5).
+pub const PREVIEW_TOKEN: &str = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+/// The preview's stand-in for the PIN, as long as a real one.
+pub const PREVIEW_PIN: &str = "XXXXXX";
 
 /// Most characters of a desktop `whatsapp://send?phone=…&text=…` link.
 pub const DESKTOP_URL_MAX: usize = 2000;
@@ -933,6 +1060,9 @@ fn done_lines(t: &Template, input: &MessageInput<'_>, done: &DoneDetail) -> Vec<
     }
     first.push('.');
     let mut lines = vec![first];
+    if !input.sections.has(MessageSection::Detail) {
+        return lines;
+    }
     let words = treatment_words();
     if let Some(why) = done.why.as_deref().and_then(|key| words?.why.get(key)) {
         lines.push(fill(&t.detail_why, &[("words", why)]));
@@ -1096,11 +1226,19 @@ fn sections_of(
     }
 
     // Done is never empty, and its first line never drops.
+    // Unticked, it keeps only the visit itself.
     let mut done: Vec<Line> = Vec::new();
-    if input.done.is_empty() {
+    let ticked = input.sections.has(MessageSection::Done);
+    if !ticked {
+        let visit = doctor.map_or_else(
+            || t.visit_only.clone(),
+            |doctor| fill(&t.visit_only_with, &[("doctor", doctor)]),
+        );
+        done.push(Line::fixed(format!("• {visit}")));
+    } else if input.done.is_empty() {
         done.push(Line::fixed(fallback_done(t, input, doctor)));
     }
-    for (i, work) in input.done.iter().enumerate() {
+    for (i, work) in input.done.iter().enumerate().filter(|_| ticked) {
         for (j, text) in done_lines(t, input, work).into_iter().enumerate() {
             done.push(if i == 0 && j == 0 {
                 Line::fixed(text)
@@ -1119,7 +1257,7 @@ fn sections_of(
         keep: 5,
     });
 
-    if !input.found.is_empty() {
+    if !input.found.is_empty() && input.sections.has(MessageSection::Found) {
         let lines = input
             .found
             .iter()
@@ -1144,7 +1282,7 @@ fn sections_of(
     }
 
     let plan = plan_lines(t, input, doctor, min);
-    if !plan.is_empty() {
+    if !plan.is_empty() && input.sections.has(MessageSection::Plan) {
         sections.push(Section {
             heading: t.plan.clone(),
             lines: plan,
@@ -1153,14 +1291,16 @@ fn sections_of(
         });
     }
 
-    sections.push(Section {
-        heading: t.care.clone(),
-        lines: care_lines(input, min),
-        dropped: 0,
-        keep: 2,
-    });
+    if input.sections.has(MessageSection::Care) {
+        sections.push(Section {
+            heading: t.care.clone(),
+            lines: care_lines(input, min),
+            dropped: 0,
+            keep: 2,
+        });
+    }
 
-    if !input.medicines.is_empty() {
+    if !input.medicines.is_empty() && input.sections.has(MessageSection::Medicines) {
         sections.push(Section {
             heading: t.medicines.clone(),
             lines: input
@@ -1517,6 +1657,7 @@ mod tests {
             learn_url: None,
             url: "https://sunrise.example/shared/tok3n",
             pin: "482913",
+            sections: SectionSet::ALL,
         }
     }
 
@@ -1993,5 +2134,83 @@ mod tests {
             assert_eq!(PlanChoice::parse(choice.as_str()), Some(choice));
         }
         assert_eq!(PlanChoice::parse("yes"), None);
+    }
+
+    #[test]
+    fn section_names_round_trip_and_unknown_names_are_refused() {
+        let set = SectionSet::parse(&["care", "done"]).unwrap();
+        assert_eq!(set.names(), ["done", "care"]);
+        assert_eq!(
+            SectionSet::parse(&["care", "jokes"]),
+            Err("jokes".to_owned())
+        );
+        assert_eq!(SectionSet::parse::<&str>(&[]), Ok(SectionSet::NONE));
+        assert_eq!(SectionSet::ALL.names().len(), MessageSection::ALL.len());
+        assert_eq!(SectionSet::default(), SectionSet::ALL);
+    }
+
+    #[test]
+    fn an_unticked_section_is_absent() {
+        let done = root_canal();
+        let medicines = [medicine("Amoxicillin", 5)];
+        let keys = ["root_canal"];
+        let found = [FoundLine {
+            words: "Decay".into(),
+            teeth: vec![tooth(75)],
+            within_months: None,
+        }];
+        let recs = crown_and_filling();
+        let mut input = worked(&done, &medicines, &keys);
+        input.found = &found;
+        input.recommend = &recs;
+        let all = compose(&input).text;
+        for part in [
+            "*What we found*",
+            "*Your plan*",
+            "*Medicines*",
+            "*Care at home*",
+            "  Today: ",
+        ] {
+            assert!(all.contains(part), "missing {part}: {all}");
+        }
+        for (section, gone) in [
+            (MessageSection::Found, "*What we found*"),
+            (MessageSection::Plan, "*Your plan*"),
+            (MessageSection::Medicines, "*Medicines*"),
+            (MessageSection::Care, "*Care at home*"),
+            (MessageSection::Detail, "  Today: "),
+        ] {
+            input.sections = SectionSet::ALL.with(section, false);
+            let made = compose(&input);
+            assert!(!made.text.contains(gone), "{section:?}: {}", made.text);
+            if let Some(desktop) = made.desktop_text {
+                assert!(!desktop.contains(gone.trim_start_matches(['*', ' '])));
+            }
+        }
+        // Without Detail the treatment line itself stays.
+        input.sections = SectionSet::ALL.with(MessageSection::Detail, false);
+        assert!(compose(&input).text.contains("Root canal treatment"));
+    }
+
+    #[test]
+    fn unticking_done_keeps_only_the_visit() {
+        let done = root_canal();
+        let keys = ["root_canal"];
+        let mut input = worked(&done, &[], &keys);
+        input.sections = SectionSet::ALL.with(MessageSection::Done, false);
+        let text = compose(&input).text;
+        assert!(text.contains("• Visit with Dr Mehta today"), "{text}");
+        assert!(!text.contains("Root canal treatment"), "{text}");
+        input.doctor_name = None;
+        assert!(compose(&input).text.contains("• Visit today"));
+    }
+
+    #[test]
+    fn the_preview_placeholder_is_as_long_as_a_real_link() {
+        assert_eq!(PREVIEW_TOKEN.len(), 43);
+        assert!(PREVIEW_TOKEN.bytes().all(|b| b == b'x'));
+        assert_eq!(PREVIEW_PIN.len(), 6);
+        let real = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
+        assert_eq!(real.len(), PREVIEW_TOKEN.len());
     }
 }

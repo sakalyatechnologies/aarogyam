@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.member_message_prefs\n             (membership_id, handoffs, handoff_days, last_handoff_on, template_version)\n           values ($1, 1, 1, $2, $3)\n           on conflict (org_id, membership_id) do update set\n             handoffs = member_message_prefs.handoffs + 1,\n             handoff_days = member_message_prefs.handoff_days\n               + case when member_message_prefs.last_handoff_on is distinct from excluded.last_handoff_on\n                      then 1 else 0 end,\n             last_handoff_on = excluded.last_handoff_on,\n             template_version = coalesce(excluded.template_version,\n                                         member_message_prefs.template_version)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7f04c07d97a279651aa510cf629af768bd5f8d5495a0ccb1abedca13b2b9f04c"
+}

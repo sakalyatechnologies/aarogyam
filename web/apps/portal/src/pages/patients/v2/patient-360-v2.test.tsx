@@ -223,6 +223,12 @@ describe("A visit, from the new Patient 360", () => {
       return Promise.resolve();
     };
     try {
+      // The ticks are on the Done screen with a live preview, but Send stays one tap.
+      const ticks = await within(dialog).findByRole("group", { name: "What goes in the message" });
+      for (const box of within(ticks).getAllByRole("checkbox")) {
+        expect(box).toHaveProperty("checked", true);
+      }
+      expect((await within(dialog).findByTestId("message-preview")).textContent).toContain("XXXXXX");
       await user.click(within(dialog).getByRole("button", { name: "Send on WhatsApp" }));
       expect(await within(dialog).findByText(/Summary prepared/)).toBeTruthy();
       expect(opened).toHaveLength(1);

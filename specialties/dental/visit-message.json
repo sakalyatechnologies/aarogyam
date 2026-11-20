@@ -25,6 +25,8 @@
   "check_up": "Check-up of your teeth and gums",
   "consultation": "Consultation",
   "consultation_with": "Consultation with {doctor}",
+  "visit_only": "Visit today",
+  "visit_only_with": "Visit with {doctor} today",
   "learn": "📘 How this treatment works: {url}",
   "found": "🔎 *What we found*",
   "within": ", within {count} months",

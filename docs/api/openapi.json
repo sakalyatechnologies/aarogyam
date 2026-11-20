@@ -7416,6 +7416,81 @@
         ]
       }
     },
+    "/api/v1/me/message-prefs": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The caller's message defaults in this clinic and their hand-off count.",
+        "operationId": "getMessagePrefs",
+        "responses": {
+          "200": {
+            "description": "Every section until saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagePrefs"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Saves the caller's default ticks in this clinic.",
+        "operationId": "saveMessagePrefs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewMessagePrefs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagePrefs"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown section"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read, or Sakalya support"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/onboarding": {
       "get": {
         "tags": [
@@ -19617,7 +19692,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Prepares the visit's summary for the doctor's `WhatsApp`: the message, a new visit link (7\ndays; at most three live per visit, the oldest revoked) and its PIN. Nothing is sent.",
+        "summary": "Prepares the visit's summary for the doctor's `WhatsApp`: the message, a new visit link (7\ndays; at most three live per visit, the oldest revoked) and its PIN. Nothing is sent. The\noptional body's `sections` limit the text to the ticked ones and become the caller's\ndefaults; with no body (or no `Content-Type`) the text has every section.",
         "operationId": "prepareVisitPatientMessage",
         "parameters": [
           {
@@ -19630,6 +19705,23 @@
             }
           }
         ],
+        "requestBody": {
+          "description": "Optional: the ticked sections",
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/NewPatientMessage"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Prepared; `Cache-Control: no-store`",
@@ -19640,6 +19732,123 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Not JSON, or an unknown section"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read or patients.contact"
+          },
+          "404": {
+            "description": "No such visit in this clinic, or the patient was erased"
+          },
+          "409": {
+            "description": "`visit_open`, `no_phone`, `no_consent` or `opted_out`"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/patient-message/handed-off": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Counts that the caller handed the visit's summary to `WhatsApp`. It means \"handed off\",\nnever \"sent\".",
+        "operationId": "handOffVisitPatientMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandOff"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Counted"
+          },
+          "400": {
+            "description": "`template_version` is blank or longer than 40 characters"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read or patients.contact"
+          },
+          "404": {
+            "description": "No such visit in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/patient-message/preview": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The summary as Send would build it with these ticks, for the Done screen's live preview. It\nmints, revokes and saves nothing; the link and PIN are stand-ins of the same length.",
+        "operationId": "previewVisitPatientMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPatientMessage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The text; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown section"
           },
           "401": {
             "description": "Not signed in"
@@ -26652,6 +26861,19 @@
           }
         }
       },
+      "HandOff": {
+        "type": "object",
+        "description": "A summary was handed to `WhatsApp` (not \"sent\": the doctor presses Send there).",
+        "properties": {
+          "template_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The message template's version the client used, 1 to 40 characters."
+          }
+        }
+      },
       "HandledBy": {
         "type": "object",
         "description": "Who handled a notification: confirmed, declined or cancelled its appointment, or received,\ncancelled or re-dated its lab work.",
@@ -30362,6 +30584,56 @@
           }
         }
       },
+      "MessagePrefs": {
+        "type": "object",
+        "description": "The caller's message defaults in this clinic and their hand-off count. No auto-send fields\nyet.",
+        "required": [
+          "sections",
+          "handoffs",
+          "handoff_days"
+        ],
+        "properties": {
+          "handoff_days": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Clinic days with at least one hand-off.",
+            "minimum": 0
+          },
+          "handoffs": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Summaries handed to `WhatsApp`.",
+            "minimum": 0
+          },
+          "last_handoff_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic day of the last hand-off (`YYYY-MM-DD`)."
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The sections ticked by default (every one until saved)."
+          }
+        }
+      },
+      "MessagePreview": {
+        "type": "object",
+        "description": "The summary as Send would build it, with a stand-in link (`/shared/` and 43 × `x`) and PIN\n`XXXXXX` as long as real ones. Nothing was minted or saved.",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "The full message with the stand-ins; grey them out in the preview."
+          }
+        }
+      },
       "MessageStats": {
         "type": "object",
         "description": "The clinic's message numbers for the month so far.",
@@ -31804,6 +32076,22 @@
           }
         }
       },
+      "NewMessagePrefs": {
+        "type": "object",
+        "description": "New default ticks.",
+        "required": [
+          "sections"
+        ],
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The sections to tick by default; an unknown name is a 400."
+          }
+        }
+      },
       "NewNote": {
         "type": "object",
         "description": "A draft note to start.",
@@ -31882,6 +32170,22 @@
               "null"
             ],
             "description": "`female`, `male`, `other` or `unknown` (default)."
+          }
+        }
+      },
+      "NewPatientMessage": {
+        "type": "object",
+        "description": "The doctor's ticks for a visit summary. Section names: `done`, `detail`, `found`, `plan`,\n`medicines`, `care`, `offer`, `video`; more may come, and an unknown name is a 400.",
+        "properties": {
+          "sections": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "The ticked sections. Absent means every section."
           }
         }
       },

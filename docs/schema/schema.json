@@ -2916,6 +2916,7 @@
     "lab_payments.recorded_by",
     "lab_payments.voided_by",
     "medical_history_items.verified_by",
+    "member_message_prefs.membership_id",
     "member_setup.membership_id",
     "membership_branches.membership_id",
     "note_addenda.author_id",
@@ -9896,6 +9897,64 @@
    ],
    "referenced_by": [],
    "sensitivity": "internal",
+   "offline": "server_only"
+  },
+  {
+   "name": "member_message_prefs",
+   "domain": "notify",
+   "purpose": "A member's default ticks for the visit summary on the Done screen, and how often they handed a summary to WhatsApp.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0742). Saved on Send (POST /visits/{id}/patient-message with sections) or PUT /me/message-prefs; toggling and the preview save nothing. Counted by POST /visits/{id}/patient-message/handed-off. Each member reads and writes only their own row (the app filters by the caller's membership). Support never reads it and keeps none. No patient data, so no erasure step. No auto-send columns until that phase is decided.",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": "unique per clinic"
+    },
+    {
+     "name": "sections",
+     "type": "text[]",
+     "nullable": true,
+     "ref": null,
+     "note": "done, detail, found, plan, medicines, care, offer, video; null until saved = every section"
+    },
+    {
+     "name": "handoffs",
+     "type": "integer",
+     "nullable": false,
+     "ref": null,
+     "note": "summaries handed to WhatsApp (never 'sent')"
+    },
+    {
+     "name": "handoff_days",
+     "type": "integer",
+     "nullable": false,
+     "ref": null,
+     "note": "clinic days with a hand-off; up only when last_handoff_on is not the clinic's today"
+    },
+    {
+     "name": "last_handoff_on",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "template_version",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "1 to 40 characters, from the client"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
    "offline": "server_only"
   },
   {

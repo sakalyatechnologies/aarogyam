@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.member_message_prefs (membership_id, sections)\n           values ($1, $2)\n           on conflict (org_id, membership_id) do update set sections = excluded.sections\n           returning sections, handoffs, handoff_days, last_handoff_on",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sections",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_message_prefs",
+            "name": "sections"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "handoffs",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_message_prefs",
+            "name": "handoffs"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "handoff_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_message_prefs",
+            "name": "handoff_days"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "last_handoff_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_message_prefs",
+            "name": "last_handoff_on"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "34da41df0982de323552f6fa19f83e9cb864054071f52f9276bc706b2827a435"
+}

@@ -408,6 +408,18 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/visits/{id}/patient-message",
             post(patient_message::prepare),
         )
+        .route(
+            "/visits/{id}/patient-message/preview",
+            post(patient_message::preview),
+        )
+        .route(
+            "/visits/{id}/patient-message/handed-off",
+            post(patient_message::handed_off),
+        )
+        .route(
+            "/me/message-prefs",
+            get(patient_message::prefs).put(patient_message::save_prefs),
+        )
         .route("/visits/{id}/notes", post(visits::create_note))
         .route("/notes/{id}", patch(visits::edit_note))
         .route("/notes/{id}/sign", post(visits::sign_note))

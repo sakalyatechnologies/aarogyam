@@ -687,3 +687,339 @@ async fn the_summary_reads_chips_findings_and_health_but_never_note_text() {
         assert!(text.contains(part), "missing {part}: {text}");
     }
 }
+
+fn preview_path(visit: &str) -> String {
+    format!("/api/v1/visits/{visit}/patient-message/preview")
+}
+
+fn handed_off_path(visit: &str) -> String {
+    format!("/api/v1/visits/{visit}/patient-message/handed-off")
+}
+
+const PREFS: &str = "/api/v1/me/message-prefs";
+const CARE: &str = "*Care at home*";
+
+async fn all_links(app: &TestApp, visit: &str) -> i64 {
+    sqlx::query_scalar::<_, i64>(
+        "select count(*) from aarogyam.share_links where encounter_id = $1",
+    )
+    .bind(visit.parse::<Uuid>().unwrap())
+    .fetch_one(&app.owner)
+    .await
+    .unwrap()
+}
+
+/// A closed visit with an extraction, for a patient with a mobile.
+async fn extraction_visit(app: &TestApp, token: &str) -> String {
+    let patient = register(
+        app,
+        token,
+        json!({ "full_name": "Kavya Iyer", "sex": "female", "age_years": 29,
+                "phone": "98765 40001" }),
+    )
+    .await;
+    let visit = start_visit(app, token, &patient).await;
+    let (status, done) = post(
+        app,
+        ALPHA,
+        token,
+        &format!("/api/v1/visits/{visit}/procedures"),
+        Some(json!({ "name": "Extraction", "tooth": 46 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{done}");
+    close(app, token, &visit).await;
+    visit
+}
+
+async fn prefs(app: &TestApp, host: &str, token: &str) -> (StatusCode, Value) {
+    app.send(Method::GET, host, PREFS, Some(token), None).await
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_preview_mints_nothing_and_send_saves_the_ticks() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let visit = extraction_visit(&app, &owner).await;
+
+    // An old client: no body and no Content-Type gives every section and saves nothing.
+    let (status, first) = post(&app, ALPHA, &owner, &message_path(&visit), None).await;
+    assert_eq!(status, StatusCode::OK, "{first}");
+    assert!(first["text"].as_str().unwrap().contains(CARE));
+    let live = live_links(&app, &visit).await;
+    let made = all_links(&app, &visit).await;
+    let (_, saved) = prefs(&app, ALPHA, &owner).await;
+    assert_eq!(saved["sections"].as_array().unwrap().len(), 8, "{saved}");
+
+    // Ten previews, toggling Care: no link minted or revoked, nothing saved.
+    for i in 0..10 {
+        let sections = if i % 2 == 0 {
+            json!(["done", "detail", "plan"])
+        } else {
+            json!(["done", "detail", "plan", "care"])
+        };
+        let (status, preview) = post(
+            &app,
+            ALPHA,
+            &owner,
+            &preview_path(&visit),
+            Some(json!({ "sections": sections })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{preview}");
+        let text = preview["text"].as_str().unwrap();
+        assert_eq!(text.contains(CARE), i % 2 == 1, "{text}");
+        assert!(
+            text.contains(&format!("/shared/{}", "x".repeat(43))),
+            "{text}"
+        );
+        assert!(text.contains("XXXXXX"), "{text}");
+        assert!(!text.contains(first["pin"].as_str().unwrap()));
+    }
+    assert_eq!(
+        all_links(&app, &visit).await,
+        made,
+        "the preview minted a link"
+    );
+    assert_eq!(
+        live_links(&app, &visit).await,
+        live,
+        "the preview revoked a link"
+    );
+    let token = first["url"]
+        .as_str()
+        .unwrap()
+        .rsplit("/shared/")
+        .next()
+        .unwrap();
+    let (status, page) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/shared/{token}/visit"),
+            None,
+            Some(json!({ "pin": first["pin"] })),
+        )
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the earlier link still opens: {page}"
+    );
+    let (_, saved) = prefs(&app, ALPHA, &owner).await;
+    assert_eq!(saved["sections"].as_array().unwrap().len(), 8, "{saved}");
+
+    // No body at all on the preview is every section; an unknown name is refused.
+    let (status, preview) = post(&app, ALPHA, &owner, &preview_path(&visit), Some(json!({}))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(preview["text"].as_str().unwrap().contains(CARE));
+    let (status, _) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &preview_path(&visit),
+        Some(json!({ "sections": ["done", "jokes"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // Send with ticks: the unticked section is absent and the ticks become the defaults.
+    let (status, sent) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &message_path(&visit),
+        Some(json!({ "sections": ["plan", "done"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{sent}");
+    assert!(!sent["text"].as_str().unwrap().contains(CARE));
+    let (_, saved) = prefs(&app, ALPHA, &owner).await;
+    assert_eq!(saved["sections"], json!(["done", "plan"]));
+
+    // Old clients again (and an empty JSON body): every section, defaults untouched.
+    let (status, old) = post(&app, ALPHA, &owner, &message_path(&visit), None).await;
+    assert_eq!(status, StatusCode::OK, "{old}");
+    assert!(old["text"].as_str().unwrap().contains(CARE));
+    let (status, empty) = app
+        .send_with(
+            Method::POST,
+            ALPHA,
+            &message_path(&visit),
+            Some(&owner),
+            None,
+            &[("content-type", "application/json")],
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{empty}");
+    assert!(empty["text"].as_str().unwrap().contains(CARE));
+    let (status, _) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &message_path(&visit),
+        Some(json!({ "sections": ["jokes"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (_, saved) = prefs(&app, ALPHA, &owner).await;
+    assert_eq!(saved["sections"], json!(["done", "plan"]));
+
+    // Permissions and the cross-clinic 404.
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let ticks = json!({ "sections": ["done"] });
+    for path in [preview_path(&visit), handed_off_path(&visit)] {
+        let (status, _) = post(&app, ALPHA, &desk, &path, Some(ticks.clone())).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{path}");
+        let beta = app.token(BETA_OWNER);
+        let (status, _) = post(&app, BETA, &beta, &path, Some(ticks.clone())).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{path}");
+    }
+    let open = start_visit(&app, &owner, &extraction_patient(&app, &owner).await).await;
+    let (status, refused) = post(&app, ALPHA, &owner, &preview_path(&open), Some(ticks)).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(refused["error"]["code"], "visit_open");
+}
+
+async fn extraction_patient(app: &TestApp, token: &str) -> String {
+    register(
+        app,
+        token,
+        json!({ "full_name": "Rohan Das", "sex": "male", "age_years": 52,
+                "phone": "98765 40002" }),
+    )
+    .await
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn prefs_are_the_callers_own_and_hand_offs_count_clinic_days() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let visit = extraction_visit(&app, &owner).await;
+
+    let (status, saved) = app
+        .send(
+            Method::PUT,
+            ALPHA,
+            PREFS,
+            Some(&owner),
+            Some(json!({ "sections": ["care", "done"] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(saved["sections"], json!(["done", "care"]));
+    assert_eq!(saved["handoffs"], 0);
+    let (status, _) = app
+        .send(
+            Method::PUT,
+            ALPHA,
+            PREFS,
+            Some(&owner),
+            Some(json!({ "sections": ["nope"] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // Another member, and another clinic, see their own defaults only.
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let (status, theirs) = prefs(&app, ALPHA, &assistant).await;
+    assert_eq!(status, StatusCode::OK, "{theirs}");
+    assert_eq!(theirs["sections"].as_array().unwrap().len(), 8);
+    let beta = app.token(BETA_OWNER);
+    let (status, theirs) = prefs(&app, BETA, &beta).await;
+    assert_eq!(status, StatusCode::OK, "{theirs}");
+    assert_eq!(theirs["sections"].as_array().unwrap().len(), 8);
+    let (status, _) = prefs(&app, ALPHA, &beta).await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "clinic A's prefs on clinic A's host"
+    );
+    let (status, _) = app
+        .send(
+            Method::PUT,
+            ALPHA,
+            PREFS,
+            Some(&beta),
+            Some(json!({ "sections": [] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let (status, _) = prefs(&app, ALPHA, &desk).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = app
+        .send(
+            Method::PUT,
+            ALPHA,
+            PREFS,
+            Some(&desk),
+            Some(json!({ "sections": [] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    // Two hand-offs today are one day; one on a new clinic day adds a day.
+    let version = json!({ "template_version": "visit-message@1" });
+    for _ in 0..2 {
+        let (status, body) = post(
+            &app,
+            ALPHA,
+            &owner,
+            &handed_off_path(&visit),
+            Some(version.clone()),
+        )
+        .await;
+        assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    }
+    let (_, counted) = prefs(&app, ALPHA, &owner).await;
+    assert_eq!(counted["handoffs"], 2, "{counted}");
+    assert_eq!(counted["handoff_days"], 1, "{counted}");
+    assert_eq!(
+        counted["sections"],
+        json!(["done", "care"]),
+        "counting keeps the ticks"
+    );
+    let today = counted["last_handoff_on"].as_str().unwrap().to_owned();
+    sqlx::query(
+        "update aarogyam.member_message_prefs set last_handoff_on = last_handoff_on - 1
+         where template_version = 'visit-message@1'",
+    )
+    .execute(&app.owner)
+    .await
+    .unwrap();
+    let (status, _) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &handed_off_path(&visit),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, counted) = prefs(&app, ALPHA, &owner).await;
+    assert_eq!(counted["handoffs"], 3, "{counted}");
+    assert_eq!(counted["handoff_days"], 2, "{counted}");
+    assert_eq!(counted["last_handoff_on"], today);
+
+    let (status, _) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &handed_off_path(&visit),
+        Some(json!({ "template_version": "v".repeat(41) })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &handed_off_path(&Uuid::now_v7().to_string()),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

@@ -8,13 +8,15 @@
 //! `WhatsApp` opt-outs are checked as for any care message.
 
 use aarogyam_dal::auto_messages as reach_dal;
+use aarogyam_dal::chart::{self, ChartRow};
 use aarogyam_dal::visit_messages as dal;
 use aarogyam_dal::visit_summaries::next_follow_up;
-use aarogyam_dal::{patients, prescriptions as links, treatment, visits};
+use aarogyam_dal::{dental_terms, patients, prescriptions as links, treatment, visits};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::clinical::{EncounterStatus, ProcedureStatus};
 use aarogyam_domain::consent::Purpose;
-use aarogyam_domain::dental::Tooth;
+use aarogyam_domain::dental::{ChartData, Tooth};
+use aarogyam_domain::dental_terms::{TermKind, TermRef};
 use aarogyam_domain::ids::{EncounterId, ShareLinkId};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::share::ShareChannel;
@@ -111,14 +113,28 @@ pub(crate) struct DoneWork {
     pub name: String,
     pub code: Option<String>,
     pub tooth: Option<Tooth>,
+    /// Started and not finished, such as a root canal between sittings.
+    pub in_progress: bool,
 }
 
-/// The treatments done in the visit, in the order they were recorded.
+impl DoneWork {
+    fn work(&self) -> Work<'_> {
+        Work {
+            code: self.code.as_deref(),
+            name: &self.name,
+            tooth: self.tooth,
+            in_progress: self.in_progress,
+        }
+    }
+}
+
+/// The treatments done in the visit: its done procedures, then the treatments recorded on the
+/// dental chart that no done procedure already carries, each in the order recorded.
 pub(crate) async fn done_in(
     tx: &mut ScopedTx,
     encounter_id: Uuid,
 ) -> Result<Vec<DoneWork>, AppError> {
-    Ok(treatment::procedures_of_encounter(tx.conn(), encounter_id)
+    let mut done: Vec<DoneWork> = treatment::procedures_of_encounter(tx.conn(), encounter_id)
         .await?
         .into_iter()
         .filter(|row| row.status == ProcedureStatus::Done.as_str())
@@ -126,26 +142,91 @@ pub(crate) async fn done_in(
             name: row.name,
             code: row.code,
             tooth: tooth_of(row.tooth),
+            in_progress: false,
         })
-        .collect())
+        .collect();
+    let entries = chart_work(&chart::of_encounter(tx.conn(), encounter_id).await?);
+    let clinic_ids: Vec<Uuid> = entries
+        .iter()
+        .filter_map(|(_, data)| data.procedure.as_deref())
+        .filter_map(|id| Some(TermRef::stored(TermKind::Procedure, id)?.clinic()?.uuid()))
+        .collect();
+    let terms = if clinic_ids.is_empty() {
+        Vec::new()
+    } else {
+        dental_terms::some(tx.conn(), &clinic_ids).await?
+    };
+    let procedures = done.len();
+    for (tooth, data) in entries {
+        let Some(code) = data.procedure else { continue };
+        let label = match TermRef::stored(TermKind::Procedure, &code) {
+            Some(TermRef::Seeded(term)) => term.label.clone(),
+            Some(TermRef::Clinic(id)) => terms
+                .iter()
+                .find(|t| t.id == id.uuid())
+                .map_or_else(|| humanised(&data.finding), |t| t.label.clone()),
+            None => humanised(&code),
+        };
+        let name = if data.in_progress {
+            message::continuing_name(&label, data.sitting)
+        } else {
+            label
+        };
+        let work = DoneWork {
+            name,
+            code: Some(code),
+            tooth,
+            in_progress: data.in_progress,
+        };
+        let duplicate = done[..procedures]
+            .iter()
+            .any(|d| message::same_treatment(&d.work(), &work.work()));
+        if !duplicate {
+            done.push(work);
+        }
+    }
+    Ok(done)
+}
+
+/// The visit's chart entries that record a treatment done here, in order. Entries made in error
+/// are left out, and so is one superseded by a later entry of the same visit on the same tooth;
+/// one superseded by a later visit (the next root canal sitting) still counts for this one.
+fn chart_work(rows: &[ChartRow]) -> Vec<(Option<Tooth>, ChartData)> {
+    rows.iter()
+        .enumerate()
+        .filter(|(i, row)| match row.status.as_str() {
+            "current" => true,
+            "superseded" => !rows[i + 1..]
+                .iter()
+                .any(|later| later.status != "entered_in_error" && later.tooth == row.tooth),
+            _ => false,
+        })
+        .filter_map(|(_, row)| {
+            let data: ChartData = serde_json::from_value(row.data.clone()).ok()?;
+            (data.procedure.is_some() && !data.elsewhere).then(|| (tooth_of(row.tooth), data))
+        })
+        .collect()
+}
+
+/// A stored id in words: `root_canal` becomes "Root canal".
+fn humanised(id: &str) -> String {
+    let words = id.replace('_', " ");
+    let mut chars = words.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(chars).collect()
+    })
 }
 
 /// The aftercare keys for the visit, most important first.
 pub(crate) fn care_keys(done: &[DoneWork], plan: &[PlanItem]) -> Vec<&'static str> {
-    let done: Vec<Work<'_>> = done
-        .iter()
-        .map(|w| Work {
-            code: w.code.as_deref(),
-            name: &w.name,
-            tooth: w.tooth,
-        })
-        .collect();
+    let done: Vec<Work<'_>> = done.iter().map(DoneWork::work).collect();
     let planned: Vec<Work<'_>> = plan
         .iter()
         .map(|p| Work {
             code: p.code.as_deref(),
             name: &p.name,
             tooth: p.tooth,
+            in_progress: false,
         })
         .collect();
     message::aftercare_keys(&done, &planned)

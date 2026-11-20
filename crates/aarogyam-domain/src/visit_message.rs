@@ -168,6 +168,8 @@ pub struct Work<'a> {
     pub name: &'a str,
     /// The tooth, when it concerns one.
     pub tooth: Option<Tooth>,
+    /// Started today and not finished, such as a root canal between sittings.
+    pub in_progress: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -227,17 +229,36 @@ fn kind_of(work: &Work<'_>) -> Option<Kind> {
     })
 }
 
-/// The aftercare key for one treatment done today; `planned` tells a root canal that continues
-/// (another root canal sitting planned on the same tooth) from a finished one.
+/// Whether two records are the same treatment on the same tooth: the same code, or the same kind.
+#[must_use]
+pub fn same_treatment(a: &Work<'_>, b: &Work<'_>) -> bool {
+    a.tooth == b.tooth
+        && ((a.code.is_some() && a.code == b.code)
+            || kind_of(a).is_some_and(|kind| kind_of(b) == Some(kind)))
+}
+
+/// The patient's name for a treatment still under way: "Root canal treatment (sitting 4,
+/// continuing)".
+#[must_use]
+pub fn continuing_name(name: &str, sitting: Option<u8>) -> String {
+    match sitting {
+        Some(sitting) => format!("{name} (sitting {sitting}, continuing)"),
+        None => format!("{name} (continuing)"),
+    }
+}
+
+/// The aftercare key for one treatment done today. A root canal continues when it is marked in
+/// progress or another root canal sitting is planned on the same tooth.
 #[must_use]
 pub fn aftercare_key(work: &Work<'_>, planned: &[Work<'_>]) -> Option<&'static str> {
     Some(match kind_of(work)? {
         Kind::Extraction => "extraction",
         Kind::Wisdom => "wisdom_extraction",
         Kind::RootCanal => {
-            let continues = planned
-                .iter()
-                .any(|p| kind_of(p) == Some(Kind::RootCanal) && p.tooth == work.tooth);
+            let continues = work.in_progress
+                || planned
+                    .iter()
+                    .any(|p| kind_of(p) == Some(Kind::RootCanal) && p.tooth == work.tooth);
             if continues {
                 "root_canal_between_sittings"
             } else {
@@ -727,6 +748,7 @@ mod tests {
             code,
             name,
             tooth: n.map(tooth),
+            in_progress: false,
         };
         let rct = work(Some("rct"), "Root canal treatment", Some(36));
         assert_eq!(aftercare_key(&rct, &[]), Some("root_canal"));
@@ -763,6 +785,43 @@ mod tests {
             &[],
         );
         assert_eq!(keys, ["extraction", "filling", "scaling"]);
+    }
+
+    #[test]
+    fn a_root_canal_in_progress_gets_care_between_sittings() {
+        let rct = |in_progress| Work {
+            code: Some("root_canal"),
+            name: "Root canal treatment",
+            tooth: Some(tooth(21)),
+            in_progress,
+        };
+        assert_eq!(
+            aftercare_key(&rct(true), &[]),
+            Some("root_canal_between_sittings")
+        );
+        assert_eq!(aftercare_key(&rct(false), &[]), Some("root_canal"));
+        assert_eq!(
+            continuing_name("Root canal treatment", Some(4)),
+            "Root canal treatment (sitting 4, continuing)"
+        );
+    }
+
+    #[test]
+    fn the_same_treatment_matches_by_code_or_kind_on_the_same_tooth() {
+        let work = |code, name, n: i64| Work {
+            code,
+            name,
+            tooth: Some(tooth(n)),
+            in_progress: false,
+        };
+        let chart = work(Some("root_canal"), "Root canal treatment", 21);
+        assert!(same_treatment(&chart, &work(None, "RCT", 21)));
+        assert!(same_treatment(
+            &chart,
+            &work(Some("root_canal"), "Endo", 21)
+        ));
+        assert!(!same_treatment(&chart, &work(None, "RCT", 11)));
+        assert!(!same_treatment(&chart, &work(None, "Filling", 21)));
     }
 
     fn sample<'a>(

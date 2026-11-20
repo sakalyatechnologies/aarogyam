@@ -484,3 +484,105 @@ async fn a_minor_goes_to_the_guardian_and_an_adult_without_a_mobile_to_the_prima
     assert_eq!(body["recipient"], "patient");
     assert_eq!(body["phone_e164"], "+919876566666");
 }
+
+async fn chart(app: &TestApp, token: &str, patient: &str, visit: &str, entry: Value) {
+    let (status, body) = post(
+        app,
+        ALPHA,
+        token,
+        &format!("/api/v1/patients/{patient}/dental-chart"),
+        Some(json!({ "visit_id": visit, "entries": [entry] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+}
+
+/// The message text and the visit page its link opens.
+async fn message_and_page(app: &TestApp, token: &str, visit: &str) -> (String, Value) {
+    let (status, body) = post(app, ALPHA, token, &message_path(visit), None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let url = body["url"].as_str().unwrap();
+    let link = url.rsplit("/shared/").next().unwrap();
+    let (status, page) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/shared/{link}/visit"),
+            None,
+            Some(json!({ "pin": body["pin"] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{page}");
+    (body["text"].as_str().unwrap().to_owned(), page)
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn treatments_recorded_on_the_chart_are_in_the_summary_once() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(
+        &app,
+        &owner,
+        json!({ "full_name": "Ravi Kumar", "sex": "male", "age_years": 41,
+                "phone": "98765 43211" }),
+    )
+    .await;
+
+    // A root canal sitting recorded only on the chart, still in progress.
+    let visit = start_visit(&app, &owner, &patient).await;
+    chart(
+        &app,
+        &owner,
+        &patient,
+        &visit,
+        json!({ "tooth": 21, "finding": "root_canal", "procedure": "root_canal", "sitting": 4,
+                "material": "calcium_hydroxide", "in_progress": true }),
+    )
+    .await;
+    close(&app, &owner, &visit).await;
+    let (text, page) = message_and_page(&app, &owner, &visit).await;
+    for part in [
+        "Done today",
+        "Root canal treatment (sitting 4, continuing), upper left front tooth",
+        // The first step of the between-sittings care.
+        "The tooth has a temporary filling",
+    ] {
+        assert!(text.contains(part), "missing {part}: {text}");
+    }
+    assert!(!text.to_lowercase().contains("calcium"), "{text}");
+    let treatments = page["treatments"].as_array().unwrap();
+    assert_eq!(treatments.len(), 1, "{page}");
+    assert_eq!(
+        treatments[0]["name"],
+        "Root canal treatment (sitting 4, continuing)"
+    );
+    assert_eq!(treatments[0]["tooth"], 21);
+    assert_eq!(page["aftercare"][0]["key"], "root_canal_between_sittings");
+
+    // A procedure and a chart entry for the same work on the same tooth make one line.
+    let visit = start_visit(&app, &owner, &patient).await;
+    let (status, done) = post(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/visits/{visit}/procedures"),
+        Some(json!({ "name": "Composite filling", "tooth": 36 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{done}");
+    chart(
+        &app,
+        &owner,
+        &patient,
+        &visit,
+        json!({ "tooth": 36, "surface": "O", "finding": "filled", "procedure": "filling" }),
+    )
+    .await;
+    close(&app, &owner, &visit).await;
+    let (text, page) = message_and_page(&app, &owner, &visit).await;
+    assert_eq!(text.matches("lower left back tooth").count(), 1, "{text}");
+    let treatments = page["treatments"].as_array().unwrap();
+    assert_eq!(treatments.len(), 1, "{page}");
+    assert_eq!(treatments[0]["name"], "Composite filling");
+}

@@ -40,8 +40,10 @@ const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { hour
  * "Send on WhatsApp" on the Done screen: the server builds the patient's summary (why they came, what was done, the
  * plan, care at home, medicines, the link and its PIN) and the doctor sends it from their own WhatsApp. The message
  * stays in this component's memory only. The screen says "prepared", never "sent": we can't see WhatsApp.
+ *
+ * `compact` is the queue card's version: one "Prepare WhatsApp summary" button, no heading or explainer.
  */
-export function WhatsAppSummary({ visitId }: { visitId: VisitId }) {
+export function WhatsAppSummary({ visitId, compact = false }: { visitId: VisitId; compact?: boolean }) {
   const { api, can } = useClinic();
   const prepare = useMutation({ mutationFn: () => unwrap(api.prepareVisitPatientMessage(visitId)) });
   const [message, setMessage] = useState<VisitPatientMessage>();
@@ -64,15 +66,17 @@ export function WhatsAppSummary({ visitId }: { visitId: VisitId }) {
   const refusal = error === undefined ? undefined : (REFUSALS[error.code] ?? error.message);
 
   return (
-    <div className="p360-cele-link">
-      <p style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>Visit summary for the patient</p>
+    <div className={compact ? undefined : "p360-cele-link"}>
+      {compact ? null : <p style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>Visit summary for the patient</p>}
       {message === undefined || preparedAt === undefined ? (
         <>
-          <p className="mk-hint" style={{ margin: "4px 0 8px" }}>
-            Why they came, what you did, their plan, care at home and medicines, with a link that needs a PIN.
-          </p>
-          <PillButton icon={<MessageCircle aria-hidden="true" />} onClick={send} disabled={prepare.isPending}>
-            {prepare.isPending ? "Preparing…" : "Send on WhatsApp"}
+          {compact ? null : (
+            <p className="mk-hint" style={{ margin: "4px 0 8px" }}>
+              Why they came, what you did, their plan, care at home and medicines, with a link that needs a PIN.
+            </p>
+          )}
+          <PillButton variant={compact ? "ghost" : "primary"} icon={<MessageCircle aria-hidden="true" />} onClick={send} disabled={prepare.isPending}>
+            {prepare.isPending ? "Preparing…" : compact ? "Prepare WhatsApp summary" : "Send on WhatsApp"}
           </PillButton>
           {refusal === undefined ? null : (
             <p role="alert" className="mk-hint" style={{ marginTop: 8, color: "var(--red)" }}>

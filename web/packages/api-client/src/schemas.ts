@@ -853,6 +853,8 @@ export const queueToken = z.object({
   welcome_skip_reason: optionalText,
   thanks_status: autoMessageStatus.nullable().exactOptional(),
   thanks_skip_reason: optionalText,
+  /** The visit started from this token; null until the doctor starts one. */
+  visit_id: visitId.nullable().exactOptional(),
   wait_minutes: z.number().int().nonnegative(),
 }) satisfies z.ZodType<C.QueueToken>;
 export type QueueToken = z.output<typeof queueToken>;

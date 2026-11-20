@@ -37455,6 +37455,13 @@
             "format": "int32",
             "description": "Number shown on the screen; restarts at 1 each day per branch."
           },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit started from this token; null until the doctor starts one."
+          },
           "wait_minutes": {
             "type": "integer",
             "format": "int64",

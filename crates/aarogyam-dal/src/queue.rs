@@ -70,6 +70,9 @@ pub struct TokenRow {
     /// Why the thank-you was skipped.
     #[serde(default)]
     pub thanks_skip_reason: Option<String>,
+    /// The visit started from this token, newest first; none before one starts.
+    #[serde(default)]
+    pub visit_id: Option<Uuid>,
 }
 
 /// Issues the next token number of a branch's day (`app.next_number`, kind `queue_token`).
@@ -160,7 +163,8 @@ pub async fn list(
                   q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?",
                   q.room_id, q.reason,
                   w.status as "welcome_status?", w.skip_reason as "welcome_skip_reason?",
-                  t.status as "thanks_status?", t.skip_reason as "thanks_skip_reason?"
+                  t.status as "thanks_status?", t.skip_reason as "thanks_skip_reason?",
+                  v.id as "visit_id?"
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
@@ -178,6 +182,10 @@ pub async fn list(
                                 and m.dedupe_key = 'auto:thanks:' || e.id::text
                               where e.org_id = q.org_id and e.queue_token_id = q.id
                               limit 1) t on true
+           left join lateral (select e.id from aarogyam.encounters e
+                              where e.org_id = q.org_id and e.queue_token_id = q.id
+                              order by e.started_at desc, e.id desc
+                              limit 1) v on true
            where q.day = $1 and ($2::uuid is null or q.branch_id = $2)
              and ($4::uuid is null or q.practitioner_id = $4)
              and app.practitioner_in_reach(q.practitioner_id, $3)
@@ -369,7 +377,8 @@ pub async fn get(
                   q.appointment_id, q.practitioner_id, d.display_name as "practitioner_name?",
                   q.room_id, q.reason,
                   w.status as "welcome_status?", w.skip_reason as "welcome_skip_reason?",
-                  t.status as "thanks_status?", t.skip_reason as "thanks_skip_reason?"
+                  t.status as "thanks_status?", t.skip_reason as "thanks_skip_reason?",
+                  v.id as "visit_id?"
            from aarogyam.queue_tokens q
            join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
            left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
@@ -387,6 +396,10 @@ pub async fn get(
                                 and m.dedupe_key = 'auto:thanks:' || e.id::text
                               where e.org_id = q.org_id and e.queue_token_id = q.id
                               limit 1) t on true
+           left join lateral (select e.id from aarogyam.encounters e
+                              where e.org_id = q.org_id and e.queue_token_id = q.id
+                              order by e.started_at desc, e.id desc
+                              limit 1) v on true
            where q.id = $1 and app.practitioner_in_reach(q.practitioner_id, $2)"#,
         id,
         member

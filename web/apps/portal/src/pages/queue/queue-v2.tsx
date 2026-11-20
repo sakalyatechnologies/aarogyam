@@ -9,6 +9,7 @@ import { useClinic } from "../../clinic.js";
 import { StartVisitButton } from "../../components/start-visit-button.js";
 import { EmptyState, Skeleton } from "../../components/mk/index.js";
 import { ageSex, patientPath } from "../../lib/patients.js";
+import { WhatsAppSummary } from "../patients/v2/whatsapp-summary.js";
 import { usePractitioners, useQueue, useRooms, useSetQueueStatus } from "../../queries.js";
 import { AddToQueue } from "./add-to-queue.js";
 import { ChairDialog } from "./chair-dialog.js";
@@ -265,6 +266,9 @@ export function QueueV2() {
                           )}
                         </p>
                         <div className="fd-actions">{actions(token)}</div>
+                        {/* The board shows today, so a finished visit can get its summary until the clinic day
+                            ends; the component hides itself without clinical.read and patients.contact. */}
+                        {token.status === "done" && token.visit_id != null ? <WhatsAppSummary visitId={token.visit_id} compact /> : null}
                       </li>
                     ))}
                   </ul>

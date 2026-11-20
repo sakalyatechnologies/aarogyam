@@ -4,10 +4,11 @@ import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient, QueueToken } from "@aarogyam/api-client";
-import { fakeTokenFor, type FakeBackend } from "@aarogyam/api-client/fake";
+import { fakeTokenFor, type FakeBackend, type Fixtures } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../../lib/new-look.js";
 import { NOW, PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
+import { handoff } from "../patients/v2/whatsapp-summary.js";
 
 const SUNRISE = "sunrise.localtest.me";
 
@@ -35,6 +36,26 @@ function cardOf(name: string): HTMLElement {
   return card;
 }
 const columnOf = (name: string) => cardOf(name).closest("section")?.querySelector("h2")?.textContent ?? "";
+
+/** Gives Sunrise's first done token the closed visit Asha started from it, as the queue reports it. */
+function seenDoneToken(fixtures: Fixtures): void {
+  const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+  const token = fixtures.queueTokens.find((t) => t.clinic_id === sunrise?.id && t.status === "done");
+  const membership = fixtures.memberships.find((m) => m.user_id === PEOPLE.asha && m.clinic_id === sunrise?.id);
+  if (token === undefined || membership === undefined) throw new Error("expected a Sunrise done token and Asha");
+  const started = token.called_at ?? token.issued_at;
+  fixtures.visits.push({
+    id: "0190a1a1-0000-7000-8000-00000000d0e1",
+    clinic_id: token.clinic_id,
+    patient_id: token.patient_id,
+    clinician_membership_id: membership.id,
+    number: `V-${String(fixtures.visits.length + 1)}`,
+    queue_token_id: token.id,
+    status: "closed",
+    started_at: started,
+    ended_at: token.done_at ?? started,
+  });
+}
 
 describe("Front desk (New look)", () => {
   it("shows the five columns", async () => {
@@ -325,6 +346,56 @@ describe("Front desk (New look)", () => {
     expect(paid).toHaveLength(1);
     expect(paid[0]?.amount_paise).toBe(10000);
     expect(paid[0]?.attachment_id).toBeTruthy();
+  });
+
+  it("a done card offers the doctor 'Prepare WhatsApp summary' and hands the summary to WhatsApp", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi(seenDoneToken);
+    const done = (await tokens(backend)).find((t) => t.status === "done" && t.visit_id != null);
+    if (done?.visit_id == null) throw new Error("expected a done token with a visit");
+    const prepared: string[] = [];
+    renderPortal("/queue", {
+      as: PEOPLE.asha,
+      backend,
+      wrap: (client: ApiClient) => ({
+        ...client,
+        prepareVisitPatientMessage: (visitId, options) => {
+          prepared.push(visitId);
+          return client.prepareVisitPatientMessage(visitId, options);
+        },
+      }),
+    });
+    const opened: string[] = [];
+    const open = handoff.open;
+    handoff.open = (url) => {
+      opened.push(url);
+    };
+    try {
+      await screen.findByRole("heading", { name: "Front desk" });
+      const card = await waitFor(() => cardOf(done.patient.full_name));
+      await user.click(within(card).getByRole("button", { name: "Prepare WhatsApp summary" }));
+      expect(await within(card).findByText(/Summary prepared/)).toBeTruthy();
+      expect(prepared).toEqual([done.visit_id]);
+      expect(opened).toHaveLength(1);
+      expect(opened[0]).toMatch(/^whatsapp:\/\/send\?phone=\d+&text=/);
+    } finally {
+      handoff.open = open;
+    }
+  });
+
+  it("offers no WhatsApp summary on a done card without patients.contact", async () => {
+    const backend = fakeApi((fixtures) => {
+      seenDoneToken(fixtures);
+      const membership = fixtures.memberships.find((m) => m.user_id === PEOPLE.asha && m.role.permissions.includes("patients.contact"));
+      if (membership === undefined) throw new Error("expected Asha's membership");
+      membership.role = { ...membership.role, permissions: membership.role.permissions.filter((p) => p !== "patients.contact") };
+    });
+    const done = (await tokens(backend)).find((t) => t.status === "done" && t.visit_id != null);
+    if (done === undefined) throw new Error("expected a done token with a visit");
+    renderPortal("/queue", { as: PEOPLE.asha, backend });
+    await screen.findByRole("heading", { name: "Front desk" });
+    const card = await waitFor(() => cardOf(done.patient.full_name));
+    expect(within(card).queryByRole("button", { name: "Prepare WhatsApp summary" })).toBeNull();
   });
 
   it("has no axe violations, with the board and with the Add to queue choice open", async () => {

@@ -10883,8 +10883,16 @@ function wireQueueToken(token: FakeQueueToken, state: Fixtures, now: Date): C.Qu
     reason: token.reason ?? null,
     ...(token.welcome_status == null ? {} : { welcome_status: token.welcome_status, welcome_skip_reason: token.welcome_skip_reason ?? null }),
     ...(token.thanks_status == null ? {} : { thanks_status: token.thanks_status, thanks_skip_reason: token.thanks_skip_reason ?? null }),
+    visit_id: newestVisitOfToken(state, token.id)?.id ?? null,
     wait_minutes: waitMinutes,
   };
+}
+
+/** The visit started from a token, newest first, as the API reads it. */
+function newestVisitOfToken(state: Fixtures, tokenId: string): FakeVisit | undefined {
+  return state.visits
+    .filter((v) => v.queue_token_id === tokenId)
+    .reduce<FakeVisit | undefined>((newest, v) => (newest === undefined || v.started_at > newest.started_at ? v : newest), undefined);
 }
 
 /** The member a clinical record names, as the API shows them there: ID and display name. */

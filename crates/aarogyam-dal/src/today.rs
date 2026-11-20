@@ -153,10 +153,14 @@ pub async fn today(
                             and (p.sex = 'unknown' or p.date_of_birth is null))
                              as patient_registration_incomplete,
                            q.appointment_id, q.practitioner_id, d.display_name as practitioner_name,
-                           q.room_id, q.reason
+                           q.room_id, q.reason, v.id as visit_id
                     from aarogyam.queue_tokens q
                     join aarogyam.patients p on p.org_id = q.org_id and p.id = q.patient_id
                     left join aarogyam.practitioners d on d.org_id = q.org_id and d.id = q.practitioner_id
+                    left join lateral (select e.id from aarogyam.encounters e
+                                       where e.org_id = q.org_id and e.queue_token_id = q.id
+                                       order by e.started_at desc, e.id desc
+                                       limit 1) v on true
                     where q.day = $3 and app.practitioner_in_reach(q.practitioner_id, $6)) q
              ) as "tokens!: Json<Vec<TokenRow>>",
              (select coalesce(json_agg(r order by r.sort_order, r.name), '[]'::json)

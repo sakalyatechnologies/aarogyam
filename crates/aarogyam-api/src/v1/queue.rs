@@ -77,6 +77,9 @@ pub struct QueueToken {
     #[schema(required = false)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thanks_skip_reason: Option<String>,
+    /// The visit started from this token; null until the doctor starts one.
+    #[schema(value_type = Option<String>, required = false)]
+    pub visit_id: Option<Uuid>,
 }
 
 impl From<TokenView> for QueueToken {
@@ -99,6 +102,7 @@ impl From<TokenView> for QueueToken {
             welcome_skip_reason: row.welcome_skip_reason,
             thanks_status: row.thanks_status,
             thanks_skip_reason: row.thanks_skip_reason,
+            visit_id: row.visit_id,
             patient: PatientBrief {
                 id: row.patient_id,
                 number: row.patient_number,

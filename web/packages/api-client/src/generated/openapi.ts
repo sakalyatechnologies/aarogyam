@@ -13512,6 +13512,8 @@ export interface components {
              * @description Number shown on the screen; restarts at 1 each day per branch.
              */
             token_number: number;
+            /** @description The visit started from this token; null until the doctor starts one. */
+            visit_id?: string | null;
             /**
              * Format: int64
              * @description Minutes waited: until now while waiting, otherwise until called.

@@ -434,6 +434,8 @@ async fn a_doctor_starts_the_visit_from_the_queue_and_confirms_allergies() {
         .unwrap()
         .clone();
     assert_eq!(row["status"], "done", "{queue}");
+    // The done token names its visit, so the queue can offer the WhatsApp summary.
+    assert_eq!(row["visit_id"], visit.as_str(), "{queue}");
 
     // A patient who left without a visit can't have one started from that token.
     let (_, left) = post(
@@ -463,6 +465,17 @@ async fn a_doctor_starts_the_visit_from_the_queue_and_confirms_allergies() {
     )
     .await;
     assert_eq!(status, StatusCode::CONFLICT);
+    // A token without a visit carries a null visit id.
+    let (_, queue) = get(&app, ALPHA, &owner, "/api/v1/queue").await;
+    let row = queue["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"] == left)
+        .unwrap()
+        .clone();
+    assert_eq!(row["status"], "left", "{queue}");
+    assert!(row["visit_id"].is_null(), "{queue}");
     app.finish().await;
 }
 

@@ -7,7 +7,8 @@ final class PushV11Tests: XCTestCase {
         XCTAssertEqual(PushLogic.destination(href: "/queue"), .queue)
         XCTAssertEqual(PushLogic.destination(href: "/tasks"), .tasks)
         XCTAssertEqual(PushLogic.destination(href: "/labs"), .labs)
-        XCTAssertEqual(PushLogic.destination(href: "/patients/abc"), .today)
+        // A plan reply or a recall names its patient: the tap opens them.
+        XCTAssertEqual(PushLogic.destination(href: "/patients/abc"), .patient("abc"))
         XCTAssertEqual(PushLogic.destination(href: nil), .today)
     }
 
@@ -15,8 +16,14 @@ final class PushV11Tests: XCTestCase {
         XCTAssertEqual(PushLogic.hex(Data([0x0A, 0xFF, 0x00])), "0aff00")
     }
 
+    func testAPlanReplyOpensThePatient() {
+        XCTAssertEqual(PushLogic.destination(href: "/patients/p-1"), .patient("p-1"))
+        XCTAssertEqual(PushLogic.destination(href: "/patients/p-1/visits"), .today)
+        XCTAssertTrue(PushLogic.kinds.contains("plan_response"))
+    }
+
     func testEveryKindHasAPushStringInEachLanguage() {
-        XCTAssertEqual(PushLogic.kinds.count, 19)
+        XCTAssertEqual(PushLogic.kinds.count, 20)
         for language in ["en", "hi", "mr"] {
             guard let path = Bundle.main.path(forResource: "Localizable", ofType: "strings", inDirectory: nil, forLocalization: language),
                   let dict = NSDictionary(contentsOfFile: path) as? [String: String] else {

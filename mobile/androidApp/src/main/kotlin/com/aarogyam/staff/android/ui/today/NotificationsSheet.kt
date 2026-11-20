@@ -1,16 +1,19 @@
 package com.aarogyam.staff.android.ui.today
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
@@ -22,6 +25,7 @@ import com.aarogyam.staff.art.Icons
 import com.aarogyam.staff.team.AlertRow
 import com.aarogyam.staff.team.ListState
 import com.aarogyam.staff.team.NotificationsStateHolder
+import com.sakalya.mobile.design.Spacing
 import com.sakalya.mobile.designcompose.SkBadgeDot
 import com.sakalya.mobile.designcompose.SkBottomSheet
 import com.sakalya.mobile.designcompose.SkButton
@@ -35,6 +39,7 @@ import com.sakalya.mobile.designcompose.color
 @Composable
 fun NotificationsSheet(
     holder: NotificationsStateHolder,
+    onOpenPatient: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
@@ -66,7 +71,7 @@ fun NotificationsSheet(
                     )
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        s.items.take(MAX).forEach { row -> NotificationKindRow(row) }
+                        s.items.take(MAX).forEach { row -> NotificationKindRow(row, onOpenPatient) }
                         if (s.items.any { !it.read }) {
                             SkButton(
                                 stringResource(R.string.v7_notifications_read_all),
@@ -84,11 +89,26 @@ fun NotificationsSheet(
 
 /** One bell row for any kind: the shared icon, the localized title and, for queue kinds, the token line (iOS `NotificationKindRow`). */
 @Composable
-private fun NotificationKindRow(row: AlertRow) {
+private fun NotificationKindRow(
+    row: AlertRow,
+    onOpenPatient: (String) -> Unit,
+) {
     val p = SkTheme.palette
     val detail = DeskAlert.detail(row.tokenNumber, row.patientNumber, row.doctor)
+    val patient = row.patientId
     Row(
-        Modifier.fillMaxWidth(),
+        Modifier
+            .fillMaxWidth()
+            .then(
+                if (patient != null) {
+                    Modifier
+                        .sizeIn(
+                            minHeight = Spacing.MIN_TOUCH_TARGET.dp,
+                        ).clickable(role = Role.Button) { onOpenPatient(patient) }
+                } else {
+                    Modifier
+                },
+            ),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -120,6 +140,7 @@ private fun kindLabel(kind: String): Int =
         "lab_overdue" -> R.string.sh_v10_notif_lab_overdue
         "payment_due" -> R.string.sh_v10_notif_payment_due
         "recall_due" -> R.string.sh_v10_notif_recall_due
+        "plan_response" -> R.string.sh_v10_notif_plan_response
         "booking_conflict" -> R.string.sh_v10_notif_booking_conflict
         else -> R.string.sh_v10_notif_generic
     }

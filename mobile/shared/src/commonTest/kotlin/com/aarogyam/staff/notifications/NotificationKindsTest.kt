@@ -32,6 +32,7 @@ class NotificationKindsTest {
                 "lab_overdue" to NotificationCategory.Lab,
                 "payment_due" to NotificationCategory.Payment,
                 "recall_due" to NotificationCategory.Recall,
+                "plan_response" to NotificationCategory.Patient,
             )
         expected.forEach { (kind, category) ->
             val info = NotificationKinds.of(kind)
@@ -42,6 +43,24 @@ class NotificationKindsTest {
         assertEquals("d9.alert.send_in", NotificationKinds.of("send_in").titleKey)
         assertEquals("bell", NotificationKinds.of("send_in").icon)
         assertEquals("t7.notif.requested", NotificationKinds.of("booking_requested").titleKey)
+    }
+
+    @Test
+    fun a_plan_reply_opens_the_patient_its_path_names() {
+        assertEquals("msg", NotificationKinds.of("plan_response").icon)
+        assertEquals("v10.notif.plan_response", NotificationKinds.of("plan_response").titleKey)
+        assertEquals("p-1", PushTap.patientIdFor("/patients/p-1"))
+        assertEquals("p-1", PushTap.patientIdFor(" /patients/p-1/?from=push#top "))
+        listOf(null, "", "/patients", "/patients/", "/patients/p-1/visits", "/today", "/queue/p-1").forEach {
+            assertNull(PushTap.patientIdFor(it), it)
+        }
+        val row =
+            wire
+                .decodeFromString<NotificationEntries>(
+                    """{"items":[{"id":"n1","kind":"plan_response","created_at":"x","read":false,"href":"/patients/p-1","encounter_id":"e1"}]}""",
+                ).items
+                .single()
+        assertEquals("p-1", PushTap.patientIdFor(row.href))
     }
 
     @Test

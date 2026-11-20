@@ -8512,6 +8512,29 @@
           }
         }
       }
+    },
+    "push.plan_response": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A patient replied to their plan. Open the patient to see the plan and call them back."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मरीज़ ने अपनी उपचार योजना पर जवाब दिया। योजना देखने और उन्हें वापस कॉल करने के लिए मरीज़ को खोलें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्णाने त्यांच्या उपचार योजनेला उत्तर दिले. योजना पाहण्यासाठी आणि त्यांना परत कॉल करण्यासाठी रुग्ण उघडा."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

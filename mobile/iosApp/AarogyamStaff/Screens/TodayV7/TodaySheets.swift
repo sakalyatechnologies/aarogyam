@@ -62,6 +62,8 @@ struct ClinicQRSheet: View {
 struct NotificationsSheet: View {
     let holder: NotificationsStateHolder
     let state: ListState
+    /// A row about one patient (a plan reply) opens them; the sheet closes first.
+    var onOpenPatient: (String) -> Void = { _ in }
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -81,7 +83,13 @@ struct NotificationsSheet: View {
                 } else {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(Array(items.prefix(30).enumerated()), id: \.offset) { _, row in
-                            NotificationKindRow(row: row)
+                            if let patient = row.patientId {
+                                Button { onOpenPatient(patient) } label: { NotificationKindRow(row: row) }
+                                    .buttonStyle(.plain)
+                                    .frame(minHeight: 44)
+                            } else {
+                                NotificationKindRow(row: row)
+                            }
                         }
                         if items.contains(where: { !$0.read }) {
                             SkPillButton(String(localized: "t7.notifications.read_all", table: "TodayV7"), variant: .tonal, wide: true) { holder.readAll() }

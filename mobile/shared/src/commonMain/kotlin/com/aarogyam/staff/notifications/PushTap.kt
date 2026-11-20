@@ -43,6 +43,22 @@ data class PushTap(
             }
         }
 
+        /**
+         * The patient a `/patients/{id}` path names (a plan reply), or null for any other path. Ids
+         * only: the path never carries a name.
+         */
+        fun patientIdFor(href: String?): String? {
+            val parts =
+                href
+                    ?.trim()
+                    ?.substringBefore('?')
+                    ?.substringBefore('#')
+                    ?.trim('/')
+                    ?.split('/')
+                    .orEmpty()
+            return parts.takeIf { it.size == 2 && it[0] == "patients" }?.get(1)?.takeIf(String::isNotBlank)
+        }
+
         private fun text(value: Any?): String? = (value as? String)?.trim()?.takeIf { it.isNotEmpty() }
     }
 }

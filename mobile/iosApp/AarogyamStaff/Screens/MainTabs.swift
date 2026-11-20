@@ -160,6 +160,9 @@ struct MainTabs: View {
         case .labs where nav.tabs.contains(.more):
             selected = .more
             morePath = [.labs]
+        case .patient(let id):
+            selected = .today
+            todayPath = [PatientRoute(id: id)]
         default:
             selected = .today
         }

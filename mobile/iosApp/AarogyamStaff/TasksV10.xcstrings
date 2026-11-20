@@ -806,6 +806,29 @@
           }
         }
       }
+    },
+    "v10.notif.plan_response": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A patient replied to their plan"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मरीज़ ने अपनी उपचार योजना पर जवाब दिया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्णाने त्यांच्या उपचार योजनेला उत्तर दिले"
+          }
+        }
+      }
     }
   }
 }

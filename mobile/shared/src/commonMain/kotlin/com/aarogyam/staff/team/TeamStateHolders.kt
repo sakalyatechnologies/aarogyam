@@ -12,6 +12,7 @@ import com.aarogyam.staff.api.resendInvitation
 import com.aarogyam.staff.api.staff
 import com.aarogyam.staff.api.startConversation
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.notifications.PushTap
 import com.aarogyam.staff.patients.ClinicMoment
 import com.aarogyam.staff.patients.moment
 import com.sakalya.mobile.core.ApiErrorKind
@@ -101,6 +102,8 @@ data class AlertRow(
     val tokenNumber: Int? = null,
     val patientNumber: String? = null,
     val doctor: String? = null,
+    /** The patient a tap opens (a plan reply's `/patients/{id}`); null when the row opens nothing. */
+    val patientId: String? = null,
 )
 
 /** Loads one list once (again on [refresh]) when [permission] is held. */
@@ -342,6 +345,7 @@ class NotificationsStateHolder(
                             it.appointment?.id.orEmpty(),
                             tokenId = token?.id,
                             tokenNumber = token?.number,
+                            patientId = PushTap.patientIdFor(it.href),
                         )
                     },
                 )

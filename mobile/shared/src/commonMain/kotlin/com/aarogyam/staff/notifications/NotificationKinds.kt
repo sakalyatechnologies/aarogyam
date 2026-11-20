@@ -19,6 +19,9 @@ enum class NotificationCategory {
     Lab,
     Payment,
     Recall,
+
+    /** About one patient (`href` is `/patients/{id}`): a tap opens the patient. */
+    Patient,
     Generic,
 }
 
@@ -63,6 +66,7 @@ object NotificationKinds {
             info("lab_overdue", NotificationCategory.Lab, "alert", "v10.notif.lab_overdue"),
             info("payment_due", NotificationCategory.Payment, "check", "v10.notif.payment_due"),
             info("recall_due", NotificationCategory.Recall, "bell", "v10.notif.recall_due"),
+            info("plan_response", NotificationCategory.Patient, "msg", "v10.notif.plan_response"),
         ).associateBy { it.kind }
 
     /** Every kind this build names; the rest map to [of] with `known = false`. */

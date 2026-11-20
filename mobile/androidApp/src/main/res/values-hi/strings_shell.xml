@@ -86,6 +86,7 @@
     <string name="sh_v10_notif_lab_overdue">लैब रिपोर्ट में देरी</string>
     <string name="sh_v10_notif_payment_due">भुगतान बाकी है</string>
     <string name="sh_v10_notif_recall_due">मरीज़ को वापस बुलाने का समय</string>
+    <string name="sh_v10_notif_plan_response">मरीज़ ने अपनी उपचार योजना पर जवाब दिया</string>
     <string name="sh_v10_notif_stock_alert">स्टॉक कम हो रहा है</string>
     <string name="sh_v10_notif_task_due">कार्य की समय-सीमा है</string>
     <string name="sh_v10_notif_task_escalated">कार्य देर से है, आगे बढ़ाया गया</string>

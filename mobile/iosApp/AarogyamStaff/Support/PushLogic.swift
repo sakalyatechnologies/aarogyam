@@ -4,6 +4,8 @@ import Foundation
 /// Where a tapped push opens. `queue` is the desk board or the doctor's waiting list, both on Today.
 enum PushDestination: Equatable {
     case today, queue, tasks, labs
+    /// A plan reply: the patient its `/patients/{id}` path names (an id, never a name).
+    case patient(String)
 }
 
 /// A tap waiting for MainTabs; the nonce makes two taps on the same screen both count.
@@ -13,17 +15,18 @@ struct PushTarget: Equatable {
 }
 
 enum PushLogic {
-    /// The 19 kinds the server sends; each has a `push.<kind>` string (checked by a test).
+    /// The 20 kinds the server sends; each has a `push.<kind>` string (checked by a test).
     static let kinds = [
         "booking_requested", "booking_confirmed_auto", "booking_cancelled_by_patient", "booking_conflict",
         "booking_reminder", "booking_escalation", "arrival", "patient_waiting", "send_in", "collect_payment",
         "payment_due", "recall_due", "lab_overdue", "task_due", "task_reminder", "task_escalated",
-        "time_off_requested", "time_off_decided", "stock_alert",
+        "time_off_requested", "time_off_decided", "stock_alert", "plan_response",
     ]
 
     /// `/today` and anything unknown go to Today (the shared rule, `PushTap.screenFor`).
     static func destination(href: String?) -> PushDestination {
-        switch PushTap.companion.screenFor(href: href) {
+        if let patient = PushTap.companion.patientIdFor(href: href) { return .patient(patient) }
+        return switch PushTap.companion.screenFor(href: href) {
         case .queue: .queue
         case .tasks: .tasks
         case .labs: .labs

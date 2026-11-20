@@ -117,7 +117,15 @@ fun TodayTab(
             }
         }
     }
-    if (notifications) NotificationsSheet(rememberHolder { graph.notifications(clinic, it) }) { notifications = false }
+    if (notifications) {
+        NotificationsSheet(
+            rememberHolder { graph.notifications(clinic, it) },
+            onOpenPatient = {
+                notifications = false
+                onOpenPatient(it)
+            },
+        ) { notifications = false }
+    }
     if (tasksOpen) TasksSheet(graph, clinic, tasks) { tasksOpen = false }
     if (qr) {
         ClinicQrSheet(bookingUrl(clinic.api.origin), clinic.session.clinic.name) { qr = false }

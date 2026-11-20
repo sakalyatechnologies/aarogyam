@@ -79,4 +79,16 @@ describe("§1.13 detail chips", () => {
     await user.click(position.getByRole("button", { name: "Erupted" }));
     await waitFor(() => { expect(eruption).toHaveBeenLastCalledWith(patientId, 48, { eruption: "erupted" }); });
   });
+
+  it("offers position on other permanent teeth through More, never on milk teeth", async () => {
+    const user = userEvent.setup();
+    const { eruption, patientId } = await setup({ tooth: 13 });
+    expect(screen.queryByRole("group", { name: "Tooth position" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "More" }));
+    await user.click(within(screen.getByRole("group", { name: "Tooth position" })).getByRole("button", { name: "Impacted" }));
+    await waitFor(() => { expect(eruption).toHaveBeenCalledWith(patientId, 13, { eruption: "impacted" }); });
+    cleanup();
+    await setup({ tooth: 53 });
+    expect(screen.queryByRole("button", { name: "More" })).toBeNull();
+  });
 });

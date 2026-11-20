@@ -151,6 +151,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::patient_message::handed_off,
         crate::v1::patient_message::prefs,
         crate::v1::patient_message::save_prefs,
+        crate::v1::patient_message::story,
         crate::v1::visit_summary::open,
         crate::v1::visit_summary::answer,
         crate::v1::medicine_sets::list,

@@ -21,7 +21,7 @@ use crate::AppState;
 use crate::extract::Require;
 use crate::failure::ApiFailure;
 
-fn day(date: time::Date) -> String {
+pub(crate) fn day(date: time::Date) -> String {
     format!(
         "{:04}-{:02}-{:02}",
         date.year(),

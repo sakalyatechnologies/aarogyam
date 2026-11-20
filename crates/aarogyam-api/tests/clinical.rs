@@ -2396,6 +2396,7 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Some(json!({ "reason": "Wrong tooth" })),
         ),
         (Method::GET, format!("/api/v1/visits/{visit}/mouth"), None),
+        (Method::GET, format!("/api/v1/visits/{visit}/story"), None),
         (
             Method::GET,
             format!("/api/v1/patients/{patient}/timeline"),
@@ -2992,9 +2993,15 @@ async fn clinical_routes_need_their_permission() {
                 expected,
                 "front desk {method} {path}"
             );
+            // The video story also needs patients.contact, like Send; the assistant lacks it.
+            let reads = if path.ends_with("/story") {
+                StatusCode::FORBIDDEN
+            } else {
+                StatusCode::OK
+            };
             assert_eq!(
                 status_of(&app, method.clone(), ALPHA, &path, &assistant, None).await,
-                StatusCode::OK,
+                reads,
                 "assistant {method} {path}"
             );
         } else {

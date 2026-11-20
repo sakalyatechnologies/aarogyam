@@ -20307,6 +20307,55 @@
         ]
       }
     },
+    "/api/v1/visits/{id}/story": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The data for the patient's video, rendered on the doctor's own device and shared from there;\nnothing is uploaded. Runs the same refusals as Send, so a video is made only when the text\ncould be. Mints, revokes and saves nothing.",
+        "operationId": "getVisitStory",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The story; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitStory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read or patients.contact"
+          },
+          "404": {
+            "description": "No such visit in this clinic, or the patient was erased"
+          },
+          "409": {
+            "description": "`visit_open`, `no_phone`, `no_consent` or `opted_out`"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/walk-ins": {
       "post": {
         "tags": [
@@ -45288,6 +45337,48 @@
             "type": "integer",
             "format": "int64",
             "description": "Walk-in tokens issued in the range, not counting those who left unseen."
+          }
+        }
+      },
+      "VisitStory": {
+        "type": "object",
+        "description": "What the doctor's device renders the patient's video from (design section 1.7): the mouth\nsnapshot plus the visit number, day and clinic name. Never a patient name, phone, link or PIN.",
+        "required": [
+          "story_version",
+          "visit_number",
+          "visited_on",
+          "clinic_name",
+          "chart"
+        ],
+        "properties": {
+          "chart": {
+            "$ref": "#/components/schemas/MouthSnapshot",
+            "description": "The same snapshot as `GET /visits/{id}/mouth`."
+          },
+          "clinic_name": {
+            "type": "string",
+            "description": "The clinic's name, for the title and end cards."
+          },
+          "next_visit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient's next booked visit (`YYYY-MM-DD`), for the end card."
+          },
+          "story_version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The story contract the renderer follows (the same as `chart.story_version`).",
+            "minimum": 0
+          },
+          "visit_number": {
+            "type": "string",
+            "description": "The clinic's visit number (`V-318`): the file name and the end card's small type."
+          },
+          "visited_on": {
+            "type": "string",
+            "description": "The visit's day (`YYYY-MM-DD`) in the clinic's time zone, for the title card."
           }
         }
       },

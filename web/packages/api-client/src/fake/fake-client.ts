@@ -5413,6 +5413,38 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(FIXTURE_MOUTH);
         }),
 
+      getVisitStory: (id, opts) =>
+        respond(S.visitStory, opts?.signal, async () => {
+          const reader = await inClinic("clinical.read");
+          if (!isCaller(reader)) {
+            return reader;
+          }
+          const caller = await inClinic("patients.contact");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          const patient = found === undefined ? undefined : state.patients.find((p) => p.id === found.patient_id);
+          if (found === undefined || patient === undefined) {
+            return notFound;
+          }
+          if (found.status !== "closed") {
+            return refuse(409, "visit_open", "Finish the visit first.");
+          }
+          if (patient.phone == null) {
+            return refuse(409, "no_phone", "This patient has no mobile number.");
+          }
+          // The golden Aarav mouth for every visit; no patient name, phone, link or PIN.
+          return reply({
+            story_version: FIXTURE_MOUTH.story_version,
+            visit_number: found.number,
+            visited_on: localClock(new Date(found.started_at), caller.clinic.timezone).date,
+            clinic_name: caller.clinic.name,
+            ...(FIXTURE_MOUTH.next_visit === undefined ? {} : { next_visit: FIXTURE_MOUTH.next_visit }),
+            chart: FIXTURE_MOUTH,
+          } satisfies C.VisitStory);
+        }),
+
       addDentalTerm: (input, opts) =>
         respond(S.dentalTerm, opts?.signal, async () => {
           const caller = await inClinic("clinical.write");

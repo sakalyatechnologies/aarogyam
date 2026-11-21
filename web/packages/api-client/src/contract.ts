@@ -537,6 +537,7 @@ export type DetailInError = Schemas["DetailInError"];
 export type MouthSnapshot = Schemas["MouthSnapshot"];
 export type MouthPosition = Schemas["MouthPosition"];
 export type MouthTooth = Schemas["MouthTooth"];
+export type VisitStory = Schemas["VisitStory"];
 export type MouthWork = Schemas["MouthWork"];
 export type MouthDetails = Schemas["MouthDetails"];
 export type MouthTreatment = Schemas["MouthTreatment"];

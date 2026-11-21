@@ -341,3 +341,70 @@ pub(crate) async fn save_prefs(
     let prefs = app::save_prefs(state.db(), &request.actor, request.request_id, sections).await?;
     Ok(Json(prefs.into()))
 }
+
+/// What the doctor's device renders the patient's video from (design section 1.7): the mouth
+/// snapshot plus the visit number, day and clinic name. Never a patient name, phone, link or PIN.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct VisitStory {
+    /// The story contract the renderer follows (the same as `chart.story_version`).
+    pub story_version: u32,
+    /// The clinic's visit number (`V-318`): the file name and the end card's small type.
+    pub visit_number: String,
+    /// The visit's day (`YYYY-MM-DD`) in the clinic's time zone, for the title card.
+    pub visited_on: String,
+    /// The clinic's name, for the title and end cards.
+    pub clinic_name: String,
+    /// The patient's next booked visit (`YYYY-MM-DD`), for the end card.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_visit: Option<String>,
+    /// The same snapshot as `GET /visits/{id}/mouth`.
+    pub chart: super::mouth::MouthSnapshot,
+}
+
+impl From<app::VisitStory> for VisitStory {
+    fn from(story: app::VisitStory) -> Self {
+        Self {
+            story_version: story.mouth.story_version,
+            visit_number: story.visit_number,
+            visited_on: super::mouth::day(story.visited_on),
+            clinic_name: story.clinic_name,
+            next_visit: story.mouth.next_visit.map(super::mouth::day),
+            chart: story.mouth.into(),
+        }
+    }
+}
+
+/// The data for the patient's video, rendered on the doctor's own device and shared from there;
+/// nothing is uploaded. Runs the same refusals as Send, so a video is made only when the text
+/// could be. Mints, revokes and saves nothing.
+#[utoipa::path(
+    get,
+    path = "/api/v1/visits/{id}/story",
+    operation_id = "getVisitStory",
+    tag = "clinical",
+    params(("id" = String, Path, description = "The visit")),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = VisitStory, description = "The story; `Cache-Control: no-store`"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks clinical.read or patients.contact"),
+        (status = 404, description = "No such visit in this clinic, or the patient was erased"),
+        (status = 409, description = "`visit_open`, `no_phone`, `no_consent` or `opted_out`")
+    )
+)]
+pub(crate) async fn story(
+    State(state): State<AppState>,
+    RequireBoth { request, .. }: RequireBoth<ClinicalRead, PatientsContact>,
+    ApiPath(id): ApiPath<Uuid>,
+) -> Result<Response, ApiFailure> {
+    let story = app::story(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        EncounterId::from_uuid(id),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(no_store(Json(VisitStory::from(story)).into_response()))
+}

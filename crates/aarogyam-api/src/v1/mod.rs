@@ -407,6 +407,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/visits/{id}/finish", post(visits::finish))
         .route("/visits/{id}/share", post(visit_summary::create))
         .route("/visits/{id}/mouth", get(mouth::get))
+        .route("/visits/{id}/story", get(patient_message::story))
         .route(
             "/visits/{id}/patient-message",
             post(patient_message::prepare),

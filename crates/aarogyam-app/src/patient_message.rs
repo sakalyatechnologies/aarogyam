@@ -22,6 +22,7 @@ use aarogyam_domain::dental_details::{
 };
 use aarogyam_domain::dental_terms::{TermKind, TermRef};
 use aarogyam_domain::ids::{EncounterId, ShareLinkId};
+use aarogyam_domain::mouth::MouthSnapshot;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::quick_picks;
 use aarogyam_domain::share::ShareChannel;
@@ -718,14 +719,26 @@ impl Draft {
     }
 }
 
-/// Reads the visit and checks the refusals: open visit, no mobile, no consent, opted out.
-/// Writes nothing.
-async fn draft_in(
+/// The visit, its patient and recipient after the refusals, and the clinic's name and zone.
+struct Checked {
+    visit: visits::EncounterRow,
+    patient: patients::PatientRow,
+    recipient: Recipient,
+    phone: PhoneE164,
+    clinic_name: String,
+    timezone: String,
+    minor: bool,
+}
+
+/// Reads the visit and checks the refusals: open visit, no mobile, no consent, opted out. The
+/// summary, its preview and the video story all start here, so none is made for a patient the
+/// text could not go to. Writes nothing.
+async fn checked_in(
     tx: &mut ScopedTx,
     actor: &ClinicActor,
     visit_id: EncounterId,
     now: OffsetDateTime,
-) -> Result<Draft, AppError> {
+) -> Result<Checked, AppError> {
     let visit = visits::get_encounter(
         tx.conn(),
         visit_id.uuid(),
@@ -747,12 +760,38 @@ async fn draft_in(
     let (clinic_name, timezone) = links::clinic_name(tx.conn())
         .await?
         .ok_or(AppError::NotFound("clinic"))?;
-    let today = clinic_today(&timezone, now);
-    let minor = message::is_minor(patient.date_of_birth, today);
-    let age_band = message::age_band(patient.date_of_birth, today);
-
+    let minor = message::is_minor(patient.date_of_birth, clinic_today(&timezone, now));
     let (recipient, phone) =
         recipient_in(tx, patient.id, patient.phone_e164.as_deref(), minor).await?;
+    Ok(Checked {
+        visit,
+        patient,
+        recipient,
+        phone,
+        clinic_name,
+        timezone,
+        minor,
+    })
+}
+
+/// Reads the visit and checks the refusals ([`checked_in`]), then gathers what the summary says.
+/// Writes nothing.
+async fn draft_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    visit_id: EncounterId,
+    now: OffsetDateTime,
+) -> Result<Draft, AppError> {
+    let Checked {
+        visit,
+        patient,
+        recipient,
+        phone,
+        clinic_name,
+        timezone,
+        minor,
+    } = checked_in(tx, actor, visit_id, now).await?;
+    let age_band = message::age_band(patient.date_of_birth, clinic_today(&timezone, now));
 
     // What it says.
     let doctor_name = links::doctor(tx.conn(), visit.clinician_id)
@@ -920,6 +959,48 @@ pub async fn preview(
             message::compose(&draft.input(&link, message::PREVIEW_PIN, sections, learn.as_deref()))
                 .text,
         )
+    })
+    .await
+}
+
+/// What the doctor's device needs to render the patient's video (design section 1.7): the mouth
+/// snapshot, the visit number for the file name and end card, the visit day and the clinic's
+/// name. No patient name, phone, link or PIN.
+#[derive(Debug, Clone)]
+pub struct VisitStory {
+    /// The clinic's visit number, such as `V-318`.
+    pub visit_number: String,
+    /// The visit's day in the clinic's time zone.
+    pub visited_on: Date,
+    /// The clinic's name for the title and end cards.
+    pub clinic_name: String,
+    /// The same snapshot as `GET /visits/{id}/mouth`, with `story_version` and `next_visit`.
+    pub mouth: MouthSnapshot,
+}
+
+/// The video story of a closed visit. Runs the same refusals as [`prepare`], so a video is made
+/// only when the text could be; mints, revokes and saves nothing.
+///
+/// # Errors
+/// As [`prepare`].
+pub async fn story(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    visit_id: EncounterId,
+    now: OffsetDateTime,
+) -> Result<VisitStory, AppError> {
+    actor.require(Permission::ClinicalRead)?;
+    actor.require(Permission::PatientsContact)?;
+    db.scoped(&staff_scope(actor, request_id), async |tx| {
+        let checked = checked_in(tx, actor, visit_id, now).await?;
+        let mouth = crate::mouth::of_visit(tx, &checked.visit, now).await?;
+        Ok(VisitStory {
+            visited_on: clinic_today(&checked.timezone, checked.visit.started_at),
+            visit_number: checked.visit.number,
+            clinic_name: checked.clinic_name,
+            mouth,
+        })
     })
     .await
 }

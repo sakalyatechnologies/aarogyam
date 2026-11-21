@@ -877,8 +877,10 @@ fn headline_of(built: &Built) -> String {
 
 /// A mixed position 1 to 5: the permanent tooth when charted, else its primary predecessor;
 /// both charted → the present one, or the one with an active problem (DF1); neither →
-/// `not_recorded` (DF2).
-fn mixed_front(quadrant: u8, index: u8, built: &BTreeMap<u8, Built>) -> Position {
+/// `not_recorded` (DF2). For an adult (age 13 or over, or not known) a position with neither
+/// charted is the permanent tooth, as in the adult layout: an adult never shows a milk-tooth
+/// number that nobody charted.
+fn mixed_front(quadrant: u8, index: u8, built: &BTreeMap<u8, Built>, adult: bool) -> Position {
     let permanent = quadrant * 10 + index;
     let primary = (quadrant + 4) * 10 + index;
     let charted = |t: u8| built.get(&t).filter(|b| b.charted);
@@ -894,6 +896,7 @@ fn mixed_front(quadrant: u8, index: u8, built: &BTreeMap<u8, Built>) -> Position
         }
         (Some(_), None) => (permanent, None),
         (None, Some(_)) => (primary, None),
+        (None, None) if adult => return position(quadrant, index, built),
         (None, None) => {
             return Position {
                 quadrant: quadrant + 4,
@@ -912,7 +915,7 @@ fn mixed_front(quadrant: u8, index: u8, built: &BTreeMap<u8, Built>) -> Position
     drawn_position
 }
 
-fn positions(dentition: &str, built: &BTreeMap<u8, Built>) -> Vec<Position> {
+fn positions(dentition: &str, built: &BTreeMap<u8, Built>, adult: bool) -> Vec<Position> {
     let mut out = Vec::new();
     match dentition {
         "child" => {
@@ -925,11 +928,11 @@ fn positions(dentition: &str, built: &BTreeMap<u8, Built>) -> Vec<Position> {
         "mixed" => {
             for quadrant in 1..=4 {
                 for index in 1..=5 {
-                    out.push(mixed_front(quadrant, index, built));
+                    out.push(mixed_front(quadrant, index, built, adult));
                 }
                 for index in 6..=8 {
                     let tooth = quadrant * 10 + index;
-                    let charted = built.get(&tooth).is_some_and(|b| b.charted);
+                    let charted = adult || built.get(&tooth).is_some_and(|b| b.charted);
                     if index == 8 && !charted {
                         continue;
                     }
@@ -978,7 +981,9 @@ pub fn snapshot(input: &MouthInput) -> MouthSnapshot {
         .map(|(n, _)| *n)
         .collect();
     let dentition = dentition(&charted, input.age);
-    let positions = positions(dentition, &built);
+    // A retained milk tooth makes an adult's layout mixed; the rest of the mouth stays adult.
+    let adult = input.age.is_none_or(|a| a >= 13);
+    let positions = positions(dentition, &built, adult);
     let mut teeth: Vec<MouthTooth> = built
         .into_values()
         .map(|b| b.tooth)

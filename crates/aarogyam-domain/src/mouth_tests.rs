@@ -267,6 +267,81 @@ fn any_permanent_tooth_rules_out_child() {
 }
 
 #[test]
+fn an_adult_without_a_birth_date_gets_adult_numbers() {
+    let mut adult = input(vec![entry(16, "caries"), entry(21, "filled")]);
+    adult.age = None;
+    let snap = snapshot(&adult);
+    assert_eq!(snap.dentition, "adult");
+    let numbers: Vec<u8> = snap.positions.iter().map(|p| p.tooth).collect();
+    assert_eq!(numbers.len(), 32);
+    assert!(numbers.iter().all(|n| *n < 50), "no milk-tooth numbers");
+    assert_eq!(&numbers[..8], &[11, 12, 13, 14, 15, 16, 17, 18]);
+}
+
+#[test]
+fn a_retained_milk_tooth_keeps_the_rest_of_an_adults_mouth_adult() {
+    // A charted 55 makes the layout mixed, but only 55 shows a milk number.
+    for age in [None, Some(30)] {
+        let mut adult = input(vec![entry(55, "caries"), entry(16, "caries")]);
+        adult.age = age;
+        let snap = snapshot(&adult);
+        assert_eq!(snap.dentition, "mixed");
+        let milk: Vec<u8> = snap
+            .positions
+            .iter()
+            .map(|p| p.tooth)
+            .filter(|n| *n > 50)
+            .collect();
+        assert_eq!(milk, vec![55], "age {age:?}");
+        assert_eq!(snap.positions.len(), 32);
+        assert!(
+            snap.positions.iter().all(|p| p.shown != "not_recorded"),
+            "uncharted adult teeth are sound, as in the adult layout"
+        );
+    }
+}
+
+#[test]
+fn found_today_comes_from_this_visits_findings_and_health() {
+    let mut old = entry(26, "caries");
+    old.today = false;
+    let mut facts = input(vec![
+        entry(36, "caries"),
+        entry(46, "fractured"),
+        entry(16, "missing"),
+        old,
+    ]);
+    let status = |tooth: u8, health: &str, today: bool| StatusRecord {
+        data: ToothStatusData {
+            tooth,
+            health: health.to_owned(),
+            note: None,
+            treat_within_months: None,
+        },
+        today,
+    };
+    facts.statuses = vec![
+        status(14, "needs_treatment", true),
+        status(24, "needs_treatment", false),
+    ];
+    let snap = snapshot(&facts);
+    for found in [36, 46, 16, 14] {
+        assert_eq!(
+            tooth(&snap, found).today.as_deref(),
+            Some("found"),
+            "{found}"
+        );
+    }
+    assert_eq!(tooth(&snap, 26).today, None, "recorded at an earlier visit");
+    assert_eq!(
+        tooth(&snap, 24).today,
+        None,
+        "health set at an earlier visit"
+    );
+    assert!(snap.focus.contains(&36) && snap.focus.contains(&14));
+}
+
+#[test]
 fn details_appear_only_when_recorded_and_hide_on_a_missing_tooth() {
     let mut caries = entry(36, "caries");
     caries.data.caries_depth = Some("near_pulp".to_owned());

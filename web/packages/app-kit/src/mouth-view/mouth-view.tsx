@@ -98,6 +98,10 @@ function BadgeGlyph({ kind, x, y, r }: { kind: Badge; x: number; y: number; r: n
   if (kind === "elsewhere") return <g transform={t}><circle className="mv-b-else" r={r} /><path className="mv-g-slate" d={G.out} transform={`scale(${String(r / 1.5)})`} /></g>;
   return <g transform={t}><circle className="mv-b-before" r={r} /><path className="mv-g-muted" d={G.clock} transform={`scale(${String(r / 1.4)})`} /></g>;
 }
+/** A badge glyph on its own (found today, done here, elsewhere, before), for overlays drawn outside the arch. */
+export function BadgeIcon({ kind }: { kind: Badge }): ReactElement {
+  return <svg className="mv-badge-icon" viewBox="-8 -8 16 16" aria-hidden="true"><BadgeGlyph kind={kind} x={0} y={0} r={7} /></svg>;
+}
 type LegendKind = "today" | "planned" | Badge | "nr";
 function LegendGlyph({ kind }: { kind: LegendKind }): ReactElement {
   const dot = <circle r="2.6" className="mv-l-dot" />;
@@ -135,9 +139,23 @@ export interface MouthViewProps {
   toothExtras?: ((tooth: number) => ReactNode) | undefined;
   /** Present's "Today" chip: highlight only teeth with today's findings or treatment. */
   filter?: "today" | undefined;
+  /**
+   * Draws the overview's teeth instead of the arch (Present draws the doctor's chart look: rows, 3D arch or classic).
+   * The header, legend and tooth detail stay the view's own.
+   */
+  overview?: ((slot: OverviewSlot) => ReactNode) | undefined;
   /** Called when the screen changes (the page scrolls the hero into view). */
   onScreen?: ((screen: "overview" | "detail", tooth: number | undefined) => void) | undefined;
   className?: string | undefined;
+}
+
+/** What a custom overview gets: each tooth's state, a way to open its detail, and the tooth to return focus to after Back. */
+export interface OverviewSlot {
+  stateOf: (fdi: number) => PositionState;
+  open: (fdi: number) => void;
+  /** The tooth the view came back from; a new `n` each time. */
+  was: { fdi: number; n: number } | undefined;
+  filter: "today" | undefined;
 }
 
 export function MouthView(props: MouthViewProps): ReactElement {
@@ -193,7 +211,8 @@ export function MouthView(props: MouthViewProps): ReactElement {
   return (
     <div className={["mv-theme", "mv", present ? "mv-present" : "", props.className ?? ""].filter(Boolean).join(" ")} data-screen={detail === undefined ? "overview" : "detail"} data-back={backing ? "" : undefined} data-reduced={reduced ? "" : undefined}>
       <div className="mv-overview" hidden={detail !== undefined}>
-        <Overview snapshot={snapshot} states={states} name={name} present={present} was={was} onOpen={openTooth} filter={props.filter} />
+        <Overview snapshot={snapshot} states={states} name={name} present={present} was={was} onOpen={openTooth} filter={props.filter}
+          custom={props.overview?.({ stateOf: (fdi) => stateFor(snapshot, states, fdi), open: openTooth, was, filter: props.filter })} />
       </div>
       {shown === undefined ? null : (
         <div className="mv-detail" hidden={detail === undefined}>
@@ -222,9 +241,9 @@ const W = 360;
 
 interface Placed { s: PositionState; slot: ArchSlot; nx: number; ny: number; r: number }
 
-function Overview({ snapshot, states, name, present, was, onOpen, filter }: {
+function Overview({ snapshot, states, name, present, was, onOpen, filter, custom }: {
   snapshot: Snapshot; states: { upper: PositionState[]; lower: PositionState[] }; name: string | undefined; present: boolean;
-  was: { fdi: number; n: number } | undefined; onOpen: (fdi: number) => void; filter?: "today" | undefined;
+  was: { fdi: number; n: number } | undefined; onOpen: (fdi: number) => void; filter?: "today" | undefined; custom?: ReactNode;
 }): ReactElement {
   const all = useMemo(() => [...states.upper, ...states.lower], [states]);
   const sig = all.map((s) => s.fdi).join(",");
@@ -314,7 +333,7 @@ function Overview({ snapshot, states, name, present, was, onOpen, filter }: {
         {present && todayLine(all) !== undefined ? <p className="mv-today">{todayLine(all)}</p> : null}
         {snapshot.next_visit === undefined ? null : <p className="mv-next"><CalendarIcon />{`Next visit: ${dayLabel(snapshot.next_visit)}`}</p>}
       </div>
-      <div className="mv-arch-wrap">
+      {custom !== undefined ? <div className="mv-custom">{custom}</div> : <div className="mv-arch-wrap">
         <svg className={`mv-arch${filter === "today" ? " mv-only-today" : ""}`} viewBox={`-20 ${minY.toFixed(1)} ${String(W + 40)} ${(maxY - minY).toFixed(1)}`} role="group" aria-label={`${who} teeth: ${String(need)} need attention, ${String(today)} treated today. Use the arrow keys to move between teeth.`}>
           <polyline className="mv-gum" points={band(upperRows)} strokeWidth={bandW} />
           <polyline className="mv-gum" points={band(lowerRows)} strokeWidth={bandW} />
@@ -333,7 +352,7 @@ function Overview({ snapshot, states, name, present, was, onOpen, filter }: {
             {placed.map((p) => <Marks key={p.s.fdi} p={p} dim={filter === "today" && !isToday(p.s)} />)}
           </g>
         </svg>
-      </div>
+      </div>}
       <ul className="mv-sr">{all.filter((s) => s.tooth !== undefined).map((s) => <li key={s.fdi}>{spokenLabel(s, present)}</li>)}</ul>
       <ul className="mv-legend" aria-label="Key">
         {LEGEND.map(([k, l]) => <li key={k}><LegendGlyph kind={k} /><span>{l}</span></li>)}

@@ -249,3 +249,7 @@
 }
 .mv[data-reduced] *, .mv[data-reduced] { animation: none !important; transition: none !important; }
 .mv[data-reduced] .mv-pulse { display: none; }
+
+/* a custom overview (Present's chart looks) */
+.mv-custom { margin-top: 10px; min-width: 0; }
+.mv-badge-icon { display: block; width: 16px; height: 16px; }

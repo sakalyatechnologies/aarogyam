@@ -1,6 +1,7 @@
 /**
  * Present mode (design §1.12): the doctor turns the screen to the patient and walks the same mouth
- * view the patient's page shows, from `GET /visits/{id}/mouth`. Full screen, large targets. Esc goes
+ * view the patient's page shows, from `GET /visits/{id}/mouth`, drawn in the doctor's chart look (Rows, 3D arch or Classic)
+ * with the chart's numbers and dentition. Full screen, large targets. Esc goes
  * back to the overview; only the press-and-hold Exit leaves, so a patient tapping around can't land
  * in Patient 360. The query refetches after chart, plan, procedure, tooth-status and booking saves.
  */
@@ -17,6 +18,10 @@ import { useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
 import { useDentalChart, usePatient, useRecordChartEntries, useVisit, useVisitMouth } from "../../../queries.js";
+import { DENTITIONS, LOOKS } from "../../patients/v2/tooth-chart/tooth-chart.js";
+import { useChartPrefs, type ChartDentition, type ChartLook } from "../../patients/v2/tooth-chart/use-chart-prefs.js";
+import { usePlans } from "../../treatment-plans/queries.js";
+import { PresentChart } from "./present-chart.js";
 import { HoldToExit } from "../../patients/v2/explain/hold-to-exit.js";
 import "../../patients/v2/explain/explain.css";
 import "./present.css";
@@ -48,6 +53,14 @@ export function PresentPage() {
   const [search] = useSearchParams();
   const [tab, setTab] = useState<Tab>(search.get("tab") === "xrays" ? "xrays" : "teeth");
   const [onlyToday, setOnlyToday] = useState(false);
+  // The doctor's chart look and dentition, so the patient sees the same teeth and numbers; switching here is for this showing only.
+  const { session } = useClinic();
+  const [prefs] = useChartPrefs(session.user.id);
+  const [look, setLook] = useState<ChartLook>(prefs.look);
+  const [dentition, setDentition] = useState<ChartDentition>(prefs.dentition);
+  const chart = useDentalChart(patientId);
+  const plans = usePlans(patientId);
+  const planItems = plans.data?.items.flatMap((plan) => plan.items) ?? [];
   // all art chunks start together the moment the snapshot is here (a no-op when Show patient prefetched them)
   if (mouth.data !== undefined) preloadArt(mouth.data);
   return (
@@ -64,6 +77,24 @@ export function PresentPage() {
             </button>
           ))}
         </div>
+        {tab === "teeth" ? (
+          <div className="pm-tabs" role="group" aria-label="Chart look">
+            {LOOKS.map((l) => (
+              <button key={l.value} type="button" className="pm-tab" aria-pressed={look === l.value} onClick={() => { setLook(l.value); }}>
+                {l.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {tab === "teeth" ? (
+          <div className="pm-tabs" role="group" aria-label="Dentition">
+            {DENTITIONS.map((d) => (
+              <button key={d.value} type="button" className="pm-tab" aria-pressed={dentition === d.value} onClick={() => { setDentition(d.value); }}>
+                {d.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {tab === "teeth" ? (
           <button type="button" className="pm-chip pm-today" aria-pressed={onlyToday} onClick={() => { setOnlyToday(!onlyToday); }}>
             Today
@@ -95,6 +126,7 @@ export function PresentPage() {
             filter={onlyToday ? "today" : undefined}
             load3d={load3d}
             toothExtras={patientId === undefined ? undefined : (tooth) => <AddDepth snapshot={mouth.data} tooth={tooth} patientId={patientId} visitId={visitId} />}
+            overview={chart.data === undefined ? undefined : (slot) => <PresentChart look={look} dentition={dentition} chart={chart.data} planItems={planItems} slot={slot} />}
           />
         )}
       </div>

@@ -91,7 +91,8 @@ const isTreatedToday = (t: SnapTooth | undefined) => t?.today === "treated" || t
 function stateOf(p: SnapPosition, arch: "upper" | "lower", teeth: ReadonlyMap<number, SnapTooth>): PositionState {
   const tooth = p.shown === "not_recorded" ? undefined : teeth.get(p.tooth);
   const shown = p.shown === "tooth" || p.shown === "sound" ? p.shown : "not_recorded";
-  const found = tooth !== undefined && tooth.today === "found" && hasIssue(tooth);
+  // Found today: a problem recorded in this visit, or the tooth marked "needs treatment" in it.
+  const found = tooth !== undefined && tooth.today === "found" && (hasIssue(tooth) || tooth.health === "needs_treatment");
   const work = tooth?.work?.[0];
   const origin = work?.origin === "here" || work?.origin === "elsewhere" || work?.origin === "before" ? work.origin : undefined;
   return {

@@ -6,11 +6,31 @@ import type { ApiClient, NewChartEntries } from "@aarogyam/api-client";
 import type { Fixtures } from "@aarogyam/api-client/fake";
 
 import { PEOPLE, fakeApi, renderPortal } from "../../../test/render.js";
+import { chartPrefsKey } from "../../patients/v2/tooth-chart/use-chart-prefs.js";
+import { ARCHES } from "../odontogram/model.js";
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  localStorage.clear();
 });
+
+/** The doctor's saved chart look and dentition, as the chart stores them. */
+const savePrefs = (look: string, dentition: string) => {
+  localStorage.setItem(chartPrefsKey(PEOPLE.asha), JSON.stringify({ look, dentition, view: "treatment" }));
+};
+
+/** The tooth numbers Present draws, in screen order, once the chart has loaded. */
+async function drawn(shell: HTMLElement, count: number): Promise<number[]> {
+  await waitFor(() => { expect(shell.querySelectorAll(".pc [data-tooth]")).toHaveLength(count); }, WAIT);
+  return [...shell.querySelectorAll(".pc [data-tooth]")].map((el) => Number(el.getAttribute("data-tooth")));
+}
+
+const toothEl = (shell: HTMLElement, n: number): HTMLElement | SVGElement => {
+  const el = shell.querySelector<HTMLElement | SVGElement>(`.pc [data-tooth="${String(n)}"]`);
+  if (el === null) throw new Error(String(n));
+  return el;
+};
 
 const WAIT = { timeout: 20_000 };
 
@@ -52,9 +72,8 @@ describe("Present mode (§1.12)", () => {
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     expect(await within(shell).findByRole("heading", { name: /teeth$/ }, WAIT)).toBeTruthy();
     expect(within(shell).getByRole("button", { name: "How to brush" })).toBeTruthy();
-    const tooth21 = shell.querySelector<SVGGElement>('.mv-tooth[data-fdi="21"]');
-    if (tooth21 === null) throw new Error("21");
-    fireEvent.click(tooth21);
+    await drawn(shell, 32);
+    fireEvent.click(toothEl(shell, 21));
     expect(within(shell).getByRole("button", { name: "Back to all teeth" })).toBeTruthy();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(shell.querySelector(".mv")?.getAttribute("data-screen")).toBe("overview");
@@ -69,12 +88,12 @@ describe("Present mode (§1.12)", () => {
   it("offers Add depth on caries without a depth, saves it in one tap and refetches the snapshot", async () => {
     const user = userEvent.setup();
     const { path, backend, wrap, recorded, fetches } = present();
+    savePrefs("rows", "child");
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     await within(shell).findByRole("heading", { name: /teeth$/ }, WAIT);
-    const tooth55 = shell.querySelector<SVGGElement>('.mv-tooth[data-fdi="55"]');
-    if (tooth55 === null) throw new Error("55");
-    fireEvent.click(tooth55);
+    await drawn(shell, 20);
+    fireEvent.click(toothEl(shell, 55));
     const group = await within(shell).findByRole("group", { name: "Add depth" }, WAIT);
     const before = fetches();
     await user.click(within(group).getByRole("button", { name: "Dentin" }));
@@ -117,7 +136,43 @@ describe("Present mode (§1.12)", () => {
     expect(await within(shell).findByText(/^Today: /, undefined, WAIT)).toBeTruthy();
     await user.click(within(shell).getByRole("button", { name: "Today" }));
     expect(within(shell).getByRole("button", { name: "Today" }).getAttribute("aria-pressed")).toBe("true");
-    expect(shell.querySelector('.mv-tooth[data-fdi="21"]')?.classList.contains("mv-dim")).toBe(false);
-    expect(shell.querySelector('.mv-tooth[data-fdi="65"]')?.classList.contains("mv-dim")).toBe(true);
+    await drawn(shell, 32);
+    expect(toothEl(shell, 21).hasAttribute("data-dim")).toBe(false);
+    expect(toothEl(shell, 11).hasAttribute("data-dim")).toBe(true);
+  });
+
+  it("draws the doctor's chart look with the chart's numbers: Rows, 3D arch and Classic, switchable in the bar", async () => {
+    const user = userEvent.setup();
+    const { path, backend, wrap } = present();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    const adult = [...ARCHES.adult.upper, ...ARCHES.adult.lower];
+    const looks = within(within(shell).getByRole("group", { name: "Chart look" }));
+    // No saved choice: Rows and adult teeth, as the chart opens. No milk-tooth number on an adult layout.
+    expect(looks.getByRole("button", { name: "Rows" }).getAttribute("aria-pressed")).toBe("true");
+    expect(await drawn(shell, 32)).toEqual(adult);
+    for (const look of ["3D arch", "Classic"]) {
+      await user.click(looks.getByRole("button", { name: look }));
+      expect(await drawn(shell, 32)).toEqual(adult);
+    }
+    expect(shell.querySelector(".pc")?.getAttribute("data-look")).toBe("classic");
+    // The marks: 21 is treated today in the fixture.
+    expect(shell.querySelector(".pc-classic .mv-tag-today")).not.toBeNull();
+  });
+
+  it("opens in the saved look and dentition; a tooth opens its detail and Back returns to the same look", async () => {
+    const user = userEvent.setup();
+    const { path, backend, wrap } = present();
+    savePrefs("classic", "child");
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    expect(await drawn(shell, 20)).toEqual([...ARCHES.child.upper, ...ARCHES.child.lower]);
+    expect(within(within(shell).getByRole("group", { name: "Dentition" })).getByRole("button", { name: "Child" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(toothEl(shell, 55));
+    await user.click(within(shell).getByRole("button", { name: "Back to all teeth" }));
+    expect(shell.querySelector(".mv")?.getAttribute("data-screen")).toBe("overview");
+    expect(shell.querySelector(".pc")?.getAttribute("data-look")).toBe("classic");
+    await user.click(within(within(shell).getByRole("group", { name: "Dentition" })).getByRole("button", { name: "Adult" }));
+    expect(await drawn(shell, 32)).toEqual([...ARCHES.adult.upper, ...ARCHES.adult.lower]);
   });
 });

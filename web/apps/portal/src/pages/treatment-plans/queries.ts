@@ -6,9 +6,13 @@ import { unwrap, type Acceptance, type FinishedItemStatus, type NewPlan, type Pa
 import { useClinic } from "../../clinic.js";
 import { invalidateMouth } from "../../queries.js";
 
-export function usePlans(patientId: PatientId) {
+export function usePlans(patientId: PatientId | undefined) {
   const { api, access } = useClinic();
-  return useQuery({ queryKey: ["plans", access.org_id, patientId], queryFn: ({ signal }) => unwrap(api.listPlans(patientId, { signal })) });
+  return useQuery({
+    queryKey: ["plans", access.org_id, patientId],
+    queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.listPlans(patientId, { signal }))),
+    enabled: patientId !== undefined,
+  });
 }
 
 export function useCreatePlan(patientId: PatientId) {

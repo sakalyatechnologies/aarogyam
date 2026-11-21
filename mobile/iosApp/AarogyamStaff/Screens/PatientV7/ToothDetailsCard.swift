@@ -3,13 +3,16 @@ import SakalyaUI
 import SwiftUI
 
 /// The optional detail chips (spec 1.13): decay depth on a tooth with decay, the condition row
-/// (infection, gums, mobility) on every tooth, and a wisdom tooth's eruption and angle. Each tap
+/// (infection, gums, mobility) on every tooth, and a permanent tooth's position and angle (open on
+/// a wisdom tooth or once recorded, else behind "More"). Each tap
 /// saves at once; a tap on the picked chip clears it. Skipping them costs nothing.
 struct ToothDetailsCard: View {
     let sheet: ToothSheetStateHolder
     let tooth: Int32
     let details: ToothDetailsView
     @State private var save = DetailSaveState(saving: false, error: nil)
+    /// "More" opened the position row on a permanent tooth that is not a wisdom tooth.
+    @State private var more = false
     @Environment(\.skTheme) private var theme
 
     private var condition: ToothConditionView? { details.condition }
@@ -29,13 +32,18 @@ struct ToothDetailsCard: View {
                     }
                 }
                 if !details.missing { conditionRows }
-                if details.wisdom { wisdom }
+                if details.positionOpen || (details.permanent && more) {
+                    position
+                } else if details.permanent {
+                    SkChoiceChip(pv("pv.detail.more"), selected: false) { more = true }
+                }
                 if save.error != nil {
                     Text(pv("pv.detail.failed")).v7Text(12.5).foregroundStyle(r.error.color)
                 }
             }
         }
         .task { for await next in sheet.detail { save = next } }
+        .onChange(of: tooth) { more = false }
     }
 
     /// Infection, gums and mobility, with the date they were recorded.
@@ -71,9 +79,9 @@ struct ToothDetailsCard: View {
     /// A pocket deeper than 7 mm (from the web) lights the "7+" chip.
     private var pocketChip: Int? { condition?.pocketMm.map { min($0.intValue, Self.pockets.last ?? 7) } }
 
-    @ViewBuilder private var wisdom: some View {
+    @ViewBuilder private var position: some View {
         let eruption = details.eruption
-        V7Label(text: pv("pv.detail.wisdom"))
+        V7Label(text: pv(details.wisdom ? "pv.detail.wisdom" : "pv.detail.position"))
         SkChoiceChips(Array(Eruption.allCases), selected: Set([eruption?.eruption].compactMap { $0 }), label: Self.eruption) { picked in
             sheet.setEruption(tooth: tooth, eruption: picked)
         }

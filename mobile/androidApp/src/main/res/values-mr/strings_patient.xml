@@ -261,6 +261,8 @@
     <string name="pv_detail_mobility">हलणे</string>
     <string name="pv_detail_mobility_grade">ग्रेड %1$d</string>
     <string name="pv_detail_wisdom">अक्कलदाढ</string>
+    <string name="pv_detail_position">स्थिती</string>
+    <string name="pv_detail_more">अधिक</string>
     <string name="pv_detail_eruption_erupted">आलेला</string>
     <string name="pv_detail_eruption_partial">अर्धवट</string>
     <string name="pv_detail_eruption_impacted">अडकलेला</string>

@@ -7,7 +7,6 @@ import com.aarogyam.staff.apiError
 import com.aarogyam.staff.json
 import com.aarogyam.staff.openClinic
 import com.aarogyam.staff.testGraph
-import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
@@ -120,7 +119,7 @@ class ToothDetailsTest {
         }
 
     @Test
-    fun a_condition_tap_merges_one_field_and_untapping_the_last_removes_the_row() =
+    fun a_condition_tap_merges_one_field_and_untapping_the_last_leaves_none() =
         runTest {
             val backend = FakeBackend()
             backend.on(route, { json(chart(listOf(entry("e1", 36, "caries", "O")))) })
@@ -129,8 +128,8 @@ class ToothDetailsTest {
                 { json(condition(36, """"infection":"abscess"""")) },
                 { json(condition(36, """"infection":"abscess","bleeding":true""")) },
                 { json(condition(36, """"bleeding":true""")) },
+                { json("""{"id":"c36b","tooth":36,"recorded_at":"2026-11-21T04:30:00Z"}""") },
             )
-            backend.on("$route/teeth/36/condition/entered-in-error", { respond("", HttpStatusCode.NoContent) })
             val (chart, sheet) = open(backend)
             sheet.setInfection(36, RootInfection.Abscess)
             sheet.detail.first { !it.saving }
@@ -145,11 +144,8 @@ class ToothDetailsTest {
             assertEquals(ToothConditionView(bleeding = true, at = chart.conditionOf(36)?.at), chart.conditionOf(36))
             sheet.setBleeding(36, false)
             sheet.detail.first { !it.saving }
-            val removed = backend.requests.last()
-            assertEquals(HttpMethod.Post, removed.method)
-            assertTrue(removed.url.encodedPath.endsWith("/teeth/36/condition/entered-in-error"))
-            assertTrue((removed.body as TextContent).text.contains("\"reason\":"))
-            assertNull(chart.conditionOf(36))
+            assertEquals("""{"bleeding":null}""", backend.sent("/teeth/36/condition").last())
+            assertNull(chart.conditionOf(36), "an empty answer leaves the tooth with no condition")
         }
 
     @Test
@@ -232,7 +228,7 @@ class ToothDetailsTest {
         }
 
     @Test
-    fun infection_resolved_is_offered_after_work_charted_today_when_more_than_the_infection_is_recorded() =
+    fun infection_resolved_is_offered_after_work_charted_today() =
         runTest {
             val today =
                 Clock.System
@@ -256,6 +252,7 @@ class ToothDetailsTest {
             )
             val (chart, _) = open(backend)
             assertTrue(chart.details(36).canResolveInfection)
-            assertFalse(chart.details(26).canResolveInfection, "the server keeps no empty condition")
+            assertTrue(chart.details(26).canResolveInfection, "an infection alone can be resolved too")
+            assertFalse(chart.details(11).canResolveInfection, "no infection, nothing to resolve")
         }
 }

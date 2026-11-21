@@ -95,9 +95,6 @@ data class ToothConditionView(
 ) {
     /** Anything is recorded: the server keeps no empty condition. */
     val recorded: Boolean get() = infection != null || bleeding != null || pocketMm != null || mobility != null
-
-    /** Something besides the infection is recorded, so clearing the infection leaves a row. */
-    internal val beyondInfection: Boolean get() = copy(infection = null).recorded
 }
 
 /** A permanent tooth's current eruption. */
@@ -201,7 +198,6 @@ internal fun detailsOf(
         wisdom = tooth.number in WISDOM_TEETH,
         permanent = permanent,
         positionOpen = permanent && (tooth.number in WISDOM_TEETH || eruption != null),
-        // The server keeps no empty condition, so an infection alone can't be cleared this way yet.
-        canResolveInfection = !missing && condition?.infection != null && condition.beyondInfection && workToday,
+        canResolveInfection = !missing && condition?.infection != null && workToday,
     )
 }

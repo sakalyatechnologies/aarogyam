@@ -153,6 +153,38 @@ pub async fn accepted_plan_items(
     Ok(rows)
 }
 
+/// The patient's proposed (not yet accepted) plan items on open plans, by phase, leaving out
+/// those a planned procedure of this visit or a done procedure already carries. The mouth view
+/// shows them as recommended (decisions.md, 20 Nov 2026).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn proposed_plan_items(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    encounter_id: Uuid,
+) -> Result<Vec<PlannedRow>, DbError> {
+    let rows = sqlx::query_as!(
+        PlannedRow,
+        r#"select i.id, i.name, i.code, i.tooth, i.estimate_paise as "estimate_paise?"
+           from aarogyam.treatment_plan_items i
+           join aarogyam.treatment_plans p on p.org_id = i.org_id and p.id = i.plan_id
+           where p.patient_id = $1 and p.status in ('proposed', 'accepted', 'in_progress')
+             and i.status = 'proposed'
+             and not exists (select 1 from aarogyam.procedures c
+                             where c.treatment_plan_item_id = i.id
+                               and c.patient_id = i.patient_id
+                               and (c.status = 'done'
+                                    or (c.status = 'planned' and c.encounter_id = $2)))
+           order by p.created_at, i.phase, i.id"#,
+        patient_id,
+        encounter_id
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
 /// When the automatic summary for the visit was sent, or queued to send; `None` when it wasn't
 /// (or was skipped, or failed).
 ///

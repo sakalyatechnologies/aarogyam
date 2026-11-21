@@ -261,6 +261,8 @@
     <string name="pv_detail_mobility">Mobility</string>
     <string name="pv_detail_mobility_grade">Grade %1$d</string>
     <string name="pv_detail_wisdom">Wisdom tooth</string>
+    <string name="pv_detail_position">Position</string>
+    <string name="pv_detail_more">More</string>
     <string name="pv_detail_eruption_erupted">Erupted</string>
     <string name="pv_detail_eruption_partial">Partial</string>
     <string name="pv_detail_eruption_impacted">Impacted</string>

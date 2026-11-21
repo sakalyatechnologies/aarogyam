@@ -85,6 +85,17 @@ fn tooth_of(number: Option<i16>) -> Option<Tooth> {
     number.and_then(|n| Tooth::new(i64::from(n)).ok())
 }
 
+fn plan_item(source: PlanSource) -> impl Fn(dal::PlannedRow) -> PlanItem {
+    move |row| PlanItem {
+        id: row.id,
+        source,
+        name: row.name,
+        code: row.code,
+        tooth: tooth_of(row.tooth),
+        estimate: row.estimate_paise.map(Paise::new),
+    }
+}
+
 /// The visit's plan: its planned procedures, then the patient's accepted plan items that no
 /// planned procedure of the visit already carries.
 ///
@@ -97,21 +108,31 @@ pub(crate) async fn plan_in(
 ) -> Result<Vec<PlanItem>, AppError> {
     let procedures = dal::planned_procedures(tx.conn(), encounter_id).await?;
     let items = dal::accepted_plan_items(tx.conn(), patient_id, encounter_id).await?;
-    let as_item = |source: PlanSource| {
-        move |row: dal::PlannedRow| PlanItem {
-            id: row.id,
-            source,
-            name: row.name,
-            code: row.code,
-            tooth: tooth_of(row.tooth),
-            estimate: row.estimate_paise.map(Paise::new),
-        }
-    };
     Ok(procedures
         .into_iter()
-        .map(as_item(PlanSource::Procedure))
-        .chain(items.into_iter().map(as_item(PlanSource::PlanItem)))
+        .map(plan_item(PlanSource::Procedure))
+        .chain(items.into_iter().map(plan_item(PlanSource::PlanItem)))
         .collect())
+}
+
+/// The patient's proposed plan items, not yet accepted, that no planned procedure of the visit
+/// or done procedure carries. Only the mouth view shows them, as recommended; the message's
+/// "Your plan" and the visit page's plan keep to [`plan_in`] (decisions.md, 20 Nov 2026).
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub(crate) async fn proposed_in(
+    tx: &mut ScopedTx,
+    encounter_id: Uuid,
+    patient_id: Uuid,
+) -> Result<Vec<PlanItem>, AppError> {
+    Ok(
+        dal::proposed_plan_items(tx.conn(), patient_id, encounter_id)
+            .await?
+            .into_iter()
+            .map(plan_item(PlanSource::PlanItem))
+            .collect(),
+    )
 }
 
 /// A treatment done in the visit, with its code for the aftercare.

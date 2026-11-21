@@ -3554,7 +3554,10 @@ export interface paths {
          * Sets a tooth's condition. Under a lock on the tooth's condition, the change merges onto the
          *     current row (an omitted field keeps its value, `null` clears it) and the merged row
          *     supersedes it, in the open visit when there is one; concurrent changes both land. Returns the
-         *     condition.
+         *     condition. A change that clears every field ("Infection resolved" on the only field, or
+         *     untapping the last chip) supersedes the current row and leaves no current condition (history
+         *     kept): the body then has no `infection`, `bleeding`, `pocket_mm` or `mobility`, and `id` is
+         *     the cleared row.
          */
         put: operations["setToothCondition"];
         post?: never;
@@ -11229,6 +11232,11 @@ export interface components {
             /** @description Recorded problem findings: `caries`, `fractured`, `watch`, `missing`. */
             problems?: string[];
             /**
+             * @description Something is proposed on it and not yet accepted: a dashed "Recommended" ring. `planned`
+             *     wins when both are set.
+             */
+            recommended?: boolean;
+            /**
              * Format: int32
              * @description The sitting of a treatment in progress.
              */
@@ -11262,6 +11270,8 @@ export interface components {
              *     `scaling` or `implant` (a plain string; more may come).
              */
             model: string;
+            /** @description A `planned` treatment that is only proposed, not yet accepted ("Recommended"). */
+            recommended?: boolean;
             /** @description Shown under "What to expect", never as patient-specific. */
             recovery: string[];
             /** @description `in_progress`, `done` or `planned`. */
@@ -16391,7 +16401,7 @@ export interface components {
         ToothCondition: {
             /** @description Gums bleed on probing. */
             bleeding?: boolean | null;
-            /** @description Identifier of the current row. */
+            /** @description Identifier of the current row; the cleared row when a change left no condition. */
             id: string;
             /** @description `infection` or `abscess`. */
             infection?: string | null;
@@ -28017,7 +28027,7 @@ export interface operations {
                     "application/json": components["schemas"]["ToothCondition"];
                 };
             };
-            /** @description A bad tooth or value, nothing left after the merge, or infection, pocket or mobility on a missing tooth */
+            /** @description A bad tooth or value, nothing to record on a tooth with no condition, or infection, pocket or mobility on a missing tooth */
             400: {
                 headers: {
                     [name: string]: unknown;

@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -32,7 +35,8 @@ import com.sakalya.mobile.designcompose.color
 
 /**
  * The optional detail chips (spec 1.13): decay depth on a tooth with decay, the condition row
- * (infection, gums, mobility) on every tooth, and a wisdom tooth's eruption and angle. Each tap
+ * (infection, gums, mobility) on every tooth, and a permanent tooth's position and angle (open on
+ * a wisdom tooth or once recorded, else behind "More"). Each tap
  * saves at once; a tap on the picked chip clears it. Skipping them costs nothing.
  */
 @Composable
@@ -57,7 +61,12 @@ internal fun ToothDetailsCard(
                 )
             }
             if (!details.missing) Condition(sheet, tooth, details)
-            if (details.wisdom) Wisdom(sheet, tooth, details)
+            var more by rememberSaveable(tooth) { mutableStateOf(false) }
+            if (details.positionOpen || (details.permanent && more)) {
+                Position(sheet, tooth, details)
+            } else if (details.permanent) {
+                SkChoiceChip(stringResource(R.string.pv_detail_more), false, { more = true })
+            }
             if (save.error != null) {
                 Text(
                     stringResource(R.string.pv_detail_failed),
@@ -118,13 +127,13 @@ private fun Condition(
 }
 
 @Composable
-private fun Wisdom(
+private fun Position(
     sheet: ToothSheetStateHolder,
     tooth: Int,
     details: ToothDetailsView,
 ) {
     val eruption = details.eruption
-    V7Label(stringResource(R.string.pv_detail_wisdom))
+    V7Label(stringResource(if (details.wisdom) R.string.pv_detail_wisdom else R.string.pv_detail_position))
     val eruptions = Eruption.entries.associateWith { stringResource(it.label()) }
     SkChoiceChips(
         Eruption.entries,

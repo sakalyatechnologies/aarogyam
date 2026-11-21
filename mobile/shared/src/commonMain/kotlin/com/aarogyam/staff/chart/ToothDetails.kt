@@ -78,7 +78,7 @@ val POCKET_CHIPS_MM: List<Int> = listOf(4, 5, 6, 7)
 /** The mobility grades offered as chips (0, "not loose", is the default and needs no tap). */
 val MOBILITY_GRADES: List<Int> = listOf(1, 2, 3)
 
-/** The wisdom teeth, where the eruption row shows. */
+/** The wisdom teeth, where the position row shows without "More". */
 val WISDOM_TEETH: Set<Int> = setOf(18, 28, 38, 48)
 
 /** The finished work after which "Infection resolved" is offered. */
@@ -126,8 +126,12 @@ data class ToothDetailsView(
     val cariesDepth: CariesDepth? = null,
     /** The condition row is hidden on a missing tooth, as on the web. */
     val missing: Boolean = false,
-    /** The eruption row shows on a wisdom tooth. */
+    /** A wisdom tooth: its position row is titled "Wisdom tooth". */
     val wisdom: Boolean = false,
+    /** A permanent tooth: it can take a position (behind "More" unless [positionOpen]). Milk teeth never do. */
+    val permanent: Boolean = false,
+    /** The position row shows without "More": on a wisdom tooth, or once a position is recorded. */
+    val positionOpen: Boolean = false,
     /** An infection is recorded and finished work was charted on the tooth today. */
     val canResolveInfection: Boolean = false,
 )
@@ -187,6 +191,7 @@ internal fun detailsOf(
             it.status == EntryStatus.Current && it.finding in WORK_FINDINGS && it.at?.date == today && !it.elsewhere
         }
     val missing = tooth.whole == Finding.Missing
+    val permanent = !tooth.primary
     return ToothDetailsView(
         condition = condition,
         eruption = eruption,
@@ -194,6 +199,8 @@ internal fun detailsOf(
         cariesDepth = caries.mapNotNull { it.depth }.maxByOrNull { it.ordinal },
         missing = missing,
         wisdom = tooth.number in WISDOM_TEETH,
+        permanent = permanent,
+        positionOpen = permanent && (tooth.number in WISDOM_TEETH || eruption != null),
         // The server keeps no empty condition, so an infection alone can't be cleared this way yet.
         canResolveInfection = !missing && condition?.infection != null && condition.beyondInfection && workToday,
     )

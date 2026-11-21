@@ -210,7 +210,75 @@ async fn conditions_merge_under_a_lock_and_eruptions_supersede() {
         cleared.get("bleeding").is_none() && cleared["mobility"] == 2,
         "{cleared}"
     );
-    // Nothing left is refused.
+    // Untapping the last chip leaves no current condition; the history is kept.
+    let (status, gone) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        &path,
+        Some(json!({ "mobility": null })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{gone}");
+    assert_eq!(gone["id"], cleared["id"], "the cleared row: {gone}");
+    for field in ["infection", "bleeding", "pocket_mm", "mobility"] {
+        assert!(gone.get(field).is_none(), "{field}: {gone}");
+    }
+    // "Infection resolved" on a tooth whose only field is infection does the same.
+    let (status, _) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        &condition(32),
+        Some(json!({ "infection": "infection" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, resolved) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        &condition(32),
+        Some(json!({ "infection": null })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resolved}");
+    assert!(resolved.get("infection").is_none(), "{resolved}");
+    let (_, read) = call(
+        &app,
+        Method::GET,
+        &owner,
+        &format!("/api/v1/patients/{patient}/dental-chart"),
+        None,
+    )
+    .await;
+    assert!(
+        read.get("conditions").is_none(),
+        "no current condition: {read}"
+    );
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "select data->>'tooth', status from aarogyam.specialty_records
+         where kind = 'tooth_condition' and patient_id = $1::uuid order by created_at",
+    )
+    .bind(&patient)
+    .fetch_all(&app.owner)
+    .await
+    .unwrap();
+    assert!(
+        rows.iter().all(|(_, status)| status == "superseded"),
+        "{rows:?}"
+    );
+    assert_eq!(
+        rows.iter().filter(|(t, _)| t == "31").count(),
+        3,
+        "{rows:?}"
+    );
+    assert_eq!(
+        rows.iter().filter(|(t, _)| t == "32").count(),
+        1,
+        "{rows:?}"
+    );
+    // With no condition, clearing again records nothing; a new tap starts afresh.
     let (status, _) = call(
         &app,
         Method::PUT,
@@ -220,6 +288,16 @@ async fn conditions_merge_under_a_lock_and_eruptions_supersede() {
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, again) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        &path,
+        Some(json!({ "mobility": 2 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert!(again.get("bleeding").is_none(), "{again}");
     // DT5: a loose milk tooth.
     let (status, milk) = call(
         &app,
@@ -429,6 +507,86 @@ async fn the_mouth_snapshot_works_while_the_visit_is_open() {
     let desk = app.token(ALPHA_FRONT_DESK);
     let (status, _) = call(&app, Method::GET, &desk, &path, None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_proposed_plan_item_shows_as_recommended_and_an_accepted_one_as_planned() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (patient, visit) = patient_with_visit(&app, &owner, 35).await;
+    let plans = format!("/api/v1/patients/{patient}/treatment-plans");
+    let plan = |title: &str, name: &str, tooth: u8| {
+        json!({ "title": title, "visit_id": visit, "items": [
+            { "name": name, "tooth": tooth, "estimate_paise": 450_000 }
+        ] })
+    };
+    // The founder's case: tooth 26, an uncoded item, proposed.
+    let (status, proposed) = call(
+        &app,
+        Method::POST,
+        &owner,
+        &plans,
+        Some(plan("Upper left", "Root canal treatment", 26)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{proposed}");
+    let (status, accepted) = call(
+        &app,
+        Method::POST,
+        &owner,
+        &plans,
+        Some(plan("Upper right", "Zirconia crown", 16)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{accepted}");
+    let (status, _) = call(
+        &app,
+        Method::POST,
+        &owner,
+        &format!(
+            "/api/v1/treatment-plans/{}/accept",
+            accepted["id"].as_str().unwrap()
+        ),
+        Some(json!({ "item_ids": [accepted["items"][0]["id"]] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, mouth) = call(
+        &app,
+        Method::GET,
+        &owner,
+        &format!("/api/v1/visits/{visit}/mouth"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{mouth}");
+    let tooth = |n: u64| {
+        mouth["teeth"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["tooth"] == n)
+            .cloned()
+            .unwrap_or_else(|| panic!("tooth {n} listed: {mouth}"))
+    };
+    let rec = tooth(26);
+    assert_eq!(rec["recommended"], true, "{rec}");
+    assert!(rec.get("planned").is_none(), "{rec}");
+    assert_eq!(rec["treatments"][0]["model"], "root_canal");
+    assert_eq!(rec["treatments"][0]["state"], "planned");
+    assert_eq!(rec["treatments"][0]["recommended"], true);
+    let planned = tooth(16);
+    assert_eq!(planned["planned"], true, "{planned}");
+    assert!(planned.get("recommended").is_none(), "{planned}");
+    assert_eq!(planned["treatments"][0]["model"], "crown");
+    assert!(planned["treatments"][0].get("recommended").is_none());
+    let text = mouth.to_string();
+    for typed in ["Root canal treatment", "Zirconia", "Upper left"] {
+        assert!(!text.contains(typed), "{typed}: {text}");
+    }
     app.finish().await;
 }
 

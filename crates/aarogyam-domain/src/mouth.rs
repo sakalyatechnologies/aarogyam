@@ -17,6 +17,7 @@ use time::Date;
 use crate::dental::{CariesDepth, ChartData, Finding, Surface, Tooth, ToothStatusData};
 use crate::dental_details::{ToothConditionData, ToothEruptionData};
 use crate::dental_terms::{TermKind, TermRef};
+use crate::visit_message::model_of_name;
 
 /// The story contract the snapshot follows; bumped when the page or video must switch scenes.
 pub const STORY_VERSION: u32 = 1;
@@ -139,6 +140,15 @@ pub fn model_of_code(code: &str, tooth: Tooth) -> Option<String> {
     Some(with_wisdom(model, tooth))
 }
 
+/// The model of a planned or done procedure: its code, or for an uncoded one its name through
+/// the message's keyword matcher. Only the model key comes back, never the name.
+fn model_of_record(record: &ProcedureRecord, tooth: Tooth) -> Option<String> {
+    match record.code.as_deref() {
+        Some(code) => model_of_code(code, tooth),
+        None => model_of_name(&record.name, Some(tooth)).map(str::to_owned),
+    }
+}
+
 /// How a stored material looks: a seeded id's appearance, or the finding's default for a
 /// clinic's own material.
 fn appearance(material: Option<&str>, finding: &str) -> Option<String> {
@@ -192,13 +202,17 @@ pub struct DetailRecord<T> {
     pub today: bool,
 }
 
-/// A planned or done procedure: its tooth and code (the typed name is never read).
+/// A planned, recommended or done procedure: its tooth, code and name. The name is only read to
+/// pick a model for an uncoded record; it never reaches the snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcedureRecord {
     /// FDI tooth, when it concerns one.
     pub tooth: Option<u8>,
     /// The code or seeded id, when coded.
     pub code: Option<String>,
+    /// The name as typed.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub name: String,
 }
 
 /// Everything the snapshot is built from, already in this clinic's reach.
@@ -226,6 +240,9 @@ pub struct MouthInput {
     /// The plan: planned procedures and accepted plan items, de-duplicated.
     #[serde(default)]
     pub planned: Vec<ProcedureRecord>,
+    /// Proposed plan items not yet accepted: shown as recommended (decisions.md, 20 Nov 2026).
+    #[serde(default)]
+    pub recommended: Vec<ProcedureRecord>,
     /// The patient's next booked visit.
     #[serde(default, with = "day_option", skip_serializing_if = "Option::is_none")]
     pub next_visit: Option<Date>,
@@ -304,6 +321,9 @@ pub struct MouthTooth {
     /// Something is planned on it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub planned: bool,
+    /// Something is proposed on it and not yet accepted ("Recommended").
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub recommended: bool,
     /// The sitting of a treatment in progress.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sitting: Option<u8>,
@@ -386,6 +406,9 @@ pub struct MouthTreatment {
     pub model: String,
     /// `in_progress`, `done` or `planned`.
     pub state: String,
+    /// A planned treatment that is only proposed, not yet accepted ("Recommended").
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub recommended: bool,
     /// Visits it usually takes.
     pub typical_visits: u8,
     /// Its steps with their resolved state.
@@ -541,6 +564,7 @@ fn treatment(model_key: &str, state: &str, steps: Vec<MouthStep>) -> Option<Mout
     Some(MouthTreatment {
         model: model_key.to_owned(),
         state: state.to_owned(),
+        recommended: false,
         typical_visits: model.typical_visits,
         steps,
         recovery: model.recovery.clone(),
@@ -731,7 +755,7 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
     }
     let on_tooth = |p: &&ProcedureRecord| p.tooth == Some(number);
     for done in input.done_today.iter().filter(on_tooth) {
-        let Some(model) = done.code.as_deref().and_then(|c| model_of_code(c, tooth)) else {
+        let Some(model) = model_of_record(done, tooth) else {
             continue;
         };
         if treatments.iter().any(|t| t.model == model) {
@@ -750,8 +774,14 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
         treatments.extend(treatment(&model, "done", steps));
     }
     let planned_here: Vec<&ProcedureRecord> = input.planned.iter().filter(on_tooth).collect();
-    for plan in &planned_here {
-        let Some(model) = plan.code.as_deref().and_then(|c| model_of_code(c, tooth)) else {
+    let recommended_here: Vec<&ProcedureRecord> =
+        input.recommended.iter().filter(on_tooth).collect();
+    let plans = planned_here
+        .iter()
+        .map(|p| (*p, false))
+        .chain(recommended_here.iter().map(|p| (*p, true)));
+    for (plan, recommended) in plans {
+        let Some(model) = model_of_record(plan, tooth) else {
             continue;
         };
         let duplicate = treatments
@@ -761,7 +791,10 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
             continue;
         }
         if let Some(stage) = stages().and_then(|s| s.models.get(&model)) {
-            treatments.extend(treatment(&model, "planned", usual_steps(stage)));
+            treatments.extend(
+                treatment(&model, "planned", usual_steps(stage))
+                    .map(|t| MouthTreatment { recommended, ..t }),
+            );
         }
     }
 
@@ -809,6 +842,7 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
             treat_within_months: status.and_then(|s| s.data.treat_within_months),
             today: today.map(str::to_owned),
             planned: !planned_here.is_empty(),
+            recommended: !recommended_here.is_empty(),
             sitting,
             work,
             problems,
@@ -826,6 +860,7 @@ impl MouthTooth {
             || self.health.is_some()
             || self.today.is_some()
             || self.planned
+            || self.recommended
             || self.details.is_some()
             || !self.work.is_empty()
             || !self.treatments.is_empty()
@@ -967,6 +1002,7 @@ pub fn snapshot(input: &MouthInput) -> MouthSnapshot {
         input
             .planned
             .iter()
+            .chain(&input.recommended)
             .chain(&input.done_today)
             .filter_map(|p| p.tooth),
     );

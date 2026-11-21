@@ -92,7 +92,8 @@ class ToothDetailsTest {
                             eruptions =
                                 """[{"id":"r1","tooth":38,"eruption":"impacted","angulation":"mesioangular",
                                    "recorded_at":"2026-11-12T04:30:00Z"},
-                                   {"id":"r2","tooth":48,"eruption":"sideways","recorded_at":"2026-11-12T04:30:00Z"}]""",
+                                   {"id":"r2","tooth":48,"eruption":"sideways","recorded_at":"2026-11-12T04:30:00Z"},
+                                   {"id":"r3","tooth":13,"eruption":"impacted","recorded_at":"2026-11-12T04:30:00Z"}]""",
                         ),
                     )
                 },
@@ -104,15 +105,18 @@ class ToothDetailsTest {
             assertEquals(RootInfection.Abscess, d36.condition?.infection)
             assertEquals(9, d36.condition?.pocketMm)
             assertEquals(2, d36.condition?.mobility)
-            assertFalse(d36.missing || d36.wisdom)
+            assertFalse(d36.missing || d36.wisdom || d36.positionOpen)
+            assertTrue(d36.permanent, "a permanent tooth takes a position behind More")
             assertTrue(chart.details(46).missing)
             val d38 = chart.details(38)
-            assertTrue(d38.wisdom)
+            assertTrue(d38.wisdom && d38.positionOpen)
             assertEquals(ToothEruptionView(Eruption.Impacted, Angulation.Mesioangular, d38.eruption?.at), d38.eruption)
             assertNull(chart.details(48).eruption, "an eruption value from a later server is left out")
             val d11 = chart.details(11)
             assertNull(d11.condition?.infection)
             assertFalse(d11.hasCaries)
+            assertTrue(chart.details(13).positionOpen, "a recorded position shows without More")
+            assertFalse(chart.details(55).permanent, "a milk tooth never takes a position")
         }
 
     @Test

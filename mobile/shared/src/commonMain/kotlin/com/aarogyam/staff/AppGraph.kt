@@ -68,6 +68,7 @@ import com.aarogyam.staff.signin.DeleteAccountHolder
 import com.aarogyam.staff.signin.InviteStateHolder
 import com.aarogyam.staff.signin.RegistrationStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
+import com.aarogyam.staff.story.PresentStateHolder
 import com.aarogyam.staff.tasks.MyTasksHolder
 import com.aarogyam.staff.tasks.createMyTasks
 import com.aarogyam.staff.team.BadgesStateHolder
@@ -413,6 +414,13 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): RecurringExpensesStateHolder = RecurringExpensesStateHolder(clinic, scope, logger("aarogyam.recurring"))
+
+    /** Show patient: the visit's mouth view in the story WebView. */
+    fun present(
+        clinic: ClinicContext,
+        visitId: String,
+        scope: CoroutineScope,
+    ): PresentStateHolder = PresentStateHolder(clinic, visitId, scope, logger("aarogyam.present"))
 
     /** The tooth sheet's Add treatment form over [chart]; inside [visitId] it also logs visit procedures. */
     fun toothSheet(

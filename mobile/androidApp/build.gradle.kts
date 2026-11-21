@@ -86,6 +86,8 @@ android {
     // The development sign-in exists in the local flavour's debug build only; every other variant
     // gets an empty stand-in, and `checkNoDevSignIn` proves it.
     sourceSets {
+        // The story bundle (mobile/story-bundle), served at appassets.androidplatform.net/story/.
+        getByName("main").assets.directories.add("../story-bundle")
         for (name in listOf("demo", "prod", "localRelease")) {
             maybeCreate(name).kotlin.directories.add("src/noDevSignIn/kotlin")
         }
@@ -117,6 +119,7 @@ dependencies {
     // Per-app language (AppCompatDelegate.setApplicationLocales), back to API 26.
     implementation(libs.appcompat)
     implementation(libs.exifinterface)
+    implementation(libs.webkit)
     implementation(libs.zxing.core)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)

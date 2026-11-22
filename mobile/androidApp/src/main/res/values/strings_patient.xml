@@ -289,4 +289,13 @@
     <string name="pv_tooth_title">Tooth %1$d</string>
     <string name="pv_tooth_upper_left">Upper left</string>
     <string name="pv_tooth_upper_right">Upper right</string>
+    <string name="p9_history_more">Show older visits</string>
+    <string name="p9_history_rx_line">Rx: %1$s</string>
+    <string name="p9_history_plan_line">Plan: %1$s</string>
+    <string name="p9_chip_photo_count">%1$d photos</string>
+    <string name="p9_work_done">done</string>
+    <string name="p9_work_planned">planned</string>
+    <string name="p9_work_in_progress">in progress</string>
+    <string name="p9_work_elsewhere">done elsewhere</string>
+    <string name="p9_work_found">found</string>
 </resources>

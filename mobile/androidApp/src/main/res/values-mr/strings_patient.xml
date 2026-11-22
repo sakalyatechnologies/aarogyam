@@ -289,4 +289,13 @@
     <string name="pv_tooth_title">दात %1$d</string>
     <string name="pv_tooth_upper_left">वर डावा</string>
     <string name="pv_tooth_upper_right">वर उजवा</string>
+    <string name="p9_history_more">जुन्या भेटी दाखवा</string>
+    <string name="p9_history_rx_line">औषध: %1$s</string>
+    <string name="p9_history_plan_line">योजना: %1$s</string>
+    <string name="p9_chip_photo_count">%1$d फोटो</string>
+    <string name="p9_work_done">झाले</string>
+    <string name="p9_work_planned">नियोजित</string>
+    <string name="p9_work_in_progress">चालू</string>
+    <string name="p9_work_elsewhere">इतरत्र झाले</string>
+    <string name="p9_work_found">आढळले</string>
 </resources>

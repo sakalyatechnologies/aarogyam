@@ -11,6 +11,7 @@ import com.aarogyam.staff.patients.ClinicMoment
 import com.aarogyam.staff.patients.moment
 import com.aarogyam.staff.today.parseInstant
 import com.sakalya.mobile.core.ApiError
+import com.sakalya.mobile.core.ApiErrorKind
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
@@ -34,7 +35,8 @@ enum class VisitKind { Appointment, WalkIn }
 data class VisitTitleSource(
     val complaint: String?,
     val firstProcedure: String?,
-    val kind: VisitKind,
+    /** Null when the source doesn't say (the `/history` cards don't carry the appointment link). */
+    val kind: VisitKind?,
 )
 
 /**
@@ -57,6 +59,14 @@ data class VisitRow(
     /** Left to pay on the visit's bill; null without `billing.read` or when there is no bill, 0 when paid. */
     val duePaise: Long? = null,
     val titleSource: VisitTitleSource = VisitTitleSource(title, null, VisitKind.WalkIn),
+    /** First line of the first signed note (120 characters at most); null when none or not loaded. */
+    val noteLine: String? = null,
+    /** Medicines prescribed in the visit, in order; empty on the fallback list. */
+    val medicines: List<String> = emptyList(),
+    val photoCount: Int = 0,
+    /** Per-tooth work of the visit; empty on the fallback list, where only [teeth] is known. */
+    val work: List<ToothWork> = emptyList(),
+    val plans: List<VisitPlan> = emptyList(),
 )
 
 /** What the History tab draws. */
@@ -76,11 +86,18 @@ sealed interface VisitHistoryState {
         val moneyVisible: Boolean,
         val refreshing: Boolean = false,
         val error: ScreenError? = null,
-    ) : VisitHistoryState
+        /** Older visits wait behind this; null when everything is on screen. */
+        val nextCursor: String? = null,
+        val loadingMore: Boolean = false,
+    ) : VisitHistoryState {
+        val hasMore: Boolean get() = nextCursor != null
+    }
 }
 
 /**
- * A patient's visit list. Three requests in parallel, no more: `GET /patients/{id}/visits`, and
+ * A patient's visit list. With `clinical.read`, one request: `GET /patients/{id}/history`, a page
+ * at a time ([loadMore]). Without it, or against a server without that route (404), the older
+ * path: three requests in parallel, no more: `GET /patients/{id}/visits`, and
  * the joins by `encounter_id` from `GET /patients/{id}/prescriptions` (skipped without
  * `clinical.read`) and `GET /invoices?patient_id=` (skipped without `billing.read`). A refused
  * join leaves its flag empty instead of failing the tab.
@@ -120,7 +137,7 @@ class VisitHistoryStateHolder(
             mutableState.value =
                 when (val result = load()) {
                     is Outcome.Success -> {
-                        VisitHistoryState.Loaded(result.value, money)
+                        VisitHistoryState.Loaded(result.value.rows, money, nextCursor = result.value.nextCursor)
                     }
 
                     is Outcome.Failure -> {
@@ -139,7 +156,60 @@ class VisitHistoryStateHolder(
         }
     }
 
-    private suspend fun load(): Outcome<List<VisitRow>, ApiError> =
+    /** Appends the next page of older visits; does nothing when there is none or one is on its way. */
+    fun loadMore() {
+        val current = mutableState.value as? VisitHistoryState.Loaded ?: return
+        val cursor = current.nextCursor ?: return
+        if (current.loadingMore || current.refreshing) return
+        mutableState.value = current.copy(loadingMore = true, error = null)
+        scope.launch {
+            val result = clinic.api.patientHistory(patientId, before = cursor)
+            val now = mutableState.value as? VisitHistoryState.Loaded ?: return@launch
+            mutableState.value =
+                when (result) {
+                    is Outcome.Success -> {
+                        val known = now.rows.mapTo(HashSet()) { it.id }
+                        val more =
+                            result.value.visits
+                                .mapNotNull {
+                                    it.toRow(
+                                        clinic.timeZone,
+                                    )
+                                }.filter { it.id !in known }
+                        now.copy(rows = now.rows + more, nextCursor = result.value.nextCursor, loadingMore = false)
+                    }
+
+                    is Outcome.Failure -> {
+                        log.warn("history.more_failed") {
+                            id("patient", patientId)
+                            code("error", result.error.code.value)
+                        }
+                        now.copy(loadingMore = false, error = ScreenError.of(result.error))
+                    }
+                }
+        }
+    }
+
+    private suspend fun load(): Outcome<HistoryPage, ApiError> {
+        if (CLINICAL_READ in clinic.permissions) {
+            when (val page = clinic.api.patientHistory(patientId)) {
+                is Outcome.Success -> {
+                    val rows = page.value.visits.mapNotNull { it.toRow(clinic.timeZone) }
+                    return Outcome.Success(HistoryPage(rows, page.value.nextCursor))
+                }
+
+                is Outcome.Failure -> {
+                    if (page.error.kind != ApiErrorKind.NotFound) return page
+                }
+            }
+        }
+        return when (val rows = loadLegacy()) {
+            is Outcome.Success -> Outcome.Success(HistoryPage(rows.value, null))
+            is Outcome.Failure -> rows
+        }
+    }
+
+    private suspend fun loadLegacy(): Outcome<List<VisitRow>, ApiError> =
         coroutineScope {
             val visits = async { clinic.api.visits(patientId) }
             val rx = async { if (CLINICAL_READ in clinic.permissions) clinic.api.prescriptions(patientId) else null }

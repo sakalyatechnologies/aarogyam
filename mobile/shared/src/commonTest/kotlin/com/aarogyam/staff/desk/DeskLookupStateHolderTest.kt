@@ -152,7 +152,14 @@ class DeskLookupStateHolderTest {
             val backend = FakeBackend()
             backend.on(
                 "$SUNRISE/api/v1/patients/search",
-                { json(patientListJson(patientJson("p1", "Meera Shah"), patientJson("p9", "Meena Rao", number = "SD-9"))) },
+                {
+                    json(
+                        patientListJson(
+                            patientJson("p1", "Meera Shah"),
+                            patientJson("p9", "Meena Rao", number = "SD-9"),
+                        ),
+                    )
+                },
                 { json(patientListJson(patientJson("p9", "Meena Rao", number = "SD-9"))) },
             )
             val holder = holder(backend)
@@ -164,10 +171,18 @@ class DeskLookupStateHolderTest {
             assertTrue(names.partial)
             assertEquals(listOf("Meera Shah", "Meena Rao"), names.profiles.map { it.name })
             assertTrue(names.profiles.first().checkedInToday, "Meera is in today's queue")
-            assertEquals(listOf<DeskAction>(DeskAction.CheckIn("p9")), names.actions, "no new patient or family from a partial")
+            assertEquals(
+                listOf<DeskAction>(DeskAction.CheckIn("p9")),
+                names.actions,
+                "no new patient or family from a partial",
+            )
             holder.search("9876")
             holder.state.first { it is DeskLookupState.Matches && it.phone == "9876" }
-            val bodies = backend.requests.filter { it.url.encodedPath.endsWith("/patients/search") }.map { String(it.body.toByteArray()) }
+            val bodies =
+                backend.requests
+                    .filter {
+                        it.url.encodedPath.endsWith("/patients/search")
+                    }.map { String(it.body.toByteArray()) }
             assertEquals(2, bodies.size)
             assertTrue(""""q":"Mee"""" in bodies[0] && """"q":"9876"""" in bodies[1], bodies.toString())
         }

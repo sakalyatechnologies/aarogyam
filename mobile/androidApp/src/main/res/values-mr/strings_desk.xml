@@ -49,7 +49,6 @@
     <string name="dk_d9_lookup_family">कुटुंबातील सदस्य जोडा</string>
     <string name="dk_d9_lookup_hint">१० अंकी क्रमांक टाका. त्यावरील सर्वजण दिसतील.</string>
     <string name="dk_d9_lookup_last_visit">मागील भेट %s</string>
-    <string name="dk_d9_lookup_last_visit_none">मागील भेट अजून दिसत नाही</string>
     <string name="dk_d9_lookup_looking">शोधत आहे…</string>
     <string name="dk_d9_lookup_mobile">मोबाइल क्रमांक</string>
     <string name="dk_d9_lookup_new">नवीन रुग्ण</string>

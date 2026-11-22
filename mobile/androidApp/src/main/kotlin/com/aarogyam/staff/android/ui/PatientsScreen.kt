@@ -1,7 +1,5 @@
 package com.aarogyam.staff.android.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,40 +9,46 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.glass.GroupGap
+import com.aarogyam.staff.android.ui.glass.GroupRow
 import com.aarogyam.staff.android.ui.patient.PatientFilter
 import com.aarogyam.staff.android.ui.patient.PillKind
 import com.aarogyam.staff.android.ui.patient.V7Card
 import com.aarogyam.staff.android.ui.patient.V7Icon
 import com.aarogyam.staff.android.ui.patient.V7Pill
 import com.aarogyam.staff.android.ui.patient.v7
+import com.aarogyam.staff.android.ui.today.IconWell
 import com.aarogyam.staff.android.ui.today.InitialsAvatar
 import com.aarogyam.staff.patients.PatientRow
 import com.aarogyam.staff.patients.PatientsState
 import com.aarogyam.staff.patients.PatientsStateHolder
+import com.sakalya.mobile.design.BarScroll
 import com.sakalya.mobile.design.Spacing
+import com.sakalya.mobile.designcompose.SkAvatarShape
 import com.sakalya.mobile.designcompose.SkChoiceChip
+import com.sakalya.mobile.designcompose.SkCollapsingTopBar
 import com.sakalya.mobile.designcompose.SkEmptyState
 import com.sakalya.mobile.designcompose.SkSearchField
 import com.sakalya.mobile.designcompose.SkTheme
-import com.sakalya.mobile.designcompose.SkTopBar
+import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
 
 @Composable
@@ -67,11 +71,18 @@ fun PatientsScreen(
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     var filter by rememberSaveable { mutableStateOf(PatientFilter.All) }
+    val list = rememberLazyListState()
+    val collapsed by remember {
+        derivedStateOf {
+            list.firstVisibleItemIndex > 0 || BarScroll.collapsed(list.firstVisibleItemScrollOffset.toDouble())
+        }
+    }
     Column(Modifier.fillMaxSize().imePadding()) {
-        StatusBarTone.DarkHeader()
-        SkTopBar(
+        // Clear Glass chrome: the calm large title that turns tonal on scroll, with + as a round well.
+        SkCollapsingTopBar(
             title = stringResource(R.string.patients_title),
-            actions = { BarAction(stringResource(R.string.walk_in_add), SkTheme.colors.onBrandDark.color, onWalkIn) },
+            collapsed = collapsed,
+            actions = { IconWell("plus", stringResource(R.string.walk_in_add), onWalkIn) },
         )
         when (val current = state) {
             PatientsState.NotAllowed -> {
@@ -114,7 +125,7 @@ fun PatientsScreen(
                     }
 
                     is PatientsState.Loaded -> {
-                        Results(current, filter, onOpen)
+                        Results(current, filter, list, onOpen)
                     }
 
                     PatientsState.NotAllowed -> {}
@@ -136,6 +147,7 @@ private fun PatientsState.queryText(): String =
 private fun Results(
     state: PatientsState.Loaded,
     filter: PatientFilter,
+    list: LazyListState,
     onOpen: (String) -> Unit,
 ) {
     val rows = if (filter == PatientFilter.Recalls) state.items.filter { it.recallDue } else state.items
@@ -153,18 +165,19 @@ private fun Results(
     }
     LazyColumn(
         Modifier.fillMaxSize(),
+        list,
         contentPadding =
             androidx.compose.foundation.layout.PaddingValues(
                 horizontal = Spacing.ML.dp,
                 vertical = Spacing.S.dp,
             ),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        verticalArrangement = Arrangement.spacedBy(GroupGap),
     ) {
         itemsIndexed(rows, key = { _, row -> row.id }) { index, row -> PatientListRow(row, index, rows.size, onOpen) }
     }
 }
 
-/** One patient: initials, name, `file · age sex`, and a recall pill or the chevron, on a grouped surface rounded at the outer ends. */
+/** One patient in the inset group: a round initials avatar, name, `file · age sex`, and a recall pill or the chevron. */
 @Composable
 private fun PatientListRow(
     row: PatientRow,
@@ -175,31 +188,13 @@ private fun PatientListRow(
     val p = SkTheme.palette
     val sex = row.sex.label()?.let { stringResource(it) }
     val age = row.ageYears?.let { stringResource(R.string.age_years, it) }
-    val big = 20.dp
-    val small = 6.dp
-    val shape =
-        RoundedCornerShape(
-            topStart = if (index == 0) big else small,
-            topEnd = if (index == 0) big else small,
-            bottomStart = if (index == count - 1) big else small,
-            bottomEnd = if (index == count - 1) big else small,
-        )
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(p.card.color, shape)
-            .clickable(role = Role.Button) { onOpen(row.id) }
-            .padding(vertical = 10.dp, horizontal = 12.dp)
-            .semantics(mergeDescendants = true) {},
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        InitialsAvatar(row.name, 36.dp, cool = index % 2 == 1)
+    GroupRow(index, count, Modifier.semantics(mergeDescendants = true) {}, onClick = { onOpen(row.id) }) {
+        InitialsAvatar(row.name, AVATAR.dp, cool = index % 2 == 1, shape = SkAvatarShape.Circle)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(row.name, style = v7(13.5f, FontWeight.Bold), color = p.onSurface.color)
+            Text(row.name, style = SkTypography.bodyStrong, color = p.onSurface.color, maxLines = 1)
             Text(
                 listOfNotNull(row.number, age, sex).joinToString(" · "),
-                style = v7(11.5f),
+                style = SkTypography.footnote,
                 color = p.onSurfaceVariant.color,
             )
         }
@@ -213,3 +208,5 @@ private fun PatientListRow(
         }
     }
 }
+
+private const val AVATAR = 40

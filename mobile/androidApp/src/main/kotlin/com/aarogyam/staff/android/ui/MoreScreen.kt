@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
@@ -98,6 +99,8 @@ fun MoreScreen(
     onSwitchClinic: () -> Unit,
 ) {
     var language by rememberSaveable { mutableStateOf(false) }
+    var appearance by rememberSaveable { mutableStateOf(false) }
+    val currentAppearance by graph.appearance.state.collectAsStateWithLifecycle()
     var avatars by rememberSaveable { mutableStateOf(false) }
     var qr by rememberSaveable { mutableStateOf(false) }
     var deleting by rememberSaveable { mutableStateOf(false) }
@@ -150,6 +153,10 @@ fun MoreScreen(
 
             MoreTile.Language -> {
                 language = true
+            }
+
+            MoreTile.Appearance -> {
+                appearance = true
             }
 
             MoreTile.Help -> {
@@ -236,6 +243,12 @@ fun MoreScreen(
         }
     }
     if (language) LanguageDialog(graph.voiceLanguage(), graph::setVoiceLanguage) { language = false }
+    if (appearance) {
+        AppearanceDialog(currentAppearance, {
+            graph.appearance.set(it)
+            applyAppearance(it)
+        }) { appearance = false }
+    }
     if (avatars) {
         AvatarPicker(graph, onChange = { avatar = AvatarChoice.current(graph) }) { avatars = false }
     }
@@ -387,6 +400,7 @@ private val MoreTile.label: Int
             MoreTile.Settings -> R.string.v7_tile_settings
             MoreTile.SwitchClinic -> R.string.v7_tile_switch_clinic
             MoreTile.Language -> R.string.v7_tile_language
+            MoreTile.Appearance -> R.string.appearance_title
             MoreTile.Help -> R.string.v7_tile_help
             MoreTile.SignOut -> R.string.v7_tile_sign_out
         }
@@ -406,6 +420,7 @@ private val MoreTile.icon: String
             MoreTile.Settings -> "gear"
             MoreTile.SwitchClinic -> "swap"
             MoreTile.Language -> "globe"
+            MoreTile.Appearance -> "spark"
             MoreTile.Help -> "help"
             MoreTile.SignOut -> "out"
         }

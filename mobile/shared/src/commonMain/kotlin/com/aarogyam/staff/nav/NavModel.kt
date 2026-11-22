@@ -28,6 +28,7 @@ enum class MoreTile {
     Settings,
     SwitchClinic,
     Language,
+    Appearance,
     Help,
     SignOut,
 }
@@ -98,6 +99,7 @@ data class NavModel(
                     add(MoreTile.Settings)
                     if (clinicCount > 1) add(MoreTile.SwitchClinic)
                     add(MoreTile.Language)
+                    add(MoreTile.Appearance)
                     add(MoreTile.Help)
                     add(MoreTile.SignOut)
                 }

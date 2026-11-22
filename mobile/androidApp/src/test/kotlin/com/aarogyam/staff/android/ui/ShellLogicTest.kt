@@ -2,9 +2,12 @@ package com.aarogyam.staff.android.ui
 
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.live.LiveLogic
+import com.aarogyam.staff.android.ui.tasks.BellFilter
 import com.aarogyam.staff.android.ui.tasks.TasksFormat
 import com.aarogyam.staff.android.ui.today.TodayLogic
 import com.aarogyam.staff.android.ui.today.bookingUrl
+import com.aarogyam.staff.team.AlertRow
+import com.sakalya.mobile.designcompose.SkTone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -49,6 +52,25 @@ class ShellLogicTest {
         assertTrue(today != null && !today.contains("Nov"))
         assertTrue(later != null && later.contains("17 Nov"))
         assertNull(TasksFormat.dueText("not a date", zone, now, Locale.US))
+    }
+
+    @Test
+    fun bell_splits_today_and_filters_from_kind_and_read() {
+        val zone = ZoneId.of("UTC")
+        val now = Instant.parse("2026-11-15T08:00:00Z")
+        assertTrue(TasksFormat.isToday("2026-11-15T01:00:00Z", zone, now))
+        assertFalse(TasksFormat.isToday("2026-11-14T23:00:00Z", zone, now))
+        assertFalse(TasksFormat.isToday("not a date", zone, now))
+        assertEquals("14 Nov", TasksFormat.whenText("2026-11-14T23:00:00Z", zone, now, Locale.US))
+        val waiting = AlertRow("1", "patient_waiting", read = false, at = "", appointmentId = "a")
+        val booking = AlertRow("2", "booking_requested", read = true, at = "", appointmentId = "b")
+        assertTrue(BellFilter.Queue.keeps(waiting))
+        assertFalse(BellFilter.Queue.keeps(booking))
+        assertTrue(BellFilter.Bookings.keeps(booking))
+        assertFalse(BellFilter.Unread.keeps(booking))
+        assertEquals(SkTone.Warning, TasksFormat.tintFor("collect_payment"))
+        assertEquals(SkTone.Brand, TasksFormat.tintFor("patient_waiting"))
+        assertEquals("wallet", TasksFormat.iconFor("collect_payment"))
     }
 
     @Test

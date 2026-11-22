@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import axe from "axe-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient, NewChartEntries } from "@aarogyam/api-client";
@@ -222,5 +223,16 @@ describe("Present mode (§1.12)", () => {
     fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
     fireEvent.click(within(shell).getByRole("option", { name: /Painted smile/ }));
     await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
+  });
+
+  it("the painted map and the open switcher have no axe violations", async () => {
+    const { path, backend, wrap } = present();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
+    const run = async () => (await axe.run(shell, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } })).violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+    expect(await run()).toEqual([]);
+    fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
+    expect(await run()).toEqual([]);
   });
 });

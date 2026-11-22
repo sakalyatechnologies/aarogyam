@@ -172,7 +172,7 @@ struct GlassChip: View {
 private struct GlassUnlessSelected: ViewModifier {
     let selected: Bool
 
-    func body(content: Content) -> some View {
+    @ViewBuilder func body(content: Content) -> some View {
         if selected { content } else { content.skGlass(in: Capsule(), interactive: true) }
     }
 }

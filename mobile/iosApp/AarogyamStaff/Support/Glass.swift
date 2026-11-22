@@ -12,11 +12,11 @@ private struct SkGlassBackground<S: Shape>: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduce
     @Environment(\.skTheme) private var theme
 
-    func body(content: Content) -> some View {
+    @ViewBuilder func body(content: Content) -> some View {
         if reduce {
             content.background(theme.roles.surface1.color, in: shape)
         } else if #available(iOS 26, *) {
-            content.glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
+            content.glassEffect(interactive ? Glass.regular.interactive() : Glass.regular, in: shape)
         } else {
             content.background(.ultraThinMaterial, in: shape)
         }
@@ -31,7 +31,9 @@ private struct SkGlassButton: ViewModifier {
 
     func body(content: Content) -> some View {
         Group {
-            if #available(iOS 26, *), !reduce {
+            if reduce {
+                if prominent { content.buttonStyle(.borderedProminent) } else { content.buttonStyle(.bordered) }
+            } else if #available(iOS 26, *) {
                 if prominent { content.buttonStyle(.glassProminent) } else { content.buttonStyle(.glass) }
             } else {
                 if prominent { content.buttonStyle(.borderedProminent) } else { content.buttonStyle(.bordered) }
@@ -48,7 +50,7 @@ private struct SkGlassSheet: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduce
     @Environment(\.skTheme) private var theme
 
-    func body(content: Content) -> some View {
+    @ViewBuilder func body(content: Content) -> some View {
         let sized = content.presentationDetents(large ? [.large] : [.medium, .large]).presentationDragIndicator(.visible)
         if reduce {
             sized.presentationBackground(theme.roles.surface1.color)
@@ -62,7 +64,7 @@ private struct SkGlassSheet: ViewModifier {
 
 /// Content fades softly under the toolbar on iOS 26; earlier systems keep their bar.
 private struct SkSoftScrollEdge: ViewModifier {
-    func body(content: Content) -> some View {
+    @ViewBuilder func body(content: Content) -> some View {
         if #available(iOS 26, *) {
             content.scrollEdgeEffectStyle(.soft, for: .top)
         } else {

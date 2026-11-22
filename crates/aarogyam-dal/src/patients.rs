@@ -761,8 +761,8 @@ pub async fn search_phone(
     Ok(rows)
 }
 
-/// Patients whose phone (main or alternate) ends with `tail` (digits only), by name, with
-/// summaries. A clinic's patients are few enough that this filters them without an index.
+/// Patients whose phone (main or alternate), as a national number (no `+91`), starts or ends
+/// with `tail` (digits only), by name, with summaries. A clinic's patients are few enough that this filters them without an index.
 ///
 /// # Errors
 /// [`DbError`] on a database failure.
@@ -782,7 +782,12 @@ pub async fn search_phone_tail(
                   f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
                   f.has_photo as "has_photo!"
            from (select * from aarogyam.patients
-                 where (right(phone_e164, char_length($1)) = $1 or right(alt_phone_e164, char_length($1)) = $1)
+                 where (left(regexp_replace(phone_e164, '^\+91', ''), char_length($1)) = $1
+                        or left('0' || regexp_replace(phone_e164, '^\+91', ''), char_length($1)) = $1
+                        or right(phone_e164, char_length($1)) = $1
+                        or left(regexp_replace(alt_phone_e164, '^\+91', ''), char_length($1)) = $1
+                        or left('0' || regexp_replace(alt_phone_e164, '^\+91', ''), char_length($1)) = $1
+                        or right(alt_phone_e164, char_length($1)) = $1)
                    and deleted_at is null and app.patient_in_reach(id, $5)
                  order by full_name
                  limit $2) p

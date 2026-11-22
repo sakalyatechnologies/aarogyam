@@ -206,8 +206,28 @@ async fn parts_of_names_and_the_end_of_a_phone_find_patients() {
     // Digits that are no patient's number still find the phone they end.
     assert_eq!(found(&app, &owner, "1234").await, ["Nila Iyer"]);
 
+    // The start of a phone, national number, with or without +91 or a leading 0.
+    assert_eq!(
+        found(&app, &owner, "98765").await,
+        [
+            "Nila Iyer",
+            "Patrick Dsouza",
+            "Ramesh Gopatil",
+            "Sneha Patil"
+        ]
+    );
+    assert_eq!(found(&app, &owner, "98765 0999").await, ["Sneha Patil"]);
+    assert_eq!(found(&app, &owner, "098765 0999").await, ["Sneha Patil"]);
+    assert_eq!(found(&app, &owner, "+91 98765 0999").await, ["Sneha Patil"]);
+    // Three digits never reach the phone path.
+    assert_eq!(found(&app, &owner, "987").await, Vec::<String>::new());
+
     // Another clinic finds none of them, by name or by phone.
     let beta = app.token(BETA_OWNER);
+    assert_eq!(
+        found_at(&app, BETA, &beta, "98765").await,
+        Vec::<String>::new()
+    );
     assert_eq!(
         found_at(&app, BETA, &beta, "pat").await,
         Vec::<String>::new()

@@ -14,9 +14,14 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -69,6 +74,8 @@ fun DeskNumberField(
 ) {
     val p = SkTheme.palette
     val focus = remember { FocusRequester() }
+    // Number pad first; "ABC" switches to letters for a name, and back.
+    var letters by rememberSaveable { mutableStateOf(false) }
     if (autoFocus) LaunchedEffect(Unit) { focus.requestFocus() }
     val style =
         SkTypography.title.copy(
@@ -96,16 +103,36 @@ fun DeskNumberField(
                 textStyle = style,
                 singleLine = true,
                 cursorBrush = SolidColor(p.primary.color),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = if (letters) KeyboardType.Text else KeyboardType.Phone,
+                    ),
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (typed.isEmpty()) {
-                            Text("98765 43210", style = style.copy(color = p.onSurfaceVariant.color.copy(alpha = HINT)))
+                            Text(
+                                stringResource(R.string.dk_d9_lookup_placeholder),
+                                style = style.copy(color = p.onSurfaceVariant.color.copy(alpha = HINT)),
+                                maxLines = 1,
+                            )
                         }
                         inner()
                     }
                 },
             )
+            TextButton(
+                onClick = {
+                    letters = !letters
+                    focus.requestFocus()
+                },
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(
+                    stringResource(if (letters) R.string.dk_d9_lookup_digits else R.string.dk_d9_lookup_letters),
+                    style = SkTypography.bodyStrong,
+                    color = p.primary.color,
+                )
+            }
         }
     }
 }
@@ -165,7 +192,7 @@ fun DeskLookupStatus(
                 stringResource(R.string.try_again),
                 onClick = {
                     holder.search("")
-                    holder.search(DeskPhone.digits(typed))
+                    holder.search(DeskPhone.query(typed))
                 },
                 variant = SkButtonVariant.Secondary,
             )
@@ -177,7 +204,9 @@ fun DeskLookupStatus(
                 style = SkTypography.bodyStrong,
                 color = SkTheme.colors.text.color,
             )
-            DeskActionRow("plus", stringResource(R.string.dk_dx_home_new), 0, 1) { onNewPatient(state.phone) }
+            DeskActionRow("plus", stringResource(R.string.dk_dx_home_new), 0, 1) {
+                onNewPatient(DeskPhone.newPatientPhone(state.phone))
+            }
         }
 
         is DeskLookupState.Matches, is DeskLookupState.CheckedIn -> {

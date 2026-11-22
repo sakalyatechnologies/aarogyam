@@ -49,7 +49,7 @@ struct DeskLookupScreen: View {
     private func change(_ text: String) {
         let formatted = DeskPhone.format(text)
         typed = formatted
-        holder.search(typed: DeskPhone.digits(formatted))
+        holder.search(typed: DeskPhone.query(formatted))
     }
 
     private var offlineBanner: some View {
@@ -72,7 +72,7 @@ struct DeskLookupScreen: View {
                 Text(failed.error.message).font(.footnote.weight(.semibold)).foregroundStyle(r.error.color)
                 Button(String(localized: "try_again")) {
                     holder.search(typed: "")
-                    holder.search(typed: DeskPhone.digits(typed))
+                    holder.search(typed: DeskPhone.query(typed))
                 }
                 .skGlassButton()
             }
@@ -98,13 +98,13 @@ struct DeskLookupScreen: View {
                     )
                     GroupedDivider()
                 }
-                if ServerCaps.shared.family {
+                if ServerCaps.shared.family, !found.partial {
                     DeskActionRow(title: dv("d9.lookup.family"), systemImage: "person.2") {
                         onFamily(found.phone, found.profiles.filter { $0.familyOf == nil }.map { DeskFamilyAnchor(id: $0.id, name: $0.name) })
                     }
                     GroupedDivider()
                 }
-                DeskActionRow(title: dv("d9.lookup.new"), systemImage: "person.badge.plus") { onNewPatient(found.phone) }
+                DeskActionRow(title: dv("d9.lookup.new"), systemImage: "person.badge.plus") { onNewPatient(DeskPhone.newPatientPhone(found.phone)) }
             }
         case .notAllowed, .checkedIn:
             EmptyView()

@@ -41,16 +41,21 @@ data class DeskProfile(
 
 /** What the Desk lookup draws. */
 sealed interface DeskLookupState {
-    /** Nothing typed, or not a complete number yet. */
+    /** Nothing typed, or too little to search (under 2 letters or 4 digits). */
     data object Idle : DeskLookupState
 
     data object Looking : DeskLookupState
 
-    /** One or many registered patients; [actions] always offers a new patient and a family member. */
+    /**
+     * One or many registered patients. For a complete number [actions] also offers a new patient
+     * and a family member. With [partial] the list comes from a name or part of a number, typed so
+     * far: [phone] holds what was typed, and only check-ins are offered.
+     */
     data class Matches(
         val phone: String,
         val profiles: List<DeskProfile>,
         val actions: List<DeskAction>,
+        val partial: Boolean = false,
     ) : DeskLookupState
 
     /** Nobody has this number: the only action is a new patient. */

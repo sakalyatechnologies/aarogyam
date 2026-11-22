@@ -65,7 +65,7 @@ fun DeskLookupScreen(
     var relatives by remember { mutableStateOf<DeskPayTarget?>(null) }
     val change = { text: String ->
         typed = DeskPhone.format(text)
-        holder.search(DeskPhone.digits(typed))
+        holder.search(DeskPhone.query(typed))
     }
     val scroll = rememberScrollState()
     val collapsed by remember { derivedStateOf { scroll.value > 0 } }
@@ -131,12 +131,12 @@ private fun LookupMatches(
         }
     }
     // Someone new on this number, as the last group: one tap each, as before.
-    val count = if (ServerCaps.family) 2 else 1
+    val count = if (ServerCaps.family && !found.partial) 2 else 1
     Column(verticalArrangement = Arrangement.spacedBy(GroupGap)) {
         DeskActionRow("plus", stringResource(R.string.dk_d9_lookup_new), 0, count) {
-            onNewPatient(found.phone, emptyList())
+            onNewPatient(DeskPhone.newPatientPhone(found.phone), emptyList())
         }
-        if (ServerCaps.family) {
+        if (ServerCaps.family && !found.partial) {
             DeskActionRow("family", stringResource(R.string.dk_d9_lookup_family), 1, count) {
                 onNewPatient(found.phone, anchors)
             }

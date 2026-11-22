@@ -98,10 +98,10 @@ struct DeskNumberField: View {
         GroupedCard {
             HStack(spacing: 10) {
                 Image(systemName: "phone.fill").foregroundStyle(theme.roles.onSurfaceVariant.color).accessibilityHidden(true)
-                TextField("98765 43210", text: $text)
+                TextField(dv("d9.lookup.placeholder"), text: $text)
                     .font(.title.weight(.semibold)).monospacedDigit()
                     .foregroundStyle(theme.roles.onSurface.color)
-                    .keyboardType(.numberPad).textContentType(.telephoneNumber)
+                    .keyboardType(.namePhonePad).autocorrectionDisabled().textInputAutocapitalization(.words)
                     .focused(focused)
                     .accessibilityLabel(label)
             }

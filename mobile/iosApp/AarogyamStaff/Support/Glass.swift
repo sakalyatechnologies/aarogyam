@@ -44,11 +44,12 @@ private struct SkGlassButton: ViewModifier {
 
 /// A presented sheet: the system glass sheet on iOS 26, thin material before, opaque with Reduce Transparency.
 private struct SkGlassSheet: ViewModifier {
+    let large: Bool
     @Environment(\.accessibilityReduceTransparency) private var reduce
     @Environment(\.skTheme) private var theme
 
     func body(content: Content) -> some View {
-        let sized = content.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+        let sized = content.presentationDetents(large ? [.large] : [.medium, .large]).presentationDragIndicator(.visible)
         if reduce {
             sized.presentationBackground(theme.roles.surface1.color)
         } else if #available(iOS 26, *) {
@@ -79,9 +80,36 @@ extension View {
     /// A capsule glass button; `prominent` fills it with the primary colour.
     func skGlassButton(prominent: Bool = false) -> some View { modifier(SkGlassButton(prominent: prominent)) }
 
-    /// The Clear Glass sheet look (medium and large detents, grab handle).
-    func skGlassSheet() -> some View { modifier(SkGlassSheet()) }
+    /// The Clear Glass sheet look with a grab handle: medium and large detents, or `large` only for a
+    /// sheet that opens with the keyboard up.
+    func skGlassSheet(large: Bool = false) -> some View { modifier(SkGlassSheet(large: large)) }
 
     /// A soft scroll edge under the navigation bar on iOS 26.
     func skSoftScrollEdge() -> some View { modifier(SkSoftScrollEdge()) }
+}
+
+/// A full-width primary action on chrome (Add to queue, Done): glass prominent on iOS 26.
+struct GlassWideButton: View {
+    let title: String
+    var systemImage: String?
+    var prominent = true
+    var loading = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if loading {
+                    ProgressView()
+                } else if let systemImage {
+                    Image(systemName: systemImage).accessibilityHidden(true)
+                }
+                Text(title).font(.headline)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .skGlassButton(prominent: prominent)
+        .controlSize(.large)
+        .disabled(loading)
+    }
 }

@@ -7,7 +7,7 @@
 .ps-h { margin: 0 0 10px; font-size: 18px; font-weight: 750; letter-spacing: -.01em; }
 
 .ps-painted { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); width: 100%; margin-top: 12px; }
-@media (min-width: 980px) { .ps-painted { grid-template-columns: minmax(0, 1.75fr) minmax(300px, 1fr); align-items: start; } }
+@media (min-width: 1280px) { .ps-painted { grid-template-columns: minmax(0, 1.75fr) minmax(300px, 1fr); align-items: start; } }
 .ps-stage { display: grid; gap: 10px; min-width: 0; }
 .ps-knobs { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
 .ps-seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: 999px; border: 1px solid var(--mv-line); background: var(--mv-card); }
@@ -32,9 +32,7 @@
 .ps-dot[data-tone="note"] .ps-dot-fill { fill: #475569; }
 .ps-dot text { fill: #fff; font-weight: 800; font-family: system-ui, sans-serif; pointer-events: none; }
 .ps-dot:focus-visible .ps-dot-halo, .ps-dot:hover .ps-dot-halo { fill: #fde68a; }
-.ps-on-art { position: absolute; left: 12px; top: 12px; background: rgba(255, 255, 255, .9); color: #334155; border-color: #64748b; }
-.ps-on-art-end { left: auto; top: auto; right: 12px; bottom: 12px; }
-.ps-hint { padding: 0 4px; }
+.ps-caption { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 0 4px; }
 
 .ps-side { display: grid; gap: 12px; min-width: 0; }
 .ps-found { background: var(--mv-card); border: 1px solid var(--mv-line); border-radius: 16px; padding: 16px; }
@@ -64,16 +62,16 @@ div.ps-found-item { cursor: default; }
 .ps-switch-btn { gap: 8px; }
 .ps-switch-btn svg { width: 18px; height: 18px; }
 .ps-switch-k { color: var(--mv-muted); font-weight: 600; }
-.ps-switch-list { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 260px; margin: 0; padding: 6px; list-style: none; border-radius: 16px; background: var(--mv-card); border: 1px solid var(--mv-line); box-shadow: 0 12px 32px rgba(0, 0, 0, .18); outline: none; }
+.ps-switch-list { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 300px; margin: 0; padding: 6px; list-style: none; border-radius: 16px; background: var(--mv-card); border: 1px solid var(--mv-line); box-shadow: 0 12px 32px rgba(0, 0, 0, .18); outline: none; }
 .ps-switch-opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 12px; border-radius: 10px; font-weight: 650; cursor: pointer; }
 .ps-switch-opt[data-active] { background: var(--mv-brand-soft); }
 .ps-switch-opt[aria-disabled="true"] { color: var(--mv-muted); cursor: default; }
 .ps-switch-opt[data-separate] { margin-top: 6px; border-top: 1px solid var(--mv-line); border-radius: 0 0 10px 10px; padding-top: 6px; }
-.ps-soon { font-size: 12px; font-weight: 600; }
+.ps-soon { font-size: 12px; font-weight: 600; white-space: nowrap; }
 .ps-check { color: var(--mv-brand); font-weight: 800; }
 .ps-beta { margin-left: 6px; font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px dashed currentColor; }
 @media (max-width: 640px) {
   .ps-switch-list { left: auto; right: 0; }
-  .ps-on-art { left: 8px; top: 8px; font-size: 11px; }
-  .ps-on-art-end { right: 8px; bottom: 8px; left: auto; top: auto; }
 }
+/* MouthView's key describes the chart's marks; a style draws its own dots and badges */
+.mv-card:has(.ps-painted, .ps-fallback, .ps-wait) .mv-legend { display: none; }

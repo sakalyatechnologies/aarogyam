@@ -7,7 +7,7 @@ export {
 } from "./model.js";
 export { PRESENT_STYLES, SHIPPED_STYLES, DEFAULT_STYLE, isShipped, type PresentStyleId, type PresentStyleInfo } from "./styles.js";
 export {
-  RecordBadge, IllustrationBadge, FactList, ProvenanceFooter, TextFallback, StyleSwitcher, useChunk, dotsOf, toneOf,
+  RecordBadge, IllustrationBadge, FactList, ProvenanceFooter, TextFallback, StyleSwitcher, StyleBoundary, useChunk, dotsOf, toneOf,
   type SwitcherOption, type DotTone,
 } from "./blocks.js";
 export type { ShadeKnob } from "./painter.js";

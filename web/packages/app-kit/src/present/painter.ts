@@ -23,6 +23,8 @@ const SHADE: Readonly<Record<ShadeKnob, Ramp>> = {
   warmer: ["#ebdfc6", "#dcc59c", "#c4a26c"], deeper: ["#e5d6b8", "#d3b98a", "#b9945c"],
 };
 const MILK: Ramp = ["#f7f5ef", "#eeeadf", "#dcd4c2"];
+/** Nothing recorded at the position: a quiet grey tooth, so the recorded ones stand out. */
+const FADED: Ramp = ["#e4e2dd", "#d3d0c9", "#bdb9b0"];
 
 export interface PaintTooth {
   fdi: number;
@@ -118,8 +120,9 @@ export function smileScene(model: PresentModel, atlas: FrontAtlas, orientation: 
   const Ytop = (u1?.cej ?? -10) - 5, Ybot = (l1?.cej ?? 10) + 4.5;
   const Xc = outer + 3;
   const frame = { Ytop, Ybot, Xc, Yk: (Ytop + Ybot) / 2 - .5 };
-  const pad = 6;
-  const box: [number, number, number, number] = [-Xc - pad - 4, Ytop - 6.2 - pad, 2 * (Xc + pad + 4), (Ybot + 8.2 + pad) - (Ytop - 6.2 - pad)];
+  // a tight crop: the map fills the width on a phone, with a thin grey frame round the opening
+  const padX = 3.5, padY = 3;
+  const box: [number, number, number, number] = [-Xc - padX, Ytop - padY, 2 * (Xc + padX), Ybot - Ytop + 2 * padY];
   return { teeth, box, mirror: orientation === "mirror", frame };
 }
 
@@ -138,14 +141,14 @@ function paintFlags(t: ToothFacts): Pick<PaintTooth, "fdi" | "type" | "primary" 
   };
 }
 
-/** Where a tooth's dot sits, in screen (viewBox) millimetres: on the crown, on the gap's gum, or on the hidden wisdom tooth. */
+/** Where a tooth's dot sits, in screen (viewBox) millimetres: on the crown, in the gap, or on the hidden wisdom tooth. */
 export function dotAt(scene: SmileScene, fdi: number): { x: number; y: number } | undefined {
   const t = scene.teeth.find((x) => x.fdi === fdi);
   if (t === undefined || t.hidden) return undefined;
   const up = t.arch === "u";
   let y = up ? t.top + t.h * .45 : t.bot - t.h * .55;
-  if (t.missing) y = t.cej + (up ? -2.6 : 2.6) * t.sc;
-  else if (t.ghost !== undefined) y = t.cej + (up ? -1 : 1) * t.h * .55;
+  // a missing tooth keeps the crown's place: the dot sits in the gap
+  if (t.ghost !== undefined) y = t.cej + (up ? -1 : 1) * t.h * .55;
   else if (t.partial) y = up ? t.bot - t.h * .3 : t.top + t.h * .3;
   const x = ((t.xl + t.xr) / 2) * (scene.mirror ? -1 : 1);
   // never outside the frame's opening (the review's "dot on the cheek")
@@ -191,11 +194,10 @@ function toothXf(ctx: CanvasRenderingContext2D, t: PaintTooth, base: DOMMatrix, 
 
 function paintTooth(ctx: CanvasRenderingContext2D, base: DOMMatrix, t: PaintTooth, atlas: FrontAtlas, o: PaintOptions) {
   const c = atlas[t.type];
-  const cols = t.primary ? MILK : SHADE[o.shade];
+  const cols = t.faded ? FADED : t.primary ? MILK : SHADE[o.shade];
   const ant = t.n <= 2;
   const crownP = path(c.crown);
   ctx.save();
-  if (t.faded) ctx.globalAlpha = .5;
   const { cx, cy, cw, ch, unit } = toothXf(ctx, t, base, c);
   ctx.clip(crownP);
   const g = ctx.createLinearGradient(0, cy, 0, cy + ch);
@@ -227,9 +229,9 @@ function paintTooth(ctx: CanvasRenderingContext2D, base: DOMMatrix, t: PaintToot
   const dk = Math.min(.3, Math.max(0, (t.z - 8) / 60));
   if (dk > 0) { ctx.fillStyle = `rgba(28,20,22,${dk.toFixed(2)})`; ctx.fillRect(cx - 2, cy - 2, cw + 4, ch + 4); }
   if (t.n <= 3 && c.incisalHalo !== undefined) { ctx.lineWidth = 1.2; ctx.strokeStyle = "rgba(255,255,255,.28)"; ctx.stroke(path(c.incisalHalo)); }
+  if (t.faded) { ctx.fillStyle = "rgba(236,238,240,.38)"; ctx.fillRect(cx - 2, cy - 2, cw + 4, ch + 4); }
   ctx.restore();
   ctx.save();
-  if (t.faded) ctx.globalAlpha = .6;
   toothXf(ctx, t, base, c);
   ctx.lineWidth = .14 * unit; ctx.strokeStyle = "rgba(110,80,55,.3)"; ctx.stroke(crownP);
   ctx.restore();

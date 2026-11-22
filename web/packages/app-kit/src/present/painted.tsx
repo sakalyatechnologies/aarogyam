@@ -44,10 +44,16 @@ export function PaintedMap({ model, orientation, shade, theme, onOpen }: Pick<Pa
     c.dataset["painted"] = "";
   }, [scene, shade, theme, width]);
   const [bx, by, bw, bh] = scene.box;
-  const r = bw * .021;
+  // dots stay at least 26 px across on a phone
+  const r = Math.max(bw * .02, width > 0 ? 11 * bw / width : 0);
   const key = (e: KeyboardEvent, tooth: number) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(tooth); } };
   const examples = scene.teeth.filter((t) => t.example && !t.hidden);
+  const placed = spread(dots.flatMap((d) => {
+    const at = dotAt(scene, d.tooth);
+    return at === undefined ? [] : [{ ...d, ...at, upper: Math.floor(d.tooth / 10) % 4 === 1 || Math.floor(d.tooth / 10) % 4 === 2 }];
+  }), r * 2.8);
   return (
+    <>
     <div className="ps-map" ref={wrap} style={{ aspectRatio: `${f2(bw)} / ${f2(bh)}` }} data-orientation={orientation}>
       <canvas ref={canvas} className="ps-canvas" role="img" aria-label={`Painting of the teeth based on the record, ${orientation === "mirror" ? "as in a mirror" : "as in a photo"}`} />
       <svg className="ps-ov" viewBox={`${f2(bx)} ${f2(by)} ${f2(bw)} ${f2(bh)}`} preserveAspectRatio="none">
@@ -61,29 +67,52 @@ export function PaintedMap({ model, orientation, shade, theme, onOpen }: Pick<Pa
             return <rect key={`ex${String(t.fdi)}`} className="ps-example-ring" x={f2(b.x + .2)} y={f2(b.y + (t.arch === "u" ? 2 : 0))} width={f2(b.w - .4)} height={f2(b.h - 2)} rx="1.2" />;
           })}
         </g>
-        {dots.map((d) => {
-          const at = dotAt(scene, d.tooth);
-          if (at === undefined) return null;
+        {placed.map((d) => {
           return (
             <g key={d.tooth} className="ps-dot" data-tone={d.tone} data-tooth={d.tooth} role="button" tabIndex={0} aria-label={d.label}
               onClick={() => { onOpen(d.tooth); }} onKeyDown={(e) => { key(e, d.tooth); }}>
-              <circle className="ps-dot-halo" cx={f2(at.x)} cy={f2(at.y)} r={f2(r * 1.35)} />
-              <circle className="ps-dot-fill" cx={f2(at.x)} cy={f2(at.y)} r={f2(r)} />
-              <text x={f2(at.x)} y={f2(at.y)} fontSize={f2(r * 1.15)} textAnchor="middle" dominantBaseline="central">{d.n}</text>
+              <circle className="ps-dot-halo" cx={f2(d.x)} cy={f2(d.y)} r={f2(r * 1.35)} />
+              <circle className="ps-dot-fill" cx={f2(d.x)} cy={f2(d.y)} r={f2(r)} />
+              <text x={f2(d.x)} y={f2(d.y)} fontSize={f2(r * 1.15)} textAnchor="middle" dominantBaseline="central">{d.n}</text>
             </g>
           );
         })}
       </svg>
-      <IllustrationBadge className="ps-on-art">Painting based on your record</IllustrationBadge>
-      {examples.length === 0 ? null : <IllustrationBadge className="ps-on-art ps-on-art-end">Wisdom teeth: example, not your tooth</IllustrationBadge>}
     </div>
+    <div className="ps-caption">
+      <IllustrationBadge>Painting based on your record</IllustrationBadge>
+      {examples.length === 0 ? null : <IllustrationBadge>Wisdom teeth: example, not your tooth</IllustrationBadge>}
+      <span className="ps-muted">{dots.length === 0 ? "Nothing is recorded for this visit yet. Tap any tooth to look closer." : "Tap a numbered dot or any tooth to look closer."}</span>
+    </div>
+    </>
   );
+}
+
+/** Neighbouring dots never overlap: an upper and a lower dot move apart up and down, two on one arch sideways. */
+function spread<T extends { x: number; y: number; upper: boolean }>(dots: T[], gap: number): T[] {
+  const out = dots.map((d) => ({ ...d }));
+  for (let i = 0; i < out.length; i++) {
+    for (let j = i + 1; j < out.length; j++) {
+      const a = out[i], b = out[j];
+      if (a === undefined || b === undefined) continue;
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (dist >= gap) continue;
+      const push = (gap - dist) / 2;
+      if (a.upper !== b.upper) {
+        const [up, down] = a.upper ? [a, b] : [b, a];
+        up.y -= push; down.y += push;
+      } else {
+        const [left, right] = a.x <= b.x ? [a, b] : [b, a];
+        left.x -= push; right.x += push;
+      }
+    }
+  }
+  return out;
 }
 
 export function PaintedStyle(props: PaintedProps): ReactElement {
   const { model, orientation, onOrientation, shade, onShade } = props;
   const faded = model.teeth.some((t) => t.shown === "not_recorded");
-  const dots = dotsOf(model);
   const illustration = [
     "Tooth shapes, colours and the grey frame are a painting based on your record, not a photo.",
     ...(faded ? ["Faded teeth have nothing recorded yet."] : []),
@@ -105,7 +134,6 @@ export function PaintedStyle(props: PaintedProps): ReactElement {
           </div>
         </div>
         <PaintedMap {...props} />
-        <p className="ps-muted ps-hint">{dots.length === 0 ? "Nothing is recorded for this visit yet. Tap any tooth to look closer." : "Tap a numbered dot or any tooth to look closer."}</p>
       </div>
       <div className="ps-side">
         <FactList model={model} onOpen={props.onOpen} />

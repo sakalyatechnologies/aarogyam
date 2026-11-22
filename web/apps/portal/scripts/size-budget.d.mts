@@ -14,3 +14,15 @@ export declare function lazyBudget(input: { manifest: Record<string, Chunk>; ent
   story: number;
   lazy: Record<string, number>;
 };
+export declare const PRESENT_ROUTE_BYTES: number;
+export declare const PRESENT_ROUTE_ALL_BYTES: number;
+export declare const PAINTED_BYTES: number;
+export declare const PRESENT_PREFETCH_BYTES: number;
+export declare function presentBudget(input: { manifest: Record<string, Chunk>; entry: string; gz: (file: string) => number; art: RegExp }): {
+  failures: string[];
+  own: number;
+  route: number;
+  painted: number;
+  art: number;
+  prefetch: number;
+};

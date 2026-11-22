@@ -1,7 +1,7 @@
 // Shared Show patient blocks (present-studio-design §5.3, §11.1): the badges, the "What we found" list,
 // the provenance footer, the text fallback and the style switcher. Every style uses these, so the
 // provenance rules live here once. Words come only from the PresentModel.
-import { useEffect, useEffectEvent, useId, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
+import { Component, useEffect, useEffectEvent, useId, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 
 import { dayLabel } from "../mouth-view/model.js";
 import { dottedTeeth, type FactItem, type FactKind, type PresentModel } from "./model.js";
@@ -184,4 +184,15 @@ export function StyleSwitcher({ options, value, onChange, label = "Style" }: { o
       ) : null}
     </div>
   );
+}
+
+/** A style that throws while drawing shows its fallback (the text) instead of a blank screen. */
+export class StyleBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+  override render(): ReactNode {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
 }

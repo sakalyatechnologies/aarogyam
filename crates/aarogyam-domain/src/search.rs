@@ -42,17 +42,22 @@ impl PatientQuery {
             .chars()
             .all(|c| c.is_ascii_digit() || matches!(c, '+' | ' ' | '-' | '(' | ')'));
         let digits = text.chars().filter(char::is_ascii_digit).count();
+        let plus_91 = text.starts_with("+91");
+        // A typed +91 plus fewer than ten digits is the start of a number, not a whole one.
         if phone_like
             && digits >= 10
+            && !(plus_91 && digits < 12)
             && let Ok(phone) = PhoneE164::parse_with_default(text, default_code)
         {
             return Some(Self::Phone(phone));
         }
         let all_digits = text.chars().all(|c| c.is_ascii_digit());
-        if all_digits || (phone_like && !text.contains('+') && digits > 0) {
+        if all_digits || (phone_like && (!text.contains('+') || plus_91) && digits > 0) {
             let compact: String = text.chars().filter(char::is_ascii_digit).collect();
             let number = if all_digits { text.parse().ok() } else { None };
-            let phone_tail = PhoneTail::parse(&compact);
+            // Phones are compared by national number: drop a typed +91.
+            let national = if plus_91 { &compact[2..] } else { &compact[..] };
+            let phone_tail = PhoneTail::parse(national);
             if number.is_some() || phone_tail.is_some() {
                 return Some(Self::Digits { number, phone_tail });
             }
@@ -62,7 +67,7 @@ impl PatientQuery {
     }
 }
 
-/// The last digits of a phone number (4 to 15 ASCII digits), as typed into the search box.
+/// The first or last digits of a national phone number (4 to 15 ASCII digits), as typed into the search box.
 /// Its `Debug` hides the digits so a logged query never carries them.
 #[derive(Clone, PartialEq, Eq)]
 pub struct PhoneTail(String);

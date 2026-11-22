@@ -15,18 +15,22 @@ import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
 import com.sakalya.mobile.designcompose.initialsOf
 
-/** The mockup's patient "shape": initials on the tertiary container, or the primary container when [cool] (`.shape.g`). */
+/**
+ * The mockup's patient "shape": initials on the tertiary container, or the primary container when [cool] (`.shape.g`).
+ * Clear Glass lists pass [SkAvatarShape.Circle] for the calm round avatar.
+ */
 @Composable
 fun InitialsAvatar(
     name: String,
     size: Dp,
     modifier: Modifier = Modifier,
     cool: Boolean = false,
+    shape: SkAvatarShape = SkAvatarShape.Cookie,
 ) {
     val p = SkTheme.palette
     val bg = if (cool) p.primaryContainer else p.tertiaryContainer
     val ink = if (cool) p.onPrimaryContainer else p.onTertiaryContainer
-    SkAvatarFrame(SkAvatarShape.Cookie, size, bg.color, modifier.clearAndSetSemantics { contentDescription = name }) {
+    SkAvatarFrame(shape, size, bg.color, modifier.clearAndSetSemantics { contentDescription = name }) {
         Text(
             initialsOf(name),
             style =

@@ -8,13 +8,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -38,27 +39,29 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aarogyam.staff.android.R
-import com.aarogyam.staff.android.ui.rupees
 import com.aarogyam.staff.today.HeroKind
-import com.aarogyam.staff.today.MoneyView
 import com.aarogyam.staff.today.ScheduleItem
 import com.aarogyam.staff.today.TodayCountsView
 import com.sakalya.mobile.design.Motion
 import com.sakalya.mobile.design.ReducedMotion
-import com.sakalya.mobile.designcompose.SkCard
 import com.sakalya.mobile.designcompose.SkLiveDot
-import com.sakalya.mobile.designcompose.SkMorphingBlob
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
 import com.sakalya.mobile.designcompose.compose
 
-/** Today's patients, waiting (warm) and done as one joined row of three (`.stats`), with what is left under it. */
+/** Today's patients, waiting (warm) and done in one inset group split by hairlines (Clear Glass), with what is left under it. */
 @Composable
 fun TodayStats(counts: TodayCountsView) {
     val p = SkTheme.palette
     Column {
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            Modifier
+                .padding(top = 10.dp)
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .background(p.card.color, RoundedCornerShape(STATS_RADIUS.dp)),
+        ) {
             val cells =
                 listOf(
                     Triple(counts.patients, R.string.v7_stat_patients, false),
@@ -66,25 +69,28 @@ fun TodayStats(counts: TodayCountsView) {
                     Triple(counts.done, R.string.v7_stat_done, false),
                 )
             cells.forEachIndexed { i, (n, label, warm) ->
-                val start = if (i == 0) BIG else SMALL
-                val end = if (i == cells.lastIndex) BIG else SMALL
-                val bg = if (warm) p.tertiaryContainer.color else p.surface2.color
-                val ink = if (warm) p.onTertiaryContainer.color else p.onSurface.color
+                if (i > 0) {
+                    Box(
+                        Modifier
+                            .padding(vertical = 12.dp)
+                            .width(1.dp)
+                            .fillMaxHeight()
+                            .background(p.outline.color.copy(alpha = HAIRLINE)),
+                    )
+                }
                 Column(
-                    Modifier
-                        .weight(
-                            1f,
-                        ).background(
-                            bg,
-                            RoundedCornerShape(start.dp, end.dp, end.dp, start.dp),
-                        ).padding(horizontal = 10.dp, vertical = 9.dp),
+                    Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text(n.toString(), style = SkTypography.number.copy(fontSize = 17.sp), color = ink)
+                    Text(
+                        n.toString(),
+                        style = SkTypography.number.copy(fontSize = 22.sp),
+                        color = if (warm) p.tertiary.color else p.onSurface.color,
+                    )
                     Text(
                         stringResource(label),
-                        style = SkTypography.caption.copy(fontSize = 10.5.sp),
-                        color = if (warm) ink.copy(alpha = WARM_LABEL) else p.onSurfaceVariant.color,
+                        style = SkTypography.footnote.copy(fontWeight = FontWeight.SemiBold),
+                        color = p.onSurfaceVariant.color,
                         maxLines = 1,
                     )
                 }
@@ -105,7 +111,7 @@ fun TodayStats(counts: TodayCountsView) {
 }
 
 /**
- * Who is in the chair now, or who is next: the brand gradient card with a morphing blob, a live
+ * Who is in the chair now, or who is next: the calm brand gradient card (Clear Glass drops the blob) with a live
  * dot, the day's progress ring and Open record / Call in.
  */
 @Composable
@@ -129,12 +135,6 @@ fun TodayHero(
             .background(Brush.linearGradient(listOf(p.primary.color, p.primary2.color)))
             .clickable(role = Role.Button, onClick = onOpen),
     ) {
-        Box(Modifier.matchParentSize()) {
-            SkMorphingBlob(
-                p.primaryContainer.color.copy(alpha = HERO_BLOB_ALPHA),
-                Modifier.requiredSize(HERO_BLOB.dp).align(Alignment.TopEnd).offset(40.dp, (-50).dp),
-            )
-        }
         ProgressRing(progress, "$done/$total", Modifier.align(Alignment.TopEnd).padding(13.dp).size(RING.dp))
         Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -250,71 +250,9 @@ private fun ProgressRing(
     }
 }
 
-/** Collected today and Expenses today (owner and finance only), with "+ Add expense". */
-@Composable
-fun MoneyCards(
-    money: MoneyView,
-    onAddExpense: (() -> Unit)?,
-) {
-    val p = SkTheme.palette
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        SkCard(Modifier.weight(1f)) {
-            Text(
-                stringResource(R.string.v7_money_collected),
-                style = SkTypography.caption,
-                color = p.onSurfaceVariant.color,
-            )
-            Text(
-                money.collectedPaise.rupees(),
-                style = SkTypography.number.copy(fontSize = 16.sp),
-                color = p.onSurface.color,
-            )
-            Text(
-                stringResource(R.string.v7_money_dues, money.pendingDuesPaise.rupees()),
-                style = SkTypography.caption,
-                color = p.onSurfaceVariant.color,
-            )
-        }
-        SkCard(
-            Modifier.weight(1f).then(
-                if (onAddExpense !=
-                    null
-                ) {
-                    Modifier.clickable(role = Role.Button, onClick = onAddExpense)
-                } else {
-                    Modifier
-                },
-            ),
-        ) {
-            Text(
-                stringResource(R.string.v7_money_expenses),
-                style = SkTypography.caption,
-                color = p.onSurfaceVariant.color,
-            )
-            Text(
-                money.expensesTodayPaise?.rupees() ?: "—",
-                style = SkTypography.number.copy(fontSize = 16.sp),
-                color = p.onSurface.color,
-            )
-            if (onAddExpense !=
-                null
-            ) {
-                Text(
-                    stringResource(R.string.v7_money_add_expense),
-                    style = SkTypography.caption.copy(fontWeight = FontWeight.Bold),
-                    color = p.primary.color,
-                )
-            }
-        }
-    }
-}
-
-private const val BIG = 22
-private const val SMALL = 8
-private const val WARM_LABEL = 0.85f
+private const val STATS_RADIUS = 20
+private const val HAIRLINE = 0.35f
 private const val HERO_RADIUS = 24
-private const val HERO_BLOB = 170
-private const val HERO_BLOB_ALPHA = 0.22f
 private const val KICK_ALPHA = 0.9f
 private const val SUB_ALPHA = 0.88f
 private const val TON_ALPHA = 0.2f

@@ -180,10 +180,10 @@ describe("Vitals on a closed visit", () => {
     expect(await screen.findByText("Last vitals")).toBeTruthy();
     expect(await screen.findByText("Pulse 76")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Add vitals" })).toBeNull();
-    await user.click(screen.getByRole("tab", { name: "History" }));
+    await user.click(screen.getByRole("button", { name: /^History/ }));
     const rows = await screen.findAllByRole("button", { name: /^Open visit / });
     await user.click(first(rows));
-    const detail = await screen.findByRole("dialog", { name: /^Visit / });
+    const detail = await screen.findByRole("region", { name: /^Visit .* detail$/ });
     const section = await within(detail).findByRole("region", { name: "Vitals" });
     expect(within(section).getByText("Pulse 76")).toBeTruthy();
     expect(within(detail).queryByRole("button", { name: "Add vitals" })).toBeNull();

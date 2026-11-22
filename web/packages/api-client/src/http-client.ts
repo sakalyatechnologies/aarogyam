@@ -166,6 +166,7 @@ import {
   consentList,
   summaryNote,
   timeline,
+  patientHistory,
   todayMoney,
   todayResponse,
   unsubscribed,
@@ -552,6 +553,13 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
 
     getTimeline: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/timeline`, schema: timeline, signal: opts?.signal }),
+    getPatientHistory: (id, before, opts) =>
+      call({
+        method: "GET",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/history${before === undefined ? "" : `?before=${encodeURIComponent(before)}`}`,
+        schema: patientHistory,
+        signal: opts?.signal,
+      }),
     listConsents: (id, opts) =>
       call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/consents`, schema: consentList, signal: opts?.signal }),
     recordConsent: (id, input, opts) =>

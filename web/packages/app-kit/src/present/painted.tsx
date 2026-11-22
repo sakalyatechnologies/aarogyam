@@ -1,12 +1,14 @@
 // The painted style (present-studio-design §6.2), a lazy chunk with the front atlas inside it: the
 // painted map with a numbered dot on each recorded tooth, the "What we found" list beside it and the
-// provenance footer. The orientation and colour knobs are session-only and change no recorded fact.
+// provenance footer, plus Open wide one tap away (slice 1b). The orientation and colour knobs and the
+// view are session-only and change no recorded fact.
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from "react";
 
 import { FRONT_ATLAS } from "../mouth-art/gen/front-atlas.js";
 import { FactList, IllustrationBadge, ProvenanceFooter, dotsOf } from "./blocks.js";
 import type { Orientation, PresentModel } from "./model.js";
-import { SHADE_KNOBS, dotAt, paintSmile, smileScene, toothRect, type ShadeKnob } from "./painter.js";
+import { OpenWide, bitingSideProblems, frontHidesAllProblems } from "./open-wide.js";
+import { SHADE_KNOBS, dotAt, paintSmile, smileScene, spread, toothRect, type ShadeKnob } from "./painter.js";
 
 export interface PaintedProps {
   model: PresentModel;
@@ -17,7 +19,12 @@ export interface PaintedProps {
   theme: "light" | "dark";
   /** Opens the tooth's detail (MouthView's tooth screen). */
   onOpen: (tooth: number) => void;
+  /** The front map or Open wide; undefined = the §6.2 rule (Open wide when the front hides every problem). */
+  view?: PaintedView | undefined;
+  onView?: ((v: PaintedView) => void) | undefined;
 }
+
+export type PaintedView = "front" | "wide";
 
 const f2 = (n: number) => n.toFixed(2);
 
@@ -88,55 +95,54 @@ export function PaintedMap({ model, orientation, shade, theme, onOpen }: Pick<Pa
   );
 }
 
-/** Neighbouring dots never overlap: an upper and a lower dot move apart up and down, two on one arch sideways. */
-function spread<T extends { x: number; y: number; upper: boolean }>(dots: T[], gap: number): T[] {
-  const out = dots.map((d) => ({ ...d }));
-  for (let i = 0; i < out.length; i++) {
-    for (let j = i + 1; j < out.length; j++) {
-      const a = out[i], b = out[j];
-      if (a === undefined || b === undefined) continue;
-      const dist = Math.hypot(a.x - b.x, a.y - b.y);
-      if (dist >= gap) continue;
-      const push = (gap - dist) / 2;
-      if (a.upper !== b.upper) {
-        const [up, down] = a.upper ? [a, b] : [b, a];
-        up.y -= push; down.y += push;
-      } else {
-        const [left, right] = a.x <= b.x ? [a, b] : [b, a];
-        left.x -= push; right.x += push;
-      }
-    }
-  }
-  return out;
-}
-
 export function PaintedStyle(props: PaintedProps): ReactElement {
   const { model, orientation, onOrientation, shade, onShade } = props;
+  // §6.2: when the front map would hide every recorded problem, open on Open wide
+  const auto: PaintedView = frontHidesAllProblems(model) ? "wide" : "front";
+  const [own, setOwn] = useState<PaintedView | undefined>(undefined);
+  const view = props.view ?? own ?? auto;
+  const setView = (v: PaintedView) => { setOwn(v); props.onView?.(v); };
+  const hidden = bitingSideProblems(model);
   const faded = model.teeth.some((t) => t.shown === "not_recorded");
   const illustration = [
-    "Tooth shapes, colours and the grey frame are a painting based on your record, not a photo.",
+    view === "wide"
+      ? "Tooth shapes, colours, the gums and the palate are a painting based on your record, seen from the biting side."
+      : "Tooth shapes, colours and the grey frame are a painting based on your record, not a photo.",
     ...(faded ? ["Faded teeth have nothing recorded yet."] : []),
   ];
+  const openWide = () => { setView("wide"); };
   return (
-    <div className="ps-painted" data-present-style="painted">
+    <div className="ps-painted" data-present-style="painted" data-view={view}>
       <div className="ps-stage">
         <div className="ps-knobs">
+          <div className="ps-seg" role="group" aria-label="Picture">
+            <button type="button" aria-pressed={view === "front"} onClick={() => { setView("front"); }}>Front</button>
+            <button type="button" aria-pressed={view === "wide"} onClick={openWide}>Open wide</button>
+          </div>
           <div className="ps-seg" role="group" aria-label="Which way round">
             {(["mirror", "photo"] as const).map((o) => (
               <button key={o} type="button" aria-pressed={orientation === o} onClick={() => { onOrientation(o); }}>{o === "mirror" ? "As in your mirror" : "As in a photo"}</button>
             ))}
           </div>
-          <div className="ps-shades" role="group" aria-label="Tooth colour">
-            {SHADE_KNOBS.map((s) => (
-              <button key={s.key} type="button" className="ps-swatch" style={{ background: s.swatch }} aria-pressed={shade === s.key} aria-label={s.label} title={s.label} onClick={() => { onShade(s.key); }} />
-            ))}
-            <IllustrationBadge>Colour chosen to look like you</IllustrationBadge>
-          </div>
+          {view === "front" ? (
+            <div className="ps-shades" role="group" aria-label="Tooth colour">
+              {SHADE_KNOBS.map((s) => (
+                <button key={s.key} type="button" className="ps-swatch" style={{ background: s.swatch }} aria-pressed={shade === s.key} aria-label={s.label} title={s.label} onClick={() => { onShade(s.key); }} />
+              ))}
+              <IllustrationBadge>Colour chosen to look like you</IllustrationBadge>
+            </div>
+          ) : null}
         </div>
-        <PaintedMap {...props} />
+        {view === "front" && hidden.length > 0 ? (
+          <button type="button" className="ps-prompt" onClick={openWide}>
+            <span>{hidden.length === 1 ? "1 problem is on the biting side, out of sight from the front." : `${String(hidden.length)} problems are on the biting side, out of sight from the front.`}</span>
+            <b>Open wide to see {hidden.length === 1 ? "it" : "them"}</b>
+          </button>
+        ) : null}
+        {view === "wide" ? <OpenWide model={model} orientation={orientation} theme={props.theme} onOpen={props.onOpen} /> : <PaintedMap {...props} />}
       </div>
       <div className="ps-side">
-        <FactList model={model} onOpen={props.onOpen} />
+        <FactList model={model} onOpen={props.onOpen} onBitingSide={view === "front" ? openWide : undefined} />
         <ProvenanceFooter recorded={["The dots and this list come from this visit's record."]} illustration={illustration} />
       </div>
     </div>

@@ -13,8 +13,11 @@ export {
   type SwitcherOption, type DotTone,
 } from "./blocks.js";
 export type { ShadeKnob } from "./painter.js";
-export type { PaintedProps } from "./painted.js";
+export type { PaintedProps, PaintedView } from "./painted.js";
+export type { OpenWideProps, WideArt } from "./open-wide.js";
 export { PaintedSlot } from "./painted-slot.js";
 
-/** The painted style's chunk (painter + front atlas). Show patient prefetches it. */
+/** The painted style's chunk (painter, front atlas and Open wide). Show patient prefetches it. */
 export const loadPaintedStyle = () => import("./painted.js").then((m) => m.paintedStyle);
+/** Open wide, the shared "biting side" block, for any style (§5.3). The painted chunk already holds it. */
+export const loadOpenWide = () => import("./open-wide.js").then((m) => m.OpenWide);

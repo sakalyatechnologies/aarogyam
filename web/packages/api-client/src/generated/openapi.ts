@@ -3683,6 +3683,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The patient's history for the portal's full page, newest first: each visit with its teeth,
+         *     first images, the first line of its signed note, medicines, bills (with `billing.read`) and
+         *     plans, plus the files outside any visit. Up to 200 visits per page, so search and filters
+         *     see the whole history at once. Reading it writes the access record. `Cache-Control: no-store`.
+         */
+        get: operations["getPatientHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/identifiers": {
         parameters: {
             query?: never;
@@ -9384,6 +9406,113 @@ export interface components {
             /** @description Always `ok` while the API is serving. */
             status: string;
         };
+        /** @description A bill of a visit. */
+        HistoryBill: {
+            /** @description The bill. */
+            id: string;
+            /** @description Its number once issued. */
+            number?: string | null;
+            /**
+             * Format: int64
+             * @description Received against it, in paise.
+             */
+            paid_paise: number;
+            /** @description `issued` (drafts have no total yet and stay off the card). */
+            status: string;
+            /**
+             * Format: int64
+             * @description The total in paise.
+             */
+            total_paise: number;
+        };
+        /** @description What a visit holds besides its card lines. */
+        HistoryCounts: {
+            /** @description Files other than recordings and consent scans. */
+            files: number;
+            /** @description Signed notes. */
+            notes: number;
+            /** @description Procedures. */
+            procedures: number;
+            /** @description Voice recordings. */
+            recordings: number;
+        };
+        /** @description A file on a visit card, or one outside any visit. */
+        HistoryFile: {
+            /** @description When it was added. */
+            created_at: string;
+            /** @description The file. */
+            id: string;
+            /** @description `photo`, `xray`, `report` or `document`. */
+            kind: string;
+            /** @description Its tag: `OPG`, `X-ray` and so on. */
+            label?: string | null;
+            /** @description Its content type: only images ask for a preview link. */
+            mime_type: string;
+        };
+        /** @description A plan proposed in a visit. */
+        HistoryPlan: {
+            /** @description The plan. */
+            id: string;
+            /** @description `proposed`, `accepted`, `in_progress`, `completed` or `declined`. */
+            status: string;
+            /** @description Its title. */
+            title: string;
+        };
+        /** @description A tooth touched in a visit. */
+        HistoryTooth: {
+            /**
+             * @description The chart finding (`caries`, `filled`, `crown` and so on) for chart entries; none for a
+             *     procedure recorded on its own.
+             */
+            finding?: string | null;
+            /** @description The procedure's label or name; none for a bare finding. */
+            label?: string | null;
+            /** @description The procedure's id in the dental vocabulary, when the chart entry names one. */
+            procedure_key?: string | null;
+            /**
+             * Format: int32
+             * @description FDI tooth number.
+             */
+            tooth: number;
+            /** @description `found`, `planned`, `in_progress`, `done` or `elsewhere` (work done at another clinic). */
+            work: string;
+        };
+        /** @description One visit on the history page. */
+        HistoryVisit: {
+            /** @description The visit's bills. Absent without `billing.read`, and always for Sakalya support. */
+            bills?: components["schemas"]["HistoryBill"][] | null;
+            /** @description Why the patient came, as typed when the visit started. */
+            chief_complaint?: string | null;
+            /** @description The clinician. */
+            clinician: components["schemas"]["MemberRef"];
+            /** @description What else it holds. */
+            counts: components["schemas"]["HistoryCounts"];
+            /** @description When it ended. */
+            ended_at?: string | null;
+            /** @description The visit. */
+            id: string;
+            /** @description All photos and X-rays in the visit. */
+            image_count: number;
+            /** @description The first four photos and X-rays. */
+            images: components["schemas"]["HistoryFile"][];
+            /** @description Medicines prescribed, in order. */
+            medicines: string[];
+            /**
+             * @description The first line of the first signed note, at most 120 characters. Clinical text: this
+             *     endpoint is for clinic staff only and never feeds a shared page.
+             */
+            note_first_line?: string | null;
+            /** @description Its number, `V-8`. */
+            number: string;
+            /** @description Plans proposed in the visit. */
+            plans: components["schemas"]["HistoryPlan"][];
+            /** @description When it started. */
+            started_at: string;
+            /** @description `open` or `closed`. */
+            status: string;
+            /** @description Teeth touched, in the order recorded. */
+            teeth: components["schemas"]["HistoryTooth"][];
+        };
         /** @description Appointments starting in one local hour. */
         HourBar: {
             /** @description Appointments, not counting cancelled ones. */
@@ -11220,6 +11349,8 @@ export interface components {
             details?: components["schemas"]["MouthDetails"] | null;
             /** @description The headline finding (a chart finding value). */
             finding?: string | null;
+            /** @description When the headline finding was recorded (`YYYY-MM-DD`): "Recorded 12 Nov". */
+            finding_on?: string | null;
             /** @description The doctor's health level (`healthy`, `watch`, `needs_treatment`); absent without one. */
             health?: string | null;
             /**
@@ -11231,11 +11362,15 @@ export interface components {
             planned?: boolean;
             /** @description Recorded problem findings: `caries`, `fractured`, `watch`, `missing`. */
             problems?: string[];
+            /** @description When each problem was last recorded (`YYYY-MM-DD`), one per entry of `problems`. */
+            problems_on?: string[];
             /**
              * @description Something is proposed on it and not yet accepted: a dashed "Recommended" ring. `planned`
              *     wins when both are set.
              */
             recommended?: boolean;
+            /** @description When the latest recommendation on it was proposed (`YYYY-MM-DD`). */
+            recommended_on?: string | null;
             /**
              * Format: int32
              * @description The sitting of a treatment in progress.
@@ -12985,6 +13120,15 @@ export interface components {
         PatientFiles: {
             /** @description Newest first. */
             items: components["schemas"]["PatientFile"][];
+        };
+        /** @description A page of the patient's history, newest first. */
+        PatientHistory: {
+            /** @description Files that belong to no visit, newest first (first page only, at most 50). */
+            loose_files: components["schemas"]["HistoryFile"][];
+            /** @description Pass as `before` for the next page; absent on the last page. */
+            next_cursor?: string | null;
+            /** @description The visits. */
+            visits: components["schemas"]["HistoryVisit"][];
         };
         /** @description Everything the home screen needs, in one request. */
         PatientHome: {
@@ -28491,6 +28635,62 @@ export interface operations {
                 content?: never;
             };
             /** @description No such link in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPatientHistory: {
+        parameters: {
+            query?: {
+                /** @description The previous page's `next_cursor` */
+                before?: string;
+                /** @description Most visits, 1 to 200 (default 200) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The page; `Cache-Control: no-store` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientHistory"];
+                };
+            };
+            /** @description before isn't a cursor from this endpoint, or limit is out of range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic or the caller's reach */
             404: {
                 headers: {
                     [name: string]: unknown;

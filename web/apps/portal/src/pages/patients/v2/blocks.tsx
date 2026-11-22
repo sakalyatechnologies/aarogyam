@@ -7,7 +7,7 @@ import { FileText, Mic, Pause, Play, Printer, Share2, Square } from "lucide-reac
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
-import { apiErrorOf, type Patient, type Visit } from "@aarogyam/api-client";
+import { apiErrorOf, type Patient } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees } from "@aarogyam/app-kit";
 import { Button, Field, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
 
@@ -15,7 +15,6 @@ import { Empty, Tag, statusTone } from "../../../components/mk/index.js";
 import { SkeletonRows } from "../../../components/skeleton-rows.js";
 import { useClinic } from "../../../clinic.js";
 import { languageLabel, formatPhone, maskEmail, maskPhone } from "../../../lib/patients.js";
-import { useTimeline, useVisits } from "../../../queries.js";
 import { DraftEditor, SentNotice, ShareDialog } from "../../prescriptions/prescription-page.js";
 import { MedicineSets } from "../../prescriptions/medicine-sets.js";
 import { usePrescriptions } from "../../prescriptions/queries.js";
@@ -35,10 +34,8 @@ import { FamilyBlock } from "./family-block.js";
 import { GalleryBlock } from "./images.js";
 import { Bento, CardTabs, Chip, Fold, type PillOption } from "./kit.js";
 import { ToothChartBlock } from "./tooth-chart/tooth-block.js";
-import { VisitDetail } from "./visit-detail.js";
 import { VitalsBlock } from "./vitals-block.js";
 import { splitNote } from "./note-lines.js";
-import { VisitTimeline } from "./visit-timeline.js";
 import { TranscriptLines, TypeNote } from "./visit-notes.js";
 import { NOTE_SECTIONS, useVisitSession } from "./visit-session.js";
 import { Phone, Mail } from "lucide-react";
@@ -444,74 +441,6 @@ export function WrapBlock() {
   );
 }
 
-/** Every visit, and the patient's timeline. */
-export function HistoryBlock({ limit = 8 }: { limit?: number }) {
-  const session = useVisitSession();
-  const [detail, setDetail] = useState<Visit | undefined>(undefined);
-  const visits = useVisits(session.patientId);
-  const timeline = useTimeline(session.patientId);
-  return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <p className="p360-label">Visits</p>
-        {visits.isPending ? (
-          <SkeletonRows count={2} label="Loading visits" />
-        ) : visits.isError ? (
-          <ApiErrorNotice title="Couldn't load visits" error={visits.error} onRetry={() => void visits.refetch()} />
-        ) : visits.data.items.length === 0 ? (
-          <Empty art="notes" title="No visits yet">
-            Visits appear here as they are recorded.
-          </Empty>
-        ) : (
-          <ul aria-label="Visits" className="m-0 list-none p-0">
-            {visits.data.items.map((visit) => (
-              <li key={visit.id} className="p360-histrow">
-                <button
-                  type="button"
-                  className="mk-link p360-visitlink"
-                  aria-label={`Open visit ${visit.number}`}
-                  onClick={() => {
-                    setDetail(visit);
-                  }}
-                >
-                  <b>{visit.number}</b>
-                </button>
-                <Tag tone={statusTone(visit.status === "open" ? "warning" : "success")}>{visit.status === "open" ? "Open" : "Closed"}</Tag>
-                <span className="mk-hint" style={{ margin: 0 }}>
-                  {visit.clinician.name}
-                  {visit.chief_complaint == null || visit.chief_complaint === "" ? "" : ` · ${visit.chief_complaint}`}
-                </span>
-                <span className="when">{formatDateTime(visit.started_at)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <div>
-        <p className="p360-label">Timeline</p>
-        {timeline.isPending ? (
-          <SkeletonRows count={3} label="Loading history" />
-        ) : timeline.isError || timeline.data.items.length === 0 ? (
-          <Empty art="notes" title="No history yet">
-            Visits, notes, procedures and files appear here as they are recorded.
-          </Empty>
-        ) : (
-          <VisitTimeline events={timeline.data.items} visits={visits.data?.items ?? []} limit={limit} onOpen={setDetail} />
-        )}
-      </div>
-      {detail === undefined ? null : (
-        <VisitDetail
-          patientId={session.patientId}
-          visit={detail}
-          onClose={() => {
-            setDetail(undefined);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
 /** Earlier prescriptions, with the allergy override each was issued under. */
 export function PastRxBlock() {
   const session = useVisitSession();
@@ -717,18 +646,17 @@ export function WrapCard() {
   );
 }
 
-export type RecordTab = "history" | "plans" | "prescriptions" | "images" | "consent";
+export type RecordTab = "plans" | "prescriptions" | "images" | "consent";
 
 const RECORD_TABS: readonly PillOption<RecordTab>[] = [
-  { value: "history", label: "History" },
   { value: "plans", label: "Plans" },
   { value: "prescriptions", label: "Prescriptions" },
   { value: "images", label: "Images" },
   { value: "consent", label: "Consent" },
 ];
 
-/** The patient's records in ONE card with small tabs. Only the chosen tab is mounted and fetched. */
-export function RecordsCard({ canClinical, initial = "history" }: { canClinical: boolean; initial?: RecordTab }) {
+/** The patient's records in ONE card with small tabs. Only the chosen tab is mounted and fetched. The history has its own page (the History button in the header). */
+export function RecordsCard({ canClinical, initial = "plans" }: { canClinical: boolean; initial?: RecordTab }) {
   const { can } = useClinic();
   const session = useVisitSession();
   const options = canClinical ? RECORD_TABS : RECORD_TABS.filter((tab) => tab.value === "consent");
@@ -736,7 +664,6 @@ export function RecordsCard({ canClinical, initial = "history" }: { canClinical:
   return (
     <Bento level={2} title="Records">
       <CardTabs label="Records" options={options} value={tab} onChange={setTab}>
-        {tab === "history" ? <HistoryBlock limit={20} /> : null}
         {tab === "plans" ? <PlanPane /> : null}
         {tab === "prescriptions" ? <PastRxBlock /> : null}
         {tab === "images" ? <GalleryBlock patientId={session.patientId} canUpload={can("clinical.write")} visitId={session.visit?.id} /> : null}

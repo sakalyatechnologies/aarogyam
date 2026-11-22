@@ -145,6 +145,13 @@
         "tooth": 37
       }
     ],
+    "recommended": [
+      {
+        "code": "implant",
+        "on": "2026-11-12",
+        "tooth": 14
+      }
+    ],
     "statuses": [
       {
         "data": {
@@ -362,10 +369,51 @@
     "teeth": [
       {
         "finding": "missing",
+        "finding_on": "2025-06-11",
         "problems": [
           "missing"
         ],
+        "problems_on": [
+          "2025-06-11"
+        ],
+        "recommended": true,
+        "recommended_on": "2026-11-12",
         "tooth": 14,
+        "treatments": [
+          {
+            "model": "implant",
+            "recommended": true,
+            "recovery": [
+              "Swelling for 2 to 3 days is common",
+              "Soft food on that side while it heals"
+            ],
+            "state": "planned",
+            "steps": [
+              {
+                "after_words": "Usually a few stitches close the gum",
+                "key": "place",
+                "scene": "implant_place",
+                "state": "usual",
+                "words": "The implant is placed in the jaw bone"
+              },
+              {
+                "after_words": "Usually this takes 3 to 6 months",
+                "key": "heal",
+                "scene": "implant_heal",
+                "state": "usual",
+                "words": "The bone grows around the implant"
+              },
+              {
+                "after_words": "Usually it looks and works like a natural tooth",
+                "key": "crown",
+                "scene": "implant_crown",
+                "state": "usual",
+                "words": "The crown is fixed on the implant"
+              }
+            ],
+            "typical_visits": 3
+          }
+        ],
         "work": [
           {
             "finding": "missing",
@@ -375,6 +423,7 @@
       },
       {
         "finding": "filled",
+        "finding_on": "2026-11-20",
         "material": "composite",
         "surfaces": [
           "O"
@@ -421,6 +470,7 @@
       },
       {
         "finding": "filled",
+        "finding_on": "2026-11-20",
         "material": "amalgam",
         "surfaces": [
           "O"
@@ -445,6 +495,7 @@
       },
       {
         "finding": "root_canal",
+        "finding_on": "2026-11-12",
         "sitting": 2,
         "tooth": 36,
         "treatments": [
@@ -495,10 +546,14 @@
           "caries_depth": "near_pulp"
         },
         "finding": "caries",
+        "finding_on": "2026-11-20",
         "health": "needs_treatment",
         "planned": true,
         "problems": [
           "caries"
+        ],
+        "problems_on": [
+          "2026-11-20"
         ],
         "surfaces": [
           "O"
@@ -593,6 +648,7 @@
       },
       {
         "finding": "crown",
+        "finding_on": "2026-11-12",
         "material": "zirconia",
         "tooth": 46,
         "treatments": [
@@ -625,6 +681,7 @@
       },
       {
         "finding": "root_canal",
+        "finding_on": "2026-11-20",
         "sitting": 1,
         "today": "in_progress",
         "tooth": 47,

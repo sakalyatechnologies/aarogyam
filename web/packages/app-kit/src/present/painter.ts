@@ -19,8 +19,8 @@ export const SHADE_KNOBS: readonly { key: ShadeKnob; label: string; swatch: stri
 ];
 type Ramp = readonly [string, string, string];
 const SHADE: Readonly<Record<ShadeKnob, Ramp>> = {
-  lighter: ["#f3ede0", "#e9dcc2", "#d9c19a"], natural: ["#efe6d2", "#e4d2b0", "#cfb07f"],
-  warmer: ["#ebdfc6", "#dcc59c", "#c4a26c"], deeper: ["#e5d6b8", "#d3b98a", "#b9945c"],
+  lighter: ["#f4efe4", "#ebe1cc", "#dccaa8"], natural: ["#f0e8d7", "#e6d7ba", "#d4bc92"],
+  warmer: ["#ece1ca", "#dfcca7", "#cbad7d"], deeper: ["#e6d8bd", "#d6c096", "#c0a06e"],
 };
 const MILK: Ramp = ["#f7f5ef", "#eeeadf", "#dcd4c2"];
 /** Nothing recorded at the position: a quiet grey tooth, so the recorded ones stand out. */
@@ -156,6 +156,28 @@ export function dotAt(scene: SmileScene, fdi: number): { x: number; y: number } 
   return { x: Math.min(bx + bw - 3, Math.max(bx + 3, x)), y: Math.min(by + bh - 3, Math.max(by + 3, y)) };
 }
 
+/** Neighbouring dots never overlap: an upper and a lower dot move apart up and down, two on one arch sideways. */
+export function spread<T extends { x: number; y: number; upper: boolean }>(dots: T[], gap: number): T[] {
+  const out = dots.map((d) => ({ ...d }));
+  for (let i = 0; i < out.length; i++) {
+    for (let j = i + 1; j < out.length; j++) {
+      const a = out[i], b = out[j];
+      if (a === undefined || b === undefined) continue;
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (dist >= gap) continue;
+      const push = (gap - dist) / 2;
+      if (a.upper !== b.upper) {
+        const [up, down] = a.upper ? [a, b] : [b, a];
+        up.y -= push; down.y += push;
+      } else {
+        const [left, right] = a.x <= b.x ? [a, b] : [b, a];
+        left.x -= push; right.x += push;
+      }
+    }
+  }
+  return out;
+}
+
 /** A tooth's tap area in screen millimetres. */
 export function toothRect(scene: SmileScene, t: PaintTooth): { x: number; y: number; w: number; h: number } {
   const m = scene.mirror ? -1 : 1;
@@ -210,14 +232,16 @@ function paintTooth(ctx: CanvasRenderingContext2D, base: DOMMatrix, t: PaintToot
   ctx.globalAlpha = base1 * (ant ? .09 : .06); ctx.fillStyle = "#fffaf0";
   for (const d of [c.lobe0, c.lobe1, c.lobe2]) if (d !== undefined) ctx.fill(path(d));
   ctx.globalAlpha = base1;
-  // rounded form: edges turn away from the light, the distal side darker
+  // rounded form: edges turn away from the light, the distal side darker. A cool grey shadow, lighter
+  // on the turned (back) teeth, whose narrow crowns would otherwise be all edge and read brown.
   const hz = ctx.createLinearGradient(cx, 0, cx + cw, 0);
-  const near = .42 - .12 * t.turn, far = .5 - .1 * t.turn;
-  hz.addColorStop(0, `rgba(78,46,24,${far.toFixed(2)})`); hz.addColorStop(.1, `rgba(78,46,24,${(far * .45).toFixed(2)})`); hz.addColorStop(.3, "rgba(78,46,24,0)");
-  hz.addColorStop(.7, "rgba(78,46,24,0)"); hz.addColorStop(.9, `rgba(78,46,24,${(near * .45).toFixed(2)})`); hz.addColorStop(1, `rgba(78,46,24,${near.toFixed(2)})`);
+  const near = .3 - .14 * t.turn, far = .36 - .14 * t.turn;
+  const sh = (a: number) => `rgba(74,66,64,${a.toFixed(2)})`;
+  hz.addColorStop(0, sh(far)); hz.addColorStop(.1, sh(far * .4)); hz.addColorStop(.28, sh(0));
+  hz.addColorStop(.72, sh(0)); hz.addColorStop(.9, sh(near * .4)); hz.addColorStop(1, sh(near));
   ctx.fillStyle = hz; ctx.fillRect(cx - 2, cy - 2, cw + 4, ch + 4);
-  const nk = ctx.createLinearGradient(0, cy + ch * .62, 0, cy + ch);
-  nk.addColorStop(0, "rgba(160,110,60,0)"); nk.addColorStop(1, "rgba(160,110,60,.28)");
+  const nk = ctx.createLinearGradient(0, cy + ch * .66, 0, cy + ch);
+  nk.addColorStop(0, "rgba(176,140,96,0)"); nk.addColorStop(1, `rgba(176,140,96,${(.2 - .08 * t.turn).toFixed(2)})`);
   ctx.fillStyle = nk; ctx.fillRect(cx - 2, cy, cw + 4, ch + 2);
   if (!t.faded) {
     const rg = ctx.createRadialGradient(cx + cw * .45, cy + ch * .4, 1, cx + cw * .45, cy + ch * .4, cw * .4);
@@ -226,8 +250,9 @@ function paintTooth(ctx: CanvasRenderingContext2D, base: DOMMatrix, t: PaintToot
     if (c.specular !== undefined) ctx.fill(path(c.specular));
     ctx.globalAlpha = base1 * .6; if (c.specular2 !== undefined) ctx.fill(path(c.specular2)); ctx.globalAlpha = base1;
   }
-  const dk = Math.min(.3, Math.max(0, (t.z - 8) / 60));
-  if (dk > 0) { ctx.fillStyle = `rgba(28,20,22,${dk.toFixed(2)})`; ctx.fillRect(cx - 2, cy - 2, cw + 4, ch + 4); }
+  // deeper in the mouth, a little less light: a soft cool veil, never a brown cast
+  const dk = Math.min(.14, Math.max(0, (t.z - 10) / 110));
+  if (dk > 0) { ctx.fillStyle = `rgba(60,64,72,${dk.toFixed(2)})`; ctx.fillRect(cx - 2, cy - 2, cw + 4, ch + 4); }
   if (t.n <= 3 && c.incisalHalo !== undefined) { ctx.lineWidth = 1.2; ctx.strokeStyle = "rgba(255,255,255,.28)"; ctx.stroke(path(c.incisalHalo)); }
   if (t.faded) { ctx.fillStyle = "rgba(236,238,240,.38)"; ctx.fillRect(cx - 2, cy - 2, cw + 4, ch + 4); }
   ctx.restore();
@@ -343,7 +368,7 @@ export function paintSmile(canvas: HTMLCanvasElement, scene: SmileScene, atlas: 
   ctx.setTransform(base);
   for (const [lw, a] of [[1.1, .16], [.5, .3]] as const) { ctx.lineWidth = lw; ctx.strokeStyle = `rgba(12,4,4,${String(a)})`; ctx.stroke(op); }
   const cv = ctx.createLinearGradient(-fr.Xc, 0, fr.Xc, 0);
-  for (const [o2, a] of [[0, .5], [.07, .22], [.16, 0], [.84, 0], [.93, .22], [1, .5]] as const) cv.addColorStop(o2, `rgba(14,4,6,${String(a)})`);
+  for (const [o2, a] of [[0, .34], [.06, .12], [.13, 0], [.87, 0], [.94, .12], [1, .34]] as const) cv.addColorStop(o2, `rgba(14,4,6,${String(a)})`);
   ctx.fillStyle = cv; ctx.fillRect(-fr.Xc - 2, fr.Ytop - 2, 2 * fr.Xc + 4, fr.Ybot - fr.Ytop + 4);
   ctx.restore();
   ctx.setTransform(1, 0, 0, 1, 0, 0);

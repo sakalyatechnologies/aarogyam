@@ -4109,6 +4109,106 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ items: events } satisfies C.Timeline);
         }),
 
+      getPatientHistory: (id, before, opts) =>
+        respond(S.patientHistory, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const clinic = caller.clinic.id;
+          const money = hasPermission(caller.membership.role.permissions, "billing.read");
+          const all = state.visits
+            .filter((v) => v.clinic_id === clinic && v.patient_id === id)
+            .sort((a, b) => (a.started_at === b.started_at ? b.id.localeCompare(a.id) : b.started_at.localeCompare(a.started_at)));
+          const [at, lastId] = before === undefined ? [undefined, undefined] : before.split("~");
+          const after = at === undefined ? all : all.filter((v) => v.started_at < at || (v.started_at === at && v.id < (lastId ?? "")));
+          const page = after.slice(0, 200);
+          const last = page.at(-1);
+          const firstLine = (sections: Partial<Record<string, string | null | undefined>>): string | null => {
+            for (const key of ["subjective", "objective", "assessment", "plan"]) {
+              for (const raw of (sections[key] ?? "").split("\n")) {
+                const line = raw.replace(/^\[\d{2}:\d{2}\]\s*/, "").replace(/^(?:[-*]|#{1,3})\s+/, "").trim();
+                if (line !== "") return line.length > 120 ? `${line.slice(0, 119).trimEnd()}…` : line;
+              }
+            }
+            return null;
+          };
+          const file = (a: FakeAttachment): C.HistoryFile => ({ id: a.id, kind: a.kind, mime_type: a.mime_type, label: a.label ?? null, created_at: a.created_at });
+          const visits = page.map((v): C.HistoryVisit => {
+            const notes = state.notes.filter((n) => n.visit_id === v.id && n.status === "signed" && !isReplaced(state, n.id));
+            const teeth: C.HistoryTooth[] = state.chartEntries
+              .filter((c) => c.visit_id === v.id && c.finding !== "sound")
+              .map((c) => {
+                const wired = wireChartEntry(c, state);
+                const work = wired.elsewhere ? "elsewhere" : wired.in_progress ? "in_progress" : wired.status === "planned" ? "planned" : c.procedure != null || ["filled", "crown", "root_canal", "implant"].includes(c.finding) ? "done" : "found";
+                return { tooth: c.tooth, finding: c.finding, procedure_key: c.procedure ?? null, label: wired.procedure?.label ?? null, work };
+              });
+            const procedures = state.procedures.filter((p) => p.visit_id === v.id && p.status !== "entered_in_error");
+            for (const p of procedures) {
+              if (p.tooth != null && !teeth.some((t) => t.tooth === p.tooth && t.label === p.name)) {
+                const twice = teeth.findIndex((t) => t.tooth === p.tooth && t.work === "done" && (t.label == null || p.name.toLowerCase().includes(t.label.toLowerCase())));
+                if (twice >= 0) teeth.splice(twice, 1);
+                teeth.push({ tooth: p.tooth, finding: null, procedure_key: null, label: p.name, work: p.status === "planned" ? "planned" : "done" });
+              }
+            }
+            const files = state.attachments.filter((a) => a.visit_id === v.id);
+            const images = files.filter((a) => a.kind === "photo" || a.kind === "xray");
+            const ended = v.ended_at ?? "9999";
+            const medicines = [
+              ...new Set(
+                state.prescriptions
+                  .filter((rx) => rx.patient_id === id && rx.status !== "cancelled")
+                  .filter((rx) => (rx.encounter_id != null ? rx.encounter_id === v.id : (rx.issued_at ?? rx.created_at) >= v.started_at && (rx.issued_at ?? rx.created_at) <= ended))
+                  .flatMap((rx) => rx.items.map((i) => i.drug_name ?? "")),
+              ),
+            ].filter((name) => name !== "");
+            const bills = state.invoices
+              .filter((i) => i.encounter_id === v.id && i.status === "issued")
+              .map((i) => {
+                const wired = wireInvoice(i, state, true);
+                return { id: i.id, number: i.number ?? null, status: i.status, total_paise: wired.total_paise, paid_paise: wired.paid_paise };
+              });
+            const clinician = memberRefOf(state, v.clinician_membership_id);
+            return {
+              id: v.id,
+              number: v.number,
+              status: v.status,
+              started_at: v.started_at,
+              ended_at: v.ended_at ?? null,
+              clinician: clinician ?? { id: v.clinician_membership_id, name: "" },
+              chief_complaint: v.chief_complaint ?? null,
+              teeth,
+              images: images.slice(0, 4).map(file),
+              image_count: images.length,
+              note_first_line: notes.length === 0 ? null : firstLine(notes[0]?.sections ?? {}),
+              medicines,
+              ...(money ? { bills } : {}),
+              plans: state.plans.filter((p) => p.visit_id === v.id).map((p) => ({ id: p.id, title: p.title, status: p.status })),
+              counts: {
+                notes: notes.length,
+                recordings: files.filter((a) => a.kind === "audio").length,
+                files: files.filter((a) => a.kind !== "audio" && a.kind !== "consent").length,
+                procedures: procedures.length,
+              },
+            };
+          });
+          const loose = before === undefined
+            ? state.attachments
+                .filter((a) => a.clinic_id === clinic && a.patient_id === id && a.visit_id == null && !["audio", "consent", "payment_proof"].includes(a.kind))
+                .sort((a, b) => b.created_at.localeCompare(a.created_at))
+                .slice(0, 50)
+                .map(file)
+            : [];
+          return reply({
+            visits,
+            loose_files: loose,
+            ...(after.length > page.length && last !== undefined ? { next_cursor: `${last.started_at}~${last.id}` } : {}),
+          } satisfies C.PatientHistory);
+        }),
+
       listVisits: (id, opts) =>
         respond(S.visitList, opts?.signal, async () => {
           const caller = await inClinic("clinical.read");

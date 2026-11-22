@@ -67,7 +67,7 @@ function choose(layout: P360Layout, user: string = PEOPLE.asha) {
 describe("Patient 360 in the new look: three layouts, one set of data", () => {
   it.each(LAYOUTS)("%s shows the same patient, chart, history and consent", async (layout) => {
     const user = userEvent.setup();
-    const { path, backend, number, visitNumber } = visitedPatient();
+    const { path, backend, number } = visitedPatient();
     choose(layout);
     renderPortal(path, { as: PEOPLE.asha, backend });
 
@@ -85,8 +85,9 @@ describe("Patient 360 in the new look: three layouts, one set of data", () => {
     const records = await screen.findByRole("heading", { level: 2, name: "Records" });
     const card = records.closest("section");
     if (card === null) throw new Error("the Records card is missing");
-    expect(within(card).getAllByRole("tab").map((t) => t.textContent)).toEqual(["History", "Plans", "Prescriptions", "Images", "Consent"]);
-    expect((await within(card).findAllByText(visitNumber)).length).toBeGreaterThan(0);
+    expect(within(card).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Plans", "Prescriptions", "Images", "Consent"]);
+    // The visits live on the history page, one click away.
+    expect((await screen.findByRole("button", { name: /^History/, hidden: true })).textContent).toMatch(/\d+ visits?/);
 
     // Consent is a tab of the same card.
     await user.click(within(card).getByRole("tab", { name: "Consent" }));

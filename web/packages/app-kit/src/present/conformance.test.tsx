@@ -17,6 +17,10 @@ afterEach(cleanup);
 const STYLES: Partial<Record<PresentStyleId, (m: PresentModel) => ReactElement>> = {
   painted: (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" onOpen={() => undefined} />,
 };
+/** Shared blocks a style can switch to; each must pass the same rules (slice 1b: Open wide, inside painted). */
+const BLOCKS: Record<string, (m: PresentModel) => ReactElement> = {
+  "painted, open wide": (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" onOpen={() => undefined} view="wide" />,
+};
 
 const empty = (): Snapshot => ({ ...structuredClone(aaravFixture.snapshot), teeth: [] });
 const FIXTURES: Record<string, () => Snapshot> = {
@@ -25,11 +29,29 @@ const FIXTURES: Record<string, () => Snapshot> = {
   empty,
 };
 
+/**
+ * The day the snapshot itself records for a fact id, read straight from its `*_on` fields (slice 1a-0),
+ * independently of the model: a fact must show it whenever it exists, and never a day that isn't there.
+ */
+function snapshotDay(snap: Snapshot, id: string): string | undefined {
+  const [toothText, kind = "", rest = ""] = id.split(":");
+  const t = snap.teeth.find((x) => String(x.tooth) === toothText);
+  if (t === undefined) return undefined;
+  const headline = (finding: string) => (t.finding === finding ? t.finding_on : undefined);
+  const problem = (p: string) => { const i = (t.problems ?? []).indexOf(p); return (i < 0 ? undefined : t.problems_on?.[i]) ?? headline(p); };
+  if (kind === "recommended") return t.recommended_on;
+  if (kind === "plan" || kind === "eruption") return undefined;
+  if (kind === "in_progress") return headline(rest);
+  if (kind === "work") return t.work?.find((w) => w.finding === rest)?.done_on ?? headline(rest);
+  if (["infection", "mobility", "bleeding", "pocket"].includes(kind)) return t.details?.condition_on;
+  return problem(kind);
+}
+
 describe("every shipped style has a conformance renderer", () => {
   it.each([...SHIPPED_STYLES])("%s", (id) => { expect(STYLES[id]).toBeDefined(); });
 });
 
-describe.each(Object.entries(STYLES))("conformance: %s", (_id, draw) => {
+describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conformance: %s", (_id, draw) => {
   describe.each(Object.entries(FIXTURES))("%s", (_name, snap) => {
     const setup = () => {
       const model = presentFacts(snap());
@@ -52,13 +74,15 @@ describe.each(Object.entries(STYLES))("conformance: %s", (_id, draw) => {
       expect(text).not.toMatch(/₹/);
     });
 
-    it("every recorded item has a solid badge, with its date where the snapshot has one", () => {
+    it("every recorded item has a solid badge, dated whenever the snapshot carries its *_on field", () => {
+      const s = snap();
       const { model, container } = setup();
       for (const f of model.facts) {
         const el = container.querySelector(`[data-fact="${f.id}"]`);
         const badge = el?.querySelector(".ps-badge-rec")?.textContent;
-        // TODO(present 1a-0): every finding gets a date; until then a bare "Recorded" is allowed
-        expect(badge, f.id).toMatch(f.recorded_on === undefined ? /^Recorded$/ : /^Recorded \d{1,2} [A-Z][a-z]{2}$/);
+        const day = snapshotDay(s, f.id);
+        expect(f.recorded_on, f.id).toBe(day);
+        expect(badge, f.id).toMatch(day === undefined ? /^Recorded$/ : /^Recorded \d{1,2} [A-Z][a-z]{2}$/);
       }
     });
 

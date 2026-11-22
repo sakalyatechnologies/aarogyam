@@ -36,6 +36,7 @@ pub mod family;
 pub mod files;
 pub mod finish;
 pub mod handoff;
+pub mod history;
 pub mod idempotency;
 pub mod identifiers;
 pub mod imports;

@@ -454,6 +454,13 @@ export type NewVisit = Schemas["NewVisit"];
 export type VisitStatus = "open" | "closed";
 
 export type Timeline = Schemas["Timeline"];
+export type PatientHistory = Schemas["PatientHistory"];
+export type HistoryVisit = Schemas["HistoryVisit"];
+export type HistoryTooth = Schemas["HistoryTooth"];
+export type HistoryFile = Schemas["HistoryFile"];
+export type HistoryBill = Schemas["HistoryBill"];
+export type HistoryPlan = Schemas["HistoryPlan"];
+export type HistoryCounts = Schemas["HistoryCounts"];
 export type TimelineEvent = Schemas["TimelineEvent"];
 export type TimelineEventKind = "visit" | "note" | "procedure" | "attachment";
 

@@ -250,6 +250,34 @@ pub async fn of_encounter(
     Ok(rows)
 }
 
+/// The chart entries recorded in any of the visits, in one statement, by visit then time.
+/// Only visits within reach: the caller passes visit ids it already checked, and the encounter
+/// join repeats the check for Own and Assigned reach.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn of_encounters(
+    conn: &mut PgConnection,
+    encounter_ids: &[Uuid],
+    member: Option<Uuid>,
+) -> Result<Vec<ChartRow>, DbError> {
+    let rows = sqlx::query_as!(
+        ChartRow,
+        r#"select r.id, r.encounter_id, r.tooth, r.data, r.status, r.supersedes_id, r.effective_at,
+                  r.verified_by, r.source
+           from aarogyam.specialty_records r
+           join aarogyam.encounters e on e.org_id = r.org_id and e.id = r.encounter_id
+           where r.encounter_id = any($1) and r.module = 'dental' and r.kind = 'tooth'
+             and app.clinical_in_reach(e.clinician_id, e.created_by, null, $2)
+           order by r.encounter_id, r.effective_at, r.id"#,
+        encounter_ids,
+        member
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
 /// The tooth's current status, locked until the transaction ends.
 ///
 /// # Errors

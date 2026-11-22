@@ -37,6 +37,7 @@ pub mod expenses;
 pub mod facts;
 pub mod family;
 pub mod handoff;
+pub mod history;
 pub mod identifiers;
 pub mod import_sessions;
 pub mod imports;

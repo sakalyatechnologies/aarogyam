@@ -114,6 +114,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::visits::list,
         crate::v1::visits::open,
         crate::v1::visits::timeline,
+        crate::v1::history::get,
         crate::v1::duplicates::list,
         crate::v1::duplicates::dismiss,
         crate::v1::duplicates::merge,

@@ -1,0 +1,111 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.id, e.number, e.status, e.chief_complaint, e.started_at, e.ended_at,\n                  e.clinician_id, coalesce(m.display_name, u.display_name) as clinician_name\n           from aarogyam.encounters e\n           left join aarogyam.memberships m on m.org_id = e.org_id and m.id = e.clinician_id\n           left join aarogyam.users u on u.id = m.user_id\n           where e.patient_id = $1\n             and app.clinical_in_reach(e.clinician_id, e.created_by, null, $5)\n             and ($2::timestamptz is null or (e.started_at, e.id) < ($2, $3::uuid))\n           order by e.started_at desc, e.id desc\n           limit $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "chief_complaint",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "chief_complaint"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "ended_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "ended_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "clinician_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "clinician_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "clinician_name",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Uuid",
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "1bc8cd709a2d89b6a91f60e0525b4575d506e61d06d5f356cda1bdace6ba4eb5"
+}

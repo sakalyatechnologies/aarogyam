@@ -11555,6 +11555,74 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/history": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The patient's history for the portal's full page, newest first: each visit with its teeth,\nfirst images, the first line of its signed note, medicines, bills (with `billing.read`) and\nplans, plus the files outside any visit. Up to 200 visits per page, so search and filters\nsee the whole history at once. Reading it writes the access record. `Cache-Control: no-store`.",
+        "operationId": "getPatientHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "The previous page's `next_cursor`",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most visits, 1 to 200 (default 200)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The page; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "before isn't a cursor from this endpoint, or limit is out of range"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/identifiers": {
       "get": {
         "tags": [
@@ -27371,6 +27439,281 @@
           }
         }
       },
+      "HistoryBill": {
+        "type": "object",
+        "description": "A bill of a visit.",
+        "required": [
+          "id",
+          "status",
+          "total_paise",
+          "paid_paise"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The bill."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its number once issued."
+          },
+          "paid_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Received against it, in paise."
+          },
+          "status": {
+            "type": "string",
+            "description": "`issued` (drafts have no total yet and stay off the card)."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The total in paise."
+          }
+        }
+      },
+      "HistoryCounts": {
+        "type": "object",
+        "description": "What a visit holds besides its card lines.",
+        "required": [
+          "notes",
+          "recordings",
+          "files",
+          "procedures"
+        ],
+        "properties": {
+          "files": {
+            "type": "integer",
+            "description": "Files other than recordings and consent scans.",
+            "minimum": 0
+          },
+          "notes": {
+            "type": "integer",
+            "description": "Signed notes.",
+            "minimum": 0
+          },
+          "procedures": {
+            "type": "integer",
+            "description": "Procedures.",
+            "minimum": 0
+          },
+          "recordings": {
+            "type": "integer",
+            "description": "Voice recordings.",
+            "minimum": 0
+          }
+        }
+      },
+      "HistoryFile": {
+        "type": "object",
+        "description": "A file on a visit card, or one outside any visit.",
+        "required": [
+          "id",
+          "kind",
+          "mime_type",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was added."
+          },
+          "id": {
+            "type": "string",
+            "description": "The file."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`photo`, `xray`, `report` or `document`."
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its tag: `OPG`, `X-ray` and so on."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "Its content type: only images ask for a preview link."
+          }
+        }
+      },
+      "HistoryPlan": {
+        "type": "object",
+        "description": "A plan proposed in a visit.",
+        "required": [
+          "id",
+          "title",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The plan."
+          },
+          "status": {
+            "type": "string",
+            "description": "`proposed`, `accepted`, `in_progress`, `completed` or `declined`."
+          },
+          "title": {
+            "type": "string",
+            "description": "Its title."
+          }
+        }
+      },
+      "HistoryTooth": {
+        "type": "object",
+        "description": "A tooth touched in a visit.",
+        "required": [
+          "tooth",
+          "work"
+        ],
+        "properties": {
+          "finding": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The chart finding (`caries`, `filled`, `crown` and so on) for chart entries; none for a\nprocedure recorded on its own."
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The procedure's label or name; none for a bare finding."
+          },
+          "procedure_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The procedure's id in the dental vocabulary, when the chart entry names one."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth number.",
+            "minimum": 0
+          },
+          "work": {
+            "type": "string",
+            "description": "`found`, `planned`, `in_progress`, `done` or `elsewhere` (work done at another clinic)."
+          }
+        }
+      },
+      "HistoryVisit": {
+        "type": "object",
+        "description": "One visit on the history page.",
+        "required": [
+          "id",
+          "number",
+          "status",
+          "started_at",
+          "clinician",
+          "teeth",
+          "images",
+          "image_count",
+          "medicines",
+          "plans",
+          "counts"
+        ],
+        "properties": {
+          "bills": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/HistoryBill"
+            },
+            "description": "The visit's bills. Absent without `billing.read`, and always for Sakalya support."
+          },
+          "chief_complaint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient came, as typed when the visit started."
+          },
+          "clinician": {
+            "$ref": "#/components/schemas/MemberRef",
+            "description": "The clinician."
+          },
+          "counts": {
+            "$ref": "#/components/schemas/HistoryCounts",
+            "description": "What else it holds."
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it ended."
+          },
+          "id": {
+            "type": "string",
+            "description": "The visit."
+          },
+          "image_count": {
+            "type": "integer",
+            "description": "All photos and X-rays in the visit.",
+            "minimum": 0
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryFile"
+            },
+            "description": "The first four photos and X-rays."
+          },
+          "medicines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Medicines prescribed, in order."
+          },
+          "note_first_line": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first line of the first signed note, at most 120 characters. Clinical text: this\nendpoint is for clinic staff only and never feeds a shared page."
+          },
+          "number": {
+            "type": "string",
+            "description": "Its number, `V-8`."
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryPlan"
+            },
+            "description": "Plans proposed in the visit."
+          },
+          "started_at": {
+            "type": "string",
+            "description": "When it started."
+          },
+          "status": {
+            "type": "string",
+            "description": "`open` or `closed`."
+          },
+          "teeth": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryTooth"
+            },
+            "description": "Teeth touched, in the order recorded."
+          }
+        }
+      },
       "HourBar": {
         "type": "object",
         "description": "Appointments starting in one local hour.",
@@ -36061,6 +36404,37 @@
               "$ref": "#/components/schemas/PatientFile"
             },
             "description": "Newest first."
+          }
+        }
+      },
+      "PatientHistory": {
+        "type": "object",
+        "description": "A page of the patient's history, newest first.",
+        "required": [
+          "visits",
+          "loose_files"
+        ],
+        "properties": {
+          "loose_files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryFile"
+            },
+            "description": "Files that belong to no visit, newest first (first page only, at most 50)."
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pass as `before` for the next page; absent on the last page."
+          },
+          "visits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryVisit"
+            },
+            "description": "The visits."
           }
         }
       },

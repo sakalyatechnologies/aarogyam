@@ -1,4 +1,4 @@
-Aarogyam Clinic is the staff app for clinics that run on Aarogyam. Doctors, front desk, assistants and owners each sign in and see only what their role allows.
+Aarogyam is the staff app for clinics that run on Aarogyam. Doctors, front desk, assistants and owners each sign in and see only what their role allows.
 
 Front desk
 • Find a patient by mobile number, or register a new one with consent and family.

@@ -1,4 +1,4 @@
-Aarogyam Clinic is for staff of clinics that use Aarogyam. Accounts are created by a clinic owner's invitation.
+Aarogyam is for staff of clinics that use Aarogyam. Accounts are created by a clinic owner's invitation.
 
 To review: on the sign-in screen tap "Use a password" and sign in with the demo account above. It is the owner of a demo clinic that holds only made-up patients, so every feature is visible and no real patient data is shown.
 

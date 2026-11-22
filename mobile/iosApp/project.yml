@@ -10,7 +10,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: 0.1.0
+    MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: 1
     # The Gradle and secrets phases read files outside the sandbox.
     ENABLE_USER_SCRIPT_SANDBOXING: NO
@@ -21,6 +21,11 @@ settings:
 packages:
   SakalyaUI:
     path: ../.deps/sakalya-mobile/ios/SakalyaUI
+  # Crashlytics and Analytics (no IDFA: FirebaseAnalyticsIdentitySupport is left out). The config
+  # goes into Release builds only (scripts/copy-firebase-config.sh).
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    exactVersion: 13.1.1
 targets:
   AarogyamStaff:
     type: application
@@ -29,6 +34,10 @@ targets:
       - AarogyamStaff
     dependencies:
       - package: SakalyaUI
+      - package: Firebase
+        product: FirebaseCrashlytics
+      - package: Firebase
+        product: FirebaseAnalytics
     preBuildScripts:
       - name: Build the shared Kotlin framework
         basedOnDependencyAnalysis: false
@@ -36,9 +45,22 @@ targets:
       - name: Write the Supabase settings
         basedOnDependencyAnalysis: false
         script: '"$SRCROOT/scripts/write-build-settings.sh"'
+      - name: Copy the Firebase config (Release only)
+        basedOnDependencyAnalysis: false
+        script: '"$SRCROOT/scripts/copy-firebase-config.sh"'
+    postBuildScripts:
+      - name: Upload Crashlytics symbols (Release only)
+        basedOnDependencyAnalysis: false
+        script: '"$SRCROOT/scripts/upload-crashlytics-symbols.sh"'
+        inputFiles:
+          - ${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}
+          - ${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${PRODUCT_NAME}
+          - ${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Info.plist
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist
+          - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.staff
+        PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.ios
         TARGETED_DEVICE_FAMILY: "1"
         # Interim store icon (docs/release.md); replace AppIcon-1024.png with the approved artwork.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -53,7 +75,7 @@ targets:
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) AARO_ENV_$(AAROGYAM_ENVIRONMENT)"
       configs:
         Debug:
-          PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.staff.demo
+          PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.ios.demo
         Release:
           AAROGYAM_ENVIRONMENT: Prod
     info:
@@ -66,12 +88,18 @@ targets:
         UILaunchScreen: {}
         # `aarogyam://invite#<token>` opens an invitation (the app handles it in AppModel).
         CFBundleURLTypes:
-          - CFBundleURLName: com.aarogyam.staff
+          - CFBundleURLName: com.aarogyam.ios
             CFBundleURLSchemes: [aarogyam]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         # "Send on WhatsApp" checks for WhatsApp before asking the server for the summary.
         LSApplicationQueriesSchemes: [whatsapp]
         ITSAppUsesNonExemptEncryption: false
+        # Firebase: no ad signals, no ad-network registration, no IDFV, and no swizzling of the
+        # push delegate (push stays ours, through APNs).
+        GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS: false
+        GOOGLE_ANALYTICS_REGISTRATION_WITH_AD_NETWORK_ENABLED: false
+        GOOGLE_ANALYTICS_IDFV_COLLECTION_ENABLED: false
+        FirebaseAppDelegateProxyEnabled: false
         NSCameraUsageDescription: Take photos of teeth and X-rays for the patient's record. Photos are resized on the phone and sent to your clinic only.
         NSSpeechRecognitionUsageDescription: Dictate visit notes. Speech is turned into text on the phone when the language allows it, and the recording is never kept.
         NSMicrophoneUsageDescription: Dictate visit notes by voice. The microphone is only on while you dictate, and the recording is never kept.
@@ -94,7 +122,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.staff.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.ios.tests
   # T12: the two-phone visit, driven by scripts/e2e-visit.sh against the local API. Not in the gate's scheme.
   AarogyamStaffE2E:
     type: bundle.ui-testing
@@ -106,7 +134,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.staff.e2e
+        PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.ios.e2e
         TEST_TARGET_NAME: AarogyamStaff
 schemes:
   AarogyamStaff:

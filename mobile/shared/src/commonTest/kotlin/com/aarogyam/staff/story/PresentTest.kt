@@ -1,0 +1,108 @@
+package com.aarogyam.staff.story
+
+import com.aarogyam.staff.FakeBackend
+import com.aarogyam.staff.SUNRISE
+import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.apiError
+import com.aarogyam.staff.json
+import com.aarogyam.staff.openClinic
+import com.aarogyam.staff.testGraph
+import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class PresentTest {
+    private val route = "$SUNRISE/api/v1/visits/v1/mouth"
+    private val mouth = """{"story_version":1,"dentition":"permanent","teeth":[{"tooth":36,"note":"line break"}]}"""
+
+    private suspend fun TestScope.open(
+        backend: FakeBackend,
+        permissions: List<String> = listOf("clinical.read"),
+    ): PresentStateHolder {
+        val graph = testGraph(backend, backgroundScope)
+        val clinic = openClinic(backend, graph, this, permissions)
+        return graph.present(clinic, "v1", backgroundScope)
+    }
+
+    @Test
+    fun the_snapshot_goes_to_the_page_untouched_once_it_is_ready_and_again_for_dark() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(route, { json(mouth) })
+            val present = open(backend)
+            present.onPageMessage("""{"type":"ready","bundle_version":1}""")
+            val script = present.scripts.first()
+            assertEquals(PresentState.Showing, present.state.value)
+            assertTrue(script.startsWith("window.aarogyam.present({"), script)
+            assertTrue(script.endsWith(""", {"dark":false})"""), script)
+            assertTrue("\\u2028" in script && " " !in script, "a line separator is escaped for the script")
+            val sent =
+                script
+                    .removePrefix(
+                        "window.aarogyam.present(",
+                    ).substringBefore(", {\"dark\"")
+                    .replace("\\u2028", " ")
+            assertEquals(Json.parseToJsonElement(mouth).jsonObject, Json.parseToJsonElement(sent).jsonObject)
+            present.setDark(true)
+            assertTrue(present.scripts.first().endsWith(""", {"dark":true})"""))
+        }
+
+    @Test
+    fun a_bundle_this_build_does_not_know_is_not_driven() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(route, { json(mouth) })
+            val present = open(backend)
+            present.onPageMessage("""{"type":"ready","bundle_version":99}""")
+            assertEquals(PresentState.Unsupported, present.state.value)
+        }
+
+    @Test
+    fun a_refused_snapshot_says_why_and_needs_clinical_read() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(route, { apiError(HttpStatusCode.NotFound, "not_found") })
+            val present = open(backend)
+            assertEquals(PresentState.Failed(ScreenError.NotFound), present.state.first { it is PresentState.Failed })
+            val none = open(FakeBackend(), permissions = listOf("patients.read"))
+            assertEquals(PresentState.Failed(ScreenError.NotAllowed), none.state.value)
+        }
+
+    @Test
+    fun exit_and_add_depth_reach_the_screen() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(route, { json(mouth) })
+            val present = open(backend)
+            present.onPageMessage("""{"type":"add_depth","tooth":36}""")
+            present.onPageMessage("""{"type":"exit"}""")
+            assertEquals(PresentEvent.AddDepth(36), present.events.first())
+            assertEquals(PresentEvent.Exit, present.events.first())
+        }
+
+    @Test
+    fun page_messages_are_read_strictly_and_junk_is_ignored() {
+        val chunk = assertIs<PageMessage.Chunk>(StoryBridge.parse("""{"type":"chunk","seq":2,"base64":"AAEC"}"""))
+        assertEquals(2, chunk.seq)
+        assertEquals(listOf<Byte>(0, 1, 2), chunk.bytes.toList())
+        assertEquals(PageMessage.Progress(1.0), StoryBridge.parse("""{"type":"progress","value":1.4}"""))
+        assertEquals(PageMessage.Done(2_100_000), StoryBridge.parse("""{"type":"done","bytes":2100000}"""))
+        assertEquals(PageMessage.Failed("no_encoder"), StoryBridge.parse("""{"type":"failed","reason":"no_encoder"}"""))
+        assertNull(StoryBridge.parse("""{"type":"chunk","seq":1,"base64":"%%"}"""))
+        assertNull(StoryBridge.parse("""{"type":"ready"}"""))
+        assertNull(StoryBridge.parse("""{"type":"later"}"""))
+        assertNull(StoryBridge.parse("not json"))
+        assertTrue(StoryBridge.wentBack("true"))
+        assertFalse(StoryBridge.wentBack("false"))
+        assertFalse(StoryBridge.wentBack(null))
+    }
+}

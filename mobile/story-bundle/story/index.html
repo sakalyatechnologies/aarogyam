@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+<title>Story placeholder</title>
+<style>
+  :root { color-scheme: light dark; --bg: #fbfaf7; --fg: #1d1b18; --muted: #6b665e; }
+  .dark { --bg: #161513; --fg: #f1ede6; --muted: #a39d93; }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg); font: 18px/1.4 system-ui, sans-serif; }
+  ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  li { min-width: 56px; min-height: 56px; display: grid; place-items: center; border: 1px solid var(--muted); border-radius: 12px; }
+  p { color: var(--muted); }
+</style>
+</head>
+<body>
+<h1>Mouth view</h1>
+<p id="state">Placeholder bundle: the real one comes from web/.</p>
+<ul id="teeth"></ul>
+<script>
+  // Placeholder for the bridge in shared/…/story/StoryBridge.kt; replaced by the web build.
+  (function () {
+    function post(message) {
+      var text = JSON.stringify(message);
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.aarogyam) {
+        window.webkit.messageHandlers.aarogyam.postMessage(text);
+      } else if (window.AarogyamBridge) {
+        window.AarogyamBridge.post(text);
+      }
+    }
+    var detail = null;
+    window.aarogyam = {
+      present: function (mouth, options) {
+        document.documentElement.className = options && options.dark ? "dark" : "";
+        var list = document.getElementById("teeth");
+        list.textContent = "";
+        (mouth.teeth || []).forEach(function (t) {
+          var item = document.createElement("li");
+          item.textContent = String(t.tooth);
+          item.onclick = function () { detail = t.tooth; document.getElementById("state").textContent = "Tooth " + t.tooth; };
+          list.appendChild(item);
+        });
+        document.getElementById("state").textContent = (mouth.teeth || []).length + " teeth";
+      },
+      back: function () {
+        if (detail === null) return false;
+        detail = null;
+        document.getElementById("state").textContent = "All teeth";
+        return true;
+      },
+      render: function () { post({ type: "failed", reason: "placeholder" }); },
+      cancel: function () {}
+    };
+    post({ type: "ready", bundle_version: 1 });
+  })();
+</script>
+</body>
+</html>

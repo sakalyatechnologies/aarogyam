@@ -1,11 +1,9 @@
 package com.aarogyam.staff.chart
 
 import com.aarogyam.staff.ScreenError
-import com.aarogyam.staff.api.ToothDetailKind
 import com.aarogyam.staff.api.model.NewToothEruption
 import com.aarogyam.staff.api.setToothCondition
 import com.aarogyam.staff.api.setToothEruption
-import com.aarogyam.staff.api.toothDetailInError
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Logger
@@ -29,8 +27,8 @@ data class DetailSaveState(
 /**
  * The tooth sheet's detail chips (spec 1.13): infection, bleeding, pocket and mobility (one merge
  * PUT per tap), the wisdom tooth's eruption and angle, and the decay depth. Each tap shows at once
- * and is put back if refused. Untapping the last recorded condition removes the row as entered in
- * error, because the server keeps no empty condition.
+ * and is put back if refused. Untapping the last recorded condition leaves the tooth with none (the
+ * server supersedes the row and keeps it in history).
  */
 internal class ToothDetailEditor(
     private val clinic: ClinicContext,
@@ -106,8 +104,9 @@ internal class ToothDetailEditor(
         if (mutableState.value.saving) return
         val before = chart.conditionOf(tooth)
         val after = change(before ?: ToothConditionView())
-        if (!after.recorded) return removeCondition(tooth)
-        chart.applyCondition(tooth, after)
+        // Clearing a tooth with no condition is refused, and would change nothing.
+        if (before == null && !after.recorded) return
+        chart.applyCondition(tooth, after.takeIf { it.recorded })
         saving()
         scope.launch {
             when (
@@ -120,7 +119,10 @@ internal class ToothDetailEditor(
             ) {
                 is Outcome.Success -> {
                     log.info("chart.condition_set")
-                    chart.applyCondition(tooth, conditionsOf(listOf(answer.value), clinic.timeZone)[tooth])
+                    chart.applyCondition(
+                        tooth,
+                        conditionsOf(listOf(answer.value), clinic.timeZone)[tooth]?.takeIf { it.recorded },
+                    )
                     mutableState.value = DetailSaveState()
                 }
 
@@ -157,37 +159,6 @@ internal class ToothDetailEditor(
         }
     }
 
-    /**
-     * The last recorded chip was untapped: the server keeps no empty condition, so the row comes
-     * off as entered in error.
-     */
-    private fun removeCondition(tooth: Int) {
-        val condition = chart.conditionOf(tooth) ?: return
-        chart.applyCondition(tooth, null)
-        saving()
-        scope.launch {
-            when (
-                val answer =
-                    clinic.api.toothDetailInError(
-                        chart.patientId,
-                        tooth,
-                        ToothDetailKind.Condition,
-                        REMOVED,
-                    )
-            ) {
-                is Outcome.Success -> {
-                    log.info("chart.condition_removed")
-                    mutableState.value = DetailSaveState()
-                }
-
-                is Outcome.Failure -> {
-                    chart.applyCondition(tooth, condition)
-                    failed("chart.condition_remove_failed", answer.error)
-                }
-            }
-        }
-    }
-
     private fun saving() {
         mutableState.value = DetailSaveState(saving = true)
     }
@@ -198,10 +169,5 @@ internal class ToothDetailEditor(
     ) {
         log.warn(event) { code("error", error.code.value) }
         mutableState.value = DetailSaveState(error = ScreenError.of(error))
-    }
-
-    private companion object {
-        /** The reason sent when a chip is untapped and nothing else is left on the row. */
-        const val REMOVED = "Removed on the tooth sheet"
     }
 }

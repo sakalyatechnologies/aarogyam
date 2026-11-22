@@ -154,6 +154,10 @@
     <string name="vv_wa_preview_more">Show the whole message</string>
     <string name="vv_wa_preview_less">Show less</string>
     <string name="vv_wa_stand_in">The real link and PIN are made when you send.</string>
+    <string name="vv_present_failed">Couldn’t load the mouth view. Check the connection and try again.</string>
+    <string name="vv_present_unsupported">This app version can’t show the mouth view. Update the app.</string>
+    <string name="vv_present_retry">Try again</string>
+    <string name="vv_present_close">Close</string>
     <string name="vv_dv10_fu_none">Not needed</string>
     <string name="vv_dv10_fu_onemonth">1 month</string>
     <string name="vv_dv10_fu_oneweek">1 week</string>

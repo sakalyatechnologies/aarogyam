@@ -1,4 +1,5 @@
 import AarogyamShared
+import FirebaseCore
 import os
 import UIKit
 import UserNotifications
@@ -7,7 +8,7 @@ import UserNotifications
 /// front and routes a tap. Logs codes only: never the token or a notification's text.
 @MainActor
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
-    private let log = Logger(subsystem: "com.aarogyam.staff", category: "push")
+    private let log = Logger(subsystem: "com.aarogyam.ios", category: "push")
     /// Set by the app once its model exists; a token or tap that came first waits here.
     weak var model: AppModel? { didSet { flush() } }
     private var token: String?
@@ -15,6 +16,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // Crashlytics and Analytics run only in a build that carries the Firebase config (Release).
+        if Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
+            FirebaseApp.configure()
+        }
         return true
     }
 

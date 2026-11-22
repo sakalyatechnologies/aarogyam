@@ -154,6 +154,10 @@
     <string name="vv_wa_preview_more">पूरा संदेश देखें</string>
     <string name="vv_wa_preview_less">कम दिखाएँ</string>
     <string name="vv_wa_stand_in">असली लिंक और PIN भेजते समय बनते हैं।</string>
+    <string name="vv_present_failed">मुँह का दृश्य लोड नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें।</string>
+    <string name="vv_present_unsupported">ऐप का यह संस्करण मुँह का दृश्य नहीं दिखा सकता। ऐप अपडेट करें।</string>
+    <string name="vv_present_retry">फिर कोशिश करें</string>
+    <string name="vv_present_close">बंद करें</string>
     <string name="vv_dv10_fu_none">ज़रूरी नहीं</string>
     <string name="vv_dv10_fu_onemonth">1 महीना</string>
     <string name="vv_dv10_fu_oneweek">1 सप्ताह</string>

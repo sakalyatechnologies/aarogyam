@@ -154,6 +154,10 @@
     <string name="vv_wa_preview_more">पूर्ण संदेश पाहा</string>
     <string name="vv_wa_preview_less">कमी दाखवा</string>
     <string name="vv_wa_stand_in">खरी लिंक आणि PIN पाठवताना तयार होतात.</string>
+    <string name="vv_present_failed">तोंडाचे दृश्य लोड झाले नाही. कनेक्शन तपासून पुन्हा प्रयत्न करा.</string>
+    <string name="vv_present_unsupported">ॲपच्या या आवृत्तीत तोंडाचे दृश्य दिसत नाही. ॲप अपडेट करा.</string>
+    <string name="vv_present_retry">पुन्हा प्रयत्न करा</string>
+    <string name="vv_present_close">बंद करा</string>
     <string name="vv_dv10_fu_none">गरज नाही</string>
     <string name="vv_dv10_fu_onemonth">1 महिना</string>
     <string name="vv_dv10_fu_oneweek">1 आठवडा</string>

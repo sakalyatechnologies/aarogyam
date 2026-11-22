@@ -10,12 +10,14 @@ import aaravFixture from "../../../../../specialties/dental/fixtures/mouth-aarav
 import type { Snapshot } from "../mouth-view/model.js";
 import { dottedTeeth, presentFacts, type PresentModel } from "./model.js";
 import { PaintedStyle } from "./painted.js";
+import { StoryStyle } from "./story.js";
 import { ToothSheet } from "./tooth-sheet.js";
 import { SHIPPED_STYLES, type PresentStyleId } from "./styles.js";
 
 afterEach(cleanup);
 
 const STYLES: Partial<Record<PresentStyleId, (m: PresentModel) => ReactElement>> = {
+  story: (m) => <StoryStyle model={m} orientation="mirror" onOrientation={() => undefined} theme="light" stacked />,
   painted: (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" onOpen={() => undefined} />,
 };
 /** Shared blocks a style can switch to; each must pass the same rules (slice 1b: Open wide, inside painted). */
@@ -62,16 +64,18 @@ describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conforman
 
     it("'What we found' lists exactly the facts, and nothing about crowding or gums", () => {
       const { model, container } = setup();
-      const listed = [...container.querySelectorAll("[data-fact]")].map((el) => el.getAttribute("data-fact"));
+      const listed = [...container.querySelectorAll(".ps-found [data-fact]")].map((el) => el.getAttribute("data-fact"));
       expect(listed).toEqual(model.facts.map((f) => f.id));
       const found = container.querySelector(".ps-found")?.textContent ?? "";
       expect(found).not.toMatch(/crowd|recession|gum line/i);
     });
 
     it("shows no shade code, no unbacked visit number and no price", () => {
-      const { text } = setup();
+      const { text, container } = setup();
       expect(text).not.toMatch(/\bA(1|2|3|3\.5)\b/);
-      expect(text).not.toMatch(/Visit \d/);
+      // "Visit N" only inside a record-backed step row (the story's tooth cards hold tooth sheets)
+      const outside = [...container.querySelectorAll("*")].filter((el) => el.closest("[data-step-state]") === null && el.children.length === 0).map((el) => el.textContent).join(" ");
+      expect(outside).not.toMatch(/Visit \d/);
       expect(text).not.toMatch(/₹/);
     });
 
@@ -79,7 +83,7 @@ describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conforman
       const s = snap();
       const { model, container } = setup();
       for (const f of model.facts) {
-        const el = container.querySelector(`[data-fact="${f.id}"]`);
+        const el = container.querySelector(`.ps-found [data-fact="${f.id}"]`);
         const badge = el?.querySelector(".ps-badge-rec")?.textContent;
         const day = snapshotDay(s, f.id);
         expect(f.recorded_on, f.id).toBe(day);

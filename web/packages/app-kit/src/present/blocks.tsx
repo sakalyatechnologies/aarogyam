@@ -136,6 +136,8 @@ export interface SwitcherOption {
   /** Why it can't be chosen ("Coming soon", "No X-ray for this visit"). */
   disabled?: string | undefined;
   beta?: boolean | undefined;
+  /** A short tag on a style that can be chosen ("Default"). */
+  note?: string | undefined;
   /** Starts a new group under a line (the doctor's chart looks). */
   separate?: boolean | undefined;
 }
@@ -187,7 +189,7 @@ export function StyleSwitcher({ options, value, onChange, label = "Style" }: { o
             <li key={o.id} id={`${id}-${o.id}`} role="option" aria-selected={o.id === value} aria-disabled={o.disabled === undefined ? undefined : true}
               className="ps-switch-opt" data-active={o.id === active ? "" : undefined} data-separate={o.separate === true ? "" : undefined}
               onClick={() => { choose(o); }}>
-              <span>{o.label}{o.beta === true ? <span className="ps-beta">Beta</span> : null}</span>
+              <span>{o.label}{o.beta === true ? <span className="ps-beta">Beta</span> : null}{o.note === undefined || o.disabled !== undefined ? null : <span className="ps-default">{o.note}</span>}</span>
               {o.disabled === undefined ? (o.id === value ? <span className="ps-check" aria-hidden="true">✓</span> : null) : <span className="ps-soon">{o.disabled}</span>}
             </li>
           ))}

@@ -144,25 +144,28 @@ function hasWebGL(): boolean {
 export interface ToothSheetProps {
   model: PresentModel;
   tooth: number;
-  onBack: () => void;
+  onBack?: (() => void) | undefined;
+  /** Inside a story card: no "Back" button, no Esc handling and no focus grab. */
+  embedded?: boolean | undefined;
   /** Lazy 3D module (`import("@aarogyam/app-kit/real-teeth-3d")`); without it there is no "See in 3D". */
   load3d?: (() => Promise<{ mountTooth3d: (canvas: HTMLCanvasElement, opts: Tooth3dOptions) => Tooth3dHandle }>) | undefined;
 }
 
-export function ToothSheet({ model, tooth, onBack, load3d }: ToothSheetProps): ReactElement {
+export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: ToothSheetProps): ReactElement {
   const c = useMemo(() => sheetContent(model, tooth), [model, tooth]);
   const tf: ToothFacts | undefined = model.teeth.find((t) => t.tooth === tooth);
   const record = tf?.record;
   const { art, failed } = useSheetArt(c, tooth);
   const back = useRef<HTMLButtonElement>(null);
-  const goBack = useEffectEvent(onBack);
+  const goBack = useEffectEvent(() => { onBack?.(); });
   useEffect(() => {
+    if (embedded) return;
     back.current?.focus({ preventScroll: true });
     // Esc goes back to the map; it never leaves Present
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); goBack(); } };
     window.addEventListener("keydown", onKey, true);
     return () => { window.removeEventListener("keydown", onKey, true); };
-  }, []);
+  }, [embedded]);
 
   const pair = useMemo(() => {
     if (art === undefined) return undefined;
@@ -212,10 +215,10 @@ export function ToothSheet({ model, tooth, onBack, load3d }: ToothSheetProps): R
   const recordedWords = c.facts.length > 0 ? ["The pictures and this list come from this visit's record."] : [];
   return (
     <section className="ps-sheet" data-tooth-sheet={tooth} aria-label={label}>
-      <button ref={back} type="button" className="pm-chip ps-sheet-back" onClick={onBack}>
+      {embedded ? null : <button ref={back} type="button" className="pm-chip ps-sheet-back" onClick={onBack}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
         Back to the map
-      </button>
+      </button>}
       <header className="ps-sheet-head">
         <h3 className="ps-sheet-title">{`${c.where} · ${String(tooth)}`}</h3>
         {c.facts.length === 0 ? <p className="ps-muted">{c.recorded_tooth ? "Nothing to treat is recorded on this tooth." : "Nothing was recorded for this tooth at this visit. That doesn't mean it is healthy or unhealthy."}</p> : (

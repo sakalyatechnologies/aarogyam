@@ -35,7 +35,7 @@ const toothEl = (shell: HTMLElement, n: number): HTMLElement | SVGElement => {
 
 const WAIT = { timeout: 20_000 };
 
-/** Show patient opens on the painted map; "Chart" in the style switcher draws the doctor's chart look. */
+/** Show patient opens on story cards (painted is one pick away); "Chart" in the style switcher draws the doctor's chart look. */
 async function showChart(shell: HTMLElement) {
   fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
   fireEvent.click(within(shell).getByRole("option", { name: "Chart" }));
@@ -188,34 +188,38 @@ describe("Present mode (§1.12)", () => {
     expect(await drawn(shell, 32)).toEqual([...ARCHES.adult.upper, ...ARCHES.adult.lower]);
   });
 
-  it("opens on the painted map: dots on the recorded teeth, 'What we found', the dashed painting badge; a dot opens the tooth sheet", async () => {
+  it("opens on story cards: the map card first, the dots open the tooth sheet; Painted smile is one pick away", async () => {
     const user = userEvent.setup();
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    expect(await within(shell).findByRole("button", { name: /^Style\s*Painted smile/ }, WAIT)).toBeTruthy();
-    await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
-    expect([...shell.querySelectorAll(".ps-dot")].map((d) => Number(d.getAttribute("data-tooth")))).toEqual([55, 21, 65, 75]);
+    expect(await within(shell).findByRole("button", { name: /^Style\s*Story cards/ }, WAIT)).toBeTruthy();
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='story']")).not.toBeNull(); }, WAIT);
+    expect(shell.querySelector("[data-story-card='mouth']")).not.toBeNull();
+    await waitFor(() => { expect([...shell.querySelectorAll(".ps-dot")].map((d) => Number(d.getAttribute("data-tooth")))).toEqual([55, 21, 65, 75]); }, WAIT);
     expect(within(shell).getByText("Painting based on your record")).toBeTruthy();
-    expect(within(shell).getByRole("region", { name: "What we found" })).toBeTruthy();
     expect(within(shell).queryByRole("group", { name: "Chart look" })).toBeNull();
+    await user.click(within(shell).getByRole("button", { name: "Next card" }));
+    expect(within(shell).getByRole("region", { name: "What we found" })).toBeTruthy();
+    fireEvent.click(within(shell).getByRole("button", { name: "Previous card" }));
     const dot = shell.querySelector('.ps-dot[data-tooth="21"]');
     if (dot === null) throw new Error("no dot on 21");
     fireEvent.click(dot);
-    expect(shell.querySelector("[data-tooth-sheet='21']")).not.toBeNull();
-    await user.click(within(shell).getByRole("button", { name: "Back to the map" }));
-    expect(shell.querySelector("[data-tooth-sheet]")).toBeNull();
+    expect(shell.querySelector("[data-tooth-sheet='21'], [data-story-card^='tooth:']")).not.toBeNull();
+    fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
+    fireEvent.click(within(shell).getByRole("option", { name: /Painted smile/ }));
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
     expect(shell.querySelector(".ps-dot[data-tooth='21']")).not.toBeNull();
   });
 
-  it("the switcher lists the five styles in order, only Painted ready; Chart shows the chart looks and back", async () => {
+  it("the switcher lists the five styles in order, Story cards and Painted ready; Chart shows the chart looks and back", async () => {
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
     const names = within(shell).getAllByRole("option").map((o) => [o.textContent, o.getAttribute("aria-disabled")]);
     expect(names).toEqual([
-      ["Story cardsComing soon", "true"], ["Painted smile✓", null], ["Own X-rayComing soon", "true"],
+      ["Story cardsDefault✓", null], ["Painted smile", null], ["Own X-rayComing soon", "true"],
       ["3D smileBetaComing soon", "true"], ["Face to toothBetaComing soon", "true"], ["Chart", null],
     ]);
     fireEvent.click(within(shell).getByRole("option", { name: "Chart" }));
@@ -226,11 +230,11 @@ describe("Present mode (§1.12)", () => {
     await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
   });
 
-  it("the painted map and the open switcher have no axe violations", async () => {
+  it("the story cards and the open switcher have no axe violations", async () => {
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='story']")).not.toBeNull(); }, WAIT);
     const run = async () => (await axe.run(shell, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } })).violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
     expect(await run()).toEqual([]);
     fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));

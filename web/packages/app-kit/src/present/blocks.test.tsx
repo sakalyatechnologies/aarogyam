@@ -5,7 +5,7 @@ import aaravFixture from "../../../../../specialties/dental/fixtures/mouth-aarav
 import { RecordBadge, StyleSwitcher, TextFallback, useChunk } from "./blocks.js";
 import { presentFacts } from "./model.js";
 import { PaintedStyle } from "./painted.js";
-import { PRESENT_STYLES, isShipped } from "./styles.js";
+import { DEFAULT_STYLE, PRESENT_STYLES, isShipped } from "./styles.js";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
@@ -20,14 +20,15 @@ describe("badges", () => {
 });
 
 describe("style switcher", () => {
-  const options = [...PRESENT_STYLES.map((s) => ({ id: s.id, label: s.label, beta: s.beta, disabled: isShipped(s.id) ? undefined : "Coming soon" })), { id: "chart", label: "Chart", separate: true }];
+  const options = [...PRESENT_STYLES.map((s) => ({ id: s.id, label: s.label, beta: s.beta, disabled: isShipped(s.id) ? undefined : "Coming soon", note: s.id === DEFAULT_STYLE ? "Default" : undefined })), { id: "chart", label: "Chart", separate: true }];
 
-  it("lists the five styles in the ranking order, only painted enabled, then the chart", () => {
+  it("lists the five styles in the ranking order, story and painted enabled, then the chart", () => {
     render(<StyleSwitcher options={options} value="painted" onChange={() => undefined} />);
     fireEvent.click(screen.getByRole("button", { name: /Style/ }));
     const opts = screen.getAllByRole("option");
-    expect(opts.map((o) => o.textContent.replace(/Coming soon|Beta|✓/g, ""))).toEqual(["Story cards", "Painted smile", "Own X-ray", "3D smile", "Face to tooth", "Chart"]);
-    expect(opts.filter((o) => o.getAttribute("aria-disabled") === "true").map((o) => o.id.split("-").pop())).toEqual(["story", "xray", "smile3d", "face"]);
+    expect(opts.map((o) => o.textContent.replace(/Coming soon|Beta|Default|✓/g, ""))).toEqual(["Story cards", "Painted smile", "Own X-ray", "3D smile", "Face to tooth", "Chart"]);
+    expect(opts.filter((o) => o.getAttribute("aria-disabled") === "true").map((o) => o.id.split("-").pop())).toEqual(["xray", "smile3d", "face"]);
+    expect(opts[0]?.textContent).toContain("Default");
     expect(opts[1]?.getAttribute("aria-selected")).toBe("true");
   });
 
@@ -35,7 +36,7 @@ describe("style switcher", () => {
     const onChange = vi.fn();
     render(<StyleSwitcher options={options} value="painted" onChange={onChange} />);
     fireEvent.click(screen.getByRole("button", { name: /Style/ }));
-    fireEvent.click(screen.getByRole("option", { name: /Story cards/ }));
+    fireEvent.click(screen.getByRole("option", { name: /Own X-ray/ }));
     expect(onChange).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("option", { name: /Chart/ }));
     expect(onChange).toHaveBeenCalledWith("chart");

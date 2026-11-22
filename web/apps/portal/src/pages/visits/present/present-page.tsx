@@ -16,7 +16,7 @@ import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import "@aarogyam/app-kit/mouth-view.css";
 import {
-  DEFAULT_STYLE, HoldToExit, PRESENT_STYLES, PaintedSlot, StyleSwitcher, isShipped, presentFacts,
+  DEFAULT_STYLE, HoldToExit, PRESENT_STYLES, PaintedSlot, StorySlot, StyleSwitcher, isShipped, presentFacts,
   type Orientation, type PaintedView, type PresentStyleId, type ShadeKnob, type SwitcherOption,
 } from "@aarogyam/app-kit/present";
 import "@aarogyam/app-kit/hold-to-exit.css";
@@ -39,7 +39,7 @@ const TABS: readonly Tab[] = ["teeth", "xrays"];
 /** A Show patient style, or the doctor's chart look. */
 type View = PresentStyleId | "chart";
 const VIEWS: readonly SwitcherOption[] = [
-  ...PRESENT_STYLES.map((s) => ({ id: s.id, label: s.label, beta: s.beta, disabled: isShipped(s.id) ? undefined : "Coming soon" })),
+  ...PRESENT_STYLES.map((s) => ({ id: s.id, label: s.label, beta: s.beta, disabled: isShipped(s.id) ? undefined : "Coming soon", note: s.id === DEFAULT_STYLE ? "Default" : undefined })),
   { id: "chart", label: "Chart", separate: true },
 ];
 const isView = (v: string): v is View => VIEWS.some((o) => o.id === v);
@@ -147,7 +147,9 @@ export function PresentPage() {
             toothExtras={patientId === undefined ? undefined : (tooth) => <AddDepth snapshot={mouth.data} tooth={tooth} patientId={patientId} visitId={visitId} />}
             overview={view === "chart"
               ? (chart.data === undefined ? undefined : (slot) => <PresentChart look={look} dentition={dentition} chart={chart.data} planItems={planItems} slot={slot} />)
-              : model === undefined ? undefined : (slot) => (
+              : model === undefined ? undefined : view === "story" ? (slot) => (
+                <StorySlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} />
+              ) : (slot) => (
                 <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} toothSheet />
               )}
           />

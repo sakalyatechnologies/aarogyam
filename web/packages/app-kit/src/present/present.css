@@ -193,3 +193,40 @@ div.ps-found-item { cursor: default; }
 .ps-cmp-side[data-end] { justify-items: end; text-align: right; }
 @media (max-width: 640px) { .ps-pair { gap: 8px; } .ps-cmp-cap { flex-direction: column; } .ps-cmp-side[data-end] { justify-items: start; text-align: left; } }
 @media (min-width: 1000px) { .ps-sheet { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } .ps-sheet > * { grid-column: auto; } .ps-sheet-back, .ps-sheet-head, .ps-sheet-steps, .ps-sheet-usual, .ps-sheet > .ps-prov { grid-column: 1 / -1; } }
+
+/* Story cards (slice 1d) and the font fix: Present components use the app's own font stack, never the browser's serif default */
+.pm-shell, .pm-shell :is(h1, h2, h3, h4, h5, h6, button, input, select, textarea, figcaption, small, b) { font-family: inherit; }
+.pm-shell { font-family: var(--font-sans, "Plus Jakarta Sans", Inter, system-ui, -apple-system, "Segoe UI", sans-serif); }
+.ps-story { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; width: 100%; margin-top: 12px; padding-bottom: 8px; }
+.ps-deck { touch-action: pan-y; }
+.ps-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; background: var(--mv-card); border: 1px solid var(--mv-line); border-radius: 22px; padding: clamp(14px, 2vw, 24px); animation: ps-in .25s ease-out; }
+.ps-story[data-stacked] .ps-card, .ps-deck > .ps-card + .ps-card { margin-top: 12px; }
+@keyframes ps-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ps-card { animation: none; } }
+.ps-eyebrow { margin: 0; font-size: 14px; font-weight: 650; color: var(--mv-brand); }
+.ps-card-h { margin: 0; font-size: clamp(24px, 2.4vw, 32px); line-height: 1.2; letter-spacing: -.01em; }
+.ps-card .ps-sheet-title { font-size: 20px; }
+.ps-plan, .ps-discuss { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ps-plan .ps-fact { padding: 12px 14px; border: 1px solid var(--mv-line); border-radius: 14px; }
+.ps-next { margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--mv-amber-soft); color: var(--mv-amber); font-weight: 650; }
+.ps-tick { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 12px 6px 8px; text-align: left; border: 1px solid var(--mv-line); border-radius: 14px; background: var(--mv-card); color: var(--mv-text); font: inherit; cursor: pointer; }
+.ps-tick small { display: block; color: var(--mv-muted); font-size: 14px; }
+.ps-tickbox { flex: none; width: 40px; height: 40px; border-radius: 10px; border: 2px solid var(--mv-line); display: grid; place-items: center; font-size: 22px; font-weight: 800; color: var(--mv-on-brand); }
+.ps-tick[aria-pressed="true"] .ps-tickbox { background: var(--mv-brand); border-color: var(--mv-brand); }
+.ps-story-bar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 8px; padding: 10px 0; background: var(--mv-bg); }
+.ps-nav { min-width: 56px; justify-content: center; }
+.ps-nav:disabled { opacity: .4; cursor: default; }
+.ps-dots { flex: 1; display: flex; justify-content: center; min-width: 0; overflow: hidden; }
+.ps-pdot { width: 30px; height: 48px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.ps-pdot i { width: 10px; height: 10px; border-radius: 50%; background: var(--mv-line); display: block; transition: width .2s; }
+.ps-pdot[data-seen] i { background: var(--mv-muted); }
+.ps-pdot[aria-current="step"] i { width: 22px; border-radius: 6px; background: var(--mv-brand); }
+.ps-pdot:focus-visible, .ps-jump:focus-visible { outline: 3px solid var(--mv-brand); outline-offset: 2px; }
+.ps-index { position: fixed; inset: auto 0 0 0; z-index: 70; max-height: 70vh; overflow: auto; margin: 0 auto; width: min(560px, 100%); padding: 16px; border-radius: 20px 20px 0 0; background: var(--mv-card); border: 1px solid var(--mv-line); box-shadow: 0 -8px 30px rgba(0, 0, 0, .25); }
+.ps-index ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ps-jump { display: grid; grid-template-columns: 36px 1fr; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 6px 10px; text-align: left; border-radius: 12px; border: 1px solid var(--mv-line); background: var(--mv-card); color: var(--mv-text); font: inherit; cursor: pointer; }
+.ps-jump[aria-current="step"] { border-color: var(--mv-brand); }
+
+.ps-default { margin-left: 8px; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--mv-found-soft); color: var(--mv-found); }
+.ps-card .ps-sheet-title { display: none; }
+.ps-story, .ps-deck { min-width: 0; max-width: 100%; }

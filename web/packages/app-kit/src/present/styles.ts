@@ -18,10 +18,10 @@ export const PRESENT_STYLES: readonly PresentStyleInfo[] = [
   { id: "face", label: "Face to tooth", beta: true },
 ];
 
-/** Styles built so far (slice 1a: painted only). */
-export const SHIPPED_STYLES: ReadonlySet<PresentStyleId> = new Set<PresentStyleId>(["painted"]);
+/** Styles built so far (story cards from slice 1d, painted from 1a). */
+export const SHIPPED_STYLES: ReadonlySet<PresentStyleId> = new Set<PresentStyleId>(["story", "painted"]);
 
-/** The style Show patient opens on until "Make default" (slice 1f) and story cards (1d) ship. */
-export const DEFAULT_STYLE: PresentStyleId = "painted";
+/** The style Show patient opens on until "Make default" (slice 1f). */
+export const DEFAULT_STYLE: PresentStyleId = "story";
 
 export const isShipped = (id: PresentStyleId): boolean => SHIPPED_STYLES.has(id);

@@ -2,6 +2,7 @@ package com.aarogyam.staff.android.ui.desk
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -97,10 +98,12 @@ fun DeskNumberField(
                 cursorBrush = SolidColor(p.primary.color),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 decorationBox = { inner ->
-                    if (typed.isEmpty()) {
-                        Text("98765 43210", style = style.copy(color = p.onSurfaceVariant.color.copy(alpha = HINT)))
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (typed.isEmpty()) {
+                            Text("98765 43210", style = style.copy(color = p.onSurfaceVariant.color.copy(alpha = HINT)))
+                        }
+                        inner()
                     }
-                    inner()
                 },
             )
         }
@@ -203,7 +206,7 @@ fun DeskProfileRow(
 ) {
     val p = SkTheme.palette
     val name = profile.name.ifEmpty { profile.initials }
-    val inline = checkInTitle == null && !profile.checkedInToday
+    val compact = checkInTitle == null && !profile.checkedInToday
     Column(
         Modifier
             .fillMaxWidth()
@@ -235,7 +238,7 @@ fun DeskProfileRow(
             }
             if (profile.checkedInToday) {
                 SkChip(stringResource(R.string.dk_d9_lookup_checked_in), tone = SkTone.Success)
-            } else if (inline) {
+            } else if (compact) {
                 SkPillButton(stringResource(R.string.dk_d9_lookup_check_in), onCheckIn)
             }
         }

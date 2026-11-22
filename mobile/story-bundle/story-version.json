@@ -1,0 +1,10 @@
+{
+  "$comment": "Written by web/apps/story-bundle/scripts/story-version.mjs; see its header for content_hash.",
+  "bundle_version": 1,
+  "story_versions": [
+    1
+  ],
+  "content_hash": "3ec66447527da5561ff310f972e45ac2c20885d43d40c3e0f47641139b00adc5",
+  "files": 46,
+  "bytes": 1908365
+}

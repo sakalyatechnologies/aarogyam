@@ -1,0 +1,1 @@
+var e={steps:[`fissures`,`sealed`],scenes:{fissures:{view:`top`,add:[{n:`stain`,d:`@grooves`,s:`fissureStain`,w:.9,o:.6,c:`crown`,above:`fissures`}]},sealed:{view:`top`,add:[{n:`sealant`,d:`@grooves`,s:`resin`,w:4.2,o:.62,c:`crown`,above:`fissures`},{n:`sealantGloss`,d:`@grooves`,s:`white`,w:1.4,o:.45,c:`crown`}]}}};export{e as stages};

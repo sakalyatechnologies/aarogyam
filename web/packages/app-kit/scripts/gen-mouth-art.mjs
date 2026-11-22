@@ -55,11 +55,22 @@ for (let i = 0; i < 42; i++) {
 write('textures.ts', `export const TRABECULAR = ${JSON.stringify(compactPath(trab))};\n`);
 
 const keys = Object.keys(TYPES);
+// Present's painted map (present-studio-design §6.2, §13): the front crown outline, its box and the few
+// front layers the painter shades with, for every type in one small chunk (no gum, root or section art).
+const FRONT_LAYERS = ['lobe0', 'lobe1', 'lobe2', 'specular', 'specular2', 'incisalHalo'];
+const atlas = {};
 for (const key of keys) {
   const art = compactAll(dedupe(buildTooth(key, TYPES[key])));
   const json = JSON.stringify(art).replace('"__TEX__"', 'TRABECULAR');
   write(`teeth/${key}.ts`, `import type { ToothArt } from "../../types.js";\nimport { TRABECULAR } from "../textures.js";\n\nexport const art: ToothArt = ${json};\n`);
+  const front = { crown: art.geo.crown, box: art.anchors.crown };
+  for (const layer of art.views.front.layers) {
+    if (!FRONT_LAYERS.includes(layer.n)) continue;
+    front[layer.n] = layer.d.startsWith('@') ? art.geo[layer.d.slice(1)] : layer.d;
+  }
+  atlas[key] = front;
 }
+write('front-atlas.ts', `import type { FrontAtlas } from "../types.js";\n\nexport const FRONT_ATLAS: FrontAtlas = ${JSON.stringify(atlas)};\n`);
 
 const shapes = compactAll(buildShapes());
 write('shapes.ts', `import type { ShapeSet } from "../types.js";\n\nexport const SHAPES: ShapeSet = ${JSON.stringify(shapes)};\n`);

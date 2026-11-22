@@ -10,6 +10,8 @@
     "./real-teeth-3d": "./src/real-teeth-3d/index.ts",
     "./mouth-view": "./src/mouth-view/index.ts",
     "./mouth-view.css": "./src/mouth-view/mouth-view.css",
+    "./present": "./src/present/index.ts",
+    "./present.css": "./src/present/present.css",
     "./story-2d": "./src/story-2d/index.ts",
     "./story-video": "./src/story-video/index.ts",
     "./story-video/support": "./src/story-video/support.ts"

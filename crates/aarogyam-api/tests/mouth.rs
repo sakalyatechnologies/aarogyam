@@ -592,6 +592,83 @@ async fn a_proposed_plan_item_shows_as_recommended_and_an_accepted_one_as_planne
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
+async fn an_adult_without_a_birth_date_gets_adult_numbers_and_todays_findings() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (status, made) = call(
+        &app,
+        Method::POST,
+        &owner,
+        "/api/v1/patients",
+        Some(json!({ "full_name": "Meera Joshi", "sex": "female", "phone": "98765 40003" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{made}");
+    let patient = made["id"].as_str().unwrap().to_owned();
+    let (status, visit) = call(
+        &app,
+        Method::POST,
+        &owner,
+        &format!("/api/v1/patients/{patient}/visits"),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{visit}");
+    let visit = visit["id"].as_str().unwrap().to_owned();
+    // A retained milk tooth and a finding recorded in this visit; a needs-treatment status set in it.
+    chart(
+        &app,
+        &owner,
+        &patient,
+        &visit,
+        json!([
+            { "tooth": 55, "finding": "watch" },
+            { "tooth": 36, "surface": "O", "finding": "caries", "caries_depth": "dentin" }
+        ]),
+    )
+    .await;
+    let (status, health) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        &format!("/api/v1/patients/{patient}/dental-chart/teeth/14/status"),
+        Some(json!({ "health": "needs_treatment" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{health}");
+    let (status, mouth) = call(
+        &app,
+        Method::GET,
+        &owner,
+        &format!("/api/v1/visits/{visit}/mouth"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{mouth}");
+    let milk: Vec<u64> = mouth["positions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|p| p["tooth"].as_u64())
+        .filter(|n| *n > 50)
+        .collect();
+    assert_eq!(milk, vec![55], "only the charted milk tooth: {mouth}");
+    assert_eq!(mouth["positions"].as_array().unwrap().len(), 32);
+    let today = |n: u64| {
+        mouth["teeth"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["tooth"] == n)
+            .map(|t| t["today"].clone())
+    };
+    assert_eq!(today(36), Some(json!("found")));
+    assert_eq!(today(14), Some(json!("found")));
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
 async fn the_message_says_a_detail_only_when_recorded() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);

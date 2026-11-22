@@ -725,6 +725,7 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             Err(error) => tracing::warn!(error = %error, "could not flag staff alerts"),
         }
         record_recurring_expenses(&db).await;
+        refresh_review_demo(&db).await;
         push_staff(&notifier, &db).await;
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(
@@ -754,6 +755,24 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             () = tokio::time::sleep(interval) => {}
             _ = tokio::signal::ctrl_c() => return Ok(()),
         }
+    }
+}
+
+/// The App Store review clinic: top up its patients, queue and appointments for today (India
+/// time). Idempotent, so it runs every pass; only the synthetic `review` clinic is touched.
+async fn refresh_review_demo(db: &Db) {
+    let today = aarogyam_app::clock::clinic_today("Asia/Kolkata", time::OffsetDateTime::now_utc());
+    match aarogyam_dal::review_demo::refresh(db.pool(), today).await {
+        Ok(Some(done)) if done.any() => tracing::info!(
+            org_id = %done.org_id,
+            patients = done.patients,
+            visits = done.visits,
+            tokens = done.tokens,
+            appointments = done.appointments,
+            "review demo refreshed"
+        ),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(error = %error, "could not refresh the review demo"),
     }
 }
 

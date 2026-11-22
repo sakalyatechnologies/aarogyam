@@ -74,6 +74,7 @@ pub mod recalls;
 pub mod record_shares;
 pub mod recurring_expenses;
 pub mod retention;
+pub mod review_demo;
 pub mod roles;
 pub mod schedule;
 pub mod sessions;

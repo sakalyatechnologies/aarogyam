@@ -8,6 +8,12 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- The coming push notifications (Android 13 and newer ask first). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Firebase Analytics asks for the advertising ID, ad attribution and the install referrer;
+         this app uses none of them. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" tools:node="remove" />
+    <uses-permission android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE" tools:node="remove" />
 
     <!-- The camera is optional: a phone without one still installs and picks photos from the gallery. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -31,6 +37,9 @@
         tools:targetApi="33"
         android:supportsRtl="true"
         android:theme="@style/Theme.Aarogyam">
+        <!-- Firebase Analytics: no advertising ID, no ad personalisation signals. -->
+        <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />
+        <meta-data android:name="google_analytics_default_allow_ad_personalization_signals" android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

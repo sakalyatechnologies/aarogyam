@@ -7,6 +7,8 @@ plugins {
     alias(libs.plugins.android.lint) apply false
     alias(libs.plugins.openapi.generator) apply false
     alias(libs.plugins.skie) apply false
+    alias(libs.plugins.google.services) apply false
+    alias(libs.plugins.firebase.crashlytics) apply false
     alias(libs.plugins.spotless)
 }
 

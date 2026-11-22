@@ -18,6 +18,9 @@ build/
 /fastlane/metadata/ios/review_information/demo_password.txt
 /fastlane/metadata/ios/review_information/phone_number.txt
 /androidApp/keystore.properties
+# Firebase config: kept in ~/.aarogyam-release/firebase (docs/release.md).
+/androidApp/src/prod/google-services.json
+/androidApp/google-services.json
 *.jks
 *.keystore
 *.p8

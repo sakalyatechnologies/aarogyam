@@ -182,7 +182,7 @@ class DeskLookupStateHolderTest {
                 backend.requests
                     .filter {
                         it.url.encodedPath.endsWith("/patients/search")
-                    }.map { String(it.body.toByteArray()) }
+                    }.map { it.body.toByteArray().decodeToString() }
             assertEquals(2, bodies.size)
             assertTrue(""""q":"Mee"""" in bodies[0] && """"q":"9876"""" in bodies[1], bodies.toString())
         }

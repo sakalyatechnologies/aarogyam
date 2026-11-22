@@ -4545,6 +4545,34 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(wirePrefs(prefs));
         }),
 
+      getUiPrefs: (opts) =>
+        respond(S.uiPrefs, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(wireUiPrefs(state.uiPrefs?.[caller.membership.id]));
+        }),
+
+      saveUiPrefs: (input, opts) =>
+        respond(S.uiPrefs, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (input.present_style != null && !UI_STYLES.includes(input.present_style)) {
+            return invalid("present_style", "unknown style");
+          }
+          if (input.history_view != null && !UI_VIEWS.includes(input.history_view)) {
+            return invalid("history_view", "unknown view");
+          }
+          state.uiPrefs ??= {};
+          const row = (state.uiPrefs[caller.membership.id] ??= { present_style: null, history_view: null });
+          row.present_style = input.present_style ?? row.present_style;
+          row.history_view = input.history_view ?? row.history_view;
+          return reply(wireUiPrefs(row));
+        }),
+
       prepareVisitPatientMessage: (id, opts, input) =>
         respond(S.visitPatientMessage, opts?.signal, async () => {
           const reader = await inClinic("clinical.read");
@@ -12474,6 +12502,15 @@ const isSection = (name: string): boolean => S.MESSAGE_SECTIONS.some((section) =
 function memberPrefs(state: Fixtures, membershipId: string): FakeMessagePrefs {
   state.messagePrefs ??= {};
   return (state.messagePrefs[membershipId] ??= { sections: null, handoffs: 0, handoff_days: 0, last_handoff_on: null });
+}
+
+const UI_STYLES: readonly string[] = ["story", "painted", "xray", "smile3d", "face"];
+const UI_VIEWS: readonly string[] = ["page", "popup", "story"];
+
+/** The member's saved screen choices, defaults filled in (an unknown stored value reads as the default). */
+function wireUiPrefs(row: { present_style: string | null; history_view: string | null } | undefined): C.UiPrefs {
+  const pick = (options: readonly string[], value: string | null | undefined) => (value != null && options.includes(value) ? value : (options[0] ?? ""));
+  return { present_style: pick(UI_STYLES, row?.present_style), history_view: pick(UI_VIEWS, row?.history_view) };
 }
 
 function wirePrefs(prefs: FakeMessagePrefs): C.MessagePrefs {

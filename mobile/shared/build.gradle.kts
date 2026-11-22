@@ -292,6 +292,8 @@ val apiModels =
         "HandOff",
         "MessagePrefs",
         "NewMessagePrefs",
+        "UiPrefs",
+        "NewUiPrefs",
         "SummaryPlanItem",
         "SummaryMedicine",
         "SummaryAftercare",

@@ -26,8 +26,8 @@ import type {
   TimeOffPage,
 } from "./schemas.js";
 import type { AudienceFilter, NewAudience, NewCampaign, NewChatMessage, NewConversation, ScheduleCampaign, SendMessages } from "./contract.js";
-import type { HandOff, NewMessagePrefs, NewPatientMessage } from "./contract.js";
-import type { MessagePrefs, MessagePreview } from "./schemas.js";
+import type { HandOff, NewMessagePrefs, NewPatientMessage, NewUiPrefs } from "./contract.js";
+import type { MessagePrefs, MessagePreview, UiPrefs } from "./schemas.js";
 import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
 import type {
@@ -819,6 +819,10 @@ export interface ApiClient {
   getMessagePrefs(options?: RequestOptions): Promise<ApiResult<MessagePrefs>>;
   /** Clinic host: saves the caller's default ticks. Needs `clinical.read`. */
   saveMessagePrefs(input: NewMessagePrefs, options?: RequestOptions): Promise<ApiResult<MessagePrefs>>;
+  /** Clinic host: the caller's saved screen choices (Show patient style, history view); defaults until saved. Needs `clinical.read`. */
+  getUiPrefs(options?: RequestOptions): Promise<ApiResult<UiPrefs>>;
+  /** Clinic host: saves the fields sent and keeps the rest. An unknown value is a 400. Needs `clinical.read`. */
+  saveUiPrefs(input: NewUiPrefs, options?: RequestOptions): Promise<ApiResult<UiPrefs>>;
   /** Public: opens a visit summary link with its PIN. Five wrong PINs lock the link. */
   openSharedVisit(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<VisitSummary>>;
 

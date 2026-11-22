@@ -86,6 +86,7 @@ pub(crate) mod time_off;
 pub(crate) mod today;
 pub(crate) mod tooth_details;
 pub(crate) mod treatment;
+pub(crate) mod ui_prefs;
 pub(crate) mod visit_summary;
 pub(crate) mod visits;
 pub(crate) mod vitals;
@@ -425,6 +426,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/me/message-prefs",
             get(patient_message::prefs).put(patient_message::save_prefs),
+        )
+        .route(
+            "/me/ui-prefs",
+            get(ui_prefs::get_prefs).put(ui_prefs::save_prefs),
         )
         .route("/visits/{id}/notes", post(visits::create_note))
         .route("/notes/{id}", patch(visits::edit_note))

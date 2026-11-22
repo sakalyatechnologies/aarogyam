@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select present_style, history_view\n           from aarogyam.member_ui_prefs where membership_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "present_style",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_ui_prefs",
+            "name": "present_style"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "history_view",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_ui_prefs",
+            "name": "history_view"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "9d7011d4b480b59b271acc871c307150728e7a30f8a3e3928626c2cdd1ceb7c6"
+}

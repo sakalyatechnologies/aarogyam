@@ -101,6 +101,7 @@ pub mod today;
 pub mod tokens;
 pub mod tooth_details;
 pub mod treatment;
+pub mod ui_prefs;
 pub mod visit_summary;
 pub mod visits;
 pub mod vitals;

@@ -2367,6 +2367,7 @@ export const mouthDetails = z.object({
 export const mouthTooth = z.object({
   tooth: count,
   finding: z.string().exactOptional(),
+  finding_on: day.exactOptional(),
   surfaces: z.array(z.string()).exactOptional(),
   material: z.string().exactOptional(),
   health: z.string().exactOptional(),
@@ -2374,9 +2375,11 @@ export const mouthTooth = z.object({
   today: z.string().exactOptional(),
   planned: z.boolean().exactOptional(),
   recommended: z.boolean().exactOptional(),
+  recommended_on: day.exactOptional(),
   sitting: count.exactOptional(),
   work: z.array(mouthWork).exactOptional(),
   problems: z.array(z.string()).exactOptional(),
+  problems_on: z.array(day).exactOptional(),
   details: mouthDetails.exactOptional(),
   treatments: z.array(mouthTreatment).exactOptional(),
 }) satisfies z.ZodType<C.MouthTooth>;

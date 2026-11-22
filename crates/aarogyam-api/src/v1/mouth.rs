@@ -89,6 +89,10 @@ pub struct MouthTooth {
     #[schema(required = false)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub finding: Option<String>,
+    /// When the headline finding was recorded (`YYYY-MM-DD`): "Recorded 12 Nov".
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finding_on: Option<String>,
     /// `M`, `O`, `D`, `B` or `L` of a caries or filled headline (`O` on a front tooth is the
     /// biting edge).
     #[schema(required = false)]
@@ -120,6 +124,10 @@ pub struct MouthTooth {
     #[schema(required = false)]
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub recommended: bool,
+    /// When the latest recommendation on it was proposed (`YYYY-MM-DD`).
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recommended_on: Option<String>,
     /// The sitting of a treatment in progress.
     #[schema(required = false)]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -132,6 +140,10 @@ pub struct MouthTooth {
     #[schema(required = false)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub problems: Vec<String>,
+    /// When each problem was last recorded (`YYYY-MM-DD`), one per entry of `problems`.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub problems_on: Vec<String>,
     /// Detail taps, only those recorded.
     #[schema(required = false)]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -280,6 +292,7 @@ impl From<domain::MouthTooth> for MouthTooth {
         Self {
             tooth: t.tooth,
             finding: t.finding,
+            finding_on: t.finding_on.map(day),
             surfaces: t.surfaces,
             material: t.material,
             health: t.health,
@@ -287,6 +300,7 @@ impl From<domain::MouthTooth> for MouthTooth {
             today: t.today,
             planned: t.planned,
             recommended: t.recommended,
+            recommended_on: t.recommended_on.map(day),
             sitting: t.sitting,
             work: t
                 .work
@@ -300,6 +314,7 @@ impl From<domain::MouthTooth> for MouthTooth {
                 })
                 .collect(),
             problems: t.problems,
+            problems_on: t.problems_on.into_iter().map(day).collect(),
             details: t.details.map(|d| MouthDetails {
                 caries_depth: d.caries_depth,
                 infection: d.infection,

@@ -11220,6 +11220,8 @@ export interface components {
             details?: components["schemas"]["MouthDetails"] | null;
             /** @description The headline finding (a chart finding value). */
             finding?: string | null;
+            /** @description When the headline finding was recorded (`YYYY-MM-DD`): "Recorded 12 Nov". */
+            finding_on?: string | null;
             /** @description The doctor's health level (`healthy`, `watch`, `needs_treatment`); absent without one. */
             health?: string | null;
             /**
@@ -11231,11 +11233,15 @@ export interface components {
             planned?: boolean;
             /** @description Recorded problem findings: `caries`, `fractured`, `watch`, `missing`. */
             problems?: string[];
+            /** @description When each problem was last recorded (`YYYY-MM-DD`), one per entry of `problems`. */
+            problems_on?: string[];
             /**
              * @description Something is proposed on it and not yet accepted: a dashed "Recommended" ring. `planned`
              *     wins when both are set.
              */
             recommended?: boolean;
+            /** @description When the latest recommendation on it was proposed (`YYYY-MM-DD`). */
+            recommended_on?: string | null;
             /**
              * Format: int32
              * @description The sitting of a treatment in progress.

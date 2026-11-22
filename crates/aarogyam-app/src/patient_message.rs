@@ -79,6 +79,8 @@ pub struct PlanItem {
     pub tooth: Option<Tooth>,
     /// The fee or estimate, when known.
     pub estimate: Option<Paise>,
+    /// When it was planned or proposed.
+    pub created_at: OffsetDateTime,
 }
 
 fn tooth_of(number: Option<i16>) -> Option<Tooth> {
@@ -93,6 +95,7 @@ fn plan_item(source: PlanSource) -> impl Fn(dal::PlannedRow) -> PlanItem {
         code: row.code,
         tooth: tooth_of(row.tooth),
         estimate: row.estimate_paise.map(Paise::new),
+        created_at: row.created_at,
     }
 }
 

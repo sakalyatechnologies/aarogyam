@@ -31765,6 +31765,13 @@
             ],
             "description": "The headline finding (a chart finding value)."
           },
+          "finding_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the headline finding was recorded (`YYYY-MM-DD`): \"Recorded 12 Nov\"."
+          },
           "health": {
             "type": [
               "string",
@@ -31790,9 +31797,23 @@
             },
             "description": "Recorded problem findings: `caries`, `fractured`, `watch`, `missing`."
           },
+          "problems_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "When each problem was last recorded (`YYYY-MM-DD`), one per entry of `problems`."
+          },
           "recommended": {
             "type": "boolean",
             "description": "Something is proposed on it and not yet accepted: a dashed \"Recommended\" ring. `planned`\nwins when both are set."
+          },
+          "recommended_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the latest recommendation on it was proposed (`YYYY-MM-DD`)."
           },
           "sitting": {
             "type": [

@@ -54,6 +54,25 @@ mod day_option {
     }
 }
 
+mod day_list {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use time::Date;
+
+    #[derive(Serialize, Deserialize)]
+    struct Day(#[serde(with = "super::day")] Date);
+
+    pub fn serialize<S: Serializer>(value: &[Date], serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(value.iter().map(|d| Day(*d)))
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Date>, D::Error> {
+        Ok(Vec::<Day>::deserialize(deserializer)?
+            .into_iter()
+            .map(|d| d.0)
+            .collect())
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Treatment stages (data)
 
@@ -213,6 +232,9 @@ pub struct ProcedureRecord {
     /// The name as typed.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub name: String,
+    /// The day it was planned or proposed, when known.
+    #[serde(default, with = "day_option", skip_serializing_if = "Option::is_none")]
+    pub on: Option<Date>,
 }
 
 /// Everything the snapshot is built from, already in this clinic's reach.
@@ -303,6 +325,9 @@ pub struct MouthTooth {
     /// The headline finding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub finding: Option<String>,
+    /// The day the headline finding was recorded.
+    #[serde(default, with = "day_option", skip_serializing_if = "Option::is_none")]
+    pub finding_on: Option<Date>,
     /// Surfaces of a caries or filled headline, as stored.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub surfaces: Vec<String>,
@@ -324,6 +349,9 @@ pub struct MouthTooth {
     /// Something is proposed on it and not yet accepted ("Recommended").
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub recommended: bool,
+    /// The day the latest recommendation on it was proposed.
+    #[serde(default, with = "day_option", skip_serializing_if = "Option::is_none")]
+    pub recommended_on: Option<Date>,
     /// The sitting of a treatment in progress.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sitting: Option<u8>,
@@ -333,6 +361,9 @@ pub struct MouthTooth {
     /// Recorded problem findings.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub problems: Vec<String>,
+    /// The day each problem was last recorded, one per entry of `problems`.
+    #[serde(default, with = "day_list", skip_serializing_if = "Vec::is_empty")]
+    pub problems_on: Vec<Date>,
     /// Recorded detail taps only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub details: Option<MouthDetails>,
@@ -704,11 +735,17 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
             work.push(item);
         }
     }
-    let problems: Vec<String> = PROBLEMS
+    let last_on = |f: Finding| {
+        current
+            .iter()
+            .filter(|e| e.finding == f)
+            .map(|e| e.record.on)
+            .max()
+    };
+    let (problems, problems_on): (Vec<String>, Vec<Date>) = PROBLEMS
         .iter()
-        .filter(|f| current.iter().any(|e| e.finding == **f))
-        .map(|f| f.as_str().to_owned())
-        .collect();
+        .filter_map(|f| Some((f.as_str().to_owned(), last_on(*f)?)))
+        .unzip();
 
     let mut details = MouthDetails {
         caries_depth: current
@@ -836,6 +873,7 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
             finding: finding
                 .filter(|f| *f != Finding::Sound)
                 .map(|f| f.as_str().to_owned()),
+            finding_on: finding.filter(|f| *f != Finding::Sound).and_then(last_on),
             surfaces,
             material,
             health,
@@ -843,9 +881,11 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
             today: today.map(str::to_owned),
             planned: !planned_here.is_empty(),
             recommended: !recommended_here.is_empty(),
+            recommended_on: recommended_here.iter().filter_map(|p| p.on).max(),
             sitting,
             work,
             problems,
+            problems_on,
             details: (!details.is_empty()).then_some(details),
             treatments,
         },

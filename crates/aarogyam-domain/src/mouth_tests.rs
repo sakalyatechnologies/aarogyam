@@ -231,7 +231,59 @@ fn procedure(tooth: u8, code: Option<&str>, name: &str) -> ProcedureRecord {
         tooth: Some(tooth),
         code: code.map(str::to_owned),
         name: name.to_owned(),
+        on: None,
     }
+}
+
+#[test]
+fn findings_problems_and_recommendations_carry_their_recorded_days() {
+    let mut old = entry(36, "caries");
+    old.data.surface = Some("O".to_owned());
+    old.on = date!(2026 - 10 - 12);
+    old.today = false;
+    let mut newer = entry(36, "caries");
+    newer.data.surface = Some("M".to_owned());
+    newer.on = date!(2026 - 11 - 02);
+    newer.today = false;
+    let mut gone = entry(26, "missing");
+    gone.on = date!(2026 - 09 - 30);
+    let mut facts = input(vec![old, newer, gone, entry(46, "fractured")]);
+    let mut first = procedure(36, Some("crown"), "Crown");
+    first.on = Some(date!(2026 - 10 - 12));
+    let mut second = procedure(36, Some("root_canal"), "Root canal");
+    second.on = Some(date!(2026 - 11 - 05));
+    facts.recommended = vec![first, second, procedure(46, Some("crown"), "Crown")];
+    let snap = snapshot(&facts);
+
+    let t36 = tooth(&snap, 36);
+    assert_eq!(t36.problems, ["caries"]);
+    assert_eq!(
+        t36.problems_on,
+        [date!(2026 - 11 - 02)],
+        "the latest current entry"
+    );
+    assert_eq!(t36.finding_on, Some(date!(2026 - 11 - 02)));
+    assert_eq!(t36.recommended_on, Some(date!(2026 - 11 - 05)));
+    let t26 = tooth(&snap, 26);
+    assert_eq!(t26.problems_on, [date!(2026 - 09 - 30)]);
+    assert_eq!(t26.finding_on, Some(date!(2026 - 09 - 30)));
+    let t46 = tooth(&snap, 46);
+    assert_eq!(t46.problems_on, [VISIT]);
+    assert_eq!(
+        t46.recommended_on, None,
+        "a proposal without a day has none"
+    );
+
+    let json = serde_json::to_value(&snap).unwrap();
+    let j36 = json["teeth"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["tooth"] == 36)
+        .unwrap();
+    assert_eq!(j36["problems_on"], serde_json::json!(["2026-11-02"]));
+    assert_eq!(j36["finding_on"], "2026-11-02");
+    assert_eq!(j36["recommended_on"], "2026-11-05");
 }
 
 #[test]

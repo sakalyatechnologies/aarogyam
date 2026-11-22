@@ -22,8 +22,8 @@ export interface FactItem {
   /** Plain place words in the patient's left and right ("Lower left 6-year molar"). */
   where?: string;
   /**
-   * The date the snapshot records for this item: only `work.done_on` and `details.condition_on` exist today.
-   * TODO(present 1a-0): `finding_on`, `problems_on` and `recommended_on` from the snapshot; until then a bare "Recorded".
+   * The day the snapshot records for this item, from its `*_on` fields only (`problems_on`, `finding_on`,
+   * `recommended_on`, `work.done_on`, `details.condition_on`); absent → a bare "Recorded".
    */
   recorded_on?: string;
   origin?: Origin;
@@ -89,20 +89,24 @@ function toothFacts(t: SnapTooth): FactItem[] {
   const where = toothInfo(t.tooth).name;
   const base = { tooth: t.tooth, where, badge: "recorded" as const };
   const key = (rest: string) => `${String(t.tooth)}:${rest}`;
+  const dated = (on: string | undefined) => (on === undefined ? {} : { recorded_on: on });
+  // problems_on runs parallel to problems; finding_on dates the headline finding
+  const problemOn = (p: string) => { const i = (t.problems ?? []).indexOf(p); return i < 0 ? undefined : t.problems_on?.[i]; };
+  const headlineOn = (finding: string) => (t.finding === finding ? t.finding_on : undefined);
   for (const tr of t.treatments ?? []) {
     if (tr.state !== "in_progress") continue;
-    out.push({ ...base, id: key(`in_progress:${tr.model}`), kind: "in_progress", words: `${modelTitle(tr.model)} in progress${t.sitting === undefined ? "" : ` · sitting ${String(t.sitting)}`}` });
+    out.push({ ...base, ...dated(headlineOn(tr.model)), id: key(`in_progress:${tr.model}`), kind: "in_progress", words: `${modelTitle(tr.model)} in progress${t.sitting === undefined ? "" : ` · sitting ${String(t.sitting)}`}` });
   }
   const problems = (t.problems ?? []).filter((p) => p !== "missing");
   const words = problemWords({ ...t, problems });
   problems.forEach((p, i) => {
     const biting = p === "caries" && BITING_ONLY(t);
-    out.push({ ...base, id: key(p), kind: "problem", words: words[i] ?? findingWord(p), ...(biting ? { biting_side: true } : {}) });
+    out.push({ ...base, ...dated(problemOn(p) ?? headlineOn(p)), id: key(p), kind: "problem", words: words[i] ?? findingWord(p), ...(biting ? { biting_side: true } : {}) });
   });
   const missing = t.finding === "missing" || (t.problems ?? []).includes("missing");
   if (missing) {
     const origin = asOrigin(t.work?.find((w) => w.finding === "missing")?.origin ?? "");
-    out.push({ ...base, id: key("missing"), kind: "detail", words: "Missing tooth", ...(origin === undefined ? {} : { origin }) });
+    out.push({ ...base, ...dated(problemOn("missing") ?? headlineOn("missing")), id: key("missing"), kind: "detail", words: "Missing tooth", ...(origin === undefined ? {} : { origin }) });
   }
   const d = t.details;
   const on = d?.condition_on === undefined ? {} : { recorded_on: d.condition_on };
@@ -119,7 +123,7 @@ function toothFacts(t: SnapTooth): FactItem[] {
   const recommended = t.recommended === true;
   for (const tr of t.treatments ?? []) {
     if (tr.state !== "planned") continue;
-    if (recommended || tr.recommended === true) out.push({ ...base, id: key(`recommended:${tr.model}`), kind: "recommended", words: `Your dentist recommends: ${modelTitle(tr.model).toLowerCase()}` });
+    if (recommended || tr.recommended === true) out.push({ ...base, ...dated(t.recommended_on), id: key(`recommended:${tr.model}`), kind: "recommended", words: `Your dentist recommends: ${modelTitle(tr.model).toLowerCase()}` });
     else out.push({ ...base, id: key(`plan:${tr.model}`), kind: "plan", words: `${modelTitle(tr.model)} planned` });
   }
   for (const w of t.work ?? []) {
@@ -128,7 +132,7 @@ function toothFacts(t: SnapTooth): FactItem[] {
     const material = w.material === undefined ? undefined : MATERIAL[w.material];
     const what = `${findingWord(w.finding)}${material === undefined ? "" : ` (${material})`}`;
     const done = origin === undefined ? "" : ` · ${w.today === true ? "done here today" : ORIGIN_WORDS[origin]}`;
-    out.push({ ...base, id: key(`work:${w.finding}`), kind: "work", words: `${what}${done}`, ...(origin === undefined ? {} : { origin }), ...(w.done_on === undefined ? {} : { recorded_on: w.done_on }) });
+    out.push({ ...base, id: key(`work:${w.finding}`), kind: "work", words: `${what}${done}`, ...(origin === undefined ? {} : { origin }), ...dated(w.done_on ?? headlineOn(w.finding)) });
   }
   return out;
 }

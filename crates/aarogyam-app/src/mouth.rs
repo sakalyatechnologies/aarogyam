@@ -99,12 +99,14 @@ pub(crate) async fn of_visit(
             tooth: tooth(row.tooth),
             code: row.code,
             name: row.name,
+            on: None,
         })
         .collect();
     let record = |item: PlanItem| ProcedureRecord {
         tooth: item.tooth.map(aarogyam_domain::dental::Tooth::number),
         code: item.code,
         name: item.name,
+        on: Some(day(item.created_at)),
     };
     let planned = plan_in(tx, visit.id, visit.patient_id)
         .await?

@@ -496,6 +496,12 @@ async fn the_mouth_snapshot_works_while_the_visit_is_open() {
     assert_eq!(rc["steps"][1]["sitting"], 4);
     assert_eq!(tooth(55)["details"]["caries_depth"], "dentin");
     assert_eq!(tooth(75)["work"][0]["origin"], "elsewhere");
+    // Present's "Recorded 12 Nov": the day each finding and problem was charted (slice 1a-0).
+    let on = tooth(55)["finding_on"].as_str().unwrap().to_owned();
+    assert_eq!(on.len(), 10, "{on}");
+    assert_eq!(tooth(55)["problems_on"], json!([on]));
+    assert_eq!(tooth(75)["finding_on"], on.as_str());
+    assert_eq!(tooth(21)["finding_on"], on.as_str());
     let text = mouth.to_string();
     for leaked in ["anxious", "City Dental", "\"note\""] {
         assert!(!text.contains(leaked), "{leaked}: {text}");
@@ -578,11 +584,18 @@ async fn a_proposed_plan_item_shows_as_recommended_and_an_accepted_one_as_planne
     assert_eq!(rec["treatments"][0]["model"], "root_canal");
     assert_eq!(rec["treatments"][0]["state"], "planned");
     assert_eq!(rec["treatments"][0]["recommended"], true);
+    // The proposal's day, for "Your dentist recommends … Recorded 12 Nov" (slice 1a-0).
+    assert_eq!(
+        rec["recommended_on"].as_str().map(str::len),
+        Some(10),
+        "{rec}"
+    );
     let planned = tooth(16);
     assert_eq!(planned["planned"], true, "{planned}");
     assert!(planned.get("recommended").is_none(), "{planned}");
     assert_eq!(planned["treatments"][0]["model"], "crown");
     assert!(planned["treatments"][0].get("recommended").is_none());
+    assert!(planned.get("recommended_on").is_none(), "{planned}");
     let text = mouth.to_string();
     for typed in ["Root canal treatment", "Zirconia", "Upper left"] {
         assert!(!text.contains(typed), "{typed}: {text}");

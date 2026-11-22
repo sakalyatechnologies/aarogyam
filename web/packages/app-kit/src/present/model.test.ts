@@ -28,12 +28,26 @@ describe("present facts: a pure projection of the mouth snapshot (§5.1)", () =>
     expect(new Set(m.facts.map((f) => f.badge))).toEqual(new Set(["recorded"]));
   });
 
-  it("carries a date only where the snapshot has one (work done_on, condition_on)", () => {
+  it("dates each item from the snapshot's *_on fields only (slice 1a-0)", () => {
     const m = presentFacts(aarav());
     const on = Object.fromEntries(m.facts.map((f) => [f.id, f.recorded_on]));
     expect(on["21:infection"]).toBe("2026-10-20");
     expect(on["65:work:filled"]).toBe("2026-10-20");
-    // TODO(present 1a-0): finding_on / problems_on / recommended_on; until then no date is made up
+    expect(on["55:caries"]).toBe("2026-11-20");
+    expect(on["75:work:filled"]).toBe("2026-10-20");
+    expect(on["21:in_progress:root_canal"]).toBe("2026-11-20");
+    // a planned item carries no day in the snapshot: no date is made up
+    expect(on["21:plan:crown"]).toBeUndefined();
+    const a = Object.fromEntries(presentFacts(adult()).facts.map((f) => [f.id, f.recorded_on]));
+    expect(a["14:missing"]).toBe("2025-06-11");
+    expect(a["14:recommended:implant"]).toBe("2026-11-12");
+    expect(a["37:caries"]).toBe("2026-11-20");
+  });
+
+  it("an old snapshot without the *_on fields gives a bare 'Recorded', never a made-up date", () => {
+    const snap = aarav();
+    for (const t of snap.teeth) { delete t.finding_on; delete t.problems_on; delete t.recommended_on; }
+    const on = Object.fromEntries(presentFacts(snap).facts.map((f) => [f.id, f.recorded_on]));
     expect(on["55:caries"]).toBeUndefined();
     expect(on["75:work:filled"]).toBeUndefined();
   });
@@ -51,6 +65,7 @@ describe("present facts: a pure projection of the mouth snapshot (§5.1)", () =>
     expect(words["38:eruption"]).toBe("Stuck under the gum, tilted forward");
     expect(words["16:work:filled"]).toBe("Filling (tooth-coloured) · done here today");
     expect(words["36:recommended:crown"]).toBe("Your dentist recommends: crown");
+    expect(words["14:recommended:implant"]).toBe("Your dentist recommends: implant");
     expect(m.facts.find((f) => f.id === "37:caries")?.biting_side).toBe(true);
     const t38 = m.teeth.find((t) => t.tooth === 38);
     expect([t38?.eruption, t38?.angulation]).toEqual(["impacted", "mesioangular"]);

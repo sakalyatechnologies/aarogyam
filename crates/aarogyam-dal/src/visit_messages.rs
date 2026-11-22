@@ -99,6 +99,8 @@ pub struct PlannedRow {
     pub tooth: Option<i16>,
     /// The fee or estimate in paise, when known.
     pub estimate_paise: Option<i64>,
+    /// When it was planned or proposed.
+    pub created_at: OffsetDateTime,
 }
 
 /// The visit's planned procedures, in order of entry.
@@ -111,7 +113,7 @@ pub async fn planned_procedures(
 ) -> Result<Vec<PlannedRow>, DbError> {
     let rows = sqlx::query_as!(
         PlannedRow,
-        r#"select id, name, code, tooth, price_paise as estimate_paise
+        r#"select id, name, code, tooth, price_paise as estimate_paise, created_at
            from aarogyam.procedures
            where encounter_id = $1 and status = 'planned'
            order by created_at, id"#,
@@ -134,7 +136,8 @@ pub async fn accepted_plan_items(
 ) -> Result<Vec<PlannedRow>, DbError> {
     let rows = sqlx::query_as!(
         PlannedRow,
-        r#"select i.id, i.name, i.code, i.tooth, i.estimate_paise as "estimate_paise?"
+        r#"select i.id, i.name, i.code, i.tooth, i.estimate_paise as "estimate_paise?",
+                  i.created_at
            from aarogyam.treatment_plan_items i
            join aarogyam.treatment_plans p on p.org_id = i.org_id and p.id = i.plan_id
            where p.patient_id = $1 and p.status in ('accepted', 'in_progress')
@@ -166,7 +169,8 @@ pub async fn proposed_plan_items(
 ) -> Result<Vec<PlannedRow>, DbError> {
     let rows = sqlx::query_as!(
         PlannedRow,
-        r#"select i.id, i.name, i.code, i.tooth, i.estimate_paise as "estimate_paise?"
+        r#"select i.id, i.name, i.code, i.tooth, i.estimate_paise as "estimate_paise?",
+                  i.created_at
            from aarogyam.treatment_plan_items i
            join aarogyam.treatment_plans p on p.org_id = i.org_id and p.id = i.plan_id
            where p.patient_id = $1 and p.status in ('proposed', 'accepted', 'in_progress')

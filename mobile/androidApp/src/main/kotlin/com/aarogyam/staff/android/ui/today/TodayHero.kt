@@ -50,7 +50,7 @@ import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
 import com.sakalya.mobile.designcompose.compose
 
-/** Today's patients, waiting (warm) and done in one inset group split by hairlines (Clear Glass), with what is left under it. */
+/** Today's patients, waiting (warm) and done in one inset group split by hairlines, with what is left under it. */
 @Composable
 fun TodayStats(counts: TodayCountsView) {
     val p = SkTheme.palette

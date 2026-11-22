@@ -32,7 +32,10 @@ object TasksFormat {
     /** Whole units from the quantity field; null for blank, zero or anything else. */
     fun quantity(text: String): Long? = text.trim().toLongOrNull()?.takeIf { it > 0 }
 
-    /** The art icon for a notification kind; money and lab kinds get their own, the shared set's names map to the mockup icons, anything else is the message bubble. */
+    /**
+     * The art icon for a notification kind: money and lab kinds get their own, the shared set's names map to the
+     * mockup icons, anything else is the message bubble.
+     */
     fun iconFor(kind: String): String {
         val info = NotificationKinds.of(kind)
         if (kind == "collect_payment" || info.category == NotificationCategory.Payment) return "wallet"
@@ -71,7 +74,7 @@ object TasksFormat {
         return at.atZone(zone).toLocalDate() == now.atZone(zone).toLocalDate()
     }
 
-    /** The bell's time column: the clock time for today, the day ("12 Oct") before that; null when [iso] is not a date. */
+    /** The bell's time column: the clock time today, the day ("12 Oct") before; null when [iso] is not a date. */
     fun whenText(
         iso: String,
         zone: ZoneId,

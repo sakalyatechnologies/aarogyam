@@ -81,7 +81,7 @@ fun NotificationsSheet(
             )
         },
     ) {
-        val loaded = state as? ListState.Loaded
+        val loaded = state as? ListState.Loaded<AlertRow>
         val unread = loaded?.items?.count { !it.read } ?: 0
         Row(
             Modifier.fillMaxWidth().padding(horizontal = SIDE.dp, vertical = 4.dp),
@@ -102,7 +102,7 @@ fun NotificationsSheet(
             when (val s = state) {
                 ListState.Loading -> LoadingIndicator()
                 ListState.NotAllowed -> Muted(stringResource(R.string.today_not_allowed_message))
-                is ListState.Failed -> Muted(stringResource(s.error.message()), p.error.color)
+                is ListState.Failed -> Muted(stringResource(s.error.message()), color = p.error.color)
                 is ListState.Loaded -> if (s.items.isEmpty()) Muted(stringResource(R.string.v7_notifications_none))
             }
         }
@@ -139,7 +139,9 @@ private fun BellList(
         verticalArrangement = Arrangement.spacedBy(GroupGap),
     ) {
         if (shown.isEmpty()) {
-            item("none") { Muted(stringResource(R.string.v7_notif_filter_none), modifier = Modifier.padding(top = 16.dp)) }
+            item("none") {
+                Muted(stringResource(R.string.v7_notif_filter_none), modifier = Modifier.padding(top = 16.dp))
+            }
         }
         section("today", R.string.v7_notif_today, today, onOpenPatient)
         section("earlier", R.string.v7_notif_earlier, earlier, onOpenPatient)
@@ -166,8 +168,8 @@ private fun LazyListScope.section(
 @Composable
 private fun Muted(
     text: String,
-    color: Color = SkTheme.palette.onSurfaceVariant.color,
     modifier: Modifier = Modifier,
+    color: Color = SkTheme.palette.onSurfaceVariant.color,
 ) = Text(text, style = SkTypography.footnote, color = color, modifier = modifier)
 
 private fun BellFilter.label(): Int =

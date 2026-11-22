@@ -1,12 +1,13 @@
 /**
  * Present mode (design §1.12): the doctor turns the screen to the patient and walks the same mouth
- * view the patient's page shows, from `GET /visits/{id}/mouth`, drawn in the doctor's chart look (Rows, 3D arch or Classic)
- * with the chart's numbers and dentition. Full screen, large targets. Esc goes
+ * view the patient's page shows, from `GET /visits/{id}/mouth`. It opens on a Show patient style
+ * (present-studio-design §4; slice 1a: the painted map) drawn from the PresentModel facts; "Chart" in the
+ * style switcher draws the doctor's chart look (Rows, 3D arch or Classic) with the chart's numbers and dentition. Full screen, large targets. Esc goes
  * back to the overview; only the press-and-hold Exit leaves, so a patient tapping around can't land
  * in Patient 360. The query refetches after chart, plan, procedure, tooth-status and booking saves.
  */
 import { Brush, Moon, Sun } from "lucide-react";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 
 import { apiErrorOf, visitId as parseVisitId, type ChartEntry, type MouthSnapshot, type NewChartEntry, type PatientId, type VisitId } from "@aarogyam/api-client";
@@ -14,7 +15,10 @@ import { ApiErrorNotice } from "@aarogyam/app-kit";
 import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import "@aarogyam/app-kit/mouth-view.css";
-import { HoldToExit } from "@aarogyam/app-kit/present";
+import {
+  DEFAULT_STYLE, HoldToExit, PRESENT_STYLES, PaintedSlot, StyleSwitcher, isShipped, presentFacts,
+  type Orientation, type PresentStyleId, type ShadeKnob, type SwitcherOption,
+} from "@aarogyam/app-kit/present";
 import "@aarogyam/app-kit/hold-to-exit.css";
 import "@aarogyam/app-kit/present.css";
 import { useToast } from "@sakalya/ui";
@@ -32,6 +36,13 @@ const XraysTab = lazy(() => import("./xrays-tab.js").then((m) => ({ default: m.X
 const BrushingPanel = lazy(() => import("@aarogyam/app-kit/present/brushing-panel").then((m) => ({ default: m.BrushingPanel })));
 type Tab = "teeth" | "xrays";
 const TABS: readonly Tab[] = ["teeth", "xrays"];
+/** A Show patient style, or the doctor's chart look. */
+type View = PresentStyleId | "chart";
+const VIEWS: readonly SwitcherOption[] = [
+  ...PRESENT_STYLES.map((s) => ({ id: s.id, label: s.label, beta: s.beta, disabled: isShipped(s.id) ? undefined : "Coming soon" })),
+  { id: "chart", label: "Chart", separate: true },
+];
+const isView = (v: string): v is View => VIEWS.some((o) => o.id === v);
 
 export function PresentPage() {
   const params = useParams();
@@ -53,6 +64,11 @@ export function PresentPage() {
   const [search] = useSearchParams();
   const [tab, setTab] = useState<Tab>(search.get("tab") === "xrays" ? "xrays" : "teeth");
   const [onlyToday, setOnlyToday] = useState(false);
+  // Show patient's style and knobs: this session only (the saved preference is slice 1f).
+  const [view, setView] = useState<View>(DEFAULT_STYLE);
+  const [orientation, setOrientation] = useState<Orientation>("mirror");
+  const [shade, setShade] = useState<ShadeKnob>("natural");
+  const model = useMemo(() => (mouth.data === undefined ? undefined : presentFacts(mouth.data, visitId)), [mouth.data, visitId]);
   // The doctor's chart look and dentition, so the patient sees the same teeth and numbers; switching here is for this showing only.
   const { session } = useClinic();
   const [prefs] = useChartPrefs(session.user.id);
@@ -77,7 +93,8 @@ export function PresentPage() {
             </button>
           ))}
         </div>
-        {tab === "teeth" ? (
+        {tab === "teeth" ? <StyleSwitcher options={VIEWS} value={view} onChange={(v) => { if (isView(v)) setView(v); }} /> : null}
+        {tab === "teeth" && view === "chart" ? (
           <div className="pm-tabs" role="group" aria-label="Chart look">
             {LOOKS.map((l) => (
               <button key={l.value} type="button" className="pm-tab" aria-pressed={look === l.value} onClick={() => { setLook(l.value); }}>
@@ -86,7 +103,7 @@ export function PresentPage() {
             ))}
           </div>
         ) : null}
-        {tab === "teeth" ? (
+        {tab === "teeth" && view === "chart" ? (
           <div className="pm-tabs" role="group" aria-label="Dentition">
             {DENTITIONS.map((d) => (
               <button key={d.value} type="button" className="pm-tab" aria-pressed={dentition === d.value} onClick={() => { setDentition(d.value); }}>
@@ -95,7 +112,7 @@ export function PresentPage() {
             ))}
           </div>
         ) : null}
-        {tab === "teeth" ? (
+        {tab === "teeth" && view === "chart" ? (
           <button type="button" className="pm-chip pm-today" aria-pressed={onlyToday} onClick={() => { setOnlyToday(!onlyToday); }}>
             Today
           </button>
@@ -126,7 +143,11 @@ export function PresentPage() {
             filter={onlyToday ? "today" : undefined}
             load3d={load3d}
             toothExtras={patientId === undefined ? undefined : (tooth) => <AddDepth snapshot={mouth.data} tooth={tooth} patientId={patientId} visitId={visitId} />}
-            overview={chart.data === undefined ? undefined : (slot) => <PresentChart look={look} dentition={dentition} chart={chart.data} planItems={planItems} slot={slot} />}
+            overview={view === "chart"
+              ? (chart.data === undefined ? undefined : (slot) => <PresentChart look={look} dentition={dentition} chart={chart.data} planItems={planItems} slot={slot} />)
+              : model === undefined ? undefined : (slot) => (
+                <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={theme} />
+              )}
           />
         )}
       </div>

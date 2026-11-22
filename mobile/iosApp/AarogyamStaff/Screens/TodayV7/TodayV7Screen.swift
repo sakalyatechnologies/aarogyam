@@ -30,6 +30,7 @@ struct TodayV7Screen: View {
             .padding(.bottom, SkSpacing.xxl)
         }
         .scrollIndicators(.hidden)
+        .skSoftScrollEdge()
         .refreshable { await refresh() }
         .task(id: scenePhase) {
             // Reloads every 20 s (shared PollingUpdates) while Today is on screen and the app is active.
@@ -55,7 +56,6 @@ struct TodayV7Screen: View {
                 bell = false
                 onOpenPatient(id)
             }
-            .closableSheet()
         }
         .sheet(isPresented: $avatars) {
             AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large])

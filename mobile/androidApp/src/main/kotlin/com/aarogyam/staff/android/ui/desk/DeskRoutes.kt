@@ -29,6 +29,9 @@ import com.aarogyam.staff.api.queue
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.design.Spacing
+import com.sakalya.mobile.designcompose.SkCollapsingTopBar
+import com.sakalya.mobile.designcompose.SkPillButton
+import com.sakalya.mobile.designcompose.SkPillVariant
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTopBar
 import com.sakalya.mobile.designcompose.color
@@ -102,15 +105,12 @@ fun NavGraphBuilder.deskDestinations(
         val open = clinic() ?: return@composable
         val phone = entry.arguments?.getString("phone")?.takeIf { it.isNotBlank() }
         Column(Modifier.fillMaxSize()) {
-            StatusBarTone.DarkHeader()
-            SkTopBar(
+            // Clear Glass chrome: the tonal inline bar; the form below carries the large title.
+            SkCollapsingTopBar(
                 title = stringResource(R.string.dk_iv_title),
+                collapsed = true,
                 actions = {
-                    BarAction(
-                        stringResource(R.string.dk_d9_back),
-                        SkTheme.colors.onBrandDark.color,
-                        nav::popBackStack,
-                    )
+                    SkPillButton(stringResource(R.string.dk_d9_back), nav::popBackStack, variant = SkPillVariant.Tonal)
                 },
             )
             IntakeScreen(

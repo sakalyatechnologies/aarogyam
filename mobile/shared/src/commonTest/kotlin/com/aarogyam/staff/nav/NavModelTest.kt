@@ -83,7 +83,7 @@ private object Roles {
 
 class NavModelTest {
     private val clinicalTabs = listOf(Tab.Today, Tab.Patients, Tab.Schedule, Tab.More)
-    private val tail = listOf(Settings, Language, Help, SignOut)
+    private val tail = listOf(Settings, Language, MoreTile.Appearance, Help, SignOut)
 
     @Test
     fun ownerGetsEverythingAndSwitchesClinics() {
@@ -104,6 +104,7 @@ class NavModelTest {
                 Settings,
                 SwitchClinic,
                 Language,
+                MoreTile.Appearance,
                 Help,
                 SignOut,
             ),

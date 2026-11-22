@@ -3,7 +3,8 @@ import PhotosUI
 import SakalyaUI
 import SwiftUI
 
-/// One scrolling form for a new patient: details, allergies, consent, signature, photo, doctor; one Save & queue.
+/// One scrolling form for a new patient: details, allergies, consent, signature, photo, doctor; Save & queue
+/// pinned at the bottom as the glass primary button (Clear Glass section headers and chips).
 struct IntakeV10Screen: View {
     let graph: AppGraph
     let clinic: ClinicContext
@@ -49,14 +50,18 @@ struct IntakeV10Form: View {
                     if form.showReason {
                         field(.reason, label: iv("iv.reason"), text: form.reason) { holder.setReason(text: $0) }
                     }
-                    SkPillButton(iv("iv.save"), wide: true) { holder.saveAndQueue() }
-                        .disabled(form.submitting)
-                        .accessibilityHint(iv("iv.save.hint"))
                 }
                 .padding(16)
             }
         }
         .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom) {
+            if form.done == nil {
+                GlassWideButton(title: iv("iv.save"), systemImage: "checkmark", loading: form.submitting) { holder.saveAndQueue() }
+                    .accessibilityHint(iv("iv.save.hint"))
+                    .padding(.horizontal, 16).padding(.vertical, 8)
+            }
+        }
         .onAppear {
             if let phone, form.phone.isEmpty { holder.setPhone(typed: phone) }
         }
@@ -94,10 +99,10 @@ struct IntakeV10Form: View {
                 }
             }
             field(.email, label: iv("iv.email"), text: form.email, type: .emailAddress, keyboard: .emailAddress) { holder.setEmail(text: $0) }
-            V7Label(text: iv("iv.sex"))
+            GroupedHeader(iv("iv.sex"))
             HStack(spacing: 8) {
                 ForEach([Sex.female, Sex.male, Sex.other], id: \.self) { sex in
-                    SkChoiceChip(sex.label ?? "", selected: form.sex == sex) { holder.setSex(value: sex) }
+                    GlassChip(text: sex.label ?? "", selected: form.sex == sex, check: true) { holder.setSex(value: sex) }
                 }
             }
         }
@@ -105,13 +110,13 @@ struct IntakeV10Form: View {
 
     private var allergies: some View {
         VStack(alignment: .leading, spacing: 6) {
-            V7Label(text: iv("iv.allergies"))
-            SkChoiceChips(
-                [""] + form.allergyPicks,
-                selected: Set(form.noKnownAllergies ? [""] : Array(form.allergies)),
-                label: { $0.isEmpty ? iv("iv.allergies.none") : $0 },
-                onToggle: { $0.isEmpty ? holder.toggleNoKnownAllergies() : holder.toggleAllergy(label: $0) }
-            )
+            GroupedHeader(iv("iv.allergies"))
+            V7Flow(spacing: 8) {
+                GlassChip(text: iv("iv.allergies.none"), selected: form.noKnownAllergies, check: true) { holder.toggleNoKnownAllergies() }
+                ForEach(form.allergyPicks, id: \.self) { pick in
+                    GlassChip(text: pick, selected: !form.noKnownAllergies && form.allergies.contains(pick), check: true) { holder.toggleAllergy(label: pick) }
+                }
+            }
             problem(.allergies)
         }
     }
@@ -137,7 +142,7 @@ struct IntakeV10Form: View {
     private var signature: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                V7Label(text: iv("iv.sign"))
+                GroupedHeader(iv("iv.sign"))
                 Spacer()
                 SkPillButton(iv("iv.sign.clear"), variant: .ghost) { clearToken += 1 }
             }
@@ -155,7 +160,7 @@ struct IntakeV10Form: View {
 
     private var photo: some View {
         VStack(alignment: .leading, spacing: 6) {
-            V7Label(text: iv("iv.photo"))
+            GroupedHeader(iv("iv.photo"))
             if form.photoPresent {
                 HStack(spacing: 12) {
                     if let photoPreview {
@@ -181,13 +186,13 @@ struct IntakeV10Form: View {
     @ViewBuilder private var doctors: some View {
         if !form.doctors.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                V7Label(text: iv("iv.doctor"))
-                SkChoiceChips(
-                    [""] + form.doctors.map(\.id),
-                    selected: [form.practitionerId ?? ""],
-                    label: { id in id.isEmpty ? iv("iv.doctor.any") : form.doctors.first { $0.id == id }?.name ?? "" },
-                    onToggle: { holder.setPractitioner(id: $0.isEmpty ? nil : $0) }
-                )
+                GroupedHeader(iv("iv.doctor"))
+                V7Flow(spacing: 8) {
+                    GlassChip(text: iv("iv.doctor.any"), selected: form.practitionerId == nil) { holder.setPractitioner(id: nil) }
+                    ForEach(form.doctors, id: \.id) { doctor in
+                        GlassChip(text: doctor.name, selected: form.practitionerId == doctor.id) { holder.setPractitioner(id: doctor.id) }
+                    }
+                }
             }
         }
     }
@@ -202,7 +207,7 @@ struct IntakeV10Form: View {
             if done.filesRefused != nil {
                 Text(iv("iv.done.refused")).font(.footnote.weight(.semibold)).foregroundStyle(theme.roles.error.color)
             }
-            SkPillButton(iv("iv.next"), wide: true) {
+            GlassWideButton(title: iv("iv.next")) {
                 holder.reset(); photoPreview = nil; library = nil; clearToken += 1; useAge = false; onDone()
             }
         }

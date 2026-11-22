@@ -70,11 +70,11 @@ try {
   check(await page.evaluate(() => window.isSecureContext), "secure context (localhost stands in for the app origins)");
 
   await page.evaluate((mouth) => { window.aarogyam.present(mouth, { dark: true }); }, fixture);
-  await page.waitForSelector('.mv-tooth[data-fdi="21"]');
+  await page.waitForSelector('[data-present-style="painted"] .ps-dot[data-tooth="21"]');
   check(await page.locator('[data-mv-theme="dark"]').count() > 0, "present: dark Present mode");
-  check(await page.locator(".mv-tooth").count() >= 20, "present: the arch is drawn");
+  check(await page.locator(".ps-dot").count() === 4 && await page.locator("canvas.ps-canvas").count() === 1, "present: the painted map with a dot on each recorded tooth");
   if (process.env.SMOKE_SHOT) await page.screenshot({ path: process.env.SMOKE_SHOT });
-  await page.locator('.mv-tooth[data-fdi="21"]').click();
+  await page.locator('.ps-dot[data-tooth="21"]').click();
   await page.getByRole("heading", { name: "Root canal treatment" }).waitFor();
   check(await page.evaluate(() => window.aarogyam.back()) === true, "back: from tooth 21 to all teeth");
   await page.getByRole("heading", { name: "Root canal treatment" }).waitFor({ state: "detached" });

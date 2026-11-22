@@ -2,8 +2,9 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// The front desk's lookup: a mobile field with live results, a picker of the profiles on the
-/// number, and the next actions. The number is on screen only; nothing here logs it.
+/// The front desk's lookup (Clear Glass): a big mobile field focused on open, the profiles on the
+/// number in one grouped card with an inline Check in, and Add family member and New patient as
+/// rows under them. The number is on screen only; nothing here logs it.
 struct DeskLookupScreen: View {
     let holder: DeskLookupStateHolder
     let state: DeskLookupState
@@ -15,6 +16,7 @@ struct DeskLookupScreen: View {
     @State private var typed = DeskLaunch.firstPhone
     @State private var relatives: DeskPayTarget?
     @State private var net = V9Connectivity()
+    @FocusState private var focused: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.skTheme) private var theme
 
@@ -22,27 +24,25 @@ struct DeskLookupScreen: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
                 if case .notAllowed = onEnum(of: state) {
                     SkEmptyState(dv("d9.lookup.not_allowed.title"), message: dv("d9.lookup.not_allowed.message"))
                 } else if case .checkedIn(let done) = onEnum(of: state) {
                     checkedIn(done)
                 } else {
-                    SkSheetHeader(dv("d9.lookup.title"), subtitle: dv("d9.lookup.subtitle"))
-                    if !net.online { offlineBanner }
-                    SkField(
-                        dv("d9.lookup.mobile"),
-                        text: Binding(get: { typed }, set: { change($0) }),
-                        placeholder: "98765 43210", contentType: .telephoneNumber, keyboard: .numberPad
-                    )
+                    if !net.online { offlineBanner.padding(.top, SkSpacing.s) }
+                    GroupedHeader(dv("d9.lookup.mobile"))
+                    DeskNumberField(label: dv("d9.lookup.mobile"), text: Binding(get: { typed }, set: { change($0) }), focused: $focused)
                     results
                 }
             }
-            .padding(.horizontal, 18).padding(.top, 22).padding(.bottom, 30)
+            .padding(.horizontal, SkSpacing.l).padding(.bottom, 30)
         }
         .scrollDismissesKeyboard(.interactively)
-        .skSheet()
-        .onAppear { if !typed.isEmpty { change(typed) } }
+        .onAppear {
+            if !typed.isEmpty { change(typed) }
+            focused = true
+        }
         .sheet(item: $relatives) { DeskFamilySheet(graph: graph, clinic: clinic, target: $0) }
     }
 
@@ -53,49 +53,59 @@ struct DeskLookupScreen: View {
     }
 
     private var offlineBanner: some View {
-        Text(dv("d9.lookup.offline")).v7Text(12.5, .semibold).foregroundStyle(theme.roles.onErrorContainer.color)
+        Text(dv("d9.lookup.offline")).font(.footnote.weight(.semibold)).foregroundStyle(theme.roles.onErrorContainer.color)
             .padding(.horizontal, 12).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
             .background(theme.roles.errorContainer.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     @ViewBuilder private var results: some View {
+        let r = theme.roles
         switch onEnum(of: state) {
         case .idle:
-            Text(dv("d9.lookup.hint")).v7Text(12).foregroundStyle(theme.roles.onSurfaceVariant.color)
+            Text(dv("d9.lookup.hint")).font(.footnote).foregroundStyle(r.onSurfaceVariant.color).padding(.horizontal, 4).padding(.top, 8)
         case .looking:
-            HStack(spacing: 8) { ProgressView(); Text(dv("d9.lookup.looking")).v7Text(12.5) }
+            HStack(spacing: 8) { ProgressView(); Text(dv("d9.lookup.looking")).font(.footnote) }
+                .foregroundStyle(r.onSurfaceVariant.color).padding(.horizontal, 4).padding(.top, 12)
                 .accessibilityElement(children: .combine)
         case .failed(let failed):
             VStack(alignment: .leading, spacing: 8) {
-                Text(failed.error.message).v7Text(12.5, .semibold).foregroundStyle(theme.roles.error.color)
-                SkPillButton(String(localized: "try_again"), variant: .tonal) {
+                Text(failed.error.message).font(.footnote.weight(.semibold)).foregroundStyle(r.error.color)
+                Button(String(localized: "try_again")) {
                     holder.search(typed: "")
                     holder.search(typed: DeskPhone.digits(typed))
                 }
+                .skGlassButton()
             }
+            .padding(.top, 12)
         case .noMatch(let none):
-            VStack(alignment: .leading, spacing: 10) {
-                Text(dv("d9.lookup.none.title")).v7Text(15, .bold).foregroundStyle(theme.roles.onSurface.color)
-                Text(dv("d9.lookup.none.message")).v7Text(12.5).foregroundStyle(theme.roles.onSurfaceVariant.color)
-                SkPillButton(dv("d9.lookup.new"), variant: .warm, wide: true) { onNewPatient(none.phone) }
+            GroupedHeader(dv("d9.lookup.none.title"))
+            GroupedCard {
+                Text(dv("d9.lookup.none.message")).font(.subheadline).foregroundStyle(r.onSurfaceVariant.color)
+                    .padding(.horizontal, GroupedSizes.rowPaddingH).padding(.top, 12).padding(.bottom, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                DeskActionRow(title: dv("d9.lookup.new"), systemImage: "person.badge.plus") { onNewPatient(none.phone) }
             }
         case .matches(let found):
-            V7Label(text: dvf("d9.lookup.profiles", found.profiles.count))
-            VStack(spacing: 8) {
+            GroupedHeader(dvf("d9.lookup.profiles", found.profiles.count))
+            GroupedCard {
                 ForEach(found.profiles, id: \.id) { profile in
-                    DeskProfileRow(profile: profile, ofName: found.profiles.first { $0.id == profile.familyOf }?.name,
-                                   canCollect: canCollect, canFamily: clinic.permissions.contains("patients.read") && ServerCaps.shared.family,
-                                   onCheckIn: { holder.checkIn(patientId: profile.id) },
-                                   onCollect: { onCollect(DeskPayTarget(patientId: profile.id, name: profile.name)) },
-                                   onFamily: { relatives = DeskPayTarget(patientId: profile.id, name: profile.name) })
+                    DeskMatchRow(
+                        profile: profile, ofName: found.profiles.first { $0.id == profile.familyOf }?.name,
+                        canCollect: canCollect, canFamily: clinic.permissions.contains("patients.read") && ServerCaps.shared.family,
+                        onCheckIn: { holder.checkIn(patientId: profile.id) },
+                        onCollect: { onCollect(DeskPayTarget(patientId: profile.id, name: profile.name)) },
+                        onFamily: { relatives = DeskPayTarget(patientId: profile.id, name: profile.name) }
+                    )
+                    GroupedDivider()
                 }
-            }
-            if ServerCaps.shared.family {
-                SkPillButton(dv("d9.lookup.family"), variant: .tonal, wide: true) {
-                    onFamily(found.phone, found.profiles.filter { $0.familyOf == nil }.map { DeskFamilyAnchor(id: $0.id, name: $0.name) })
+                if ServerCaps.shared.family {
+                    DeskActionRow(title: dv("d9.lookup.family"), systemImage: "person.2") {
+                        onFamily(found.phone, found.profiles.filter { $0.familyOf == nil }.map { DeskFamilyAnchor(id: $0.id, name: $0.name) })
+                    }
+                    GroupedDivider()
                 }
+                DeskActionRow(title: dv("d9.lookup.new"), systemImage: "person.badge.plus") { onNewPatient(found.phone) }
             }
-            SkPillButton(dv("d9.lookup.new"), variant: .warm, wide: true) { onNewPatient(found.phone) }
         case .notAllowed, .checkedIn:
             EmptyView()
         }
@@ -106,9 +116,10 @@ struct DeskLookupScreen: View {
             SkCheckDraw()
             SkSheetHeader(dvf("d9.lookup.done.title", Int(done.tokenNumber)), subtitle: dv("d9.lookup.done.message"))
                 .multilineTextAlignment(.center)
-            SkPillButton(dv("d9.lookup.another"), variant: .tonal, wide: true) { change("") }
-            SkPillButton(dv("d9.done"), wide: true) { dismiss() }
+            GlassWideButton(title: dv("d9.lookup.another"), prominent: false) { change("") }
+            GlassWideButton(title: dv("d9.done")) { dismiss() }
         }
+        .padding(.top, SkSpacing.l)
     }
 }
 

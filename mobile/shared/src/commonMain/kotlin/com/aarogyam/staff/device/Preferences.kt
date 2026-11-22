@@ -18,6 +18,9 @@ enum class PreferenceKey(
 
     /** `1` once the pre-prompt for alerts was answered, so it is not asked again. */
     PushAsked("push_asked"),
+
+    /** `light` or `dark` when picked in More; absent follows the phone ([AppearancePreference]). */
+    Appearance("appearance"),
 }
 
 /**

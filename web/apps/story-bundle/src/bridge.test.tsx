@@ -38,11 +38,12 @@ let sent: PageMessage[] = [];
 let api: AarogyamApi;
 const types = () => sent.map((m) => m.type);
 const last = () => sent.at(-1);
-const tooth = (fdi: number) => {
-  const el = document.querySelector<SVGGElement>(`.mv-tooth[data-fdi="${String(fdi)}"]`);
-  if (el === null) throw new Error(`no tooth ${String(fdi)}`);
+/** The painted map's dot on a recorded tooth (the map loads from its own chunk). */
+const tooth = (fdi: number) => waitFor(() => {
+  const el = document.querySelector<SVGGElement>(`.ps-dot[data-tooth="${String(fdi)}"]`);
+  if (el === null) throw new Error(`no dot on ${String(fdi)}`);
   return el;
-};
+});
 
 beforeEach(() => {
   sent = [];
@@ -87,11 +88,12 @@ describe("window.aarogyam", () => {
     expect(sent).toEqual([{ type: "ready", bundle_version: BUNDLE_VERSION, story_versions: [1] }]);
   });
 
-  it("present renders the mouth view in Present mode, dark when asked", () => {
+  it("present renders the mouth view in Present mode on the painted map, dark when asked", async () => {
     act(() => { api.present(aarav(), { dark: true }); });
     expect(screen.getByRole("dialog", { name: "Present mode" }).dataset["mvTheme"]).toBe("dark");
     expect(document.querySelector(".mv-present")).not.toBeNull();
-    expect(tooth(21)).toBeTruthy();
+    expect(await tooth(21)).toBeTruthy();
+    expect([...document.querySelectorAll(".ps-dot")].map((d) => Number(d.getAttribute("data-tooth")))).toEqual([55, 21, 65, 75]);
     expect(screen.getByRole("button", { name: "How to brush" })).toBeTruthy();
   });
 
@@ -105,7 +107,8 @@ describe("window.aarogyam", () => {
   it("back goes to all teeth (true), then says it is at the overview (false)", async () => {
     act(() => { api.present(aarav()); });
     expect(api.back()).toBe(false);
-    act(() => { fireEvent.click(tooth(21)); });
+    const t21 = await tooth(21);
+    act(() => { fireEvent.click(t21); });
     expect(screen.getByRole("heading", { name: "Root canal treatment" })).toBeTruthy();
     let answer = false;
     act(() => { answer = api.back(); });
@@ -138,15 +141,17 @@ describe("window.aarogyam", () => {
     expect(last()).toEqual({ type: "exit" });
   });
 
-  it("Add depth posts the tooth when caries has no depth", () => {
+  it("Add depth posts the tooth when caries has no depth", async () => {
     const snap = aarav();
     const t55 = snap.teeth.find((t) => t.tooth === 55);
     if (t55?.details != null) Reflect.deleteProperty(t55.details, "caries_depth");
     act(() => { api.present(snap); });
-    act(() => { fireEvent.click(tooth(21)); });
+    const t21 = await tooth(21);
+    act(() => { fireEvent.click(t21); });
     expect(screen.queryByRole("button", { name: "Add depth" })).toBeNull();
     act(() => { api.back(); });
-    act(() => { fireEvent.click(tooth(55)); });
+    const dot55 = await tooth(55);
+    act(() => { fireEvent.click(dot55); });
     fireEvent.click(screen.getByRole("button", { name: "Add depth" }));
     expect(last()).toEqual({ type: "add_depth", tooth: 55 });
   });

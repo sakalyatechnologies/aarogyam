@@ -1,12 +1,14 @@
 // Present mode on the phone (design §1.12 "Phone parity"): the portal's Show patient shell around the
-// same MouthView, fed the `/visits/{id}/mouth` JSON by the app. No API calls: "Add depth" and Exit go
+// same MouthView, fed the `/visits/{id}/mouth` JSON by the app. It opens on the painted map, the web's
+// default style (present-studio-design slice 1a), drawn from the same facts; the chart look needs the
+// dental chart, which the bridge doesn't carry. No API calls: "Add depth" and Exit go
 // back to the app over the bridge, which owns saving and leaving.
 import { Brush } from "lucide-react";
-import { Suspense, lazy, useImperativeHandle, useRef, useState, type ReactElement, type Ref } from "react";
+import { Suspense, lazy, useImperativeHandle, useMemo, useRef, useState, type ReactElement, type Ref } from "react";
 
 import type { MouthSnapshot } from "@aarogyam/api-client";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
-import { HoldToExit } from "@aarogyam/app-kit/present";
+import { HoldToExit, PaintedSlot, presentFacts, type Orientation, type ShadeKnob } from "@aarogyam/app-kit/present";
 
 import type { PageMessage } from "./channel.js";
 
@@ -33,6 +35,9 @@ export function PresentApp({ snapshot, dark, send, controls }: {
   const [brushing, setBrushing] = useState(false);
   const [onlyToday, setOnlyToday] = useState(false);
   const detail = useRef(false);
+  const [orientation, setOrientation] = useState<Orientation>("mirror");
+  const [shade, setShade] = useState<ShadeKnob>("natural");
+  const model = useMemo(() => presentFacts(snapshot), [snapshot]);
   preloadArt(snapshot);
   useImperativeHandle(controls, () => ({
     back: () => {
@@ -70,6 +75,9 @@ export function PresentApp({ snapshot, dark, send, controls }: {
           filter={onlyToday ? "today" : undefined}
           load3d={load3d}
           onScreen={(s) => { detail.current = s === "detail"; }}
+          overview={(slot) => (
+            <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={dark ? "dark" : "light"} />
+          )}
           toothExtras={(tooth) => (needsDepth(snapshot, tooth) ? (
             <button type="button" className="pm-chip pm-depth" onClick={() => { send({ type: "add_depth", tooth }); }}>
               <span className="pm-depth-label">Add depth</span>

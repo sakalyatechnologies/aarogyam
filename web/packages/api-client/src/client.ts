@@ -271,6 +271,7 @@ import type {
   SummaryContent,
   SummaryNote,
   Timeline,
+  PatientHistory,
   TodayMoney,
   Analytics,
   AnalyticsBucket,
@@ -759,6 +760,8 @@ export interface ApiClient {
 
   /** Clinic host: a patient's visits, notes, procedures and files, newest first. Needs `clinical.read`. */
   getTimeline(id: PatientId, options?: RequestOptions): Promise<ApiResult<Timeline>>;
+  /** The full-page history: every visit as a card, newest first (`GET /patients/{id}/history`). */
+  getPatientHistory(id: PatientId, before?: string, options?: RequestOptions): Promise<ApiResult<PatientHistory>>;
   /** Clinic host: a patient's consent records (DPDP), newest first. Needs `patients.read`. */
   listConsents(id: PatientId, options?: RequestOptions): Promise<ApiResult<ConsentPage>>;
   /** Clinic host: records that the patient saw the clinic's notice and agreed. Needs `patients.write`. */

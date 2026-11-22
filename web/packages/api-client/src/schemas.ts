@@ -4491,3 +4491,69 @@ export type TaskPreview = z.output<typeof taskPreview>;
 
 export const taskHistory = z.object({ items: z.array(taskOccurrence) }) satisfies z.ZodType<C.TaskHistory>;
 export type TaskHistory = z.output<typeof taskHistory>;
+
+// ── Patient history (full page) ─────────────────────────────────────────────
+
+/** A tooth touched in a visit. `work` is parsed as text so a value added later doesn't break old clients. */
+export const historyTooth = z.object({
+  tooth: z.number().int(),
+  finding: optionalText,
+  procedure_key: optionalText,
+  label: optionalText,
+  work: z.string(),
+}) satisfies z.ZodType<C.HistoryTooth>;
+export type HistoryTooth = z.output<typeof historyTooth>;
+
+export const historyFile = z.object({
+  id: attachmentId,
+  kind: z.string(),
+  mime_type: z.string(),
+  label: optionalText,
+  created_at: timestamp,
+}) satisfies z.ZodType<C.HistoryFile>;
+export type HistoryFile = z.output<typeof historyFile>;
+
+export const historyBill = z.object({
+  id: invoiceId,
+  number: optionalText,
+  status: z.string(),
+  total_paise: paise,
+  paid_paise: paise,
+}) satisfies z.ZodType<C.HistoryBill>;
+export type HistoryBill = z.output<typeof historyBill>;
+
+export const historyPlan = z.object({ id: planId, title: z.string(), status: z.string() }) satisfies z.ZodType<C.HistoryPlan>;
+export type HistoryPlan = z.output<typeof historyPlan>;
+
+export const historyCounts = z.object({
+  notes: z.number().int(),
+  recordings: z.number().int(),
+  files: z.number().int(),
+  procedures: z.number().int(),
+}) satisfies z.ZodType<C.HistoryCounts>;
+
+export const historyVisit = z.object({
+  id: visitId,
+  number: z.string(),
+  status: z.string(),
+  started_at: timestamp,
+  ended_at: timestamp.nullable().exactOptional(),
+  clinician: memberRef,
+  chief_complaint: optionalText,
+  teeth: z.array(historyTooth),
+  images: z.array(historyFile),
+  image_count: z.number().int(),
+  note_first_line: optionalText,
+  medicines: z.array(z.string()),
+  bills: z.array(historyBill).exactOptional(),
+  plans: z.array(historyPlan),
+  counts: historyCounts,
+}) satisfies z.ZodType<C.HistoryVisit>;
+export type HistoryVisit = z.output<typeof historyVisit>;
+
+export const patientHistory = z.object({
+  visits: z.array(historyVisit),
+  loose_files: z.array(historyFile),
+  next_cursor: z.string().exactOptional(),
+}) satisfies z.ZodType<C.PatientHistory>;
+export type PatientHistory = z.output<typeof patientHistory>;

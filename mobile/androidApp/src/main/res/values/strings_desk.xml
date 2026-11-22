@@ -49,7 +49,6 @@
     <string name="dk_d9_lookup_family">Add family member</string>
     <string name="dk_d9_lookup_hint">Type the 10-digit number. Everyone on it shows up.</string>
     <string name="dk_d9_lookup_last_visit">Last visit %s</string>
-    <string name="dk_d9_lookup_last_visit_none">Last visit not shown yet</string>
     <string name="dk_d9_lookup_looking">Looking…</string>
     <string name="dk_d9_lookup_mobile">Mobile number</string>
     <string name="dk_d9_lookup_new">New patient</string>

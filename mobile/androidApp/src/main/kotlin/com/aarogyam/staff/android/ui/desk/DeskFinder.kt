@@ -1,52 +1,125 @@
 package com.aarogyam.staff.android.ui.desk
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.glass.GroupHeader
+import com.aarogyam.staff.android.ui.glass.GroupRow
+import com.aarogyam.staff.android.ui.glass.KindTile
+import com.aarogyam.staff.android.ui.glass.groupShape
 import com.aarogyam.staff.android.ui.message
+import com.aarogyam.staff.android.ui.today.InitialsAvatar
 import com.aarogyam.staff.android.ui.walkin.PickChip
+import com.aarogyam.staff.art.Icons
 import com.aarogyam.staff.desk.DeskLookupState
 import com.aarogyam.staff.desk.DeskLookupStateHolder
 import com.aarogyam.staff.desk.DeskProfile
 import com.sakalya.mobile.design.Spacing
-import com.sakalya.mobile.designcompose.SkAvatar
+import com.sakalya.mobile.designcompose.SkAvatarShape
 import com.sakalya.mobile.designcompose.SkButton
 import com.sakalya.mobile.designcompose.SkButtonVariant
-import com.sakalya.mobile.designcompose.SkCard
 import com.sakalya.mobile.designcompose.SkChip
 import com.sakalya.mobile.designcompose.SkEmptyState
-import com.sakalya.mobile.designcompose.SkTextField
+import com.sakalya.mobile.designcompose.SkIcon
+import com.sakalya.mobile.designcompose.SkPillButton
+import com.sakalya.mobile.designcompose.SkPillVariant
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTone
 import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
 
-/** The mobile field; typing formats as `98765 43210` and every change goes to [onTyped]. */
+/**
+ * The mobile field in Clear Glass: a muted heading over one inset card with the phone icon and the number in large
+ * tabular digits; typing formats as `98765 43210` and every change goes to [onTyped]. [autoFocus] opens the keypad at
+ * once where the number is the only thing to do (it saves a tap).
+ */
 @Composable
 fun DeskNumberField(
     typed: String,
     onTyped: (String) -> Unit,
     label: String,
+    autoFocus: Boolean = false,
 ) {
-    SkTextField(
-        value = typed,
-        onValueChange = { onTyped(DeskPhone.format(it)) },
-        label = label,
-        placeholder = "98765 43210",
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-    )
+    val p = SkTheme.palette
+    val focus = remember { FocusRequester() }
+    if (autoFocus) LaunchedEffect(Unit) { focus.requestFocus() }
+    val style =
+        SkTypography.title.copy(
+            fontSize = NUMBER_SIZE.sp,
+            fontWeight = FontWeight.SemiBold,
+            fontFeatureSettings = "tnum",
+            color = p.onSurface.color,
+        )
+    Column {
+        GroupHeader(label)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = FIELD_MIN.dp)
+                .background(p.card.color, RoundedCornerShape(FIELD_RADIUS.dp))
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SkIcon(Icons.of("phone"), p.onSurfaceVariant.color, size = 20.dp)
+            BasicTextField(
+                value = typed,
+                onValueChange = { onTyped(DeskPhone.format(it)) },
+                modifier = Modifier.weight(1f).focusRequester(focus).semantics { contentDescription = label },
+                textStyle = style,
+                singleLine = true,
+                cursorBrush = SolidColor(p.primary.color),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                decorationBox = { inner ->
+                    if (typed.isEmpty()) {
+                        Text("98765 43210", style = style.copy(color = p.onSurfaceVariant.color.copy(alpha = HINT)))
+                    }
+                    inner()
+                },
+            )
+        }
+    }
+}
+
+/** A tappable row in an inset group with a tinted tile, such as "New patient on this number". */
+@Composable
+fun DeskActionRow(
+    icon: String,
+    text: String,
+    index: Int,
+    count: Int,
+    onClick: () -> Unit,
+) {
+    GroupRow(index, count, onClick = onClick) {
+        KindTile(icon, SkTone.Brand)
+        Text(text, Modifier.weight(1f), style = SkTypography.bodyStrong, color = SkTheme.palette.primary.color)
+    }
 }
 
 /** What the desk can do for one lookup state, apart from the matches (which the caller draws). */
@@ -101,9 +174,7 @@ fun DeskLookupStatus(
                 style = SkTypography.bodyStrong,
                 color = SkTheme.colors.text.color,
             )
-            SkButton(stringResource(R.string.dk_dx_home_new), onClick = {
-                onNewPatient(state.phone)
-            }, modifier = Modifier.fillMaxWidth())
+            DeskActionRow("plus", stringResource(R.string.dk_dx_home_new), 0, 1) { onNewPatient(state.phone) }
         }
 
         is DeskLookupState.Matches, is DeskLookupState.CheckedIn -> {
@@ -112,7 +183,11 @@ fun DeskLookupStatus(
     }
 }
 
-/** One profile on the number: initials, name, age and sex, last visit, a "checked in" chip and the actions that fit. */
+/**
+ * One profile on the number as an inset-group card (row [index] of [count]): a round avatar, name, age and sex, the
+ * relation, and Check in on the right (or "Checked in" with the queue state). Collect and Family sit under it when
+ * allowed. The last visit shows only when the lookup sends one.
+ */
 @Composable
 fun DeskProfileRow(
     profile: DeskProfile,
@@ -123,60 +198,58 @@ fun DeskProfileRow(
     onCollect: () -> Unit,
     onFamily: () -> Unit,
     checkInTitle: String? = null,
+    index: Int = 0,
+    count: Int = 1,
 ) {
-    val colors = SkTheme.colors
+    val p = SkTheme.palette
     val name = profile.name.ifEmpty { profile.initials }
-    SkCard(Modifier.fillMaxWidth()) {
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.M.dp)) {
-            SkAvatar(name, tone = if (profile.checkedInToday) SkTone.Brand else SkTone.Neutral)
+    val inline = checkInTitle == null && !profile.checkedInToday
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(p.card.color, groupShape(index, count))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.S.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            InitialsAvatar(name, AVATAR.dp, cool = profile.checkedInToday, shape = SkAvatarShape.Circle)
             Column(Modifier.weight(1f)) {
-                Text(name, style = SkTypography.bodyStrong, color = colors.text.color)
+                Text(name, style = SkTypography.bodyStrong, color = p.onSurface.color)
                 Text(
                     patientLine(profile.number, profile.ageYears, profile.sex),
                     style = SkTypography.footnote,
-                    color = colors.textMuted.color,
+                    color = p.onSurfaceVariant.color,
                 )
                 val relation = profile.relation
                 if (relation != null && ofName != null) {
                     Text(
                         stringResource(R.string.dk_d9_lookup_relation_of, relationTitle(relation), ofName),
                         style = SkTypography.label,
-                        color = colors.primaryText.color,
+                        color = SkTheme.colors.primaryText.color,
                     )
                 }
-                val last = profile.lastVisit?.takeIf { it.length >= DAY_LENGTH }
-                DeskMutedText(
-                    if (last == null) {
-                        stringResource(R.string.dk_d9_lookup_last_visit_none)
-                    } else {
-                        stringResource(R.string.dk_d9_lookup_last_visit, DeskEarlier.dayText(last.take(DAY_LENGTH)))
-                    },
-                )
+                profile.lastVisit?.takeIf { it.length >= DAY_LENGTH }?.let { last ->
+                    val day = DeskEarlier.dayText(last.take(DAY_LENGTH))
+                    DeskMutedText(stringResource(R.string.dk_d9_lookup_last_visit, day))
+                }
             }
-        }
-        if (profile.checkedInToday) {
-            DeskWrap {
+            if (profile.checkedInToday) {
                 SkChip(stringResource(R.string.dk_d9_lookup_checked_in), tone = SkTone.Success)
-                profile.state?.let { SkChip(it.title(), tone = SkTone.Info) }
+            } else if (inline) {
+                SkPillButton(stringResource(R.string.dk_d9_lookup_check_in), onCheckIn)
             }
         }
-        DeskWrap {
-            if (!profile.checkedInToday) {
-                SkButton(checkInTitle ?: stringResource(R.string.dk_d9_lookup_check_in), onClick = onCheckIn)
-            }
-            if (canCollect) {
-                SkButton(
-                    stringResource(R.string.dk_d9_lookup_collect),
-                    onClick = onCollect,
-                    variant = SkButtonVariant.Secondary,
-                )
-            }
-            if (canFamily && profile.familyOf == null) {
-                SkButton(
-                    stringResource(R.string.dk_d9_family_section),
-                    onClick = onFamily,
-                    variant = SkButtonVariant.Secondary,
-                )
+        val state = profile.state.takeIf { profile.checkedInToday }
+        val family = canFamily && profile.familyOf == null
+        if (checkInTitle != null && !profile.checkedInToday) {
+            SkPillButton(checkInTitle, onCheckIn, wide = true)
+        }
+        if (state != null || canCollect || family) {
+            DeskWrap {
+                state?.let { SkChip(it.title(), tone = SkTone.Info) }
+                val tonal = SkPillVariant.Tonal
+                if (canCollect) SkPillButton(stringResource(R.string.dk_d9_lookup_collect), onCollect, variant = tonal)
+                if (family) SkPillButton(stringResource(R.string.dk_d9_family_section), onFamily, variant = tonal)
             }
         }
     }
@@ -201,3 +274,8 @@ fun DeskDoctorChips(
 
 private const val SPINNER = 18
 private const val DAY_LENGTH = 10
+private const val NUMBER_SIZE = 26
+private const val FIELD_MIN = 64
+private const val FIELD_RADIUS = 20
+private const val HINT = 0.6f
+private const val AVATAR = 44

@@ -11,17 +11,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,6 +73,43 @@ fun GroupRow(
         horizontalArrangement = Arrangement.spacedBy(ROW_GAP.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
+    )
+}
+
+/**
+ * A Settings-style field row in an inset group (Clear Glass form): the label on the left, the value typed on the
+ * right, 56 dp tall. The whole row focuses the field.
+ */
+@Composable
+fun GroupField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    index: Int,
+    count: Int,
+    keyboard: KeyboardType = KeyboardType.Text,
+) {
+    val p = SkTheme.palette
+    val style = SkTypography.bodyText.copy(color = p.onSurface.color)
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
+        textStyle = style,
+        singleLine = true,
+        cursorBrush = SolidColor(p.primary.color),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+        decorationBox = { inner ->
+            GroupRow(index, count) {
+                Text(
+                    label,
+                    Modifier.widthIn(min = LABEL_MIN.dp, max = LABEL_MAX.dp),
+                    style = SkTypography.bodyText,
+                    color = p.onSurfaceVariant.color,
+                )
+                Box(Modifier.weight(1f)) { inner() }
+            }
+        },
     )
 }
 
@@ -129,3 +172,5 @@ private const val TILE = 40
 private const val TILE_RADIUS = 12
 private const val ICON_RATIO = 0.5f
 private const val CHROME_ALPHA = 0.9f
+private const val LABEL_MIN = 72
+private const val LABEL_MAX = 120

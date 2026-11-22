@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,11 +68,12 @@ fun DeskLookupScreen(
         holder.search(DeskPhone.digits(typed))
     }
     val scroll = rememberScrollState()
+    val collapsed by remember { derivedStateOf { scroll.value > 0 } }
     Column(Modifier.fillMaxSize().imePadding()) {
         // Clear Glass chrome: a calm title bar that turns tonal once the content scrolls under it.
         SkCollapsingTopBar(
             title = stringResource(R.string.dk_d9_lookup_title),
-            collapsed = scroll.value > 0,
+            collapsed = collapsed,
             kicker = stringResource(R.string.dk_d9_lookup_subtitle),
             actions = { SkPillButton(stringResource(R.string.dk_d9_done), onClose, variant = SkPillVariant.Tonal) },
         )

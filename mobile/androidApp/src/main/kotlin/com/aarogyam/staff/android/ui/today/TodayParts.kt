@@ -29,7 +29,7 @@ import com.sakalya.mobile.designcompose.color
 /** The mockup's `--mono` times ("10:45"). */
 internal val Mono = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
 
-/** A round 40 dp icon button on the tonal well (Clear Glass chrome) with a 48 dp touch area, and an optional unread dot. */
+/** A round 40 dp icon button on the tonal well (Clear Glass chrome), 48 dp to touch, with an optional unread dot. */
 @Composable
 internal fun IconWell(
     icon: String,

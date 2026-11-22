@@ -103,3 +103,76 @@ struct GroupedAvatar: View {
         name.unicodeScalars.reduce(0) { ($0 + Int($1.value)) % 4 }
     }
 }
+
+/// A tappable grouped row: the row fills with `surface3` while pressed, never glass.
+struct GroupedRowStyle: ButtonStyle {
+    @Environment(\.skTheme) private var theme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, GroupedSizes.rowPaddingH).padding(.vertical, GroupedSizes.rowPaddingV)
+            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+            .background(configuration.isPressed ? theme.roles.surface3.color : Color.clear)
+            .contentShape(Rectangle())
+    }
+}
+
+/// A tonal status pill (`.pill`): text plus colour, never colour alone.
+struct GroupedPill: View {
+    enum Kind { case neutral, strong, warm, tonal, error, outline }
+    let text: String
+    var kind: Kind = .warm
+    @Environment(\.skTheme) private var theme
+
+    var body: some View {
+        let r = theme.roles
+        let (fill, ink): (Color, Color) = switch kind {
+        case .neutral: (r.surface3.color, r.onSurfaceVariant.color)
+        case .strong: (r.primary.color, r.onPrimary.color)
+        case .warm: (r.tertiaryContainer.color, r.onTertiaryContainer.color)
+        case .tonal: (r.primaryContainer.color, r.onPrimaryContainer.color)
+        case .error: (r.errorContainer.color, r.onErrorContainer.color)
+        case .outline: (Color.clear, r.onSurfaceVariant.color)
+        }
+        Text(text).font(.footnote.weight(.bold)).lineLimit(1).foregroundStyle(ink)
+            .padding(.horizontal, 10).frame(minHeight: 26)
+            .background(fill, in: Capsule())
+            .overlay { if kind == .outline { Capsule().strokeBorder(r.outline.color, lineWidth: 1.25) } }
+            .fixedSize()
+    }
+}
+
+/// A filter chip on chrome: the chosen one filled with the primary colour (with a check), the rest glass.
+struct GlassChip: View {
+    let text: String
+    let selected: Bool
+    var check = false
+    let action: () -> Void
+    @Environment(\.skTheme) private var theme
+
+    var body: some View {
+        let r = theme.roles
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if selected && check { Image(systemName: "checkmark").font(.footnote.weight(.bold)).accessibilityHidden(true) }
+                Text(text).font(.subheadline.weight(.semibold)).lineLimit(1)
+            }
+            .foregroundStyle((selected ? r.onPrimary : r.onSurface).color)
+            .padding(.horizontal, 15).frame(minHeight: 40)
+            .background { if selected { Capsule().fill(r.primary.color) } }
+            .modifier(GlassUnlessSelected(selected: selected))
+            .padding(.vertical, 2)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+private struct GlassUnlessSelected: ViewModifier {
+    let selected: Bool
+
+    func body(content: Content) -> some View {
+        if selected { content } else { content.skGlass(in: Capsule(), interactive: true) }
+    }
+}

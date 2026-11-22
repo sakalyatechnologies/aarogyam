@@ -39,7 +39,7 @@ private struct LabPatientPicker: View {
                 if case .loaded(let loaded) = onEnum(of: state) {
                     VStack(spacing: 3) {
                         ForEach(Array(loaded.items.enumerated()), id: \.element.id) { index, row in
-                            Button { onPick(row) } label: { V7ListSurface(index: index, count: loaded.items.count) { PatientListRow(row: row, alternate: index % 2 == 1) } }
+                            Button { onPick(row) } label: { V7ListSurface(index: index, count: loaded.items.count) { PatientListRow(row: row) } }
                                 .buttonStyle(.skPressable)
                         }
                     }

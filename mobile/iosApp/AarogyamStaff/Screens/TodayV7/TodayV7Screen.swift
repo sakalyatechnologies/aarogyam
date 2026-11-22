@@ -30,6 +30,7 @@ struct TodayV7Screen: View {
             .padding(.bottom, SkSpacing.xxl)
         }
         .scrollIndicators(.hidden)
+        .skSoftScrollEdge()
         .refreshable { await refresh() }
         .task(id: scenePhase) {
             // Reloads every 20 s (shared PollingUpdates) while Today is on screen and the app is active.

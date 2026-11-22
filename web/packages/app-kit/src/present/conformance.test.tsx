@@ -1,7 +1,7 @@
 // The conformance suite (present-studio-design §14.1): one set of rules, run over every shipped style and
 // the fixtures (Aarav, the adult, an empty mouth). Slice 1a starts it with the painted style; each new
 // style adds itself to STYLES and must pass unchanged.
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -10,6 +10,7 @@ import aaravFixture from "../../../../../specialties/dental/fixtures/mouth-aarav
 import type { Snapshot } from "../mouth-view/model.js";
 import { dottedTeeth, presentFacts, type PresentModel } from "./model.js";
 import { PaintedStyle } from "./painted.js";
+import { ToothSheet } from "./tooth-sheet.js";
 import { SHIPPED_STYLES, type PresentStyleId } from "./styles.js";
 
 afterEach(cleanup);
@@ -106,5 +107,49 @@ describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conforman
       const has = [...container.querySelectorAll(".ps-badge-ill")].some((b) => /example, not your tooth/i.test(b.textContent));
       expect(has).toBe(unrecorded);
     });
+  });
+});
+
+/** The tooth sheet (slice 1c) holds the same rules for every recorded tooth of every fixture. */
+describe.each(Object.entries(FIXTURES))("conformance: tooth sheet, %s", (_name, snap) => {
+  const teethOf = () => dottedTeeth(presentFacts(snap()));
+  it("shows no shade code, price or unbacked visit number; usual steps carry no number or date", async () => {
+    const model = presentFacts(snap());
+    for (const tooth of teethOf()) {
+      const { container, unmount } = render(<ToothSheet model={model} tooth={tooth} onBack={() => undefined} />);
+      await waitFor(() => { expect(container.querySelector("[data-pair] svg, [data-art-failed]")).not.toBeNull(); });
+      const text = container.textContent;
+      expect(text, String(tooth)).not.toMatch(/\bA(1|2|3|3\.5)\b|₹/);
+      // "Visit N" only inside a record-backed step row
+      const outside = [...container.querySelectorAll("*")].filter((el) => el.closest("[data-step-state]") === null && el.children.length === 0).map((el) => el.textContent).join(" ");
+      expect(outside, String(tooth)).not.toMatch(/Visit \d/);
+      expect(container.querySelector(".ps-sheet-usual")?.textContent ?? "", String(tooth)).not.toMatch(/\d|Visit/);
+      unmount();
+    }
+  });
+
+  it("every fact has a solid badge with the snapshot's own day; every picture a dashed one", async () => {
+    const model = presentFacts(snap());
+    for (const tooth of teethOf()) {
+      const { container, unmount } = render(<ToothSheet model={model} tooth={tooth} onBack={() => undefined} />);
+      await waitFor(() => { expect(container.querySelector("[data-pair] svg, [data-art-failed]")).not.toBeNull(); });
+      for (const f of model.facts.filter((x) => x.tooth === tooth)) {
+        const badge = container.querySelector(`[data-fact="${f.id}"] .ps-badge-rec`)?.textContent;
+        expect(badge, f.id).toMatch(f.recorded_on === undefined ? /^Recorded$/ : /^Recorded \d{1,2} [A-Z][a-z]{2}$/);
+      }
+      if (container.querySelector("[data-pair] svg") !== null) expect([...container.querySelectorAll(".ps-badge-ill")].map((b) => b.textContent)).toContain("Painting based on your record");
+      unmount();
+    }
+  });
+
+  it("the before/after slider, when present, shares one viewBox", async () => {
+    const model = presentFacts(snap());
+    for (const tooth of teethOf()) {
+      const { container, unmount } = render(<ToothSheet model={model} tooth={tooth} onBack={() => undefined} />);
+      await waitFor(() => { expect(container.querySelector("[data-pair] svg, [data-art-failed]")).not.toBeNull(); });
+      const boxes = [...container.querySelectorAll("[data-compare] svg[role=img]")].map((s) => s.getAttribute("viewBox"));
+      expect(boxes.length === 0 || (boxes.length === 2 && boxes[0] === boxes[1]), String(tooth)).toBe(true);
+      unmount();
+    }
   });
 });

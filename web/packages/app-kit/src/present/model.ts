@@ -50,6 +50,8 @@ export interface ToothFacts {
   draw: Overlay[];
   /** Ids of this tooth's facts, in list order. */
   facts: string[];
+  /** The tooth exactly as recorded (steps, material, surfaces): what the tooth sheet draws; absent when nothing is recorded. */
+  record?: SnapTooth;
 }
 
 export interface PresentModel {
@@ -164,7 +166,7 @@ export function presentFacts(snap: MouthSnapshot, visitId?: string): PresentMode
       tooth: p.tooth, type, quadrant: fold(p.quadrant), index: p.index, shown,
       missing: t !== undefined && (t.finding === "missing" || (t.problems ?? []).includes("missing")),
       ...(eruption === undefined ? {} : { eruption }), ...(angulation === undefined ? {} : { angulation }),
-      draw: overlaysFor(t), facts: own.map((f) => f.id),
+      draw: overlaysFor(t), facts: own.map((f) => f.id), ...(t === undefined ? {} : { record: t }),
     });
   }
   return {

@@ -3,8 +3,10 @@
 // generic text is always labelled "Usually", "Usual steps" or "What to expect".
 import type { MouthSnapshot } from "@aarogyam/api-client";
 
+import type { Angulation, Eruption } from "../mouth-art/eruption.js";
 import type { Overlay, Surface } from "../mouth-art/overlays.js";
 import type { BrushingBand } from "../mouth-art/stage-steps.js";
+import type { Tooth3dDetails } from "../real-teeth-3d/index.js";
 
 export type Snapshot = MouthSnapshot;
 export type SnapTooth = MouthSnapshot["teeth"][number];
@@ -435,3 +437,28 @@ export function brushHighlight(snap: Snapshot | undefined, careSteps: readonly s
   if (snap === undefined || !careSteps.some((s) => /gentl/i.test(s))) return undefined;
   return snap.teeth.find((t) => isTreatedToday(t))?.tooth;
 }
+
+// ---------- the per-tooth 3D module's details (shared by tooth detail and the Present tooth sheet) ----------
+const ERUPTIONS: readonly string[] = ["partial", "impacted", "unerupted"];
+export const isEruption = (v: string | undefined): v is Eruption => v === "erupted" || (v !== undefined && ERUPTIONS.includes(v));
+export const isAngulation = (v: string | undefined): v is Angulation => v === "vertical" || v === "mesioangular" || v === "distoangular" || v === "horizontal";
+
+export function details3d(t: SnapTooth | undefined): Tooth3dDetails {
+  const out: Tooth3dDetails = {};
+  if (t === undefined) return out;
+  const ov = overlaysFor(t);
+  const caries = ov.flatMap((o) => (o.kind === "caries" ? [o.depth === undefined ? { surface: o.surface } : { surface: o.surface, depth: o.depth }] : []));
+  if (caries.length > 0) out.caries = caries;
+  const work = ov.filter((o): o is Overlay => !["caries", "fracture", "missing", "infection", "bleeding", "pocket", "mobility"].includes(o.kind));
+  if (work.length > 0) out.restorations = work;
+  if (t.finding === "fractured") out.fracture = true;
+  const d = t.details;
+  if (d?.infection === "infection" || d?.infection === "abscess") out.infection = d.infection;
+  if (d?.bleeding === true) out.bleeding = true;
+  if (d?.pocket_mm !== undefined) out.pocket_mm = d.pocket_mm;
+  if (d?.mobility === 0 || d?.mobility === 1 || d?.mobility === 2 || d?.mobility === 3) out.mobility = d.mobility;
+  if (isEruption(d?.eruption)) out.eruption = d.eruption;
+  if (isAngulation(d?.angulation)) out.angulation = d.angulation;
+  return out;
+}
+

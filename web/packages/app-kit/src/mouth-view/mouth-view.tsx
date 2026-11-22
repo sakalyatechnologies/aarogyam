@@ -5,18 +5,17 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode, type RefObject } from "react";
 
 import { archLayout, type ArchSlot } from "../mouth-art/arch.js";
-import { eruptionScene, type Angulation, type Eruption } from "../mouth-art/eruption.js";
+import { eruptionScene } from "../mouth-art/eruption.js";
 import { loadShapes, loadStageArt, loadToothArt, neighborOf, toothTypeOf } from "../mouth-art/loaders.js";
-import { overlayPart, viewsForSurface, type Overlay } from "../mouth-art/overlays.js";
+import { overlayPart, viewsForSurface } from "../mouth-art/overlays.js";
 import { ArtSvg } from "../mouth-art/react.js";
 import { anchorBoxes, apply, stagePart, toothScene } from "../mouth-art/scene.js";
 import { STAGE_CALLOUTS, sceneArt, type StageModel } from "../mouth-art/stage-steps.js";
 import type { Scene, ShapeSet, StageSet, ToothArt, ToothType, ViewName } from "../mouth-art/types.js";
-import type { Tooth3dDetails, Tooth3dHandle, Tooth3dOptions } from "../real-teeth-3d/index.js";
+import type { Tooth3dHandle, Tooth3dOptions } from "../real-teeth-3d/index.js";
 import {
-  FOUND_STEP, archStates, dayLabel, isRecommended, isToday, todayLine, detailChips, detailOverlays, detailTitle, ifWaitFrames, mainTreatment, materialWords, originWords, overlaysFor, spokenLabel,
+  FOUND_STEP, details3d, isAngulation, isEruption, archStates, dayLabel, isRecommended, isToday, todayLine, detailChips, detailOverlays, detailTitle, ifWaitFrames, mainTreatment, materialWords, originWords, overlaysFor, spokenLabel,
   stageParams, stateFor, stepLabels, stepOverlays, summaryCounts, toothInfo, usuallyText, withFoundStep, type Badge, type Chip, type PositionState, type Snapshot,
-  type SnapTooth,
 } from "./model.js";
 
 // ---------- lazy art, cached for the page's life ----------
@@ -423,29 +422,6 @@ function Marks({ p, dim }: { p: Placed; dim: boolean }): ReactElement {
 
 const VIEW_LABEL: Readonly<Record<ViewName, string>> = { section: "Inside", front: "Outside", top: "Chewing side" };
 const NOTE_WORDS: Readonly<Record<string, string>> = { depth_not_recorded: "Illustration: depth not recorded" };
-
-const ERUPTIONS: readonly string[] = ["partial", "impacted", "unerupted"];
-const isEruption = (v: string | undefined): v is Eruption => v === "erupted" || (v !== undefined && ERUPTIONS.includes(v));
-const isAngulation = (v: string | undefined): v is Angulation => v === "vertical" || v === "mesioangular" || v === "distoangular" || v === "horizontal";
-
-function details3d(t: SnapTooth | undefined): Tooth3dDetails {
-  const out: Tooth3dDetails = {};
-  if (t === undefined) return out;
-  const ov = overlaysFor(t);
-  const caries = ov.flatMap((o) => (o.kind === "caries" ? [o.depth === undefined ? { surface: o.surface } : { surface: o.surface, depth: o.depth }] : []));
-  if (caries.length > 0) out.caries = caries;
-  const work = ov.filter((o): o is Overlay => !["caries", "fracture", "missing", "infection", "bleeding", "pocket", "mobility"].includes(o.kind));
-  if (work.length > 0) out.restorations = work;
-  if (t.finding === "fractured") out.fracture = true;
-  const d = t.details;
-  if (d?.infection === "infection" || d?.infection === "abscess") out.infection = d.infection;
-  if (d?.bleeding === true) out.bleeding = true;
-  if (d?.pocket_mm !== undefined) out.pocket_mm = d.pocket_mm;
-  if (d?.mobility === 0 || d?.mobility === 1 || d?.mobility === 2 || d?.mobility === 3) out.mobility = d.mobility;
-  if (isEruption(d?.eruption)) out.eruption = d.eruption;
-  if (isAngulation(d?.angulation)) out.angulation = d.angulation;
-  return out;
-}
 
 function slowLink(): boolean {
   const n: { userAgent: string; connection?: { saveData?: boolean; effectiveType?: string }; deviceMemory?: number } = navigator;

@@ -8,6 +8,7 @@ import { FRONT_ATLAS } from "../mouth-art/gen/front-atlas.js";
 import { FactList, IllustrationBadge, ProvenanceFooter, dotsOf } from "./blocks.js";
 import type { Orientation, PresentModel } from "./model.js";
 import { OpenWide, bitingSideProblems, frontHidesAllProblems } from "./open-wide.js";
+import { ToothSheet, type ToothSheetProps } from "./tooth-sheet.js";
 import { SHADE_KNOBS, dotAt, paintSmile, smileScene, spread, toothRect, type ShadeKnob } from "./painter.js";
 
 export interface PaintedProps {
@@ -22,6 +23,9 @@ export interface PaintedProps {
   /** The front map or Open wide; undefined = the §6.2 rule (Open wide when the front hides every problem). */
   view?: PaintedView | undefined;
   onView?: ((v: PaintedView) => void) | undefined;
+  /** Present's tooth sheet: a tap opens it in place of the map, with "Back to the map". Without it, `onOpen` gets the tap. */
+  toothSheet?: boolean | undefined;
+  load3d?: ToothSheetProps["load3d"];
 }
 
 export type PaintedView = "front" | "wide";
@@ -111,6 +115,9 @@ export function PaintedStyle(props: PaintedProps): ReactElement {
     ...(faded ? ["Faded teeth have nothing recorded yet."] : []),
   ];
   const openWide = () => { setView("wide"); };
+  const [sheet, setSheet] = useState<number | undefined>(undefined);
+  const open = props.toothSheet === true ? setSheet : props.onOpen;
+  if (sheet !== undefined) return <div className="ps-painted ps-painted-sheet" data-present-style="painted" data-view="sheet"><ToothSheet model={model} tooth={sheet} load3d={props.load3d} onBack={() => { setSheet(undefined); }} /></div>;
   return (
     <div className="ps-painted" data-present-style="painted" data-view={view}>
       <div className="ps-stage">
@@ -139,10 +146,10 @@ export function PaintedStyle(props: PaintedProps): ReactElement {
             <b>Open wide to see {hidden.length === 1 ? "it" : "them"}</b>
           </button>
         ) : null}
-        {view === "wide" ? <OpenWide model={model} orientation={orientation} theme={props.theme} onOpen={props.onOpen} /> : <PaintedMap {...props} />}
+        {view === "wide" ? <OpenWide model={model} orientation={orientation} theme={props.theme} onOpen={open} /> : <PaintedMap {...props} onOpen={open} />}
       </div>
       <div className="ps-side">
-        <FactList model={model} onOpen={props.onOpen} onBitingSide={view === "front" ? openWide : undefined} />
+        <FactList model={model} onOpen={open} onBitingSide={view === "front" ? openWide : undefined} />
         <ProvenanceFooter recorded={["The dots and this list come from this visit's record."]} illustration={illustration} />
       </div>
     </div>

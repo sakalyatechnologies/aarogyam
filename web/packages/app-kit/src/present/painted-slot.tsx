@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 import type { OverviewSlot } from "../mouth-view/mouth-view.js";
 import { StyleBoundary, TextFallback, useChunk } from "./blocks.js";
 import type { Orientation, PresentModel } from "./model.js";
-import type { PaintedView } from "./painted.js";
+import type { PaintedProps, PaintedView } from "./painted.js";
 import type { ShadeKnob } from "./painter.js";
 
 const loadPainted = () => import("./painted.js").then((m) => m.paintedStyle);
@@ -15,6 +15,10 @@ export function PaintedSlot({ model, slot, ...knobs }: {
   shade: ShadeKnob; onShade: (s: ShadeKnob) => void; theme: "light" | "dark";
   /** Front or Open wide; undefined lets the painted style pick (Open wide when the front hides every problem). */
   view?: PaintedView | undefined; onView?: ((v: PaintedView) => void) | undefined;
+  /** Lazy 3D module for the tooth sheet's "See in 3D". */
+  load3d?: PaintedProps["load3d"];
+  /** The portal opens the tooth sheet on a tap; the phone bundle keeps MouthView's tooth screen. */
+  toothSheet?: boolean | undefined;
 }): ReactNode {
   const chunk = useChunk(loadPainted);
   // a render error also falls back to text; retry remounts the boundary

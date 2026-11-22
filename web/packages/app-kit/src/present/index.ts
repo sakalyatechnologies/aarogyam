@@ -15,6 +15,8 @@ export {
 export type { ShadeKnob } from "./painter.js";
 export type { PaintedProps, PaintedView } from "./painted.js";
 export type { OpenWideProps, WideArt } from "./open-wide.js";
+export { CompareSlider, sharedBox, type CompareSliderProps } from "./compare-slider.js";
+export { ToothSheet, sheetContent, type ToothSheetProps, type SheetContent, type StateSpec } from "./tooth-sheet.js";
 export { PaintedSlot } from "./painted-slot.js";
 
 /** The painted style's chunk (painter, front atlas and Open wide). Show patient prefetches it. */

@@ -188,7 +188,7 @@ describe("Present mode (§1.12)", () => {
     expect(await drawn(shell, 32)).toEqual([...ARCHES.adult.upper, ...ARCHES.adult.lower]);
   });
 
-  it("opens on the painted map: dots on the recorded teeth, 'What we found', the dashed painting badge; a dot opens the tooth", async () => {
+  it("opens on the painted map: dots on the recorded teeth, 'What we found', the dashed painting badge; a dot opens the tooth sheet", async () => {
     const user = userEvent.setup();
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
@@ -202,9 +202,10 @@ describe("Present mode (§1.12)", () => {
     const dot = shell.querySelector('.ps-dot[data-tooth="21"]');
     if (dot === null) throw new Error("no dot on 21");
     fireEvent.click(dot);
-    await user.click(within(shell).getByRole("button", { name: "Back to all teeth" }));
-    expect(shell.querySelector(".mv")?.getAttribute("data-screen")).toBe("overview");
-    expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull();
+    expect(shell.querySelector("[data-tooth-sheet='21']")).not.toBeNull();
+    await user.click(within(shell).getByRole("button", { name: "Back to the map" }));
+    expect(shell.querySelector("[data-tooth-sheet]")).toBeNull();
+    expect(shell.querySelector(".ps-dot[data-tooth='21']")).not.toBeNull();
   });
 
   it("the switcher lists the five styles in order, only Painted ready; Chart shows the chart looks and back", async () => {

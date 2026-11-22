@@ -41,6 +41,7 @@ import com.sakalya.mobile.design.Spacing
 import com.sakalya.mobile.designcompose.SkButton
 import com.sakalya.mobile.designcompose.SkButtonVariant
 import com.sakalya.mobile.designcompose.SkCard
+import com.sakalya.mobile.designcompose.SkSegmented
 import com.sakalya.mobile.designcompose.SkTextField
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTypography
@@ -152,10 +153,11 @@ private fun IntakeDetails(
             KeyboardType.Phone,
         )
         Field(form, IntakeField.Name, stringResource(R.string.dk_iv_name), form.name, holder::setName)
-        DeskWrap {
-            PickChip(stringResource(R.string.dk_iv_dob), selected = !useAge, onClick = { useAge = false })
-            PickChip(stringResource(R.string.dk_iv_age), selected = useAge, onClick = { useAge = true })
-        }
+        SkSegmented(
+            listOf(stringResource(R.string.dk_iv_dob), stringResource(R.string.dk_iv_age)),
+            if (useAge) 1 else 0,
+            { useAge = it == 1 },
+        )
         if (useAge) {
             Field(
                 form,
@@ -185,15 +187,12 @@ private fun IntakeDetails(
             KeyboardType.Email,
         )
         DeskLabel(stringResource(R.string.dk_iv_sex))
-        DeskWrap {
-            listOf(Sex.Female, Sex.Male, Sex.Other).forEach { sex ->
-                PickChip(
-                    sex.label()?.let { stringResource(it) }.orEmpty(),
-                    form.sex == sex,
-                    onClick = { holder.setSex(sex) },
-                )
-            }
-        }
+        val sexes = listOf(Sex.Female, Sex.Male, Sex.Other)
+        SkSegmented(
+            sexes.map { sex -> sex.label()?.let { stringResource(it) }.orEmpty() },
+            sexes.indexOf(form.sex),
+            { holder.setSex(sexes[it]) },
+        )
     }
 }
 

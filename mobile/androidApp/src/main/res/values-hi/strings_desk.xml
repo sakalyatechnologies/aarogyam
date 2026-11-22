@@ -49,7 +49,6 @@
     <string name="dk_d9_lookup_family">परिवार का सदस्य जोड़ें</string>
     <string name="dk_d9_lookup_hint">10 अंकों का नंबर लिखें। उस नंबर के सभी लोग दिखेंगे।</string>
     <string name="dk_d9_lookup_last_visit">पिछली विज़िट %s</string>
-    <string name="dk_d9_lookup_last_visit_none">पिछली विज़िट अभी नहीं दिख रही</string>
     <string name="dk_d9_lookup_looking">खोज रहे हैं…</string>
     <string name="dk_d9_lookup_mobile">मोबाइल नंबर</string>
     <string name="dk_d9_lookup_new">नया मरीज़</string>

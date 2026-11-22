@@ -10,20 +10,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.glass.GroupField
+import com.aarogyam.staff.android.ui.glass.GroupGap
+import com.aarogyam.staff.android.ui.glass.GroupHeader
 import com.aarogyam.staff.android.ui.label
 import com.aarogyam.staff.android.ui.message
-import com.aarogyam.staff.android.ui.patient.V7Label
 import com.aarogyam.staff.android.ui.patient.v7
 import com.aarogyam.staff.booking.PatientLanguage
 import com.aarogyam.staff.booking.QuickRegisterStateHolder
 import com.aarogyam.staff.booking.RegisterProblem
 import com.aarogyam.staff.patients.Sex
 import com.sakalya.mobile.designcompose.SkChoiceChips
-import com.sakalya.mobile.designcompose.SkField
 import com.sakalya.mobile.designcompose.SkPillButton
+import com.sakalya.mobile.designcompose.SkSegmented
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.color
 
@@ -43,20 +46,20 @@ internal fun RegisterAndBook(
     LaunchedEffect(state.createdId) { state.createdId?.let(onRegistered) }
     val sexes = listOf(Sex.Female, Sex.Male, Sex.Other)
     val sexLabels = sexes.associateWith { sex -> sex.label()?.let { stringResource(it) }.orEmpty() }
+    // Clear Glass inset form: the fields in one Settings-style group, sex as a segmented control, same single submit.
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        V7Label(stringResource(R.string.sh_s_reg_title))
-        SkField(stringResource(R.string.sh_s_reg_name), state.name, holder::setName)
-        V7Label(stringResource(R.string.sh_s_reg_sex))
-        SkChoiceChips(
-            options = sexes,
-            selected = setOfNotNull(state.sex),
-            onToggle = { holder.setSex(if (it == state.sex) null else it) },
-            label = { sexLabels.getValue(it) },
-        )
-        SkField(stringResource(R.string.sh_s_reg_age), state.age, holder::setAge)
-        SkField(stringResource(R.string.sh_s_reg_mobile), state.mobile, holder::setMobile)
-        SkField(stringResource(R.string.sh_s_reg_email), state.email, holder::setEmail)
-        V7Label(stringResource(R.string.sh_s_reg_language))
+        GroupHeader(stringResource(R.string.sh_s_reg_title))
+        Column(verticalArrangement = Arrangement.spacedBy(GroupGap)) {
+            GroupField(stringResource(R.string.sh_s_reg_name), state.name, holder::setName, 0, FIELDS)
+            GroupField(stringResource(R.string.sh_s_reg_age), state.age, holder::setAge, 1, FIELDS, KeyboardType.Number)
+            val mobile = stringResource(R.string.sh_s_reg_mobile)
+            GroupField(mobile, state.mobile, holder::setMobile, 2, FIELDS, KeyboardType.Phone)
+            val email = stringResource(R.string.sh_s_reg_email)
+            GroupField(email, state.email, holder::setEmail, 3, FIELDS, KeyboardType.Email)
+        }
+        GroupHeader(stringResource(R.string.sh_s_reg_sex))
+        SkSegmented(sexes.map { sexLabels.getValue(it) }, sexes.indexOf(state.sex), { holder.setSex(sexes[it]) })
+        GroupHeader(stringResource(R.string.sh_s_reg_language))
         SkChoiceChips(
             options = PatientLanguage.entries,
             selected = setOf(state.language),
@@ -81,6 +84,8 @@ private fun PatientLanguage.ownName(): String =
         PatientLanguage.Marathi -> "मराठी"
         PatientLanguage.Gujarati -> "ગુજરાતી"
     }
+
+private const val FIELDS = 4
 
 private fun RegisterProblem.text(): Int =
     when (this) {

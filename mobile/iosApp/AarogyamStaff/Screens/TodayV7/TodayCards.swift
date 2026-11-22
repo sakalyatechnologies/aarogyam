@@ -2,7 +2,7 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// Today's patients, waiting (warm) and done as one joined row (`.stats`), with what is left under it.
+/// Today's patients, waiting (warm) and done as three columns of one grouped card, with what is left under it.
 struct TodayStats: View {
     let counts: TodayCountsView
     @Environment(\.skTheme) private var theme
@@ -15,22 +15,38 @@ struct TodayStats: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            stats
-            Text(hint).font(.system(size: 12)).foregroundStyle(theme.roles.onSurfaceVariant.color).padding(.leading, 4)
+            GroupedCard {
+                HStack(spacing: 0) {
+                    stat("\(counts.patients)", String(localized: "t7.stat.patients", table: "TodayV7"))
+                    divider
+                    stat("\(counts.waiting)", String(localized: "t7.stat.waiting", table: "TodayV7"), warm: true)
+                    divider
+                    stat("\(counts.done)", String(localized: "t7.stat.done", table: "TodayV7"))
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(hint).font(.footnote).foregroundStyle(theme.roles.onSurfaceVariant.color).padding(.leading, 4)
         }
     }
 
-    private var stats: some View {
-        SkStatGroup([
-            SkStat("\(counts.patients)", label: String(localized: "t7.stat.patients", table: "TodayV7")),
-            SkStat("\(counts.waiting)", label: String(localized: "t7.stat.waiting", table: "TodayV7"), highlighted: true),
-            SkStat("\(counts.done)", label: String(localized: "t7.stat.done", table: "TodayV7")),
-        ])
+    private var divider: some View {
+        Rectangle().fill(theme.roles.outline.color.opacity(0.35)).frame(width: 0.5).accessibilityHidden(true)
+    }
+
+    private func stat(_ value: String, _ label: String, warm: Bool = false) -> some View {
+        let r = theme.roles
+        return VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.title2.weight(.heavy)).monospacedDigit().foregroundStyle((warm ? r.tertiary : r.onSurface).color)
+            Text(label).font(.footnote.weight(.semibold)).foregroundStyle(r.onSurfaceVariant.color).lineLimit(2)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 }
 
-/// Who is in the chair now, or who is next: the brand gradient card with a morphing blob, a live
-/// dot, the day's progress ring and Open record.
+/// Who is in the chair now, or who is next: the calm brand gradient card (Clear Glass drops the blob)
+/// with a live dot, the day's progress ring and Open record.
 struct TodayHero: View {
     let kind: HeroKind
     let item: ScheduleItem
@@ -68,10 +84,7 @@ struct TodayHero: View {
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            ZStack(alignment: .topTrailing) {
-                LinearGradient(colors: [r.primary.color, r.primary2.color], startPoint: .topLeading, endPoint: .bottomTrailing)
-                SkMorphingBlob(color: r.primaryContainer.color.opacity(0.22)).frame(width: 170, height: 170).offset(x: 40, y: -50)
-            }
+            LinearGradient(colors: [r.primary.color, r.primary2.color], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
         .overlay(alignment: .topTrailing) {
             SkProgressRing(
@@ -81,7 +94,7 @@ struct TodayHero: View {
             )
             .padding(13)
         }
-        .clipShape(RoundedRectangle(cornerRadius: TodaySizes.heroRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: GroupedSizes.radius + 2, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
         .accessibilityElement(children: .contain)

@@ -85,4 +85,12 @@
     <string name="v7_notif_requested">ऑनलाइन बुकिंग विनंती</string>
     <string name="v7_notif_confirmed">ऑनलाइन बुक झाले</string>
     <string name="v7_notif_cancelled">रुग्णाने रद्द केले</string>
+    <string name="v7_notif_read_all_short">सर्व वाचले</string>
+    <string name="v7_notif_filter_all">सर्व</string>
+    <string name="v7_notif_filter_unread">न वाचलेले</string>
+    <string name="v7_notif_filter_queue">रांग</string>
+    <string name="v7_notif_filter_bookings">बुकिंग</string>
+    <string name="v7_notif_today">आज</string>
+    <string name="v7_notif_earlier">आधीचे</string>
+    <string name="v7_notif_filter_none">या फिल्टरमध्ये काही नाही.</string>
 </resources>

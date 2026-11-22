@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
-import { lazyBudget } from "./size-budget.mjs";
+import { lazyBudget, presentBudget } from "./size-budget.mjs";
 
 const BUDGET_BYTES = 120 * 1024;
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
@@ -26,6 +26,12 @@ if (total > BUDGET_BYTES) {
 }
 
 const manifest = JSON.parse(readFileSync(join(dist, ".vite", "manifest.json"), "utf8"));
+// Show patient (present-studio-design §13): the Present route, the painted style and what Show patient
+// prefetches for the Aarav fixture (its tooth types and the shapes).
+const present = presentBudget({ manifest, entry: "index.html", gz, art: /\/gen\/(teeth\/(u1|pu5|pl5)|shapes)\./ });
+for (const failure of present.failures) console.error(`Present budget: ${failure}`);
+if (present.failures.length > 0) failed = true;
+console.log(`Present: route code ${kb(present.own)} (budget 40 KB), with what it loads ${kb(present.route)} (budget 52 KB), painted style ${kb(present.painted)} (budget 65 KB), prefetch for Aarav ${kb(present.prefetch)} (budget 180 KB)`);
 // The manifest names source files; it is only for this check, so it is not deployed.
 rmSync(join(dist, ".vite"), { recursive: true, force: true });
 const lazy = lazyBudget({ manifest, entry: "shared.html", gz, preloaded: assets });

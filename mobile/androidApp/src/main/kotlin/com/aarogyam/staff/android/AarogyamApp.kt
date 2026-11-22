@@ -5,9 +5,11 @@ import androidx.appcompat.app.AppCompatDelegate
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.device.FilesDirOutboxFile
 import com.aarogyam.staff.android.device.SharedPreferencesStore
+import com.aarogyam.staff.android.ui.applyAppearance
 import com.aarogyam.staff.android.ui.visit.AndroidDictation
 import com.aarogyam.staff.config.AppConfig
 import com.aarogyam.staff.config.AppEnvironment
+import com.aarogyam.staff.device.AppearancePreference
 import com.aarogyam.staff.outbox.AndroidOutboxFiles
 import com.aarogyam.staff.outbox.JsonOutboxPersistence
 import com.aarogyam.staff.outbox.PersistentOutboxStore
@@ -42,6 +44,8 @@ class AarogyamApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Light or dark as picked in More, before the first screen draws.
+        applyAppearance(AppearancePreference.stored(SharedPreferencesStore(this)))
         val config =
             AppConfig(
                 environment = AppEnvironment.valueOf(BuildConfig.ENVIRONMENT),

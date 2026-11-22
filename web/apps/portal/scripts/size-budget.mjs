@@ -68,3 +68,54 @@ export function lazyBudget({ manifest, entry, gz, preloaded }) {
   }
   return { failures, bands, story, lazy };
 }
+
+// Show patient (present-studio-design §13): the Present route with the shared model and blocks, the
+// painted style with its front atlas, and what Show patient prefetches for a visit.
+/** The Present route chunk with the present model and shared blocks (§13). */
+export const PRESENT_ROUTE_BYTES = 40 * KB;
+/**
+ * Everything the Present route loads beyond the portal shell. It was 44.3 KB before slice 1a (MouthView,
+ * the tooth art kit and the chart prefs); the §13 40 KB covers the route's own code, checked above.
+ */
+export const PRESENT_ROUTE_ALL_BYTES = 52 * KB;
+/** The painted style: its code (15 KB) and the front atlas (50 KB), in one chunk. */
+export const PAINTED_BYTES = 65 * KB;
+/** Everything Show patient prefetches for the painted style. */
+export const PRESENT_PREFETCH_BYTES = 180 * KB;
+
+/**
+ * @param {{ manifest: Record<string, Chunk>; entry: string; gz: (file: string) => number; art: RegExp }} input
+ *   `art`: the tooth-art sources a visit prefetches (its recorded tooth types and the shared shapes).
+ * @returns {{ failures: string[]; own: number; route: number; painted: number; art: number; prefetch: number }}
+ */
+export function presentBudget({ manifest, entry, gz, art }) {
+  const failures = [];
+  const keyOf = (re) => Object.keys(manifest).find((k) => re.test(manifest[k].src ?? k));
+  const eager = new Set();
+  const walk = (key, into, skip) => {
+    const c = manifest[key];
+    if (c === undefined || into.has(key) || skip.has(key)) return;
+    into.add(key);
+    for (const k of c.imports ?? []) walk(k, into, skip);
+  };
+  walk(entry, eager, new Set());
+  const size = (keys) => [...keys].reduce((sum, k) => sum + gz(manifest[k].file), 0);
+  const routeKey = keyOf(/pages\/visits\/present\/present-page\.tsx$/);
+  const paintedKey = keyOf(/app-kit\/src\/present\/painted\.tsx$/);
+  if (routeKey === undefined || paintedKey === undefined) return { failures: ["no Present route or painted style in the manifest"], own: 0, route: 0, painted: 0, art: 0, prefetch: 0 };
+  const route = new Set();
+  walk(routeKey, route, eager);
+  const painted = new Set();
+  walk(paintedKey, painted, new Set([...eager, ...route]));
+  const artKeys = new Set(Object.keys(manifest).filter((k) => art.test(manifest[k].src ?? k) && !eager.has(k) && !route.has(k)));
+  // the route chunk and app-kit/present's shared chunks (Vite names a shared chunk after its first module)
+  const own = new Set([...route].filter((k) => /pages\/visits\/present\/present-page\.tsx$|app-kit\/src\/present\//.test(manifest[k].src ?? "") || /^_(blocks|present)-/.test(k)));
+  const out = { failures, own: size(own), route: size(route), painted: size(painted), art: size(artKeys), prefetch: 0 };
+  out.prefetch = out.route + out.painted + out.art;
+  const over = (what, bytes, budget) => { if (bytes > budget) failures.push(`${what} is ${(bytes / KB).toFixed(1)} KB gzipped, over ${String(budget / KB)} KB`); };
+  over("the Present route's own code", out.own, PRESENT_ROUTE_BYTES);
+  over("the Present route with what it loads", out.route, PRESENT_ROUTE_ALL_BYTES);
+  over("the painted style", out.painted, PAINTED_BYTES);
+  over("Show patient's prefetch", out.prefetch, PRESENT_PREFETCH_BYTES);
+  return out;
+}

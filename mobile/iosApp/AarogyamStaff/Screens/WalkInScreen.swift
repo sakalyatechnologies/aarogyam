@@ -2,8 +2,9 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// The one-step walk-in in the v7 sheet: mobile (registered patients show as soon as it is
-/// complete), name and sex for someone new, allergies, consent, doctor, then "Add to queue".
+/// The one-step walk-in (Clear Glass): mobile (registered patients show as soon as it is complete),
+/// name, age and sex for someone new in one inset-grouped card, allergies and doctor as chips,
+/// consent, then "Add to queue" pinned above the home indicator as the glass primary button.
 struct WalkInScreen: View {
     let holder: WalkInStateHolder
     let state: WalkInState
@@ -11,7 +12,7 @@ struct WalkInScreen: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
                 switch onEnum(of: state) {
                 case .notAllowed:
                     SkEmptyState(String(localized: "walk_in.not_allowed.title"), message: String(localized: "walk_in.not_allowed.message"))
@@ -21,12 +22,16 @@ struct WalkInScreen: View {
                     WalkInFormView(holder: holder, form: editing.form)
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 10)
+            .padding(.horizontal, SkSpacing.l)
             .padding(.bottom, 30)
         }
         .scrollDismissesKeyboard(.interactively)
-        .skSheet()
+        .safeAreaInset(edge: .bottom) {
+            if case .editing(let editing) = onEnum(of: state) {
+                GlassWideButton(title: String(localized: "walk_in.submit"), systemImage: "checkmark", loading: editing.form.submitting, action: holder.submit)
+                    .padding(.horizontal, SkSpacing.l).padding(.top, 8).padding(.bottom, 8)
+            }
+        }
     }
 }
 
@@ -37,95 +42,134 @@ private struct WalkInFormView: View {
     @Environment(\.skTheme) private var theme
 
     var body: some View {
-        SkSheetHeader(String(localized: "walk_in.title"), subtitle: String(localized: "v7.walk_in.message"))
-        SkField(
-            String(localized: "walk_in.mobile"),
-            text: Binding(get: { form.mobile }, set: { holder.setMobile(typed: $0) }),
-            placeholder: "98xxxxxxxx", contentType: .telephoneNumber, keyboard: .phonePad
-        )
-        WalkInMatches(holder: holder, form: form)
-        if form.showNewPatient {
-            SkField(String(localized: "walk_in.name"), text: Binding(get: { form.name }, set: { holder.setName(text: $0) }),
-                    placeholder: String(localized: "v7.walk_in.name.prompt"), contentType: .name)
-            HStack(alignment: .bottom, spacing: 8) {
-                SkField(String(localized: "walk_in.age"), text: Binding(get: { form.age }, set: { holder.setAge(text: $0) }), keyboard: .numberPad)
-                    .frame(maxWidth: 110)
-                HStack(spacing: 8) {
-                    ForEach([Sex.female, Sex.male, Sex.other], id: \.self) { sex in
-                        SkChoiceChip(sex.label ?? "", selected: form.sex == sex) { holder.setSex(value: sex) }
+        let r = theme.roles
+        GroupedCard {
+            WalkInFieldRow(label: String(localized: "walk_in.mobile")) {
+                TextField("98xxxxxxxx", text: Binding(get: { form.mobile }, set: { holder.setMobile(typed: $0) }))
+                    .keyboardType(.phonePad).textContentType(.telephoneNumber).monospacedDigit()
+                    .accessibilityLabel(String(localized: "walk_in.mobile"))
+            }
+            if form.showNewPatient {
+                GroupedDivider(inset: GroupedSizes.rowPaddingH)
+                WalkInFieldRow(label: String(localized: "walk_in.name")) {
+                    TextField(String(localized: "v7.walk_in.name.prompt"), text: Binding(get: { form.name }, set: { holder.setName(text: $0) }))
+                        .textContentType(.name).accessibilityLabel(String(localized: "walk_in.name"))
+                }
+                GroupedDivider(inset: GroupedSizes.rowPaddingH)
+                WalkInFieldRow(label: String(localized: "walk_in.age")) {
+                    TextField("", text: Binding(get: { form.age }, set: { holder.setAge(text: $0) })).keyboardType(.numberPad)
+                        .accessibilityLabel(String(localized: "walk_in.age"))
+                }
+                GroupedDivider(inset: GroupedSizes.rowPaddingH)
+                WalkInFieldRow(label: String(localized: "walk_in.sex")) {
+                    Picker(String(localized: "walk_in.sex"), selection: Binding(get: { form.sex }, set: { if let sex = $0 { holder.setSex(value: sex) } })) {
+                        ForEach([Sex.female, Sex.male, Sex.other], id: \.self) { sex in Text(sex.label ?? "").tag(Optional(sex)) }
                     }
+                    .pickerStyle(.segmented)
                 }
             }
         }
-        V7Label(text: String(localized: "v7.walk_in.allergies"))
-        SkChoiceChips(
-            [""] + form.allergyPicks,
-            selected: Set(form.noKnownAllergies ? [""] : Array(form.allergies)),
-            label: { $0.isEmpty ? String(localized: "walk_in.no_known_allergies") : $0 },
-            onToggle: { $0.isEmpty ? holder.toggleNoKnownAllergies() : holder.toggleAllergy(label: $0) }
-        )
+        .padding(.top, SkSpacing.s)
+        WalkInMatches(holder: holder, form: form)
+        GroupedHeader(String(localized: "v7.walk_in.allergies"))
+        V7Flow(spacing: 8) {
+            GlassChip(text: String(localized: "walk_in.no_known_allergies"), selected: form.noKnownAllergies, check: true) { holder.toggleNoKnownAllergies() }
+            ForEach(form.allergyPicks, id: \.self) { pick in
+                GlassChip(text: pick, selected: !form.noKnownAllergies && form.allergies.contains(pick), check: true) { holder.toggleAllergy(label: pick) }
+            }
+        }
         if !form.doctors.isEmpty {
-            V7Label(text: String(localized: "walk_in.doctor"))
-            SkChoiceChips(
-                [""] + form.doctors.map(\.id),
-                selected: [form.doctorId ?? ""],
-                label: { id in id.isEmpty ? String(localized: "walk_in.doctor.any") : form.doctors.first { $0.id == id }?.name ?? "" },
-                onToggle: { holder.setDoctor(id: $0.isEmpty ? nil : $0) }
-            )
+            GroupedHeader(String(localized: "walk_in.doctor"))
+            V7Flow(spacing: 8) {
+                GlassChip(text: String(localized: "walk_in.doctor.any"), selected: form.doctorId == nil) { holder.setDoctor(id: nil) }
+                ForEach(form.doctors, id: \.id) { doctor in
+                    GlassChip(text: doctor.name, selected: form.doctorId == doctor.id) { holder.setDoctor(id: doctor.id) }
+                }
+            }
         }
-        Toggle(isOn: Binding(get: { form.reminders }, set: { holder.setReminders(on: $0) })) {
-            Text("v7.walk_in.consent").font(.system(size: 12)).foregroundStyle(theme.roles.onSurfaceVariant.color)
+        GroupedCard {
+            Toggle(isOn: Binding(get: { form.reminders }, set: { holder.setReminders(on: $0) })) {
+                Label { Text("v7.walk_in.consent").font(.subheadline).foregroundStyle(r.onSurface.color) } icon: {
+                    Image(systemName: "message.fill").foregroundStyle(r.primary.color)
+                }
+            }
+            .tint(r.primary.color)
+            .padding(.horizontal, GroupedSizes.rowPaddingH).frame(minHeight: 56)
         }
-        .tint(theme.roles.primary.color)
+        .padding(.top, 16)
         if let problem = form.problem?.message ?? form.error?.message {
-            Text(problem).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(theme.roles.error.color)
+            Text(problem).font(.footnote.weight(.semibold)).foregroundStyle(r.error.color).padding(.horizontal, 4).padding(.top, 12)
         }
-        SkPillButton(String(localized: "walk_in.submit"), variant: .warm, wide: true, loading: form.submitting, action: holder.submit)
     }
 }
 
-/// Registered patients with the typed number, and "Someone new".
+/// One labelled row of the walk-in card: a muted label column and the field.
+private struct WalkInFieldRow<Field: View>: View {
+    let label: String
+    @ViewBuilder let field: Field
+    @Environment(\.skTheme) private var theme
+    @ScaledMetric(relativeTo: .footnote) private var labelWidth: CGFloat = 88
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(label).font(.footnote.weight(.semibold)).foregroundStyle(theme.roles.onSurfaceVariant.color)
+                .lineLimit(2).frame(width: min(labelWidth, 140), alignment: .leading)
+                .accessibilityHidden(true)
+            field.font(.body).foregroundStyle(theme.roles.onSurface.color)
+        }
+        .padding(.horizontal, GroupedSizes.rowPaddingH).frame(minHeight: 52)
+    }
+}
+
+/// Registered patients with the typed number, and "Someone new", as rows of one grouped card.
 private struct WalkInMatches: View {
     let holder: WalkInStateHolder
     let form: WalkInForm
     @Environment(\.skTheme) private var theme
 
     var body: some View {
+        let muted = theme.roles.onSurfaceVariant.color
         switch onEnum(of: form.lookup) {
         case .idle:
-            Text("walk_in.mobile.hint").font(.system(size: 12)).foregroundStyle(theme.roles.onSurfaceVariant.color)
+            Text("walk_in.mobile.hint").font(.footnote).foregroundStyle(muted).padding(.horizontal, 4).padding(.top, 8)
         case .looking:
-            HStack { ProgressView(); Text("walk_in.looking").font(.system(size: 12.5)) }
+            HStack { ProgressView(); Text("walk_in.looking").font(.footnote) }.foregroundStyle(muted).padding(.horizontal, 4).padding(.top, 10)
         case .failed:
-            Text("walk_in.lookup_failed").font(.system(size: 12.5)).foregroundStyle(theme.roles.onSurfaceVariant.color)
+            Text("walk_in.lookup_failed").font(.footnote).foregroundStyle(muted).padding(.horizontal, 4).padding(.top, 8)
         case .matches(let matches):
-            VStack(spacing: 3) {
+            Text("walk_in.mobile.hint").font(.footnote).foregroundStyle(muted).padding(.horizontal, 4).padding(.top, 8)
+            GroupedCard {
                 ForEach(matches.items, id: \.id) { match in
                     matchRow(match.name, line: patientLine(number: match.number, ageYears: match.ageYears?.intValue, sex: match.sex), on: isChosen(match)) {
                         holder.pick(match: match)
                     }
+                    GroupedDivider()
                 }
-                matchRow(String(localized: "walk_in.someone_new"), line: nil, on: isNew) { holder.someoneNew() }
+                matchRow(String(localized: "walk_in.someone_new"), line: nil, on: isNew, new: true) { holder.someoneNew() }
             }
+            .padding(.top, 8)
         }
     }
 
-    private func matchRow(_ title: String, line: String?, on: Bool, action: @escaping () -> Void) -> some View {
+    private func matchRow(_ title: String, line: String?, on: Bool, new: Bool = false, action: @escaping () -> Void) -> some View {
         let r = theme.roles
         return Button(action: action) {
-            HStack(spacing: 10) {
-                SkAvatar(title, tone: on ? .brand : .neutral, size: 36, shape: .circle)
+            HStack(spacing: 12) {
+                if new {
+                    Image(systemName: "person.badge.plus").font(.body.weight(.semibold)).foregroundStyle(r.primary.color)
+                        .frame(width: 40).accessibilityHidden(true)
+                } else {
+                    GroupedAvatar(name: title)
+                }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.system(size: 13.5, weight: .bold)).foregroundStyle(r.onSurface.color)
-                    if let line { Text(line).font(.system(size: 11.5)).foregroundStyle(r.onSurfaceVariant.color) }
+                    Text(title).font(.body.weight(.semibold)).foregroundStyle((new ? r.primary : r.onSurface).color)
+                    if let line { Text(line).font(.subheadline).foregroundStyle(r.onSurfaceVariant.color) }
                 }
                 Spacer(minLength: 0)
-                if on { V7Icon(name: "check", size: 18, tint: r.primary.color) }
+                if on { Image(systemName: "checkmark").font(.body.weight(.bold)).foregroundStyle(r.primary.color).accessibilityHidden(true) }
             }
-            .padding(.vertical, 9).padding(.horizontal, 11)
-            .background((on ? r.primaryContainer : r.card).color, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .buttonStyle(.skPressable)
+        .buttonStyle(GroupedRowStyle())
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
@@ -152,8 +196,8 @@ private struct WalkInDoneView: View {
                 subtitle: String(format: String(localized: "walk_in.done.message"), done.name)
             )
             .multilineTextAlignment(.center)
-            SkPillButton(String(localized: "walk_in.another"), variant: .tonal, wide: true, action: onAnother)
-            SkPillButton(String(localized: "v7.done"), wide: true, action: onClose)
+            GlassWideButton(title: String(localized: "walk_in.another"), prominent: false, action: onAnother)
+            GlassWideButton(title: String(localized: "v7.done"), action: onClose)
         }
     }
 }

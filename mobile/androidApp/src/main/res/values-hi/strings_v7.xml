@@ -85,4 +85,12 @@
     <string name="v7_notif_requested">ऑनलाइन बुकिंग अनुरोध</string>
     <string name="v7_notif_confirmed">ऑनलाइन बुक हुआ</string>
     <string name="v7_notif_cancelled">मरीज़ ने रद्द किया</string>
+    <string name="v7_notif_read_all_short">सब पढ़ा</string>
+    <string name="v7_notif_filter_all">सभी</string>
+    <string name="v7_notif_filter_unread">नई</string>
+    <string name="v7_notif_filter_queue">कतार</string>
+    <string name="v7_notif_filter_bookings">बुकिंग</string>
+    <string name="v7_notif_today">आज</string>
+    <string name="v7_notif_earlier">पहले</string>
+    <string name="v7_notif_filter_none">इस फ़िल्टर में कुछ नहीं।</string>
 </resources>

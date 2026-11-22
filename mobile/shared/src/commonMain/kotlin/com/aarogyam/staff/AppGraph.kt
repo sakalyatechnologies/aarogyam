@@ -20,6 +20,7 @@ import com.aarogyam.staff.desk.DeskLookupStateHolder
 import com.aarogyam.staff.desk.WaitTimerHolder
 import com.aarogyam.staff.desk.createAvailability
 import com.aarogyam.staff.desk.createWaitTimer
+import com.aarogyam.staff.device.AppearancePreference
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.DictationLanguage
 import com.aarogyam.staff.device.MemoryPreferences
@@ -432,6 +433,9 @@ class AppGraph private constructor(
         ToothSheetStateHolder(clinic, chart, visitId, scope, logger("aarogyam.toothsheet"), writes, dictation)
 
     private val voiceLanguages = VoiceLanguagePreference(preferences)
+
+    /** Light, dark or the phone's look (More, Appearance); kept on this device. */
+    val appearance: AppearancePreference = AppearancePreference(preferences)
 
     private val signedInUser: String?
         get() = (sessions.state.value as? SessionState.SignedIn)?.userId?.toString()

@@ -23,6 +23,7 @@ struct MoreScreen: View {
     @State private var avatars = false
     @State private var deleting = false
     @State private var languages = false
+    @State private var appearance = false
     @State private var avatarRevision = 0
     @State private var unsent: Int?
     @Environment(\.skTheme) private var theme
@@ -71,6 +72,7 @@ struct MoreScreen: View {
         }
         .sheet(isPresented: $deleting) { DeleteAccountSheet(graph: graph) }
         .sheet(isPresented: $languages) { LanguageSheet(graph: graph).presentationDetents([.medium, .large]) }
+        .sheet(isPresented: $appearance) { AppearanceSheet(preference: graph.appearance).presentationDetents([.medium]) }
         .sheet(isPresented: $avatars) { AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large]) }
     }
 
@@ -111,6 +113,7 @@ struct MoreScreen: View {
         case .settings: settingsURL = URL(string: clinic.api.origin + "/settings")
         case .switchClinic: onSwitchClinic()
         case .language: languages = true
+        case .appearance: appearance = true
         case .help: path.append(.help)
         case .signOut:
             // Writes not sent yet would be lost: ask first.
@@ -172,7 +175,7 @@ enum MoreSizes {
 
 extension MoreTile {
     /// Grid tiles; the rest are list rows below.
-    var isGridTile: Bool { ![.switchClinic, .language, .help, .signOut].contains(self) }
+    var isGridTile: Bool { ![.switchClinic, .language, .appearance, .help, .signOut].contains(self) }
 
     var title: String {
         switch self {
@@ -187,6 +190,7 @@ extension MoreTile {
         case .settings: String(localized: "v7.tile.settings")
         case .switchClinic: String(localized: "v7.tile.switch_clinic")
         case .language: String(localized: "v7.tile.language")
+        case .appearance: String(localized: "v7.tile.appearance")
         case .help: String(localized: "v7.tile.help")
         case .signOut: String(localized: "v7.tile.sign_out")
         }
@@ -223,6 +227,7 @@ extension MoreTile {
         case .settings: "gear"
         case .switchClinic: "swap"
         case .language: "globe"
+        case .appearance: "spark"
         case .help: "help"
         case .signOut: "out"
         }

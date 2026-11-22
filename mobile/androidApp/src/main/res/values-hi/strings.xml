@@ -32,6 +32,10 @@
     <string name="today_not_allowed_message">इस क्लिनिक में आपकी भूमिका शेड्यूल नहीं देख सकती.</string>
     <string name="language_voice">वॉइस नोट्स की भाषा</string>
     <string name="language_title">ऐप की भाषा</string>
+    <string name="appearance_title">रूप</string>
+    <string name="appearance_system">फ़ोन की सेटिंग</string>
+    <string name="appearance_light">लाइट</string>
+    <string name="appearance_dark">डार्क</string>
     <string name="language_system">फ़ोन की भाषा</string>
     <string name="status_booked">बुक</string>
     <string name="status_confirmed">पक्का</string>

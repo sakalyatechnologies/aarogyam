@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import axe from "axe-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient, NewChartEntries } from "@aarogyam/api-client";
@@ -33,6 +34,12 @@ const toothEl = (shell: HTMLElement, n: number): HTMLElement | SVGElement => {
 };
 
 const WAIT = { timeout: 20_000 };
+
+/** Show patient opens on the painted map; "Chart" in the style switcher draws the doctor's chart look. */
+async function showChart(shell: HTMLElement) {
+  fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
+  fireEvent.click(within(shell).getByRole("option", { name: "Chart" }));
+}
 
 /** A Sunrise visit; its mouth is the Aarav fixture, with 55's depth left out and a current caries entry on 55. */
 function present() {
@@ -72,6 +79,7 @@ describe("Present mode (§1.12)", () => {
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     expect(await within(shell).findByRole("heading", { name: /teeth$/ }, WAIT)).toBeTruthy();
     expect(within(shell).getByRole("button", { name: "How to brush" })).toBeTruthy();
+    await showChart(shell);
     await drawn(shell, 32);
     fireEvent.click(toothEl(shell, 21));
     expect(within(shell).getByRole("button", { name: "Back to all teeth" })).toBeTruthy();
@@ -92,6 +100,7 @@ describe("Present mode (§1.12)", () => {
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     await within(shell).findByRole("heading", { name: /teeth$/ }, WAIT);
+    await showChart(shell);
     await drawn(shell, 20);
     fireEvent.click(toothEl(shell, 55));
     const group = await within(shell).findByRole("group", { name: "Add depth" }, WAIT);
@@ -134,6 +143,7 @@ describe("Present mode (§1.12)", () => {
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     expect(await within(shell).findByText(/^Today: /, undefined, WAIT)).toBeTruthy();
+    await showChart(shell);
     await user.click(within(shell).getByRole("button", { name: "Today" }));
     expect(within(shell).getByRole("button", { name: "Today" }).getAttribute("aria-pressed")).toBe("true");
     await drawn(shell, 32);
@@ -147,6 +157,7 @@ describe("Present mode (§1.12)", () => {
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     const adult = [...ARCHES.adult.upper, ...ARCHES.adult.lower];
+    await showChart(shell);
     const looks = within(within(shell).getByRole("group", { name: "Chart look" }));
     // No saved choice: Rows and adult teeth, as the chart opens. No milk-tooth number on an adult layout.
     expect(looks.getByRole("button", { name: "Rows" }).getAttribute("aria-pressed")).toBe("true");
@@ -166,6 +177,7 @@ describe("Present mode (§1.12)", () => {
     savePrefs("classic", "child");
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    await showChart(shell);
     expect(await drawn(shell, 20)).toEqual([...ARCHES.child.upper, ...ARCHES.child.lower]);
     expect(within(within(shell).getByRole("group", { name: "Dentition" })).getByRole("button", { name: "Child" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(toothEl(shell, 55));
@@ -174,5 +186,53 @@ describe("Present mode (§1.12)", () => {
     expect(shell.querySelector(".pc")?.getAttribute("data-look")).toBe("classic");
     await user.click(within(within(shell).getByRole("group", { name: "Dentition" })).getByRole("button", { name: "Adult" }));
     expect(await drawn(shell, 32)).toEqual([...ARCHES.adult.upper, ...ARCHES.adult.lower]);
+  });
+
+  it("opens on the painted map: dots on the recorded teeth, 'What we found', the dashed painting badge; a dot opens the tooth", async () => {
+    const user = userEvent.setup();
+    const { path, backend, wrap } = present();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    expect(await within(shell).findByRole("button", { name: /^Style\s*Painted smile/ }, WAIT)).toBeTruthy();
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
+    expect([...shell.querySelectorAll(".ps-dot")].map((d) => Number(d.getAttribute("data-tooth")))).toEqual([55, 21, 65, 75]);
+    expect(within(shell).getByText("Painting based on your record")).toBeTruthy();
+    expect(within(shell).getByRole("region", { name: "What we found" })).toBeTruthy();
+    expect(within(shell).queryByRole("group", { name: "Chart look" })).toBeNull();
+    const dot = shell.querySelector('.ps-dot[data-tooth="21"]');
+    if (dot === null) throw new Error("no dot on 21");
+    fireEvent.click(dot);
+    await user.click(within(shell).getByRole("button", { name: "Back to all teeth" }));
+    expect(shell.querySelector(".mv")?.getAttribute("data-screen")).toBe("overview");
+    expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull();
+  });
+
+  it("the switcher lists the five styles in order, only Painted ready; Chart shows the chart looks and back", async () => {
+    const { path, backend, wrap } = present();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
+    const names = within(shell).getAllByRole("option").map((o) => [o.textContent, o.getAttribute("aria-disabled")]);
+    expect(names).toEqual([
+      ["Story cardsComing soon", "true"], ["Painted smile✓", null], ["Own X-rayComing soon", "true"],
+      ["3D smileBetaComing soon", "true"], ["Face to toothBetaComing soon", "true"], ["Chart", null],
+    ]);
+    fireEvent.click(within(shell).getByRole("option", { name: "Chart" }));
+    expect(within(shell).getByRole("group", { name: "Chart look" })).toBeTruthy();
+    await drawn(shell, 32);
+    fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
+    fireEvent.click(within(shell).getByRole("option", { name: /Painted smile/ }));
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
+  });
+
+  it("the painted map and the open switcher have no axe violations", async () => {
+    const { path, backend, wrap } = present();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
+    const run = async () => (await axe.run(shell, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } })).violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+    expect(await run()).toEqual([]);
+    fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
+    expect(await run()).toEqual([]);
   });
 });

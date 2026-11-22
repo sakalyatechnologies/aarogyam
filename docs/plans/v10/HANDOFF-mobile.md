@@ -16,7 +16,7 @@ Work in `~/project/wt-v10` (branch feat/v10), and push to main. Frugal token mod
 5. Fresh store screenshots and preview videos (fastlane).
 
 ## Commands
-- **Gate:** `~/project/.targets/build-lock.sh sh <scratchpad>/gate.sh`, then read all three lines (`gradle= ios= patient=`), not just the tail. Release scripts (gate.sh, release-ios.sh, export.plist, tf.rb) are kept in `~/.aarogyam-release/`; edit the `L=`/`S=` log paths inside them to a current scratchpad.
+- **Gate:** `~/project/.targets/build-lock.sh sh ~/.aarogyam-release/gate.sh`, then read all three lines (`gradle= ios= patient=`), not just the tail. Release scripts (gate.sh, release-ios.sh, export.plist, tf.rb) are kept in `~/.aarogyam-release/`; edit the `L=`/`S=` log paths inside them to a current scratchpad.
 - **Quick test:** `./gradlew --max-workers=2 --no-watch-fs -q spotlessApply :shared:jvmTest --tests '*X*'`, run through build-lock. Common tests also compile for iOS: use no JVM-only APIs, such as `String(ByteArray)`.
 - **Release iOS:**
   1. Bump `CURRENT_PROJECT_VERSION` in `mobile/iosApp/project.yml`.

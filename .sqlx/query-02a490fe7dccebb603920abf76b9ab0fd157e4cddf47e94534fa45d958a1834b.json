@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.id as \"encounter_id!\", i.drug_name\n           from aarogyam.encounters e\n           join aarogyam.prescriptions p\n             on p.org_id = e.org_id and p.patient_id = e.patient_id and p.status <> 'cancelled'\n            and (p.encounter_id = e.id\n                 or (p.encounter_id is null\n                     and coalesce(p.issued_at, p.created_at) >= e.started_at\n                     and coalesce(p.issued_at, p.created_at) <= coalesce(e.ended_at, 'infinity')))\n           join aarogyam.prescription_items i on i.org_id = p.org_id and i.prescription_id = p.id\n           where e.id = any($1)\n             and app.clinical_in_reach(e.clinician_id, e.created_by, null, $2)\n           order by e.id, p.created_at, p.id, i.line_no",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "encounter_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.encounters",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "drug_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.prescription_items",
+            "name": "drug_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "02a490fe7dccebb603920abf76b9ab0fd157e4cddf47e94534fa45d958a1834b"
+}

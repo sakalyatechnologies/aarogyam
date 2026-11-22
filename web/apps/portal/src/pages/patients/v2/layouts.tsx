@@ -78,7 +78,7 @@ export function ConsoleLayout({ patient, canClinical, showPastRx }: LayoutProps)
               <FlagsBlock patientId={patient.id} />
             </>
           )}
-          <RecordsCard canClinical={canClinical} initial={showPastRx ? "prescriptions" : "history"} />
+          <RecordsCard canClinical={canClinical} initial={showPastRx ? "prescriptions" : "plans"} />
         </div>
         <div className="p360-rail">
           {canClinical ? <TodayBlock /> : <RxBlock />}
@@ -154,7 +154,7 @@ export function StageLayout({ patient, canClinical, showPastRx }: LayoutProps) {
         <div className="p360-drawer-body">
           {drawer === "voice" ? <VoiceBlock /> : null}
           {drawer === "prescribe" ? <RxBlock /> : null}
-          {drawer === "records" ? <RecordsCard canClinical={canClinical} initial={showPastRx ? "prescriptions" : "history"} /> : null}
+          {drawer === "records" ? <RecordsCard canClinical={canClinical} initial={showPastRx ? "prescriptions" : "plans"} /> : null}
           {drawer === "more" ? <MoreFolds patient={patient} canClinical={canClinical} /> : null}
         </div>
       </Drawer>
@@ -247,7 +247,7 @@ export function TabsLayout({ patient, canClinical, showPastRx }: LayoutProps) {
           ) : null,
           records: (
             <div className="p360-stack">
-              <RecordsCard canClinical={canClinical} initial={showPastRx ? "prescriptions" : "history"} />
+              <RecordsCard canClinical={canClinical} initial={showPastRx ? "prescriptions" : "plans"} />
             </div>
           ),
           details: (

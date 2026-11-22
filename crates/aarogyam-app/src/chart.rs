@@ -236,6 +236,16 @@ pub(crate) async fn of_visit(
     views(tx, rows).await
 }
 
+/// The chart entries recorded in any of the visits, in one statement.
+pub(crate) async fn of_visits(
+    tx: &mut ScopedTx,
+    encounter_ids: &[Uuid],
+    member: Option<Uuid>,
+) -> Result<Vec<ChartEntryView>, AppError> {
+    let rows = chart::of_encounters(tx.conn(), encounter_ids, member).await?;
+    views(tx, rows).await
+}
+
 /// A patient's chart: the current entries of every tooth that has any, by tooth and surface,
 /// and the full history of one tooth when asked.
 #[derive(Debug, Clone)]

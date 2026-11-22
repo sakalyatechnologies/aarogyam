@@ -51,22 +51,27 @@ async function openRecords(user: ReturnType<typeof userEvent.setup>, layout: P36
   return card;
 }
 
+/** The History button, then the newest visit's card: the visit opens in place on the history page. */
+async function openFromHistory(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("button", { name: /^History/ }));
+  await user.click(first(await screen.findAllByRole("button", { name: /^Open visit / })));
+  return screen.findByRole("region", { name: /^Visit .* detail$/ });
+}
+
 describe("Records: one card, small tabs", () => {
-  it.each(LAYOUTS)("%s switches between History, Plans, Prescriptions, Images and Consent", async (layout) => {
+  it.each(LAYOUTS)("%s switches between Plans, Prescriptions, Images and Consent (History has its own page)", async (layout) => {
     const user = userEvent.setup();
     localStorage.setItem(layoutKey(PEOPLE.asha), layout);
     const { path, backend } = visited();
     renderPortal(path, { as: PEOPLE.asha, backend });
     const card = await openRecords(user, layout);
 
-    expect(within(card).getAllByRole("tab").map((t) => t.textContent)).toEqual(["History", "Plans", "Prescriptions", "Images", "Consent"]);
-    expect(within(card).getByRole("tab", { name: "History" }).getAttribute("aria-selected")).toBe("true");
-    expect((await within(card).findAllByRole("button", { name: /^Open visit / })).length).toBeGreaterThan(0);
+    expect(within(card).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Plans", "Prescriptions", "Images", "Consent"]);
+    expect(within(card).getByRole("tab", { name: "Plans" }).getAttribute("aria-selected")).toBe("true");
 
     await user.click(within(card).getByRole("tab", { name: "Prescriptions" }));
     expect(within(card).getByRole("tab", { name: "Prescriptions" }).getAttribute("aria-selected")).toBe("true");
     expect(await within(card).findByRole("list", { name: "Past prescriptions" })).toBeTruthy();
-    expect(within(card).queryByRole("button", { name: /^Open visit / })).toBeNull();
 
     await user.click(within(card).getByRole("tab", { name: "Images" }));
     expect(await within(card).findByRole("button", { name: "Add X-ray or photo" })).toBeTruthy();
@@ -82,7 +87,7 @@ describe("Records: one card, small tabs", () => {
     renderPortal(path, { as: PEOPLE.asha, backend });
     await screen.findByRole("heading", { level: 2, name: "Records" });
     // "Procedures" is the heading of the list inside Done today, not a block of its own; the folds under More are closed.
-    const titles = () => screen.getAllByRole("heading", { level: 2 }).filter((h) => h.closest("details") === null).map((h) => h.textContent).filter((text) => text !== "Procedures");
+    const titles = () => screen.getAllByRole("heading", { level: 2 }).filter((h) => h.closest("details") === null && h.closest("[role='tabpanel']") === null).map((h) => h.textContent).filter((text) => text !== "Procedures");
     expect(titles()).toEqual(["Dental chart", "Records", "Today"]);
     expect(screen.queryByText("Visit history", { selector: "summary" })).toBeNull();
     expect(screen.queryByText("Past prescriptions", { selector: "summary" })).toBeNull();
@@ -105,7 +110,7 @@ describe("Records: one card, small tabs", () => {
     const { path, backend } = visited();
     renderPortal(path, { as: PEOPLE.asha, backend });
     const card = await openRecords(user, "console");
-    for (const name of ["History", "Plans", "Prescriptions", "Images", "Consent"]) {
+    for (const name of ["Plans", "Prescriptions", "Images", "Consent"]) {
       await user.click(within(card).getByRole("tab", { name }));
       await waitFor(() => {
         expect(card.querySelector('[role="tabpanel"]')?.textContent.length ?? 0).toBeGreaterThan(0);
@@ -121,9 +126,7 @@ describe("Visit detail shows what was done", () => {
     const user = userEvent.setup();
     const { path, backend } = visited();
     renderPortal(path, { as: PEOPLE.asha, backend });
-    const card = await openRecords(user, "console");
-    await user.click(first(await within(card).findAllByRole("button", { name: /^Open visit / })));
-    const detail = await screen.findByRole("dialog", { name: /^Visit / });
+    const detail = await openFromHistory(user);
 
     const treatments = await within(detail).findByRole("region", { name: "Treatments" });
     expect(await within(treatments).findByText("Filling")).toBeTruthy();
@@ -137,15 +140,15 @@ describe("Visit detail shows what was done", () => {
     expect(within(detail).queryByText("Nothing was recorded in this visit")).toBeNull();
   });
 
-  it("opens from a timeline event too, so 'Visit closed' is never a dead end", async () => {
-    const user = userEvent.setup();
-    const { path, backend } = visited();
-    renderPortal(path, { as: PEOPLE.asha, backend });
-    const card = await openRecords(user, "console");
-    const link = first(await within(card).findAllByRole("button", { name: /^Show what was done/ }));
-    await user.click(link);
-    const detail = await screen.findByRole("dialog", { name: /^Visit / });
+  it("opens straight from the one deep link, ?visit=<id> on the history page", async () => {
+    let visitId = "";
+    const { path, backend } = visited((fixtures) => {
+      visitId = fixtures.visits[0]?.id ?? "";
+    });
+    renderPortal(`${path}/history?visit=${visitId}`, { as: PEOPLE.asha, backend });
+    const detail = await screen.findByRole("region", { name: /^Visit .* detail$/ });
     expect(await within(detail).findByRole("region", { name: "Treatments" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Close visit / }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("shows voice notes with their time, one line each", async () => {
@@ -155,9 +158,7 @@ describe("Visit detail shows what was done", () => {
       if (note !== undefined) note.sections = { ...note.sections, subjective: "[10:05] Pain on the right side\n[10:12] Sensitive to cold" };
     });
     renderPortal(path, { as: PEOPLE.asha, backend });
-    const card = await openRecords(user, "console");
-    await user.click(first(await within(card).findAllByRole("button", { name: /^Open visit / })));
-    const detail = await screen.findByRole("dialog", { name: /^Visit / });
+    const detail = await openFromHistory(user);
     const list = await within(detail).findByRole("list", { name: "Voice notes" });
     expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["10:05Pain on the right side", "10:12Sensitive to cold"]);
   });
@@ -173,9 +174,7 @@ describe("Visit detail shows what was done", () => {
       fixtures.observations = [];
     });
     renderPortal(path, { as: PEOPLE.asha, backend });
-    const card = await openRecords(user, "console");
-    await user.click(first(await within(card).findAllByRole("button", { name: /^Open visit / })));
-    const detail = await screen.findByRole("dialog", { name: /^Visit / });
+    const detail = await openFromHistory(user);
     expect(await within(detail).findByText("Nothing was recorded in this visit")).toBeTruthy();
   });
 });

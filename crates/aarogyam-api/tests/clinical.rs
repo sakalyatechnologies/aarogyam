@@ -2404,6 +2404,11 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
         ),
         (
             Method::GET,
+            format!("/api/v1/patients/{patient}/history"),
+            None,
+        ),
+        (
+            Method::GET,
             format!("/api/v1/patients/{patient}/notes"),
             None,
         ),

@@ -29,6 +29,7 @@ pub(crate) mod facts;
 pub(crate) mod family;
 pub(crate) mod files;
 pub(crate) mod health;
+pub(crate) mod history;
 pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod inventory;
@@ -294,6 +295,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(visits::list).post(visits::start),
         )
         .route("/patients/{id}/timeline", get(visits::timeline))
+        .route("/patients/{id}/history", get(history::get))
         .route(
             "/patients/{id}/consents",
             get(consents::list).post(consents::record),

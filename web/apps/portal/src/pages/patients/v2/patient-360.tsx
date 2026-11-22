@@ -1,6 +1,6 @@
-import { CalendarPlus, ChevronLeft, CircleCheck, MessageCircle, Pencil } from "lucide-react";
-import { useEffect } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { CalendarPlus, ChevronLeft, CircleCheck, History, MessageCircle, Pencil } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, useDocumentTitle } from "@aarogyam/app-kit";
@@ -12,7 +12,7 @@ import { SkeletonRows } from "../../../components/skeleton-rows.js";
 import { useClinic } from "../../../clinic.js";
 import { ageSex, displayName, patientPath } from "../../../lib/patients.js";
 import { rememberPatient } from "../../../lib/recent-patients.js";
-import { useClinicalFlags, usePatient, useSetAppointmentStatus } from "../../../queries.js";
+import { useClinicalFlags, usePatient, useSetAppointmentStatus, useVisits } from "../../../queries.js";
 import { NotFoundPage } from "../../not-found-page.js";
 import { ConsentLine } from "../patient-page.js";
 import { Celebration } from "./celebration.js";
@@ -102,6 +102,7 @@ function Patient360View({ patient }: { patient: Patient }) {
   };
 
   const props: LayoutProps = { patient, canClinical, showPastRx };
+  const canHistory = can("clinical.read");
   return (
     <div className="p360">
       <div className="p360-top">
@@ -129,6 +130,7 @@ function Patient360View({ patient }: { patient: Patient }) {
           </div>
         </div>
         <div className="p360-head-actions">
+          {canHistory ? <HistoryButton patientId={patient.id} /> : null}
           {!can("clinical.write") && appointment !== undefined ? <AppointmentActionButton appointment={appointment} /> : null}
           <Menu label="More" items={moreItems} onSelect={onMore} />
         </div>
@@ -144,8 +146,56 @@ function Patient360View({ patient }: { patient: Patient }) {
   );
 }
 
+/** A dialog that is open now; drawers that stay mounted while closed carry aria-hidden. */
+export const OPEN_DIALOG = "[role='dialog']:not([aria-hidden='true']), [role='alertdialog']:not([aria-hidden='true'])";
+
+/** Typing a letter there must never leave the page. */
+function typing(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || target.closest("input, textarea, select, [contenteditable='true'], [role='textbox'], [role='combobox']") !== null;
+}
+
+/**
+ * "History · N visits": opens the full-page history. H opens it too, except while typing, with a modifier, during IME
+ * composition or when a dialog is open (WCAG 2.1.4). The count comes from the visit list the facts already load.
+ */
+function HistoryButton({ patientId: id }: { patientId: PatientId }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const ref = useRef<HTMLButtonElement>(null);
+  const count = useVisits(id).data?.items.length;
+  const to = `${patientPath({ id })}/history`;
+  // Back from the history puts focus here again.
+  const state: unknown = location.state;
+  const returned = typeof state === "object" && state !== null && "focusHistory" in state && state.focusHistory === true;
+  useEffect(() => {
+    if (returned) ref.current?.focus();
+  }, [returned]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "h" && e.key !== "H") return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented || typing(e.target)) return;
+      if (document.querySelector(OPEN_DIALOG) !== null) return;
+      e.preventDefault();
+      void navigate(to);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [navigate, to]);
+  return (
+    <button ref={ref} type="button" className="p360-history" aria-keyshortcuts="H" onClick={() => void navigate(to)}>
+      <History aria-hidden="true" />
+      History
+      {count === undefined ? null : <span className="p360-history-n">{`${String(count)} visit${count === 1 ? "" : "s"}`}</span>}
+      <kbd aria-hidden="true">H</kbd>
+    </button>
+  );
+}
+
 /** The allergies as one tag in the header, so nobody prescribes past them. The flags panel under More confirms or edits them. */
-function AllergyTag({ patientId: id }: { patientId: PatientId }) {
+export function AllergyTag({ patientId: id }: { patientId: PatientId }) {
   const flags = useClinicalFlags(id).data;
   if (flags === undefined || flags.allergy_count === 0) return null;
   const active = flags.allergies.filter((a) => a.status === "active");

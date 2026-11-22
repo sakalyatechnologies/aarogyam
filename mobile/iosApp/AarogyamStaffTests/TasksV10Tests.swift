@@ -58,4 +58,41 @@ final class TodayV10LogicTests: XCTestCase {
         XCTAssertEqual(TasksV10.t("tasks10.proof"), "Finish with a photo")
         XCTAssertNotEqual(TasksV10.t("tasks10.proof.library"), "tasks10.proof.library")
     }
+
+    func testNotificationTintsFollowTheKindGroup() {
+        XCTAssertEqual(TasksV10.notificationTint(kind: "patient_waiting"), .queue)
+        XCTAssertEqual(TasksV10.notificationTint(kind: "collect_payment"), .money)
+        XCTAssertEqual(TasksV10.notificationTint(kind: "booking_requested"), .booking)
+        XCTAssertEqual(TasksV10.notificationTint(kind: "lab_overdue"), .clinical)
+        XCTAssertEqual(TasksV10.notificationTint(kind: "no_such_kind"), .neutral)
+    }
+
+    func testNotificationFiltersUseKindAndReadOnly() {
+        XCTAssertTrue(TasksV10.matches(.all, kind: "stock_alert", read: true))
+        XCTAssertTrue(TasksV10.matches(.unread, kind: "stock_alert", read: false))
+        XCTAssertFalse(TasksV10.matches(.unread, kind: "patient_waiting", read: true))
+        XCTAssertTrue(TasksV10.matches(.queue, kind: "send_in", read: true))
+        XCTAssertFalse(TasksV10.matches(.queue, kind: "booking_requested", read: false))
+        XCTAssertTrue(TasksV10.matches(.bookings, kind: "booking_conflict", read: true))
+    }
+
+    func testTodayAndEarlierSplitOnTheCalendarDay() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Kolkata"))
+        let now = try XCTUnwrap(TasksV10.parse("2026-11-21T06:00:00Z"))
+        XCTAssertTrue(TasksV10.isToday("2026-11-20T19:00:00Z", now: now, calendar: cal))
+        XCTAssertFalse(TasksV10.isToday("2026-11-20T18:00:00Z", now: now, calendar: cal))
+        XCTAssertFalse(TasksV10.isToday("not a date", now: now, calendar: cal))
+    }
+
+    func testNotificationTimeIsShortAndLocalized() throws {
+        let now = try XCTUnwrap(Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date()))
+        let en = Locale(identifier: "en_IN")
+        let iso = ISO8601DateFormatter()
+        XCTAssertNil(TasksV10.notificationTime("not a date", now: now))
+        let recent = try XCTUnwrap(TasksV10.notificationTime(iso.string(from: now.addingTimeInterval(-300)), now: now, locale: en))
+        XCTAssertTrue(recent.contains("5"), recent)
+        let old = try XCTUnwrap(TasksV10.notificationTime(iso.string(from: now.addingTimeInterval(-40 * 86_400)), now: now, locale: en))
+        XCTAssertFalse(old.isEmpty)
+    }
 }

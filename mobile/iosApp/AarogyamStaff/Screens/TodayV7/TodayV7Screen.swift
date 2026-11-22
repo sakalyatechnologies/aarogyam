@@ -55,7 +55,6 @@ struct TodayV7Screen: View {
                 bell = false
                 onOpenPatient(id)
             }
-            .closableSheet()
         }
         .sheet(isPresented: $avatars) {
             AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large])

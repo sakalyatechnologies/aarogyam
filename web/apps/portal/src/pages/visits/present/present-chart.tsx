@@ -13,6 +13,7 @@ import type { ChartDentition, ChartLook } from "../../patients/v2/tooth-chart/us
 import { ARCHES, CELL_H, EMPTY_STATE, layoutArch, toothStates, treatmentsByTooth, type Placed } from "../odontogram/model.js";
 import { OdontogramDefs, ToothSvg } from "../odontogram/tooth-svg.js";
 import "../odontogram/odontogram.css";
+import "./present-chart.css";
 
 /** The words on a tooth's tag: TODAY wins over RECOMMENDED, and a planned tooth has its ring instead. */
 function tagOf(s: PositionState): "TODAY" | "RECOMMENDED" | undefined {

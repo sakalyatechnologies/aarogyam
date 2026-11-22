@@ -14,6 +14,9 @@ import { ApiErrorNotice } from "@aarogyam/app-kit";
 import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import "@aarogyam/app-kit/mouth-view.css";
+import { HoldToExit } from "@aarogyam/app-kit/present";
+import "@aarogyam/app-kit/hold-to-exit.css";
+import "@aarogyam/app-kit/present.css";
 import { useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
@@ -22,14 +25,11 @@ import { DENTITIONS, LOOKS } from "../../patients/v2/tooth-chart/tooth-chart.js"
 import { useChartPrefs, type ChartDentition, type ChartLook } from "../../patients/v2/tooth-chart/use-chart-prefs.js";
 import { usePlans } from "../../treatment-plans/queries.js";
 import { PresentChart } from "./present-chart.js";
-import { HoldToExit } from "../../patients/v2/explain/hold-to-exit.js";
-import "../../patients/v2/explain/explain.css";
-import "./present.css";
 
 const load3d = () => import("@aarogyam/app-kit/real-teeth-3d");
 // loaded only when asked: the X-rays tab (Explain mode's viewer and pins) and "How to brush"
 const XraysTab = lazy(() => import("./xrays-tab.js").then((m) => ({ default: m.XraysTab })));
-const BrushingPanel = lazy(() => import("./brushing-panel.js").then((m) => ({ default: m.BrushingPanel })));
+const BrushingPanel = lazy(() => import("@aarogyam/app-kit/present/brushing-panel").then((m) => ({ default: m.BrushingPanel })));
 type Tab = "teeth" | "xrays";
 const TABS: readonly Tab[] = ["teeth", "xrays"];
 

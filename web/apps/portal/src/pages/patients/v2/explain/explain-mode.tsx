@@ -23,10 +23,11 @@ import { ProgressLine } from "../tooth-chart/progress-line.js";
 import { ToothChart } from "../tooth-chart/tooth-chart.js";
 import { useNoteDictation } from "../tooth-chart/use-note-dictation.js";
 import { containedRect, explainImages, explainSummary, fractionIn, isFdi, type Rect } from "./explain-model.js";
+import "@aarogyam/app-kit/hold-to-exit.css";
 import "./explain.css";
-import { HoldToExit } from "./hold-to-exit.js";
+import { HoldToExit } from "@aarogyam/app-kit/present";
 
-export { EXIT_HOLD_MS, HoldToExit } from "./hold-to-exit.js";
+export { EXIT_HOLD_MS, HoldToExit } from "@aarogyam/app-kit/present";
 
 /** How long Exit must be held. */
 /** How far the pointer moves while pressed before it is the laser pointer rather than a tap. */

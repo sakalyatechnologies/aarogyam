@@ -12,7 +12,11 @@
     "./mouth-view.css": "./src/mouth-view/mouth-view.css",
     "./story-2d": "./src/story-2d/index.ts",
     "./story-video": "./src/story-video/index.ts",
-    "./story-video/support": "./src/story-video/support.ts"
+    "./story-video/support": "./src/story-video/support.ts",
+    "./present": "./src/present/index.ts",
+    "./present/brushing-panel": "./src/present/brushing-panel.tsx",
+    "./present.css": "./src/present/present.css",
+    "./hold-to-exit.css": "./src/present/hold-to-exit.css"
   },
   "scripts": {
     "typecheck": "tsc -p ."

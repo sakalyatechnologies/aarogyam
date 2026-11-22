@@ -1,4 +1,5 @@
-// Hold-to-exit for the full-screen patient views (Explain mode, Show patient): kept apart so Present loads it without Explain mode.
+// Hold-to-exit for the full-screen patient views (Explain mode, Show patient, the phone story bundle). Import
+// "@aarogyam/app-kit/hold-to-exit.css" next to it.
 import { useEffect, useId, useRef, useState } from "react";
 
 export const EXIT_HOLD_MS = 1000;

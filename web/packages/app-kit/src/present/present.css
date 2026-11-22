@@ -57,30 +57,3 @@
   .pm-who small { font-size: clamp(13px, .85vw, 17px); }
   .pm-chip, .pm-tab { font-size: clamp(16px, 1.05vw, 20px); min-height: clamp(56px, 3.4vw, 68px); }
 }
-
-/* Show patient in the chart's look (present-chart.tsx): the chart's teeth with the mouth view's marks */
-.pm-shell .mv-custom .pc { width: 100%; min-width: 0; }
-.pc .tc-rows { overflow-x: auto; }
-.pc .tc-rows-inner { min-width: max-content; margin-inline: auto; }
-.pc [data-dim] { opacity: .3; }
-.pc-marks { position: absolute; inset: 0; pointer-events: none; }
-.pc-ring { position: absolute; inset: -3px; border-radius: 12px; border: 2.5px solid var(--mv-ring); }
-.pc-ring[data-kind="plan"] { border: 2px dashed var(--mv-amber); }
-.pc-ring[data-kind="rec"] { border: 1.6px dotted var(--mv-slate); }
-.pc-ring-outer { inset: -7px; border-radius: 15px; }
-.tc-bead .pc-ring { border-radius: 50%; inset: -5px; }
-.tc-bead .pc-ring-outer { inset: -9px; }
-.pc-tag { position: absolute; left: 50%; top: -17px; transform: translateX(-50%); padding: 1px 6px; border-radius: 999px; font-size: 9px; line-height: 13px; font-weight: 700; letter-spacing: .05em; white-space: nowrap; background: var(--mv-ring); color: var(--mv-on-brand); z-index: 1; }
-.pc-tag[data-kind="rec"] { background: var(--mv-card); color: var(--mv-slate); border: 1px dashed var(--mv-slate); font-size: 8px; }
-.pc-marks[data-arch="lower"] .pc-tag { top: auto; bottom: -17px; }
-.pc-badge { position: absolute; top: -7px; right: -7px; z-index: 1; }
-.pc-marks[data-arch="lower"] .pc-badge { top: auto; bottom: -7px; }
-.pc-classic .odo-stage { overflow: visible; }
-.pc-classic .odo-arch { overflow: visible; }
-.pc-classic-tooth[data-dim] { opacity: .3; }
-.pm-shell .pc .tc-rows { padding-block: 26px 8px; }
-.pm-shell .pc .tc-arch-stage { padding-top: 28px; }
-@media (min-width: 900px) {
-  .pc[data-look="rows"] .tc-rows-inner { zoom: 1.6; }
-  .pc[data-look="arch"] .tc-arch-stage { zoom: 1.45; }
-}

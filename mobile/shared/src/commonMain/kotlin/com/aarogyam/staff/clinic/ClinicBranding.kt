@@ -24,7 +24,8 @@ data class ClinicBranding(
                 BrandMode.Dark -> true
                 BrandMode.System -> systemDark
             }
-        return AppTheme.create(brand, if (dark) ThemeMode.Dark else ThemeMode.Light)
+        val theme = AppTheme.create(brand, if (dark) ThemeMode.Dark else ThemeMode.Light)
+        return if (dark) theme.copy(palette = theme.palette.refinedDark()) else theme
     }
 
     companion object {

@@ -17,7 +17,7 @@ import { MouthView, brushingBand, preloadArt, type OverviewSlot } from "@aarogya
 import "@aarogyam/app-kit/mouth-view.css";
 import {
   DEFAULT_STYLE, PRESENT_STYLES, StyleBoundary, StyleSwitcher, TextFallback, isShipped, loadPaintedStyle, presentFacts, useChunk,
-  type Orientation, type PresentModel, type PresentStyleId, type ShadeKnob, type SwitcherOption,
+  type Orientation, type PaintedView, type PresentModel, type PresentStyleId, type ShadeKnob, type SwitcherOption,
 } from "@aarogyam/app-kit/present";
 import "@aarogyam/app-kit/present.css";
 import { useToast } from "@sakalya/ui";
@@ -70,6 +70,8 @@ export function PresentPage() {
   const [view, setView] = useState<View>(DEFAULT_STYLE);
   const [orientation, setOrientation] = useState<Orientation>("mirror");
   const [shade, setShade] = useState<ShadeKnob>("natural");
+  // front map or Open wide; undefined until the doctor picks, so the painted style applies its §6.2 rule
+  const [paintedView, setPaintedView] = useState<PaintedView | undefined>(undefined);
   const model = useMemo(() => (mouth.data === undefined ? undefined : presentFacts(mouth.data, visitId)), [mouth.data, visitId]);
   // The doctor's chart look and dentition, so the patient sees the same teeth and numbers; switching here is for this showing only.
   const { session } = useClinic();
@@ -148,7 +150,7 @@ export function PresentPage() {
             overview={view === "chart"
               ? (chart.data === undefined ? undefined : (slot) => <PresentChart look={look} dentition={dentition} chart={chart.data} planItems={planItems} slot={slot} />)
               : model === undefined ? undefined : (slot) => (
-                <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={theme} />
+                <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={theme} view={paintedView} onView={setPaintedView} />
               )}
           />
         )}
@@ -173,6 +175,7 @@ export function PresentPage() {
 function PaintedSlot({ model, slot, ...knobs }: {
   model: PresentModel; slot: OverviewSlot; orientation: Orientation; onOrientation: (o: Orientation) => void;
   shade: ShadeKnob; onShade: (s: ShadeKnob) => void; theme: "light" | "dark";
+  view: PaintedView | undefined; onView: (v: PaintedView) => void;
 }): ReactNode {
   const chunk = useChunk(loadPaintedStyle);
   // a render error also falls back to text; retry remounts the boundary

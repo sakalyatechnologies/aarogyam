@@ -33,8 +33,13 @@ export function dotsOf(model: PresentModel): { n: number; tooth: number; tone: D
   });
 }
 
-/** "What we found": the model's facts only, grouped by tooth and numbered like the dots. */
-export function FactList({ model, onOpen, numbered = true }: { model: PresentModel; onOpen?: ((tooth: number) => void) | undefined; numbered?: boolean }): ReactElement {
+/**
+ * "What we found": the model's facts only, grouped by tooth and numbered like the dots. With `onBitingSide`,
+ * "On the biting side" links to Open wide (the front picture can't show that decay).
+ */
+export function FactList({ model, onOpen, numbered = true, onBitingSide }: {
+  model: PresentModel; onOpen?: ((tooth: number) => void) | undefined; numbered?: boolean; onBitingSide?: (() => void) | undefined;
+}): ReactElement {
   const dots = dotsOf(model);
   return (
     <section className="ps-found" aria-label="What we found">
@@ -51,7 +56,9 @@ export function FactList({ model, onOpen, numbered = true }: { model: PresentMod
                   {facts.map((f) => (
                     <span key={f.id} className="ps-fact" data-kind={f.kind} data-fact={f.id}>
                       <b>{f.words}</b>
-                      {f.biting_side === true ? <span className="ps-note">On the biting side</span> : null}
+                      {f.biting_side !== true ? null : onBitingSide === undefined ? <span className="ps-note">On the biting side</span> : (
+                        <button type="button" className="ps-note ps-note-link" onClick={onBitingSide}>On the biting side: open wide</button>
+                      )}
                       <RecordBadge on={f.recorded_on} />
                     </span>
                   ))}
@@ -61,7 +68,11 @@ export function FactList({ model, onOpen, numbered = true }: { model: PresentMod
             return (
               <li key={d.tooth}>
                 {onOpen === undefined ? <div className="ps-found-item">{body}</div> : (
-                  <button type="button" className="ps-found-item" aria-label={d.label} onClick={() => { onOpen(d.tooth); }}>{body}</button>
+                  // the whole card opens the tooth; a link inside it (Open wide) sits above the card's button
+                  <div className="ps-found-item ps-found-card">
+                    <button type="button" className="ps-found-open" aria-label={d.label} onClick={() => { onOpen(d.tooth); }} />
+                    {body}
+                  </div>
                 )}
               </li>
             );

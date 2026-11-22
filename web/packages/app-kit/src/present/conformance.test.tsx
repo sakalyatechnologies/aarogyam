@@ -17,6 +17,10 @@ afterEach(cleanup);
 const STYLES: Partial<Record<PresentStyleId, (m: PresentModel) => ReactElement>> = {
   painted: (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" onOpen={() => undefined} />,
 };
+/** Shared blocks a style can switch to; each must pass the same rules (slice 1b: Open wide, inside painted). */
+const BLOCKS: Record<string, (m: PresentModel) => ReactElement> = {
+  "painted, open wide": (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" onOpen={() => undefined} view="wide" />,
+};
 
 const empty = (): Snapshot => ({ ...structuredClone(aaravFixture.snapshot), teeth: [] });
 const FIXTURES: Record<string, () => Snapshot> = {
@@ -47,7 +51,7 @@ describe("every shipped style has a conformance renderer", () => {
   it.each([...SHIPPED_STYLES])("%s", (id) => { expect(STYLES[id]).toBeDefined(); });
 });
 
-describe.each(Object.entries(STYLES))("conformance: %s", (_id, draw) => {
+describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conformance: %s", (_id, draw) => {
   describe.each(Object.entries(FIXTURES))("%s", (_name, snap) => {
     const setup = () => {
       const model = presentFacts(snap());

@@ -12,6 +12,7 @@ import { dottedTeeth, presentFacts, type PresentModel } from "./model.js";
 import { PaintedStyle } from "./painted.js";
 import { StoryStyle } from "./story.js";
 import { ToothSheet } from "./tooth-sheet.js";
+import { XrayStyle } from "./xray.js";
 import { SHIPPED_STYLES, type PresentStyleId } from "./styles.js";
 
 afterEach(cleanup);
@@ -19,6 +20,7 @@ afterEach(cleanup);
 const STYLES: Partial<Record<PresentStyleId, (m: PresentModel) => ReactElement>> = {
   story: (m) => <StoryStyle model={m} orientation="mirror" onOrientation={() => undefined} theme="light" stacked />,
   painted: (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" onOpen={() => undefined} />,
+  xray: (m) => <XrayStyle model={m} image={{ src: "data:image/gif;base64,R0lGODlhAQABAAAAACw=", alt: "X-ray" }} />,
 };
 /** Shared blocks a style can switch to; each must pass the same rules (slice 1b: Open wide, inside painted). */
 const BLOCKS: Record<string, (m: PresentModel) => ReactElement> = {
@@ -91,26 +93,42 @@ describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conforman
       }
     });
 
-    it("the picture carries the dashed 'Painting based on your record' and the provenance footer", () => {
+    // the drawn styles only: the X-ray is the patient's own image, with no painting and no dots
+    it.skipIf(_id === "xray")("the picture carries the dashed 'Painting based on your record' and the provenance footer", () => {
       const { container } = setup();
       const dashed = [...container.querySelectorAll(".ps-badge-ill")].map((b) => b.textContent);
       expect(dashed).toContain("Painting based on your record");
       expect(container.querySelector(".ps-prov")).not.toBeNull();
     });
 
-    it("dots only on recorded items: one per tooth with facts", () => {
+    it.skipIf(_id === "xray")("dots only on recorded items: one per tooth with facts", () => {
       const { model, container } = setup();
       const dots = [...container.querySelectorAll(".ps-dot")].map((d) => Number(d.getAttribute("data-tooth")));
       expect(dots).toEqual(dottedTeeth(model));
       for (const tooth of dots) expect(model.facts.some((f) => f.tooth === tooth)).toBe(true);
     });
 
-    it("a wisdom tooth with no eruption record is badged as an example", () => {
+    it.skipIf(_id === "xray")("a wisdom tooth with no eruption record is badged as an example", () => {
       const { model, container } = setup();
       const unrecorded = model.teeth.some((t) => t.index === 8 && t.shown !== "not_recorded" && !t.missing && t.eruption === undefined);
       const has = [...container.querySelectorAll(".ps-badge-ill")].some((b) => /example, not your tooth/i.test(b.textContent));
       expect(has).toBe(unrecorded);
     });
+  });
+});
+
+/** X-ray (§14.1): no negative scale on the image or its overlays; edge labels on the radiograph's convention sides; a provenance footer, and no illustration claimed. */
+describe.each(Object.entries(FIXTURES))("conformance: X-ray orientation and provenance, %s", (_name, snap) => {
+  it("is never transformed and reads Your right on the left edge", () => {
+    const { container } = render(STYLES.xray?.(presentFacts(snap())) ?? <></>);
+    expect(container.querySelector("img")).not.toBeNull();
+    for (const el of container.querySelectorAll("[data-xray-stage], [data-xray-stage] *")) {
+      expect(el.getAttribute("style") ?? "").not.toMatch(/scale\(-|scaleX|scale3d|matrix/i);
+    }
+    expect(container.querySelector('.ps-xr-edge[data-side="left"]')?.textContent).toBe("Your right");
+    expect(container.querySelector('.ps-xr-edge[data-side="right"]')?.textContent).toBe("Your left");
+    expect(container.querySelector(".ps-prov")).not.toBeNull();
+    expect(container.querySelectorAll(".ps-badge-ill").length).toBe(0);
   });
 });
 

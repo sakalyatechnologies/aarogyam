@@ -28,21 +28,28 @@ import { useDentalChart, usePatient, useRecordChartEntries, useVisit, useVisitMo
 import { DENTITIONS, LOOKS } from "../../patients/v2/tooth-chart/tooth-chart.js";
 import { useChartPrefs, type ChartDentition, type ChartLook } from "../../patients/v2/tooth-chart/use-chart-prefs.js";
 import { usePlans } from "../../treatment-plans/queries.js";
+import { useOwnXrays } from "./own-xray-pick.js";
 import { PresentChart } from "./present-chart.js";
 
 const load3d = () => import("@aarogyam/app-kit/real-teeth-3d");
 // loaded only when asked: the X-rays tab (Explain mode's viewer and pins) and "How to brush"
 const XraysTab = lazy(() => import("./xrays-tab.js").then((m) => ({ default: m.XraysTab })));
+const OwnXraySlot = lazy(() => import("./own-xray.js").then((m) => ({ default: m.OwnXraySlot })));
+const StoryXray = lazy(() => import("./own-xray.js").then((m) => ({ default: m.StoryXray })));
 const BrushingPanel = lazy(() => import("@aarogyam/app-kit/present/brushing-panel").then((m) => ({ default: m.BrushingPanel })));
 type Tab = "teeth" | "xrays";
 const TABS: readonly Tab[] = ["teeth", "xrays"];
 /** A Show patient style, or the doctor's chart look. */
 type View = PresentStyleId | "chart";
-const VIEWS: readonly SwitcherOption[] = [
-  ...PRESENT_STYLES.map((s) => ({ id: s.id, label: s.label, beta: s.beta, disabled: isShipped(s.id) ? undefined : "Coming soon", note: s.id === DEFAULT_STYLE ? "Default" : undefined })),
+/** Own X-ray is enabled only when the patient has an X-ray or OPG (`xray`: undefined while that is still loading). */
+const viewsFor = (xray: boolean | undefined): readonly SwitcherOption[] => [
+  ...PRESENT_STYLES.map((s) => ({
+    id: s.id, label: s.label, beta: s.beta, note: s.id === DEFAULT_STYLE ? "Default" : undefined,
+    disabled: !isShipped(s.id) ? "Coming soon" : s.id === "xray" && xray !== true ? (xray === undefined ? "Checking X-rays" : "No X-ray yet") : undefined,
+  })),
   { id: "chart", label: "Chart", separate: true },
 ];
-const isView = (v: string): v is View => VIEWS.some((o) => o.id === v);
+const isView = (v: string): v is View => v === "chart" || PRESENT_STYLES.some((s) => s.id === v);
 
 export function PresentPage() {
   const params = useParams();
@@ -70,6 +77,9 @@ export function PresentPage() {
   const [shade, setShade] = useState<ShadeKnob>("natural");
   // front map or Open wide; undefined until the doctor picks, so the painted style applies its §6.2 rule
   const [paintedView, setPaintedView] = useState<PaintedView | undefined>(undefined);
+  const xrays = useOwnXrays(patientId, visitId);
+  const hasXray = xrays.loading ? undefined : xrays.images.length > 0;
+  const views = useMemo(() => viewsFor(hasXray), [hasXray]);
   const model = useMemo(() => (mouth.data === undefined ? undefined : presentFacts(mouth.data, visitId)), [mouth.data, visitId]);
   // The doctor's chart look and dentition, so the patient sees the same teeth and numbers; switching here is for this showing only.
   const { session } = useClinic();
@@ -95,7 +105,7 @@ export function PresentPage() {
             </button>
           ))}
         </div>
-        {tab === "teeth" ? <StyleSwitcher options={VIEWS} value={view} onChange={(v) => { if (isView(v)) setView(v); }} /> : null}
+        {tab === "teeth" ? <StyleSwitcher options={views} value={view} onChange={(v) => { if (isView(v)) setView(v); }} /> : null}
         {tab === "teeth" && view === "chart" ? (
           <div className="pm-tabs" role="group" aria-label="Chart look">
             {LOOKS.map((l) => (
@@ -147,8 +157,17 @@ export function PresentPage() {
             toothExtras={patientId === undefined ? undefined : (tooth) => <AddDepth snapshot={mouth.data} tooth={tooth} patientId={patientId} visitId={visitId} />}
             overview={view === "chart"
               ? (chart.data === undefined ? undefined : (slot) => <PresentChart look={look} dentition={dentition} chart={chart.data} planItems={planItems} slot={slot} />)
-              : model === undefined ? undefined : view === "story" ? (slot) => (
-                <StorySlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} />
+              : model === undefined ? undefined : view === "xray" && patientId !== undefined ? () => (
+                <Suspense fallback={<p role="status" className="pm-wait">Loading the X-ray…</p>}>
+                  <OwnXraySlot model={model} patientId={patientId} visitId={visitId} load3d={load3d} />
+                </Suspense>
+              ) : view === "story" ? (slot) => (
+                <StorySlot
+                  model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d}
+                  xray={hasXray === true && patientId !== undefined ? (
+                    <Suspense fallback={<p role="status" className="pm-wait">Loading the X-ray…</p>}><StoryXray patientId={patientId} visitId={visitId} /></Suspense>
+                  ) : undefined}
+                />
               ) : (slot) => (
                 <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} toothSheet />
               )}

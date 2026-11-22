@@ -17,6 +17,7 @@ export type { PaintedProps, PaintedView } from "./painted.js";
 export type { OpenWideProps, WideArt } from "./open-wide.js";
 export { CompareSlider, sharedBox, type CompareSliderProps } from "./compare-slider.js";
 export { ToothSheet, sheetContent, type ToothSheetProps, type SheetContent, type StateSpec } from "./tooth-sheet.js";
+export { XrayStyle, XrayView, XrayEdges, XRAY_EDGES, type XrayProps } from "./xray.js";
 export { PaintedSlot } from "./painted-slot.js";
 export { StorySlot } from "./story-slot.js";
 export type { StoryProps, StoryCard } from "./story.js";

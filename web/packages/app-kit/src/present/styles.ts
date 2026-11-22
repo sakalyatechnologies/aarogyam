@@ -19,7 +19,7 @@ export const PRESENT_STYLES: readonly PresentStyleInfo[] = [
 ];
 
 /** Styles built so far (story cards from slice 1d, painted from 1a). */
-export const SHIPPED_STYLES: ReadonlySet<PresentStyleId> = new Set<PresentStyleId>(["story", "painted"]);
+export const SHIPPED_STYLES: ReadonlySet<PresentStyleId> = new Set<PresentStyleId>(["story", "painted", "xray"]);
 
 /** The style Show patient opens on until "Make default" (slice 1f). */
 export const DEFAULT_STYLE: PresentStyleId = "story";

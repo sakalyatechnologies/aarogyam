@@ -3,7 +3,7 @@
 // card per recorded problem tooth (tooth sheet and slider), what is planned or recommended, and what we
 // discussed (session-only ticks). No card is invented: case cards and options arrive with the studio data.
 // Navigation: swipe, the arrow keys, progress dots and an "All cards" index. Prices are not in this slice.
-import { useEffect, useEffectEvent, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactElement } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactElement, type ReactNode } from "react";
 
 import { dayLabel } from "../mouth-view/model.js";
 import { FactList, ProvenanceFooter, RecordBadge } from "./blocks.js";
@@ -12,7 +12,7 @@ import { OpenWide, bitingSideProblems, frontHidesAllProblems } from "./open-wide
 import { PaintedMap, type PaintedView } from "./painted.js";
 import { ToothSheet, type ToothSheetProps } from "./tooth-sheet.js";
 
-export type StoryCardKind = "mouth" | "found" | "tooth" | "plan" | "discussed";
+export type StoryCardKind = "mouth" | "found" | "tooth" | "plan" | "discussed" | "xray";
 export interface StoryCard { id: string; kind: StoryCardKind; title: string; tooth?: number }
 
 const PLAN_KINDS = new Set<FactItem["kind"]>(["recommended", "plan", "in_progress"]);
@@ -25,9 +25,10 @@ export const discussRows = (m: PresentModel): { id: string; words: string; where
 const problemTeeth = (m: PresentModel): number[] => [...new Set(m.facts.flatMap((f) => (f.kind === "problem" && f.tooth !== undefined ? [f.tooth] : [])))];
 
 /** The cards, from the facts only. Pure: no fact, no card. */
-export function storyCards(m: PresentModel): StoryCard[] {
+export function storyCards(m: PresentModel, hasXray = false): StoryCard[] {
   const cards: StoryCard[] = [{ id: "mouth", kind: "mouth", title: "Here is your mouth" }];
   if (m.facts.length > 0) cards.push({ id: "found", kind: "found", title: "What we found" });
+  if (hasXray) cards.push({ id: "xray", kind: "xray", title: "Your X-ray" });
   for (const t of problemTeeth(m)) {
     const where = m.facts.find((f) => f.tooth === t)?.where;
     cards.push({ id: `tooth:${String(t)}`, kind: "tooth", tooth: t, title: `${where ?? "Tooth"} · ${String(t)}` });
@@ -47,6 +48,8 @@ export interface StoryProps {
   load3d?: ToothSheetProps["load3d"];
   /** Draws every card one under the other (the conformance suite and print); navigation is hidden. */
   stacked?: boolean | undefined;
+  /** The patient's own X-ray, drawn by the host (it needs the signed link). The "Your X-ray" card exists only when this is given. */
+  xray?: ReactNode;
 }
 
 const SWIPE = 60;
@@ -55,7 +58,8 @@ const owned = (el: EventTarget | null): boolean => el instanceof Element && el.c
 
 export function StoryStyle(props: StoryProps): ReactElement {
   const { model, onOrientation, stacked = false } = props;
-  const cards = useMemo(() => storyCards(model), [model]);
+  const hasXray = props.xray !== undefined;
+  const cards = useMemo(() => storyCards(model, hasXray), [model, hasXray]);
   const [at, setAt] = useState(0);
   const [index, setIndex] = useState(false);
   const [sheet, setSheet] = useState<number | undefined>(undefined);
@@ -112,6 +116,7 @@ export function StoryStyle(props: StoryProps): ReactElement {
             <h2 className="ps-card-h">{c.title}</h2>
             {c.kind === "mouth" ? <MouthCard {...props} view={view} setView={setView} onOrientation={onOrientation} open={open} /> : null}
             {c.kind === "found" ? <FactList model={model} onOpen={open} onBitingSide={view === "front" ? () => { setView("wide"); go(0); } : undefined} /> : null}
+            {c.kind === "xray" ? <div className="ps-xr-card">{props.xray}<ProvenanceFooter recorded={["The image is your own X-ray, as it was taken."]} illustration={[]} /></div> : null}
             {c.kind === "tooth" && c.tooth !== undefined ? <ToothSheet embedded model={model} tooth={c.tooth} load3d={props.load3d} /> : null}
             {c.kind === "plan" ? <PlanCard model={model} /> : null}
             {c.kind === "discussed" ? (

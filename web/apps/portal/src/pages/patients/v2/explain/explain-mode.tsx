@@ -25,7 +25,7 @@ import { useNoteDictation } from "../tooth-chart/use-note-dictation.js";
 import { containedRect, explainImages, explainSummary, fractionIn, isFdi, type Rect } from "./explain-model.js";
 import "@aarogyam/app-kit/hold-to-exit.css";
 import "./explain.css";
-import { HoldToExit } from "@aarogyam/app-kit/present";
+import { HoldToExit, XrayEdges } from "@aarogyam/app-kit/present";
 
 export { EXIT_HOLD_MS, HoldToExit } from "@aarogyam/app-kit/present";
 
@@ -34,7 +34,7 @@ export { EXIT_HOLD_MS, HoldToExit } from "@aarogyam/app-kit/present";
 const DRAG_PX = 8;
 const LABEL_MAX = 80;
 
-interface Pin {
+export interface Pin {
   readonly id: number;
   readonly imageId: string;
   /** Fractions of the drawn image, so the pin stays on the tooth when the window changes size. */
@@ -44,7 +44,7 @@ interface Pin {
   readonly label: string;
 }
 
-interface PendingPin {
+export interface PendingPin {
   readonly x: number;
   readonly y: number;
   readonly digits: string;
@@ -222,7 +222,7 @@ export function ExplainBody({ patientId, imageId }: { patientId: PatientId; imag
 }
 
 /** The chosen image with its pins, the picker of the patient's images, and the laser pointer. */
-function ImagePane(props: {
+export function ImagePane(props: {
   images: readonly Attachment[];
   image: Attachment | undefined;
   loading: boolean;
@@ -236,6 +236,8 @@ function ImagePane(props: {
   onPending: (pin: PendingPin | undefined) => void;
   onPlace: (pin: PendingPin, tooth: number) => void;
   onClear: () => void;
+  /** Radiograph edge labels ("Your right" on the left edge), drawn on the image's own edges. */
+  edges?: boolean;
 }) {
   const { images, image, loading, pins, pending, active } = props;
   const link = useAttachmentLink(image);
@@ -354,6 +356,7 @@ function ImagePane(props: {
                 }}
               />
             )}
+            {props.edges === true && link.data !== undefined ? <XrayEdges rect={rect} /> : null}
             {pins.map((pin, index) => (
               <PinMark
                 key={pin.id}

@@ -34,6 +34,7 @@ const toothEl = (shell: HTMLElement, n: number): HTMLElement | SVGElement => {
 };
 
 const WAIT = { timeout: 20_000 };
+const XRAY_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 /** Show patient opens on story cards (painted is one pick away); "Chart" in the style switcher draws the doctor's chart look. */
 async function showChart(shell: HTMLElement) {
@@ -42,13 +43,14 @@ async function showChart(shell: HTMLElement) {
 }
 
 /** A Sunrise visit; its mouth is the Aarav fixture, with 55's depth left out and a current caries entry on 55. */
-function present() {
+function present(withXray = false) {
   let path = "";
   const backend = fakeApi((fixtures: Fixtures) => {
     const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
     const visit = fixtures.visits.find((v) => v.clinic_id === sunrise?.id && v.status === "open") ?? fixtures.visits.find((v) => v.clinic_id === sunrise?.id);
     path = `/visits/${visit?.id ?? ""}/mouth`;
     const asha = fixtures.memberships.find((m) => m.user_id === PEOPLE.asha && m.clinic_id === sunrise?.id)?.id ?? "";
+    if (withXray) fixtures.attachments.push({ id: "pm-xray", clinic_id: sunrise?.id ?? "", patient_id: visit?.patient_id ?? "", visit_id: visit?.id ?? null, kind: "xray", mime_type: "image/png", size_bytes: 70, sha256: "0".repeat(64), label: "OPG", created_at: "2026-10-03T05:00:00Z", url: XRAY_PNG });
     fixtures.chartEntries.push({ id: "pm-55", clinic_id: sunrise?.id ?? "", patient_id: visit?.patient_id ?? "", tooth: 55, surface: "O", finding: "caries", status: "current", recorded_by: asha, effective_at: "2026-10-03T05:00:00Z" });
   });
   const recorded: NewChartEntries[] = [];
@@ -217,9 +219,10 @@ describe("Present mode (§1.12)", () => {
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
+    await waitFor(() => { expect(within(shell).getByRole("option", { name: /Own X-ray/ }).textContent).toContain("No X-ray yet"); }, WAIT);
     const names = within(shell).getAllByRole("option").map((o) => [o.textContent, o.getAttribute("aria-disabled")]);
     expect(names).toEqual([
-      ["Story cardsDefault✓", null], ["Painted smile", null], ["Own X-rayComing soon", "true"],
+      ["Story cardsDefault✓", null], ["Painted smile", null], ["Own X-rayNo X-ray yet", "true"],
       ["3D smileBetaComing soon", "true"], ["Face to toothBetaComing soon", "true"], ["Chart", null],
     ]);
     fireEvent.click(within(shell).getByRole("option", { name: "Chart" }));
@@ -239,5 +242,40 @@ describe("Present mode (§1.12)", () => {
     expect(await run()).toEqual([]);
     fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
     expect(await run()).toEqual([]);
+  });
+
+  it("Own X-ray: with an X-ray on file it is enabled, shows the image unflipped with Your right on the left, and a finding opens the tooth sheet", async () => {
+    const { path, backend, wrap } = present(true);
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
+    await waitFor(() => { expect(within(shell).getByRole("option", { name: /Own X-ray/ }).getAttribute("aria-disabled")).toBeNull(); }, WAIT);
+    fireEvent.click(within(shell).getByRole("option", { name: /Own X-ray/ }));
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='xray']")).not.toBeNull(); }, WAIT);
+    await waitFor(() => { expect(shell.querySelector(".ps-xray img")).not.toBeNull(); }, WAIT);
+    const img = shell.querySelector(".ps-xray img");
+    expect(img?.getAttribute("src")).toContain("data:image/png");
+    for (const el of shell.querySelectorAll(".ps-xray .xp-stage, .ps-xray .xp-stage *")) expect(el.getAttribute("style") ?? "").not.toMatch(/scale|matrix/i);
+    expect(shell.querySelector('.ps-xr-edge[data-side="left"]')?.textContent).toBe("Your right");
+    expect(shell.querySelector('.ps-xr-edge[data-side="right"]')?.textContent).toBe("Your left");
+    expect(shell.querySelectorAll(".ps-found .ps-badge-rec").length).toBeGreaterThan(0);
+    const open = shell.querySelector(".ps-found-open");
+    if (open === null) throw new Error("no finding");
+    fireEvent.click(open);
+    await waitFor(() => { expect(shell.querySelector("[data-tooth-sheet]")).not.toBeNull(); }, WAIT);
+  });
+
+  it("story cards add a 'Your X-ray' card only when an X-ray exists", async () => {
+    const without = present();
+    renderPortal(without.path, { as: PEOPLE.asha, backend: without.backend, wrap: without.wrap });
+    const first = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    await waitFor(() => { expect(first.querySelector("[data-present-style='story']")).not.toBeNull(); }, WAIT);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(within(first).queryByRole("button", { name: /Your X-ray/ })).toBeNull();
+    cleanup();
+    const withIt = present(true);
+    renderPortal(withIt.path, { as: PEOPLE.asha, backend: withIt.backend, wrap: withIt.wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    await waitFor(() => { expect(within(shell).getByRole("button", { name: /Card \d+ of \d+: Your X-ray/ })).toBeTruthy(); }, WAIT);
   });
 });

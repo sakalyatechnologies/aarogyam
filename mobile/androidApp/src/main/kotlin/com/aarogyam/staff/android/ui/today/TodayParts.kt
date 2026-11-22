@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -28,7 +29,7 @@ import com.sakalya.mobile.designcompose.color
 /** The mockup's `--mono` times ("10:45"). */
 internal val Mono = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
 
-/** A round 36 dp icon button on the tonal well (`.and .iconbtn`), with an optional unread dot. */
+/** A round 40 dp icon button on the tonal well (Clear Glass chrome) with a 48 dp touch area, and an optional unread dot. */
 @Composable
 internal fun IconWell(
     icon: String,
@@ -40,14 +41,16 @@ internal fun IconWell(
 ) {
     Box(
         Modifier
-            .size(ICON_WELL.dp)
-            .background(background, CircleShape)
+            .size(TOUCH.dp)
+            .clip(CircleShape)
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
-        SkIcon(Icons.of(icon), tint, size = ICON.dp)
-        if (badge) BadgeCorner()
+        Box(Modifier.size(ICON_WELL.dp).background(background, CircleShape), contentAlignment = Alignment.Center) {
+            SkIcon(Icons.of(icon), tint, size = ICON.dp)
+            if (badge) BadgeCorner()
+        }
     }
 }
 
@@ -56,8 +59,9 @@ private fun BoxScope.BadgeCorner() {
     SkBadgeDot(Modifier.align(Alignment.TopEnd).padding(top = BADGE_TOP.dp, end = BADGE_END.dp))
 }
 
-private const val ICON_WELL = 36
-private const val ICON = 19
+private const val TOUCH = 48
+private const val ICON_WELL = 40
+private const val ICON = 20
 private const val BADGE_TOP = 6
 private const val BADGE_END = 7
 

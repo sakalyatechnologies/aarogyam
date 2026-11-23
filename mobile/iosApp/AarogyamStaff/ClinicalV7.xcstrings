@@ -2,6 +2,29 @@
   "sourceLanguage": "en",
   "version": "1.0",
   "strings": {
+    "c.language.restart": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close and reopen Aarogyam to switch the language."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भाषा बदलने के लिए आरोग्यम बंद करके फिर खोलें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भाषा बदलण्यासाठी आरोग्यम बंद करून पुन्हा उघडा."
+          }
+        }
+      }
+    },
     "c.analytics.add_expense": {
       "extractionState": "manual",
       "localizations": {

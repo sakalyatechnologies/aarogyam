@@ -9,6 +9,8 @@ struct ScheduleTab: View {
     let clinic: ClinicContext
     let onOpenPatient: (String) -> Void
     let onWalkIn: () -> Void
+    /// A segment asked for from outside (Today's numbers or Up next); applied once, then cleared.
+    @Binding var request: Int?
     @State private var segment = ScheduleTab.firstSegment
     @State private var booking = ScheduleTab.firstBooking
 
@@ -20,6 +22,13 @@ struct ScheduleTab: View {
     private static var firstSegment: Int { 0 }
     private static var firstBooking: Bool { false }
     #endif
+
+    private func apply(_ asked: Int?, to schedule: ScheduleStateHolder) {
+        guard let asked, (0...2).contains(asked) else { return }
+        segment = asked
+        schedule.show(segment: [ScheduleSegment.queue, .day, .week][asked])
+        request = nil
+    }
 
     var body: some View {
         ScreenHost(make: { graph.schedule(clinic: clinic, screen: $0) }, state: { $0.queue.state }) { schedule, _ in
@@ -53,6 +62,8 @@ struct ScheduleTab: View {
                 .transition(.opacity)
                 .animation(SkMotionTokens.emphasized.animation(duration: Double(SkMotionTokens.Duration.swap) / 1000), value: segment)
             }
+            .onAppear { apply(request, to: schedule) }
+            .onChange(of: request) { _, asked in apply(asked, to: schedule) }
         }
         .navigationTitle(String(localized: "v7.tab.schedule"))
         .toolbar {

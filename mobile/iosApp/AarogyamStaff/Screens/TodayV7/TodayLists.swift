@@ -20,7 +20,7 @@ struct UpNextCarousel: View {
                             GroupedAvatar(name: item.patientName)
                             Text(item.patientName).font(.subheadline.weight(.semibold)).lineLimit(1)
                             Text([TodayV7.clock(minuteOfDay: Int(item.starts.minuteOfDay)), item.reason].compactMap { $0 }.joined(separator: " · "))
-                                .font(.caption).opacity(0.85).lineLimit(2).multilineTextAlignment(.leading)
+                                .font(.caption).opacity(0.85).lineLimit(2, reservesSpace: true).multilineTextAlignment(.leading)
                         }
                         .foregroundStyle(ink)
                         .padding(12)

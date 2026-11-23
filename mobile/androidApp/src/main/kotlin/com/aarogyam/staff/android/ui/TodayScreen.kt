@@ -178,7 +178,9 @@ private fun DayList(
                 }
             }
         }
-        item("stats") { Box(Modifier.padding(horizontal = Spacing.L.dp).skStaggerIn(1)) { TodayStats(view.counts) } }
+        item("stats") {
+            Box(Modifier.padding(horizontal = Spacing.L.dp).skStaggerIn(1)) { TodayStats(view.counts, onOpenSchedule) }
+        }
         val hero = view.hero
         val kind = view.heroKind
         if (hero != null && kind != null) {

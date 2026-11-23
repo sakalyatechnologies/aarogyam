@@ -1,6 +1,29 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "t7.stat.open.a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens today's queue"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आज की कतार खोलता है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आजची रांग उघडते"
+          }
+        }
+      }
+    },
     "t7.attention.late %lld": {
       "extractionState": "manual",
       "localizations": {

@@ -22,6 +22,8 @@ struct MainTabs: View {
     @State private var todayPath: [PatientRoute] = []
     @State private var todayVisit: VisitRoute?
     @State private var schedulePath: [PatientRoute] = []
+    /// The Schedule segment Today asked for (0 Queue, 1 Day); the tab applies it and clears it.
+    @State private var scheduleRequest: Int?
     @State private var walkIn = false
     @State private var addExpense = false
     @State private var morePath: [MoreRoute] = []
@@ -101,7 +103,7 @@ struct MainTabs: View {
                     } else {
                         RoutesA.today(
                             graph: graph, clinic: clinic, onOpenPatient: { todayPath.append(PatientRoute(id: $0)) },
-                            onOpenSchedule: { selected = .schedule }, onAddExpense: { addExpense = true }
+                            onOpenSchedule: { scheduleRequest = $0; selected = .schedule }, onAddExpense: { addExpense = true }
                         )
                     }
                 }
@@ -132,7 +134,10 @@ struct MainTabs: View {
             }
         case .schedule:
             NavigationStack(path: $schedulePath) {
-                ScheduleTab(graph: graph, clinic: clinic, onOpenPatient: { schedulePath.append(PatientRoute(id: $0)) }, onWalkIn: { walkIn = true })
+                ScheduleTab(
+                    graph: graph, clinic: clinic, onOpenPatient: { schedulePath.append(PatientRoute(id: $0)) }, onWalkIn: { walkIn = true },
+                    request: $scheduleRequest
+                )
                     .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense)
                     .patientDestination(graph: graph, clinic: clinic)
             }

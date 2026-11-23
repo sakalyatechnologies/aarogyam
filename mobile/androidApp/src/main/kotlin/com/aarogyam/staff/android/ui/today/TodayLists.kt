@@ -113,6 +113,7 @@ fun UpNextCarousel(
                     listOfNotNull(item.starts.short(), item.reason).joinToString(" · "),
                     style = SkTypography.caption,
                     color = ink.copy(alpha = 0.8f),
+                    minLines = 2,
                     maxLines = 2,
                 )
             }

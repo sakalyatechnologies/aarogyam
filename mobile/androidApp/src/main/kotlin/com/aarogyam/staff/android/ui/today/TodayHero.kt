@@ -52,7 +52,10 @@ import com.sakalya.mobile.designcompose.compose
 
 /** Today's patients, waiting (warm) and done in one inset group split by hairlines, with what is left under it. */
 @Composable
-fun TodayStats(counts: TodayCountsView) {
+fun TodayStats(
+    counts: TodayCountsView,
+    onOpen: () -> Unit = {},
+) {
     val p = SkTheme.palette
     Column {
         Row(
@@ -79,7 +82,13 @@ fun TodayStats(counts: TodayCountsView) {
                     )
                 }
                 Column(
-                    Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 12.dp),
+                    Modifier
+                        .weight(1f)
+                        .clickable(
+                            role = Role.Button,
+                            onClickLabel = stringResource(R.string.v7_stat_open_a11y),
+                            onClick = onOpen,
+                        ).padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     Text(

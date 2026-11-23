@@ -81,6 +81,14 @@ struct LanguageSheet: View {
 
     private static let languages: [(code: String, name: String)] = [("en", "English"), ("hi", "हिन्दी"), ("mr", "मराठी")]
 
+    /// The language picked here; iOS applies an app's language when the app next starts.
+    @State private var picked: String?
+
+    private func choose(_ code: String) {
+        picked = code
+        UserDefaults.standard.set([code], forKey: "AppleLanguages")
+    }
+
     var body: some View {
         let r = theme.roles
         let current = Bundle.main.preferredLocalizations.first?.prefix(2).description ?? "en"
@@ -96,9 +104,14 @@ struct LanguageSheet: View {
                         }
                         .padding(.vertical, 13).padding(.horizontal, 14)
                         .background(r.card.color, in: UnevenRoundedRectangle(cornerRadii: MoreSizes.listRadii(index, of: 3), style: .continuous))
+                        .contentShape(Rectangle())
+                        .onTapGesture { choose(language.code) }
                         .accessibilityElement(children: .combine)
-                        .accessibilityAddTraits(language.code == current ? .isSelected : [])
+                        .accessibilityAddTraits(language.code == current ? [.isSelected, .isButton] : .isButton)
                     }
+                }
+                if let picked, picked != current {
+                    Text(CL("c.language.restart")).font(.footnote.weight(.semibold)).foregroundStyle(r.primary.color)
                 }
                 SkPillButton(CL("c.language.open"), wide: true) {
                     if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }

@@ -5,6 +5,8 @@ import SwiftUI
 /// Today's patients, waiting (warm) and done as three columns of one grouped card, with what is left under it.
 struct TodayStats: View {
     let counts: TodayCountsView
+    /// Opens today's queue, where every patient of the day is listed by state.
+    var onOpen: () -> Void = {}
     @Environment(\.skTheme) private var theme
 
     private var hint: String {
@@ -41,7 +43,11 @@ struct TodayStats: View {
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(String(localized: "t7.stat.open.a11y", table: "TodayV7"))
     }
 }
 

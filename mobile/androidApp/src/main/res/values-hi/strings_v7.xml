@@ -52,6 +52,7 @@
         <item quantity="one">%1$d प्रतीक्षा में</item>
         <item quantity="other">%1$d प्रतीक्षा में</item>
     </plurals>
+    <string name="v7_stat_open_a11y">आज की कतार खोलता है</string>
     <string name="v7_stat_patients">आज के मरीज़</string>
     <plurals name="v7_stat_hint">
         <item quantity="one">%1$d पूरे · %2$d अपॉइंटमेंट बाकी</item>

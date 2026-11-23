@@ -329,6 +329,7 @@ val apiModels =
         // Show patient studio layer (slice 2a): usual options for the recorded situations.
         "PresentStudio",
         "PresentPrice",
+        "NotifiedPayment",
         "PresentSituation",
         "PresentOption",
         "PresentRange",

@@ -85,6 +85,8 @@ stored_enum!(
         StockAlert => "stock_alert",
         /// A patient answered their plan from the visit page; for the visit's doctor and the desk.
         PlanResponse => "plan_response",
+        /// A payment was recorded on a bill sent for payment; for the visit's doctor.
+        PaymentCollected => "payment_collected",
     }
 );
 

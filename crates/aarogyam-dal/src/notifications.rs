@@ -76,6 +76,29 @@ pub async fn write_collect_payment(
     Ok(written)
 }
 
+/// Tells the visit's doctor that `amount_paise` was paid on a bill whose visit was sent for
+/// payment (it has a `collect_payment` row), unless `recorder` (the member recording the payment)
+/// is that doctor (`app.write_payment_collected`). Returns how many were written.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn write_payment_collected(
+    conn: &mut PgConnection,
+    invoice_id: Uuid,
+    amount_paise: i64,
+    recorder: Uuid,
+) -> Result<i32, DbError> {
+    let written = sqlx::query_scalar!(
+        r#"select app.write_payment_collected(app.tenant_id(), $1, $2, $3) as "written!""#,
+        invoice_id,
+        amount_paise,
+        recorder
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(written)
+}
+
 /// Tells the clinic a patient cancelled in the app, and marks the appointment's open
 /// notifications handled; for a patient-account transaction (`app.notify_patient_cancelled`).
 ///
@@ -171,6 +194,12 @@ pub struct FeedRow {
     pub invoice_total_paise: Option<i64>,
     /// What is left to pay on it, read now.
     pub invoice_balance_paise: Option<i64>,
+    /// What was paid, for `payment_collected`.
+    pub payment_amount_paise: Option<i64>,
+    /// The bill's visit, for `payment_collected`; ids only.
+    pub payment_visit_id: Option<Uuid>,
+    /// The bill's patient, for `payment_collected`; an id only.
+    pub payment_patient_id: Option<Uuid>,
 }
 
 /// Whether a member sees one kind of notification, and how far.
@@ -255,7 +284,9 @@ pub async fn feed(
                   n.time_off_request_id as "time_off_request_id?", n.audience,
                   n.encounter_id as "encounter_id?",
                   case when i.id is not null then app.invoice_total_paise(i) end as "invoice_total_paise?",
-                  case when i.id is not null then app.invoice_balance_paise(i) end as "invoice_balance_paise?"
+                  case when i.id is not null then app.invoice_balance_paise(i) end as "invoice_balance_paise?",
+                  n.amount_paise as "payment_amount_paise?", i.encounter_id as "payment_visit_id?",
+                  i.patient_id as "payment_patient_id?"
            from aarogyam.staff_notifications n
            left join aarogyam.appointments a on a.org_id = n.org_id and a.id = n.appointment_id
            left join aarogyam.lab_orders o on o.org_id = n.org_id and o.id = n.lab_order_id
@@ -275,11 +306,12 @@ pub async fn feed(
            where (($7 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2) and app.booking_conflict_visible(n, a.practitioner_id, $1))
                   or ($8 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $9))
-                  or ($10 and i.id is not null and n.kind <> 'collect_payment')
+                  or ($10 and i.id is not null and n.kind not in ('collect_payment', 'payment_collected'))
                   or ($11 and rc.id is not null and app.patient_in_reach(rc.patient_id, $12))
                   or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16)
                   or app.visit_notification_visible(n, $1, $17, $18)
-                  or app.plan_response_visible(n, $1, $7, $2))
+                  or app.plan_response_visible(n, $1, $7, $2)
+                  or app.payment_collected_visible(n, $1))
              and app.staff_ops_notification_newest(n, $1, $13, $14)
              and ($4::uuid is null
                   or (greatest(n.created_at, coalesce(n.reminded_at, n.created_at)), n.id)
@@ -334,11 +366,12 @@ pub async fn unread_count(
                and (($5 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2) and app.booking_conflict_visible(n, a.practitioner_id, $1))
                   or ($6 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $7))
-                  or ($8 and i.id is not null and n.kind <> 'collect_payment')
+                  or ($8 and i.id is not null and n.kind not in ('collect_payment', 'payment_collected'))
                   or ($9 and rc.id is not null and app.patient_in_reach(rc.patient_id, $10))
                   or app.staff_ops_notification_visible(n, $1, $11, $12, $13, $14)
                   or app.visit_notification_visible(n, $1, $15, $16)
-                  or app.plan_response_visible(n, $1, $5, $2))
+                  or app.plan_response_visible(n, $1, $5, $2)
+                  or app.payment_collected_visible(n, $1))
                and app.staff_ops_notification_newest(n, $1, $11, $12)
                and app.notification_counts_unread(n)
                and not exists (select 1 from aarogyam.staff_notification_reads r
@@ -384,11 +417,12 @@ pub async fn mark_read(conn: &mut PgConnection, id: Uuid, viewer: Viewer) -> Res
              where n.id = $1 and (($4 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $3) and app.booking_conflict_visible(n, a.practitioner_id, $2))
                   or ($5 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $6))
-                  or ($7 and i.id is not null and n.kind <> 'collect_payment')
+                  or ($7 and i.id is not null and n.kind not in ('collect_payment', 'payment_collected'))
                   or ($8 and rc.id is not null and app.patient_in_reach(rc.patient_id, $9))
                   or app.staff_ops_notification_visible(n, $2, $10, $11, $12, $13)
                   or app.visit_notification_visible(n, $2, $14, $15)
-                  or app.plan_response_visible(n, $2, $4, $3))
+                  or app.plan_response_visible(n, $2, $4, $3)
+                  or app.payment_collected_visible(n, $2))
            ), saved as (
              insert into aarogyam.staff_notification_reads (notification_id, membership_id)
              select id, $2 from target
@@ -431,11 +465,12 @@ pub async fn mark_all_read(conn: &mut PgConnection, viewer: Viewer) -> Result<u6
            where (($3 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2) and app.booking_conflict_visible(n, a.practitioner_id, $1))
                   or ($4 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $5))
-                  or ($6 and i.id is not null and n.kind <> 'collect_payment')
+                  or ($6 and i.id is not null and n.kind not in ('collect_payment', 'payment_collected'))
                   or ($7 and rc.id is not null and app.patient_in_reach(rc.patient_id, $8))
                   or app.staff_ops_notification_visible(n, $1, $9, $10, $11, $12)
                   or app.visit_notification_visible(n, $1, $13, $14)
-                  or app.plan_response_visible(n, $1, $3, $2))
+                  or app.plan_response_visible(n, $1, $3, $2)
+                  or app.payment_collected_visible(n, $1))
            on conflict do nothing"#,
         viewer.member,
         viewer.bookings.reach,
@@ -479,11 +514,12 @@ pub async fn visible_among(
              and (($3 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $2) and app.booking_conflict_visible(n, a.practitioner_id, $1))
                   or ($4 and o.id is not null
                       and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $5))
-                  or ($6 and i.id is not null and n.kind <> 'collect_payment')
+                  or ($6 and i.id is not null and n.kind not in ('collect_payment', 'payment_collected'))
                   or ($7 and rc.id is not null and app.patient_in_reach(rc.patient_id, $8))
                   or app.staff_ops_notification_visible(n, $1, $9, $10, $11, $12)
                   or app.visit_notification_visible(n, $1, $13, $14)
-                  or app.plan_response_visible(n, $1, $3, $2))
+                  or app.plan_response_visible(n, $1, $3, $2)
+                  or app.payment_collected_visible(n, $1))
              and app.staff_ops_notification_newest(n, $1, $9, $10)"#,
         viewer.member,
         viewer.bookings.reach,

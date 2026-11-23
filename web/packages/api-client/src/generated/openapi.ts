@@ -12410,11 +12410,12 @@ export interface components {
              * @description `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,
              *     `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,
              *     `collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,
-             *     `time_off_decided`, `stock_alert`, `booking_conflict` or `plan_response`. More kinds may
+             *     `time_off_decided`, `stock_alert`, `booking_conflict`, `plan_response` or `payment_collected`. More kinds may
              *     come: clients show an unknown kind as a generic row.
              */
             kind: string;
             lab_order?: components["schemas"]["NotifiedLabOrder"] | null;
+            payment?: components["schemas"]["NotifiedPayment"] | null;
             queue_token?: components["schemas"]["NotifiedQueueToken"] | null;
             /** @description Whether the caller has read it. */
             read: boolean;
@@ -12533,6 +12534,20 @@ export interface components {
             number: string;
             /** @description Its lab's name. */
             vendor_name: string;
+        };
+        /** @description What a `payment_collected` notification is about. No names, phone numbers or diagnoses. */
+        NotifiedPayment: {
+            /**
+             * Format: int64
+             * @description What was paid, in paise.
+             */
+            amount_paise: number;
+            /** @description The bill. */
+            invoice_id: string;
+            /** @description The patient. */
+            patient_id: string;
+            /** @description The bill's visit; absent for a bill without one. */
+            visit_id?: string | null;
         };
         /** @description The queue token a `patient_waiting` or `send_in` alert is about. */
         NotifiedQueueToken: {

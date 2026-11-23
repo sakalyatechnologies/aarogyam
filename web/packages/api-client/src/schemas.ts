@@ -4033,6 +4033,7 @@ export const notificationKind = z.enum([
   "stock_alert",
   "booking_conflict",
   "plan_response",
+  "payment_collected",
 ]);
 /** The kinds this client knows. `Notification.kind` is any string: the server adds kinds without waiting for old apps. */
 export type NotificationKind = z.output<typeof notificationKind>;
@@ -4080,6 +4081,11 @@ export const notification = z.object({
   time_off_request_id: optionalText,
   /** `plan_response`: the visit, by id only; `href` opens the patient. */
   encounter_id: optionalText,
+  /** `payment_collected`: ids and the amount paid only. */
+  payment: z
+    .object({ invoice_id: z.string(), visit_id: optionalText, patient_id: z.string(), amount_paise: paise })
+    .nullable()
+    .exactOptional(),
 }) satisfies z.ZodType<C.Notification>;
 export type Notification = z.output<typeof notification>;
 

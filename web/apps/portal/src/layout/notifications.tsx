@@ -236,6 +236,10 @@ export function describeNotification(item: Notification, timeZone: string, name?
       const amount = amountOf(item);
       return { title: amount === null ? "Payment due" : `Payment due · ${amount}`, body: item.invoice?.number == null ? "A bill is still unpaid." : `${item.invoice.number} is still unpaid.`, icon: HandCoins };
     }
+    case "payment_collected": {
+      const paid = item.payment?.amount_paise;
+      return { title: paid === undefined ? "Payment collected" : `Payment collected · ${formatRupees(paid)}`, body: "The desk took payment for a visit you sent over.", icon: HandCoins };
+    }
     case "plan_response":
       return { title: "A patient replied to their plan", body: "Open the patient to see the plan and call them back.", icon: MessageCircle };
     case "recall_due":

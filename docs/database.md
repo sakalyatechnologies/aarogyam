@@ -2974,16 +2974,17 @@ Something clinic staff are told about: an online booking waiting for an answer, 
 
 | Column | Type | Notes |
 |---|---|---|
-| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, booking_conflict, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert, booking_conflict, plan_response |
+| `kind` | `text` | booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, booking_conflict, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert, booking_conflict, plan_response, payment_collected |
 | `appointment_id` | `uuid?` | → `appointments`. booking kinds and arrival |
 | `lab_order_id` | `uuid?` | → `lab_orders`. lab_overdue |
-| `invoice_id` | `uuid?` | → `invoices`. payment_due and collect_payment |
+| `invoice_id` | `uuid?` | → `invoices`. payment_due, collect_payment and payment_collected |
 | `recall_id` | `uuid?` | → `recalls`. recall_due |
 | `queue_token_id` | `uuid?` | → `queue_tokens`. patient_waiting and send_in |
 | `task_occurrence_id` | `uuid?` | → `task_occurrences`. task_due, task_reminder and task_escalated |
 | `time_off_request_id` | `uuid?` | time_off_requested and time_off_decided; the foreign key comes with the time-off table |
 | `inventory_item_id` | `uuid?` | stock_alert |
 | `encounter_id` | `uuid?` | → `encounters`. plan_response, one per visit; exactly one of the nine subjects is set |
+| `amount_paise` | `bigint?` | payment_collected: the latest payment on the bill; ids and the amount only, seen by the visit's doctor |
 | `step_no` | `int?` | which notice of a task occurrence: 0 is the first, then one per reminder |
 | `alert_on` | `date?` | the day of a stock alert; one per item and day |
 | `stock_on_hand` | `numeric?` | units on hand when a stock alert was written |

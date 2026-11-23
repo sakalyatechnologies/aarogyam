@@ -9699,7 +9699,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, booking_conflict, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert, booking_conflict, plan_response"
+     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, booking_conflict, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert, booking_conflict, plan_response, payment_collected"
     },
     {
      "name": "appointment_id",
@@ -9720,7 +9720,7 @@
      "type": "uuid",
      "nullable": true,
      "ref": "invoices",
-     "note": "payment_due and collect_payment"
+     "note": "payment_due, collect_payment and payment_collected"
     },
     {
      "name": "recall_id",
@@ -9763,6 +9763,13 @@
      "nullable": true,
      "ref": "encounters",
      "note": "plan_response, one per visit; exactly one of the nine subjects is set"
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": true,
+     "ref": null,
+     "note": "payment_collected: the latest payment on the bill; ids and the amount only, seen by the visit's doctor"
     },
     {
      "name": "step_no",

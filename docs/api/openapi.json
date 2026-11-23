@@ -34866,13 +34866,24 @@
           },
           "kind": {
             "type": "string",
-            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,\n`lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,\n`collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,\n`time_off_decided`, `stock_alert`, `booking_conflict` or `plan_response`. More kinds may\ncome: clients show an unknown kind as a generic row."
+            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,\n`lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,\n`collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,\n`time_off_decided`, `stock_alert`, `booking_conflict`, `plan_response` or `payment_collected`. More kinds may\ncome: clients show an unknown kind as a generic row."
           },
           "lab_order": {
             "oneOf": [
               {
                 "$ref": "#/components/schemas/NotifiedLabOrder",
                 "description": "The lab order, for `lab_overdue`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedPayment",
+                "description": "The payment, for `payment_collected`: ids and the amount only."
               },
               {
                 "type": "null"
@@ -35205,6 +35216,37 @@
           "vendor_name": {
             "type": "string",
             "description": "Its lab's name."
+          }
+        }
+      },
+      "NotifiedPayment": {
+        "type": "object",
+        "description": "What a `payment_collected` notification is about. No names, phone numbers or diagnoses.",
+        "required": [
+          "invoice_id",
+          "patient_id",
+          "amount_paise"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What was paid, in paise."
+          },
+          "invoice_id": {
+            "type": "string",
+            "description": "The bill."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The bill's visit; absent for a bill without one."
           }
         }
       },

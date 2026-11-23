@@ -151,6 +151,19 @@ pub struct NotifiedInvoice {
     pub balance_paise: i64,
 }
 
+/// The payment a `payment_collected` alert is about: ids and the amount only.
+#[derive(Debug, Clone)]
+pub struct NotifiedPayment {
+    /// The bill.
+    pub invoice_id: InvoiceId,
+    /// The bill's visit, when it has one.
+    pub visit_id: Option<Uuid>,
+    /// The bill's patient.
+    pub patient_id: Uuid,
+    /// What was paid, in paise.
+    pub amount_paise: i64,
+}
+
 /// The follow-up a recall alert is about. No reason: it can hold health information.
 #[derive(Debug, Clone)]
 pub struct NotifiedRecall {
@@ -205,6 +218,8 @@ pub enum Subject {
     TimeOff(Uuid),
     /// A visit, by id only (`plan_response`).
     Visit(Uuid),
+    /// A payment on a bill sent for payment (`payment_collected`).
+    Payment(NotifiedPayment),
 }
 
 fn status_of(text: &str) -> Result<AppointmentStatus, AppError> {
@@ -258,6 +273,14 @@ fn subject(row: FeedRow, offset: UtcOffset) -> Result<Subject, AppError> {
         return Ok(Subject::QueueToken(NotifiedToken {
             id,
             number: row.queue_token_number.ok_or_else(missing)?,
+        }));
+    }
+    if let (Some(id), Some(amount)) = (row.invoice_id, row.payment_amount_paise) {
+        return Ok(Subject::Payment(NotifiedPayment {
+            invoice_id: InvoiceId::from_uuid(id),
+            visit_id: row.payment_visit_id,
+            patient_id: row.payment_patient_id.ok_or_else(missing)?,
+            amount_paise: amount,
         }));
     }
     if let Some(id) = row.invoice_id {

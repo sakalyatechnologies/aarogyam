@@ -2918,6 +2918,7 @@
     "medical_history_items.verified_by",
     "member_message_prefs.membership_id",
     "member_setup.membership_id",
+    "member_ui_prefs.membership_id",
     "membership_branches.membership_id",
     "note_addenda.author_id",
     "observations.verified_by",
@@ -9951,6 +9952,43 @@
      "nullable": true,
      "ref": null,
      "note": "1 to 40 characters, from the client"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "member_ui_prefs",
+   "domain": "notify",
+   "purpose": "A member's saved screen choices: the Show patient style (Make default) and the history view.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0745). Only PUT /me/ui-prefs writes it, and only the fields sent; GET returns defaults when there is no row or the stored value is unknown. Each member reads and writes only their own row. Support never reads it. No patient data, so no erasure step.",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": "unique per clinic"
+    },
+    {
+     "name": "present_style",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "story, painted, xray, smile3d, face; null = story"
+    },
+    {
+     "name": "history_view",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "page, popup, story; null = page"
     }
    ],
    "referenced_by": [],

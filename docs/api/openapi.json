@@ -8346,6 +8346,81 @@
         ]
       }
     },
+    "/api/v1/me/ui-prefs": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The caller's saved screen choices in this clinic.",
+        "operationId": "getUiPrefs",
+        "responses": {
+          "200": {
+            "description": "Defaults until saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UiPrefs"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Saves the caller's screen choices in this clinic.",
+        "operationId": "saveUiPrefs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewUiPrefs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UiPrefs"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown value"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read, or Sakalya support"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/working-hours": {
       "get": {
         "tags": [
@@ -34069,6 +34144,27 @@
           }
         }
       },
+      "NewUiPrefs": {
+        "type": "object",
+        "description": "The fields to save; one left out stays as it was.",
+        "properties": {
+          "history_view": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The history view; an unknown one is a 400."
+          },
+          "present_style": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The Show patient style; an unknown one is a 400."
+          }
+        },
+        "additionalProperties": false
+      },
       "NewVisit": {
         "type": "object",
         "description": "A visit to start.",
@@ -44949,6 +45045,24 @@
             "format": "int32",
             "description": "The doctor advises treatment within this many months: 1, 3, 6 or 12.",
             "minimum": 0
+          }
+        }
+      },
+      "UiPrefs": {
+        "type": "object",
+        "description": "The caller's saved screen choices; defaults when nothing is saved.",
+        "required": [
+          "present_style",
+          "history_view"
+        ],
+        "properties": {
+          "history_view": {
+            "type": "string",
+            "description": "The history view: `page` (default), `popup` or `story`."
+          },
+          "present_style": {
+            "type": "string",
+            "description": "The Show patient style: `story` (default), `painted`, `xray`, `smile3d` or `face`."
           }
         }
       },

@@ -2729,6 +2729,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/ui-prefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's saved screen choices in this clinic. */
+        get: operations["getUiPrefs"];
+        /** Saves the caller's screen choices in this clinic. */
+        put: operations["saveUiPrefs"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/working-hours": {
         parameters: {
             query?: never;
@@ -12141,6 +12159,13 @@ export interface components {
              */
             treat_within_months?: number | null;
         };
+        /** @description The fields to save; one left out stays as it was. */
+        NewUiPrefs: {
+            /** @description The history view; an unknown one is a 400. */
+            history_view?: string | null;
+            /** @description The Show patient style; an unknown one is a 400. */
+            present_style?: string | null;
+        };
         /** @description A visit to start. */
         NewVisit: {
             /** @description The appointment the patient came for; a walk-in has none. One visit per appointment. */
@@ -16619,6 +16644,13 @@ export interface components {
              * @description The doctor advises treatment within this many months: 1, 3, 6 or 12.
              */
             treat_within_months?: number | null;
+        };
+        /** @description The caller's saved screen choices; defaults when nothing is saved. */
+        UiPrefs: {
+            /** @description The history view: `page` (default), `popup` or `story`. */
+            history_view: string;
+            /** @description The Show patient style: `story` (default), `painted`, `xray`, `smile3d` or `face`. */
+            present_style: string;
         };
         /** @description The bell's number. */
         UnreadCount: {
@@ -25588,6 +25620,85 @@ export interface operations {
             };
             /** @description Not one of the person's sessions */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getUiPrefs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Defaults until saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiPrefs"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    saveUiPrefs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewUiPrefs"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UiPrefs"];
+                };
+            };
+            /** @description An unknown value */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read, or Sakalya support */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

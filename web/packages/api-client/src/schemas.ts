@@ -3189,6 +3189,13 @@ export const messagePrefs = z.object({
 }) satisfies z.ZodType<C.MessagePrefs>;
 export type MessagePrefs = z.output<typeof messagePrefs>;
 
+/** The caller's saved screen choices; values stay plain strings so an unknown one never breaks the client. */
+export const uiPrefs = z.object({
+  present_style: z.string(),
+  history_view: z.string(),
+}) satisfies z.ZodType<C.UiPrefs>;
+export type UiPrefs = z.output<typeof uiPrefs>;
+
 export const visitSummary = z.object({
   clinic_name: z.string(),
   patient_name: z.string(),

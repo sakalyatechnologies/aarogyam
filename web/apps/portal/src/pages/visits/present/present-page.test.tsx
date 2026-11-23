@@ -279,3 +279,71 @@ describe("Present mode (§1.12)", () => {
     await waitFor(() => { expect(within(shell).getByRole("button", { name: /Card \d+ of \d+: Your X-ray/ })).toBeTruthy(); }, WAIT);
   });
 });
+
+describe("Show patient's saved style (slice 1f)", () => {
+  /** A fake backend whose saved style starts as `saved`; `puts` records each save, `fail` makes saves fail. */
+  function withSaved(saved: string | undefined, opts: { withXray?: boolean; fail?: boolean } = {}) {
+    const base = present(opts.withXray === true);
+    const puts: string[] = [];
+    let current = saved;
+    const wrap = (client: ApiClient): ApiClient => {
+      const inner = base.wrap(client);
+      return {
+        ...inner,
+        getUiPrefs: async (o) => {
+          const result = await inner.getUiPrefs(o);
+          return result.ok && current !== undefined ? { ...result, value: { ...result.value, present_style: current } } : result;
+        },
+        saveUiPrefs: async (input, o) => {
+          puts.push(input.present_style ?? "");
+          if (opts.fail === true) return { ok: false, error: { status: 500, code: "internal", message: "no" } };
+          current = input.present_style ?? current;
+          return inner.saveUiPrefs(input, o);
+        },
+      };
+    };
+    return { ...base, wrap, puts };
+  }
+
+  it("Make default saves the style once, then the button goes away and the list marks it Default", async () => {
+    const { path, backend, wrap, puts } = withSaved(undefined);
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    expect(within(shell).queryByRole("button", { name: "Make default" })).toBeNull();
+    fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
+    fireEvent.click(within(shell).getByRole("option", { name: /Painted smile/ }));
+    fireEvent.click(await within(shell).findByRole("button", { name: "Make default" }, WAIT));
+    await waitFor(() => { expect(puts).toEqual(["painted"]); }, WAIT);
+    await waitFor(() => { expect(within(shell).queryByRole("button", { name: "Make default" })).toBeNull(); }, WAIT);
+    fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
+    expect(within(shell).getByRole("option", { name: /Painted smile/ }).textContent).toContain("Default");
+  });
+
+  it("opens on the saved style", async () => {
+    const { path, backend, wrap } = withSaved("painted");
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
+  });
+
+  it("falls back to story cards when the saved style is Own X-ray and there is no image", async () => {
+    const { path, backend, wrap } = withSaved("xray");
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='story']")).not.toBeNull(); }, WAIT);
+    expect(shell.querySelector("[data-present-style='xray']")).toBeNull();
+  });
+
+  it("rolls back the optimistic default when the save fails", async () => {
+    const { path, backend, wrap, puts } = withSaved(undefined, { fail: true });
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
+    fireEvent.click(within(shell).getByRole("option", { name: /Painted smile/ }));
+    fireEvent.click(await within(shell).findByRole("button", { name: "Make default" }, WAIT));
+    await waitFor(() => { expect(puts).toEqual(["painted"]); }, WAIT);
+    await waitFor(() => { expect(within(shell).getByRole<HTMLButtonElement>("button", { name: "Make default" }).disabled).toBe(false); }, WAIT);
+    fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
+    expect(within(shell).getByRole("option", { name: /Story cards/ }).textContent).toContain("Default");
+  });
+});

@@ -24,7 +24,7 @@ import "@aarogyam/app-kit/present.css";
 import { useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
-import { useDentalChart, usePatient, useRecordChartEntries, useVisit, useVisitMouth } from "../../../queries.js";
+import { useDentalChart, usePatient, useRecordChartEntries, useSaveUiPrefs, useUiPrefs, useVisit, useVisitMouth } from "../../../queries.js";
 import { DENTITIONS, LOOKS } from "../../patients/v2/tooth-chart/tooth-chart.js";
 import { useChartPrefs, type ChartDentition, type ChartLook } from "../../patients/v2/tooth-chart/use-chart-prefs.js";
 import { usePlans } from "../../treatment-plans/queries.js";
@@ -42,14 +42,15 @@ const TABS: readonly Tab[] = ["teeth", "xrays"];
 /** A Show patient style, or the doctor's chart look. */
 type View = PresentStyleId | "chart";
 /** Own X-ray is enabled only when the patient has an X-ray or OPG (`xray`: undefined while that is still loading). */
-const viewsFor = (xray: boolean | undefined): readonly SwitcherOption[] => [
+const viewsFor = (xray: boolean | undefined, saved: PresentStyleId): readonly SwitcherOption[] => [
   ...PRESENT_STYLES.map((s) => ({
-    id: s.id, label: s.label, beta: s.beta, note: s.id === DEFAULT_STYLE ? "Default" : undefined,
+    id: s.id, label: s.label, beta: s.beta, note: s.id === saved ? "Default" : undefined,
     disabled: !isShipped(s.id) ? "Coming soon" : s.id === "xray" && xray !== true ? (xray === undefined ? "Checking X-rays" : "No X-ray yet") : undefined,
   })),
   { id: "chart", label: "Chart", separate: true },
 ];
-const isView = (v: string): v is View => v === "chart" || PRESENT_STYLES.some((s) => s.id === v);
+const isStyle = (v: string | undefined): v is PresentStyleId => PRESENT_STYLES.some((s) => s.id === v);
+const isView = (v: string): v is View => v === "chart" || isStyle(v);
 
 export function PresentPage() {
   const params = useParams();
@@ -71,15 +72,23 @@ export function PresentPage() {
   const [search] = useSearchParams();
   const [tab, setTab] = useState<Tab>(search.get("tab") === "xrays" ? "xrays" : "teeth");
   const [onlyToday, setOnlyToday] = useState(false);
-  // Show patient's style and knobs: this session only (the saved preference is slice 1f).
-  const [view, setView] = useState<View>(DEFAULT_STYLE);
+  // Show patient opens on the doctor's saved style ("Make default"); picking another here is for this showing only.
+  const uiPrefs = useUiPrefs();
+  const saveUiPrefs = useSaveUiPrefs();
+  const toast = useToast();
+  const savedPref = uiPrefs.data?.present_style;
+  const saved: PresentStyleId = isStyle(savedPref) ? savedPref : DEFAULT_STYLE;
+  const [picked, setView] = useState<View | undefined>(undefined);
   const [orientation, setOrientation] = useState<Orientation>("mirror");
   const [shade, setShade] = useState<ShadeKnob>("natural");
   // front map or Open wide; undefined until the doctor picks, so the painted style applies its §6.2 rule
   const [paintedView, setPaintedView] = useState<PaintedView | undefined>(undefined);
   const xrays = useOwnXrays(patientId, visitId);
   const hasXray = xrays.loading ? undefined : xrays.images.length > 0;
-  const views = useMemo(() => viewsFor(hasXray), [hasXray]);
+  // a saved style that can't be drawn for this visit (Own X-ray without an image) falls back to story cards
+  const opening: PresentStyleId = isShipped(saved) && (saved !== "xray" || hasXray === true) ? saved : DEFAULT_STYLE;
+  const view: View = picked ?? opening;
+  const views = useMemo(() => viewsFor(hasXray, saved), [hasXray, saved]);
   const model = useMemo(() => (mouth.data === undefined ? undefined : presentFacts(mouth.data, visitId)), [mouth.data, visitId]);
   // The doctor's chart look and dentition, so the patient sees the same teeth and numbers; switching here is for this showing only.
   const { session } = useClinic();
@@ -106,6 +115,18 @@ export function PresentPage() {
           ))}
         </div>
         {tab === "teeth" ? <StyleSwitcher options={views} value={view} onChange={(v) => { if (isView(v)) setView(v); }} /> : null}
+        {tab === "teeth" && view !== "chart" && view !== saved ? (
+          <button
+            type="button"
+            className="pm-chip"
+            disabled={saveUiPrefs.isPending}
+            onClick={() => {
+              saveUiPrefs.mutate({ present_style: view }, { onError: () => { toast.show({ title: "Couldn't save your default. Please try again.", tone: "danger" }); } });
+            }}
+          >
+            Make default
+          </button>
+        ) : null}
         {tab === "teeth" && view === "chart" ? (
           <div className="pm-tabs" role="group" aria-label="Chart look">
             {LOOKS.map((l) => (

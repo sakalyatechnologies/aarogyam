@@ -56,6 +56,8 @@ import {
   type SessionId,
   type StatusChange,
   type Today,
+  type NewUiPrefs,
+  type UiPrefs,
   type TokenStatusChange,
   type VisitId,
   type WalkInBody,
@@ -1122,6 +1124,41 @@ export function useMergePatient() {
       refresh();
       invalidateSchedule(queryClient, access.org_id);
       void queryClient.invalidateQueries({ queryKey: ["patients", access.org_id] });
+    },
+  });
+}
+
+/** The caller's saved screen choices (Show patient style, history view); defaults until saved. */
+export function useUiPrefs() {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["ui-prefs", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.getUiPrefs({ signal })),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Saves screen choices; optimistic, and rolled back when the save fails. */
+export function useSaveUiPrefs() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  const key = ["ui-prefs", access.org_id];
+  return useMutation({
+    mutationFn: (input: NewUiPrefs) => unwrap(api.saveUiPrefs(input)),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const before = queryClient.getQueryData<UiPrefs>(key);
+      queryClient.setQueryData<UiPrefs>(key, {
+        present_style: input.present_style ?? before?.present_style ?? "story",
+        history_view: input.history_view ?? before?.history_view ?? "page",
+      });
+      return { before };
+    },
+    onError: (_error, _input, context) => {
+      queryClient.setQueryData(key, context?.before);
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
     },
   });
 }

@@ -23,6 +23,7 @@ import { AllergyTag, OPEN_DIALOG } from "../patient-360.js";
 import { VisitDetailBody } from "../visit-detail.js";
 import { countsText } from "../visit-timeline.js";
 import { HISTORY_FILTERS, MONTHS, NO_FILTER, billTag, kindsOf, matches, monthKey, titleOf, toothLabel, WORK_WORDS, type HistoryFilter, type HistoryKind } from "./history-model.js";
+import { HistoryStyleSwitch, historyTarget, setSessionHistoryStyle } from "./history-style.js";
 import { ToothGlyph } from "./tooth-glyph.js";
 import "./history.css";
 
@@ -127,6 +128,13 @@ function History({ patientId }: { patientId: PatientId }) {
           </span>
         )}
         <span className="hist-sp" />
+        <HistoryStyleSwitch
+          value="page"
+          onChange={(next) => {
+            setSessionHistoryStyle(next);
+            if (next !== "page") void navigate(historyTarget(patientPath({ id: patientId }), next, openId), { replace: true });
+          }}
+        />
         <span className="hist-esc" aria-hidden="true">
           <kbd>Esc</kbd> back
         </span>

@@ -13,6 +13,7 @@ import {
   type AppointmentId,
   type AppointmentStatus,
   type AttachmentId,
+  type ImagePins,
   type ClinicSettingsChanges,
   type ConditionFields,
   type DateRange,
@@ -1104,6 +1105,28 @@ export function useAttachments(patientId: PatientId | undefined) {
     queryKey: ["attachments", access.org_id, patientId],
     queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.listAttachments(patientId, { signal }))),
     enabled: patientId !== undefined,
+  });
+}
+
+/** The tooth pins placed on an X-ray or photo, kept for the next visit (slice 2g). */
+export function useImagePins(imageId: AttachmentId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["image-pins", access.org_id, imageId],
+    queryFn: ({ signal }) => (imageId === undefined ? Promise.reject(new Error("no image")) : unwrap(api.listImagePins(imageId, { signal }))),
+    enabled: imageId !== undefined,
+  });
+}
+
+/** Saves the whole pin set of one image. */
+export function useSaveImagePins() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ imageId, pins }: { imageId: AttachmentId; pins: ImagePins }) => unwrap(api.saveImagePins(imageId, pins)),
+    onSuccess: (saved, { imageId }) => {
+      queryClient.setQueryData(["image-pins", access.org_id, imageId], saved);
+    },
   });
 }
 

@@ -190,6 +190,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attachments/{id}/pins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The tooth pins placed on an X-ray or photo. */
+        get: operations["listImagePins"];
+        /**
+         * Replaces the pins on an X-ray or photo: new teeth are placed, known teeth moved, teeth left
+         *     out removed. 400 for a bad tooth, a place outside the image or a tooth twice.
+         */
+        put: operations["saveImagePins"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/attachments/{id}/sharing": {
         parameters: {
             query?: never;
@@ -9720,6 +9741,29 @@ export interface components {
              */
             file: string;
         };
+        /** @description A tooth pinned on an image. */
+        ImagePin: {
+            /**
+             * Format: int64
+             * @description FDI tooth.
+             */
+            tooth: number;
+            /**
+             * Format: float
+             * @description Across the image as a fraction of its width, 0 to 1, in the image's own orientation.
+             */
+            x: number;
+            /**
+             * Format: float
+             * @description Down the image as a fraction of its height, 0 to 1.
+             */
+            y: number;
+        };
+        /** @description An image's pins. */
+        ImagePins: {
+            /** @description One per tooth, by tooth number. */
+            pins: components["schemas"]["ImagePin"][];
+        };
         /** @description The clinic's mapping and choices. */
         ImportChoices: {
             /**
@@ -18365,6 +18409,103 @@ export interface operations {
                 content?: never;
             };
             /** @description No such file in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listImagePins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The file */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagePins"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such file in this clinic or the caller's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    saveImagePins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The file */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImagePins"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagePins"];
+                };
+            };
+            /** @description Invalid input; the message says what */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such file in this clinic or the caller's reach */
             404: {
                 headers: {
                     [name: string]: unknown;

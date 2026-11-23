@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select tooth, x, y from aarogyam.image_pins\n           where attachment_id = $1 order by tooth",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tooth",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.image_pins",
+            "name": "tooth"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "x",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.image_pins",
+            "name": "x"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "y",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.image_pins",
+            "name": "y"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "25abc6509feb46543e956f6dfb27b4a1a445383fe2dc50bc2c9c9a44977da5e3"
+}

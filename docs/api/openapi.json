@@ -614,6 +614,107 @@
         ]
       }
     },
+    "/api/v1/attachments/{id}/pins": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The tooth pins placed on an X-ray or photo.",
+        "operationId": "listImagePins",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImagePins"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such file in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Replaces the pins on an X-ray or photo: new teeth are placed, known teeth moved, teeth left\nout removed. 400 for a bad tooth, a place outside the image or a tooth twice.",
+        "operationId": "saveImagePins",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImagePins"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImagePins"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message says what"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such file in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/attachments/{id}/sharing": {
       "put": {
         "tags": [
@@ -28422,6 +28523,48 @@
             "type": "string",
             "format": "binary",
             "description": "A PNG or JPEG of at most 2 MB."
+          }
+        }
+      },
+      "ImagePin": {
+        "type": "object",
+        "description": "A tooth pinned on an image.",
+        "required": [
+          "tooth",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "tooth": {
+            "type": "integer",
+            "format": "int64",
+            "description": "FDI tooth."
+          },
+          "x": {
+            "type": "number",
+            "format": "float",
+            "description": "Across the image as a fraction of its width, 0 to 1, in the image's own orientation."
+          },
+          "y": {
+            "type": "number",
+            "format": "float",
+            "description": "Down the image as a fraction of its height, 0 to 1."
+          }
+        }
+      },
+      "ImagePins": {
+        "type": "object",
+        "description": "An image's pins.",
+        "required": [
+          "pins"
+        ],
+        "properties": {
+          "pins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImagePin"
+            },
+            "description": "One per tooth, by tooth number."
           }
         }
       },

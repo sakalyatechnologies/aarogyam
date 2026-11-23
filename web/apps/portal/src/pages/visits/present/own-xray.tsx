@@ -1,6 +1,6 @@
 // Show patient's Own X-ray style (present-studio-design §6.3, slice 1e): the patient's own radiograph,
-// never flipped, with the visit's recorded findings beside it. The doctor's pins are Explain mode's (session
-// only; saved pins are slice 2g). Lives in the portal because it needs the attachments and signed links.
+// never flipped, with the visit's recorded findings beside it. The doctor's pins are Explain mode's,
+// saved per image (slice 2g). Lives in the portal because it needs the attachments and signed links.
 import { useEffect, useState } from "react";
 
 import type { Attachment, PatientId, VisitId } from "@aarogyam/api-client";
@@ -9,7 +9,8 @@ import { XrayStyle, XrayView, type PresentModel, type XrayProps } from "@aarogya
 
 import { useOwnXrays } from "./own-xray-pick.js";
 import { useAttachmentLink } from "../../patients/v2/attachment-link.js";
-import { ImagePane, type PendingPin, type Pin } from "../../patients/v2/explain/explain-mode.js";
+import { ImagePane, type PendingPin } from "../../patients/v2/explain/explain-mode.js";
+import { useSavedPins } from "../../patients/v2/explain/use-saved-pins.js";
 import { isFdi } from "../../patients/v2/explain/explain-model.js";
 
 const captionOf = (image: Attachment, visitId: VisitId | undefined) =>
@@ -30,7 +31,7 @@ export function OwnXraySlot({ model, patientId, visitId, load3d }: SlotProps) {
   const { images, loading } = useOwnXrays(patientId, visitId);
   const [chosenId, setChosenId] = useState<string | undefined>(undefined);
   const image = images.find((f) => f.id === chosenId) ?? images[0];
-  const [pins, setPins] = useState<readonly Pin[]>([]);
+  const saved = useSavedPins(image?.id);
   const [pending, setPending] = useState<PendingPin | undefined>(undefined);
   const [active, setActive] = useState<number | undefined>(undefined);
   // Esc closes the pin picker first, before Present sees it
@@ -47,7 +48,7 @@ export function OwnXraySlot({ model, patientId, visitId, load3d }: SlotProps) {
   }, [pending]);
   const place = (pin: PendingPin, tooth: number) => {
     if (image === undefined || !isFdi(tooth)) return;
-    setPins((before) => [...before, { id: (before.at(-1)?.id ?? 0) + 1, imageId: image.id, x: pin.x, y: pin.y, tooth, label: pin.label.trim() }]);
+    saved.place({ x: pin.x, y: pin.y, tooth, label: pin.label.trim() });
     setPending(undefined);
     setActive(tooth);
   };
@@ -58,7 +59,9 @@ export function OwnXraySlot({ model, patientId, visitId, load3d }: SlotProps) {
         images={images}
         image={image}
         loading={loading}
-        pins={pins.filter((p) => p.imageId === image?.id)}
+        pins={saved.pins}
+        saveFailed={saved.failed}
+        onRetrySave={saved.retry}
         pending={pending}
         active={active}
         onChoose={(file) => { setChosenId(file.id); setPending(undefined); }}
@@ -67,7 +70,7 @@ export function OwnXraySlot({ model, patientId, visitId, load3d }: SlotProps) {
         onHoverPin={() => undefined}
         onPending={setPending}
         onPlace={place}
-        onClear={() => { setPins((before) => before.filter((p) => p.imageId !== image?.id)); }}
+        onClear={saved.clear}
       />
       {image === undefined ? null : <figcaption className="ps-muted">{captionOf(image, visitId)}</figcaption>}
     </figure>

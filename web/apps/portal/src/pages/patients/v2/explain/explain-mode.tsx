@@ -23,6 +23,7 @@ import { ProgressLine } from "../tooth-chart/progress-line.js";
 import { ToothChart } from "../tooth-chart/tooth-chart.js";
 import { useNoteDictation } from "../tooth-chart/use-note-dictation.js";
 import { containedRect, explainImages, explainSummary, fractionIn, isFdi, type Rect } from "./explain-model.js";
+import { useSavedPins } from "./use-saved-pins.js";
 import "@aarogyam/app-kit/hold-to-exit.css";
 import "./explain.css";
 import { HoldToExit, XrayEdges } from "@aarogyam/app-kit/present";
@@ -92,12 +93,12 @@ export function ExplainBody({ patientId, imageId }: { patientId: PatientId; imag
   const images = useMemo(() => explainImages(attachments.data?.items ?? []), [attachments.data]);
   const [chosenId, setChosenId] = useState<string | undefined>(imageId);
   const image = images.find((f) => f.id === chosenId) ?? images[0];
-  const [pins, setPins] = useState<readonly Pin[]>([]);
+  const saved = useSavedPins(image?.id);
   const [pending, setPending] = useState<PendingPin | undefined>(undefined);
   const [focusTooth, setFocusTooth] = useState<number | undefined>(undefined);
   const [hoverTooth, setHoverTooth] = useState<number | undefined>(undefined);
   const active = hoverTooth ?? focusTooth;
-  const shown = pins.filter((p) => p.imageId === image?.id);
+  const shown = saved.pins;
   const marked = new Set(shown.map((p) => p.tooth));
 
   const current = chart.data?.current ?? [];
@@ -114,7 +115,7 @@ export function ExplainBody({ patientId, imageId }: { patientId: PatientId; imag
 
   const placePin = (pin: PendingPin, tooth: number) => {
     if (image === undefined) return;
-    setPins((before) => [...before, { id: (before.at(-1)?.id ?? 0) + 1, imageId: image.id, x: pin.x, y: pin.y, tooth, label: pin.label.trim() }]);
+    saved.place({ x: pin.x, y: pin.y, tooth, label: pin.label.trim() });
     setPending(undefined);
     setFocusTooth(tooth);
   };
@@ -155,9 +156,9 @@ export function ExplainBody({ patientId, imageId }: { patientId: PatientId; imag
           onHoverPin={setHoverTooth}
           onPending={setPending}
           onPlace={placePin}
-          onClear={() => {
-            setPins((before) => before.filter((p) => p.imageId !== image?.id));
-          }}
+          onClear={saved.clear}
+          saveFailed={saved.failed}
+          onRetrySave={saved.retry}
         />
       </section>
       <section className="xp-pane xp-chart" aria-label="Chart">
@@ -227,6 +228,9 @@ export function ImagePane(props: {
   image: Attachment | undefined;
   loading: boolean;
   pins: readonly Pin[];
+  /** The last pin save failed; shows a quiet retry. */
+  saveFailed?: boolean;
+  onRetrySave?: () => void;
   pending: PendingPin | undefined;
   active: number | undefined;
   onChoose: (file: Attachment) => void;
@@ -383,6 +387,11 @@ export function ImagePane(props: {
           {pins.length > 0 ? (
             <button type="button" className="xp-btn xp-btn-quiet" onClick={props.onClear}>
               Clear pins
+            </button>
+          ) : null}
+          {props.saveFailed === true ? (
+            <button type="button" className="xp-btn xp-btn-quiet" onClick={props.onRetrySave}>
+              Pins not saved. Retry
             </button>
           ) : null}
         </>

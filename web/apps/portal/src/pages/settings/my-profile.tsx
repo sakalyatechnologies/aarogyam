@@ -9,6 +9,9 @@ import { Initials, MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { useVisitAlerts } from "../../layout/visit-alerts.js";
 import { useDictationLanguage } from "../../lib/dictation-language.js";
+import { useUiPrefs, useSaveUiPrefs } from "../../queries.js";
+import { isHistoryStyle, setSessionHistoryStyle, type HistoryStyle } from "../patients/v2/history/history-style.js";
+import { Pills } from "../patients/v2/kit.js";
 import { DICTATION_LANGUAGES } from "../visits/voice/dictation.js";
 
 /** The pictures this portal draws for a preset id. The server stores only the id; each app ships its own pictures. */
@@ -236,6 +239,37 @@ export function MyProfile() {
           <Select options={DICTATION_LANGUAGES.map((l) => ({ value: l.value, label: l.label }))} value={voiceLanguage} onValueChange={setVoiceLanguage} />
         </Field>
       </div>
+      <HistoryViewChoice />
     </MkCard>
+  );
+}
+
+const HISTORY_CHOICES: readonly { value: HistoryStyle; label: string }[] = [
+  { value: "page", label: "Full page" },
+  { value: "popup", label: "Large pop-up" },
+  { value: "story", label: "Patient story" },
+];
+
+/** "History opens as": saved per member, instantly shown and rolled back with a message if the save fails. */
+function HistoryViewChoice() {
+  const prefs = useUiPrefs();
+  const save = useSaveUiPrefs();
+  const toast = useToast();
+  const saved = prefs.data?.history_view;
+  const value: HistoryStyle = isHistoryStyle(saved) ? saved : "page";
+  return (
+    <div style={{ marginTop: 16 }}>
+      <p className="mk-flabel">History opens as</p>
+      <Pills<HistoryStyle>
+        label="History opens as"
+        options={HISTORY_CHOICES}
+        value={value}
+        onChange={(next) => {
+          setSessionHistoryStyle(undefined);
+          save.mutate({ history_view: next }, { onError: () => { toast.show({ title: "Couldn't save your choice. Please try again.", tone: "danger" }); } });
+        }}
+      />
+      <p className="mk-hint">What the History button and the H key open on a patient's page. You can switch for one session from the history's header.</p>
+    </div>
   );
 }

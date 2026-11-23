@@ -1,5 +1,5 @@
 import { CalendarPlus, ChevronLeft, CircleCheck, History, MessageCircle, Pencil } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
@@ -22,7 +22,10 @@ import { ConsoleLayout, StageLayout, TabsLayout, type LayoutProps } from "./layo
 import { P360_LAYOUTS, useP360Layout, type P360Layout } from "./use-layout.js";
 import { VisitBar } from "./visit-bar.js";
 import { VisitSessionProvider, useVisitSession } from "./visit-session.js";
+import { useHistoryStyle } from "./history/history-style.js";
 import "./p360.css";
+
+const HistoryOverlay = lazy(() => import("./history/history-overlay.js").then((m) => ({ default: m.HistoryOverlay })));
 
 /** The URL carries the patient's ID, validated before it reaches the API. */
 function parseId(param: string | undefined): PatientId | undefined {
@@ -162,35 +165,60 @@ function typing(target: EventTarget | null): boolean {
 function HistoryButton({ patientId: id }: { patientId: PatientId }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [search, setSearch] = useSearchParams();
+  const style = useHistoryStyle();
   const ref = useRef<HTMLButtonElement>(null);
   const count = useVisits(id).data?.items.length;
-  const to = `${patientPath({ id })}/history`;
-  // Back from the history puts focus here again.
+  const base = patientPath({ id });
+  const to = `${base}/history`;
+  const overlayOpen = search.get("history") === "1";
+  // The saved style: the full page navigates; the pop-up and the story open over this page.
+  const openHistory = () => {
+    if (style === "page") void navigate(to);
+    else setSearch({ history: "1" });
+  };
+  const closeOverlay = () => {
+    setSearch({}, { replace: true });
+  };
+  // Back from the history, or closing the overlay, puts focus here again.
   const state: unknown = location.state;
   const returned = typeof state === "object" && state !== null && "focusHistory" in state && state.focusHistory === true;
   useEffect(() => {
     if (returned) ref.current?.focus();
   }, [returned]);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !overlayOpen) ref.current?.focus();
+    wasOpen.current = overlayOpen;
+  }, [overlayOpen]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "h" && e.key !== "H") return;
       if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented || typing(e.target)) return;
       if (document.querySelector(OPEN_DIALOG) !== null) return;
       e.preventDefault();
-      void navigate(to);
+      if (style === "page") void navigate(to);
+      else setSearch({ history: "1" });
     };
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
     };
-  }, [navigate, to]);
+  }, [style, navigate, to, setSearch]);
   return (
-    <button ref={ref} type="button" className="p360-history" aria-keyshortcuts="H" onClick={() => void navigate(to)}>
+    <>
+    {overlayOpen ? (
+      <Suspense fallback={null}>
+        <HistoryOverlay patientId={id} style={style === "story" ? "story" : "popup"} onClose={closeOverlay} />
+      </Suspense>
+    ) : null}
+    <button ref={ref} type="button" className="p360-history" aria-keyshortcuts="H" onClick={openHistory}>
       <History aria-hidden="true" />
       History
       {count === undefined ? null : <span className="p360-history-n">{`${String(count)} visit${count === 1 ? "" : "s"}`}</span>}
       <kbd aria-hidden="true">H</kbd>
     </button>
+    </>
   );
 }
 

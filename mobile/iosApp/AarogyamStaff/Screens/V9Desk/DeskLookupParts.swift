@@ -11,9 +11,12 @@ struct DeskMatchRow: View {
     let ofName: String?
     let canCollect: Bool
     let canFamily: Bool
+    var canBook = false
     let onCheckIn: () -> Void
     let onCollect: () -> Void
     let onFamily: () -> Void
+    var onOpen: () -> Void = {}
+    var onBook: () -> Void = {}
     @Environment(\.skTheme) private var theme
     private var name: String { profile.name.isEmpty ? profile.initials : profile.name }
 
@@ -21,17 +24,10 @@ struct DeskMatchRow: View {
         let r = theme.roles
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 12) {
-                GroupedAvatar(name: name, initials: profile.initials)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(name).font(.body.weight(.semibold)).foregroundStyle(r.onSurface.color)
-                    Text(patientLine(number: profile.number, ageYears: profile.ageYears?.intValue, sex: profile.sex))
-                        .font(.subheadline).foregroundStyle(r.onSurfaceVariant.color)
-                    if let relation = profile.relation, let ofName {
-                        Text(dvf("d9.lookup.relation_of", DeskRelation.title(wire: relation), ofName)).font(.footnote.weight(.semibold))
-                            .foregroundStyle(r.primary.color)
-                    }
-                }
-                .accessibilityElement(children: .combine)
+                Button(action: onOpen) { identity }
+                    .buttonStyle(.plain)
+                    .accessibilityHint(dv("d9.lookup.open.a11y"))
+                    .accessibilityIdentifier("desk.match.open")
                 Spacer(minLength: 4)
                 if profile.checkedInToday {
                     VStack(alignment: .trailing, spacing: 4) {
@@ -44,17 +40,36 @@ struct DeskMatchRow: View {
                         .accessibilityLabel(dvf("d9.lookup.check_in.a11y", name))
                 }
             }
-            if canCollect || (canFamily && profile.familyOf == nil) {
-                HStack(spacing: 18) {
-                    if canCollect { link(dv("d9.lookup.collect"), action: onCollect) }
-                    if canFamily && profile.familyOf == nil { link(dv("d9.family.section"), action: onFamily) }
-                }
-                .padding(.leading, GroupedSizes.rowInset - GroupedSizes.rowPaddingH)
+            HStack(spacing: 18) {
+                link(dv("d9.lookup.open"), action: onOpen)
+                if canBook { link(dv("d9.lookup.book"), action: onBook) }
+                if canCollect { link(dv("d9.lookup.collect"), action: onCollect) }
+                if canFamily && profile.familyOf == nil { link(dv("d9.family.section"), action: onFamily) }
             }
+            .padding(.leading, GroupedSizes.rowInset - GroupedSizes.rowPaddingH)
         }
         .padding(.horizontal, GroupedSizes.rowPaddingH).padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
+    }
+
+    /// Avatar, name, number line and relation: tapping it opens the patient page.
+    private var identity: some View {
+        let r = theme.roles
+        return HStack(spacing: 12) {
+            GroupedAvatar(name: name, initials: profile.initials)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name).font(.body.weight(.semibold)).foregroundStyle(r.onSurface.color)
+                Text(patientLine(number: profile.number, ageYears: profile.ageYears?.intValue, sex: profile.sex))
+                    .font(.subheadline).foregroundStyle(r.onSurfaceVariant.color)
+                if let relation = profile.relation, let ofName {
+                    Text(dvf("d9.lookup.relation_of", DeskRelation.title(wire: relation), ofName)).font(.footnote.weight(.semibold))
+                        .foregroundStyle(r.primary.color)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 
     private func link(_ title: String, action: @escaping () -> Void) -> some View {

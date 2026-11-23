@@ -24,6 +24,7 @@ import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
 import com.aarogyam.staff.android.ui.LoadingIndicator
 import com.aarogyam.staff.android.ui.StatusBarTone
+import com.aarogyam.staff.android.ui.patient.openPatient
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.api.queue
 import com.aarogyam.staff.clinic.ClinicContext
@@ -86,6 +87,7 @@ fun NavGraphBuilder.deskDestinations(
             rememberHolder { graph.desk(open, it) },
             onClose = nav::popBackStack,
             onNewPatient = { phone, family -> nav.openDeskIntake(phone, family) },
+            onOpenPatient = nav::openPatient,
         )
     }
     composable(DeskRoutes.BOARD) {

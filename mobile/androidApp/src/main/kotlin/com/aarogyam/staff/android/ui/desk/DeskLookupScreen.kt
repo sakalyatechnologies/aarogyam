@@ -30,6 +30,7 @@ import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.glass.GroupGap
 import com.aarogyam.staff.android.ui.glass.GroupHeader
 import com.aarogyam.staff.android.ui.glass.KindTile
+import com.aarogyam.staff.android.ui.patient.BookSheet
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.config.caps.ServerCaps
 import com.aarogyam.staff.desk.DeskLookupState
@@ -57,12 +58,14 @@ fun DeskLookupScreen(
     holder: DeskLookupStateHolder,
     onClose: () -> Unit,
     onNewPatient: (String, List<DeskFamilyAnchor>) -> Unit,
+    onOpenPatient: (String) -> Unit = {},
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     val online by graph.connectivity.online.collectAsStateWithLifecycle()
     var typed by rememberSaveable { mutableStateOf("") }
     var paying by remember { mutableStateOf<DeskPayTarget?>(null) }
     var relatives by remember { mutableStateOf<DeskPayTarget?>(null) }
+    var booking by remember { mutableStateOf<DeskPayTarget?>(null) }
     val change = { text: String ->
         typed = DeskPhone.format(text)
         holder.search(DeskPhone.query(typed))
@@ -89,7 +92,12 @@ fun DeskLookupScreen(
                 DeskNumberField(typed, change, stringResource(R.string.dk_d9_lookup_mobile), autoFocus = true)
                 DeskLookupStatus(holder, state, typed) { onNewPatient(it, emptyList()) }
                 (state as? DeskLookupState.Matches)?.let { found ->
-                    LookupMatches(clinic, holder, found, { paying = it }, { relatives = it }, onNewPatient)
+                    LookupMatches(clinic, holder, found, {
+                        paying = it
+                    }, { relatives = it }, onNewPatient, onOpenPatient, {
+                        booking =
+                            it
+                    })
                 }
             }
         }
@@ -100,6 +108,7 @@ fun DeskLookupScreen(
         val family = remember(target.patientId) { FamilyStateHolder(clinic, target.patientId, scope) }
         DeskFamilySheet(family, target.name, target.patientId) { relatives = null }
     }
+    booking?.let { target -> BookSheet(graph, clinic, target.patientId, target.name) { booking = null } }
 }
 
 @Composable
@@ -110,7 +119,10 @@ private fun LookupMatches(
     onPay: (DeskPayTarget) -> Unit,
     onFamily: (DeskPayTarget) -> Unit,
     onNewPatient: (String, List<DeskFamilyAnchor>) -> Unit,
+    onOpen: (String) -> Unit = {},
+    onBook: (DeskPayTarget) -> Unit = {},
 ) {
+    val canBook = "appointments.write" in clinic.permissions
     val canCollect = "billing.write" in clinic.permissions && "billing.read" in clinic.permissions
     val canFamily = "patients.read" in clinic.permissions && ServerCaps.family
     val anchors = found.profiles.filter { it.familyOf == null }.map { DeskFamilyAnchor(it.id, it.name) }
@@ -127,6 +139,8 @@ private fun LookupMatches(
                 onFamily = { onFamily(DeskPayTarget(profile.id, profile.name)) },
                 index = i,
                 count = found.profiles.size,
+                onOpen = { onOpen(profile.id) },
+                onBook = if (canBook) ({ onBook(DeskPayTarget(profile.id, profile.name)) }) else null,
             )
         }
     }

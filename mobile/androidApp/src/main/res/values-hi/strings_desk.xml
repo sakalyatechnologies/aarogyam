@@ -43,6 +43,9 @@
     <string name="dk_d9_lookup_check_in">चेक-इन करें</string>
     <string name="dk_d9_lookup_check_in_a11y">%s को चेक-इन करें</string>
     <string name="dk_d9_lookup_checked_in">चेक-इन हो चुका</string>
+    <string name="dk_d9_lookup_open">प्रोफ़ाइल</string>
+    <string name="dk_d9_lookup_open_a11y">मरीज़ का पेज खोलता है</string>
+    <string name="dk_d9_lookup_book">विज़िट बुक करें</string>
     <string name="dk_d9_lookup_collect">भुगतान लें</string>
     <string name="dk_d9_lookup_done_message">वे आज के प्रतीक्षालय में हैं।</string>
     <string name="dk_d9_lookup_done_title">चेक-इन हुआ, टोकन #%d</string>

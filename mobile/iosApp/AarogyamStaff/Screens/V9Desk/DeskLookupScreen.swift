@@ -13,6 +13,10 @@ struct DeskLookupScreen: View {
     let onNewPatient: (String) -> Void
     let onFamily: (String, [DeskFamilyAnchor]) -> Void
     let onCollect: (DeskPayTarget) -> Void
+    /// Opens the patient page for this id.
+    var onOpen: (String) -> Void = { _ in }
+    /// Books an appointment for this patient instead of checking in now.
+    var onBook: (DeskPayTarget) -> Void = { _ in }
     @State private var typed = DeskLaunch.firstPhone
     @State private var relatives: DeskPayTarget?
     @State private var net = V9Connectivity()
@@ -20,6 +24,7 @@ struct DeskLookupScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.skTheme) private var theme
 
+    private var canBook: Bool { clinic.permissions.contains("appointments.write") }
     private var canCollect: Bool { clinic.permissions.contains("billing.write") && clinic.permissions.contains("billing.read") }
 
     var body: some View {
@@ -92,9 +97,12 @@ struct DeskLookupScreen: View {
                     DeskMatchRow(
                         profile: profile, ofName: found.profiles.first { $0.id == profile.familyOf }?.name,
                         canCollect: canCollect, canFamily: clinic.permissions.contains("patients.read") && ServerCaps.shared.family,
+                        canBook: canBook,
                         onCheckIn: { holder.checkIn(patientId: profile.id) },
                         onCollect: { onCollect(DeskPayTarget(patientId: profile.id, name: profile.name)) },
-                        onFamily: { relatives = DeskPayTarget(patientId: profile.id, name: profile.name) }
+                        onFamily: { relatives = DeskPayTarget(patientId: profile.id, name: profile.name) },
+                        onOpen: { onOpen(profile.id) },
+                        onBook: { onBook(DeskPayTarget(patientId: profile.id, name: profile.name)) }
                     )
                     GroupedDivider()
                 }

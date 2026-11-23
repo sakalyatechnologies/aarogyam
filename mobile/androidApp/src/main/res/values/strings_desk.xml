@@ -43,6 +43,9 @@
     <string name="dk_d9_lookup_check_in">Check in</string>
     <string name="dk_d9_lookup_check_in_a11y">Check in %s</string>
     <string name="dk_d9_lookup_checked_in">Checked in</string>
+    <string name="dk_d9_lookup_open">Profile</string>
+    <string name="dk_d9_lookup_open_a11y">Opens the patient page</string>
+    <string name="dk_d9_lookup_book">Book visit</string>
     <string name="dk_d9_lookup_collect">Collect payment</string>
     <string name="dk_d9_lookup_done_message">They are in today\'s waiting room.</string>
     <string name="dk_d9_lookup_done_title">Checked in, token #%d</string>

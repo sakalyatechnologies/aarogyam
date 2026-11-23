@@ -27,6 +27,8 @@ struct DeskSheet: View {
 
     @State private var mode: Mode
     @State private var paying: DeskPayTarget? = DeskLaunch.firstPayTarget
+    @State private var booking: DeskPayTarget?
+    @State private var path: [PatientRoute] = []
     @Environment(\.dismiss) private var dismiss
 
     init(graph: AppGraph, clinic: ClinicContext, start: Mode? = nil) {
@@ -36,7 +38,7 @@ struct DeskSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 switch mode {
                 case .lookup:
@@ -45,7 +47,9 @@ struct DeskSheet: View {
                             holder: holder, state: state, graph: graph, clinic: clinic,
                             onNewPatient: { mode = .form(phone: $0, family: nil) },
                             onFamily: { mode = .form(phone: $0, family: $1) },
-                            onCollect: { paying = $0 }
+                            onCollect: { paying = $0 },
+                            onOpen: { path.append(PatientRoute(id: $0)) },
+                            onBook: { booking = $0 }
                         )
                     }
                 case .form(let phone, let family):
@@ -57,6 +61,7 @@ struct DeskSheet: View {
             .safeAreaInset(edge: .top, alignment: .leading) { OutboxBadge(graph: graph).padding(.horizontal, SkSpacing.l) }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
+            .patientDestination(graph: graph, clinic: clinic)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     if case .form = mode {
@@ -72,6 +77,9 @@ struct DeskSheet: View {
         }
         .skGlassSheet(large: true)
         .sheet(item: $paying) { target in DeskPaymentSheet(graph: graph, clinic: clinic, target: target) }
+        .sheet(item: $booking) { target in
+            PatientBookSheet(graph: graph, clinic: clinic, patientId: target.patientId, name: target.name)
+        }
     }
 
     /// Walk-in while looking up; Someone new or Adding a family member on the form.

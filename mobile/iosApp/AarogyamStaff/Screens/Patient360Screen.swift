@@ -209,7 +209,7 @@ struct Patient360Screen: View {
         case .photo:
             V9PhotoSheet(graph: graph, clinic: clinic, patientId: patientId) { self.sheet = nil }
         case .family:
-            // Adding and removing need patients.write; the holder checks that (TODO(family-patch): edit a relation in place).
+            // Adding and removing need patients.write; the holder checks that.
             DeskFamilySheet(graph: graph, clinic: clinic, target: DeskPayTarget(patientId: patientId, name: loaded?.view.name ?? ""))
         case .share:
             PatientShareSheet(graph: graph, clinic: clinic, patientId: patientId, preselected: nil)

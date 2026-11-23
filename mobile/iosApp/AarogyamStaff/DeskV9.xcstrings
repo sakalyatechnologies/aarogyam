@@ -2141,6 +2141,29 @@
         }
       }
     },
+    "d9.family.relation.change.a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change relation for %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ का रिश्ता बदलें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ यांचे नाते बदला"
+          }
+        }
+      }
+    },
     "d9.family.remove.a11y": {
       "extractionState": "manual",
       "localizations": {

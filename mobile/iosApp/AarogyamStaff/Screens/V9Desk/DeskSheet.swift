@@ -232,7 +232,19 @@ private struct DeskFamilyList: View {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(person.name).v7Text(15, .bold).foregroundStyle(r.onSurface.color)
-                                Text("\(DeskRelation.title(wire: person.relation)) · \(person.number)").v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
+                                if loaded.canEdit {
+                                    // Change the relation in place (PATCH): a menu on the relation word.
+                                    Menu {
+                                        ForEach(DeskRelation.allCases, id: \.self) { option in
+                                            Button(option.title) { holder.changeRelation(linkId: person.linkId, relation: option.wire) }
+                                        }
+                                    } label: {
+                                        Text("\(DeskRelation.title(wire: person.relation)) ▾ · \(person.number)").v7Text(12).foregroundStyle(r.primary.color)
+                                    }
+                                    .accessibilityLabel(dvf("d9.family.relation.change.a11y", person.name))
+                                } else {
+                                    Text("\(DeskRelation.title(wire: person.relation)) · \(person.number)").v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
+                                }
                             }
                             Spacer(minLength: 0)
                             if loaded.canEdit {

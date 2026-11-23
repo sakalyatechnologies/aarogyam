@@ -333,7 +333,6 @@ val apiModels =
         "PresentSituation",
         "PresentOption",
         "PresentRange",
-        "PresentPrice",
         "PresentFinish",
         "PresentLifespan",
     )

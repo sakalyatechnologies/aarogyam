@@ -221,7 +221,7 @@ fun PatientPage(
         }
 
         PatientSheet.Family -> {
-            // Adding and removing need patients.write; the holder checks that (TODO(family-patch): edit a relation in place).
+            // Adding and removing need patients.write; the holder checks that.
             val scope = rememberCoroutineScope()
             val family = remember(patientId) { FamilyStateHolder(clinic, patientId, scope) }
             DeskFamilySheet(family, loaded?.view?.name.orEmpty(), patientId) { sheet = null }

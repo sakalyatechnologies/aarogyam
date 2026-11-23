@@ -36,6 +36,7 @@
     <string name="dk_d9_family_of_whom">Family of</string>
     <string name="dk_d9_family_relation">Relation to the number\'s owner</string>
     <string name="dk_d9_family_remove">Remove</string>
+    <string name="dk_d9_family_relation_change">Change relation for %1$s</string>
     <string name="dk_d9_family_remove_a11y">Remove %s from the family</string>
     <string name="dk_d9_family_section">Family</string>
     <string name="dk_d9_family_title">Adding a family member</string>

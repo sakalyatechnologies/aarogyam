@@ -20,6 +20,7 @@ export { ToothSheet, sheetContent, type ToothSheetProps, type SheetContent, type
 export { XrayStyle, XrayView, XrayEdges, XRAY_EDGES, type XrayProps } from "./xray.js";
 export { PaintedSlot } from "./painted-slot.js";
 export { StudioProvider, SituationOptions, ToothOptions, useStudio, situationsOf, visitsWords, finishWords } from "./options.js";
+export { MaterialChoice, ToothMaterials, materialGroupFor, materialScene } from "./materials.js";
 export { StorySlot } from "./story-slot.js";
 export type { StoryProps, StoryCard } from "./story.js";
 

@@ -176,7 +176,7 @@ fn the_lint_over_every_present_file() {
         "will last",
         "lifelong",
     ];
-    for text in [OPTIONS, OUTCOMES] {
+    for text in [OPTIONS, OUTCOMES, CASE_IMPLANT, CASE_WISDOM, MATERIALS] {
         let lower = text.to_lowercase();
         // the `$comment` explains the rules, so lint the text after it
         let body = lower.split_once("\"schema_version\"").unwrap().1;
@@ -213,7 +213,7 @@ fn the_option_data_is_consistent() {
         .filter(|t| t.kind == TermKind::Material)
         .map(|t| t.id.clone())
         .collect();
-    for text in [OPTIONS, OUTCOMES] {
+    for text in [OPTIONS, OUTCOMES, MATERIALS] {
         let v: serde_json::Value = serde_json::from_str(text).unwrap();
         assert_eq!(v["schema_version"], 1);
         assert_eq!(v["language"], "en");
@@ -237,6 +237,76 @@ fn the_option_data_is_consistent() {
             if let Some(m) = &part.material {
                 assert!(materials.contains(m), "{m}");
             }
+        }
+    }
+}
+
+#[test]
+fn the_implant_case_has_its_five_steps_and_no_patient_facts() {
+    let case = implant_case().unwrap();
+    let keys: Vec<&str> = case.steps.iter().map(|s| s.key.as_str()).collect();
+    assert_eq!(keys, ["gap", "place", "heal", "abutment", "crown"]);
+    let v: serde_json::Value = serde_json::from_str(CASE_IMPLANT).unwrap();
+    assert_eq!(v["schema_version"], 1);
+    assert_eq!(v["language"], "en");
+    assert_eq!(v["reviewed_by"], "pending");
+    let body = CASE_IMPLANT.to_lowercase();
+    let body = body.split_once("\"schema_version\"").unwrap().1;
+    for word in ["₹", "price", "visit 1", "visit 2"] {
+        assert!(!body.contains(word), "{word}");
+    }
+}
+
+#[test]
+fn the_wisdom_case_has_its_five_steps_and_no_patient_facts() {
+    let case = usual_case("wisdom").unwrap();
+    let keys: Vec<&str> = case.steps.iter().map(|s| s.key.as_str()).collect();
+    assert_eq!(keys, ["before", "remove", "day1", "week1", "healed"]);
+    let v: serde_json::Value = serde_json::from_str(CASE_WISDOM).unwrap();
+    assert_eq!(v["schema_version"], 1);
+    assert_eq!(v["language"], "en");
+    assert_eq!(v["reviewed_by"], "pending");
+    let body = CASE_WISDOM.to_lowercase();
+    let body = body.split_once("\"schema_version\"").unwrap().1;
+    for word in ["₹", "price", "visit 1", "visit 2"] {
+        assert!(!body.contains(word), "{word}");
+    }
+}
+
+#[test]
+fn the_material_data_is_consistent() {
+    let materials = materials().unwrap();
+    let outcomes = outcomes().unwrap();
+    let seeded_materials: Vec<String> = seeded()
+        .iter()
+        .filter(|t| t.kind == TermKind::Material)
+        .map(|t| t.id.clone())
+        .collect();
+    assert_eq!(
+        materials
+            .groups
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["crown", "filling", "implant_crown"]
+    );
+    for (group, g) in &materials.groups {
+        assert!(["crown", "implant", "filled"].contains(&g.overlay.as_str()));
+        assert!(g.materials.len() >= 2, "{group}");
+        for m in &g.materials {
+            assert!(seeded_materials.contains(&m.key), "{}", m.key);
+            assert!((1..=4).contains(&m.cost_tier), "{}", m.key);
+            assert!(m.look.contains_key("paint") && m.look.contains_key("margin_line"));
+            if let Some(outcome) = &m.outcome {
+                assert!(outcomes.outcomes.contains_key(outcome), "{outcome}");
+            }
+            // guidance the clinic has not written stays empty
+            assert!(m.strength.is_empty() && m.best_for.is_empty(), "{}", m.key);
+            assert!(
+                !m.summary.is_empty() && !m.looks_like.is_empty(),
+                "{}",
+                m.key
+            );
         }
     }
 }

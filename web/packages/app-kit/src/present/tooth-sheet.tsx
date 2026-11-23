@@ -1,7 +1,7 @@
 // ToothSheet (present-studio-design §5.3, slice 1c): one tooth, drawn from its recorded state: the biting side
 // and a cut-away (section) pair, a before/after CompareSlider (one scene, one viewBox), the recorded steps, the
 // usual steps under "Usual plan · general guidance" (words only: no numbers, no dates) and an optional lazy 3D.
-import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactElement } from "react";
+import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactElement } from "react";
 
 import { eruptionScene } from "../mouth-art/eruption.js";
 import { loadShapes, loadStageArt, loadToothArt, neighborOf, toothTypeOf } from "../mouth-art/loaders.js";
@@ -19,6 +19,9 @@ import { IllustrationBadge, ProvenanceFooter, RecordBadge } from "./blocks.js";
 import { CompareSlider } from "./compare-slider.js";
 import { ToothOptions } from "./options.js";
 import type { FactItem, PresentModel, ToothFacts } from "./model.js";
+
+// Choose your cap loads on open, so the Show patient route stays within its size budget (§13).
+const ToothMaterials = lazy(() => import("./materials.js").then((m) => ({ default: m.ToothMaterials })));
 
 /** What a state of the tooth is drawn from: the record as charted, or one stage picture. */
 export type StateSpec = { kind: "record" } | { kind: "stage"; model: StageModel; step: string };
@@ -278,6 +281,7 @@ export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: T
         </section>
       )}
       {embedded ? null : <ToothOptions tooth={tooth} />}
+      {embedded ? null : <Suspense fallback={null}><ToothMaterials tooth={tooth} record={record} /></Suspense>}
       <ProvenanceFooter recorded={recordedWords} illustration={["Tooth shapes and colours are a painting based on your record, not a photo."]} />
     </section>
   );

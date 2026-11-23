@@ -69,6 +69,20 @@ const healing = {
     L('clotEdge', '@socket', null, { s: '#5E1018', w: 0.6, op: 0.6 }),
   ],
 };
+const day1 = {
+  view: 'section', hide: BODY, add: [
+    L('clot', '@socket', 'g:clot', { above: 'gum' }),
+    L('clotEdge', '@socket', null, { s: '#5E1018', w: 1.2, op: 0.85 }),
+  ],
+};
+const week1 = {
+  view: 'section', hide: BODY, add: [
+    L('healedBone', '@socket', 'bone', { op: 0.6, above: 'gum' }),
+    L('clot', '@socket', 'g:clot', { op: 0.5, above: 'gum' }),
+    L('clotEdge', '@socket', null, { s: '#5E1018', w: 0.6, op: 0.4, dash: [2, 2] }),
+    L('ridge', '@ridge', 'g:gumCut', { op: 0.7 }),
+  ],
+};
 const healed = {
   view: 'section', hide: BODY, add: [
     L('healedBone', '@socket', 'bone', { op: 0.92, above: 'gum' }),
@@ -145,7 +159,7 @@ export function buildStages() {
     extraction: { steps: ['remove', 'socket_healing'], scenes: { remove, socket_healing: healing, healed } },
     wisdom_extraction: {
       steps: ['position', 'remove', 'socket_healing'],
-      scenes: { position: { view: 'section', mode: 'eruption', add: [] }, remove, socket_healing: healing, healed },
+      scenes: { position: { view: 'section', mode: 'eruption', add: [] }, remove, day1, week1, socket_healing: healing, healed },
       backdrop: {
         box: [0, 0, 192, 200],
         g: [lin('w_gum', 0, CEJ - 8, 0, CEJ + 24, [[0, 'gumCut'], [0.55, 'gumCutDeep'], [0.85, 'gumCutDeep', 0.8], [1, 'gumCutDeep', 0]]),

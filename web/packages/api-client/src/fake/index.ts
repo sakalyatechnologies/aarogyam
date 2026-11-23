@@ -15,3 +15,4 @@ export {
 } from "./fixtures.js";
 export { freshSetup } from "./setup.js";
 export { fakePresentStudio, withPrices } from "./present.js";
+export { DEFAULT_OFFER_SETTINGS } from "./offers.js";

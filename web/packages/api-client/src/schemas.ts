@@ -2808,6 +2808,33 @@ export const patientOffers = z.object({
 }) satisfies z.ZodType<C.PatientOffers>;
 export type PatientOffers = z.output<typeof patientOffers>;
 
+const offerKind = z.enum(["percent_bps", "fixed"]);
+const offerCaps = z.object({ max_percent_bps: z.number().int(), max_fixed_paise: paise, max_valid_days: z.number().int(), max_discount_paise: paise });
+const roleCaps = z.object({ role_id: z.string(), max_percent_bps: z.number().int(), max_fixed_paise: paise, max_valid_days: z.number().int(), max_discount_paise: paise });
+/** `GET`/`PUT /api/v1/settings/offers`: `org_settings.billing.offers`. The server fills every default on read. */
+export const offerSettings = z.object({
+  patient_offer: z.object({ enabled: z.boolean(), kind: offerKind, value: z.number().int(), valid_days: z.number().int() }),
+  referral: z.object({
+    enabled: z.boolean(),
+    friend_kind: offerKind,
+    friend_value: z.number().int(),
+    friend_max_discount_paise: paise,
+    valid_days: z.number().int(),
+    max_uses: z.number().int(),
+    reward: z.object({
+      enabled: z.boolean(),
+      kind: offerKind,
+      value: z.number().int(),
+      valid_days: z.number().int(),
+      max_per_month: z.number().int(),
+      min_bill_paise: paise,
+      max_discount_paise: paise,
+    }),
+  }),
+  caps: z.object({ default: offerCaps, owner: offerCaps, by_role: z.array(roleCaps) }),
+});
+export type OfferSettings = z.output<typeof offerSettings>;
+
 /** Body of `POST /api/v1/visits/{id}/offers`. */
 export type NewVisitOffers = C.NewVisitOffers;
 /** Body of `POST /api/v1/invoices/{id}/promo`. */

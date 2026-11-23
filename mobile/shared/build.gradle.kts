@@ -339,6 +339,8 @@ val apiModels =
         "TimeOffDecision",
         // Show patient studio layer (slice 2a): usual options for the recorded situations.
         "PresentStudio",
+        // Offers (P5-P7): codes, presets, desk apply.
+        "RevokePromoCode",
         "PresentPrice",
         "NotifiedPayment",
         "PresentSituation",

@@ -157,6 +157,9 @@ import {
   finishedVisit,
   visitLink,
   visitPatientMessage,
+  visitOffers,
+  patientOffers,
+  offerSettings,
   messagePreview,
   messagePrefs,
   uiPrefs,
@@ -603,6 +606,23 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/finish`, schema: finishedVisit, body: input ?? {}, signal: opts?.signal }),
     shareVisit: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/share`, schema: visitLink, body: input ?? {}, signal: opts?.signal }),
+    getVisitOffers: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}/offers`, schema: visitOffers, signal: opts?.signal }),
+    issueVisitOffers: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/offers`, schema: visitOffers, body: input, signal: opts?.signal }),
+    revokePromoCode: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/promo-codes/${encodeURIComponent(id)}/revoke`, schema: voidResponse, body: input, signal: opts?.signal }),
+    getPatientOffers: (id, invoiceId, opts) =>
+      call({
+        method: "GET",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/offers${invoiceId === undefined ? "" : `?invoice_id=${encodeURIComponent(invoiceId)}`}`,
+        schema: patientOffers,
+        signal: opts?.signal,
+      }),
+    applyInvoicePromo: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/invoices/${encodeURIComponent(id)}/promo`, schema: invoice, body: input, signal: opts?.signal }),
+    removeInvoicePromo: (id, opts) => call({ method: "DELETE", path: `/api/v1/invoices/${encodeURIComponent(id)}/promo`, schema: invoice, signal: opts?.signal }),
+    getOfferSettings: (opts) => call({ method: "GET", path: "/api/v1/settings/offers", schema: offerSettings, signal: opts?.signal }),
+    saveOfferSettings: (input, opts) => call({ method: "PUT", path: "/api/v1/settings/offers", schema: offerSettings, body: input, signal: opts?.signal }),
     prepareVisitPatientMessage: (id, opts, input) =>
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/patient-message`, schema: visitPatientMessage, body: input ?? {}, signal: opts?.signal }),
     previewVisitPatientMessage: (id, input, opts) =>

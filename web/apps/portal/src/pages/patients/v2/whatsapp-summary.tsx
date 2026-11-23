@@ -8,6 +8,7 @@ import { canShareVideo, pickVideoPath, videoFileName, type VideoPath } from "@aa
 import { useClinic } from "../../../clinic.js";
 import { useDebounced } from "../../messages/v2/queries.js";
 import { PillButton } from "./kit.js";
+import { OfferChips } from "./offer-chips.js";
 
 /**
  * How the summary leaves the browser. `whatsapp://` opens WhatsApp Desktop on this computer with the full text, a
@@ -435,6 +436,7 @@ export function WhatsAppSummary({ visitId, compact = false, patientName }: { vis
           ) : (
             ticks
           )}
+          {compact ? null : <OfferChips visitId={visitId} />}
           <PillButton variant={compact ? "ghost" : "primary"} icon={<MessageCircle aria-hidden="true" />} onClick={send} disabled={prepare.isPending}>
             {prepare.isPending ? "Preparing…" : compact ? "Prepare WhatsApp summary" : "Send on WhatsApp"}
           </PillButton>

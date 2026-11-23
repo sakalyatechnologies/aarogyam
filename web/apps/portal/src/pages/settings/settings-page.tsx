@@ -11,6 +11,7 @@ import { BookingPanel } from "./booking-panel.js";
 import { ChairsDoctorsPanel } from "./chairs-doctors-panel.js";
 import { LetterheadPanel } from "./letterhead-panel.js";
 import { PriceListPanel } from "./price-list-panel.js";
+import { OffersPanel } from "./offers-panel.js";
 import { MyProfile } from "./my-profile.js";
 import { ProfileTab } from "./profile-panel.js";
 import { SessionsPanel } from "./sessions-panel.js";
@@ -46,6 +47,7 @@ export function SettingsPage() {
     ...(can("staff.manage") || can("roles.manage") ? [{ value: "team", label: "Team & roles", content: <MkCard title="Team & roles" hint="Who works here, and what each role can see and do"><TeamPanel /></MkCard> }] : []),
     ...(can("time_off.request") ? [{ value: "time-off", label: "Time off", content: <TimeOffPanel /> }] : []),
     { value: "booking", label: "Booking & notifications", content: <BookingPanel /> },
+    ...(owner ? [{ value: "offers", label: "Offers", content: <OffersPanel /> }] : []),
     ...(owner ? [{ value: "website", label: "Website", content: <MkCard><WebsitePanel /></MkCard> }] : []),
     ...(can("tasks.manage") ? [{ value: "tasks", label: "Tasks", content: <TasksPanel /> }] : []),
     ...(owner ? [{ value: "present", label: "Show patient", content: <PresentPanel /> }] : []),
@@ -81,7 +83,7 @@ export function SettingsPage() {
 }
 
 /** The new look's order and wording: My profile first, then Appearance, as in the design. */
-const NEW_LOOK_ORDER = ["me", "appearance", "profile", "letterhead", "chairs-doctors", "price-list", "team", "time-off", "tasks", "booking", "website", "present", "terms", "support", "sessions"];
+const NEW_LOOK_ORDER = ["me", "appearance", "profile", "letterhead", "chairs-doctors", "price-list", "team", "time-off", "tasks", "booking", "offers", "website", "present", "terms", "support", "sessions"];
 const NEW_LOOK_LABEL: Readonly<Record<string, string>> = { "chairs-doctors": "Chairs & doctors" };
 
 /**

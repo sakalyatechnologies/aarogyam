@@ -31,6 +31,7 @@ import {
   type FakeCondition,
   type FakeDrug,
   type FakeInvoice,
+  type FakeOfferCode,
   type FakeInvoiceLine,
   type FakeLeave,
   type FakeMembership,
@@ -92,6 +93,7 @@ import {
   type FakeLabs,
   type FakeLabVendor,
 } from "./labs.js";
+import { DEFAULT_OFFER_SETTINGS, makeCode, offerSettingsProblem, offerTerms, presetsFor, wireCode } from "./offers.js";
 import { createCostInsights } from "./cost.js";
 import { createDbInsights, createFrontEndInsights, createMetrics, createPageInsights, createRouteInsights, createUsageInsights } from "./metrics.js";
 import { QUICK_PICKS } from "./quick-picks.js";
@@ -4581,6 +4583,201 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           row.present_style = input.present_style ?? row.present_style;
           row.history_view = input.history_view ?? row.history_view;
           return reply(wireUiPrefs(row));
+        }),
+
+      getOfferSettings: (opts) =>
+        respond(S.offerSettings, opts?.signal, async () => {
+          const caller = await inClinicWithAny("settings.manage", "offers.give");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(state.offerSettings?.[caller.clinic.id] ?? DEFAULT_OFFER_SETTINGS);
+        }),
+
+      saveOfferSettings: (input, opts) =>
+        respond(S.offerSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const problem = offerSettingsProblem(input);
+          if (problem !== null) {
+            return invalid(problem.field, problem.message);
+          }
+          state.offerSettings ??= {};
+          state.offerSettings[caller.clinic.id] = input;
+          return reply(input);
+        }),
+
+      getVisitOffers: (id, opts) =>
+        respond(S.visitOffers, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          return reply(visitOffersBody(state, caller.clinic.id, id, caller.membership.role.key === "owner"));
+        }),
+
+      issueVisitOffers: (id, input, opts) =>
+        respond(S.visitOffers, opts?.signal, async () => {
+          const reader = await inClinic("clinical.read");
+          if (!isCaller(reader)) {
+            return reader;
+          }
+          const caller = await inClinic("offers.give");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.status !== "closed") {
+            return refuse(409, "visit_open", "Finish the visit first.");
+          }
+          const owner = caller.membership.role.key === "owner";
+          const settings = state.offerSettings?.[caller.clinic.id] ?? DEFAULT_OFFER_SETTINGS;
+          const presets = presetsFor(settings, owner);
+          state.offerCodes ??= [];
+          const live = (purpose: FakeOfferCode["purpose"]) => state.offerCodes?.find((c) => c.visit_id === id && c.purpose === purpose && !c.revoked);
+          const validTo = (days: number) => new Date(clock().getTime() + days * 86_400_000).toISOString().slice(0, 10);
+          if (input.patient_offer != null && live("patient_offer") === undefined) {
+            if (!presets.offer_enabled) {
+              return refuse(403, "forbidden", "Offers are switched off.");
+            }
+            const terms = offerTerms(input.patient_offer, presets);
+            if ("field" in terms) {
+              return invalid(terms.field, terms.message);
+            }
+            state.offerCodes.push({
+              id: fakeUuid(random, clock()),
+              clinic_id: caller.clinic.id,
+              visit_id: id,
+              patient_id: found.patient_id,
+              code: makeCode(() => random.next()),
+              purpose: "patient_offer",
+              kind: terms.kind,
+              value: terms.value,
+              max_discount_paise: terms.kind === "percent_bps" ? (presets.offer_max_discount_paise ?? null) : null,
+              valid_to: validTo(terms.days),
+              revoked: false,
+              used: false,
+            });
+          }
+          if (input.referral === true && live("referral") === undefined) {
+            if (!presets.referral_enabled) {
+              return refuse(403, "forbidden", "Referral codes are switched off.");
+            }
+            state.offerCodes.push({
+              id: fakeUuid(random, clock()),
+              clinic_id: caller.clinic.id,
+              visit_id: id,
+              patient_id: found.patient_id,
+              code: makeCode(() => random.next()),
+              purpose: "referral",
+              kind: presets.referral_kind,
+              value: presets.referral_value,
+              max_discount_paise: presets.referral_max_discount_paise,
+              valid_to: validTo(presets.referral_valid_days),
+              revoked: false,
+              used: false,
+            });
+          }
+          return reply(visitOffersBody(state, caller.clinic.id, id, owner));
+        }),
+
+      revokePromoCode: (id, input, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinicWithAny("offers.give", "settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.offerCodes?.find((c) => c.id === id && c.clinic_id === caller.clinic.id);
+          if (found === undefined) {
+            return notFound;
+          }
+          if (found.revoked) {
+            return refuse(409, "already_revoked", "That code is already taken back.");
+          }
+          if (input.reason !== "undo" && input.reason !== "staff") {
+            return invalid("reason", "undo or staff");
+          }
+          found.revoked = true;
+          return reply(undefined);
+        }),
+
+      getPatientOffers: (id, _invoiceId, opts) =>
+        respond(S.patientOffers, opts?.signal, async () => {
+          const caller = await inClinicWithAny("billing.read", "payments.collect");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const patient = state.patients.find((p) => p.id === id && p.clinic_id === caller.clinic.id);
+          if (patient === undefined) {
+            return notFound;
+          }
+          const today = clock().toISOString().slice(0, 10);
+          const codes = (state.offerCodes ?? [])
+            .filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && !c.revoked && !c.used && c.valid_to >= today)
+            .map((c) => ({ offer: wireCode(c), eligible: true }));
+          return reply({ codes });
+        }),
+
+      applyInvoicePromo: (id, input, opts) =>
+        respond(S.invoice, opts?.signal, async () => {
+          const caller = await inClinicWithAny("billing.write", "payments.collect");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const inv = state.invoices.find((i) => i.id === id && i.clinic_id === caller.clinic.id);
+          const typed = input.code.replace(/[\s-]/g, "").toUpperCase();
+          const code = (state.offerCodes ?? []).find((c) => c.clinic_id === caller.clinic.id && c.code.replace("-", "") === typed);
+          if (inv === undefined || code === undefined) {
+            return notFound;
+          }
+          if (inv.status !== "draft") {
+            return refuse(409, "not_draft", "Only a draft bill can take a code.");
+          }
+          if (inv.promo != null) {
+            return refuse(409, "bill_has_promo", "This bill already has a code.");
+          }
+          if (code.revoked) {
+            return refuse(409, "promo_revoked", "That code was taken back.");
+          }
+          if (code.used) {
+            return refuse(409, "promo_used", "That code was already used.");
+          }
+          if (code.valid_to < clock().toISOString().slice(0, 10)) {
+            return refuse(409, "promo_expired", "That code has expired.");
+          }
+          if (code.patient_id !== inv.patient_id && code.purpose === "patient_offer") {
+            return refuse(409, "promo_not_this_patient", "That code is for another patient.");
+          }
+          const total = computeInvoiceAmounts(inv.items).total_paise;
+          const raw = code.kind === "percent_bps" ? Math.floor((total * code.value) / 10000) : code.value;
+          inv.promo = { code_id: code.id, discount_paise: Math.min(raw, code.max_discount_paise ?? raw, total) };
+          return reply(wireInvoice(inv, state, false));
+        }),
+
+      removeInvoicePromo: (id, opts) =>
+        respond(S.invoice, opts?.signal, async () => {
+          const caller = await inClinicWithAny("billing.write", "payments.collect");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const inv = state.invoices.find((i) => i.id === id && i.clinic_id === caller.clinic.id);
+          if (inv === undefined) {
+            return notFound;
+          }
+          if (inv.status !== "draft") {
+            return refuse(409, "not_draft", "Only a draft bill can lose a code.");
+          }
+          inv.promo = null;
+          return reply(wireInvoice(inv, state, false));
         }),
 
       prepareVisitPatientMessage: (id, opts, input) =>
@@ -12288,6 +12485,17 @@ function paymentsFor(state: Fixtures, invoiceId: string): FakePayment[] {
   return state.payments.filter((p) => p.status === "received" && p.allocations.some((a) => a.invoice_id === invoiceId));
 }
 
+function visitOffersBody(state: Fixtures, clinicId: string, visitId: string, owner: boolean): C.VisitOffers {
+  const live = (purpose: string) => (state.offerCodes ?? []).find((c) => c.clinic_id === clinicId && c.visit_id === visitId && c.purpose === purpose && !c.revoked);
+  const offer = live("patient_offer");
+  const referral = live("referral");
+  return {
+    ...(offer === undefined ? {} : { patient_offer: wireCode(offer) }),
+    ...(referral === undefined ? {} : { referral: wireCode(referral) }),
+    presets: presetsFor(state.offerSettings?.[clinicId] ?? DEFAULT_OFFER_SETTINGS, owner),
+  };
+}
+
 function wireInvoice(inv: FakeInvoice, state: Fixtures, forList: boolean): C.Invoice {
   const clinic = state.clinics.find((c) => c.id === inv.clinic_id);
   const patient = state.patients.find((p) => p.id === inv.patient_id);
@@ -12326,6 +12534,7 @@ function wireInvoice(inv: FakeInvoice, state: Fixtures, forList: boolean): C.Inv
     voided_at: inv.voided_at ?? null,
     created_at: inv.created_at,
     issued_at: inv.issued_at ?? null,
+    ...(inv.promo == null ? {} : { promo: { code_id: inv.promo.code_id, purpose: "patient_offer", status: "held", discount_paise: inv.promo.discount_paise } }),
   };
 }
 

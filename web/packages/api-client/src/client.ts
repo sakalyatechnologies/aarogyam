@@ -26,6 +26,8 @@ import type {
   TimeOffPage,
 } from "./schemas.js";
 import type { AudienceFilter, NewAudience, NewCampaign, NewChatMessage, NewConversation, ScheduleCampaign, SendMessages } from "./contract.js";
+import type { ApplyPromoCode, NewVisitOffers, RevokePromoCode } from "./contract.js";
+import type { OfferSettings, PatientOffers, VisitOffers } from "./schemas.js";
 import type { HandOff, NewMessagePrefs, NewPatientMessage, NewUiPrefs } from "./contract.js";
 import type { MessagePrefs, MessagePreview, UiPrefs } from "./schemas.js";
 import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
@@ -808,6 +810,22 @@ export interface ApiClient {
   finishVisit(id: VisitId, input?: FinishVisitInput, options?: RequestOptions): Promise<ApiResult<FinishedVisit>>;
   /** Clinic host: makes a link and PIN for the patient to open the visit summary at `/shared/{token}/visit`. Needs `clinical.write`. */
   shareVisit(id: VisitId, input?: ShareInput, options?: RequestOptions): Promise<ApiResult<VisitLink>>;
+  /** Clinic host: a visit's live offer and referral codes and the caller's presets. Needs `clinical.read`. Never log the codes. */
+  getVisitOffers(id: VisitId, options?: RequestOptions): Promise<ApiResult<VisitOffers>>;
+  /** Clinic host: gives the patient an offer and/or a referral code (presets when left out). Needs `clinical.read` and `offers.give`. 400 over the caller's caps; 409 `visit_open`. */
+  issueVisitOffers(id: VisitId, input: NewVisitOffers, options?: RequestOptions): Promise<ApiResult<VisitOffers>>;
+  /** Clinic host: takes a code back (`undo` for the giver's Undo, `staff`). Needs `offers.give` (own codes) or `settings.manage`. 409 when already revoked. */
+  revokePromoCode(id: string, input: RevokePromoCode, options?: RequestOptions): Promise<ApiResult<undefined>>;
+  /** Clinic host: a patient's live codes; with `invoiceId` each says whether the bill's visit recorded its target. Needs `billing.read` or `payments.collect`. */
+  getPatientOffers(id: PatientId, invoiceId?: InvoiceId, options?: RequestOptions): Promise<ApiResult<PatientOffers>>;
+  /** Clinic host: puts a code on a draft bill. Needs `billing.write` or `payments.collect`; `override` needs `billing.write`. 404 unknown code; 409 with a `promo_*` reason; 429 after repeated misses. */
+  applyInvoicePromo(id: InvoiceId, input: ApplyPromoCode, options?: RequestOptions): Promise<ApiResult<Invoice>>;
+  /** Clinic host: takes the code off a draft bill. */
+  removeInvoicePromo(id: InvoiceId, options?: RequestOptions): Promise<ApiResult<Invoice>>;
+  /** Clinic host: the clinic's offer settings. Needs `settings.manage` or `offers.give`. */
+  getOfferSettings(options?: RequestOptions): Promise<ApiResult<OfferSettings>>;
+  /** Clinic host: saves the clinic's offer settings. Needs `settings.manage`. 400 names the field. */
+  saveOfferSettings(input: OfferSettings, options?: RequestOptions): Promise<ApiResult<OfferSettings>>;
   /**
    * Clinic host: prepares the patient's WhatsApp summary of a closed visit (text, link and PIN) for the doctor to send
    * from their own WhatsApp. Needs `clinical.read` and `patients.contact`. 409 codes: `visit_open`, `no_phone`,

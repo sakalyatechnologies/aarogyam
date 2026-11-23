@@ -6,6 +6,7 @@
  */
 
 import type * as C from "../contract.js";
+import type { OfferSettings } from "../schemas.js";
 import type { Permission } from "../permissions.js";
 import { seedExpenses } from "./analytics.js";
 import { seedLabs } from "./labs.js";
@@ -583,6 +584,22 @@ export interface FakeInvoiceLine {
 }
 
 /** A bill. Draft totals are a live preview of `items`; issued bills freeze what they printed. */
+/** An offer or referral code. */
+export interface FakeOfferCode {
+  id: string;
+  clinic_id: string;
+  visit_id: string;
+  patient_id: string;
+  code: string;
+  purpose: "patient_offer" | "referral";
+  kind: string;
+  value: number;
+  max_discount_paise: number | null;
+  valid_to: string;
+  revoked: boolean;
+  used: boolean;
+}
+
 export interface FakeInvoice {
   id: string;
   clinic_id: string;
@@ -598,6 +615,7 @@ export interface FakeInvoice {
   voided_at?: string | null;
   created_at: string;
   issued_at?: string | null;
+  promo?: { code_id: string; discount_paise: number } | null;
 }
 
 /** A payment, with the bills it covers. */
@@ -769,6 +787,10 @@ export interface Fixtures {
   prescriptions: FakePrescription[];
   shareLinks: FakeShareLink[];
   /** Each member's message ticks and hand-off count, by membership id, made on first use. */
+  /** Offer codes the fake has issued (spec: visit-story-v2 offers). */
+  offerCodes?: FakeOfferCode[];
+  /** Each clinic's offer settings, once saved. */
+  offerSettings?: Record<string, OfferSettings>;
   uiPrefs?: Record<string, { present_style: string | null; history_view: string | null }>;
   messagePrefs?: Record<string, { sections: string[] | null; handoffs: number; handoff_days: number; last_handoff_on: string | null }>;
   /** `client_id`s already used on the dental chart, with a fingerprint of the request that used them. */
@@ -830,6 +852,7 @@ export const ROLES = {
       "appointments.write",
       "clinical.read",
       "clinical.write",
+      "offers.give",
       "billing.read",
       "billing.write",
       "payments.collect",
@@ -865,6 +888,7 @@ export const ROLES = {
       "appointments.write",
       "clinical.read",
       "clinical.write",
+      "offers.give",
       "billing.read",
       "payments.collect",
       "prescriptions.issue",
@@ -916,6 +940,7 @@ export const PERMISSION_CATALOGUE: readonly { key: Permission; module: string; d
   { key: "payments.collect", module: "payments", description: "Take payment against a bill with a balance; no other billing access", scopes: ["all"] },
   { key: "clinical.read", module: "clinical", description: "See visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
   { key: "clinical.write", module: "clinical", description: "Record visits, notes, charts and files", scopes: ["all", "own", "assigned"] },
+  { key: "offers.give", module: "offers", description: "Give patients an offer or a referral code", scopes: ["all"] },
   { key: "expenses.write", module: "expenses", description: "Record clinic expenses", scopes: ["all"] },
   { key: "finance.view", module: "finance", description: "See revenue, expenses and salaries", scopes: ["all"] },
   { key: "labs.read", module: "labs", description: "See labs, their contacts and lab orders", scopes: ["all", "own", "assigned"] },

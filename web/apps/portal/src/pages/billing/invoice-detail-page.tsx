@@ -7,6 +7,7 @@ import { ApiErrorNotice, formatDateTime, formatRupees, useDocumentTitle } from "
 import { Button, Card, DataTable, Dialog, Field, Link, Pill, Select, Skeleton, TextArea, TextInput, useToast, type DataTableColumn } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
+import { DraftPromo } from "./draft-promo.js";
 import { useEditInvoice, useInvoice, useIssueInvoice, usePayments, usePriceItems, useRecordPayment, useVoidInvoice, useVoidPayment } from "./queries.js";
 import { PageHeader } from "../../components/mk/index.js";
 import { INVOICE_STATUS_TONE, invoiceStatus } from "../../lib/invoice-status.js";
@@ -124,6 +125,7 @@ function InvoiceBody({ invoice, canWrite }: { invoice: Invoice; canWrite: boolea
             {invoice.issued_at == null ? null : <span className="text-xs text-muted">Issued {formatDateTime(invoice.issued_at)}</span>}
           </div>
           {canWrite && invoice.status === "draft" ? <DraftLines invoice={invoice} /> : <DataTable caption="Lines" columns={lineColumns} rows={invoice.items} rowKey={(l) => String(l.line_no)} />}
+          <DraftPromo invoice={invoice} />
           <dl className="mt-4 grid max-w-sm grid-cols-2 gap-y-1 text-sm">
             <dt className="text-muted">Subtotal</dt>
             <dd className="text-right font-semibold text-text">{formatRupees(invoice.subtotal_paise)}</dd>

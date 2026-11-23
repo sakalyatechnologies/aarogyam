@@ -8,7 +8,7 @@ import { clinic } from "../../../test/clinic-wrapper.js";
 import { handoff, videoKit, WhatsAppSummary, type VideoSupport } from "./whatsapp-summary.js";
 
 /** The summary's own API calls; the video adds only `getVisitStory`, never an upload. */
-const ALLOWED = new Set(["getMessagePrefs", "previewVisitPatientMessage", "prepareVisitPatientMessage", "handOffVisitPatientMessage", "getVisitStory"]);
+const ALLOWED = new Set(["getMessagePrefs", "previewVisitPatientMessage", "prepareVisitPatientMessage", "handOffVisitPatientMessage", "getVisitStory", "getVisitOffers"]);
 
 let calls: string[];
 let renders: { story: VisitStory; signal: AbortSignal }[];

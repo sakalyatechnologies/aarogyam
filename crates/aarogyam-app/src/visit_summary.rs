@@ -202,6 +202,9 @@ pub struct Summary {
     /// The mouth snapshot (section 1.12 of the visit story v2 design): the same allowlisted
     /// shape the doctor's Present mode shows.
     pub chart: Option<aarogyam_domain::mouth::MouthSnapshot>,
+    /// "Options we discussed": only the rows the doctor ticked for the patient (Show patient
+    /// slice 2f). A price only when the clinic shows prices.
+    pub discussed: Vec<aarogyam_domain::present_discussion::SharedDiscussion>,
 }
 
 /// What the page shows beyond the visit row: treatments, plan, medicines, care, contact.
@@ -366,6 +369,25 @@ pub async fn open(
             .map(|(name, _)| name);
         let extras = extras_in(tx, visit.id, visit.patient_id).await?;
         let chart = crate::mouth::of_visit(tx, &visit, now).await?;
+        let show_prices = aarogyam_domain::present::PresentSettings::from_stored(
+            &aarogyam_dal::present_settings::get(tx.conn()).await?,
+        )
+        .show_prices;
+        let discussed = aarogyam_dal::present_discussions::current_of_visit(tx.conn(), visit.id)
+            .await?
+            .into_iter()
+            .filter(|row| row.send_to_patient)
+            .filter_map(|row| {
+                let options: Vec<aarogyam_domain::present_discussion::DiscussedOption> =
+                    serde_json::from_value(row.options).ok()?;
+                aarogyam_domain::present_discussion::shared_view(
+                    row.tooth.and_then(|t| u8::try_from(t).ok()),
+                    &row.situation,
+                    &options,
+                    show_prices,
+                )
+            })
+            .collect();
         let visited_on = clinic_today(&timezone, visit.started_at);
         let follow_up_on = dal::next_follow_up(tx.conn(), visit.patient_id, visited_on).await?;
         let booking_host = aarogyam_dal::staff::portal_host(tx.conn()).await?;
@@ -402,6 +424,7 @@ pub async fn open(
             clinic_phone: extras.clinic_phone,
             practitioner_id: extras.practitioner_id,
             chart: Some(chart),
+            discussed,
         })))
     })
     .await

@@ -107,6 +107,85 @@ fn known_material(key: &str) -> bool {
     })
 }
 
+/// One discussed option as the patient sees it: words resolved from the data files.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedOption {
+    /// Short name.
+    pub label: String,
+    /// What is done.
+    pub summary: String,
+    /// How it looks afterwards.
+    pub looks_like: String,
+    /// How it feels, in words.
+    pub comfort: String,
+    /// The compared material's name, when one was.
+    pub material: Option<String>,
+    /// The option the patient prefers.
+    pub preferred: bool,
+    /// The frozen "from" price in paise; only when the clinic shows prices.
+    pub from_paise: Option<i64>,
+}
+
+/// A ticked discussion as the patient sees it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedDiscussion {
+    /// FDI tooth; none for an example-arch topic.
+    pub tooth: Option<u8>,
+    /// Words for the situation.
+    pub title: String,
+    /// The options.
+    pub options: Vec<SharedOption>,
+}
+
+/// Resolves a ticked row into the patient's words. A price is kept only when `show_prices`.
+/// Options the data files no longer know are left out; a row with none left is `None`.
+#[must_use]
+pub fn shared_view(
+    tooth: Option<u8>,
+    situation: &str,
+    discussed: &[DiscussedOption],
+    show_prices: bool,
+) -> Option<SharedDiscussion> {
+    let data = options()?;
+    let title = data
+        .situations
+        .get(situation)
+        .map(|s| s.title.clone())
+        .or_else(|| usual_case(situation).map(|c| c.title.clone()))?;
+    let options: Vec<SharedOption> = discussed
+        .iter()
+        .filter_map(|d| {
+            let o = data
+                .situations
+                .values()
+                .flat_map(|s| s.options.iter())
+                .find(|o| o.key == d.key)?;
+            let material = d.material.as_deref().and_then(|key| {
+                materials()?
+                    .groups
+                    .values()
+                    .flat_map(|g| g.materials.iter())
+                    .find(|m| m.key == key)
+                    .map(|m| m.label.clone())
+            });
+            Some(SharedOption {
+                label: o.label.clone(),
+                summary: o.summary.clone(),
+                looks_like: o.looks_like.clone(),
+                comfort: data.comfort.get(&o.comfort).cloned().unwrap_or_default(),
+                material,
+                preferred: d.preferred,
+                from_paise: if show_prices { d.from_paise } else { None },
+            })
+        })
+        .collect();
+    (!options.is_empty()).then_some(SharedDiscussion {
+        tooth,
+        title,
+        options,
+    })
+}
+
 /// Checks a discussion against the data files. `tooth` is `None` for an example-arch topic.
 ///
 /// # Errors
@@ -174,6 +253,17 @@ mod tests {
         crown.preferred = true;
         let tooth = validate(Some(36), "deep_decay", &[crown, opt("extract")]).unwrap();
         assert_eq!(tooth.map(Tooth::number), Some(36));
+    }
+
+    #[test]
+    fn a_shared_price_needs_show_prices() {
+        let mut crown = opt("rct_crown");
+        crown.from_paise = Some(900_000);
+        let off = shared_view(Some(36), "deep_decay", &[crown.clone()], false).unwrap();
+        assert_eq!(off.options[0].from_paise, None);
+        let on = shared_view(Some(36), "deep_decay", &[crown], true).unwrap();
+        assert_eq!(on.options[0].from_paise, Some(900_000));
+        assert!(on.options[0].looks_like.len() > 2);
     }
 
     #[test]

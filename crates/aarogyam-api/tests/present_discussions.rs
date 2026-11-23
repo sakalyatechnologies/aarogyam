@@ -272,3 +272,105 @@ async fn the_from_price_is_frozen_only_when_sent_with_prices_on() {
     );
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_shared_page_shows_only_ticked_rows_and_prices_only_with_show_prices() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (patient, visit) = visit_with_patient(&app, &owner).await;
+    let (status, charted) = call(
+        &app,
+        Method::POST,
+        &owner,
+        &format!("/api/v1/patients/{patient}/dental-chart"),
+        Some(json!({ "visit_id": visit, "entries": [
+            { "tooth": 36, "surface": "O", "finding": "caries", "caries_depth": "near_pulp" }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{charted}");
+    for (code, paise) in [("RCT", 600_000), ("CRN", 850_000)] {
+        let (status, item) = call(
+            &app,
+            Method::POST,
+            &owner,
+            "/api/v1/price-items",
+            Some(json!({ "name": code, "code": code, "price_paise": paise })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "{item}");
+    }
+    let (status, saved) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        "/api/v1/settings/present",
+        Some(json!({ "show_prices": true,
+                     "price_map": { "root_canal": "RCT", "crown": "CRN" } })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    let path = format!("/api/v1/visits/{visit}/present-discussions");
+    let (status, saved) = call(
+        &app,
+        Method::POST,
+        &owner,
+        &path,
+        Some(
+            json!({ "tooth": 36, "situation": "deep_decay", "send_to_patient": true,
+                     "options": [{ "key": "rct_crown" }, { "key": "extract" }] }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{saved}");
+    let (status, saved) = call(
+        &app,
+        Method::POST,
+        &owner,
+        &path,
+        Some(json!({ "situation": "implant", "send_to_patient": false,
+                     "options": [{ "key": "implant" }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{saved}");
+    let (status, link) = call(
+        &app,
+        Method::POST,
+        &owner,
+        &format!("/api/v1/visits/{visit}/share"),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{link}");
+    let open = format!("/api/v1/shared/{}/visit", link["token"].as_str().unwrap());
+    let pin = json!({ "pin": link["pin"] });
+    let (status, page) = app
+        .send(Method::POST, ALPHA, &open, None, Some(pin.clone()))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{page}");
+    let rows = page["discussed"].as_array().unwrap();
+    assert_eq!(rows.len(), 1, "only the ticked row: {page}");
+    assert_eq!(rows[0]["tooth"], 36);
+    assert_eq!(rows[0]["options"][0]["from_paise"], 1_450_000, "{page}");
+    assert!(rows[0]["options"][1]["from_paise"].is_null(), "{page}");
+    // Words are resolved on the server: no option keys reach the patient.
+    let words = rows[0].to_string();
+    assert!(!words.contains("rct_crown"), "{words}");
+    // Turning prices off removes the number from the same saved row.
+    let (status, off) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        "/api/v1/settings/present",
+        Some(json!({ "show_prices": false, "price_map": {} })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{off}");
+    let (status, page) = app.send(Method::POST, ALPHA, &open, None, Some(pin)).await;
+    assert_eq!(status, StatusCode::OK, "{page}");
+    assert!(
+        page["discussed"][0]["options"][0]["from_paise"].is_null(),
+        "{page}"
+    );
+    app.finish().await;
+}

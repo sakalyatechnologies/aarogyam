@@ -1,7 +1,7 @@
 /**
  * The Pinned chip of Show patient (present-studio-design §10, slice 2e) and what it opens: the deck, the side-by-side
  * compare, the pen and "What we discussed" with its Save. Loaded on demand with the deck itself, so the Present route
- * stays small. Pins live in memory; Save writes `present_discussions` (never sent to the patient here: slice 2f).
+ * stays small. Pins live in memory; Save writes `present_discussions` (the per-row "Send to the patient" tick is off by default: slice 2f).
  */
 import { Suspense, lazy, useState, type ReactElement } from "react";
 

@@ -17189,6 +17189,38 @@ export interface components {
             /** @description The visit. */
             visit: components["schemas"]["Visit"];
         };
+        /** @description A ticked "Options we discussed" row. */
+        VisitDiscussed: {
+            /** @description The options discussed. */
+            options: components["schemas"]["VisitDiscussedOption"][];
+            /** @description Words for the situation. */
+            title: string;
+            /**
+             * Format: int32
+             * @description The tooth (FDI number); none for a general topic.
+             */
+            tooth?: number | null;
+        };
+        /** @description One option discussed, in the patient's words. */
+        VisitDiscussedOption: {
+            /** @description How it feels. */
+            comfort: string;
+            /**
+             * Format: int64
+             * @description "From" price in paise; only when the clinic shows prices.
+             */
+            from_paise?: number | null;
+            /** @description Short name. */
+            label: string;
+            /** @description How it looks afterwards. */
+            looks_like: string;
+            /** @description The compared material. */
+            material?: string | null;
+            /** @description The option the patient prefers. */
+            preferred: boolean;
+            /** @description What is done. */
+            summary: string;
+        };
         /** @description The next follow-up. */
         VisitFollowUp: {
             /** @description The day it is due (`YYYY-MM-DD`). */
@@ -17371,6 +17403,11 @@ export interface components {
             clinic_name: string;
             /** @description The clinic's phone in E.164, for "Call us". */
             clinic_phone?: string | null;
+            /**
+             * @description "Options we discussed": only rows the doctor ticked for the patient. A price appears
+             *     only when the clinic shows prices.
+             */
+            discussed?: components["schemas"]["VisitDiscussed"][];
             /** @description The doctor's name. */
             doctor_name?: string | null;
             /** @description When the link stops working. */

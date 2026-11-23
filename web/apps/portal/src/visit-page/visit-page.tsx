@@ -297,6 +297,23 @@ function VisitStory({ visit, token, pin }: { visit: Visit; token: string; pin: s
         </Section>
       )}
 
+      {visit.discussed.map((row, index) => (
+        <Section key={index} title={row.tooth === null || row.tooth === undefined ? row.title : `${row.title} (tooth ${String(row.tooth)})`}>
+          <ul className="vp-steps">
+            {row.options.map((option) => (
+              <li key={option.label}>
+                <strong>{option.label}</strong>
+                {option.material === null || option.material === undefined ? null : <span className="vp-muted"> · {option.material}</span>}
+                {option.preferred ? <span className="vp-muted"> · you prefer this</span> : null}
+                <br />
+                {option.summary} {option.looksLike} {option.comfort}
+                {option.fromPaise === null || option.fromPaise === undefined ? null : <span className="vp-muted"> From {rupees(option.fromPaise)}</span>}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ))}
+
       {visit.aftercare.length === 0 && chart === undefined ? null : (
         <Section title="Care at home">
           {chart === undefined ? null : <BrushingBlock band={band} highlight={brushHighlight(chart, careSteps)} name={name} />}

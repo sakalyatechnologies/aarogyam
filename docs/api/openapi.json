@@ -46526,6 +46526,84 @@
           }
         }
       },
+      "VisitDiscussed": {
+        "type": "object",
+        "description": "A ticked \"Options we discussed\" row.",
+        "required": [
+          "title",
+          "options"
+        ],
+        "properties": {
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitDiscussedOption"
+            },
+            "description": "The options discussed."
+          },
+          "title": {
+            "type": "string",
+            "description": "Words for the situation."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The tooth (FDI number); none for a general topic.",
+            "minimum": 0
+          }
+        }
+      },
+      "VisitDiscussedOption": {
+        "type": "object",
+        "description": "One option discussed, in the patient's words.",
+        "required": [
+          "label",
+          "summary",
+          "looks_like",
+          "comfort",
+          "preferred"
+        ],
+        "properties": {
+          "comfort": {
+            "type": "string",
+            "description": "How it feels."
+          },
+          "from_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "\"From\" price in paise; only when the clinic shows prices."
+          },
+          "label": {
+            "type": "string",
+            "description": "Short name."
+          },
+          "looks_like": {
+            "type": "string",
+            "description": "How it looks afterwards."
+          },
+          "material": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The compared material."
+          },
+          "preferred": {
+            "type": "boolean",
+            "description": "The option the patient prefers."
+          },
+          "summary": {
+            "type": "string",
+            "description": "What is done."
+          }
+        }
+      },
       "VisitFollowUp": {
         "type": "object",
         "description": "The next follow-up.",
@@ -46933,6 +47011,13 @@
               "null"
             ],
             "description": "The clinic's phone in E.164, for \"Call us\"."
+          },
+          "discussed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitDiscussed"
+            },
+            "description": "\"Options we discussed\": only rows the doctor ticked for the patient. A price appears\nonly when the clinic shows prices."
           },
           "doctor_name": {
             "type": [

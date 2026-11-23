@@ -951,10 +951,10 @@ export function useSavePresentDiscussions(visitId: VisitId | undefined) {
   const { api, access } = useClinic();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (drafts: readonly { tooth: number; situation: string; options: { key: string; preferred: boolean }[] }[]) => {
+    mutationFn: async (drafts: readonly { tooth: number; situation: string; options: { key: string; preferred: boolean }[]; send?: boolean }[]) => {
       if (visitId === undefined) throw new Error("no visit");
       for (const d of drafts) {
-        await unwrap(api.savePresentDiscussion(visitId, { tooth: d.tooth, situation: d.situation, options: d.options, send_to_patient: false }));
+        await unwrap(api.savePresentDiscussion(visitId, { tooth: d.tooth, situation: d.situation, options: d.options, send_to_patient: d.send === true }));
       }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["present-discussions", access.org_id, visitId] }),

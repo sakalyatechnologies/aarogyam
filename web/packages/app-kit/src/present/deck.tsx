@@ -11,6 +11,8 @@ export interface DiscussionDraft {
   tooth: number;
   situation: string;
   options: { key: string; preferred: boolean }[];
+  /** The doctor's tick to send this row to the patient; off unless set. */
+  send?: boolean;
 }
 
 /** A scenario already saved for this visit. */
@@ -120,6 +122,7 @@ export function PinnedDeck({ onClose, onSave, saving = false, saved = [], labelO
   const [index, setIndex] = useState(0);
   const [pair, setPair] = useState<readonly string[]>([]);
   const [pen, setPen] = useState(false);
+  const [sends, setSends] = useState<Readonly<Record<string, boolean>>>({});
   const down = useRef<number | undefined>(undefined);
   const shell = useRef<HTMLDivElement>(null);
   useEffect(() => { shell.current?.focus(); }, []);
@@ -139,7 +142,7 @@ export function PinnedDeck({ onClose, onSave, saving = false, saved = [], labelO
     else if (mode === "deck" && event.key === "ArrowRight") go(1);
     else if (mode === "deck" && event.key === "ArrowLeft") go(-1);
   };
-  const drafts = draftsOf(list, pins.prefers);
+  const drafts = draftsOf(list, pins.prefers).map((d) => (sends[scenarioOf(d)] === true ? { ...d, send: true } : d));
   return (
     <div ref={shell} className="pd-shell" role="dialog" aria-modal="true" aria-label="Pinned options" tabIndex={-1} onKeyDown={onKey}>
       <header className="pd-bar">
@@ -161,6 +164,10 @@ export function PinnedDeck({ onClose, onSave, saving = false, saved = [], labelO
                 <fieldset key={id} className="pd-scenario" data-scenario={id}>
                   <legend>{`Tooth ${String(d.tooth)} · ${list.find((p) => scenarioOf(p) === id)?.title ?? d.situation}`}</legend>
                   <ul>{d.options.map((o) => <li key={o.key}>{labelOf(o.key)}</li>)}</ul>
+                  <label className="pd-send">
+                    <input type="checkbox" checked={sends[id] === true} onChange={(event) => { setSends({ ...sends, [id]: event.target.checked }); }} />
+                    {" Send to the patient"}
+                  </label>
                   <div className="ps-seg" role="group" aria-label={`Patient prefers, tooth ${String(d.tooth)}`}>
                     <button type="button" aria-pressed={pins.prefers[id] === undefined} onClick={() => { pins.setPrefers(id, undefined); }}>No choice yet</button>
                     {d.options.map((o) => (

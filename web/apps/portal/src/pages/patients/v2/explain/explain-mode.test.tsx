@@ -37,6 +37,8 @@ function patient() {
     phone = fixtures.patients.find((p) => p.id === patientId)?.phone ?? "";
     const asha = fixtures.memberships.find((m) => m.user_id === PEOPLE.asha && m.clinic_id === clinicId)?.id ?? "";
     fixtures.chartEntries = fixtures.chartEntries.filter((c) => c.patient_id !== patientId);
+    // Show patient opens the full Present on any visit; this X-ray-only mode is for a patient with none.
+    fixtures.visits = fixtures.visits.filter((v) => v.patient_id !== patientId);
     const chart = (tooth: number, finding: Fixtures["chartEntries"][number]["finding"]) => {
       fixtures.chartEntries.push({ id: `xp-${String(tooth)}`, clinic_id: clinicId, patient_id: patientId, tooth, finding, status: "current", recorded_by: asha, effective_at: NOW });
     };

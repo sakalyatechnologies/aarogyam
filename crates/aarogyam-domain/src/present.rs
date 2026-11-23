@@ -12,6 +12,10 @@ use crate::mouth::{MouthSnapshot, MouthTooth};
 
 const OPTIONS: &str = include_str!("../../../specialties/dental/present/options.json");
 const OUTCOMES: &str = include_str!("../../../specialties/dental/present/outcomes.json");
+const MATERIALS: &str = include_str!("../../../specialties/dental/present/materials.json");
+
+const CASE_IMPLANT: &str = include_str!("../../../specialties/dental/present/cases/implant.json");
+const CASE_WISDOM: &str = include_str!("../../../specialties/dental/present/cases/wisdom.json");
 
 /// A range of whole numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -115,6 +119,52 @@ pub struct Outcomes {
     pub outcomes: BTreeMap<String, OutcomeDef>,
 }
 
+/// One material as the data file writes it (slice 2c; the web reads the same file for the illustration).
+#[derive(Debug, Clone, Deserialize)]
+pub struct MaterialDef {
+    /// A seeded `vocabulary.json` material id.
+    pub key: String,
+    /// Short name.
+    pub label: String,
+    /// What it is.
+    pub summary: String,
+    /// How it looks.
+    pub looks_like: String,
+    /// Illustration only: `paint` (a material look), `translucency`, `opacity`, `metal`, `margin_line`.
+    pub look: BTreeMap<String, serde_json::Value>,
+    /// A key into `outcomes.json`; none means no usual figure.
+    #[serde(default)]
+    pub outcome: Option<String>,
+    /// Relative cost, 1 to 4 (a clinic may edit it); never a price.
+    pub cost_tier: u8,
+    /// Empty unless the clinic fills it.
+    #[serde(default)]
+    pub strength: String,
+    /// Empty unless the clinic fills it.
+    #[serde(default)]
+    pub best_for: String,
+}
+
+/// A group of materials compared on one tooth.
+#[derive(Debug, Clone, Deserialize)]
+pub struct MaterialGroup {
+    /// Heading, such as "Choose your cap".
+    pub title: String,
+    /// One plain sentence under the heading.
+    pub intro: String,
+    /// The overlay the illustration draws (`crown`, `implant`, `filled`).
+    pub overlay: String,
+    /// The materials compared.
+    pub materials: Vec<MaterialDef>,
+}
+
+/// `specialties/dental/present/materials.json`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Materials {
+    /// Group key to its materials.
+    pub groups: BTreeMap<String, MaterialGroup>,
+}
+
 fn parse<T: serde::de::DeserializeOwned>(source: &str) -> Option<T> {
     serde_json::from_str(source).ok()
 }
@@ -129,6 +179,58 @@ pub fn options() -> Option<&'static Options> {
 pub fn outcomes() -> Option<&'static Outcomes> {
     static CELL: OnceLock<Option<Outcomes>> = OnceLock::new();
     CELL.get_or_init(|| parse(OUTCOMES)).as_ref()
+}
+
+/// One step of a usual case.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CaseStep {
+    /// Stable key.
+    pub key: String,
+    /// Short name.
+    pub label: String,
+    /// What happens, in words.
+    pub words: String,
+    /// An art key from `art-map.json`.
+    pub art: String,
+    /// A typical time for the step.
+    #[serde(default)]
+    pub usual: Option<Finish>,
+}
+
+/// A usual case (`specialties/dental/present/cases/*.json`): general guidance, never about one patient.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Case {
+    /// Stable key.
+    pub key: String,
+    /// Heading.
+    pub title: String,
+    /// One line before the steps.
+    pub lead: String,
+    /// The steps in order.
+    pub steps: Vec<CaseStep>,
+}
+
+/// A usual case by key (`implant`, `wisdom`), compiled in.
+pub fn usual_case(key: &str) -> Option<&'static Case> {
+    static IMPLANT: OnceLock<Option<Case>> = OnceLock::new();
+    static WISDOM: OnceLock<Option<Case>> = OnceLock::new();
+    match key {
+        "implant" => IMPLANT.get_or_init(|| parse(CASE_IMPLANT)).as_ref(),
+        "wisdom" => WISDOM.get_or_init(|| parse(CASE_WISDOM)).as_ref(),
+        _ => None,
+    }
+}
+
+/// The implant case, compiled in.
+#[must_use]
+pub fn implant_case() -> Option<&'static Case> {
+    usual_case("implant")
+}
+
+/// The materials data, compiled in.
+pub fn materials() -> Option<&'static Materials> {
+    static CELL: OnceLock<Option<Materials>> = OnceLock::new();
+    CELL.get_or_init(|| parse(MATERIALS)).as_ref()
 }
 
 /// How long an option usually lasts, in the words of `outcomes.json`.

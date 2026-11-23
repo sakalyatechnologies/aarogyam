@@ -32,11 +32,12 @@ export type Overlay =
 export const MATERIAL_LOOKS: Record<string, string> = {
   porcelain: "g:porc", metal: "g:metal", gold: "g:gold", composite: "composite", amalgam: "g:amal",
   glass_ionomer: "glassIonomer", temporary: "temporary", gutta_percha: "g:gp", calcium_hydroxide: "calcium_hydroxide",
+  pfm: "g:porc", zirconia: "g:porc", layered_zirconia: "g:porc", emax: "g:porc",
   mta: "mta", titanium: "g:u_ti", zirconia_abutment: "g:u_zr", resin_sealant: "resin", gic_sealant: "glassIonomer",
 };
 /** Seeded material ids (vocabulary.json) to their look. Unknown or custom ids fall back. */
 const MATERIAL_ID_LOOK: Record<string, string> = {
-  zirconia: "porcelain", pfm: "porcelain", emax: "porcelain", ceramic: "porcelain", layered_zirconia: "porcelain",
+  zirconia: "zirconia", pfm: "pfm", emax: "emax", ceramic: "porcelain", layered_zirconia: "layered_zirconia",
   inlay_onlay: "porcelain", cast_metal: "metal", gold: "gold", composite: "composite", flowable_composite: "composite",
   composite_veneer: "composite", amalgam: "amalgam", glass_ionomer: "glass_ionomer", temporary: "temporary",
   gutta_percha: "gutta_percha", bioceramic_sealer: "gutta_percha", ah_plus_sealer: "gutta_percha",
@@ -78,7 +79,25 @@ function cariesLayers(d: string, clip: string, at: string | undefined, neutral: 
   ];
 }
 
-function crownLook(view: ViewName, paint: string): ScenePart {
+/** What tells the ceramics apart on a crown: a metal collar (PFM), an opaque body (zirconia), a see-through edge (layered zirconia, e.max). */
+function finishLayers(view: ViewName, material: string | undefined): ArtLayer[] {
+  const d = view === "front" ? "@crown" : view === "top" ? "@outline" : "@crownShell";
+  switch (material) {
+    case "pfm": return [L("pfmCollar", d, { s: "steel", w: 1.1, o: 0.85 })];
+    case "zirconia": return [L("zirconiaBody", d, { f: "white", o: 0.28 })];
+    case "layered_zirconia": return [L("zirconiaCore", d, { f: "white", o: 0.14 }), L("layeredEdge", d, { f: "tipTrans", o: 0.3 })];
+    case "emax": return [L("emaxGlass", d, { f: "translucent", o: 0.3 })];
+    default: return [];
+  }
+}
+
+function crownLook(view: ViewName, paint: string, material?: string): ScenePart {
+  const part = crownBase(view, paint);
+  const extra = finishLayers(view, material);
+  return extra.length === 0 ? part : { ...part, add: [...part.add, ...extra] };
+}
+
+function crownBase(view: ViewName, paint: string): ScenePart {
   if (view === "front") return { add: [L("crownCover", "@crown", { f: paint, above: "specular2" }), L("crownGloss", "@crown", { f: "g:gloss", o: 0.7 })], hide: ["grooveValley", "fissures", "buccalPit"] };
   if (view === "top") return { add: [L("crownCover", "@outline", { f: paint.replace("g:porc", "g:porc"), above: "enamel" }), L("fissuresSoft", "@grooves", { s: "shadow", w: 0.7, o: 0.3, c: "crown", above: "grooveValley2" }), L("crownGloss", "@outline", { f: "g:gloss", above: "glints" })], hide: ["fissures", "pits"] };
   return {
@@ -132,7 +151,7 @@ export function overlayPart(art: ToothArt, view: ViewName, ov: Overlay): ScenePa
     }
     case "crown":
     case "bridge_abutment":
-      return crownLook(view, materialPaint(ov.material, "porcelain"));
+      return crownLook(view, materialPaint(ov.material, "porcelain"), ov.material);
     case "veneer":
       return view === "front" ? { add: [L("veneer", "@crown", { f: materialPaint(ov.material, "porcelain"), o: 0.96, above: "specular2" }), L("veneerGloss", "@crown", { f: "g:gloss", o: 0.6 })] } : empty;
     case "root_canal":
@@ -151,15 +170,15 @@ export function overlayPart(art: ToothArt, view: ViewName, ov: Overlay): ScenePa
       const paint = materialPaint(ov.material, "porcelain");
       if (view === "section") return { hide: BODY, add: [...healedSection.slice(0, 1), ...fixtureLayers, ...healedSection.slice(2), L("abutment", "#abutment", { f: "g:u_ti", at: "abut" }), L("implantCrown", "@crown", { f: paint }), L("implantGloss", "@crown", { f: "g:gloss", o: 0.6 }), L("implantEdge", "@crown", { s: "shadow", w: 0.6, o: 0.45 })] };
       if (view === "front") {
-        const c = crownLook(view, paint);
+        const c = crownLook(view, paint, ov.material);
         return { hide: [...(c.hide ?? []), "rootGhost", "rootGhostEdge"], add: [...c.add, L("fixtureGhost", "#fixture", { f: "g:u_ti", o: 0.5, at: "implant", c: "belowGum", above: "gumMargin" })] };
       }
-      return crownLook(view, paint);
+      return crownLook(view, paint, ov.material);
     }
     case "bridge_pontic": {
       const paint = materialPaint(ov.material, "porcelain");
       if (view === "section") return { hide: BODY, add: [...healedSection, L("pontic", "@crown", { f: paint }), L("ponticGloss", "@crown", { f: "g:gloss", o: 0.6 }), L("ponticEdge", "@crown", { s: "shadow", w: 0.6, o: 0.45 })] };
-      const c = crownLook(view, paint);
+      const c = crownLook(view, paint, ov.material);
       return view === "front" ? { hide: [...(c.hide ?? []), "rootGhost", "rootGhostEdge"], add: c.add } : c;
     }
     case "missing":

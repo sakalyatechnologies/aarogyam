@@ -9,6 +9,8 @@ struct RegisterAndBook: View {
     let state: QuickRegisterState
     let searched: String
     let onRegistered: (String) -> Void
+    /// The button's words: Register and book, or Add patient when no booking follows.
+    var submit: String = RegisterAndBook.t("t7.newpt.submit")
     @State private var tried = false
     @Environment(\.skTheme) private var theme
 
@@ -32,7 +34,7 @@ struct RegisterAndBook: View {
             if let text = problemText {
                 Text(text).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(r.error.color)
             }
-            SkPillButton(Self.t("t7.newpt.submit"), wide: true, loading: state.saving) {
+            SkPillButton(submit, wide: true, loading: state.saving) {
                 tried = true
                 holder.register()
             }

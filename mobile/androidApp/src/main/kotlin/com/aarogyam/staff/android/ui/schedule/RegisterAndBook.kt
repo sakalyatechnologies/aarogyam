@@ -39,6 +39,7 @@ internal fun RegisterAndBook(
     holder: QuickRegisterStateHolder,
     searched: String,
     onRegistered: (String) -> Unit,
+    submitLabel: Int = R.string.sh_s_reg_submit,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     var tried by remember { mutableStateOf(false) }
@@ -69,7 +70,7 @@ internal fun RegisterAndBook(
         val problem = if (tried) holder.problem(state) else null
         val text = problem?.let { stringResource(it.text()) } ?: state.error?.let { stringResource(it.message()) }
         text?.let { Text(it, style = v7(12.5f), color = SkTheme.palette.error.color) }
-        SkPillButton(stringResource(R.string.sh_s_reg_submit), {
+        SkPillButton(stringResource(submitLabel), {
             tried = true
             holder.register()
         }, wide = true, loading = state.saving)

@@ -70,10 +70,13 @@ fun MainScreen(
     var barVisible by remember { mutableStateOf(true) }
     val hideOnScroll = remember { BarHider { barVisible = it } }
     val items = navModel.tabs.map { SkNavDestination(it.name, stringResource(it.label), Icons.of(it.icon)) }
+    var plusOpen by remember { mutableStateOf(false) }
+    val plus = PlusChoices.of(clinic.permissions)
     val action =
         when (navModel.action) {
             PrimaryAction.WalkIn -> {
-                SkNavAction(stringResource(R.string.v7_action_walk_in), Icons.of("plus"), onWalkIn)
+                val open = if (plus.size > 1) ({ plusOpen = true }) else onWalkIn
+                SkNavAction(stringResource(R.string.v7_action_walk_in), Icons.of("plus"), open)
             }
 
             PrimaryAction.AddExpense -> {
@@ -95,6 +98,7 @@ fun MainScreen(
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= RAIL_FROM
+        PlusMenu(plusOpen, plus, graph, clinic, nav, onWalkIn) { plusOpen = false }
         Row(Modifier.fillMaxSize()) {
             if (wide) SkNavRail(items, tab.name, select, action = action)
             Box(Modifier.weight(1f).nestedScroll(hideOnScroll)) {

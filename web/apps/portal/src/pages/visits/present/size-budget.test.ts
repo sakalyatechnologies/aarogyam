@@ -26,7 +26,7 @@ describe("Present size budget (present-studio-design §13)", () => {
     const r = presentBudget({ manifest, entry: "index.html", gz: gzOf({ "painted.js": 70, "blocks.js": 41 }), art });
     expect(r.failures).toEqual([
       "the Present route's own code is 46.0 KB gzipped, over 40 KB",
-      "the Present route with what it loads is 76.0 KB gzipped, over 52 KB",
+      "the Present route with what it loads is 76.0 KB gzipped, over 54 KB",
       "the painted style is 70.0 KB gzipped, over 65 KB",
     ]);
   });

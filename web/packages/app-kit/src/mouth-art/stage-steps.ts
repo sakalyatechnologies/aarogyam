@@ -20,7 +20,7 @@ export type StageModel = keyof typeof STAGE_STEPS;
 export const STAGE_MODELS: readonly StageModel[] = ["root_canal", "filling", "extraction", "wisdom_extraction", "crown", "scaling", "implant", "sealant"];
 
 /** Extra scenes that are not steps: the healed gap (also used for a missing tooth). */
-export const EXTRA_SCENES = { extraction: ["healed"], wisdom_extraction: ["healed"] } as const;
+export const EXTRA_SCENES = { extraction: ["healed"], wisdom_extraction: ["day1", "week1", "healed"] } as const;
 
 export const BRUSHING_BANDS = ["general_under_6", "general_6_12", "general_teen", "general_adult"] as const;
 export type BrushingBand = (typeof BRUSHING_BANDS)[number];

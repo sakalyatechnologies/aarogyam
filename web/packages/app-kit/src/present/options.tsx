@@ -2,11 +2,14 @@
 // (deep decay, a missing tooth, a wisdom tooth not fully out), from the server's studio layer. Every number
 // is general guidance ("usually 2-3 visits"), never a visit of this patient: no visit numbers, no dates and, in
 // this slice, no prices. Outcome words come from the server only. A card list or a side-by-side compare.
-import { createContext, useContext, useState, type ReactElement, type ReactNode } from "react";
+import { createContext, lazy, Suspense, useContext, useState, type ReactElement, type ReactNode } from "react";
 
 import type { PresentOption, PresentSituation, PresentStudio } from "@aarogyam/api-client";
 
 import { IllustrationBadge, RecordBadge } from "./blocks.js";
+
+// The usual-plan steps load on open, so the Show patient route stays within its size budget (§13).
+const CaseFor = lazy(() => import("./case.js").then((m) => ({ default: m.CaseForOption })));
 
 const StudioContext = createContext<PresentStudio | undefined>(undefined);
 
@@ -80,6 +83,7 @@ export function SituationOptions({ situation, titled = true }: { situation: Pres
                   <div key={r.id} data-row={r.id}><dt>{r.label}</dt><dd>{r.cell(o)}</dd></div>
                 ))}
               </dl>
+              <Suspense fallback={null}><CaseFor optionKey={o.key} situationKey={situation.key} /></Suspense>
               <IllustrationBadge>Illustration · general guidance</IllustrationBadge>
             </li>
           ))}

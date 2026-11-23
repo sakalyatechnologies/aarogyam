@@ -40,7 +40,9 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
   }, []);
   const [explaining, setExplaining] = useState(false);
   const navigate = useNavigate();
-  const presentId = can("clinical.read") ? visit.visit?.id : undefined;
+  // Show patient opens on the open visit, or else on the patient's latest visit, so it works from any patient page.
+  const latestVisit = visits.data?.items.reduce<(typeof visits.data.items)[number] | undefined>((a, v) => (a === undefined || v.started_at > a.started_at ? v : a), undefined);
+  const presentId = can("clinical.read") ? (visit.visit?.id ?? latestVisit?.id) : undefined;
   // warm Show patient: the mouth snapshot, then its route chunk and art, while the doctor charts (§1.12 speed)
   const mouth = useVisitMouth(presentId);
   useEffect(() => {

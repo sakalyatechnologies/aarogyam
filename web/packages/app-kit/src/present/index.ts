@@ -22,6 +22,7 @@ export { PaintedSlot } from "./painted-slot.js";
 export { StudioProvider, SituationOptions, ToothOptions, useStudio, situationsOf, visitsWords, finishWords } from "./options.js";
 export { Smile3dSlot } from "./smile3d-slot.js";
 export { smile3dAllowed, probePasses, SMILE3D_FALLBACK_LINE, type DeviceEnv } from "./smile3d-gate.js";
+export { MaterialChoice, ToothMaterials, materialGroupFor, materialScene } from "./materials.js";
 export { StorySlot } from "./story-slot.js";
 export { FaceSlot } from "./face-slot.js";
 export { SMILE_ZONE, inSmileZone } from "./smile-zone.js";

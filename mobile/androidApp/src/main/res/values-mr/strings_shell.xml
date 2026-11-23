@@ -82,6 +82,7 @@
     <string name="sh_v10_notif_generic">नवीन सूचना</string>
     <string name="sh_v10_notif_lab_overdue">लॅब अहवालाला उशीर</string>
     <string name="sh_v10_notif_payment_due">पेमेंट बाकी आहे</string>
+    <string name="sh_v10_notif_payment_collected">पेमेंट मिळाले</string>
     <string name="sh_v10_notif_recall_due">रुग्णाला परत बोलावण्याची वेळ</string>
     <string name="sh_v10_notif_plan_response">रुग्णाने त्यांच्या उपचार योजनेला उत्तर दिले</string>
     <string name="sh_v10_notif_stock_alert">साठा कमी होत आहे</string>

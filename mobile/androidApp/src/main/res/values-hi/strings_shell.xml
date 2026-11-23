@@ -85,6 +85,7 @@
     <string name="sh_v10_notif_generic">नई सूचना</string>
     <string name="sh_v10_notif_lab_overdue">लैब रिपोर्ट में देरी</string>
     <string name="sh_v10_notif_payment_due">भुगतान बाकी है</string>
+    <string name="sh_v10_notif_payment_collected">भुगतान मिल गया</string>
     <string name="sh_v10_notif_recall_due">मरीज़ को वापस बुलाने का समय</string>
     <string name="sh_v10_notif_plan_response">मरीज़ ने अपनी उपचार योजना पर जवाब दिया</string>
     <string name="sh_v10_notif_stock_alert">स्टॉक कम हो रहा है</string>

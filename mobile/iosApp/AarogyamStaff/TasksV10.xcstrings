@@ -186,6 +186,29 @@
         }
       }
     },
+    "v10.notif.payment_collected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Payment collected"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भुगतान मिल गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पेमेंट मिळाले"
+          }
+        }
+      }
+    },
     "v10.notif.payment_due": {
       "extractionState": "manual",
       "localizations": {

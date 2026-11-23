@@ -8214,6 +8214,29 @@
         }
       }
     },
+    "push.payment_collected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Payment collected for your patient"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपके मरीज़ का भुगतान मिल गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमच्या रुग्णाचे पेमेंट मिळाले"
+          }
+        }
+      }
+    },
     "push.payment_due": {
       "extractionState": "manual",
       "localizations": {

@@ -146,6 +146,10 @@ import type {
   MouthSnapshot,
   PresentSettings,
   PresentStudio,
+  PresentDiscussion,
+  PresentDiscussionList,
+  NewPresentDiscussion,
+  DiscussionInError,
   VisitStory,
   NewDentalTerm,
   NewPlan,
@@ -892,6 +896,12 @@ export interface ApiClient {
   getVisitMouth(id: VisitId, options?: RequestOptions): Promise<ApiResult<MouthSnapshot>>;
   /** Clinic host: the studio layer of Show patient, the usual options for each recorded situation (with prices only for `billing.read` when the clinic turned them on). Needs `clinical.read`; works while the visit is open. */
   getVisitPresent(id: VisitId, options?: RequestOptions): Promise<ApiResult<PresentStudio>>;
+  /** Clinic host: the visit's current "What we discussed" rows. Needs `clinical.read`; works while the visit is closed. */
+  listPresentDiscussions(id: VisitId, options?: RequestOptions): Promise<ApiResult<PresentDiscussionList>>;
+  /** Clinic host: saves what was discussed for one situation; it supersedes the current row for the tooth and situation. Needs `clinical.write`; 400 for an unknown key (braces and aligners until seeded), 409 when the visit is closed. */
+  savePresentDiscussion(id: VisitId, input: NewPresentDiscussion, options?: RequestOptions): Promise<ApiResult<PresentDiscussion>>;
+  /** Clinic host: marks a current discussion entered in error, with a reason. Needs `clinical.write`; 409 when the visit is closed. */
+  markPresentDiscussionInError(id: VisitId, discussionId: string, input: DiscussionInError, options?: RequestOptions): Promise<ApiResult<undefined>>;
   /** Clinic host: Show patient settings (price mapping, show prices). Needs `settings.manage`. */
   getPresentSettings(options?: RequestOptions): Promise<ApiResult<PresentSettings>>;
   /** Clinic host: replaces the price mapping and show-prices switch; 400 for an unknown key or code. Needs `settings.manage`. */

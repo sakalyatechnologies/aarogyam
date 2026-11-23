@@ -10,13 +10,13 @@ import { Brush, Moon, Sun } from "lucide-react";
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 
-import { apiErrorOf, visitId as parseVisitId, type ChartEntry, type MouthSnapshot, type NewChartEntry, type PatientId, type VisitId } from "@aarogyam/api-client";
+import { apiErrorOf, visitId as parseVisitId, type ChartEntry, type MouthSnapshot, type NewChartEntry, type PatientId, type PresentStudio, type VisitId } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
 import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import "@aarogyam/app-kit/mouth-view.css";
 import {
-  DEFAULT_STYLE, FaceSlot, HoldToExit, PRESENT_STYLES, PaintedSlot, Smile3dSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts,
+  DEFAULT_STYLE, FaceSlot, HoldToExit, PRESENT_STYLES, PaintedSlot, PinsProvider, Smile3dSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts, usePins,
   type Orientation, type PaintedView, type PresentStyleId, type ShadeKnob, type SwitcherOption,
 } from "@aarogyam/app-kit/present";
 import "@aarogyam/app-kit/hold-to-exit.css";
@@ -36,6 +36,7 @@ const load3d = () => import("@aarogyam/app-kit/real-teeth-3d");
 const XraysTab = lazy(() => import("./xrays-tab.js").then((m) => ({ default: m.XraysTab })));
 const OwnXraySlot = lazy(() => import("./own-xray.js").then((m) => ({ default: m.OwnXraySlot })));
 const StoryXray = lazy(() => import("./own-xray.js").then((m) => ({ default: m.StoryXray })));
+const PinnedBar = lazy(() => import("./pinned-bar.js").then((m) => ({ default: m.PinnedBar })));
 const BrushingPanel = lazy(() => import("@aarogyam/app-kit/present/brushing-panel").then((m) => ({ default: m.BrushingPanel })));
 type Tab = "teeth" | "xrays";
 const TABS: readonly Tab[] = ["teeth", "xrays"];
@@ -103,6 +104,7 @@ export function PresentPage() {
   if (mouth.data !== undefined) preloadArt(mouth.data);
   return (
     <StudioProvider studio={present.data}>
+    <PinsProvider>
     <div className="pm-shell mv-theme" data-mv-theme={theme} role="dialog" aria-modal="true" aria-label="Present mode">
       <header className="pm-bar">
         <div className="pm-who">
@@ -161,6 +163,9 @@ export function PresentPage() {
             How to brush
           </button>
         ) : null}
+        {tab === "teeth" && visitId !== undefined ? (
+          <PinnedGate visitId={visitId} studio={present.data} />
+        ) : null}
         <HoldToExit onExit={exit} />
       </header>
       <div className="pm-body" hidden={tab !== "teeth"}>
@@ -214,8 +219,16 @@ export function PresentPage() {
         </Suspense>
       ) : null}
     </div>
+    </PinsProvider>
     </StudioProvider>
   );
+}
+
+/** The Pinned chip: its code loads only once something is pinned. */
+function PinnedGate({ visitId, studio }: { visitId: VisitId; studio: PresentStudio | undefined }) {
+  const pins = usePins();
+  if (pins === undefined || pins.pins.length === 0) return null;
+  return <Suspense fallback={null}><PinnedBar visitId={visitId} studio={studio} /></Suspense>;
 }
 
 /** Light or dark: follows the system (prefers-color-scheme) until the doctor taps the toggle. */

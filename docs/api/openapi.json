@@ -20618,6 +20618,174 @@
         ]
       }
     },
+    "/api/v1/visits/{id}/present-discussions": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The visit's current \"What we discussed\" rows. Works while the visit is open or closed.",
+        "operationId": "listPresentDiscussions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscussionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such visit in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Saves what was discussed for one situation. It supersedes the current row for the same\nvisit, tooth and situation (append-only). 400 for an unknown situation, option or material,\nand for braces and aligners until they are seeded; 409 when the visit is closed.",
+        "operationId": "savePresentDiscussion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveDiscussionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Discussion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message says what"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit in this clinic or the caller's reach"
+          },
+          "409": {
+            "description": "The visit is closed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/present-discussions/{did}/entered-in-error": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a current discussion entered in error, with the reason. The history keeps the row.",
+        "operationId": "presentDiscussionInError",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "did",
+            "in": "path",
+            "description": "The discussion",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscussionInError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Marked"
+          },
+          "400": {
+            "description": "A bad reason"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit or current discussion in this clinic"
+          },
+          "409": {
+            "description": "The visit is closed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/visits/{id}/procedures": {
       "post": {
         "tags": [
@@ -26593,6 +26761,119 @@
           }
         },
         "additionalProperties": false
+      },
+      "DiscussedOptionBody": {
+        "type": "object",
+        "description": "One option discussed.",
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "from_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Frozen \"from\" price in paise; set by the server, ignored on input."
+          },
+          "key": {
+            "type": "string",
+            "description": "A key from the options data, such as `rct_crown`."
+          },
+          "material": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A material key, when one was compared."
+          },
+          "preferred": {
+            "type": "boolean",
+            "description": "The option the patient prefers; at most one."
+          }
+        }
+      },
+      "Discussion": {
+        "type": "object",
+        "description": "A saved discussion.",
+        "required": [
+          "id",
+          "situation",
+          "options",
+          "send_to_patient",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was saved."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscussedOptionBody"
+            },
+            "description": "The options discussed."
+          },
+          "send_to_patient": {
+            "type": "boolean",
+            "description": "The doctor's tick for the patient."
+          },
+          "situation": {
+            "type": "string",
+            "description": "The situation key."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The row this one replaced."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI tooth; absent for an example-arch topic.",
+            "minimum": 0
+          }
+        }
+      },
+      "DiscussionInError": {
+        "type": "object",
+        "description": "Why a discussion is wrong.",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "3 to 500 characters."
+          }
+        }
+      },
+      "DiscussionList": {
+        "type": "object",
+        "description": "The visit's current discussions.",
+        "required": [
+          "discussions"
+        ],
+        "properties": {
+          "discussions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Discussion"
+            },
+            "description": "Oldest first."
+          }
+        }
       },
       "DismissRecall": {
         "type": "object",
@@ -41375,6 +41656,39 @@
           "name": {
             "type": "string",
             "description": "One line of 1 to 120 characters."
+          }
+        }
+      },
+      "SaveDiscussionBody": {
+        "type": "object",
+        "description": "A discussion to save.",
+        "required": [
+          "situation",
+          "options"
+        ],
+        "properties": {
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscussedOptionBody"
+            },
+            "description": "The options discussed, 1 to 12."
+          },
+          "send_to_patient": {
+            "type": "boolean",
+            "description": "The doctor's tick: whether it may reach the patient (slice 2f sends it)."
+          },
+          "situation": {
+            "type": "string",
+            "description": "The situation or topic key, such as `deep_decay`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "FDI tooth; leave out for an example-arch topic."
           }
         }
       },

@@ -936,6 +936,31 @@ export function useVisitPresent(visitId: VisitId | undefined) {
   });
 }
 
+/** "What we discussed" for a visit (slice 2e): the current rows. */
+export function useVisitPresentDiscussions(visitId: VisitId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["present-discussions", access.org_id, visitId],
+    queryFn: ({ signal }) => (visitId === undefined ? Promise.reject(new Error("no visit")) : unwrap(api.listPresentDiscussions(visitId, { signal }))),
+    enabled: visitId !== undefined,
+  });
+}
+
+/** Saves what was discussed, one row per tooth and situation; each supersedes the one before. */
+export function useSavePresentDiscussions(visitId: VisitId | undefined) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (drafts: readonly { tooth: number; situation: string; options: { key: string; preferred: boolean }[] }[]) => {
+      if (visitId === undefined) throw new Error("no visit");
+      for (const d of drafts) {
+        await unwrap(api.savePresentDiscussion(visitId, { tooth: d.tooth, situation: d.situation, options: d.options, send_to_patient: false }));
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["present-discussions", access.org_id, visitId] }),
+  });
+}
+
 /** Present mode's mouth snapshot (design §1.12): the same JSON the patient's page shows. */
 export function useVisitMouth(visitId: VisitId | undefined) {
   const { api, access } = useClinic();

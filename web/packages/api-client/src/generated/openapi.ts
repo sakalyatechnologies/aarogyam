@@ -6425,6 +6425,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visits/{id}/present-discussions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The visit's current "What we discussed" rows. Works while the visit is open or closed. */
+        get: operations["listPresentDiscussions"];
+        put?: never;
+        /**
+         * Saves what was discussed for one situation. It supersedes the current row for the same
+         *     visit, tooth and situation (append-only). 400 for an unknown situation, option or material,
+         *     and for braces and aligners until they are seeded; 409 when the visit is closed.
+         */
+        post: operations["savePresentDiscussion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/visits/{id}/present-discussions/{did}/entered-in-error": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marks a current discussion entered in error, with the reason. The history keeps the row. */
+        post: operations["presentDiscussionInError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/visits/{id}/procedures": {
         parameters: {
             query?: never;
@@ -9005,6 +9044,50 @@ export interface components {
              *     so its session counts as a phone's, and a token already registered is kept.
              */
             token?: string | null;
+        };
+        /** @description One option discussed. */
+        DiscussedOptionBody: {
+            /**
+             * Format: int64
+             * @description Frozen "from" price in paise; set by the server, ignored on input.
+             */
+            from_paise?: number | null;
+            /** @description A key from the options data, such as `rct_crown`. */
+            key: string;
+            /** @description A material key, when one was compared. */
+            material?: string | null;
+            /** @description The option the patient prefers; at most one. */
+            preferred?: boolean;
+        };
+        /** @description A saved discussion. */
+        Discussion: {
+            /** @description When it was saved. */
+            created_at: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description The options discussed. */
+            options: components["schemas"]["DiscussedOptionBody"][];
+            /** @description The doctor's tick for the patient. */
+            send_to_patient: boolean;
+            /** @description The situation key. */
+            situation: string;
+            /** @description The row this one replaced. */
+            supersedes_id?: string | null;
+            /**
+             * Format: int32
+             * @description FDI tooth; absent for an example-arch topic.
+             */
+            tooth?: number | null;
+        };
+        /** @description Why a discussion is wrong. */
+        DiscussionInError: {
+            /** @description 3 to 500 characters. */
+            reason: string;
+        };
+        /** @description The visit's current discussions. */
+        DiscussionList: {
+            /** @description Oldest first. */
+            discussions: components["schemas"]["Discussion"][];
         };
         /** @description Why a follow-up is dismissed. */
         DismissRecall: {
@@ -15039,6 +15122,20 @@ export interface components {
             filter: components["schemas"]["AudienceFilterBody"];
             /** @description One line of 1 to 120 characters. */
             name: string;
+        };
+        /** @description A discussion to save. */
+        SaveDiscussionBody: {
+            /** @description The options discussed, 1 to 12. */
+            options: components["schemas"]["DiscussedOptionBody"][];
+            /** @description The doctor's tick: whether it may reach the patient (slice 2f sends it). */
+            send_to_patient?: boolean;
+            /** @description The situation or topic key, such as `deep_decay`. */
+            situation: string;
+            /**
+             * Format: int64
+             * @description FDI tooth; leave out for an example-arch topic.
+             */
+            tooth?: number | null;
         };
         /** @description An appointment after a booking or change. */
         SavedAppointment: {
@@ -38036,6 +38133,172 @@ export interface operations {
             };
             /** @description No such visit in this clinic or the caller's reach */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPresentDiscussions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscussionList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic or the caller's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    savePresentDiscussion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDiscussionBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Discussion"];
+                };
+            };
+            /** @description Invalid input; the message says what */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic or the caller's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The visit is closed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    presentDiscussionInError: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+                /** @description The discussion */
+                did: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscussionInError"];
+            };
+        };
+        responses: {
+            /** @description Marked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A bad reason */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit or current discussion in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The visit is closed */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

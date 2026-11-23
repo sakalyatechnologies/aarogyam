@@ -43,12 +43,13 @@ async function showChart(shell: HTMLElement) {
 }
 
 /** A Sunrise visit; its mouth is the Aarav fixture, with 55's depth left out and a current caries entry on 55. */
-function present(withXray = false) {
+function present(withXray = false, open = false) {
   let path = "";
   const backend = fakeApi((fixtures: Fixtures) => {
     const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
     const visit = fixtures.visits.find((v) => v.clinic_id === sunrise?.id && v.status === "open") ?? fixtures.visits.find((v) => v.clinic_id === sunrise?.id);
     path = `/visits/${visit?.id ?? ""}/mouth`;
+    if (open && visit !== undefined) visit.status = "open";
     const asha = fixtures.memberships.find((m) => m.user_id === PEOPLE.asha && m.clinic_id === sunrise?.id)?.id ?? "";
     if (withXray) fixtures.attachments.push({ id: "pm-xray", clinic_id: sunrise?.id ?? "", patient_id: visit?.patient_id ?? "", visit_id: visit?.id ?? null, kind: "xray", mime_type: "image/png", size_bytes: 70, sha256: "0".repeat(64), label: "OPG", created_at: "2026-10-03T05:00:00Z", url: XRAY_PNG });
     fixtures.chartEntries.push({ id: "pm-55", clinic_id: sunrise?.id ?? "", patient_id: visit?.patient_id ?? "", tooth: 55, surface: "O", finding: "caries", status: "current", recorded_by: asha, effective_at: "2026-10-03T05:00:00Z" });
@@ -290,6 +291,26 @@ describe("Present mode (§1.12)", () => {
     expect(within(block).getByText("Usual options · general guidance")).toBeTruthy();
     expect(block.querySelectorAll("[data-option]").length).toBe(5);
     expect(block.textContent).not.toMatch(/₹|Visit \d/);
+  });
+
+  it("pins options, opens the deck and saves What we discussed with the patient's preference", async () => {
+    const { path, backend, wrap } = present(false, true);
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    fireEvent.click(await within(shell).findByRole("button", { name: /Card \d+ of \d+: Usual options · Decay close to the nerve/ }, WAIT));
+    const block = await within(shell).findByRole("region", { name: /Usual options: Decay close to the nerve/ }, WAIT);
+    expect(within(shell).queryByRole("button", { name: /^Pinned/ })).toBeNull();
+    fireEvent.click(within(block).getByRole("button", { name: "Pin Root canal and cap" }));
+    fireEvent.click(within(block).getByRole("button", { name: "Pin Remove the tooth only" }));
+    fireEvent.click(await within(shell).findByRole("button", { name: "Pinned (2)" }, WAIT));
+    const deck = await screen.findByRole("dialog", { name: "Pinned options" }, WAIT);
+    fireEvent.click(within(deck).getByRole("tab", { name: "What we discussed" }));
+    fireEvent.click(within(deck).getByRole("button", { name: /Patient prefers Root canal and cap/ }));
+    fireEvent.click(within(deck).getByRole("button", { name: "Save" }));
+    const saved = await within(deck).findByRole("region", { name: "Saved for this visit" }, WAIT);
+    expect(saved.textContent).toContain("Root canal and cap (patient prefers)");
+    expect(saved.textContent).toContain("Remove the tooth only");
+    expect(location.href).not.toMatch(/pin|prefer|deep_decay/);
   });
 });
 

@@ -64,6 +64,7 @@ import { EXPENSE_NAMES, buildAnalytics, daysInclusive, wireExpense, type FakeExp
 import { changeRecurring, isRefusal, newRecurring, recordDue, resumeRecurring, wireRecurring, type FakeRecurring } from "./recurring-expenses.js";
 import { DASHBOARD_CATALOGUE, builtInLayout, validateLayout } from "./dashboard-layout.js";
 import { clinicTerms, type FakeDentalTerm } from "./dental-terms.js";
+import { discussionProblem, type FakeDiscussion } from "./present-discussions.js";
 import { fakePresentStudio, presentSettingsProblem, withPrices } from "./present.js";
 import { ANGULATIONS, ERUPTIONS, FIXTURE_MOUTH, mergeCondition, wireCondition as wireToothCondition, wireDetails, wireEruption } from "./tooth-details.js";
 import { MAX_GRANT_MS, MIN_GRANT_MS, grantStatus, wireGrant, type FakeSupportGrant } from "./support-grants.js";
@@ -584,6 +585,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
     /** Show patient settings by clinic (slice 2b). */
     const presentByClinic = new Map<string, S.PresentSettings>();
+    /** "What we discussed" rows, oldest first (append-only). */
+    const discussions: FakeDiscussion[] = [];
 
     const isCaller = (value: Caller | Outcome): value is Caller => "clinic" in value;
 
@@ -5563,6 +5566,76 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             .filter((p) => p.clinic_id === caller.clinic.id && p.active && p.code != null)
             .map((p) => ({ code: p.code ?? "", paise: p.price_paise }));
           return reply(withPrices(studio, settings, list));
+        }),
+
+      listPresentDiscussions: (id, opts) =>
+        respond(S.presentDiscussionList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!state.visits.some((v) => v.id === id && v.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          return reply({ discussions: discussions.filter((d) => d.visit_id === id && d.status === "current").map((d) => d.row) });
+        }),
+
+      savePresentDiscussion: (id, input, opts) =>
+        respond(S.presentDiscussion, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const visit = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (visit === undefined) {
+            return notFound;
+          }
+          if (visit.status === "closed") {
+            return refuse(409, "conflict", "That visit is already closed.");
+          }
+          const problem = discussionProblem(input);
+          if (problem !== undefined) {
+            return invalid("options", problem);
+          }
+          const before = discussions.find((d) => d.visit_id === id && d.status === "current" && (d.row.tooth ?? 0) === (input.tooth ?? 0) && d.row.situation === input.situation);
+          if (before !== undefined) before.status = "superseded";
+          const row: S.PresentDiscussion = {
+            id: fakeUuid(random, clock()),
+            ...(input.tooth == null ? {} : { tooth: input.tooth }),
+            situation: input.situation,
+            // a caller's price is never kept: the server freezes it
+            options: input.options.map((o) => ({ key: o.key, ...(o.material == null ? {} : { material: o.material }), preferred: o.preferred === true })),
+            send_to_patient: input.send_to_patient === true,
+            ...(before === undefined ? {} : { supersedes_id: before.row.id }),
+            created_at: new Date(clock()).toISOString(),
+          };
+          discussions.push({ clinic_id: caller.clinic.id, visit_id: id, status: "current", row });
+          return { ok: true, status: 201, body: row };
+        }),
+
+      markPresentDiscussionInError: (id, discussionId, input, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const visit = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (visit === undefined) {
+            return notFound;
+          }
+          if (visit.status === "closed") {
+            return refuse(409, "conflict", "That visit is already closed.");
+          }
+          const reason = input.reason.trim();
+          if (reason.length < 3 || reason.length > 500) {
+            return invalid("reason", "reason must be 3 to 500 characters");
+          }
+          const found = discussions.find((d) => d.visit_id === id && d.row.id === discussionId && d.status === "current");
+          if (found === undefined) {
+            return notFound;
+          }
+          found.status = "entered_in_error";
+          return { ok: true, body: undefined };
         }),
 
       getPresentSettings: (opts) =>

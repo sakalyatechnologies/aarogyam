@@ -3353,6 +3353,7 @@
     "payment_allocations.patient_id",
     "payments.patient_id",
     "prescriptions.patient_id",
+    "present_discussions.patient_id",
     "procedures.patient_id",
     "promo_redemptions.patient_id",
     "queue_tokens.patient_id",
@@ -4635,6 +4636,7 @@
     "lab_orders.encounter_id",
     "observations.encounter_id",
     "prescriptions.encounter_id",
+    "present_discussions.encounter_id",
     "procedures.encounter_id",
     "share_links.encounter_id",
     "specialty_records.encounter_id",
@@ -6179,6 +6181,87 @@
    ],
    "sensitivity": "health",
    "offline": "read_write"
+  },
+  {
+   "name": "present_discussions",
+   "domain": "clinical",
+   "purpose": "What the doctor and patient discussed in Show patient: the usual options for one situation, and the one the patient prefers.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "finalizable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0753). Append-only: a save supersedes the current row for the visit, tooth and situation (one current, a partial unique index); a wrong row is marked entered in error with a reason; app.freeze_when() allows only current -> superseded or entered_in_error. Kept on erasure like specialty_records (only its change history is scrubbed).",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "encounters",
+     "note": "the visit; the key includes patient_id"
+    },
+    {
+     "name": "tooth",
+     "type": "smallint",
+     "nullable": true,
+     "ref": null,
+     "note": "FDI 11-48, 51-85; null for an example-arch topic"
+    },
+    {
+     "name": "situation",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "a key of specialties/dental/present/options.json, such as deep_decay"
+    },
+    {
+     "name": "options",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "[{key, material?, preferred, from_paise?}] up to 4 KB; keys validated in the domain against the data files (braces and aligner keys are refused until seeded); from_paise is frozen when saved with send_to_patient and prices on"
+    },
+    {
+     "name": "send_to_patient",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "the doctor's tick: it reaches the patient only when true (slice 2f)"
+    },
+    {
+     "name": "status",
+     "type": "record_status",
+     "nullable": false,
+     "ref": null,
+     "note": "current, superseded, entered_in_error"
+    },
+    {
+     "name": "supersedes_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "present_discussions",
+     "note": "the row this one replaced"
+    },
+    {
+     "name": "error_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "present_discussions.supersedes_id"
+   ],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "dental_terms",

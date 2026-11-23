@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.present_discussions set status = 'superseded'\n         where id = $1 and status = 'current'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "feaee8cff19914e132d200de390f2589c0496ce2b3800110b9a8de64e85fdf4d"
+}

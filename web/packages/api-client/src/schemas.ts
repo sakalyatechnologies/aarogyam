@@ -2441,6 +2441,30 @@ export const presentSettings = z.object({
   price_map: z.record(z.string(), z.string()),
 }) satisfies z.ZodType<C.PresentSettingsBody>;
 export type PresentSettings = z.output<typeof presentSettings>;
+/** One option discussed, in `GET/POST /api/v1/visits/{id}/present-discussions`. */
+export const discussedOption = z.object({
+  key: z.string(),
+  material: z.string().nullable().exactOptional(),
+  preferred: z.boolean().exactOptional(),
+  from_paise: z.number().int().nullable().exactOptional(),
+}) satisfies z.ZodType<C.DiscussedOptionBody>;
+/** What the doctor and patient discussed for one situation (Show patient, "What we discussed"). */
+export const presentDiscussion = z.object({
+  id: z.string(),
+  tooth: z.number().int().nullable().exactOptional(),
+  situation: z.string(),
+  options: z.array(discussedOption),
+  send_to_patient: z.boolean(),
+  supersedes_id: z.string().nullable().exactOptional(),
+  created_at: timestamp,
+}) satisfies z.ZodType<C.Discussion>;
+export const presentDiscussionList = z.object({ discussions: z.array(presentDiscussion) }) satisfies z.ZodType<C.DiscussionList>;
+export type PresentDiscussion = z.output<typeof presentDiscussion>;
+export type PresentDiscussionList = z.output<typeof presentDiscussionList>;
+/** Body of `POST /api/v1/visits/{id}/present-discussions`. */
+export type NewPresentDiscussion = C.SaveDiscussionBody;
+/** Body of `POST .../present-discussions/{did}/entered-in-error`. */
+export type DiscussionInError = C.DiscussionInError;
 export type PresentPrice = z.output<typeof presentPrice>;
 export type PresentStudio = z.output<typeof presentStudio>;
 export type PresentSituation = z.output<typeof presentSituation>;

@@ -8,6 +8,7 @@ import type { PresentOption, PresentSituation, PresentStudio } from "@aarogyam/a
 
 import { formatRupees } from "../format.js";
 import { IllustrationBadge, RecordBadge } from "./blocks.js";
+import { PinButton } from "./pins.js";
 
 // The usual-plan steps load on open, so the Show patient route stays within its size budget (§13).
 const CaseFor = lazy(() => import("./case.js").then((m) => ({ default: m.CaseForOption })));
@@ -61,7 +62,7 @@ function costWords(studio: PresentStudio | undefined, o: PresentOption): string 
     : `From ${formatRupees(price.from_paise)} · this clinic's price list · final cost after examination`;
 }
 
-const ROWS: readonly { id: string; label: string; cell: (o: PresentOption) => ReactNode }[] = [
+export const OPTION_ROWS: readonly { id: string; label: string; cell: (o: PresentOption) => ReactNode }[] = [
   { id: "what", label: "What is done", cell: (o) => o.summary },
   { id: "visits", label: "Visits", cell: visitsWords },
   { id: "finish", label: "Time to finish", cell: finishWords },
@@ -77,7 +78,7 @@ export function SituationOptions({ situation, titled = true }: { situation: Pres
   // The Prices tap exists only when the server sent prices; nothing shows a rupee amount before it.
   const canPrice = studio?.prices !== undefined;
   const [priced, setPriced] = useState(false);
-  const rows = canPrice && priced ? [...ROWS, { id: "cost", label: "Cost", cell: (o: PresentOption) => costWords(studio, o) }] : ROWS;
+  const rows = canPrice && priced ? [...OPTION_ROWS, { id: "cost", label: "Cost", cell: (o: PresentOption) => costWords(studio, o) }] : OPTION_ROWS;
   return (
     <section className="ps-opts" aria-label={`Usual options: ${situation.title}`} data-situation={`${situation.key}:${String(situation.tooth)}`}>
       {titled ? <h3 className="ps-h">{situation.title}<RecordBadge /></h3> : null}
@@ -93,6 +94,7 @@ export function SituationOptions({ situation, titled = true }: { situation: Pres
           {situation.options.map((o) => (
             <li key={o.key} className="ps-opt" data-option={o.key}>
               <b className="ps-opt-h">{o.label}</b>
+              <PinButton situation={situation} option={o} />
               <dl className="ps-opt-facts">
                 {rows.map((r) => (
                   <div key={r.id} data-row={r.id}><dt>{r.label}</dt><dd>{r.cell(o)}</dd></div>
@@ -109,7 +111,7 @@ export function SituationOptions({ situation, titled = true }: { situation: Pres
             <thead>
               <tr>
                 <td />
-                {situation.options.map((o) => <th key={o.key} scope="col" data-option={o.key}>{o.label}</th>)}
+                {situation.options.map((o) => <th key={o.key} scope="col" data-option={o.key}>{o.label}<PinButton situation={situation} option={o} /></th>)}
               </tr>
             </thead>
             <tbody>

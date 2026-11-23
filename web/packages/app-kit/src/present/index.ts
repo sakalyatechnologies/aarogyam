@@ -19,7 +19,8 @@ export { CompareSlider, sharedBox, type CompareSliderProps } from "./compare-sli
 export { ToothSheet, sheetContent, type ToothSheetProps, type SheetContent, type StateSpec } from "./tooth-sheet.js";
 export { XrayStyle, XrayView, XrayEdges, XRAY_EDGES, type XrayProps } from "./xray.js";
 export { PaintedSlot } from "./painted-slot.js";
-export { StudioProvider, SituationOptions, ToothOptions, useStudio, situationsOf, visitsWords, finishWords } from "./options.js";
+export { PinsProvider, PinButton, usePins, pinOf, scenarioOf, type Pinned, type PinsApi } from "./pins.js";
+export { StudioProvider, SituationOptions, ToothOptions, useStudio, situationsOf, visitsWords, finishWords, OPTION_ROWS } from "./options.js";
 export { Smile3dSlot } from "./smile3d-slot.js";
 export { smile3dAllowed, probePasses, SMILE3D_FALLBACK_LINE, type DeviceEnv } from "./smile3d-gate.js";
 export { MaterialChoice, ToothMaterials, materialGroupFor, materialScene } from "./materials.js";

@@ -2208,6 +2208,14 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
     .await;
     let (_, file) = upload(app, ALPHA, &owner, &patient, b"%PDF-1.7\n%%EOF", &[]).await;
     let attachment = file["id"].as_str().unwrap().to_owned();
+    let discussed = json!({ "tooth": 36, "situation": "deep_decay",
+        "options": [{ "key": "extract" }, { "key": "rct_crown", "preferred": true }] });
+    let discussion = create(
+        app,
+        &format!("/api/v1/visits/{visit}/present-discussions"),
+        discussed.clone(),
+    )
+    .await;
     let sections = json!({ "sections": { "plan": "x" } });
     let reason = json!({ "reason": "wrong patient" });
     let term = create(
@@ -2397,6 +2405,21 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
         ),
         (Method::GET, format!("/api/v1/visits/{visit}/mouth"), None),
         (Method::GET, format!("/api/v1/visits/{visit}/present"), None),
+        (
+            Method::GET,
+            format!("/api/v1/visits/{visit}/present-discussions"),
+            None,
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/visits/{visit}/present-discussions"),
+            Some(discussed),
+        ),
+        (
+            Method::POST,
+            format!("/api/v1/visits/{visit}/present-discussions/{discussion}/entered-in-error"),
+            Some(json!({ "reason": "Wrong tooth" })),
+        ),
         (Method::GET, format!("/api/v1/visits/{visit}/story"), None),
         (
             Method::GET,

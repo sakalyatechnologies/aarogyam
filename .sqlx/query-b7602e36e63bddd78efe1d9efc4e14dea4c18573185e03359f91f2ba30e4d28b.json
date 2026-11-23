@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select present_style, history_view\n           from aarogyam.member_ui_prefs where membership_id = $1",
+  "query": "select present_style, history_view, language\n           from aarogyam.member_ui_prefs where membership_id = $1",
   "describe": {
     "columns": [
       {
@@ -24,6 +24,17 @@
             "name": "history_view"
           }
         }
+      },
+      {
+        "ordinal": 2,
+        "name": "language",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_ui_prefs",
+            "name": "language"
+          }
+        }
       }
     ],
     "parameters": {
@@ -33,8 +44,9 @@
     },
     "nullable": [
       true,
+      true,
       true
     ]
   },
-  "hash": "9d7011d4b480b59b271acc871c307150728e7a30f8a3e3928626c2cdd1ceb7c6"
+  "hash": "b7602e36e63bddd78efe1d9efc4e14dea4c18573185e03359f91f2ba30e4d28b"
 }

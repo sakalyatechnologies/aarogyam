@@ -113,6 +113,8 @@ val apiModels =
         "PhoneMatch",
         "FamilyMember",
         "FamilyLink",
+        "FamilyLinkChange",
+        "MyStats",
         "FamilyList",
         "NewFamilyLink",
         "CollectSummary",
@@ -321,6 +323,7 @@ val apiModels =
         "UsageBody",
         // Show patient studio layer (slice 2a): usual options for the recorded situations.
         "PresentStudio",
+        "PresentPrice",
         "PresentSituation",
         "PresentOption",
         "PresentRange",

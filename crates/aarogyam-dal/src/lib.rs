@@ -59,6 +59,7 @@ pub mod merge;
 pub mod message_templates;
 pub mod message_worker;
 pub mod messages;
+pub mod my_stats;
 pub mod notices;
 pub mod notifications;
 pub mod outbox;

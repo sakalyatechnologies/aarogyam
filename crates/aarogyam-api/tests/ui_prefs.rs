@@ -33,7 +33,7 @@ async fn ui_prefs_default_save_and_stay_per_member() {
     assert_eq!(status, StatusCode::OK, "{first}");
     assert_eq!(
         first,
-        json!({ "present_style": "story", "history_view": "page" })
+        json!({ "present_style": "story", "history_view": "page", "language": null })
     );
 
     let (status, saved) = put(&app, ALPHA, &owner, json!({ "present_style": "xray" })).await;
@@ -43,12 +43,25 @@ async fn ui_prefs_default_save_and_stay_per_member() {
     let (_, saved) = put(&app, ALPHA, &owner, json!({ "history_view": "popup" })).await;
     assert_eq!(
         saved,
-        json!({ "present_style": "xray", "history_view": "popup" })
+        json!({ "present_style": "xray", "history_view": "popup", "language": null })
     );
     let (_, read) = get(&app, ALPHA, &owner).await;
     assert_eq!(read, saved);
 
+    // Language: set, kept by a PUT without it, cleared by an explicit null.
+    let (_, saved) = put(&app, ALPHA, &owner, json!({ "language": "hi" })).await;
+    assert_eq!(saved["language"], "hi");
+    let (_, saved) = put(&app, ALPHA, &owner, json!({ "present_style": "xray" })).await;
+    assert_eq!(saved["language"], "hi");
+    let (_, saved) = put(&app, ALPHA, &owner, json!({ "language": null })).await;
+    assert_eq!(saved["language"], Value::Null);
+    let (_, saved) = put(&app, ALPHA, &owner, json!({ "language": "mr" })).await;
+    assert_eq!(saved["language"], "mr");
+    let (_, saved) = put(&app, ALPHA, &owner, json!({ "language": null })).await;
+    assert_eq!(saved["language"], Value::Null);
+
     for bad in [
+        json!({ "language": "fr" }),
         json!({ "present_style": "nope" }),
         json!({ "history_view": "x" }),
     ] {

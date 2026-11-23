@@ -22,6 +22,22 @@ pub struct UiPrefs {
     pub present_style: &'static str,
     /// The history view.
     pub history_view: &'static str,
+    /// The app language; `None` means the device default.
+    pub language: Option<&'static str>,
+}
+
+/// The app languages.
+pub const LANGUAGES: [&str; 3] = ["en", "hi", "mr"];
+
+/// What a save does to the language.
+#[derive(Debug, Clone, Copy)]
+pub enum LanguageChange<'a> {
+    /// Leave it as it is.
+    Keep,
+    /// Clear it (device default).
+    Clear,
+    /// Set it.
+    Set(&'a str),
 }
 
 fn known(options: &'static [&'static str], value: Option<&str>) -> &'static str {
@@ -35,6 +51,10 @@ impl From<dal::UiPrefsRow> for UiPrefs {
         Self {
             present_style: known(&PRESENT_STYLES, row.present_style.as_deref()),
             history_view: known(&HISTORY_VIEWS, row.history_view.as_deref()),
+            language: row
+                .language
+                .as_deref()
+                .and_then(|v| LANGUAGES.iter().find(|o| **o == v).copied()),
         }
     }
 }
@@ -76,6 +96,7 @@ pub async fn save(
     request_id: Option<Uuid>,
     present_style: Option<&str>,
     history_view: Option<&str>,
+    language: LanguageChange<'_>,
 ) -> Result<UiPrefs, AppError> {
     actor.require(Permission::ClinicalRead)?;
     if present_style.is_some_and(|v| !PRESENT_STYLES.contains(&v)) {
@@ -84,11 +105,28 @@ pub async fn save(
     if history_view.is_some_and(|v| !HISTORY_VIEWS.contains(&v)) {
         return Err(AppError::invalid("history_view", "unknown view"));
     }
+    if let LanguageChange::Set(v) = language
+        && !LANGUAGES.contains(&v)
+    {
+        return Err(AppError::invalid("language", "unknown language"));
+    }
+    let (set_language, language) = match language {
+        LanguageChange::Keep => (false, None),
+        LanguageChange::Clear => (true, None),
+        LanguageChange::Set(v) => (true, Some(v)),
+    };
     let member = own_member(actor).ok_or(AppError::Denied(Denied::NotAMember))?;
     db.scoped(&staff_scope(actor, request_id), async |tx| {
-        Ok(dal::save(tx.conn(), member, present_style, history_view)
-            .await?
-            .into())
+        Ok(dal::save(
+            tx.conn(),
+            member,
+            present_style,
+            history_view,
+            set_language,
+            language,
+        )
+        .await?
+        .into())
     })
     .await
 }

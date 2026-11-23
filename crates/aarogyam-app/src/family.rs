@@ -137,6 +137,47 @@ pub async fn add(
     .await
 }
 
+/// Changes a link's relation and/or contact flag (the inverse link follows).
+///
+/// # Errors
+/// [`AppError::NotFound`] when the patient or the link isn't in this clinic (or the patient is
+/// out of reach).
+pub async fn update(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    patient_id: PatientId,
+    relation_id: PatientRelationId,
+    relation: Option<Relation>,
+    is_primary_contact: Option<bool>,
+) -> Result<RelationView, AppError> {
+    actor.require(Permission::PatientsWrite)?;
+    let reach = actor.reach(Permission::PatientsRead).member();
+    db.scoped(&scope(actor, request_id), async |tx| {
+        require_patient(tx, patient_id, actor.reach(Permission::PatientsWrite)).await?;
+        let found = dal::update_pair(
+            tx.conn(),
+            patient_id.uuid(),
+            relation_id.uuid(),
+            relation.map(Relation::as_str),
+            relation.map(|r| r.inverse().as_str()),
+            is_primary_contact,
+        )
+        .await?;
+        if !found {
+            return Err(AppError::NotFound("family link"));
+        }
+        let rows = dal::list(tx.conn(), patient_id.uuid(), reach)
+            .await?
+            .ok_or(AppError::NotFound("patient"))?;
+        rows.into_iter()
+            .find(|row| row.id == relation_id.uuid())
+            .ok_or(AppError::NotFound("family link"))
+            .and_then(view)
+    })
+    .await
+}
+
 /// Removes a link and its inverse.
 ///
 /// # Errors

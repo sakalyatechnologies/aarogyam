@@ -111,6 +111,44 @@ pub async fn delete_pair(
     Ok(removed > 0)
 }
 
+/// Changes the link `id` of `patient_id`: the relation (the inverse link follows with the
+/// inverse relation) and/or the contact flag. False when there is no such link.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn update_pair(
+    conn: &mut PgConnection,
+    patient_id: Uuid,
+    id: Uuid,
+    relation: Option<&str>,
+    inverse: Option<&str>,
+    is_primary_contact: Option<bool>,
+) -> Result<bool, DbError> {
+    let updated = sqlx::query_scalar!(
+        r#"with changed as (
+             update aarogyam.patient_relations
+             set relation = coalesce($3, relation),
+                 is_primary_contact = coalesce($5, is_primary_contact)
+             where id = $2 and patient_id = $1
+             returning related_patient_id
+           ), inverse as (
+             update aarogyam.patient_relations r
+             set relation = coalesce($4, r.relation)
+             from changed c
+             where r.patient_id = c.related_patient_id and r.related_patient_id = $1
+           )
+           select count(*) as "updated!" from changed"#,
+        patient_id,
+        id,
+        relation,
+        inverse,
+        is_primary_contact
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(updated > 0)
+}
+
 /// A relative of a matched patient.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GroupRow {

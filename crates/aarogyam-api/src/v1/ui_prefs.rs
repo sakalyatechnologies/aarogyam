@@ -18,6 +18,8 @@ pub struct UiPrefs {
     pub present_style: String,
     /// The history view: `page` (default), `popup` or `story`.
     pub history_view: String,
+    /// The app language: `en`, `hi` or `mr`; null means the device default.
+    pub language: Option<String>,
 }
 
 impl From<app::UiPrefs> for UiPrefs {
@@ -25,6 +27,7 @@ impl From<app::UiPrefs> for UiPrefs {
         Self {
             present_style: prefs.present_style.to_owned(),
             history_view: prefs.history_view.to_owned(),
+            language: prefs.language.map(str::to_owned),
         }
     }
 }
@@ -41,6 +44,29 @@ pub struct NewUiPrefs {
     #[serde(default)]
     #[schema(required = false)]
     pub history_view: Option<String>,
+    /// The app language (`en`, `hi`, `mr`); absent keeps it, null clears it (device default);
+    /// an unknown one is a 400.
+    #[serde(default)]
+    #[schema(required = false, value_type = Option<String>)]
+    pub language: LanguageField,
+}
+
+/// What a PUT does to the language: absent keeps it, null clears it, a string sets it.
+#[derive(Debug, Default)]
+pub enum LanguageField {
+    /// Field absent.
+    #[default]
+    Keep,
+    /// Explicit null.
+    Clear,
+    /// A language code.
+    Set(String),
+}
+
+impl<'de> Deserialize<'de> for LanguageField {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(Option::<String>::deserialize(deserializer)?.map_or(Self::Clear, Self::Set))
+    }
 }
 
 /// The caller's saved screen choices in this clinic.
@@ -90,6 +116,11 @@ pub(crate) async fn save_prefs(
         request.request_id,
         body.present_style.as_deref(),
         body.history_view.as_deref(),
+        match &body.language {
+            LanguageField::Keep => app::LanguageChange::Keep,
+            LanguageField::Clear => app::LanguageChange::Clear,
+            LanguageField::Set(v) => app::LanguageChange::Set(v),
+        },
     )
     .await?;
     Ok(Json(prefs.into()))

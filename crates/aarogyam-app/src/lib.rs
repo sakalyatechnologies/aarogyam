@@ -54,6 +54,7 @@ pub mod message_templates;
 pub mod messaging;
 pub mod mouth;
 pub mod moved;
+pub mod my_stats;
 pub mod notices;
 pub mod notifications;
 pub mod onboarding;

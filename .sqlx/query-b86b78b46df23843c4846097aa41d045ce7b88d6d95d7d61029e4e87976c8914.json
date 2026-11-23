@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with changed as (\n             update aarogyam.patient_relations\n             set relation = coalesce($3, relation),\n                 is_primary_contact = coalesce($5, is_primary_contact)\n             where id = $2 and patient_id = $1\n             returning related_patient_id\n           ), inverse as (\n             update aarogyam.patient_relations r\n             set relation = coalesce($4, r.relation)\n             from changed c\n             where r.patient_id = c.related_patient_id and r.related_patient_id = $1\n           )\n           select count(*) as \"updated!\" from changed",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "updated!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b86b78b46df23843c4846097aa41d045ce7b88d6d95d7d61029e4e87976c8914"
+}

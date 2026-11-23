@@ -3582,6 +3582,67 @@
         ]
       }
     },
+    "/api/v1/drugs/{id}/alternatives": {
+      "get": {
+        "tags": [
+          "prescriptions"
+        ],
+        "summary": "Medicines with the same generic name, strength and form as one, by brand.",
+        "operationId": "drugAlternatives",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The medicine",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "path",
+            "description": "Most results, 1 to 50 (default 20).",
+            "required": true,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Drug"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks prescriptions.issue"
+          },
+          "404": {
+            "description": "No such medicine"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/events": {
       "get": {
         "tags": [
@@ -8346,6 +8407,54 @@
         ]
       }
     },
+    "/api/v1/me/stats": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The caller's own figures for a day; zeros for a member who is not a doctor.",
+        "operationId": "getMyStats",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "path",
+            "description": "A clinic day, `YYYY-MM-DD`; today in the clinic's time zone by default.",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyStats"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad date"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/ui-prefs": {
       "get": {
         "tags": [
@@ -11612,6 +11721,71 @@
         "responses": {
           "204": {
             "description": "Removed, with its inverse"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such link in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Changes a family link's relation or contact flag (its inverse follows).",
+        "operationId": "updateFamilyLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "link_id",
+            "in": "path",
+            "description": "The link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FamilyLinkChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown relation"
           },
           "401": {
             "description": "Not signed in"
@@ -27190,6 +27364,27 @@
           }
         }
       },
+      "FamilyLinkChange": {
+        "type": "object",
+        "description": "What to change on a family link; a field left out stays as it was.",
+        "properties": {
+          "is_primary_contact": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether the relative is this patient's contact person."
+          },
+          "relation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the relative is to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling`\nor `other`. The inverse link changes with it."
+          }
+        },
+        "additionalProperties": false
+      },
       "FamilyList": {
         "type": "object",
         "description": "A patient's relatives.",
@@ -32643,6 +32838,45 @@
           }
         }
       },
+      "MyStats": {
+        "type": "object",
+        "description": "The caller's own day.",
+        "required": [
+          "date",
+          "patients_seen",
+          "procedures_done",
+          "prescriptions_issued"
+        ],
+        "properties": {
+          "collected_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Paise received that day on invoices of the caller's visits; left out without\nbilling.read."
+          },
+          "date": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "patients_seen": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Visits finished that day."
+          },
+          "prescriptions_issued": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Prescriptions issued."
+          },
+          "procedures_done": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Procedures done."
+          }
+        }
+      },
       "MyTasks": {
         "type": "object",
         "description": "A person's tasks for a day.",
@@ -34273,6 +34507,13 @@
               "null"
             ],
             "description": "The history view; an unknown one is a 400."
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The app language (`en`, `hi`, `mr`); absent keeps it, null clears it (device default);\nan unknown one is a 400."
           },
           "present_style": {
             "type": [
@@ -45425,6 +45666,13 @@
           "history_view": {
             "type": "string",
             "description": "The history view: `page` (default), `popup` or `story`."
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The app language: `en`, `hi` or `mr`; null means the device default."
           },
           "present_style": {
             "type": "string",

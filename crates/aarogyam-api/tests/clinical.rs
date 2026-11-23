@@ -2496,6 +2496,7 @@ async fn every_clinical_route_is_checked() {
                 || path.ends_with("/quick-picks")
                 || path.ends_with("/me/message-prefs")
                 || path.ends_with("/me/ui-prefs")
+                || path.ends_with("/me/stats")
                 || (path.ends_with("/attachments") && method == "post");
             if clinical && !skipped {
                 documented.push(format!("{} {}", method.to_uppercase(), template(path)));

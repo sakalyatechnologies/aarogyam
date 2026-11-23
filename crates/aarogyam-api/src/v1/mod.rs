@@ -47,6 +47,7 @@ pub(crate) mod message_templates;
 pub(crate) mod messages;
 pub(crate) mod meta;
 pub(crate) mod mouth;
+pub(crate) mod my_stats;
 pub(crate) mod notices;
 pub(crate) mod notifications;
 pub(crate) mod onboarding;
@@ -312,7 +313,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
         .route("/patients/{id}/family", get(family::list).post(family::add))
-        .route("/patients/{id}/family/{link_id}", delete(family::remove))
+        .route(
+            "/patients/{id}/family/{link_id}",
+            delete(family::remove).patch(family::update),
+        )
         .route(
             "/patients/{id}/photo",
             get(patient_photos::get)
@@ -437,6 +441,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/me/ui-prefs",
             get(ui_prefs::get_prefs).put(ui_prefs::save_prefs),
         )
+        .route("/me/stats", get(my_stats::get_stats))
         .route("/visits/{id}/notes", post(visits::create_note))
         .route("/notes/{id}", patch(visits::edit_note))
         .route("/notes/{id}/sign", post(visits::sign_note))
@@ -871,6 +876,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/recalls/{id}/done", post(recalls::done))
         .route("/recalls/{id}/dismiss", post(recalls::dismiss))
         .route("/drugs/search", post(prescriptions::search_drugs))
+        .route(
+            "/drugs/{id}/alternatives",
+            get(prescriptions::drug_alternatives),
+        )
         .route(
             "/patients/{id}/prescriptions",
             get(prescriptions::for_patient).post(prescriptions::create),

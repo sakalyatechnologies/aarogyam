@@ -137,6 +137,40 @@ pub async fn search_drugs(
     .await
 }
 
+/// Other medicines with the same generic name, strength and form.
+///
+/// # Errors
+/// [`AppError::Denied`] without `prescriptions.issue`; [`AppError::NotFound`] for an unknown drug.
+pub async fn drug_alternatives(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    drug_id: DrugId,
+    limit: i64,
+) -> Result<Vec<DrugView>, AppError> {
+    actor.require(Permission::PrescriptionsIssue)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let rows = dal::drug_alternatives(tx.conn(), drug_id.uuid(), limit.clamp(1, 50))
+            .await?
+            .ok_or(AppError::NotFound("drug"))?;
+        Ok(rows
+            .into_iter()
+            .map(|row| DrugView {
+                id: DrugId::from_uuid(row.id),
+                generic_name: row.generic_name,
+                brand_name: row.brand_name,
+                strength: row.strength,
+                form: row.form,
+                default_dose: row.default_dose,
+                default_frequency: row.default_frequency,
+                default_timing: row.default_timing,
+                default_duration_days: row.default_duration_days,
+            })
+            .collect())
+    })
+    .await
+}
+
 // ------------------------------------------------------------------ prescriptions
 
 /// A medicine as received: from the catalogue (whose values fill what is left out) or free

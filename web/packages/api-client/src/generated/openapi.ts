@@ -1173,6 +1173,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/drugs/{id}/alternatives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Medicines with the same generic name, strength and form as one, by brand. */
+        get: operations["drugAlternatives"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/events": {
         parameters: {
             query?: never;
@@ -2729,6 +2746,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's own figures for a day; zeros for a member who is not a doctor. */
+        get: operations["getMyStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/ui-prefs": {
         parameters: {
             query?: never;
@@ -3698,7 +3732,8 @@ export interface paths {
         delete: operations["removeFamilyLink"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Changes a family link's relation or contact flag (its inverse follows). */
+        patch: operations["updateFamilyLink"];
         trace?: never;
     };
     "/api/v1/patients/{id}/history": {
@@ -9298,6 +9333,16 @@ export interface components {
              */
             relation: string;
         };
+        /** @description What to change on a family link; a field left out stays as it was. */
+        FamilyLinkChange: {
+            /** @description Whether the relative is this patient's contact person. */
+            is_primary_contact?: boolean | null;
+            /**
+             * @description What the relative is to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling`
+             *     or `other`. The inverse link changes with it.
+             */
+            relation?: string | null;
+        };
         /** @description A patient's relatives. */
         FamilyList: {
             /** @description The relatives, by name. */
@@ -11552,6 +11597,32 @@ export interface components {
             /** @description Most recently used first. */
             items: components["schemas"]["MySession"][];
         };
+        /** @description The caller's own day. */
+        MyStats: {
+            /**
+             * Format: int64
+             * @description Paise received that day on invoices of the caller's visits; left out without
+             *     billing.read.
+             */
+            collected_paise?: number | null;
+            /** @description The clinic day, `YYYY-MM-DD`. */
+            date: string;
+            /**
+             * Format: int64
+             * @description Visits finished that day.
+             */
+            patients_seen: number;
+            /**
+             * Format: int64
+             * @description Prescriptions issued.
+             */
+            prescriptions_issued: number;
+            /**
+             * Format: int64
+             * @description Procedures done.
+             */
+            procedures_done: number;
+        };
         /** @description A person's tasks for a day. */
         MyTasks: {
             /** @description The clinic day, `YYYY-MM-DD`. */
@@ -12204,6 +12275,11 @@ export interface components {
         NewUiPrefs: {
             /** @description The history view; an unknown one is a 400. */
             history_view?: string | null;
+            /**
+             * @description The app language (`en`, `hi`, `mr`); absent keeps it, null clears it (device default);
+             *     an unknown one is a 400.
+             */
+            language?: string | null;
             /** @description The Show patient style; an unknown one is a 400. */
             present_style?: string | null;
         };
@@ -16791,6 +16867,8 @@ export interface components {
         UiPrefs: {
             /** @description The history view: `page` (default), `popup` or `story`. */
             history_view: string;
+            /** @description The app language: `en`, `hi` or `mr`; null means the device default. */
+            language?: string | null;
             /** @description The Show patient style: `story` (default), `painted`, `xray`, `smile3d` or `face`. */
             present_style: string;
         };
@@ -21000,6 +21078,51 @@ export interface operations {
             };
             /** @description The role lacks prescriptions.issue */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    drugAlternatives: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The medicine */
+                id: string;
+                /** @description Most results, 1 to 50 (default 20). */
+                limit: number | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drug"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks prescriptions.issue */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such medicine */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -25769,6 +25892,49 @@ export interface operations {
             };
         };
     };
+    getMyStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A clinic day, `YYYY-MM-DD`; today in the clinic's time zone by default. */
+                date: string | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyStats"];
+                };
+            };
+            /** @description A bad date */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getUiPrefs: {
         parameters: {
             query?: never;
@@ -28868,6 +29034,62 @@ export interface operations {
         responses: {
             /** @description Removed, with its inverse */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such link in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateFamilyLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description The link */
+                link_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FamilyLinkChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FamilyLink"];
+                };
+            };
+            /** @description Unknown relation */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

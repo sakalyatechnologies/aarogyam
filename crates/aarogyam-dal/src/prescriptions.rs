@@ -72,6 +72,45 @@ pub async fn search_drugs(
     Ok(rows)
 }
 
+/// Other active medicines with the same generic name, strength and form as drug `id`, by brand;
+/// `None` when there is no such drug.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn drug_alternatives(
+    conn: &mut PgConnection,
+    id: Uuid,
+    limit: i64,
+) -> Result<Option<Vec<DrugRow>>, DbError> {
+    let known = sqlx::query_scalar!(
+        r#"select exists (select 1 from aarogyam.drug_catalog where id = $1) as "found!""#,
+        id
+    )
+    .fetch_one(&mut *conn)
+    .await?;
+    if !known {
+        return Ok(None);
+    }
+    let rows = sqlx::query_as!(
+        DrugRow,
+        r#"select d.id, d.generic_name, d.brand_name, d.strength, d.form, d.default_dose,
+                  d.default_frequency, d.default_timing, d.default_duration_days,
+                  d.allergy_classes
+           from aarogyam.drug_catalog d
+           join aarogyam.drug_catalog s
+             on lower(s.generic_name) = lower(d.generic_name)
+            and lower(s.strength) = lower(d.strength) and lower(s.form) = lower(d.form)
+           where s.id = $1 and d.id <> s.id and d.active
+           order by d.brand_name nulls last, d.id
+           limit $2"#,
+        id,
+        limit
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(Some(rows))
+}
+
 /// Medicines by id.
 ///
 /// # Errors

@@ -12,7 +12,9 @@ export type PageMessage =
   | { type: "done"; bytes: number }
   | { type: "failed"; reason: FailReason }
   | { type: "exit" }
-  | { type: "add_depth"; tooth: number };
+  | { type: "add_depth"; tooth: number }
+  /** The doctor tapped "Make default"; the app saves it, the page never calls the API. */
+  | { type: "make_default"; style: "story" | "painted" | "smile3d" | "face" };
 
 /** Short codes only: never patient data (rule 6). */
 export type FailReason = "bad_story" | "unsupported_version" | "no_encoder" | "cancelled" | "encode_failed" | "busy";

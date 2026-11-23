@@ -16,7 +16,7 @@ import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import "@aarogyam/app-kit/mouth-view.css";
 import {
-  DEFAULT_STYLE, HoldToExit, PRESENT_STYLES, PaintedSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts,
+  DEFAULT_STYLE, FaceSlot, HoldToExit, PRESENT_STYLES, PaintedSlot, Smile3dSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts,
   type Orientation, type PaintedView, type PresentStyleId, type ShadeKnob, type SwitcherOption,
 } from "@aarogyam/app-kit/present";
 import "@aarogyam/app-kit/hold-to-exit.css";
@@ -184,6 +184,8 @@ export function PresentPage() {
                 <Suspense fallback={<p role="status" className="pm-wait">Loading the X-ray…</p>}>
                   <OwnXraySlot model={model} patientId={patientId} visitId={visitId} load3d={load3d} />
                 </Suspense>
+              ) : view === "face" ? (slot) => (
+                <FaceSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} />
               ) : view === "story" ? (slot) => (
                 <StorySlot
                   model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d}
@@ -191,6 +193,8 @@ export function PresentPage() {
                     <Suspense fallback={<p role="status" className="pm-wait">Loading the X-ray…</p>}><StoryXray patientId={patientId} visitId={visitId} /></Suspense>
                   ) : undefined}
                 />
+              ) : view === "smile3d" ? (slot) => (
+                <Smile3dSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} toothSheet />
               ) : (slot) => (
                 <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} toothSheet />
               )}

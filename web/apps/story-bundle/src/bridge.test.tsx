@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 
 import type { Renderable, EncodeOptions } from "@aarogyam/app-kit/story-video";
 
+import { fakePresentStudio } from "@aarogyam/api-client/fake";
+
 import fixture from "../../../../specialties/dental/fixtures/mouth-aarav.json" with { type: "json" };
 import { installBridge, type AarogyamApi } from "./bridge.js";
 import { BUNDLE_VERSION, detectChannel, post, type PageMessage } from "./channel.js";
@@ -95,6 +97,38 @@ describe("window.aarogyam", () => {
     expect(await tooth(21)).toBeTruthy();
     expect([...document.querySelectorAll(".ps-dot")].map((d) => Number(d.getAttribute("data-tooth")))).toEqual([55, 21, 65, 75]);
     expect(screen.getByRole("button", { name: "How to brush" })).toBeTruthy();
+  });
+
+  it("an old call opens the painted map with a style switcher and no Make default", async () => {
+    act(() => { api.present(aarav()); });
+    await tooth(21);
+    expect(screen.getByRole("button", { name: /Painted smile/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Make default" })).toBeNull();
+  });
+
+  it("style and present open the story cards with the studio options", async () => {
+    const present = fakePresentStudio(aarav());
+    expect(present.situations.length).toBeGreaterThan(0);
+    act(() => { api.present(aarav(), { style: "story", present }); });
+    await waitFor(() => { expect(document.querySelector("[data-present-style=story]")).not.toBeNull(); });
+  });
+
+  it("present alone defaults to story; a bad present payload falls back to the painted map without crashing", async () => {
+    act(() => { api.present(aarav(), { present: fakePresentStudio(aarav()) }); });
+    await waitFor(() => { expect(document.querySelector("[data-present-style=story]")).not.toBeNull(); });
+    act(() => { api.present(aarav(), { present: { situations: "nope" } }); });
+    expect(await tooth(21)).toBeTruthy();
+    act(() => { api.present(aarav(), { present: "{not json" }); });
+    expect(await tooth(21)).toBeTruthy();
+  });
+
+  it("Make default posts the chosen style to the app", async () => {
+    act(() => { api.present(aarav()); });
+    await tooth(21);
+    act(() => { fireEvent.click(screen.getByRole("button", { name: /Painted smile/ })); });
+    act(() => { fireEvent.click(screen.getByRole("option", { name: /Story cards/ })); });
+    act(() => { fireEvent.click(screen.getByRole("button", { name: "Make default" })); });
+    expect(last()).toEqual({ type: "make_default", style: "story" });
   });
 
   it("present takes the JSON as text too, and shows a notice for something that isn't a mouth", () => {

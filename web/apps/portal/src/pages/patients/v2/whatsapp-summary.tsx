@@ -250,7 +250,7 @@ function PreviewText({ text }: { text: string }) {
     ),
   );
   return (
-    <p data-testid="message-preview" style={{ whiteSpace: "pre-wrap", fontSize: 12, margin: "8px 0", padding: 8, borderRadius: 8, background: "var(--surface-2, #f5f5f4)" }}>
+    <p data-testid="message-preview" style={{ whiteSpace: "pre-wrap", textAlign: "left", fontSize: 14, lineHeight: 1.5, margin: "8px 0", padding: 12, borderRadius: 8, background: "var(--surface-2, #f5f5f4)" }}>
       {parts}
     </p>
   );

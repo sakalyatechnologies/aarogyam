@@ -2,6 +2,10 @@ package com.aarogyam.staff.android.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
@@ -15,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
@@ -22,6 +27,7 @@ import com.aarogyam.staff.android.ui.patient.openPatient
 import com.aarogyam.staff.android.ui.schedule.BookFlow
 import com.aarogyam.staff.android.ui.schedule.RegisterAndBook
 import com.aarogyam.staff.clinic.ClinicContext
+import com.sakalya.mobile.design.Spacing
 import com.sakalya.mobile.designcompose.SkModalSheet
 
 /** What the bar's "+" can open: walk-in always, add patient only with `patients.write`, booking with `appointments.write`. */
@@ -36,7 +42,10 @@ object PlusChoices {
         }
 }
 
-/** The "+" menu, plus the sheets its choices open. Anchored at the bottom end, where the bar's action sits. */
+/**
+ * The "+" menu, plus the sheets its choices open. It opens beside the action: just above the bottom bar's end on a
+ * phone, beside the rail's action on a wide screen ([wide]).
+ */
 @Composable
 fun PlusMenu(
     open: Boolean,
@@ -46,18 +55,28 @@ fun PlusMenu(
     nav: NavController,
     onWalkIn: () -> Unit,
     onDismiss: () -> Unit,
+    wide: Boolean = false,
 ) {
     var sheet by rememberSaveable { mutableStateOf<PlusChoice?>(null) }
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
-        DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
-            choices.forEach { choice ->
-                DropdownMenuItem(
-                    text = { Text(stringResource(choice.label())) },
-                    onClick = {
-                        onDismiss()
-                        if (choice == PlusChoice.WalkIn) onWalkIn() else sheet = choice
-                    },
-                )
+    val edge =
+        if (wide) {
+            Modifier.fillMaxSize().statusBarsPadding().padding(start = RAIL_WIDTH.dp, top = ACTION_INSET.dp)
+        } else {
+            Modifier.fillMaxSize().navigationBarsPadding().padding(end = Spacing.ML.dp, bottom = ACTION_INSET.dp)
+        }
+    Box(edge, contentAlignment = if (wide) Alignment.TopStart else Alignment.BottomEnd) {
+        // A zero-size anchor at the action: the menu drops from it, or rises above it when there is no room below.
+        Box(Modifier.size(0.dp)) {
+            DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
+                choices.forEach { choice ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(choice.label())) },
+                        onClick = {
+                            onDismiss()
+                            if (choice == PlusChoice.WalkIn) onWalkIn() else sheet = choice
+                        },
+                    )
+                }
             }
         }
     }
@@ -87,3 +106,6 @@ private fun PlusChoice.label(): Int =
         PlusChoice.AddPatient -> R.string.v7_plus_add_patient
         PlusChoice.Book -> R.string.sh_s_book_title
     }
+
+private const val RAIL_WIDTH = 80
+private const val ACTION_INSET = 72

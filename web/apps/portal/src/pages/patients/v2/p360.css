@@ -118,7 +118,7 @@
 .p360-cele { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 16px; background: rgba(10, 20, 16, .4); backdrop-filter: blur(3px); }
 .p360-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .p360-confetti span { position: absolute; left: 50%; top: 38%; width: 8px; height: 12px; border-radius: 2px; animation: p360-confetti 1.4s ease-out forwards; }
-.p360-cele-card { position: relative; width: 100%; max-width: 440px; max-height: calc(100vh - 32px); overflow-y: auto; border-radius: 32px; background: var(--surface); color: var(--ink); padding: 24px; text-align: center; box-shadow: 0 30px 80px rgba(0, 0, 0, .35); animation: p360-pop .5s cubic-bezier(.34, 1.56, .64, 1) both; }
+.p360-cele-card { position: relative; width: 100%; max-width: 680px; max-height: calc(100vh - 32px); overflow-y: auto; border-radius: 32px; background: var(--surface); color: var(--ink); padding: 24px; text-align: center; box-shadow: 0 30px 80px rgba(0, 0, 0, .35); animation: p360-pop .5s cubic-bezier(.34, 1.56, .64, 1) both; }
 .p360-cele-icon { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto; border-radius: 50%; background: var(--brand); color: var(--on-brand); }
 .p360-cele-icon svg { width: 28px; height: 28px; }
 .p360-cele-card h2 { margin: 16px 0 4px; font-size: 24px; font-weight: 600; letter-spacing: -.5px; }

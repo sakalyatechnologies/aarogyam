@@ -76,8 +76,10 @@ export const PRESENT_ROUTE_BYTES = 40 * KB;
 /**
  * Everything the Present route loads beyond the portal shell. It was 44.3 KB before slice 1a (MouthView,
  * the tooth art kit and the chart prefs); the §13 40 KB covers the route's own code, checked above.
+ * 54 KB since slices 2a-3b (23 Nov 2026): the options studio and the five style entry points; their
+ * heavy parts (three.js, the 3D meshes, materials and usual plans) still load only when opened.
  */
-export const PRESENT_ROUTE_ALL_BYTES = 52 * KB;
+export const PRESENT_ROUTE_ALL_BYTES = 54 * KB;
 /** The painted style: its code (15 KB) and the front atlas (50 KB), in one chunk. */
 export const PAINTED_BYTES = 65 * KB;
 /** Everything Show patient prefetches for the painted style. */

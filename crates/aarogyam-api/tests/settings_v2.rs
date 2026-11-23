@@ -958,8 +958,15 @@ async fn arrivals_the_queue_and_bills_tell_staff_with_a_link() {
     assert_eq!(waiting["href"], "/queue");
     assert_eq!(waiting["queue_token"]["id"], token.to_string());
     assert!(waiting["queue_token"]["number"].is_number());
-    // The reminder job finds nothing left to write.
-    let later = OffsetDateTime::now_utc() + Duration::minutes(20);
+    // The reminder job finds nothing left to write. Twenty minutes on, but never past the end of
+    // the clinic's day (India time): the day-end close would otherwise take the token off the queue.
+    let now = OffsetDateTime::now_utc();
+    let ist = UtcOffset::from_hms(5, 30, 0).unwrap();
+    let day_end = now
+        .to_offset(ist)
+        .replace_time(Time::from_hms(23, 59, 0).unwrap())
+        .to_offset(UtcOffset::UTC);
+    let later = (now + Duration::minutes(20)).min(day_end.max(now));
     assert_eq!(flag_alerts(&app.api_db(), later).await.unwrap().waiting, 0);
 
     // The doctor sends them in: `send_in`, and the waiting alert is handled.

@@ -1,0 +1,14 @@
+{
+  "$comment": "The usual cleaning (scaling) case for Show patient, on the example arch (docs/plans/present-studio-design.md section 8.5, slice 2d-4). General guidance, never about this patient: no visit numbers, no dates, no prices. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "reviewed_by": "pending",
+  "key": "scaling",
+  "title": "How a deep clean is usually done",
+  "lead": "Usually one visit. This is an example mouth, not yours.",
+  "steps": [
+    { "key": "scale", "label": "Remove the tartar", "words": "Hardened tartar is cleaned off the teeth and just under the gum edge.", "art": "scene:scaling.calculus" },
+    { "key": "polish", "label": "Polish", "words": "The teeth are polished smooth so less builds up again.", "art": "scene:scaling.clean" },
+    { "key": "recheck", "label": "A fortnight later", "words": "The gum is usually calmer and less swollen. Brushing and flossing keep it that way.", "art": "scene:scaling.clean", "usual": { "min": 2, "max": 2, "unit": "weeks" } }
+  ]
+}

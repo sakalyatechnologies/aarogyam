@@ -5147,6 +5147,27 @@ export interface paths {
         patch: operations["updateClinicSetup"];
         trace?: never;
     };
+    "/api/v1/settings/present": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The clinic's Show patient settings: the price mapping and whether prices may be shown. */
+        get: operations["getPresentSettings"];
+        /**
+         * Replaces the Show patient price mapping and show-prices switch. 400 on an unknown key
+         *     (not a seeded procedure or material), an unknown or inactive price code, or an unknown field.
+         */
+        put: operations["updatePresentSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/staff-ops": {
         parameters: {
             query?: never;
@@ -13831,6 +13852,16 @@ export interface components {
             /** @description Usual visits. */
             visits: components["schemas"]["PresentRange"];
         };
+        /** @description A "from" price for one option. */
+        PresentPrice: {
+            /**
+             * Format: int64
+             * @description Sum of the clinic's mapped price items, in paise.
+             */
+            from_paise: number;
+            /** @description The option's key. */
+            option_key: string;
+        };
         /** @description A range of whole numbers. */
         PresentRange: {
             /**
@@ -13843,6 +13874,15 @@ export interface components {
              * @description Fewest.
              */
             min: number;
+        };
+        /** @description The clinic's Show patient settings. */
+        PresentSettingsBody: {
+            /** @description `"<procedure>[:<material>]"` to a price item code. */
+            price_map?: {
+                [key: string]: string;
+            };
+            /** @description Whether prices may be shown behind the doctor's Prices tap. */
+            show_prices?: boolean;
         };
         /** @description A recorded situation on one tooth. */
         PresentSituation: {
@@ -13860,6 +13900,11 @@ export interface components {
         };
         /** @description The studio layer of a visit. */
         PresentStudio: {
+            /**
+             * @description "From" prices; present only for a member with `billing.read` when the clinic turned
+             *     prices on. An option with an unmapped part has no entry: show "Ask the front desk".
+             */
+            prices?: components["schemas"]["PresentPrice"][] | null;
             /** @description The recorded situations, by tooth, each with its usual options. */
             situations: components["schemas"]["PresentSituation"][];
         };
@@ -33960,6 +34005,83 @@ export interface operations {
             };
             /** @description Not a clinic, or not a member of it */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPresentSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresentSettingsBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updatePresentSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresentSettingsBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresentSettingsBody"];
+                };
+            };
+            /** @description Invalid input; the message names the key */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -64,7 +64,7 @@ import { EXPENSE_NAMES, buildAnalytics, daysInclusive, wireExpense, type FakeExp
 import { changeRecurring, isRefusal, newRecurring, recordDue, resumeRecurring, wireRecurring, type FakeRecurring } from "./recurring-expenses.js";
 import { DASHBOARD_CATALOGUE, builtInLayout, validateLayout } from "./dashboard-layout.js";
 import { clinicTerms, type FakeDentalTerm } from "./dental-terms.js";
-import { fakePresentStudio } from "./present.js";
+import { fakePresentStudio, presentSettingsProblem, withPrices } from "./present.js";
 import { ANGULATIONS, ERUPTIONS, FIXTURE_MOUTH, mergeCondition, wireCondition as wireToothCondition, wireDetails, wireEruption } from "./tooth-details.js";
 import { MAX_GRANT_MS, MIN_GRANT_MS, grantStatus, wireGrant, type FakeSupportGrant } from "./support-grants.js";
 import {
@@ -581,6 +581,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       }
       return { user, clinic, membership };
     }
+
+    /** Show patient settings by clinic (slice 2b). */
+    const presentByClinic = new Map<string, S.PresentSettings>();
 
     const isCaller = (value: Caller | Outcome): value is Caller => "clinic" in value;
 
@@ -5551,7 +5554,39 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!state.visits.some((v) => v.id === id && v.clinic_id === caller.clinic.id)) {
             return notFound;
           }
-          return reply(fakePresentStudio(FIXTURE_MOUTH));
+          const studio = fakePresentStudio(FIXTURE_MOUTH);
+          const settings = presentByClinic.get(caller.clinic.id);
+          if (settings?.show_prices !== true || !hasPermission(caller.membership.role.permissions, "billing.read")) {
+            return reply(studio);
+          }
+          const list = state.priceItems
+            .filter((p) => p.clinic_id === caller.clinic.id && p.active && p.code != null)
+            .map((p) => ({ code: p.code ?? "", paise: p.price_paise }));
+          return reply(withPrices(studio, settings, list));
+        }),
+
+      getPresentSettings: (opts) =>
+        respond(S.presentSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(presentByClinic.get(caller.clinic.id) ?? { show_prices: false, price_map: {} });
+        }),
+
+      updatePresentSettings: (settings, opts) =>
+        respond(S.presentSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const codes = state.priceItems.filter((p) => p.clinic_id === caller.clinic.id && p.active && p.code != null).map((p) => p.code ?? "");
+          const problem = presentSettingsProblem(settings, codes);
+          if (problem !== undefined) {
+            return invalid("price_map", problem);
+          }
+          presentByClinic.set(caller.clinic.id, settings);
+          return reply(settings);
         }),
 
       getVisitStory: (id, opts) =>

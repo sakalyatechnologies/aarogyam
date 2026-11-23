@@ -16730,6 +16730,79 @@
         ]
       }
     },
+    "/api/v1/settings/present": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The clinic's Show patient settings: the price mapping and whether prices may be shown.",
+        "operationId": "getPresentSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentSettingsBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Replaces the Show patient price mapping and show-prices switch. 400 on an unknown key\n(not a seeded procedure or material), an unknown or inactive price code, or an unknown field.",
+        "operationId": "updatePresentSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresentSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentSettingsBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the key"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/settings/staff-ops": {
       "get": {
         "tags": [
@@ -38303,6 +38376,25 @@
           }
         }
       },
+      "PresentPrice": {
+        "type": "object",
+        "description": "A \"from\" price for one option.",
+        "required": [
+          "option_key",
+          "from_paise"
+        ],
+        "properties": {
+          "from_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Sum of the clinic's mapped price items, in paise."
+          },
+          "option_key": {
+            "type": "string",
+            "description": "The option's key."
+          }
+        }
+      },
       "PresentRange": {
         "type": "object",
         "description": "A range of whole numbers.",
@@ -38324,6 +38416,27 @@
             "minimum": 0
           }
         }
+      },
+      "PresentSettingsBody": {
+        "type": "object",
+        "description": "The clinic's Show patient settings.",
+        "properties": {
+          "price_map": {
+            "type": "object",
+            "description": "`\"<procedure>[:<material>]\"` to a price item code.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "show_prices": {
+            "type": "boolean",
+            "description": "Whether prices may be shown behind the doctor's Prices tap."
+          }
+        },
+        "additionalProperties": false
       },
       "PresentSituation": {
         "type": "object",
@@ -38365,6 +38478,16 @@
           "situations"
         ],
         "properties": {
+          "prices": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/PresentPrice"
+            },
+            "description": "\"From\" prices; present only for a member with `billing.read` when the clinic turned\nprices on. An option with an unmapped part has no entry: show \"Ask the front desk\"."
+          },
           "situations": {
             "type": "array",
             "items": {

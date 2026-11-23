@@ -69,6 +69,7 @@ pub mod patient_sessions;
 pub mod patient_visits;
 pub mod patients;
 pub mod prescriptions;
+pub mod present_settings;
 pub mod purchase_orders;
 pub mod queue;
 pub mod recalls;

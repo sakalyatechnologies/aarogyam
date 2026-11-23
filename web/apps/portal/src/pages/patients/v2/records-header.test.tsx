@@ -44,7 +44,7 @@ function visited(tweak?: (fixtures: Fixtures) => void) {
 
 async function openRecords(user: ReturnType<typeof userEvent.setup>, layout: P360Layout) {
   if (layout === "stage") await user.click(within(await screen.findByRole("toolbar", { name: "Open a panel" })).getByRole("button", { name: "Records" }));
-  if (layout === "tabs") await user.click(await screen.findByRole("tab", { name: "Records" }));
+  if (layout === "tabs" || layout === "console") await user.click(await screen.findByRole("tab", { name: "Records" }));
   const heading = await screen.findByRole("heading", { level: 2, name: "Records" });
   const card = heading.closest("section");
   if (card === null) throw new Error("the Records card is missing");
@@ -85,20 +85,22 @@ describe("Records: one card, small tabs", () => {
     const user = userEvent.setup();
     const { path, backend } = visited();
     renderPortal(path, { as: PEOPLE.asha, backend });
-    await screen.findByRole("heading", { level: 2, name: "Records" });
+    await screen.findByRole("heading", { level: 2, name: "Dental chart" });
     // "Procedures" is the heading of the list inside Done today, not a block of its own; the folds under More are closed.
     const titles = () => screen.getAllByRole("heading", { level: 2 }).filter((h) => h.closest("details") === null && h.closest("[role='tabpanel']") === null).map((h) => h.textContent).filter((text) => text !== "Procedures");
-    expect(titles()).toEqual(["Dental chart", "Records", "Today"]);
+    expect(titles()).toEqual(["Today"]);
+    expect(screen.getAllByRole("tab").filter((t) => t.closest("[aria-label='Patient workspace']") !== null).map((t) => t.textContent)).toEqual(["Dental chart", "Records", "Files", "Notes", "Billing", "Details & flags"]);
     expect(screen.queryByText("Visit history", { selector: "summary" })).toBeNull();
     expect(screen.queryByText("Past prescriptions", { selector: "summary" })).toBeNull();
     await user.click(first(await screen.findAllByRole("button", { name: "Start visit" })));
     await screen.findByRole("heading", { level: 2, name: "Wrap up" });
-    expect(titles()).toEqual(["Dental chart", "Records", "Today", "Wrap up"]);
+    expect(titles()).toEqual(["Today", "Wrap up"]);
   });
 
   it("opens in the Prescriptions tab from ?tab=prescriptions", async () => {
     const { path, backend } = visited();
     renderPortal(`${path}?tab=prescriptions`, { as: PEOPLE.asha, backend });
+    expect((await screen.findByRole("tab", { name: "Records" })).getAttribute("aria-selected")).toBe("true");
     const heading = await screen.findByRole("heading", { level: 2, name: "Records" });
     const card = heading.closest("section");
     if (card === null) throw new Error("the Records card is missing");

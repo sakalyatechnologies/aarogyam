@@ -4,6 +4,9 @@ import type { ReactElement } from "react";
 
 import implant from "../../../../../specialties/dental/present/cases/implant.json" with { type: "json" };
 import wisdom from "../../../../../specialties/dental/present/cases/wisdom.json" with { type: "json" };
+import bridge from "../../../../../specialties/dental/present/cases/bridge.json" with { type: "json" };
+import scaling from "../../../../../specialties/dental/present/cases/scaling.json" with { type: "json" };
+import veneer from "../../../../../specialties/dental/present/cases/veneer.json" with { type: "json" };
 
 export interface CaseData {
   key: string;
@@ -14,6 +17,9 @@ export interface CaseData {
 
 export const IMPLANT_CASE: CaseData = implant;
 export const WISDOM_CASE: CaseData = wisdom;
+export const BRIDGE_CASE: CaseData = bridge;
+export const SCALING_CASE: CaseData = scaling;
+export const VENEER_CASE: CaseData = veneer;
 
 /** Option keys whose card offers the implant case. */
 export const IMPLANT_OPTION_KEYS: readonly string[] = ["implant", "extract_implant"];
@@ -42,9 +48,11 @@ export function UsualCase({ data }: { data: CaseData }): ReactElement {
   );
 }
 
-/** The usual plan for an option, if it has one: implant options, and removing a wisdom tooth. */
+/** The usual plan for an option, if it has one: implant options, a bridge for a missing tooth, and removing a wisdom tooth.
+ * Scaling and veneers have no recorded situation to hang from yet; their cases are exported for the cards that will. */
 export function CaseForOption({ optionKey, situationKey }: { optionKey: string; situationKey: string }): ReactElement | null {
   if (IMPLANT_OPTION_KEYS.includes(optionKey)) return <UsualCase data={IMPLANT_CASE} />;
+  if (optionKey === "bridge" && situationKey === "missing") return <UsualCase data={BRIDGE_CASE} />;
   if (optionKey === "remove" && WISDOM_SITUATION_KEYS.includes(situationKey)) return <UsualCase data={WISDOM_CASE} />;
   return null;
 }

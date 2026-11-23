@@ -1,5 +1,5 @@
 // Usual options (present-studio-design §8.2, slice 2a).
-import { fakePresentStudio } from "@aarogyam/api-client/fake";
+import { fakePresentStudio, withPrices } from "@aarogyam/api-client/fake";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -75,5 +75,29 @@ describe("ToothOptions", () => {
     expect(container.querySelector("[data-situation]")).toBeNull();
     rerender(<ToothOptions tooth={37} />);
     expect(container.querySelector("[data-situation]")).toBeNull();
+  });
+});
+
+describe("Prices", () => {
+  const priced = () => withPrices(studio(), { show_prices: true, price_map: { root_canal: "RCT", crown: "CRN" } }, [{ code: "RCT", paise: 600_000 }, { code: "CRN", paise: 850_000 }]);
+
+  it("has no Prices tap and no rupee amount without prices from the server", () => {
+    const { container } = render(<StudioProvider studio={studio()}><SituationOptions situation={deep()} /></StudioProvider>);
+    expect(screen.queryByRole("button", { name: "Prices" })).toBeNull();
+    expect(container.textContent).not.toContain("₹");
+  });
+
+  it("shows no amount before the Prices tap, then a number only for fully mapped options", () => {
+    const withP = priced();
+    const situation = withP.situations.find((s) => s.key === "deep_decay");
+    if (situation === undefined) throw new Error("no deep decay");
+    const { container } = render(<StudioProvider studio={withP}><SituationOptions situation={situation} /></StudioProvider>);
+    expect(container.textContent).not.toContain("₹");
+    fireEvent.click(screen.getByRole("button", { name: "Prices" }));
+    const cost = (key: string) => container.querySelector(`[data-option="${key}"] [data-row="cost"]`)?.textContent;
+    expect(cost("rct_crown")).toContain("From ₹14,500");
+    expect(cost("rct_crown")).toContain("final cost after examination");
+    // Options with an unmapped part (the implant) or no parts at all get no number.
+    for (const key of situation.options.map((o) => o.key).filter((k) => k !== "rct_crown")) expect(cost(key), key).toContain("Ask the front desk for the cost");
   });
 });

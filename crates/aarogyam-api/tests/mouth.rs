@@ -805,3 +805,122 @@ async fn present_studio_lists_usual_options_for_recorded_situations_only() {
     assert_eq!(status, StatusCode::FORBIDDEN);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn present_prices_need_billing_read_and_show_prices() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let beta = app.token(BETA_OWNER);
+    let (patient, visit) = patient_with_visit(&app, &owner, 35).await;
+    chart(
+        &app,
+        &owner,
+        &patient,
+        &visit,
+        json!([{ "tooth": 36, "surface": "O", "finding": "caries", "caries_depth": "near_pulp" }]),
+    )
+    .await;
+    let path = format!("/api/v1/visits/{visit}/present");
+    let settings = "/api/v1/settings/present";
+    for (code, paise) in [("RCT", 600_000), ("CRN", 850_000)] {
+        let (status, item) = call(
+            &app,
+            Method::POST,
+            &owner,
+            "/api/v1/price-items",
+            Some(json!({ "name": code, "code": code, "price_paise": paise })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "{item}");
+    }
+    // Default: prices off, nothing served.
+    let (status, got) = call(&app, Method::GET, &owner, settings, None).await;
+    assert_eq!(status, StatusCode::OK, "{got}");
+    assert_eq!(got, json!({ "show_prices": false, "price_map": {} }));
+    let (_, studio) = call(&app, Method::GET, &owner, &path, None).await;
+    assert!(studio.get("prices").is_none(), "{studio}");
+    // Bad input: unknown field, key or code.
+    // An unknown field is a bad body (422); an unknown key or code is 400.
+    let (status, body) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        settings,
+        Some(json!({ "show_prices": true, "hidden": [] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    for bad in [
+        json!({ "price_map": { "root canal": "RCT" } }),
+        json!({ "price_map": { "root_canal": "NOPE" } }),
+    ] {
+        let (status, body) = call(&app, Method::PUT, &owner, settings, Some(bad)).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    }
+    // Only settings.manage.
+    let (status, _) = call(&app, Method::GET, &assistant, settings, None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = call(&app, Method::PUT, &assistant, settings, Some(json!({}))).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    // Mapped but switched off: still no prices.
+    let (status, saved) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        settings,
+        Some(json!({ "show_prices": false, "price_map": { "root_canal": "RCT" } })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    let (_, studio) = call(&app, Method::GET, &owner, &path, None).await;
+    assert!(studio.get("prices").is_none(), "{studio}");
+    // On, with only the root canal mapped: the caller may see prices, but no option is complete.
+    let map = json!({ "root_canal": "RCT", "crown": "CRN" });
+    let (status, saved) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        settings,
+        Some(json!({ "show_prices": true, "price_map": { "root_canal": "RCT" } })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    let (_, studio) = call(&app, Method::GET, &owner, &path, None).await;
+    assert_eq!(studio["prices"], json!([]), "unmapped parts give no number");
+    // Fully mapped.
+    let (status, _) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        settings,
+        Some(json!({ "show_prices": true, "price_map": map })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, studio) = call(&app, Method::GET, &owner, &path, None).await;
+    let price = studio["prices"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["option_key"] == "rct_crown")
+        .unwrap_or_else(|| panic!("{studio}"));
+    assert_eq!(price["from_paise"], 1_450_000);
+    // Without billing.read the same visit has no prices at all.
+    let (status, studio) = call(&app, Method::GET, &assistant, &path, None).await;
+    assert_eq!(status, StatusCode::OK, "{studio}");
+    assert!(!studio.to_string().contains("from_paise"), "{studio}");
+    // Another clinic sees neither the settings nor the visit.
+    let (status, _) = app
+        .send(Method::GET, BETA, settings, Some(&beta), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, theirs) = app
+        .send(Method::GET, BETA, settings, Some(&beta), None)
+        .await;
+    assert_eq!(theirs, json!({ "show_prices": false, "price_map": {} }));
+    let (status, _) = app.send(Method::GET, BETA, &path, Some(&beta), None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    app.finish().await;
+}

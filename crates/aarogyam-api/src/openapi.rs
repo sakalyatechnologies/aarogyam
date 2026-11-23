@@ -188,6 +188,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::tooth_details::eruption_in_error,
         crate::v1::mouth::get,
         crate::v1::present::get,
+        crate::v1::present::get_settings,
+        crate::v1::present::put_settings,
         crate::v1::chart::add_term,
         crate::v1::treatment::record_procedure,
         crate::v1::treatment::procedures,

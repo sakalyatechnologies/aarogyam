@@ -48,6 +48,7 @@ import {
   toothCondition,
   toothEruption,
   mouthSnapshot,
+  presentSettings,
   presentStudio,
   visitStory,
   dashboardLayoutView,
@@ -702,6 +703,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     markToothEruptionInError: (id, tooth, input, opts) =>
       call({ method: "POST", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/eruption/entered-in-error`, schema: voidResponse, body: input, signal: opts?.signal }),
     getVisitMouth: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}/mouth`, schema: mouthSnapshot, signal: opts?.signal }),
+    getPresentSettings: (opts) => call({ method: "GET", path: "/api/v1/settings/present", schema: presentSettings, signal: opts?.signal }),
+    updatePresentSettings: (settings, opts) => call({ method: "PUT", path: "/api/v1/settings/present", schema: presentSettings, body: settings, signal: opts?.signal }),
     getVisitPresent: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}/present`, schema: presentStudio, signal: opts?.signal }),
     getVisitStory: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}/story`, schema: visitStory, signal: opts?.signal }),
     addDentalTerm: (input, opts) => call({ method: "POST", path: "/api/v1/dental-terms", schema: dentalTerm, body: input, signal: opts?.signal }),

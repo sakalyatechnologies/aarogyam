@@ -7,6 +7,7 @@
  */
 import { FileText, Mic, PanelRight, Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router";
 
 import type { Patient } from "@aarogyam/api-client";
 import { Drawer, useToast } from "@sakalya/ui";
@@ -20,7 +21,7 @@ import { FilesPanel } from "../files-panel.js";
 import { NotesPanel } from "../notes-panel.js";
 import { BillsPanel } from "../records-panels.js";
 import { DetailsBlock, FlagsBlock, RecordsCard, RxBlock, TodayBlock, TodayStageBlock, ToothBlock, VoiceBlock, WrapCard } from "./blocks.js";
-import { Fold, PillTabs } from "./kit.js";
+import { CardTabs, Fold, PillTabs, type PillOption } from "./kit.js";
 import { useVisitSession } from "./visit-session.js";
 
 export interface LayoutProps {
@@ -61,7 +62,53 @@ function MoreFolds({ patient, canClinical, nested = false }: { patient: LayoutPr
   return nested ? <Fold title="More">{rare}</Fold> : rare;
 }
 
-/** Console: the chart and Records on the left; Today and Wrap up on a sticky rail; the rarely used folded below. */
+type ConsoleTab = "chart" | "records" | "files" | "notes" | "billing" | "details";
+
+/** The left column of Console for clinical members: one card whose top tabs hold the chart, Records and what used to sit under "More". */
+function ConsoleTabsCard({ patient, showPastRx }: { patient: Patient; showPastRx: boolean }) {
+  const { can } = useClinic();
+  const [params, setParams] = useSearchParams();
+  const options: PillOption<ConsoleTab>[] = [
+    { value: "chart", label: "Dental chart" },
+    { value: "records", label: "Records" },
+    { value: "files", label: "Files" },
+    { value: "notes", label: "Notes" },
+    ...(can("billing.read") ? [{ value: "billing" as const, label: "Billing" }] : []),
+    { value: "details", label: "Details & flags" },
+  ];
+  const asked = params.get("ptab");
+  const fromUrl = options.find((option) => option.value === asked)?.value;
+  const value: ConsoleTab = fromUrl ?? (showPastRx ? "records" : "chart");
+  const choose = (next: ConsoleTab) => {
+    setParams(
+      (old) => {
+        const copy = new URLSearchParams(old);
+        copy.set("ptab", next);
+        return copy;
+      },
+      { replace: true },
+    );
+  };
+  return (
+    <section className="p360-bento p360-tabcard" aria-label="Patient workspace">
+      <CardTabs label="Patient workspace" options={options} value={value} onChange={choose}>
+        {value === "chart" ? <ToothBlock patientId={patient.id} /> : null}
+        {value === "records" ? <RecordsCard canClinical initial={showPastRx ? "prescriptions" : "plans"} /> : null}
+        {value === "files" ? <FilesPanel patientId={patient.id} /> : null}
+        {value === "notes" ? <NotesPanel patientId={patient.id} /> : null}
+        {value === "billing" ? <BillsPanel patientId={patient.id} /> : null}
+        {value === "details" ? (
+          <>
+            <DetailsBlock patient={patient} />
+            <ClinicalFlagsPanel patientId={patient.id} />
+          </>
+        ) : null}
+      </CardTabs>
+    </section>
+  );
+}
+
+/** Console: one tabbed card on the left (chart, Records, Files, Notes, Billing, Details); Today and Wrap up on a sticky rail. */
 export function ConsoleLayout({ patient, canClinical, showPastRx }: LayoutProps) {
   const session = useVisitSession();
   // In one column (phone, tablet, small laptop) an open visit puts Today, its notes and vitals, above the chart.
@@ -71,23 +118,25 @@ export function ConsoleLayout({ patient, canClinical, showPastRx }: LayoutProps)
       <div className={`p360-console${live ? " live" : ""}`}>
         <div className="p360-stack">
           {canClinical ? (
-            <ToothBlock patientId={patient.id} />
+            <ConsoleTabsCard patient={patient} showPastRx={showPastRx} />
           ) : (
             <>
               <DetailsBlock patient={patient} />
               <FlagsBlock patientId={patient.id} />
+              <RecordsCard canClinical={false} />
             </>
           )}
-          <RecordsCard canClinical={canClinical} initial={showPastRx ? "prescriptions" : "plans"} />
         </div>
         <div className="p360-rail">
           {canClinical ? <TodayBlock /> : <RxBlock />}
           <WrapCard />
         </div>
       </div>
-      <div className="p360-folds">
-        <MoreFolds patient={patient} canClinical={canClinical} nested />
-      </div>
+      {canClinical ? null : (
+        <div className="p360-folds">
+          <MoreFolds patient={patient} canClinical={false} nested />
+        </div>
+      )}
     </>
   );
 }

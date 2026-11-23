@@ -79,7 +79,7 @@ describe("Patient 360 in the new look: three layouts, one set of data", () => {
     // Records: one card with small tabs, reached directly, from the toolbar, or from a tab, depending on the layout.
     if (layout === "stage") {
       await user.click(within(screen.getByRole("toolbar", { name: "Open a panel" })).getByRole("button", { name: "Records" }));
-    } else if (layout === "tabs") {
+    } else {
       await user.click(screen.getByRole("tab", { name: "Records" }));
     }
     const records = await screen.findByRole("heading", { level: 2, name: "Records" });
@@ -186,7 +186,7 @@ describe("Permissions", () => {
     renderPortal(path, { as: PEOPLE.asha, backend });
     expect(await screen.findByRole("heading", { name: "Dental chart" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Prescription" })).toBeTruthy();
-    expect(screen.getByText("Billing", { selector: "summary" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Billing" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Visit actions" })).toBeTruthy();
   });
 });

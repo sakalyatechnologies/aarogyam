@@ -1,0 +1,13 @@
+{
+  "$comment": "The usual bridge case for Show patient, compared with an implant (docs/plans/present-studio-design.md section 8.5, slice 2d-3). General guidance, never about this patient: no visit numbers, no dates, no prices. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "reviewed_by": "pending",
+  "key": "bridge",
+  "title": "How a bridge is usually made",
+  "lead": "A bridge uses the teeth either side of the gap. An implant stands on its own and does not touch them.",
+  "steps": [
+    { "key": "bridge_prep", "label": "Shape the neighbours", "words": "The teeth either side of the gap are smoothed a little, with the area numbed, so the bridge can fit over them.", "art": "scene:crown.prep" },
+    { "key": "bridge_fit", "label": "Fit the bridge", "words": "A new tooth, joined to a cap on each neighbour, is fitted and checked for your bite.", "art": "overlay:bridge_pontic", "usual": { "min": 2, "max": 4, "unit": "weeks" } }
+  ]
+}

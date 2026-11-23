@@ -144,6 +144,7 @@ import type {
   ToothEruption,
   DetailInError,
   MouthSnapshot,
+  PresentSettings,
   PresentStudio,
   VisitStory,
   NewDentalTerm,
@@ -889,8 +890,12 @@ export interface ApiClient {
   markToothEruptionInError(id: PatientId, tooth: number, input: DetailInError, options?: RequestOptions): Promise<ApiResult<undefined>>;
   /** Clinic host: the visit's mouth snapshot for Present mode, the same JSON the patient's page shows. Needs `clinical.read`; works while the visit is open. */
   getVisitMouth(id: VisitId, options?: RequestOptions): Promise<ApiResult<MouthSnapshot>>;
-  /** Clinic host: the studio layer of Show patient, the usual options for each recorded situation (no prices yet). Needs `clinical.read`; works while the visit is open. */
+  /** Clinic host: the studio layer of Show patient, the usual options for each recorded situation (with prices only for `billing.read` when the clinic turned them on). Needs `clinical.read`; works while the visit is open. */
   getVisitPresent(id: VisitId, options?: RequestOptions): Promise<ApiResult<PresentStudio>>;
+  /** Clinic host: Show patient settings (price mapping, show prices). Needs `settings.manage`. */
+  getPresentSettings(options?: RequestOptions): Promise<ApiResult<PresentSettings>>;
+  /** Clinic host: replaces the price mapping and show-prices switch; 400 for an unknown key or code. Needs `settings.manage`. */
+  updatePresentSettings(settings: PresentSettings, options?: RequestOptions): Promise<ApiResult<PresentSettings>>;
   /** Clinic host: what the doctor's device renders the patient's video from (mouth snapshot, visit number, day, clinic name; no patient name). Needs `clinical.read` and `patients.contact`; the same refusals as Send (409). */
   getVisitStory(id: VisitId, options?: RequestOptions): Promise<ApiResult<VisitStory>>;
   /** Clinic host: adds a procedure or material to the clinic's list; a label already there (or seeded) returns that term. Needs `clinical.write`. */

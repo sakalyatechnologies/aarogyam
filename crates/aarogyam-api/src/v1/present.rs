@@ -1,18 +1,19 @@
 //! The studio layer of Show patient (docs/plans/present-studio-design.md, sections 5.1 and 12.5):
 //! the usual options compared for the situations the visit's record shows. General guidance from
-//! the specialty data, never about this patient beyond which situations are recorded. No prices
-//! yet (slice 2b).
+//! the specialty data, never about this patient beyond which situations are recorded. Prices
+//! (slice 2b) only for `billing.read` and `show_prices`.
 
 use aarogyam_app::present as app;
+use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::EncounterId;
-use aarogyam_domain::permission::require::ClinicalRead;
+use aarogyam_domain::permission::require::{ClinicalRead, SettingsManage};
 use aarogyam_domain::present as domain;
 use axum::Json;
 use axum::extract::State;
 use axum::http::{HeaderValue, header};
 use axum::response::{IntoResponse, Response};
-use sakalya_http::ApiPath;
-use serde::Serialize;
+use sakalya_http::{ApiJson, ApiPath};
+use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -26,6 +27,32 @@ use crate::failure::ApiFailure;
 pub struct PresentStudio {
     /// The recorded situations, by tooth, each with its usual options.
     pub situations: Vec<PresentSituation>,
+    /// "From" prices; present only for a member with `billing.read` when the clinic turned
+    /// prices on. An option with an unmapped part has no entry: show "Ask the front desk".
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prices: Option<Vec<PresentPrice>>,
+}
+
+/// A "from" price for one option.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PresentPrice {
+    /// The option's key.
+    pub option_key: String,
+    /// Sum of the clinic's mapped price items, in paise.
+    pub from_paise: i64,
+}
+
+/// The clinic's Show patient settings.
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PresentSettingsBody {
+    /// Whether prices may be shown behind the doctor's Prices tap.
+    #[serde(default)]
+    pub show_prices: bool,
+    /// `"<procedure>[:<material>]"` to a price item code.
+    #[serde(default)]
+    pub price_map: std::collections::BTreeMap<String, String>,
 }
 
 /// A recorded situation on one tooth.
@@ -110,6 +137,14 @@ pub struct PresentLifespan {
 impl From<domain::PresentStudio> for PresentStudio {
     fn from(s: domain::PresentStudio) -> Self {
         Self {
+            prices: s.prices.map(|p| {
+                p.into_iter()
+                    .map(|p| PresentPrice {
+                        option_key: p.option_key,
+                        from_paise: p.from_paise,
+                    })
+                    .collect()
+            }),
             situations: s
                 .situations
                 .into_iter()
@@ -184,4 +219,68 @@ pub(crate) async fn get(
         .headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     Ok(response)
+}
+
+impl From<domain::PresentSettings> for PresentSettingsBody {
+    fn from(s: domain::PresentSettings) -> Self {
+        Self {
+            show_prices: s.show_prices,
+            price_map: s.price_map,
+        }
+    }
+}
+
+/// The clinic's Show patient settings: the price mapping and whether prices may be shown.
+#[utoipa::path(
+    get,
+    path = "/api/v1/settings/present",
+    operation_id = "getPresentSettings",
+    tag = "settings",
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = PresentSettingsBody),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks settings.manage")
+    )
+)]
+pub(crate) async fn get_settings(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<SettingsManage>,
+) -> Result<Json<PresentSettingsBody>, ApiFailure> {
+    let settings = app::settings(state.db(), &request.actor, request.request_id).await?;
+    Ok(Json(settings.into()))
+}
+
+/// Replaces the Show patient price mapping and show-prices switch. 400 on an unknown key
+/// (not a seeded procedure or material), an unknown or inactive price code, or an unknown field.
+#[utoipa::path(
+    put,
+    path = "/api/v1/settings/present",
+    operation_id = "updatePresentSettings",
+    tag = "settings",
+    request_body = PresentSettingsBody,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = PresentSettingsBody),
+        (status = 400, description = "Invalid input; the message names the key"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks settings.manage")
+    )
+)]
+pub(crate) async fn put_settings(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<SettingsManage>,
+    ApiJson(body): ApiJson<PresentSettingsBody>,
+) -> Result<Json<PresentSettingsBody>, ApiFailure> {
+    let settings = domain::PresentSettings {
+        show_prices: body.show_prices,
+        price_map: body.price_map,
+    };
+    let saved =
+        app::update_settings(state.db(), &request.actor, request.request_id, settings).await?;
+    tracing::info!(
+        event = Event::SettingsChanged.as_str(),
+        "present settings changed"
+    );
+    Ok(Json(saved.into()))
 }

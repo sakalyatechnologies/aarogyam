@@ -1,7 +1,7 @@
 //! The studio layer of Show patient (docs/plans/present-studio-design.md, sections 5.1 and 8.3): the
 //! usual options compared for the situations a patient's recorded snapshot shows. One pure builder.
 //! Situations come from recorded snapshot fields only; options and outcome words come from the
-//! specialty data in `specialties/dental/present/` (AGENTS.md rule 11). Slice 2a: no prices.
+//! specialty data in `specialties/dental/present/` (AGENTS.md rule 11). Prices (slice 2b) are added by [`prices`].
 
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
@@ -16,6 +16,9 @@ const MATERIALS: &str = include_str!("../../../specialties/dental/present/materi
 
 const CASE_IMPLANT: &str = include_str!("../../../specialties/dental/present/cases/implant.json");
 const CASE_WISDOM: &str = include_str!("../../../specialties/dental/present/cases/wisdom.json");
+const CASE_BRIDGE: &str = include_str!("../../../specialties/dental/present/cases/bridge.json");
+const CASE_SCALING: &str = include_str!("../../../specialties/dental/present/cases/scaling.json");
+const CASE_VENEER: &str = include_str!("../../../specialties/dental/present/cases/veneer.json");
 
 /// A range of whole numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -210,13 +213,19 @@ pub struct Case {
     pub steps: Vec<CaseStep>,
 }
 
-/// A usual case by key (`implant`, `wisdom`), compiled in.
+/// A usual case by key (`implant`, `wisdom`, `bridge`, `scaling`, `veneer`), compiled in.
 pub fn usual_case(key: &str) -> Option<&'static Case> {
     static IMPLANT: OnceLock<Option<Case>> = OnceLock::new();
     static WISDOM: OnceLock<Option<Case>> = OnceLock::new();
+    static BRIDGE: OnceLock<Option<Case>> = OnceLock::new();
+    static SCALING: OnceLock<Option<Case>> = OnceLock::new();
+    static VENEER: OnceLock<Option<Case>> = OnceLock::new();
     match key {
         "implant" => IMPLANT.get_or_init(|| parse(CASE_IMPLANT)).as_ref(),
         "wisdom" => WISDOM.get_or_init(|| parse(CASE_WISDOM)).as_ref(),
+        "bridge" => BRIDGE.get_or_init(|| parse(CASE_BRIDGE)).as_ref(),
+        "scaling" => SCALING.get_or_init(|| parse(CASE_SCALING)).as_ref(),
+        "veneer" => VENEER.get_or_init(|| parse(CASE_VENEER)).as_ref(),
         _ => None,
     }
 }
@@ -292,6 +301,128 @@ pub struct Situation {
 pub struct PresentStudio {
     /// Recorded situations, by tooth.
     pub situations: Vec<Situation>,
+    /// "From" prices per option; only when the caller has `billing.read` and the clinic turned
+    /// prices on (see [`prices`]). An option with an unmapped part has no entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prices: Option<Vec<OptionPrice>>,
+}
+
+/// A "from" price for one option, summed from the clinic's price list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OptionPrice {
+    /// The option's key.
+    pub option_key: String,
+    /// Sum of the mapped price items, in paise.
+    pub from_paise: i64,
+}
+
+/// The clinic's Show patient settings (`org_settings.present`), the slice 2b fields.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PresentSettings {
+    /// Whether prices may be shown at all (behind the doctor's Prices tap).
+    #[serde(default)]
+    pub show_prices: bool,
+    /// `"<procedure>[:<material>]"` to a price item code.
+    #[serde(default)]
+    pub price_map: BTreeMap<String, String>,
+}
+
+impl PresentSettings {
+    /// Reads the stored object, ignoring keys later slices keep there.
+    #[must_use]
+    pub fn from_stored(stored: &serde_json::Value) -> Self {
+        let show_prices = stored
+            .get("show_prices")
+            .and_then(serde_json::Value::as_bool);
+        let price_map = stored
+            .get("price_map")
+            .and_then(|v| serde_json::from_value(v.clone()).ok());
+        Self {
+            show_prices: show_prices.unwrap_or(false),
+            price_map: price_map.unwrap_or_default(),
+        }
+    }
+
+    /// Writes the 2b fields into the stored object, leaving other keys alone.
+    pub fn merge_into(&self, stored: &mut serde_json::Value) {
+        if !stored.is_object() {
+            *stored = serde_json::Value::Object(serde_json::Map::new());
+        }
+        if let Some(map) = stored.as_object_mut() {
+            map.insert("show_prices".into(), self.show_prices.into());
+            map.insert(
+                "price_map".into(),
+                serde_json::to_value(&self.price_map).unwrap_or_default(),
+            );
+        }
+    }
+
+    /// Checks every key is a seeded procedure (optionally with a seeded material) and every
+    /// code is one of `known_codes`.
+    ///
+    /// # Errors
+    /// The first bad key or code, in words.
+    pub fn validate(&self, known_codes: &[String]) -> Result<(), String> {
+        use crate::dental_terms::{TermKind, seeded_match};
+        for (key, code) in &self.price_map {
+            let (procedure, material) = match key.split_once(':') {
+                Some((p, m)) => (p, Some(m)),
+                None => (key.as_str(), None),
+            };
+            let seeded_id = |kind, id: &str| seeded_match(kind, id).is_some_and(|t| t.id == id);
+            if !seeded_id(TermKind::Procedure, procedure)
+                || material.is_some_and(|m| !seeded_id(TermKind::Material, m))
+            {
+                return Err(format!("unknown price key {key}"));
+            }
+            if !known_codes.iter().any(|c| c == code) {
+                return Err(format!("unknown price code {code}"));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// "From" prices for the options of `studio`. `price_list` is the clinic's active price items
+/// as (code, paise). A part maps by `procedure:material` then `procedure`; any unmapped or
+/// inactive part, or an option with no parts, gets no number. Never matches by typed name.
+#[must_use]
+pub fn prices(
+    studio: &PresentStudio,
+    settings: &PresentSettings,
+    price_list: &[(String, i64)],
+) -> Vec<OptionPrice> {
+    let Some(options) = options() else {
+        return Vec::new();
+    };
+    let lookup = |part: &PricePart| -> Option<i64> {
+        let by_material = part
+            .material
+            .as_ref()
+            .and_then(|m| settings.price_map.get(&format!("{}:{m}", part.procedure)));
+        let code = by_material.or_else(|| settings.price_map.get(&part.procedure))?;
+        price_list.iter().find(|(c, _)| c == code).map(|(_, p)| *p)
+    };
+    let mut out: Vec<OptionPrice> = Vec::new();
+    for situation in &studio.situations {
+        let Some(def) = options.situations.get(&situation.key) else {
+            continue;
+        };
+        for o in &def.options {
+            if o.price_parts.is_empty() || out.iter().any(|p| p.option_key == o.key) {
+                continue;
+            }
+            let total: Option<i64> = o.price_parts.iter().map(&lookup).sum();
+            if let Some(from_paise) = total {
+                out.push(OptionPrice {
+                    option_key: o.key.clone(),
+                    from_paise,
+                });
+            }
+        }
+    }
+    out
 }
 
 fn is_permanent(tooth: u8) -> bool {
@@ -379,7 +510,10 @@ pub fn build(snapshot: &MouthSnapshot) -> PresentStudio {
             })
         })
         .collect();
-    PresentStudio { situations }
+    PresentStudio {
+        situations,
+        prices: None,
+    }
 }
 
 #[cfg(test)]

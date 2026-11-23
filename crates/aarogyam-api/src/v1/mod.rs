@@ -412,6 +412,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/visits/{id}/share", post(visit_summary::create))
         .route("/visits/{id}/mouth", get(mouth::get))
         .route("/visits/{id}/present", get(present::get))
+        .route(
+            "/settings/present",
+            get(present::get_settings).put(present::put_settings),
+        )
         .route("/visits/{id}/story", get(patient_message::story))
         .route(
             "/visits/{id}/patient-message",

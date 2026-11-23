@@ -184,6 +184,14 @@
 
 /* Chart card: the view toggles, dentition and Key sit in one row beside the title. */
 .p360-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.p360-tools > *, .p360-tools .p360-pop { align-self: center; }
+.p360-tools .p360-pills, .p360-tools .p360-pills.sm { box-sizing: border-box; height: 36px; padding: 2px; margin: 0; align-items: center; }
+.p360-tools .p360-pills button, .p360-tools .p360-pills.sm button { min-height: 30px; padding: 0 12px; font-size: 12.5px; line-height: 1; }
+.p360-tools .p360-pop-btn, .p360-tools .p360-pill-btn { box-sizing: border-box; height: 36px; min-height: 36px; padding: 0 14px; margin: 0; font-size: 12.5px; line-height: 1; display: inline-flex; align-items: center; gap: 6px; }
+.p360-tools .p360-pop-btn svg, .p360-tools .p360-pill-btn svg { width: 14px; height: 14px; }
+/* Console: the one tabbed card. Blocks inside lose their own card. */
+.p360-tabcard > .p360-records-body > .p360-bento { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.p360-tabcard > .p360-pills { margin-bottom: 14px; }
 .p360-pop { position: relative; }
 .p360-pop-btn { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 3px 12px; border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); border-radius: 999px; background: var(--surface); font: inherit; font-size: 12px; color: var(--muted); cursor: pointer; }
 .p360-pop-btn:hover, .p360-pop-btn[aria-expanded="true"] { color: var(--ink); background: var(--hover); }

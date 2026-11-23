@@ -2430,7 +2430,18 @@ export const presentSituation = z.object({
 }) satisfies z.ZodType<C.PresentSituation>;
 
 /** `GET /api/v1/visits/{id}/present`: the studio layer (usual options for the recorded situations). */
-export const presentStudio = z.object({ situations: z.array(presentSituation) }) satisfies z.ZodType<C.PresentStudio>;
+export const presentPrice = z.object({ option_key: z.string(), from_paise: z.number() }) satisfies z.ZodType<C.PresentPrice>;
+export const presentStudio = z.object({
+  situations: z.array(presentSituation),
+  prices: z.array(presentPrice).exactOptional(),
+}) satisfies z.ZodType<C.PresentStudio>;
+/** `GET/PUT /api/v1/settings/present`: whether prices may show and which price-list code each option part maps to. */
+export const presentSettings = z.object({
+  show_prices: z.boolean(),
+  price_map: z.record(z.string(), z.string()),
+}) satisfies z.ZodType<C.PresentSettingsBody>;
+export type PresentSettings = z.output<typeof presentSettings>;
+export type PresentPrice = z.output<typeof presentPrice>;
 export type PresentStudio = z.output<typeof presentStudio>;
 export type PresentSituation = z.output<typeof presentSituation>;
 export type PresentOption = z.output<typeof presentOption>;

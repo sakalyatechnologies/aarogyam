@@ -176,7 +176,16 @@ fn the_lint_over_every_present_file() {
         "will last",
         "lifelong",
     ];
-    for text in [OPTIONS, OUTCOMES, CASE_IMPLANT, CASE_WISDOM, MATERIALS] {
+    for text in [
+        OPTIONS,
+        OUTCOMES,
+        CASE_IMPLANT,
+        CASE_WISDOM,
+        CASE_BRIDGE,
+        CASE_SCALING,
+        CASE_VENEER,
+        MATERIALS,
+    ] {
         let lower = text.to_lowercase();
         // the `$comment` explains the rules, so lint the text after it
         let body = lower.split_once("\"schema_version\"").unwrap().1;
@@ -274,6 +283,54 @@ fn the_wisdom_case_has_its_five_steps_and_no_patient_facts() {
 }
 
 #[test]
+fn the_bridge_case_has_its_steps_and_no_patient_facts() {
+    let case = usual_case("bridge").unwrap();
+    let keys: Vec<&str> = case.steps.iter().map(|s| s.key.as_str()).collect();
+    assert_eq!(keys, ["bridge_prep", "bridge_fit"]);
+    let v: serde_json::Value = serde_json::from_str(CASE_BRIDGE).unwrap();
+    assert_eq!(v["schema_version"], 1);
+    assert_eq!(v["language"], "en");
+    assert_eq!(v["reviewed_by"], "pending");
+    let body = CASE_BRIDGE.to_lowercase();
+    let body = body.split_once("\"schema_version\"").unwrap().1;
+    for word in ["₹", "price", "visit 1", "visit 2"] {
+        assert!(!body.contains(word), "{word}");
+    }
+}
+
+#[test]
+fn the_scaling_case_has_its_steps_and_no_patient_facts() {
+    let case = usual_case("scaling").unwrap();
+    let keys: Vec<&str> = case.steps.iter().map(|s| s.key.as_str()).collect();
+    assert_eq!(keys, ["scale", "polish", "recheck"]);
+    let v: serde_json::Value = serde_json::from_str(CASE_SCALING).unwrap();
+    assert_eq!(v["schema_version"], 1);
+    assert_eq!(v["language"], "en");
+    assert_eq!(v["reviewed_by"], "pending");
+    let body = CASE_SCALING.to_lowercase();
+    let body = body.split_once("\"schema_version\"").unwrap().1;
+    for word in ["₹", "price", "visit 1", "visit 2"] {
+        assert!(!body.contains(word), "{word}");
+    }
+}
+
+#[test]
+fn the_veneer_case_has_its_steps_and_no_patient_facts() {
+    let case = usual_case("veneer").unwrap();
+    let keys: Vec<&str> = case.steps.iter().map(|s| s.key.as_str()).collect();
+    assert_eq!(keys, ["prep", "veneer"]);
+    let v: serde_json::Value = serde_json::from_str(CASE_VENEER).unwrap();
+    assert_eq!(v["schema_version"], 1);
+    assert_eq!(v["language"], "en");
+    assert_eq!(v["reviewed_by"], "pending");
+    let body = CASE_VENEER.to_lowercase();
+    let body = body.split_once("\"schema_version\"").unwrap().1;
+    for word in ["₹", "price", "visit 1", "visit 2"] {
+        assert!(!body.contains(word), "{word}");
+    }
+}
+
+#[test]
 fn the_material_data_is_consistent() {
     let materials = materials().unwrap();
     let outcomes = outcomes().unwrap();
@@ -309,4 +366,66 @@ fn the_material_data_is_consistent() {
             );
         }
     }
+}
+
+fn settings(map: &[(&str, &str)]) -> PresentSettings {
+    PresentSettings {
+        show_prices: true,
+        price_map: map
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect(),
+    }
+}
+
+fn list() -> Vec<(String, i64)> {
+    vec![("RCT".into(), 600_000), ("CRN".into(), 850_000)]
+}
+
+#[test]
+fn a_price_needs_every_part_mapped_and_never_matches_by_name() {
+    let studio = build(&adult());
+    // Only the root canal is mapped: rct_crown (root_canal + crown) has no number.
+    let half = prices(&studio, &settings(&[("root_canal", "RCT")]), &list());
+    assert!(half.iter().all(|p| p.option_key != "rct_crown"), "{half:?}");
+    // Both mapped: the sum.
+    let both = prices(
+        &studio,
+        &settings(&[("root_canal", "RCT"), ("crown", "CRN")]),
+        &list(),
+    );
+    let rct = both.iter().find(|p| p.option_key == "rct_crown").unwrap();
+    assert_eq!(rct.from_paise, 1_450_000);
+    // A code that is not on the price list (deleted or inactive) leaves the part unmapped.
+    let gone = prices(
+        &studio,
+        &settings(&[("root_canal", "RCT"), ("crown", "OLD")]),
+        &list(),
+    );
+    assert!(gone.iter().all(|p| p.option_key != "rct_crown"));
+}
+
+#[test]
+fn settings_reject_unknown_fields_keys_and_codes() {
+    assert!(serde_json::from_str::<PresentSettings>(r#"{"show_prices":true,"x":1}"#).is_err());
+    let codes = vec!["RCT".to_owned()];
+    assert!(settings(&[("root_canal", "RCT")]).validate(&codes).is_ok());
+    assert!(
+        settings(&[("crown:zirconia", "RCT")])
+            .validate(&codes)
+            .is_ok()
+    );
+    assert!(settings(&[("Root canal", "RCT")]).validate(&codes).is_err());
+    assert!(
+        settings(&[("crown:unobtainium", "RCT")])
+            .validate(&codes)
+            .is_err()
+    );
+    assert!(settings(&[("crown", "NOPE")]).validate(&codes).is_err());
+    // Stored keys other slices add are ignored on read and kept on write.
+    let mut stored = serde_json::json!({ "hidden": ["a"], "show_prices": true });
+    assert!(PresentSettings::from_stored(&stored).show_prices);
+    settings(&[("crown", "RCT")]).merge_into(&mut stored);
+    assert_eq!(stored["hidden"], serde_json::json!(["a"]));
+    assert_eq!(stored["price_map"]["crown"], "RCT");
 }

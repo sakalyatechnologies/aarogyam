@@ -1,11 +1,12 @@
 // Usual options (present-studio-design §8.2, slice 2a): the options compared for a situation the record shows
 // (deep decay, a missing tooth, a wisdom tooth not fully out), from the server's studio layer. Every number
-// is general guidance ("usually 2-3 visits"), never a visit of this patient: no visit numbers, no dates and, in
-// this slice, no prices. Outcome words come from the server only. A card list or a side-by-side compare.
+// is general guidance ("usually 2-3 visits"), never a visit of this patient: no visit numbers and no dates. Prices (slice 2b)
+// sit behind the doctor's Prices tap and exist only when the server sent them (billing.read and show_prices). Outcome words come from the server only. A card list or a side-by-side compare.
 import { createContext, lazy, Suspense, useContext, useState, type ReactElement, type ReactNode } from "react";
 
 import type { PresentOption, PresentSituation, PresentStudio } from "@aarogyam/api-client";
 
+import { formatRupees } from "../format.js";
 import { IllustrationBadge, RecordBadge } from "./blocks.js";
 
 // The usual-plan steps load on open, so the Show patient route stays within its size budget (§13).
@@ -52,6 +53,14 @@ function Lifespan({ o }: { o: PresentOption }): ReactElement {
   );
 }
 
+/** The cost cell: a "from" number only when every part of the option is mapped to the clinic's price list. */
+function costWords(studio: PresentStudio | undefined, o: PresentOption): string {
+  const price = studio?.prices?.find((p) => p.option_key === o.key);
+  return price === undefined
+    ? "Ask the front desk for the cost"
+    : `From ${formatRupees(price.from_paise)} · this clinic's price list · final cost after examination`;
+}
+
 const ROWS: readonly { id: string; label: string; cell: (o: PresentOption) => ReactNode }[] = [
   { id: "what", label: "What is done", cell: (o) => o.summary },
   { id: "visits", label: "Visits", cell: visitsWords },
@@ -64,6 +73,11 @@ const ROWS: readonly { id: string; label: string; cell: (o: PresentOption) => Re
 /** One situation: its options as cards or side by side. */
 export function SituationOptions({ situation, titled = true }: { situation: PresentSituation; titled?: boolean }): ReactElement {
   const [mode, setMode] = useState<"cards" | "compare">("cards");
+  const studio = useStudio();
+  // The Prices tap exists only when the server sent prices; nothing shows a rupee amount before it.
+  const canPrice = studio?.prices !== undefined;
+  const [priced, setPriced] = useState(false);
+  const rows = canPrice && priced ? [...ROWS, { id: "cost", label: "Cost", cell: (o: PresentOption) => costWords(studio, o) }] : ROWS;
   return (
     <section className="ps-opts" aria-label={`Usual options: ${situation.title}`} data-situation={`${situation.key}:${String(situation.tooth)}`}>
       {titled ? <h3 className="ps-h">{situation.title}<RecordBadge /></h3> : null}
@@ -72,6 +86,7 @@ export function SituationOptions({ situation, titled = true }: { situation: Pres
       <div className="ps-seg" role="group" aria-label="Options view">
         <button type="button" aria-pressed={mode === "cards"} onClick={() => { setMode("cards"); }}>Cards</button>
         <button type="button" aria-pressed={mode === "compare"} onClick={() => { setMode("compare"); }}>Compare</button>
+        {canPrice ? <button type="button" aria-pressed={priced} onClick={() => { setPriced(!priced); }}>Prices</button> : null}
       </div>
       {mode === "cards" ? (
         <ul className="ps-opt-list">
@@ -79,7 +94,7 @@ export function SituationOptions({ situation, titled = true }: { situation: Pres
             <li key={o.key} className="ps-opt" data-option={o.key}>
               <b className="ps-opt-h">{o.label}</b>
               <dl className="ps-opt-facts">
-                {ROWS.map((r) => (
+                {rows.map((r) => (
                   <div key={r.id} data-row={r.id}><dt>{r.label}</dt><dd>{r.cell(o)}</dd></div>
                 ))}
               </dl>
@@ -98,7 +113,7 @@ export function SituationOptions({ situation, titled = true }: { situation: Pres
               </tr>
             </thead>
             <tbody>
-              {ROWS.map((r) => (
+              {rows.map((r) => (
                 <tr key={r.id} data-row={r.id}>
                   <th scope="row">{r.label}</th>
                   {situation.options.map((o) => <td key={o.key}>{r.cell(o)}</td>)}

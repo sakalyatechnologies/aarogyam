@@ -23,6 +23,7 @@ enum class MoreTile {
     Stock,
     LabWork,
     Team,
+    TimeOff,
     ClinicQr,
     RxSets,
     Settings,
@@ -94,6 +95,7 @@ data class NavModel(
                     if (has(INVENTORY_READ)) add(MoreTile.Stock)
                     if (has(LABS_READ)) add(MoreTile.LabWork)
                     if (has(CHAT_USE) || has(STAFF_MANAGE)) add(MoreTile.Team)
+                    if (has(TIME_OFF_REQUEST) || has(TIME_OFF_MANAGE)) add(MoreTile.TimeOff)
                     add(MoreTile.ClinicQr)
                     if (has(PRESCRIPTIONS_ISSUE)) add(MoreTile.RxSets)
                     add(MoreTile.Settings)
@@ -117,5 +119,7 @@ data class NavModel(
         const val CHAT_USE = "chat.use"
         const val STAFF_MANAGE = "staff.manage"
         const val PRESCRIPTIONS_ISSUE = "prescriptions.issue"
+        const val TIME_OFF_REQUEST = "time_off.request"
+        const val TIME_OFF_MANAGE = "time_off.manage"
     }
 }

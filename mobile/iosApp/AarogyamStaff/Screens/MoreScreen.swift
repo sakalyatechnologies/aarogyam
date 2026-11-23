@@ -5,7 +5,7 @@ import SwiftUI
 
 /// A More tile's destination.
 enum MoreRoute: Hashable {
-    case analytics, expenses, messages, stock, labs, team, rxSets, help
+    case analytics, expenses, messages, stock, labs, team, timeOff, rxSets, help
     /// Team chat, from Team or Messages, and one conversation in it (the other person's name or the group's title).
     case chats
     case thread(id: String, title: String)
@@ -109,6 +109,7 @@ struct MoreScreen: View {
         case .stock: path.append(.stock)
         case .labWork: path.append(.labs)
         case .team: path.append(.team)
+        case .timeOff: path.append(.timeOff)
         case .rxSets: path.append(.rxSets)
         case .settings: settingsURL = URL(string: clinic.api.origin + "/settings")
         case .switchClinic: onSwitchClinic()
@@ -130,6 +131,8 @@ struct MoreScreen: View {
             }
         case .labs:
             LabsRoute(graph: graph, clinic: clinic)
+        case .timeOff:
+            RoutesV10TimeOff.screen(graph: graph, clinic: clinic)
         default:
             ClinicalRoutes.destination(route, graph: graph, clinic: clinic, path: $path)
         }
@@ -145,6 +148,7 @@ extension MoreRoute {
         case .stock: String(localized: "v7.tile.stock")
         case .labs: String(localized: "v7.tile.lab_work")
         case .team: String(localized: "v7.tile.team")
+        case .timeOff: TimeOffV10.t("timeoff.title")
         case .rxSets: String(localized: "v7.tile.rx_sets")
         case .help: String(localized: "v7.tile.help")
         case .chats: CL("c.chat.title")
@@ -185,6 +189,7 @@ extension MoreTile {
         case .stock: String(localized: "v7.tile.stock")
         case .labWork: String(localized: "v7.tile.lab_work")
         case .team: String(localized: "v7.tile.team")
+        case .timeOff: TimeOffV10.t("timeoff.title")
         case .clinicQr: String(localized: "v7.tile.clinic_qr")
         case .rxSets: String(localized: "v7.tile.rx_sets")
         case .settings: String(localized: "v7.tile.settings")
@@ -204,6 +209,7 @@ extension MoreTile {
         case .stock: String(localized: "v7.tile.stock.sub")
         case .labWork: String(localized: "v7.tile.lab_work.sub")
         case .team: String(localized: "v7.tile.team.sub")
+        case .timeOff: TimeOffV10.t("timeoff.tile_sub")
         case .clinicQr: String(localized: "v7.tile.clinic_qr.sub")
         case .rxSets: String(localized: "v7.tile.rx_sets.sub")
         case .settings: String(localized: "v7.tile.settings.sub")
@@ -222,6 +228,7 @@ extension MoreTile {
         case .stock: "box"
         case .labWork: "flask"
         case .team: "team"
+        case .timeOff: "cal"
         case .clinicQr: "qr"
         case .rxSets: "rx"
         case .settings: "gear"

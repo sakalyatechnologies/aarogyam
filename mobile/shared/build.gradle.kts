@@ -319,6 +319,11 @@ val apiModels =
         "CompleteBody",
         "ProofUploaded",
         "UsageBody",
+        // Time off: ask for it, see who is away, decide.
+        "TimeOff",
+        "TimeOffList",
+        "NewTimeOff",
+        "TimeOffDecision",
         // Show patient studio layer (slice 2a): usual options for the recorded situations.
         "PresentStudio",
         "PresentSituation",

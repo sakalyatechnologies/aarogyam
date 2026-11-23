@@ -51,6 +51,7 @@ import com.aarogyam.staff.android.ui.more.DeleteAccountSheet
 import com.aarogyam.staff.android.ui.more.MyAvatar
 import com.aarogyam.staff.android.ui.more.openHelp
 import com.aarogyam.staff.android.ui.more.openStock
+import com.aarogyam.staff.android.ui.more.openTimeOff
 import com.aarogyam.staff.android.ui.today.ClinicQrSheet
 import com.aarogyam.staff.android.ui.today.bookingUrl
 import com.aarogyam.staff.art.Icons
@@ -77,6 +78,7 @@ private val GRID =
         MoreTile.Stock,
         MoreTile.LabWork,
         MoreTile.Team,
+        MoreTile.TimeOff,
         MoreTile.ClinicQr,
         MoreTile.RxSets,
         MoreTile.Settings,
@@ -132,6 +134,10 @@ fun MoreScreen(
 
             MoreTile.Team -> {
                 nav.openTeam()
+            }
+
+            MoreTile.TimeOff -> {
+                nav.openTimeOff()
             }
 
             MoreTile.ClinicQr -> {
@@ -379,6 +385,7 @@ private val MoreTile.subtitle: Int?
             MoreTile.Stock -> R.string.sh_v7_tile_stock_sub
             MoreTile.LabWork -> R.string.sh_v7_tile_lab_work_sub
             MoreTile.Team -> R.string.sh_v7_tile_team_sub
+            MoreTile.TimeOff -> R.string.timeoff_tile_sub
             MoreTile.ClinicQr -> R.string.sh_v7_tile_clinic_qr_sub
             MoreTile.RxSets -> R.string.sh_v7_tile_rx_sets_sub
             MoreTile.Settings -> R.string.sh_v7_tile_settings_sub
@@ -395,6 +402,7 @@ private val MoreTile.label: Int
             MoreTile.Stock -> R.string.v7_tile_stock
             MoreTile.LabWork -> R.string.v7_tile_lab_work
             MoreTile.Team -> R.string.v7_tile_team
+            MoreTile.TimeOff -> R.string.timeoff_title
             MoreTile.ClinicQr -> R.string.v7_tile_clinic_qr
             MoreTile.RxSets -> R.string.v7_tile_rx_sets
             MoreTile.Settings -> R.string.v7_tile_settings
@@ -415,6 +423,7 @@ private val MoreTile.icon: String
             MoreTile.Stock -> "box"
             MoreTile.LabWork -> "flask"
             MoreTile.Team -> "team"
+            MoreTile.TimeOff -> "cal"
             MoreTile.ClinicQr -> "qr"
             MoreTile.RxSets -> "rx"
             MoreTile.Settings -> "gear"

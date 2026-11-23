@@ -38,6 +38,8 @@ class PushTapTest {
         assertEquals(PushScreen.Queue, PushTap.screenFor("/queue/?room=2"))
         assertEquals(PushScreen.Tasks, PushTap.screenFor("/tasks#mine"))
         assertEquals(PushScreen.Labs, PushTap.screenFor("/labs"))
+        assertEquals(PushScreen.TimeOff, PushTap.screenFor("/time-off"))
+        assertEquals(PushScreen.TimeOff, PushTap.screenFor("/time-off/abc"))
         assertEquals(PushScreen.Today, PushTap.screenFor("/patients/abc"))
         assertEquals(PushScreen.Today, PushTap.screenFor("/queues"))
         assertEquals(PushScreen.Today, PushTap.screenFor(null))

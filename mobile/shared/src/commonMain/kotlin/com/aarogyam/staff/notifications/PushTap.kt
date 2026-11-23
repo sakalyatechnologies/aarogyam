@@ -1,7 +1,7 @@
 package com.aarogyam.staff.notifications
 
 /** Where a tapped push goes: the screens the app can open from one. */
-enum class PushScreen { Today, Queue, Tasks, Labs }
+enum class PushScreen { Today, Queue, Tasks, Labs, TimeOff }
 
 /**
  * What a tapped push carries (ids and a path, never a name): the kind, the clinic (`org_id`), the
@@ -38,6 +38,7 @@ data class PushTap(
             return when {
                 path == "/queue" || path.startsWith("/queue/") -> PushScreen.Queue
                 path == "/tasks" || path.startsWith("/tasks/") -> PushScreen.Tasks
+                path == "/time-off" || path.startsWith("/time-off/") -> PushScreen.TimeOff
                 path == "/labs" || path.startsWith("/labs/") -> PushScreen.Labs
                 else -> PushScreen.Today
             }

@@ -17587,6 +17587,31 @@ export interface components {
             /** @description The visit's number, such as `V-318`. */
             visit_number: string;
         };
+        /** @description One of the patient's live offers or rewards. */
+        VisitOffer: {
+            /** @description The code, such as `K7QM-4XRD`. */
+            code: string;
+            /** @description `percent_bps` or `fixed`. */
+            kind: string;
+            /**
+             * Format: int64
+             * @description The cap on a percentage, in paise.
+             */
+            max_discount_paise?: number | null;
+            /** @description `patient_offer` or `referrer_reward`. */
+            purpose: string;
+            /** @description What it is for: "the next treatment" or "the crown on 21". */
+            target?: string | null;
+            /** @description The last day (`YYYY-MM-DD`). */
+            valid_to: string;
+            /**
+             * Format: int64
+             * @description Basis points or paise.
+             */
+            value: number;
+            /** @description The value in words, with its cap: "10% off (up to ₹2,000)". */
+            words?: string | null;
+        };
         /** @description A visit's live codes and the caller's presets. */
         VisitOffers: {
             patient_offer?: components["schemas"]["IssuedCode"] | null;
@@ -17643,6 +17668,33 @@ export interface components {
             items: components["schemas"]["VisitRxItem"][];
             /** @description `RX-…`. */
             number: string;
+        };
+        /** @description The patient's referral code. */
+        VisitReferral: {
+            /** @description The code to give a friend. */
+            code: string;
+            /** @description `percent_bps` or `fixed`: what the friend gets. */
+            kind: string;
+            /**
+             * Format: int64
+             * @description The cap on a percentage, in paise.
+             */
+            max_discount_paise?: number | null;
+            /**
+             * @description The text to share: the clinic, the friend's value, the code, the last day and the
+             *     clinic's booking address. No patient name and no health data. Absent when the clinic has
+             *     no booking page. Share it with the device's share sheet or copy it; never put it in a URL.
+             */
+            share_text?: string | null;
+            /** @description The last day (`YYYY-MM-DD`). */
+            valid_to: string;
+            /**
+             * Format: int64
+             * @description Basis points or paise.
+             */
+            value: number;
+            /** @description What the friend gets, in words. */
+            words?: string | null;
         };
         /** @description A medicine of the visit's prescription. */
         VisitRxItem: {
@@ -17728,12 +17780,18 @@ export interface components {
             follow_up_on?: string | null;
             /** @description The visit's medicines. */
             medicines?: components["schemas"]["SummaryMedicine"][] | null;
+            /**
+             * @description The patient's live offers and rewards. The code is for this patient only: the response
+             *     is `Cache-Control: no-store`, and no code goes in a URL, log or notification.
+             */
+            offer?: components["schemas"]["VisitOffer"][];
             /** @description The patient's name. */
             patient_name: string;
             /** @description What is still to be done: planned procedures, then accepted plan items. */
             plan?: components["schemas"]["SummaryPlanItem"][] | null;
             /** @description The visit doctor's practitioner id, to preselect on the booking page. */
             practitioner_id?: string | null;
+            referral?: components["schemas"]["VisitReferral"] | null;
             /** @description The treatments done. */
             treatments: components["schemas"]["SummaryTreatment"][];
             /** @description The visit's readable number, such as `V-318`. */

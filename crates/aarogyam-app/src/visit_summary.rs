@@ -14,7 +14,7 @@ use aarogyam_domain::dental::Tooth;
 use aarogyam_domain::ids::{ClinicId, EncounterId, ShareLinkId};
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::share::{LinkState, MAX_PIN_ATTEMPTS, Pin};
-use aarogyam_domain::visit_message::{Aftercare, PlanChoice, aftercare};
+use aarogyam_domain::visit_message::{self as message, Aftercare, PlanChoice, aftercare};
 use sakalya_db::{Db, ScopedTx};
 use time::{Date, OffsetDateTime};
 use uuid::Uuid;
@@ -165,9 +165,54 @@ pub struct Care {
     pub care: &'static Aftercare,
 }
 
+/// One of the patient's live offers or rewards, as the page shows it.
+#[derive(Debug, Clone)]
+pub struct PageOffer {
+    /// The code, `K7QM-4XRD`. Shown to the patient it belongs to, on a `no-store` response.
+    pub code: String,
+    /// `patient_offer` or `referrer_reward`.
+    pub purpose: &'static str,
+    /// `percent_bps` or `fixed`.
+    pub kind: &'static str,
+    /// Basis points or paise.
+    pub value: i64,
+    /// The cap on a percentage, in paise.
+    pub max_discount_paise: Option<i64>,
+    /// The value in words, with its cap.
+    pub words: Option<String>,
+    /// What it is for: "the next treatment" or "the crown on 21".
+    pub target: Option<String>,
+    /// The last day.
+    pub valid_to: Date,
+}
+
+/// The patient's referral code, for "Share with a friend".
+#[derive(Debug, Clone)]
+pub struct PageReferral {
+    /// The code.
+    pub code: String,
+    /// `percent_bps` or `fixed`.
+    pub kind: &'static str,
+    /// Basis points or paise: what the friend gets.
+    pub value: i64,
+    /// The cap on a percentage, in paise.
+    pub max_discount_paise: Option<i64>,
+    /// What the friend gets in words.
+    pub words: Option<String>,
+    /// The last day.
+    pub valid_to: Date,
+    /// The text to share: clinic, friend's value, code, last day and the booking address.
+    /// No patient name and no health data. None when the clinic has no booking page.
+    pub share_text: Option<String>,
+}
+
 /// What an opened visit link shows.
 #[derive(Debug, Clone)]
 pub struct Summary {
+    /// The patient's live offers and rewards.
+    pub offers: Vec<PageOffer>,
+    /// The patient's referral code.
+    pub referral: Option<PageReferral>,
     /// The clinic's name.
     pub clinic_name: String,
     /// The patient's name.
@@ -205,6 +250,49 @@ pub struct Summary {
     /// "Options we discussed": only the rows the doctor ticked for the patient (Show patient
     /// slice 2f). A price only when the clinic shows prices.
     pub discussed: Vec<aarogyam_domain::present_discussion::SharedDiscussion>,
+}
+
+/// The patient's live offers and referral for the page, with the text to share.
+async fn page_offers(
+    tx: &mut ScopedTx,
+    patient_id: Uuid,
+    today: Date,
+    clinic_name: &str,
+    booking_host: Option<&str>,
+) -> Result<(Vec<PageOffer>, Option<PageReferral>), AppError> {
+    let codes = crate::promo::page_codes(tx, patient_id, today).await?;
+    let offers = codes
+        .offers
+        .iter()
+        .map(|code| PageOffer {
+            code: code.code.clone(),
+            purpose: code.purpose.as_str(),
+            kind: code.kind.as_str(),
+            value: code.value,
+            max_discount_paise: code.max_discount_paise,
+            words: message::discount_words(code.discount()),
+            target: message::offer_target_words(code.target()),
+            valid_to: code.valid_to,
+        })
+        .collect();
+    let referral = codes.referral.as_ref().map(|code| PageReferral {
+        code: code.code.clone(),
+        kind: code.kind.as_str(),
+        value: code.value,
+        max_discount_paise: code.max_discount_paise,
+        words: message::discount_words(code.discount()),
+        valid_to: code.valid_to,
+        share_text: booking_host.and_then(|host| {
+            message::referral_share_text(
+                clinic_name,
+                code.discount(),
+                &code.code,
+                code.valid_to,
+                &format!("https://{host}/book"),
+            )
+        }),
+    });
+    Ok((offers, referral))
 }
 
 /// What the page shows beyond the visit row: treatments, plan, medicines, care, contact.
@@ -391,6 +479,14 @@ pub async fn open(
         let visited_on = clinic_today(&timezone, visit.started_at);
         let follow_up_on = dal::next_follow_up(tx.conn(), visit.patient_id, visited_on).await?;
         let booking_host = aarogyam_dal::staff::portal_host(tx.conn()).await?;
+        let (offers, referral) = page_offers(
+            tx,
+            visit.patient_id,
+            clinic_today(&timezone, now),
+            &clinic_name,
+            booking_host.as_deref(),
+        )
+        .await?;
         let request_text = request_id.map(|id| id.to_string());
         access::record(
             tx.conn(),
@@ -408,6 +504,8 @@ pub async fn open(
         )
         .await?;
         Ok(OpenOutcome::Opened(Box::new(Summary {
+            offers,
+            referral,
             clinic_name,
             patient_name,
             visit_number: visit.number,

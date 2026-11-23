@@ -37,6 +37,7 @@ use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
+use crate::promo::{self, IssuedCode};
 use crate::scope::staff_scope;
 use crate::share::ShareOptions;
 use crate::visit_summary;
@@ -577,7 +578,7 @@ async fn recipient_in(
     patient_id: Uuid,
     own_phone: Option<&str>,
     minor: bool,
-) -> Result<(Recipient, PhoneE164), AppError> {
+) -> Result<(Recipient, PhoneE164, Uuid), AppError> {
     let relative = if minor || own_phone.is_none() {
         dal::relative_contact(tx.conn(), patient_id, minor).await?
     } else {
@@ -611,7 +612,17 @@ async fn recipient_in(
     if reach.opted_out {
         return Err(Refusal::OptedOut.into());
     }
-    Ok((recipient, phone))
+    Ok((recipient, phone, recipient_id))
+}
+
+/// Whether the recipient allows promotional messages (D3): without a consent row they do not.
+async fn promotional_ok(tx: &mut ScopedTx, recipient_id: Uuid) -> Result<bool, AppError> {
+    let promotional = Purpose::Promotional.as_str();
+    Ok(
+        reach_dal::reach(tx.conn(), recipient_id, "whatsapp", promotional)
+            .await?
+            .is_some_and(|reach| reach.may_contact && !reach.opted_out),
+    )
 }
 
 /// The visit's issued medicines as message lines.
@@ -678,9 +689,27 @@ struct Draft {
     medicines: Vec<MedicineLine>,
     /// The public learn page for today's treatment (design §1.9).
     learn: Option<message::LearnTopic>,
+    /// The patient's own offers and rewards (a fee fact about their account).
+    offers: Vec<IssuedCode>,
+    /// The referral to point to: only with the recipient's promotional consent (D3).
+    referral: Option<IssuedCode>,
 }
 
 impl Draft {
+    /// The offers as message lines, borrowing the codes.
+    fn offer_lines(&self) -> Vec<message::OfferLine<'_>> {
+        self.offers
+            .iter()
+            .map(|code| message::OfferLine {
+                reward: code.purpose == aarogyam_domain::promo::Purpose::ReferrerReward,
+                discount: code.discount(),
+                code: &code.code,
+                valid_to: code.valid_to,
+                target: code.target(),
+            })
+            .collect()
+    }
+
     /// The learn page's address on the learn host, when there is a topic and a host.
     fn learn_url(&self, learn_origin: Option<&str>) -> Option<String> {
         Some(message::learn_url(learn_origin?, self.learn?))
@@ -694,6 +723,7 @@ impl Draft {
         pin: &'a str,
         sections: SectionSet,
         learn_url: Option<&'a str>,
+        offers: &'a [message::OfferLine<'a>],
     ) -> MessageInput<'a> {
         MessageInput {
             clinic_name: &self.clinic_name,
@@ -718,6 +748,8 @@ impl Draft {
             url,
             pin,
             sections,
+            offers,
+            referral: self.referral.as_ref().map(IssuedCode::discount),
         }
     }
 }
@@ -728,6 +760,7 @@ struct Checked {
     patient: patients::PatientRow,
     recipient: Recipient,
     phone: PhoneE164,
+    recipient_id: Uuid,
     clinic_name: String,
     timezone: String,
     minor: bool,
@@ -764,13 +797,14 @@ async fn checked_in(
         .await?
         .ok_or(AppError::NotFound("clinic"))?;
     let minor = message::is_minor(patient.date_of_birth, clinic_today(&timezone, now));
-    let (recipient, phone) =
+    let (recipient, phone, recipient_id) =
         recipient_in(tx, patient.id, patient.phone_e164.as_deref(), minor).await?;
     Ok(Checked {
         visit,
         patient,
         recipient,
         phone,
+        recipient_id,
         clinic_name,
         timezone,
         minor,
@@ -790,6 +824,7 @@ async fn draft_in(
         patient,
         recipient,
         phone,
+        recipient_id,
         clinic_name,
         timezone,
         minor,
@@ -817,6 +852,13 @@ async fn draft_in(
         .await?
         .ok_or(AppError::NotFound("visit"))?;
     let facts = facts_in(tx, &visit, &done, &plan, context.patient_estimates, now).await?;
+    let today = clinic_today(&timezone, now);
+    let codes = promo::message_codes(tx, visit.id, patient.id, today).await?;
+    let referral = if promotional_ok(tx, recipient_id).await? {
+        codes.referral
+    } else {
+        None
+    };
     Ok(Draft {
         visit_id: visit.id,
         patient_id: patient.id,
@@ -834,6 +876,8 @@ async fn draft_in(
         keys,
         medicines,
         learn,
+        offers: codes.offers,
+        referral,
     })
 }
 
@@ -907,11 +951,13 @@ pub async fn prepare(
             prefs_dal::save_sections(tx.conn(), member, &owned_names(ticked)).await?;
         }
         let learn = draft.learn_url(learn_origin);
+        let offers = draft.offer_lines();
         let composed = message::compose(&draft.input(
             &link,
             &made.pin,
             sections.unwrap_or_default(),
             learn.as_deref(),
+            &offers,
         ));
         Ok(Prepared {
             phone: draft.phone,
@@ -958,10 +1004,15 @@ pub async fn preview(
             .unwrap_or_else(|| request_host.to_owned());
         let link = url(&host, message::PREVIEW_TOKEN);
         let learn = draft.learn_url(learn_origin);
-        Ok(
-            message::compose(&draft.input(&link, message::PREVIEW_PIN, sections, learn.as_deref()))
-                .text,
-        )
+        let offers = draft.offer_lines();
+        Ok(message::compose(&draft.input(
+            &link,
+            message::PREVIEW_PIN,
+            sections,
+            learn.as_deref(),
+            &offers,
+        ))
+        .text)
     })
     .await
 }

@@ -190,6 +190,57 @@ pub struct VisitSummary {
     /// only when the clinic shows prices.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub discussed: Vec<VisitDiscussed>,
+    /// The patient's live offers and rewards. The code is for this patient only: the response
+    /// is `Cache-Control: no-store`, and no code goes in a URL, log or notification.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub offer: Vec<VisitOffer>,
+    /// The patient's referral code and the text to share with a friend. Left out when the
+    /// clinic gives no referral codes. Left out by older servers.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub referral: Option<VisitReferral>,
+}
+
+/// One of the patient's live offers or rewards.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct VisitOffer {
+    /// The code, such as `K7QM-4XRD`.
+    pub code: String,
+    /// `patient_offer` or `referrer_reward`.
+    pub purpose: String,
+    /// `percent_bps` or `fixed`.
+    pub kind: String,
+    /// Basis points or paise.
+    pub value: i64,
+    /// The cap on a percentage, in paise.
+    pub max_discount_paise: Option<i64>,
+    /// The value in words, with its cap: "10% off (up to ₹2,000)".
+    pub words: Option<String>,
+    /// What it is for: "the next treatment" or "the crown on 21".
+    pub target: Option<String>,
+    /// The last day (`YYYY-MM-DD`).
+    pub valid_to: String,
+}
+
+/// The patient's referral code.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct VisitReferral {
+    /// The code to give a friend.
+    pub code: String,
+    /// `percent_bps` or `fixed`: what the friend gets.
+    pub kind: String,
+    /// Basis points or paise.
+    pub value: i64,
+    /// The cap on a percentage, in paise.
+    pub max_discount_paise: Option<i64>,
+    /// What the friend gets, in words.
+    pub words: Option<String>,
+    /// The last day (`YYYY-MM-DD`).
+    pub valid_to: String,
+    /// The text to share: the clinic, the friend's value, the code, the last day and the
+    /// clinic's booking address. No patient name and no health data. Absent when the clinic has
+    /// no booking page. Share it with the device's share sheet or copy it; never put it in a URL.
+    pub share_text: Option<String>,
 }
 
 /// A ticked "Options we discussed" row.
@@ -232,6 +283,7 @@ fn day(date: time::Date) -> String {
 }
 
 impl From<Summary> for VisitSummary {
+    #[expect(clippy::too_many_lines, reason = "one field per line of the payload")]
     fn from(summary: Summary) -> Self {
         Self {
             clinic_name: summary.clinic_name,
@@ -291,6 +343,29 @@ impl From<Summary> for VisitSummary {
                     .collect(),
             ),
             clinic_phone: summary.clinic_phone,
+            offer: summary
+                .offers
+                .into_iter()
+                .map(|offer| VisitOffer {
+                    code: offer.code,
+                    purpose: offer.purpose.to_owned(),
+                    kind: offer.kind.to_owned(),
+                    value: offer.value,
+                    max_discount_paise: offer.max_discount_paise,
+                    words: offer.words,
+                    target: offer.target,
+                    valid_to: day(offer.valid_to),
+                })
+                .collect(),
+            referral: summary.referral.map(|referral| VisitReferral {
+                code: referral.code,
+                kind: referral.kind.to_owned(),
+                value: referral.value,
+                max_discount_paise: referral.max_discount_paise,
+                words: referral.words,
+                valid_to: day(referral.valid_to),
+                share_text: referral.share_text,
+            }),
             practitioner_id: summary.practitioner_id,
             chart: summary.chart.map(super::mouth::MouthSnapshot::from),
             discussed: summary
@@ -353,7 +428,12 @@ pub(crate) async fn open(
     Ok(match outcome {
         OpenOutcome::Opened(summary) => {
             tracing::info!(event = Event::ShareLinkOpened.as_str(), "share link opened");
-            Json(VisitSummary::from(*summary)).into_response()
+            let mut response = Json(VisitSummary::from(*summary)).into_response();
+            response.headers_mut().insert(
+                axum::http::header::CACHE_CONTROL,
+                axum::http::HeaderValue::from_static("no-store"),
+            );
+            response
         }
         OpenOutcome::WrongPin(left) => refusal(Refused::WrongPin(left)),
         OpenOutcome::Locked => refusal(Refused::Locked),

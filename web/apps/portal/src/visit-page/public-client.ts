@@ -66,6 +66,22 @@ export interface Discussed {
   readonly options: readonly DiscussedOption[];
 }
 
+/** One of the patient's live offers or rewards. */
+export interface Offer {
+  readonly code: string;
+  readonly words?: string | null;
+  readonly target?: string | null;
+  readonly validTo: string;
+}
+
+/** The patient's referral code and the text to share with a friend. */
+export interface Referral {
+  readonly code: string;
+  readonly words?: string | null;
+  readonly validTo: string;
+  readonly shareText?: string | null;
+}
+
 /** The visit as the patient may see it. Fields after `expiresAt` arrive with newer servers. */
 export interface Visit {
   readonly clinicName: string;
@@ -88,6 +104,9 @@ export interface Visit {
   readonly chart?: MouthSnapshot | undefined;
   /** Options the doctor ticked for the patient; older servers leave it out. */
   readonly discussed: readonly Discussed[];
+  /** Live offers and rewards; older servers leave it out. */
+  readonly offers: readonly Offer[];
+  readonly referral?: Referral | undefined;
 }
 
 /** Why a call failed, in the terms the page shows. */
@@ -158,6 +177,14 @@ function chartOf(body: unknown): { chart?: MouthSnapshot } {
   return chart === undefined ? {} : { chart };
 }
 
+function referralOf(value: unknown): { referral: Referral } | Record<string, never> {
+  if (!isObject(value)) return {};
+  const code = text(value["code"]);
+  const validTo = text(value["valid_to"]);
+  if (code === undefined || validTo === undefined) return {};
+  return { referral: { code, validTo, words: optText(value["words"]), shareText: optText(value["share_text"]) } };
+}
+
 /** Reads a visit summary response; unknown or missing optional parts become empty. */
 export function parseVisit(body: unknown): Visit | undefined {
   if (!isObject(body)) return undefined;
@@ -183,6 +210,12 @@ export function parseVisit(body: unknown): Visit | undefined {
     clinicPhone: optText(body["clinic_phone"]),
     practitionerId: optText(body["practitioner_id"]),
     ...chartOf(body["chart"]),
+    offers: list(body["offer"]).flatMap((row) => {
+      const code = text(row["code"]);
+      const validTo = text(row["valid_to"]);
+      return code === undefined || validTo === undefined ? [] : [{ code, validTo, words: optText(row["words"]), target: optText(row["target"]) }];
+    }),
+    ...referralOf(body["referral"]),
     discussed: list(body["discussed"]).flatMap((row) => {
       const title = text(row["title"]);
       const options = list(row["options"]).flatMap((o) => {

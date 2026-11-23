@@ -47616,6 +47616,62 @@
           }
         }
       },
+      "VisitOffer": {
+        "type": "object",
+        "description": "One of the patient's live offers or rewards.",
+        "required": [
+          "code",
+          "purpose",
+          "kind",
+          "value",
+          "valid_to"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The code, such as `K7QM-4XRD`."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`percent_bps` or `fixed`."
+          },
+          "max_discount_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The cap on a percentage, in paise."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "`patient_offer` or `referrer_reward`."
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What it is for: \"the next treatment\" or \"the crown on 21\"."
+          },
+          "valid_to": {
+            "type": "string",
+            "description": "The last day (`YYYY-MM-DD`)."
+          },
+          "value": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Basis points or paise."
+          },
+          "words": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The value in words, with its cap: \"10% off (up to ₹2,000)\"."
+          }
+        }
+      },
       "VisitOffers": {
         "type": "object",
         "description": "A visit's live codes and the caller's presets.",
@@ -47731,6 +47787,57 @@
           "number": {
             "type": "string",
             "description": "`RX-…`."
+          }
+        }
+      },
+      "VisitReferral": {
+        "type": "object",
+        "description": "The patient's referral code.",
+        "required": [
+          "code",
+          "kind",
+          "value",
+          "valid_to"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The code to give a friend."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`percent_bps` or `fixed`: what the friend gets."
+          },
+          "max_discount_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The cap on a percentage, in paise."
+          },
+          "share_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The text to share: the clinic, the friend's value, the code, the last day and the\nclinic's booking address. No patient name and no health data. Absent when the clinic has\nno booking page. Share it with the device's share sheet or copy it; never put it in a URL."
+          },
+          "valid_to": {
+            "type": "string",
+            "description": "The last day (`YYYY-MM-DD`)."
+          },
+          "value": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Basis points or paise."
+          },
+          "words": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the friend gets, in words."
           }
         }
       },
@@ -47955,6 +48062,13 @@
             },
             "description": "The visit's medicines."
           },
+          "offer": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitOffer"
+            },
+            "description": "The patient's live offers and rewards. The code is for this patient only: the response\nis `Cache-Control: no-store`, and no code goes in a URL, log or notification."
+          },
           "patient_name": {
             "type": "string",
             "description": "The patient's name."
@@ -47975,6 +48089,17 @@
               "null"
             ],
             "description": "The visit doctor's practitioner id, to preselect on the booking page."
+          },
+          "referral": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VisitReferral",
+                "description": "The patient's referral code and the text to share with a friend. Left out when the\nclinic gives no referral codes. Left out by older servers."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "treatments": {
             "type": "array",

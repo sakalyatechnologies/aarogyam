@@ -9,6 +9,7 @@ import { useRef, useEffect, useState, type SubmitEvent } from "react";
 import { brushHighlight, brushingBand } from "@aarogyam/app-kit/mouth-view";
 
 import { answerPlan, openVisit, previewLink, type Failure, type PlanChoice, type Visit } from "./public-client.js";
+import { OffersSection } from "./offers-section.js";
 import { BrushingBlock, MouthHero, ToothRow, foundRows } from "./mouth-sections.js";
 import { dayWords, doses, firstName, rupees, timingWords, toothWords } from "./words.js";
 
@@ -296,6 +297,8 @@ function VisitStory({ visit, token, pin }: { visit: Visit; token: string; pin: s
           )}
         </Section>
       )}
+
+      <OffersSection visit={visit} />
 
       {visit.discussed.map((row, index) => (
         <Section key={index} title={row.tooth === null || row.tooth === undefined ? row.title : `${row.title} (tooth ${String(row.tooth)})`}>

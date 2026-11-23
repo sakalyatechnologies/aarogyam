@@ -98,7 +98,7 @@ fun MainScreen(
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= RAIL_FROM
-        PlusMenu(plusOpen, plus, graph, clinic, nav, onWalkIn) { plusOpen = false }
+        PlusMenu(plusOpen, plus, graph, clinic, nav, onWalkIn, { plusOpen = false }, wide)
         Row(Modifier.fillMaxSize()) {
             if (wide) SkNavRail(items, tab.name, select, action = action)
             Box(Modifier.weight(1f).nestedScroll(hideOnScroll)) {

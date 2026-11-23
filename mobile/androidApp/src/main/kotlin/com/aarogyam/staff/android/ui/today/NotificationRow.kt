@@ -84,6 +84,7 @@ private fun kindLabel(kind: String): Int =
         "arrival" -> R.string.sh_v10_notif_arrival
         "lab_overdue" -> R.string.sh_v10_notif_lab_overdue
         "payment_due" -> R.string.sh_v10_notif_payment_due
+        "payment_collected" -> R.string.sh_v10_notif_payment_collected
         "recall_due" -> R.string.sh_v10_notif_recall_due
         "plan_response" -> R.string.sh_v10_notif_plan_response
         "booking_conflict" -> R.string.sh_v10_notif_booking_conflict

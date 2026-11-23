@@ -43,7 +43,7 @@ IOS_SCHEME = 'AarogyamStaff'.freeze
 # --------------------------------------------------------------------------- versions
 
 def ios_build_number = File.read(project_yml)[/^\s+CURRENT_PROJECT_VERSION: (\d+)$/, 1].to_i
-def ios_marketing_version = File.read(project_yml)[/^\s+MARKETING_VERSION: ([\d.]+)$/, 1]
+def ios_marketing_version = File.read(project_yml)[/^\s+MARKETING_VERSION: "?([\d.]+)"?$/, 1]
 def android_version_code = File.read(gradle_file)[/versionCode = (\d+)/, 1].to_i
 def android_version_name = File.read(gradle_file)[/versionName = "([^"]+)"/, 1]
 
@@ -185,15 +185,18 @@ platform :ios do
   end
 
   desc 'Build and upload to TestFlight (internal testers)'
-  lane :beta do
+  # `ipa:` uploads an IPA exported elsewhere (for example signed with the Xcode account when the API key may not
+  # cloud-sign): `fastlane ios beta ipa:/path/AarogyamStaff.ipa`.
+  lane :beta do |options|
     latest = latest_testflight_build_number(api_key: app_store_api_key, app_identifier: app_identifier,
                                             version: ios_marketing_version, initial_build_number: 0)
     if ios_build_number <= latest
       UI.user_error!("Build #{ios_build_number} of #{ios_marketing_version} is already on TestFlight (latest #{latest}). " \
                      'Run `bundle exec fastlane ios bump_build_number` and commit it.')
     end
-    build
-    upload_to_testflight(api_key: app_store_api_key, ipa: ipa_path, distribute_external: false,
+    ipa = options[:ipa]
+    build unless ipa
+    upload_to_testflight(api_key: app_store_api_key, ipa: ipa || ipa_path, distribute_external: false,
                          skip_submission: true, skip_waiting_for_build_processing: true)
   end
 

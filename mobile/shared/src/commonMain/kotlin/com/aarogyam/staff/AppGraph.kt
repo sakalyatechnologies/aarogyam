@@ -80,6 +80,8 @@ import com.aarogyam.staff.team.InviteStaffStateHolder
 import com.aarogyam.staff.team.NotificationsStateHolder
 import com.aarogyam.staff.team.StockStateHolder
 import com.aarogyam.staff.team.TeamStateHolder
+import com.aarogyam.staff.timeoff.TimeOffHolder
+import com.aarogyam.staff.timeoff.createTimeOff
 import com.aarogyam.staff.today.TodayStateHolder
 import com.aarogyam.staff.visit.FinishVisitHolder
 import com.aarogyam.staff.visit.VisitStateHolder
@@ -560,6 +562,11 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): MyTasksHolder = createMyTasks(clinic, scope)
+
+    fun timeOff(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): TimeOffHolder = createTimeOff(clinic, scope)
 
     /** The push token and language to the server, and the DELETE before sign-out ([PushRegistration]). */
     val push: PushRegistration =

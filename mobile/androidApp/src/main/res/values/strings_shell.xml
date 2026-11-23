@@ -85,6 +85,7 @@
     <string name="sh_v10_notif_generic">New notification</string>
     <string name="sh_v10_notif_lab_overdue">A lab result is overdue</string>
     <string name="sh_v10_notif_payment_due">Payment is due</string>
+    <string name="sh_v10_notif_payment_collected">Payment collected</string>
     <string name="sh_v10_notif_recall_due">A patient recall is due</string>
     <string name="sh_v10_notif_plan_response">A patient replied to their plan</string>
     <string name="sh_v10_notif_stock_alert">Stock running low</string>

@@ -181,6 +181,9 @@ struct MainTabs: View {
         case .labs where nav.tabs.contains(.more):
             selected = .more
             morePath = [.labs]
+        case .timeOff where nav.tabs.contains(.more) && nav.tiles.contains(.timeOff):
+            selected = .more
+            morePath = [.timeOff]
         case .patient(let id):
             selected = .today
             todayPath = [PatientRoute(id: id)]

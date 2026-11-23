@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="timeoff_title">Time off</string>
+    <string name="timeoff_tile_sub">Ask or approve</string>
+    <string name="timeoff_request">Request time off</string>
+    <string name="timeoff_mine">My requests</string>
+    <string name="timeoff_pending">Waiting for your decision</string>
+    <string name="timeoff_empty">No requests yet</string>
+    <string name="timeoff_not_allowed">Your role cannot ask for time off.</string>
+    <string name="timeoff_loading">Loading time off</string>
+    <string name="timeoff_retry">Try again</string>
+    <string name="timeoff_kind">Type</string>
+    <string name="timeoff_kind_vacation">Vacation</string>
+    <string name="timeoff_kind_sick">Sick</string>
+    <string name="timeoff_kind_personal">Personal</string>
+    <string name="timeoff_kind_other">Other</string>
+    <string name="timeoff_status_pending">Pending</string>
+    <string name="timeoff_status_approved">Approved</string>
+    <string name="timeoff_status_declined">Declined</string>
+    <string name="timeoff_status_cancelled">Cancelled</string>
+    <string name="timeoff_first_day">First day</string>
+    <string name="timeoff_last_day">Last day</string>
+    <string name="timeoff_reason">Reason (optional)</string>
+    <string name="timeoff_send">Send request</string>
+    <string name="timeoff_withdraw">Withdraw</string>
+    <string name="timeoff_approve">Approve</string>
+    <string name="timeoff_decline">Decline</string>
+    <string name="timeoff_done">Done</string>
+    <string name="timeoff_action_failed">Could not do this. Try again.</string>
+    <string name="timeoff_decision_note">Note: %1$s</string>
+    <string name="timeoff_range">%1$s to %2$s</string>
+</resources>

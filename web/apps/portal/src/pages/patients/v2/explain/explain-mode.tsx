@@ -5,7 +5,7 @@
  * one-second hold on Exit, or Esc, so a patient tapping around can't land in Patient 360.
  */
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
-import { useEffect, useId, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 
 import type { Attachment, PatientId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatRupees } from "@aarogyam/app-kit";
@@ -23,15 +23,19 @@ import { ProgressLine } from "../tooth-chart/progress-line.js";
 import { ToothChart } from "../tooth-chart/tooth-chart.js";
 import { useNoteDictation } from "../tooth-chart/use-note-dictation.js";
 import { containedRect, explainImages, explainSummary, fractionIn, isFdi, type Rect } from "./explain-model.js";
+import { useSavedPins } from "./use-saved-pins.js";
+import "@aarogyam/app-kit/hold-to-exit.css";
 import "./explain.css";
+import { HoldToExit, XrayEdges } from "@aarogyam/app-kit/present";
+
+export { EXIT_HOLD_MS, HoldToExit } from "@aarogyam/app-kit/present";
 
 /** How long Exit must be held. */
-export const EXIT_HOLD_MS = 1000;
 /** How far the pointer moves while pressed before it is the laser pointer rather than a tap. */
 const DRAG_PX = 8;
 const LABEL_MAX = 80;
 
-interface Pin {
+export interface Pin {
   readonly id: number;
   readonly imageId: string;
   /** Fractions of the drawn image, so the pin stays on the tooth when the window changes size. */
@@ -41,15 +45,43 @@ interface Pin {
   readonly label: string;
 }
 
-interface PendingPin {
+export interface PendingPin {
   readonly x: number;
   readonly y: number;
   readonly digits: string;
   readonly label: string;
 }
 
+/**
+ * Explain mode as its own dialog, for a patient without a visit to show; with a visit, Show patient
+ * hosts the same X-rays body in its tab (§1.12).
+ */
 export function ExplainMode({ patientId, imageId, onExit }: { patientId: PatientId; imageId?: string | undefined; onExit: () => void }) {
   const portal = usePortalTheme();
+  return (
+    <BaseDialog.Root
+      open
+      disablePointerDismissal
+      onOpenChange={(open, details) => {
+        // Esc leaves; the pin picker catches its own Esc first
+        if (!open && details.reason === "escape-key") onExit();
+      }}
+    >
+      <BaseDialog.Portal {...portal}>
+        <BaseDialog.Popup aria-modal="true" className="xp odo">
+          <header className="xp-head">
+            <BaseDialog.Title className="xp-title">Your teeth today</BaseDialog.Title>
+            <HoldToExit onExit={onExit} />
+          </header>
+          <ExplainBody patientId={patientId} imageId={imageId} />
+        </BaseDialog.Popup>
+      </BaseDialog.Portal>
+    </BaseDialog.Root>
+  );
+}
+
+/** The X-ray or photo with pins, the chart and the summary: Explain mode's body, also Show patient's X-rays tab. */
+export function ExplainBody({ patientId, imageId }: { patientId: PatientId; imageId?: string | undefined }) {
   const { can } = useClinic();
   const chart = useDentalChart(patientId);
   const plans = usePlans(patientId);
@@ -61,12 +93,12 @@ export function ExplainMode({ patientId, imageId, onExit }: { patientId: Patient
   const images = useMemo(() => explainImages(attachments.data?.items ?? []), [attachments.data]);
   const [chosenId, setChosenId] = useState<string | undefined>(imageId);
   const image = images.find((f) => f.id === chosenId) ?? images[0];
-  const [pins, setPins] = useState<readonly Pin[]>([]);
+  const saved = useSavedPins(image?.id);
   const [pending, setPending] = useState<PendingPin | undefined>(undefined);
   const [focusTooth, setFocusTooth] = useState<number | undefined>(undefined);
   const [hoverTooth, setHoverTooth] = useState<number | undefined>(undefined);
   const active = hoverTooth ?? focusTooth;
-  const shown = pins.filter((p) => p.imageId === image?.id);
+  const shown = saved.pins;
   const marked = new Set(shown.map((p) => p.tooth));
 
   const current = chart.data?.current ?? [];
@@ -83,125 +115,122 @@ export function ExplainMode({ patientId, imageId, onExit }: { patientId: Patient
 
   const placePin = (pin: PendingPin, tooth: number) => {
     if (image === undefined) return;
-    setPins((before) => [...before, { id: (before.at(-1)?.id ?? 0) + 1, imageId: image.id, x: pin.x, y: pin.y, tooth, label: pin.label.trim() }]);
+    saved.place({ x: pin.x, y: pin.y, tooth, label: pin.label.trim() });
     setPending(undefined);
     setFocusTooth(tooth);
   };
 
+  // Esc closes the pin picker first (before the dialog or Present sees it)
+  useEffect(() => {
+    if (pending === undefined) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setPending(undefined);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => { window.removeEventListener("keydown", onKey, true); };
+  }, [pending]);
+
   return (
-    <BaseDialog.Root
-      open
-      disablePointerDismissal
-      onOpenChange={(open, details) => {
-        if (open || details.reason !== "escape-key") return;
-        // Esc closes the pin picker first, then leaves.
-        if (pending !== undefined) setPending(undefined);
-        else onExit();
-      }}
-    >
-      <BaseDialog.Portal {...portal}>
-        <BaseDialog.Popup aria-modal="true" className="xp odo">
-          <header className="xp-head">
-            <BaseDialog.Title className="xp-title">Your teeth today</BaseDialog.Title>
-            <HoldToExit onExit={onExit} />
-          </header>
-          <div className="xp-grid">
-            <section className="xp-pane xp-image" aria-label="Image">
-              <ImagePane
-                images={images}
-                image={image}
-                loading={attachments.isPending}
-                pins={shown}
-                pending={pending}
-                active={active}
-                onChoose={(file) => {
-                  setChosenId(file.id);
-                  setPending(undefined);
-                }}
-                onDrop={(x, y) => {
-                  setPending({ x, y, digits: "", label: "" });
-                }}
-                onPin={(pin) => {
-                  setFocusTooth((before) => (before === pin.tooth ? undefined : pin.tooth));
-                }}
-                onHoverPin={setHoverTooth}
-                onPending={setPending}
-                onPlace={placePin}
-                onClear={() => {
-                  setPins((before) => before.filter((p) => p.imageId !== image?.id));
-                }}
-              />
-            </section>
-            <section className="xp-pane xp-chart" aria-label="Chart">
-              {chart.isPending ? (
-                <SkeletonRows count={2} tall label="Loading the dental chart" />
-              ) : chart.isError ? (
-                <ApiErrorNotice title="Couldn't load the dental chart" error={chart.error} onRetry={() => void chart.refetch()} />
-              ) : (
-                <ToothChart
-                  look="rows"
-                  dentition={dentition}
-                  view="health"
-                  current={current}
-                  statuses={statuses}
-                  planItems={[]}
-                  selected={active}
-                  marked={marked}
-                  onHover={setHoverTooth}
-                  onSelect={(tooth) => {
-                    // While a pin waits for its tooth, a tap on the chart picks it.
-                    if (pending !== undefined) setPending({ ...pending, digits: String(tooth) });
-                    else setFocusTooth((before) => (before === tooth ? undefined : tooth));
-                  }}
-                />
-              )}
-              {active === undefined ? null : (
-                <p className="xp-focus" aria-live="polite">
-                  {`Tooth ${String(active)}: ${toothName(active)}`}
-                </p>
-              )}
-            </section>
-            <section className="xp-pane xp-summary" aria-label="Summary">
-              {chart.isPending || plans.isPending ? (
-                <SkeletonRows count={3} label="Loading the summary" />
-              ) : (
-                <>
-                  <p className="xp-counts">{summary.counts}</p>
-                  {summary.notChecked === undefined ? null : <p className="xp-muted">{summary.notChecked}</p>}
-                  {summary.lines.length === 0 ? null : (
-                    <ul className="xp-lines" aria-label="What each tooth needs">
-                      {summary.lines.map((line, index) => (
-                        <li key={line.tooth ?? `mouth-${String(index)}`} data-health={line.health} data-active={line.tooth !== undefined && line.tooth === active ? "" : undefined}>
-                          <strong>{line.tooth === undefined ? "Whole mouth" : `Tooth ${String(line.tooth)}`}</strong>
-                          {line.tooth === undefined ? null : <span className="xp-muted">{` (${healthLabel(line.health)})`}</span>}
-                          {`: ${line.needs}. ${line.cost === "ask the doctor" ? "Cost: ask the doctor." : line.cost}`}
-                          {line.advice === undefined ? null : <span className="xp-advice">{line.advice}.</span>}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {summary.totalPaise > 0 ? (
-                    <p className="xp-total">
-                      Total of planned estimates: <strong>{formatRupees(summary.totalPaise)}</strong> <span className="xp-muted">(final cost after examination)</span>
-                    </p>
-                  ) : null}
-                  <ProgressLine history={current} procedures={procedures.data?.items ?? []} since={visits.data?.items.map((v) => v.started_at).sort()[0]} />
-                </>
-              )}
-            </section>
-          </div>
-        </BaseDialog.Popup>
-      </BaseDialog.Portal>
-    </BaseDialog.Root>
+    <div className="xp-grid">
+      <section className="xp-pane xp-image" aria-label="Image">
+        <ImagePane
+          images={images}
+          image={image}
+          loading={attachments.isPending}
+          pins={shown}
+          pending={pending}
+          active={active}
+          onChoose={(file) => {
+            setChosenId(file.id);
+            setPending(undefined);
+          }}
+          onDrop={(x, y) => {
+            setPending({ x, y, digits: "", label: "" });
+          }}
+          onPin={(pin) => {
+            setFocusTooth((before) => (before === pin.tooth ? undefined : pin.tooth));
+          }}
+          onHoverPin={setHoverTooth}
+          onPending={setPending}
+          onPlace={placePin}
+          onClear={saved.clear}
+          saveFailed={saved.failed}
+          onRetrySave={saved.retry}
+        />
+      </section>
+      <section className="xp-pane xp-chart" aria-label="Chart">
+        {chart.isPending ? (
+          <SkeletonRows count={2} tall label="Loading the dental chart" />
+        ) : chart.isError ? (
+          <ApiErrorNotice title="Couldn't load the dental chart" error={chart.error} onRetry={() => void chart.refetch()} />
+        ) : (
+          <ToothChart
+            look="rows"
+            dentition={dentition}
+            view="health"
+            current={current}
+            statuses={statuses}
+            planItems={[]}
+            selected={active}
+            marked={marked}
+            onHover={setHoverTooth}
+            onSelect={(tooth) => {
+              // While a pin waits for its tooth, a tap on the chart picks it.
+              if (pending !== undefined) setPending({ ...pending, digits: String(tooth) });
+              else setFocusTooth((before) => (before === tooth ? undefined : tooth));
+            }}
+          />
+        )}
+        {active === undefined ? null : (
+          <p className="xp-focus" aria-live="polite">
+            {`Tooth ${String(active)}: ${toothName(active)}`}
+          </p>
+        )}
+      </section>
+      <section className="xp-pane xp-summary" aria-label="Summary">
+        {chart.isPending || plans.isPending ? (
+          <SkeletonRows count={3} label="Loading the summary" />
+        ) : (
+          <>
+            <p className="xp-counts">{summary.counts}</p>
+            {summary.notChecked === undefined ? null : <p className="xp-muted">{summary.notChecked}</p>}
+            {summary.lines.length === 0 ? null : (
+              <ul className="xp-lines" aria-label="What each tooth needs">
+                {summary.lines.map((line, index) => (
+                  <li key={line.tooth ?? `mouth-${String(index)}`} data-health={line.health} data-active={line.tooth !== undefined && line.tooth === active ? "" : undefined}>
+                    <strong>{line.tooth === undefined ? "Whole mouth" : `Tooth ${String(line.tooth)}`}</strong>
+                    {line.tooth === undefined ? null : <span className="xp-muted">{` (${healthLabel(line.health)})`}</span>}
+                    {`: ${line.needs}. ${line.cost === "ask the doctor" ? "Cost: ask the doctor." : line.cost}`}
+                    {line.advice === undefined ? null : <span className="xp-advice">{line.advice}.</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {summary.totalPaise > 0 ? (
+              <p className="xp-total">
+                Total of planned estimates: <strong>{formatRupees(summary.totalPaise)}</strong> <span className="xp-muted">(final cost after examination)</span>
+              </p>
+            ) : null}
+            <ProgressLine history={current} procedures={procedures.data?.items ?? []} since={visits.data?.items.map((v) => v.started_at).sort()[0]} />
+          </>
+        )}
+      </section>
+    </div>
   );
 }
 
 /** The chosen image with its pins, the picker of the patient's images, and the laser pointer. */
-function ImagePane(props: {
+export function ImagePane(props: {
   images: readonly Attachment[];
   image: Attachment | undefined;
   loading: boolean;
   pins: readonly Pin[];
+  /** The last pin save failed; shows a quiet retry. */
+  saveFailed?: boolean;
+  onRetrySave?: () => void;
   pending: PendingPin | undefined;
   active: number | undefined;
   onChoose: (file: Attachment) => void;
@@ -211,6 +240,8 @@ function ImagePane(props: {
   onPending: (pin: PendingPin | undefined) => void;
   onPlace: (pin: PendingPin, tooth: number) => void;
   onClear: () => void;
+  /** Radiograph edge labels ("Your right" on the left edge), drawn on the image's own edges. */
+  edges?: boolean;
 }) {
   const { images, image, loading, pins, pending, active } = props;
   const link = useAttachmentLink(image);
@@ -329,6 +360,7 @@ function ImagePane(props: {
                 }}
               />
             )}
+            {props.edges === true && link.data !== undefined ? <XrayEdges rect={rect} /> : null}
             {pins.map((pin, index) => (
               <PinMark
                 key={pin.id}
@@ -355,6 +387,11 @@ function ImagePane(props: {
           {pins.length > 0 ? (
             <button type="button" className="xp-btn xp-btn-quiet" onClick={props.onClear}>
               Clear pins
+            </button>
+          ) : null}
+          {props.saveFailed === true ? (
+            <button type="button" className="xp-btn xp-btn-quiet" onClick={props.onRetrySave}>
+              Pins not saved. Retry
             </button>
           ) : null}
         </>
@@ -520,65 +557,6 @@ function PinPicker({
           Place pin
         </button>
       </div>
-    </div>
-  );
-}
-
-/** Exit: a one-second press and hold (mouse, finger, Space or Enter), with a fill that shows the hold. A tap does nothing. */
-function HoldToExit({ onExit }: { onExit: () => void }) {
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [holding, setHolding] = useState(false);
-  const hintId = useId();
-  const start = () => {
-    clearTimeout(timer.current);
-    setHolding(true);
-    timer.current = setTimeout(() => {
-      timer.current = undefined;
-      setHolding(false);
-      onExit();
-    }, EXIT_HOLD_MS);
-  };
-  const stop = () => {
-    clearTimeout(timer.current);
-    timer.current = undefined;
-    setHolding(false);
-  };
-  useEffect(
-    () => () => {
-      clearTimeout(timer.current);
-    },
-    [],
-  );
-  return (
-    <div className="xp-exit-wrap">
-      <button
-        type="button"
-        className="xp-exit"
-        data-holding={holding || undefined}
-        aria-describedby={hintId}
-        onPointerDown={start}
-        onPointerUp={stop}
-        onPointerLeave={stop}
-        onPointerCancel={stop}
-        onContextMenu={(event) => {
-          event.preventDefault();
-        }}
-        onKeyDown={(event) => {
-          if ((event.key === " " || event.key === "Enter") && !event.repeat) {
-            event.preventDefault();
-            start();
-          }
-        }}
-        onKeyUp={(event) => {
-          if (event.key === " " || event.key === "Enter") stop();
-        }}
-      >
-        <span className="xp-exit-fill" aria-hidden="true" />
-        <span className="xp-exit-text">Exit</span>
-      </button>
-      <span id={hintId} className="xp-exit-hint">
-        Press and hold
-      </span>
     </div>
   );
 }

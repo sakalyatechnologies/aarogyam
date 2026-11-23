@@ -470,8 +470,10 @@ describe("X-rays, photos and what a visit holds", () => {
         },
       }),
     });
+    await user.click(await screen.findByRole("tab", { name: "Records" }));
     await user.click(await screen.findByRole("tab", { name: "Images" }));
-    const section = screen.getByRole("tabpanel");
+    const section = screen.getAllByRole("tabpanel").at(-1);
+    if (section === undefined) throw new Error("no panel");
     expect(await within(section).findByText("No images yet")).toBeTruthy();
 
     const add = async (tag: string, name: string) => {
@@ -511,8 +513,10 @@ describe("X-rays, photos and what a visit holds", () => {
     const complaints = await screen.findByRole("group", { name: "Complaint" });
     await user.click(within(complaints).getByRole("button", { name: "Toothache" }));
     await screen.findAllByText(/Complains of toothache/);
+    await user.click(screen.getByRole("tab", { name: "Records" }));
     await user.click(screen.getByRole("tab", { name: "Images" }));
-    const section = screen.getByRole("tabpanel");
+    const section = screen.getAllByRole("tabpanel").at(-1);
+    if (section === undefined) throw new Error("no panel");
     await user.click(within(section).getByRole("button", { name: "Add X-ray or photo" }));
     const dialog = await screen.findByRole("dialog", { name: "Add an X-ray or photo" });
     await user.upload(within(dialog).getByLabelText("Image"), new File([new Uint8Array([137, 80, 78, 71])], "bitewing.png", { type: "image/png" }));
@@ -535,12 +539,12 @@ describe("X-rays, photos and what a visit holds", () => {
     await user.click(within(done).getByRole("button", { name: "Done" }));
 
     // History: click the visit that was just done.
-    await user.click(screen.getByRole("tab", { name: "History" }));
+    await user.click(screen.getByRole("button", { name: /^History/ }));
     const rows = await screen.findAllByRole("button", { name: /^Open visit / });
     const newest = rows.at(0);
     if (newest === undefined) throw new Error("no visit in the history");
     await user.click(newest);
-    const detail = await screen.findByRole("dialog", { name: /^Visit / });
+    const detail = await screen.findByRole("region", { name: /^Visit .* detail$/ });
     expect(await within(detail).findByText(/Complains of toothache/)).toBeTruthy();
     expect(within(detail).getByRole("region", { name: "Treatments" })).toBeTruthy();
     expect(await within(within(detail).getByRole("region", { name: "Prescriptions" })).findByRole("link")).toBeTruthy();

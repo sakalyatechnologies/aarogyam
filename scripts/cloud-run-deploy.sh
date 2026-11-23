@@ -66,6 +66,9 @@ ENV_VARS="${ENV_VARS}#ARO_AUTH__STAFF_MFA=${STAFF_MFA:-false}"
 ENV_VARS="${ENV_VARS}#ARO_HOSTS__PORTAL_HOST_TEMPLATE={slug}-aarogyam.${WORKERS}"
 ENV_VARS="${ENV_VARS}#ARO_HOSTS__APP=aarogyam-portal.${WORKERS}"
 ENV_VARS="${ENV_VARS}#ARO_HOSTS__CONSOLE=aarogyam-console.${WORKERS}"
+# Public learn pages (assets-only Worker, deploy/cloudflare/learn): the first link in the visit
+# summary, whose generic still is WhatsApp's preview picture (design §1.9).
+ENV_VARS="${ENV_VARS}#ARO_HOSTS__LEARN_ORIGIN=https://aarogyam-learn.${WORKERS}"
 # Published clinic sites: <slug>-site.<account>.workers.dev (the outbox job makes each Worker),
 # later <slug>-site.sakalyatechnologies.com with only this value changed.
 ENV_VARS="${ENV_VARS}#ARO_WEBSITE__ADDRESS_TEMPLATE={slug}-site.${WORKERS}"

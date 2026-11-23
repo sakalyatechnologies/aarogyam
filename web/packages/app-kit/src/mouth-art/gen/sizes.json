@@ -107,6 +107,10 @@
     "raw": 34093,
     "gz": 9880
   },
+  "front-atlas.ts": {
+    "raw": 28211,
+    "gz": 8442
+  },
   "shapes.ts": {
     "raw": 4231,
     "gz": 1769
@@ -124,8 +128,8 @@
     "gz": 456
   },
   "stages/wisdom_extraction.ts": {
-    "raw": 2136,
-    "gz": 848
+    "raw": 2799,
+    "gz": 901
   },
   "stages/crown.ts": {
     "raw": 751,

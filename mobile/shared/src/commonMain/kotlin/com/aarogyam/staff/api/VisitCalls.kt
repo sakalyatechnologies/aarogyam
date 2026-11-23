@@ -1,5 +1,9 @@
 package com.aarogyam.staff.api
 
+import com.aarogyam.staff.api.model.HandOff
+import com.aarogyam.staff.api.model.MessagePrefs
+import com.aarogyam.staff.api.model.MessagePreview
+import com.aarogyam.staff.api.model.NewPatientMessage
 import com.aarogyam.staff.api.model.NewProcedure
 import com.aarogyam.staff.api.model.Procedure
 import com.aarogyam.staff.api.model.ProcedureList
@@ -54,8 +58,47 @@ suspend fun ClinicApi.shareVisit(visitId: String): Outcome<VisitLink, ApiError> 
  * patients.contact): the patient's visit summary for the doctor's own WhatsApp. `no-store`: keep it
  * in memory only, never store, queue, retry or log it.
  */
-suspend fun ClinicApi.prepareVisitPatientMessage(visitId: String): Outcome<VisitPatientMessage, ApiError> =
+suspend fun ClinicApi.prepareVisitPatientMessage(
+    visitId: String,
+    sections: List<String>? = null,
+): Outcome<VisitPatientMessage, ApiError> =
     client.call {
         method = HttpMethod.Post
         url("api/v1/visits/${visitId.encodeURLPathPart()}/patient-message")
+        // Ticks are saved as the doctor's defaults; no body asks for every section and saves nothing.
+        if (sections != null) {
+            contentType(ContentType.Application.Json)
+            setBody(NewPatientMessage(sections = sections))
+        }
     }
+
+/**
+ * `POST /api/v1/visits/{id}/patient-message/preview` (`previewVisitPatientMessage`): the summary as
+ * Send would build it, with stand-ins for the link and PIN. Mints, saves and sends nothing; the text
+ * stays in memory only.
+ */
+suspend fun ClinicApi.previewVisitPatientMessage(
+    visitId: String,
+    sections: List<String>,
+): Outcome<MessagePreview, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/visits/${visitId.encodeURLPathPart()}/patient-message/preview")
+        contentType(ContentType.Application.Json)
+        setBody(NewPatientMessage(sections = sections))
+    }
+
+/** `POST /api/v1/visits/{id}/patient-message/handed-off` (204): counts a hand-off to WhatsApp, not a send. */
+suspend fun ClinicApi.handOffVisitPatientMessage(
+    visitId: String,
+    templateVersion: String,
+): Outcome<Unit, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/visits/${visitId.encodeURLPathPart()}/patient-message/handed-off")
+        contentType(ContentType.Application.Json)
+        setBody(HandOff(templateVersion = templateVersion))
+    }
+
+/** `GET /api/v1/me/message-prefs`: the caller's default ticks in this clinic. */
+suspend fun ClinicApi.messagePrefs(): Outcome<MessagePrefs, ApiError> = client.call { url("api/v1/me/message-prefs") }

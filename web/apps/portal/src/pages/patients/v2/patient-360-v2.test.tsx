@@ -67,7 +67,7 @@ function choose(layout: P360Layout, user: string = PEOPLE.asha) {
 describe("Patient 360 in the new look: three layouts, one set of data", () => {
   it.each(LAYOUTS)("%s shows the same patient, chart, history and consent", async (layout) => {
     const user = userEvent.setup();
-    const { path, backend, number, visitNumber } = visitedPatient();
+    const { path, backend, number } = visitedPatient();
     choose(layout);
     renderPortal(path, { as: PEOPLE.asha, backend });
 
@@ -79,14 +79,15 @@ describe("Patient 360 in the new look: three layouts, one set of data", () => {
     // Records: one card with small tabs, reached directly, from the toolbar, or from a tab, depending on the layout.
     if (layout === "stage") {
       await user.click(within(screen.getByRole("toolbar", { name: "Open a panel" })).getByRole("button", { name: "Records" }));
-    } else if (layout === "tabs") {
+    } else {
       await user.click(screen.getByRole("tab", { name: "Records" }));
     }
     const records = await screen.findByRole("heading", { level: 2, name: "Records" });
     const card = records.closest("section");
     if (card === null) throw new Error("the Records card is missing");
-    expect(within(card).getAllByRole("tab").map((t) => t.textContent)).toEqual(["History", "Plans", "Prescriptions", "Images", "Consent"]);
-    expect((await within(card).findAllByText(visitNumber)).length).toBeGreaterThan(0);
+    expect(within(card).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Plans", "Prescriptions", "Images", "Consent"]);
+    // The visits live on the history page, one click away.
+    expect((await screen.findByRole("button", { name: /^History/, hidden: true })).textContent).toMatch(/\d+ visits?/);
 
     // Consent is a tab of the same card.
     await user.click(within(card).getByRole("tab", { name: "Consent" }));
@@ -185,7 +186,7 @@ describe("Permissions", () => {
     renderPortal(path, { as: PEOPLE.asha, backend });
     expect(await screen.findByRole("heading", { name: "Dental chart" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Prescription" })).toBeTruthy();
-    expect(screen.getByText("Billing", { selector: "summary" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Billing" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Visit actions" })).toBeTruthy();
   });
 });

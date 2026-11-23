@@ -101,6 +101,8 @@ entities! {
     Allergy, AllergyId;
     /// A specialty record, such as a dental chart entry.
     SpecialtyRecord, SpecialtyRecordId;
+    /// What was discussed about one situation in Show patient.
+    PresentDiscussion, PresentDiscussionId;
     /// A clinic's own dental term: a procedure or material it added to the seeded list.
     DentalTerm, DentalTermId;
     /// A clinic's own medicine set: several medicines added to a prescription in one tap.

@@ -293,6 +293,41 @@ describe("the tooth panel", () => {
     expect(await within(panel).findByText("Planned")).toBeTruthy();
   });
 
+  it("records a finding in the open visit: Decay, a surface and the optional depth, then the next tooth just as fast", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = patient();
+    const calls = spy();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap: calls.wrap });
+    const panel = await openTooth(user, 36);
+    await user.click(within(panel).getByRole("button", { name: "Record a finding" }));
+    const form = within(panel).getByRole("form", { name: "Record a finding on tooth 36" });
+    expect(within(form).queryByRole("group", { name: /Depth/ })).toBeNull();
+    await user.click(within(form).getByRole("button", { name: "Decay" }));
+    const depth = within(form).getByRole("group", { name: /Depth/ });
+    expect(within(depth).getAllByRole("button").map((b) => b.textContent)).toEqual(["Enamel", "Dentin", "Near nerve"]);
+    await user.click(within(form).getByRole("button", { name: "Occlusal" }));
+    await user.click(within(depth).getByRole("button", { name: "Dentin" }));
+    await user.click(within(form).getByRole("button", { name: "Save finding" }));
+    await waitFor(() => {
+      expect(calls.chart).toHaveLength(1);
+    });
+    expect(calls.chart[0]?.entries).toEqual([{ tooth: 36, surface: "O", finding: "caries", caries_depth: "dentin" }]);
+    expect(calls.chart[0]?.visit_id).toEqual(expect.any(String));
+    // Back on the history view; the next tooth: Broken covers the whole tooth, so no surfaces or depth.
+    await within(panel).findByRole("button", { name: "Record a finding" });
+    await user.click(tooth(46));
+    const next = await screen.findByRole("complementary", { name: "Tooth 46 panel" });
+    await user.click(within(next).getByRole("button", { name: "Record a finding" }));
+    await user.click(within(next).getByRole("button", { name: "Missing" }));
+    expect(within(next).queryByRole("group", { name: "Surfaces" })).toBeNull();
+    await user.click(within(next).getByRole("button", { name: "Save finding" }));
+    await waitFor(() => {
+      expect(calls.chart).toHaveLength(2);
+    });
+    expect(calls.chart[1]?.entries).toEqual([{ tooth: 46, finding: "missing" }]);
+    expect(calls.chart[1]?.visit_id).toBe(calls.chart[0]?.visit_id);
+  });
+
   it("without an open visit, shows the history and points to the visit bar, with no second Start visit", async () => {
     const user = userEvent.setup();
     const { path, backend } = patient();

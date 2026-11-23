@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from aarogyam.image_pins where attachment_id = $1 and tooth <> all($2::smallint[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "abbb1ea8475368d58ae1694e20f892481157e702d0ea38bd1de05ea0588336fb"
+}

@@ -1,12 +1,13 @@
-import { Presentation } from "lucide-react";
-import { useCallback, useState } from "react";
+import { MonitorSmartphone } from "lucide-react";
+import { useNavigate } from "react-router";
+import { useCallback, useEffect, useState } from "react";
 
 import type { Patient, ToothSurface } from "@aarogyam/api-client";
 import { ApiErrorNotice } from "@aarogyam/app-kit";
 
 import { SkeletonRows } from "../../../../components/skeleton-rows.js";
 import { useClinic } from "../../../../clinic.js";
-import { useDentalChart, useProcedures, useStaff, useVisits } from "../../../../queries.js";
+import { useDentalChart, useProcedures, useStaff, useVisitMouth, useVisits } from "../../../../queries.js";
 import { usePlans } from "../../../treatment-plans/queries.js";
 import { Odontogram } from "../../../visits/odontogram/odontogram.js";
 import { ExplainMode } from "../explain/explain-mode.js";
@@ -38,6 +39,16 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
     setDictate(undefined);
   }, []);
   const [explaining, setExplaining] = useState(false);
+  const navigate = useNavigate();
+  // Show patient opens on the open visit, or else on the patient's latest visit, so it works from any patient page.
+  const latestVisit = visits.data?.items.reduce<(typeof visits.data.items)[number] | undefined>((a, v) => (a === undefined || v.started_at > a.started_at ? v : a), undefined);
+  const presentId = can("clinical.read") ? (visit.visit?.id ?? latestVisit?.id) : undefined;
+  // warm Show patient: the mouth snapshot, then its route chunk and art, while the doctor charts (§1.12 speed)
+  const mouth = useVisitMouth(presentId);
+  useEffect(() => {
+    const snapshot = mouth.data;
+    if (snapshot !== undefined) void import("../../../visits/present/prefetch.js").then((m) => { m.prefetchPresent(snapshot); });
+  }, [mouth.data]);
 
   if (chart.isPending) {
     return (
@@ -77,6 +88,8 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
       }}
       entries={chart.data.current.filter((e) => e.tooth === selected)}
       status={statuses.find((s) => s.tooth === selected)}
+      condition={chart.data.conditions?.find((c) => c.tooth === selected)}
+      eruption={chart.data.eruptions?.find((e) => e.tooth === selected)}
       dictate={dictate === selected}
       onDictateStarted={dictated}
     />
@@ -98,15 +111,17 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
           <PopoverPill label="Key" title="Chart key">
             <ChartKey view={prefs.look === "classic" ? "treatment" : prefs.view} />
           </PopoverPill>
+          {/* one mode (§1.12): Show patient opens Present with Teeth and X-rays tabs; without a visit, the X-rays alone */}
           <PillButton
             variant="ghost"
             className="xp-open"
-            icon={<Presentation aria-hidden="true" />}
+            icon={<MonitorSmartphone aria-hidden="true" />}
             onClick={() => {
-              setExplaining(true);
+              if (presentId === undefined) setExplaining(true);
+              else void navigate(`/visits/${presentId}/mouth`);
             }}
           >
-            Explain to patient
+            Show patient
           </PillButton>
         </div>
       }

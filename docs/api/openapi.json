@@ -614,6 +614,107 @@
         ]
       }
     },
+    "/api/v1/attachments/{id}/pins": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The tooth pins placed on an X-ray or photo.",
+        "operationId": "listImagePins",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImagePins"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such file in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Replaces the pins on an X-ray or photo: new teeth are placed, known teeth moved, teeth left\nout removed. 400 for a bad tooth, a place outside the image or a tooth twice.",
+        "operationId": "saveImagePins",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The file",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImagePins"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImagePins"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message says what"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such file in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/attachments/{id}/sharing": {
       "put": {
         "tags": [
@@ -3573,6 +3674,67 @@
           },
           "403": {
             "description": "The role lacks prescriptions.issue"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/drugs/{id}/alternatives": {
+      "get": {
+        "tags": [
+          "prescriptions"
+        ],
+        "summary": "Medicines with the same generic name, strength and form as one, by brand.",
+        "operationId": "drugAlternatives",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The medicine",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "path",
+            "description": "Most results, 1 to 50 (default 20).",
+            "required": true,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Drug"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks prescriptions.issue"
+          },
+          "404": {
+            "description": "No such medicine"
           }
         },
         "security": [
@@ -8455,6 +8617,129 @@
         ]
       }
     },
+    "/api/v1/me/stats": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The caller's own figures for a day; zeros for a member who is not a doctor.",
+        "operationId": "getMyStats",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "path",
+            "description": "A clinic day, `YYYY-MM-DD`; today in the clinic's time zone by default.",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyStats"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad date"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/ui-prefs": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The caller's saved screen choices in this clinic.",
+        "operationId": "getUiPrefs",
+        "responses": {
+          "200": {
+            "description": "Defaults until saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UiPrefs"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Saves the caller's screen choices in this clinic.",
+        "operationId": "saveUiPrefs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewUiPrefs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UiPrefs"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown value"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read, or Sakalya support"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/working-hours": {
       "get": {
         "tags": [
@@ -11130,7 +11415,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Sets a tooth's condition. Under a lock on the tooth's condition, the change merges onto the\ncurrent row (an omitted field keeps its value, `null` clears it) and the merged row\nsupersedes it, in the open visit when there is one; concurrent changes both land. Returns the\ncondition.",
+        "summary": "Sets a tooth's condition. Under a lock on the tooth's condition, the change merges onto the\ncurrent row (an omitted field keeps its value, `null` clears it) and the merged row\nsupersedes it, in the open visit when there is one; concurrent changes both land. Returns the\ncondition. A change that clears every field (\"Infection resolved\" on the only field, or\nuntapping the last chip) supersedes the current row and leaves no current condition (history\nkept): the body then has no `infection`, `bleeding`, `pocket_mm` or `mobility`, and `id` is\nthe cleared row.",
         "operationId": "setToothCondition",
         "parameters": [
           {
@@ -11174,7 +11459,7 @@
             }
           },
           "400": {
-            "description": "A bad tooth or value, nothing left after the merge, or infection, pocket or mobility on a missing tooth"
+            "description": "A bad tooth or value, nothing to record on a tooth with no condition, or infection, pocket or mobility on a missing tooth"
           },
           "401": {
             "description": "Not signed in"
@@ -11655,6 +11940,139 @@
           },
           "404": {
             "description": "No such link in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Changes a family link's relation or contact flag (its inverse follows).",
+        "operationId": "updateFamilyLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "link_id",
+            "in": "path",
+            "description": "The link",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FamilyLinkChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown relation"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such link in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/history": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The patient's history for the portal's full page, newest first: each visit with its teeth,\nfirst images, the first line of its signed note, medicines, bills (with `billing.read`) and\nplans, plus the files outside any visit. Up to 200 visits per page, so search and filters\nsee the whole history at once. Reading it writes the access record. `Cache-Control: no-store`.",
+        "operationId": "getPatientHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "The previous page's `next_cursor`",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Most visits, 1 to 200 (default 200)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The page; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "before isn't a cursor from this endpoint, or limit is out of range"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic or the caller's reach"
           }
         },
         "security": [
@@ -16881,6 +17299,79 @@
         ]
       }
     },
+    "/api/v1/settings/present": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The clinic's Show patient settings: the price mapping and whether prices may be shown.",
+        "operationId": "getPresentSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentSettingsBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Replaces the Show patient price mapping and show-prices switch. 400 on an unknown key\n(not a seeded procedure or material), an unknown or inactive price code, or an unknown field.",
+        "operationId": "updatePresentSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresentSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentSettingsBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the key"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/settings/staff-ops": {
       "get": {
         "tags": [
@@ -20592,6 +21083,220 @@
         ]
       }
     },
+    "/api/v1/visits/{id}/present": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The studio layer of a visit for Show patient: the usual options for each recorded situation\n(deep decay, a missing tooth, a wisdom tooth not fully out). It works while the visit is open.",
+        "operationId": "getVisitPresent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The studio layer; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentStudio"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such visit in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/present-discussions": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The visit's current \"What we discussed\" rows. Works while the visit is open or closed.",
+        "operationId": "listPresentDiscussions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscussionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such visit in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Saves what was discussed for one situation. It supersedes the current row for the same\nvisit, tooth and situation (append-only). 400 for an unknown situation, option or material,\nand for braces and aligners until they are seeded; 409 when the visit is closed.",
+        "operationId": "savePresentDiscussion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveDiscussionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Discussion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message says what"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit in this clinic or the caller's reach"
+          },
+          "409": {
+            "description": "The visit is closed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/present-discussions/{did}/entered-in-error": {
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Marks a current discussion entered in error, with the reason. The history keeps the row.",
+        "operationId": "presentDiscussionInError",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "did",
+            "in": "path",
+            "description": "The discussion",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscussionInError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Marked"
+          },
+          "400": {
+            "description": "A bad reason"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such visit or current discussion in this clinic"
+          },
+          "409": {
+            "description": "The visit is closed"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/visits/{id}/procedures": {
       "post": {
         "tags": [
@@ -20708,6 +21413,55 @@
           },
           "404": {
             "description": "No such visit in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/visits/{id}/story": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The data for the patient's video, rendered on the doctor's own device and shared from there;\nnothing is uploaded. Runs the same refusals as Send, so a video is made only when the text\ncould be. Mints, revokes and saves nothing.",
+        "operationId": "getVisitStory",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The story; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitStory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read or patients.contact"
+          },
+          "404": {
+            "description": "No such visit in this clinic, or the patient was erased"
+          },
+          "409": {
+            "description": "`visit_open`, `no_phone`, `no_consent` or `opted_out`"
           }
         },
         "security": [
@@ -26537,6 +27291,119 @@
         },
         "additionalProperties": false
       },
+      "DiscussedOptionBody": {
+        "type": "object",
+        "description": "One option discussed.",
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "from_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Frozen \"from\" price in paise; set by the server, ignored on input."
+          },
+          "key": {
+            "type": "string",
+            "description": "A key from the options data, such as `rct_crown`."
+          },
+          "material": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A material key, when one was compared."
+          },
+          "preferred": {
+            "type": "boolean",
+            "description": "The option the patient prefers; at most one."
+          }
+        }
+      },
+      "Discussion": {
+        "type": "object",
+        "description": "A saved discussion.",
+        "required": [
+          "id",
+          "situation",
+          "options",
+          "send_to_patient",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was saved."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscussedOptionBody"
+            },
+            "description": "The options discussed."
+          },
+          "send_to_patient": {
+            "type": "boolean",
+            "description": "The doctor's tick for the patient."
+          },
+          "situation": {
+            "type": "string",
+            "description": "The situation key."
+          },
+          "supersedes_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The row this one replaced."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "FDI tooth; absent for an example-arch topic.",
+            "minimum": 0
+          }
+        }
+      },
+      "DiscussionInError": {
+        "type": "object",
+        "description": "Why a discussion is wrong.",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "3 to 500 characters."
+          }
+        }
+      },
+      "DiscussionList": {
+        "type": "object",
+        "description": "The visit's current discussions.",
+        "required": [
+          "discussions"
+        ],
+        "properties": {
+          "discussions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Discussion"
+            },
+            "description": "Oldest first."
+          }
+        }
+      },
       "DismissRecall": {
         "type": "object",
         "description": "Why a follow-up is dismissed.",
@@ -27307,6 +28174,27 @@
           }
         }
       },
+      "FamilyLinkChange": {
+        "type": "object",
+        "description": "What to change on a family link; a field left out stays as it was.",
+        "properties": {
+          "is_primary_contact": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether the relative is this patient's contact person."
+          },
+          "relation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the relative is to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling`\nor `other`. The inverse link changes with it."
+          }
+        },
+        "additionalProperties": false
+      },
       "FamilyList": {
         "type": "object",
         "description": "A patient's relatives.",
@@ -27750,6 +28638,281 @@
           }
         }
       },
+      "HistoryBill": {
+        "type": "object",
+        "description": "A bill of a visit.",
+        "required": [
+          "id",
+          "status",
+          "total_paise",
+          "paid_paise"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The bill."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its number once issued."
+          },
+          "paid_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Received against it, in paise."
+          },
+          "status": {
+            "type": "string",
+            "description": "`issued` (drafts have no total yet and stay off the card)."
+          },
+          "total_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The total in paise."
+          }
+        }
+      },
+      "HistoryCounts": {
+        "type": "object",
+        "description": "What a visit holds besides its card lines.",
+        "required": [
+          "notes",
+          "recordings",
+          "files",
+          "procedures"
+        ],
+        "properties": {
+          "files": {
+            "type": "integer",
+            "description": "Files other than recordings and consent scans.",
+            "minimum": 0
+          },
+          "notes": {
+            "type": "integer",
+            "description": "Signed notes.",
+            "minimum": 0
+          },
+          "procedures": {
+            "type": "integer",
+            "description": "Procedures.",
+            "minimum": 0
+          },
+          "recordings": {
+            "type": "integer",
+            "description": "Voice recordings.",
+            "minimum": 0
+          }
+        }
+      },
+      "HistoryFile": {
+        "type": "object",
+        "description": "A file on a visit card, or one outside any visit.",
+        "required": [
+          "id",
+          "kind",
+          "mime_type",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was added."
+          },
+          "id": {
+            "type": "string",
+            "description": "The file."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`photo`, `xray`, `report` or `document`."
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Its tag: `OPG`, `X-ray` and so on."
+          },
+          "mime_type": {
+            "type": "string",
+            "description": "Its content type: only images ask for a preview link."
+          }
+        }
+      },
+      "HistoryPlan": {
+        "type": "object",
+        "description": "A plan proposed in a visit.",
+        "required": [
+          "id",
+          "title",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The plan."
+          },
+          "status": {
+            "type": "string",
+            "description": "`proposed`, `accepted`, `in_progress`, `completed` or `declined`."
+          },
+          "title": {
+            "type": "string",
+            "description": "Its title."
+          }
+        }
+      },
+      "HistoryTooth": {
+        "type": "object",
+        "description": "A tooth touched in a visit.",
+        "required": [
+          "tooth",
+          "work"
+        ],
+        "properties": {
+          "finding": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The chart finding (`caries`, `filled`, `crown` and so on) for chart entries; none for a\nprocedure recorded on its own."
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The procedure's label or name; none for a bare finding."
+          },
+          "procedure_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The procedure's id in the dental vocabulary, when the chart entry names one."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth number.",
+            "minimum": 0
+          },
+          "work": {
+            "type": "string",
+            "description": "`found`, `planned`, `in_progress`, `done` or `elsewhere` (work done at another clinic)."
+          }
+        }
+      },
+      "HistoryVisit": {
+        "type": "object",
+        "description": "One visit on the history page.",
+        "required": [
+          "id",
+          "number",
+          "status",
+          "started_at",
+          "clinician",
+          "teeth",
+          "images",
+          "image_count",
+          "medicines",
+          "plans",
+          "counts"
+        ],
+        "properties": {
+          "bills": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/HistoryBill"
+            },
+            "description": "The visit's bills. Absent without `billing.read`, and always for Sakalya support."
+          },
+          "chief_complaint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the patient came, as typed when the visit started."
+          },
+          "clinician": {
+            "$ref": "#/components/schemas/MemberRef",
+            "description": "The clinician."
+          },
+          "counts": {
+            "$ref": "#/components/schemas/HistoryCounts",
+            "description": "What else it holds."
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it ended."
+          },
+          "id": {
+            "type": "string",
+            "description": "The visit."
+          },
+          "image_count": {
+            "type": "integer",
+            "description": "All photos and X-rays in the visit.",
+            "minimum": 0
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryFile"
+            },
+            "description": "The first four photos and X-rays."
+          },
+          "medicines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Medicines prescribed, in order."
+          },
+          "note_first_line": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first line of the first signed note, at most 120 characters. Clinical text: this\nendpoint is for clinic staff only and never feeds a shared page."
+          },
+          "number": {
+            "type": "string",
+            "description": "Its number, `V-8`."
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryPlan"
+            },
+            "description": "Plans proposed in the visit."
+          },
+          "started_at": {
+            "type": "string",
+            "description": "When it started."
+          },
+          "status": {
+            "type": "string",
+            "description": "`open` or `closed`."
+          },
+          "teeth": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryTooth"
+            },
+            "description": "Teeth touched, in the order recorded."
+          }
+        }
+      },
       "HourBar": {
         "type": "object",
         "description": "Appointments starting in one local hour.",
@@ -27788,6 +28951,48 @@
             "type": "string",
             "format": "binary",
             "description": "A PNG or JPEG of at most 2 MB."
+          }
+        }
+      },
+      "ImagePin": {
+        "type": "object",
+        "description": "A tooth pinned on an image.",
+        "required": [
+          "tooth",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "tooth": {
+            "type": "integer",
+            "format": "int64",
+            "description": "FDI tooth."
+          },
+          "x": {
+            "type": "number",
+            "format": "float",
+            "description": "Across the image as a fraction of its width, 0 to 1, in the image's own orientation."
+          },
+          "y": {
+            "type": "number",
+            "format": "float",
+            "description": "Down the image as a fraction of its height, 0 to 1."
+          }
+        }
+      },
+      "ImagePins": {
+        "type": "object",
+        "description": "An image's pins.",
+        "required": [
+          "pins"
+        ],
+        "properties": {
+          "pins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImagePin"
+            },
+            "description": "One per tooth, by tooth number."
           }
         }
       },
@@ -32244,6 +33449,13 @@
             ],
             "description": "The headline finding (a chart finding value)."
           },
+          "finding_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the headline finding was recorded (`YYYY-MM-DD`): \"Recorded 12 Nov\"."
+          },
           "health": {
             "type": [
               "string",
@@ -32268,6 +33480,24 @@
               "type": "string"
             },
             "description": "Recorded problem findings: `caries`, `fractured`, `watch`, `missing`."
+          },
+          "problems_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "When each problem was last recorded (`YYYY-MM-DD`), one per entry of `problems`."
+          },
+          "recommended": {
+            "type": "boolean",
+            "description": "Something is proposed on it and not yet accepted: a dashed \"Recommended\" ring. `planned`\nwins when both are set."
+          },
+          "recommended_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the latest recommendation on it was proposed (`YYYY-MM-DD`)."
           },
           "sitting": {
             "type": [
@@ -32337,6 +33567,10 @@
           "model": {
             "type": "string",
             "description": "The model: `root_canal`, `filling`, `extraction`, `wisdom_extraction`, `crown`,\n`scaling` or `implant` (a plain string; more may come)."
+          },
+          "recommended": {
+            "type": "boolean",
+            "description": "A `planned` treatment that is only proposed, not yet accepted (\"Recommended\")."
           },
           "recovery": {
             "type": "array",
@@ -32553,6 +33787,45 @@
               "$ref": "#/components/schemas/MySession"
             },
             "description": "Most recently used first."
+          }
+        }
+      },
+      "MyStats": {
+        "type": "object",
+        "description": "The caller's own day.",
+        "required": [
+          "date",
+          "patients_seen",
+          "procedures_done",
+          "prescriptions_issued"
+        ],
+        "properties": {
+          "collected_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Paise received that day on invoices of the caller's visits; left out without\nbilling.read."
+          },
+          "date": {
+            "type": "string",
+            "description": "The clinic day, `YYYY-MM-DD`."
+          },
+          "patients_seen": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Visits finished that day."
+          },
+          "prescriptions_issued": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Prescriptions issued."
+          },
+          "procedures_done": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Procedures done."
           }
         }
       },
@@ -34213,6 +35486,34 @@
           }
         }
       },
+      "NewUiPrefs": {
+        "type": "object",
+        "description": "The fields to save; one left out stays as it was.",
+        "properties": {
+          "history_view": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The history view; an unknown one is a 400."
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The app language (`en`, `hi`, `mr`); absent keeps it, null clears it (device default);\nan unknown one is a 400."
+          },
+          "present_style": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The Show patient style; an unknown one is a 400."
+          }
+        },
+        "additionalProperties": false
+      },
       "NewVisit": {
         "type": "object",
         "description": "A visit to start.",
@@ -34576,13 +35877,24 @@
           },
           "kind": {
             "type": "string",
-            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,\n`lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,\n`collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,\n`time_off_decided`, `stock_alert`, `booking_conflict` or `plan_response`. More kinds may\ncome: clients show an unknown kind as a generic row."
+            "description": "`booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,\n`lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,\n`collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,\n`time_off_decided`, `stock_alert`, `booking_conflict`, `plan_response` or `payment_collected`. More kinds may\ncome: clients show an unknown kind as a generic row."
           },
           "lab_order": {
             "oneOf": [
               {
                 "$ref": "#/components/schemas/NotifiedLabOrder",
                 "description": "The lab order, for `lab_overdue`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifiedPayment",
+                "description": "The payment, for `payment_collected`: ids and the amount only."
               },
               {
                 "type": "null"
@@ -34915,6 +36227,37 @@
           "vendor_name": {
             "type": "string",
             "description": "Its lab's name."
+          }
+        }
+      },
+      "NotifiedPayment": {
+        "type": "object",
+        "description": "What a `payment_collected` notification is about. No names, phone numbers or diagnoses.",
+        "required": [
+          "invoice_id",
+          "patient_id",
+          "amount_paise"
+        ],
+        "properties": {
+          "amount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What was paid, in paise."
+          },
+          "invoice_id": {
+            "type": "string",
+            "description": "The bill."
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient."
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The bill's visit; absent for a bill without one."
           }
         }
       },
@@ -36707,6 +38050,37 @@
           }
         }
       },
+      "PatientHistory": {
+        "type": "object",
+        "description": "A page of the patient's history, newest first.",
+        "required": [
+          "visits",
+          "loose_files"
+        ],
+        "properties": {
+          "loose_files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryFile"
+            },
+            "description": "Files that belong to no visit, newest first (first page only, at most 50)."
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pass as `before` for the next page; absent on the last page."
+          },
+          "visits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryVisit"
+            },
+            "description": "The visits."
+          }
+        }
+      },
       "PatientHome": {
         "type": "object",
         "description": "Everything the home screen needs, in one request.",
@@ -38296,6 +39670,253 @@
               "$ref": "#/components/schemas/Prescription"
             },
             "description": "Newest first."
+          }
+        }
+      },
+      "PresentFinish": {
+        "type": "object",
+        "description": "How long an option takes to finish.",
+        "required": [
+          "min",
+          "max",
+          "unit"
+        ],
+        "properties": {
+          "max": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Longest.",
+            "minimum": 0
+          },
+          "min": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Shortest.",
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "description": "`days`, `weeks` or `months`."
+          }
+        }
+      },
+      "PresentLifespan": {
+        "type": "object",
+        "description": "Outcome words: \"General guidance, not a promise. Your dentist will advise.\"",
+        "required": [
+          "words"
+        ],
+        "properties": {
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The paper; present whenever the words carry a number."
+          },
+          "source_quote": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The exact sentence the number comes from."
+          },
+          "why": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why we say it."
+          },
+          "words": {
+            "type": "string",
+            "description": "What the patient reads."
+          }
+        }
+      },
+      "PresentOption": {
+        "type": "object",
+        "description": "One usual option for a situation.",
+        "required": [
+          "key",
+          "label",
+          "summary",
+          "looks_like",
+          "visits",
+          "look",
+          "comfort"
+        ],
+        "properties": {
+          "comfort": {
+            "type": "string",
+            "description": "How it feels, in words."
+          },
+          "finish": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PresentFinish",
+                "description": "Usual time to finish; absent when nothing is done."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "type": "string",
+            "description": "Stable key, such as `rct_crown`."
+          },
+          "label": {
+            "type": "string",
+            "description": "Short name."
+          },
+          "lifespan": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PresentLifespan",
+                "description": "Typical lifespan words; absent unless the guidance has some."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "look": {
+            "type": "string",
+            "description": "An art key for the illustration (an `art-map.json` value)."
+          },
+          "looks_like": {
+            "type": "string",
+            "description": "How it looks afterwards, in words."
+          },
+          "summary": {
+            "type": "string",
+            "description": "What is done."
+          },
+          "visits": {
+            "$ref": "#/components/schemas/PresentRange",
+            "description": "Usual visits."
+          }
+        }
+      },
+      "PresentPrice": {
+        "type": "object",
+        "description": "A \"from\" price for one option.",
+        "required": [
+          "option_key",
+          "from_paise"
+        ],
+        "properties": {
+          "from_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Sum of the clinic's mapped price items, in paise."
+          },
+          "option_key": {
+            "type": "string",
+            "description": "The option's key."
+          }
+        }
+      },
+      "PresentRange": {
+        "type": "object",
+        "description": "A range of whole numbers.",
+        "required": [
+          "min",
+          "max"
+        ],
+        "properties": {
+          "max": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Most.",
+            "minimum": 0
+          },
+          "min": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Fewest.",
+            "minimum": 0
+          }
+        }
+      },
+      "PresentSettingsBody": {
+        "type": "object",
+        "description": "The clinic's Show patient settings.",
+        "properties": {
+          "price_map": {
+            "type": "object",
+            "description": "`\"<procedure>[:<material>]\"` to a price item code.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "show_prices": {
+            "type": "boolean",
+            "description": "Whether prices may be shown behind the doctor's Prices tap."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PresentSituation": {
+        "type": "object",
+        "description": "A recorded situation on one tooth.",
+        "required": [
+          "key",
+          "tooth",
+          "title",
+          "options"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "`deep_decay`, `missing` or `impacted_wisdom` (a plain string; more may come)."
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PresentOption"
+            },
+            "description": "The usual options. General guidance: show \"Usual options · general guidance\"."
+          },
+          "title": {
+            "type": "string",
+            "description": "Words for the situation."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth.",
+            "minimum": 0
+          }
+        }
+      },
+      "PresentStudio": {
+        "type": "object",
+        "description": "The studio layer of a visit.",
+        "required": [
+          "situations"
+        ],
+        "properties": {
+          "prices": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/PresentPrice"
+            },
+            "description": "\"From\" prices; present only for a member with `billing.read` when the clinic turned\nprices on. An option with an unmapped part has no entry: show \"Ask the front desk\"."
+          },
+          "situations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PresentSituation"
+            },
+            "description": "The recorded situations, by tooth, each with its usual options."
           }
         }
       },
@@ -40908,6 +42529,39 @@
           "name": {
             "type": "string",
             "description": "One line of 1 to 120 characters."
+          }
+        }
+      },
+      "SaveDiscussionBody": {
+        "type": "object",
+        "description": "A discussion to save.",
+        "required": [
+          "situation",
+          "options"
+        ],
+        "properties": {
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscussedOptionBody"
+            },
+            "description": "The options discussed, 1 to 12."
+          },
+          "send_to_patient": {
+            "type": "boolean",
+            "description": "The doctor's tick: whether it may reach the patient (slice 2f sends it)."
+          },
+          "situation": {
+            "type": "string",
+            "description": "The situation or topic key, such as `deep_decay`."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "FDI tooth; leave out for an example-arch topic."
           }
         }
       },
@@ -45069,7 +46723,7 @@
           },
           "id": {
             "type": "string",
-            "description": "Identifier of the current row."
+            "description": "Identifier of the current row; the cleared row when a change left no condition."
           },
           "infection": {
             "type": [
@@ -45227,6 +46881,31 @@
             "format": "int32",
             "description": "The doctor advises treatment within this many months: 1, 3, 6 or 12.",
             "minimum": 0
+          }
+        }
+      },
+      "UiPrefs": {
+        "type": "object",
+        "description": "The caller's saved screen choices; defaults when nothing is saved.",
+        "required": [
+          "present_style",
+          "history_view"
+        ],
+        "properties": {
+          "history_view": {
+            "type": "string",
+            "description": "The history view: `page` (default), `popup` or `story`."
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The app language: `en`, `hi` or `mr`; null means the device default."
+          },
+          "present_style": {
+            "type": "string",
+            "description": "The Show patient style: `story` (default), `painted`, `xray`, `smile3d` or `face`."
           }
         }
       },
@@ -45720,6 +47399,84 @@
           }
         }
       },
+      "VisitDiscussed": {
+        "type": "object",
+        "description": "A ticked \"Options we discussed\" row.",
+        "required": [
+          "title",
+          "options"
+        ],
+        "properties": {
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitDiscussedOption"
+            },
+            "description": "The options discussed."
+          },
+          "title": {
+            "type": "string",
+            "description": "Words for the situation."
+          },
+          "tooth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The tooth (FDI number); none for a general topic.",
+            "minimum": 0
+          }
+        }
+      },
+      "VisitDiscussedOption": {
+        "type": "object",
+        "description": "One option discussed, in the patient's words.",
+        "required": [
+          "label",
+          "summary",
+          "looks_like",
+          "comfort",
+          "preferred"
+        ],
+        "properties": {
+          "comfort": {
+            "type": "string",
+            "description": "How it feels."
+          },
+          "from_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "\"From\" price in paise; only when the clinic shows prices."
+          },
+          "label": {
+            "type": "string",
+            "description": "Short name."
+          },
+          "looks_like": {
+            "type": "string",
+            "description": "How it looks afterwards."
+          },
+          "material": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The compared material."
+          },
+          "preferred": {
+            "type": "boolean",
+            "description": "The option the patient prefers."
+          },
+          "summary": {
+            "type": "string",
+            "description": "What is done."
+          }
+        }
+      },
       "VisitFollowUp": {
         "type": "object",
         "description": "The next follow-up.",
@@ -46056,6 +47813,48 @@
           }
         }
       },
+      "VisitStory": {
+        "type": "object",
+        "description": "What the doctor's device renders the patient's video from (design section 1.7): the mouth\nsnapshot plus the visit number, day and clinic name. Never a patient name, phone, link or PIN.",
+        "required": [
+          "story_version",
+          "visit_number",
+          "visited_on",
+          "clinic_name",
+          "chart"
+        ],
+        "properties": {
+          "chart": {
+            "$ref": "#/components/schemas/MouthSnapshot",
+            "description": "The same snapshot as `GET /visits/{id}/mouth`."
+          },
+          "clinic_name": {
+            "type": "string",
+            "description": "The clinic's name, for the title and end cards."
+          },
+          "next_visit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient's next booked visit (`YYYY-MM-DD`), for the end card."
+          },
+          "story_version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The story contract the renderer follows (the same as `chart.story_version`).",
+            "minimum": 0
+          },
+          "visit_number": {
+            "type": "string",
+            "description": "The clinic's visit number (`V-318`): the file name and the end card's small type."
+          },
+          "visited_on": {
+            "type": "string",
+            "description": "The visit's day (`YYYY-MM-DD`) in the clinic's time zone, for the title card."
+          }
+        }
+      },
       "VisitSummary": {
         "type": "object",
         "description": "What a visit summary shows.",
@@ -46120,6 +47919,13 @@
               "null"
             ],
             "description": "The clinic's phone in E.164, for \"Call us\"."
+          },
+          "discussed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitDiscussed"
+            },
+            "description": "\"Options we discussed\": only rows the doctor ticked for the patient. A price appears\nonly when the clinic shows prices."
           },
           "doctor_name": {
             "type": [

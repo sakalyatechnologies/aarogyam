@@ -690,6 +690,28 @@ mod tests {
     }
 
     #[test]
+    fn a_payment_collected_push_has_ids_and_codes_only() {
+        let message = PushMessage {
+            kind: "payment_collected".to_owned(),
+            ..message()
+        };
+        let body = apns_body(&message);
+        assert_eq!(
+            body["aps"]["alert"],
+            json!({ "loc-key": "push.payment_collected", "title-loc-key": "push.title" })
+        );
+        assert_eq!(body["kind"], "payment_collected");
+        // No amount, name or other patient data travels in the push.
+        let keys: Vec<&str> = body
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(keys, ["aps", "href", "id", "kind", "org_id"]);
+    }
+
+    #[test]
     fn the_fcm_body_is_data_only_with_string_values() {
         let body = fcm_body("tok", &message());
         assert_eq!(

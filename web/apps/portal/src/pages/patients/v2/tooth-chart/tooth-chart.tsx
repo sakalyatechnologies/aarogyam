@@ -51,10 +51,18 @@ interface Props {
   marked?: ReadonlySet<number> | undefined;
   /** The pointer entered a tooth (or left it, with undefined). */
   onHover?: ((tooth: number | undefined) => void) | undefined;
+  /** Present mode: marks drawn over a tooth (today, planned, found), the words said for it, and whether it is dimmed. */
+  marks?: ((tooth: number) => ToothMarks | undefined) | undefined;
+}
+
+export interface ToothMarks {
+  node: React.ReactNode;
+  label?: string | undefined;
+  dim?: boolean | undefined;
 }
 
 /** The chart: rows or a 3D arch, adult or child teeth. Tapping a tooth selects it; recording happens in the panel beside it. */
-export function ToothChart({ look, dentition, view = "treatment", current, statuses = [], planItems, selected, onSelect, onLongPress, onHealthKey, marked, onHover }: Props) {
+export function ToothChart({ look, dentition, view = "treatment", current, statuses = [], planItems, selected, onSelect, onLongPress, onHealthKey, marked, onHover, marks }: Props) {
   const states = useMemo(() => toothStates(current, treatmentsByTooth(planItems)), [current, planItems]);
   const progress = useMemo(() => inProgressTeeth(current), [current]);
   const healths = useMemo(() => healthByTooth(current, statuses), [current, statuses]);
@@ -73,7 +81,8 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
     const busy = progress.has(n);
     const level = healths.get(n) ?? "unassessed";
     const elsewhere = !health && away.has(n);
-    const label = health ? `${describeTooth(state)}, ${healthLabel(level)}${marked?.has(n) === true ? ", pinned" : ""}` :`${describeTooth(state)}${busy ? ", treatment in progress" : ""}${elsewhere ? ", done elsewhere" : ""}`;
+    const mark = marks?.(n);
+    const said = health ? `${describeTooth(state)}, ${healthLabel(level)}${marked?.has(n) === true ? ", pinned" : ""}` :`${describeTooth(state)}${busy ? ", treatment in progress" : ""}${elsewhere ? ", done elsewhere" : ""}`;
     return (
       <button
         key={n}
@@ -87,8 +96,10 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
         data-health={health ? level : undefined}
         data-kind={kindOf(n)}
         data-marked={marked?.has(n) === true || undefined}
+        data-tooth={n}
+        data-dim={mark?.dim === true || undefined}
         aria-pressed={selected === n}
-        aria-label={label}
+        aria-label={mark?.label ?? said}
         onPointerEnter={(event) => {
           onHover?.(n);
           // A mouse resting on a tooth shows its card; touch has tap and long press instead.
@@ -127,6 +138,7 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
       >
         <span className="tc-num">{n}</span>
         {className === "tc-tooth" ? <ToothShape finding={state.whole === "missing" ? "missing" : finding} planned={!health && planned} busy={!health && busy} upper={n < 30 || (n >= 50 && n < 70)} /> : null}
+        {mark?.node}
         {health && GLYPH[level] !== "" ? (
           <span className="tc-glyph" aria-hidden="true">
             {GLYPH[level]}

@@ -4,9 +4,12 @@
  * any phone, so it is its own small entry (`shared.html`), with no router, query library or UI
  * kit. Links of other kinds (prescriptions, records) go to the full portal page.
  */
-import { useEffect, useState, type SubmitEvent } from "react";
+import { useRef, useEffect, useState, type SubmitEvent } from "react";
+
+import { brushHighlight, brushingBand } from "@aarogyam/app-kit/mouth-view";
 
 import { answerPlan, openVisit, previewLink, type Failure, type PlanChoice, type Visit } from "./public-client.js";
+import { BrushingBlock, MouthHero, ToothRow, foundRows } from "./mouth-sections.js";
 import { dayWords, doses, firstName, rupees, timingWords, toothWords } from "./words.js";
 
 type Stage =
@@ -198,8 +201,25 @@ function VisitStory({ visit, token, pin }: { visit: Visit; token: string; pin: s
   const book = bookingUrl(visit);
   const total = visit.plan.reduce((sum, item) => sum + (item.estimatePaise ?? 0), 0);
   const phone = visit.clinicPhone === null || visit.clinicPhone === undefined ? undefined : visit.clinicPhone;
+  const name = firstName(visit.patientName);
+  const chart = visit.chart;
+  const hero = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState<{ tooth: number; nonce: number } | undefined>(undefined);
+  const openTooth = (tooth: number) => {
+    setOpen((before) => ({ tooth, nonce: (before?.nonce ?? 0) + 1 }));
+  };
+  const showHero = () => {
+    const box = hero.current?.getBoundingClientRect();
+    if (box === undefined || (box.top >= 0 && box.top < window.innerHeight * 0.5)) return;
+    const still = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    hero.current?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+  };
+  const found = foundRows(chart);
+  const canOpen = chart !== undefined;
+  const careSteps = visit.aftercare.flatMap((care) => care.steps);
+  const band = brushingBand(chart, visit.aftercare.map((care) => care.key));
   return (
-    <main className="vp">
+    <main className={chart === undefined ? "vp" : "vp vp-has-chart"}>
       <header className="vp-hero vp-reveal">
         <p className="vp-eyebrow">{visit.clinicName}</p>
         <h1 className="vp-title">Hi {firstName(visit.patientName)}, here's your visit</h1>
@@ -209,6 +229,12 @@ function VisitStory({ visit, token, pin }: { visit: Visit; token: string; pin: s
         </p>
       </header>
 
+      {chart === undefined ? null : (
+        <div ref={hero} className="vp-hero-mouth vp-reveal">
+          <MouthHero chart={chart} name={name} open={open} onScreen={showHero} />
+        </div>
+      )}
+
       {visit.chiefComplaint === null || visit.chiefComplaint === undefined ? null : (
         <Section title="Why you came">
           <p>{visit.chiefComplaint}</p>
@@ -216,16 +242,26 @@ function VisitStory({ visit, token, pin }: { visit: Visit; token: string; pin: s
       )}
 
       {visit.treatments.length === 0 ? null : (
-        <Section title="What we did today">
+        <Section title="Done today">
           <ul className="vp-list">
             {visit.treatments.map((treatment, index) => (
-              <li key={index} className="vp-item">
-                <span className="vp-dot vp-dot-done" aria-hidden="true" />
-                <span>
-                  <strong>{treatment.name}</strong>
-                  {toothWords(treatment.tooth) === undefined ? null : <span className="vp-muted"> · {toothWords(treatment.tooth)}</span>}
-                </span>
-              </li>
+              <ToothRow key={index} tooth={treatment.tooth} canOpen={canOpen} onOpen={openTooth} dot="vp-dot vp-dot-done">
+                <strong>{treatment.name}</strong>
+                {toothWords(treatment.tooth) === undefined ? null : <span className="vp-muted"> · {toothWords(treatment.tooth)}</span>}
+              </ToothRow>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {found.length === 0 ? null : (
+        <Section title="What we found">
+          <ul className="vp-list">
+            {found.map((row) => (
+              <ToothRow key={row.tooth} tooth={row.tooth} canOpen={canOpen} onOpen={openTooth} dot="vp-dot vp-dot-found">
+                <strong>{row.words}</strong>
+                <span className="vp-muted"> · {row.where}</span>
+              </ToothRow>
             ))}
           </ul>
         </Section>
@@ -235,16 +271,17 @@ function VisitStory({ visit, token, pin }: { visit: Visit; token: string; pin: s
         <Section title="Your plan">
           <ol className="vp-list vp-plan">
             {visit.plan.map((item) => (
-              <li key={item.id} className="vp-item">
-                <span className="vp-dot" aria-hidden="true" />
-                <span className="vp-grow">
-                  <strong>{item.name}</strong>
-                  {toothWords(item.tooth) === undefined ? null : <span className="vp-muted"> · {toothWords(item.tooth)}</span>}
-                </span>
-                {item.estimatePaise === null || item.estimatePaise === undefined || item.estimatePaise <= 0 ? null : (
-                  <span className="vp-price">{rupees(item.estimatePaise)}</span>
-                )}
-              </li>
+              <ToothRow
+                key={item.id}
+                tooth={item.tooth}
+                canOpen={canOpen}
+                onOpen={openTooth}
+                dot="vp-dot"
+                end={item.estimatePaise === null || item.estimatePaise === undefined || item.estimatePaise <= 0 ? undefined : <span className="vp-price">{rupees(item.estimatePaise)}</span>}
+              >
+                <strong>{item.name}</strong>
+                {toothWords(item.tooth) === undefined ? null : <span className="vp-muted"> · {toothWords(item.tooth)}</span>}
+              </ToothRow>
             ))}
           </ol>
           {total > 0 ? <p className="vp-fine">Estimate {rupees(total)} in all; the final cost is confirmed after examination.</p> : null}
@@ -260,8 +297,26 @@ function VisitStory({ visit, token, pin }: { visit: Visit; token: string; pin: s
         </Section>
       )}
 
-      {visit.aftercare.length === 0 ? null : (
+      {visit.discussed.map((row, index) => (
+        <Section key={index} title={row.tooth === null || row.tooth === undefined ? row.title : `${row.title} (tooth ${String(row.tooth)})`}>
+          <ul className="vp-steps">
+            {row.options.map((option) => (
+              <li key={option.label}>
+                <strong>{option.label}</strong>
+                {option.material === null || option.material === undefined ? null : <span className="vp-muted"> · {option.material}</span>}
+                {option.preferred ? <span className="vp-muted"> · you prefer this</span> : null}
+                <br />
+                {option.summary} {option.looksLike} {option.comfort}
+                {option.fromPaise === null || option.fromPaise === undefined ? null : <span className="vp-muted"> From {rupees(option.fromPaise)}</span>}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ))}
+
+      {visit.aftercare.length === 0 && chart === undefined ? null : (
         <Section title="Care at home">
+          {chart === undefined ? null : <BrushingBlock band={band} highlight={brushHighlight(chart, careSteps)} name={name} />}
           {visit.aftercare.map((care) => (
             <div key={care.key} className="vp-care">
               <h3 className="vp-care-title">{care.title}</h3>

@@ -1,0 +1,16 @@
+{
+  "$comment": "The usual wisdom tooth removal case for Show patient (docs/plans/present-studio-design.md section 8.5, slice 2d-2). General guidance, never about this patient: no visit numbers, no dates, no prices. The first step is an example position unless the record has one. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "reviewed_by": "pending",
+  "key": "wisdom",
+  "title": "How a wisdom tooth is usually taken out",
+  "lead": "Usually this is one short procedure, then a week or so of healing.",
+  "steps": [
+    { "key": "before", "label": "Before", "words": "An X-ray shows how the tooth sits. This is an example position; yours may differ.", "art": "scene:wisdom_extraction.position.impacted_vertical" },
+    { "key": "remove", "label": "Take it out", "words": "With the area numbed, the tooth is lifted out. Sometimes it is taken out in pieces.", "art": "scene:wisdom_extraction.remove" },
+    { "key": "day1", "label": "The first day", "words": "A blood clot forms in the space. Rest, and do not rinse hard or use a straw.", "art": "scene:wisdom_extraction.day1" },
+    { "key": "week1", "label": "After a week", "words": "The gum starts to close over the space and the clot is replaced by new tissue.", "art": "scene:wisdom_extraction.week1", "usual": { "min": 1, "max": 2, "unit": "weeks" } },
+    { "key": "healed", "label": "Healed", "words": "The bone and gum fill in and the area settles.", "art": "scene:wisdom_extraction.healed" }
+  ]
+}

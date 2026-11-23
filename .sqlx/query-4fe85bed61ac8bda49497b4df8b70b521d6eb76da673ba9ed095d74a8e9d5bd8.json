@@ -1,0 +1,125 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select r.id, r.encounter_id, r.tooth, r.data, r.status, r.supersedes_id, r.effective_at,\n                  r.verified_by, r.source\n           from aarogyam.specialty_records r\n           join aarogyam.encounters e on e.org_id = r.org_id and e.id = r.encounter_id\n           where r.encounter_id = any($1) and r.module = 'dental' and r.kind = 'tooth'\n             and app.clinical_in_reach(e.clinician_id, e.created_by, null, $2)\n           order by r.encounter_id, r.effective_at, r.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "encounter_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "encounter_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "tooth",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "tooth"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "data",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "data"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "supersedes_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "supersedes_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "effective_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "effective_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "verified_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "verified_by"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.specialty_records",
+            "name": "source"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "4fe85bed61ac8bda49497b4df8b70b521d6eb76da673ba9ed095d74a8e9d5bd8"
+}

@@ -22,12 +22,13 @@ use aarogyam_domain::dental_details::{
 };
 use aarogyam_domain::dental_terms::{TermKind, TermRef};
 use aarogyam_domain::ids::{EncounterId, ShareLinkId};
+use aarogyam_domain::mouth::MouthSnapshot;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::quick_picks;
 use aarogyam_domain::share::ShareChannel;
 use aarogyam_domain::visit_message::{
-    self as message, DoneDetail, FoundLine, MedicineLine, MessageInput, MessageSection, NextVisit,
-    RecLine, Recipient, Refusal, SectionSet, Work,
+    self as message, DoneDetail, FoundLine, LearnLink, MedicineLine, MessageInput, MessageSection,
+    NextVisit, RecLine, Recipient, Refusal, SectionSet, Work,
 };
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::{Paise, PhoneE164};
@@ -78,10 +79,24 @@ pub struct PlanItem {
     pub tooth: Option<Tooth>,
     /// The fee or estimate, when known.
     pub estimate: Option<Paise>,
+    /// When it was planned or proposed.
+    pub created_at: OffsetDateTime,
 }
 
 fn tooth_of(number: Option<i16>) -> Option<Tooth> {
     number.and_then(|n| Tooth::new(i64::from(n)).ok())
+}
+
+fn plan_item(source: PlanSource) -> impl Fn(dal::PlannedRow) -> PlanItem {
+    move |row| PlanItem {
+        id: row.id,
+        source,
+        name: row.name,
+        code: row.code,
+        tooth: tooth_of(row.tooth),
+        estimate: row.estimate_paise.map(Paise::new),
+        created_at: row.created_at,
+    }
 }
 
 /// The visit's plan: its planned procedures, then the patient's accepted plan items that no
@@ -96,21 +111,31 @@ pub(crate) async fn plan_in(
 ) -> Result<Vec<PlanItem>, AppError> {
     let procedures = dal::planned_procedures(tx.conn(), encounter_id).await?;
     let items = dal::accepted_plan_items(tx.conn(), patient_id, encounter_id).await?;
-    let as_item = |source: PlanSource| {
-        move |row: dal::PlannedRow| PlanItem {
-            id: row.id,
-            source,
-            name: row.name,
-            code: row.code,
-            tooth: tooth_of(row.tooth),
-            estimate: row.estimate_paise.map(Paise::new),
-        }
-    };
     Ok(procedures
         .into_iter()
-        .map(as_item(PlanSource::Procedure))
-        .chain(items.into_iter().map(as_item(PlanSource::PlanItem)))
+        .map(plan_item(PlanSource::Procedure))
+        .chain(items.into_iter().map(plan_item(PlanSource::PlanItem)))
         .collect())
+}
+
+/// The patient's proposed plan items, not yet accepted, that no planned procedure of the visit
+/// or done procedure carries. Only the mouth view shows them, as recommended; the message's
+/// "Your plan" and the visit page's plan keep to [`plan_in`] (decisions.md, 20 Nov 2026).
+///
+/// # Errors
+/// [`AppError::Db`] on database failures.
+pub(crate) async fn proposed_in(
+    tx: &mut ScopedTx,
+    encounter_id: Uuid,
+    patient_id: Uuid,
+) -> Result<Vec<PlanItem>, AppError> {
+    Ok(
+        dal::proposed_plan_items(tx.conn(), patient_id, encounter_id)
+            .await?
+            .into_iter()
+            .map(plan_item(PlanSource::PlanItem))
+            .collect(),
+    )
 }
 
 /// A treatment done in the visit, with its code for the aftercare.
@@ -651,12 +676,25 @@ struct Draft {
     next_visit: Option<NextVisit>,
     keys: Vec<&'static str>,
     medicines: Vec<MedicineLine>,
+    /// The public learn page for today's treatment (design §1.9).
+    learn: Option<message::LearnTopic>,
 }
 
 impl Draft {
-    /// The message's input with this link, PIN and ticks. The typed complaint stays on the visit
-    /// page; it never goes into the text.
-    fn input<'a>(&'a self, url: &'a str, pin: &'a str, sections: SectionSet) -> MessageInput<'a> {
+    /// The learn page's address on the learn host, when there is a topic and a host.
+    fn learn_url(&self, learn_origin: Option<&str>) -> Option<String> {
+        Some(message::learn_url(learn_origin?, self.learn?))
+    }
+
+    /// The message's input with this link, PIN, ticks and learn page address. The typed
+    /// complaint stays on the visit page; it never goes into the text.
+    fn input<'a>(
+        &'a self,
+        url: &'a str,
+        pin: &'a str,
+        sections: SectionSet,
+        learn_url: Option<&'a str>,
+    ) -> MessageInput<'a> {
         MessageInput {
             clinic_name: &self.clinic_name,
             doctor_name: self.doctor_name.as_deref(),
@@ -673,8 +711,10 @@ impl Draft {
             advice: &self.facts.advice,
             medicines: &self.medicines,
             clinic_phone: self.clinic_phone.as_deref(),
-            // The public learn page comes with the learn site (P9).
-            learn_url: None,
+            learn: self.learn.zip(learn_url).map(|(topic, url)| LearnLink {
+                title: topic.title,
+                url,
+            }),
             url,
             pin,
             sections,
@@ -682,14 +722,26 @@ impl Draft {
     }
 }
 
-/// Reads the visit and checks the refusals: open visit, no mobile, no consent, opted out.
-/// Writes nothing.
-async fn draft_in(
+/// The visit, its patient and recipient after the refusals, and the clinic's name and zone.
+struct Checked {
+    visit: visits::EncounterRow,
+    patient: patients::PatientRow,
+    recipient: Recipient,
+    phone: PhoneE164,
+    clinic_name: String,
+    timezone: String,
+    minor: bool,
+}
+
+/// Reads the visit and checks the refusals: open visit, no mobile, no consent, opted out. The
+/// summary, its preview and the video story all start here, so none is made for a patient the
+/// text could not go to. Writes nothing.
+async fn checked_in(
     tx: &mut ScopedTx,
     actor: &ClinicActor,
     visit_id: EncounterId,
     now: OffsetDateTime,
-) -> Result<Draft, AppError> {
+) -> Result<Checked, AppError> {
     let visit = visits::get_encounter(
         tx.conn(),
         visit_id.uuid(),
@@ -711,12 +763,38 @@ async fn draft_in(
     let (clinic_name, timezone) = links::clinic_name(tx.conn())
         .await?
         .ok_or(AppError::NotFound("clinic"))?;
-    let today = clinic_today(&timezone, now);
-    let minor = message::is_minor(patient.date_of_birth, today);
-    let age_band = message::age_band(patient.date_of_birth, today);
-
+    let minor = message::is_minor(patient.date_of_birth, clinic_today(&timezone, now));
     let (recipient, phone) =
         recipient_in(tx, patient.id, patient.phone_e164.as_deref(), minor).await?;
+    Ok(Checked {
+        visit,
+        patient,
+        recipient,
+        phone,
+        clinic_name,
+        timezone,
+        minor,
+    })
+}
+
+/// Reads the visit and checks the refusals ([`checked_in`]), then gathers what the summary says.
+/// Writes nothing.
+async fn draft_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    visit_id: EncounterId,
+    now: OffsetDateTime,
+) -> Result<Draft, AppError> {
+    let Checked {
+        visit,
+        patient,
+        recipient,
+        phone,
+        clinic_name,
+        timezone,
+        minor,
+    } = checked_in(tx, actor, visit_id, now).await?;
+    let age_band = message::age_band(patient.date_of_birth, clinic_today(&timezone, now));
 
     // What it says.
     let doctor_name = links::doctor(tx.conn(), visit.clinician_id)
@@ -725,6 +803,7 @@ async fn draft_in(
     let done = done_in(tx, visit.id).await?;
     let plan = plan_in(tx, visit.id, patient.id).await?;
     let keys = care_keys(&done, &plan);
+    let learn = message::learn_topic(&done.iter().map(DoneWork::work).collect::<Vec<_>>());
     let medicines = medicine_lines(tx, visit.id).await?;
     let visited_on = clinic_today(&timezone, visit.started_at);
     let next_visit = match dal::next_booked(tx.conn(), patient.id, now).await? {
@@ -754,6 +833,7 @@ async fn draft_in(
         next_visit,
         keys,
         medicines,
+        learn,
     })
 }
 
@@ -769,6 +849,7 @@ pub fn parse_sections(names: &[String]) -> Result<SectionSet, AppError> {
 /// and opt-outs, mints a visit link (7 days; at most [`LIVE_VISIT_LINKS`] live per visit, the
 /// oldest revoked) and builds the text. `url` turns the clinic's portal host and the token into
 /// the link; `request_host` is the host used when the clinic has no verified portal address.
+/// `learn_origin` is the public learn host's origin; without it the text has no learn link.
 /// With `sections` the text has only the ticked ones and they become the doctor's defaults;
 /// without, it has every section (older clients).
 ///
@@ -788,6 +869,7 @@ pub async fn prepare(
     visit_id: EncounterId,
     request_host: &str,
     url: &(dyn Fn(&str, &str) -> String + Sync),
+    learn_origin: Option<&str>,
     sections: Option<SectionSet>,
     now: OffsetDateTime,
 ) -> Result<Prepared, AppError> {
@@ -824,8 +906,13 @@ pub async fn prepare(
         {
             prefs_dal::save_sections(tx.conn(), member, &owned_names(ticked)).await?;
         }
-        let composed =
-            message::compose(&draft.input(&link, &made.pin, sections.unwrap_or_default()));
+        let learn = draft.learn_url(learn_origin);
+        let composed = message::compose(&draft.input(
+            &link,
+            &made.pin,
+            sections.unwrap_or_default(),
+            learn.as_deref(),
+        ));
         Ok(Prepared {
             phone: draft.phone,
             text: composed.text,
@@ -858,6 +945,7 @@ pub async fn preview(
     visit_id: EncounterId,
     request_host: &str,
     url: &(dyn Fn(&str, &str) -> String + Sync),
+    learn_origin: Option<&str>,
     sections: SectionSet,
     now: OffsetDateTime,
 ) -> Result<String, AppError> {
@@ -869,7 +957,53 @@ pub async fn preview(
             .await?
             .unwrap_or_else(|| request_host.to_owned());
         let link = url(&host, message::PREVIEW_TOKEN);
-        Ok(message::compose(&draft.input(&link, message::PREVIEW_PIN, sections)).text)
+        let learn = draft.learn_url(learn_origin);
+        Ok(
+            message::compose(&draft.input(&link, message::PREVIEW_PIN, sections, learn.as_deref()))
+                .text,
+        )
+    })
+    .await
+}
+
+/// What the doctor's device needs to render the patient's video (design section 1.7): the mouth
+/// snapshot, the visit number for the file name and end card, the visit day and the clinic's
+/// name. No patient name, phone, link or PIN.
+#[derive(Debug, Clone)]
+pub struct VisitStory {
+    /// The clinic's visit number, such as `V-318`.
+    pub visit_number: String,
+    /// The visit's day in the clinic's time zone.
+    pub visited_on: Date,
+    /// The clinic's name for the title and end cards.
+    pub clinic_name: String,
+    /// The same snapshot as `GET /visits/{id}/mouth`, with `story_version` and `next_visit`.
+    pub mouth: MouthSnapshot,
+}
+
+/// The video story of a closed visit. Runs the same refusals as [`prepare`], so a video is made
+/// only when the text could be; mints, revokes and saves nothing.
+///
+/// # Errors
+/// As [`prepare`].
+pub async fn story(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    visit_id: EncounterId,
+    now: OffsetDateTime,
+) -> Result<VisitStory, AppError> {
+    actor.require(Permission::ClinicalRead)?;
+    actor.require(Permission::PatientsContact)?;
+    db.scoped(&staff_scope(actor, request_id), async |tx| {
+        let checked = checked_in(tx, actor, visit_id, now).await?;
+        let mouth = crate::mouth::of_visit(tx, &checked.visit, now).await?;
+        Ok(VisitStory {
+            visited_on: clinic_today(&checked.timezone, checked.visit.started_at),
+            visit_number: checked.visit.number,
+            clinic_name: checked.clinic_name,
+            mouth,
+        })
     })
     .await
 }

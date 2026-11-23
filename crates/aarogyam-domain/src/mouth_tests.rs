@@ -44,6 +44,7 @@ fn input(entries: Vec<EntryRecord>) -> MouthInput {
         eruptions: Vec::new(),
         done_today: Vec::new(),
         planned: Vec::new(),
+        recommended: Vec::new(),
         next_visit: None,
     }
 }
@@ -205,21 +206,129 @@ fn health_comes_only_from_a_status_and_plans_only_from_codes() {
     caries.data.surface = Some("O".to_owned());
     let mut plan = input(vec![caries]);
     plan.planned = vec![
-        ProcedureRecord {
-            tooth: Some(36),
-            code: None,
-        },
-        ProcedureRecord {
-            tooth: Some(38),
-            code: Some("extraction".to_owned()),
-        },
+        procedure(36, None, "Something special"),
+        procedure(38, Some("extraction"), ""),
+        procedure(
+            46,
+            Some("0190a1b2-0000-7000-8000-00000000000a"),
+            "Extraction",
+        ),
     ];
     let snap = snapshot(&plan);
     let t = tooth(&snap, 36);
     assert_eq!(t.health, None);
     assert!(t.planned);
-    assert!(t.treatments.is_empty(), "an uncoded item names no model");
+    assert!(t.treatments.is_empty(), "an unmatched name names no model");
     assert_eq!(tooth(&snap, 38).treatments[0].model, "wisdom_extraction");
+    assert!(
+        tooth(&snap, 46).treatments.is_empty(),
+        "a coded item's model comes from its code, not its name"
+    );
+}
+
+fn procedure(tooth: u8, code: Option<&str>, name: &str) -> ProcedureRecord {
+    ProcedureRecord {
+        tooth: Some(tooth),
+        code: code.map(str::to_owned),
+        name: name.to_owned(),
+        on: None,
+    }
+}
+
+#[test]
+fn findings_problems_and_recommendations_carry_their_recorded_days() {
+    let mut old = entry(36, "caries");
+    old.data.surface = Some("O".to_owned());
+    old.on = date!(2026 - 10 - 12);
+    old.today = false;
+    let mut newer = entry(36, "caries");
+    newer.data.surface = Some("M".to_owned());
+    newer.on = date!(2026 - 11 - 02);
+    newer.today = false;
+    let mut gone = entry(26, "missing");
+    gone.on = date!(2026 - 09 - 30);
+    let mut facts = input(vec![old, newer, gone, entry(46, "fractured")]);
+    let mut first = procedure(36, Some("crown"), "Crown");
+    first.on = Some(date!(2026 - 10 - 12));
+    let mut second = procedure(36, Some("root_canal"), "Root canal");
+    second.on = Some(date!(2026 - 11 - 05));
+    facts.recommended = vec![first, second, procedure(46, Some("crown"), "Crown")];
+    let snap = snapshot(&facts);
+
+    let t36 = tooth(&snap, 36);
+    assert_eq!(t36.problems, ["caries"]);
+    assert_eq!(
+        t36.problems_on,
+        [date!(2026 - 11 - 02)],
+        "the latest current entry"
+    );
+    assert_eq!(t36.finding_on, Some(date!(2026 - 11 - 02)));
+    assert_eq!(t36.recommended_on, Some(date!(2026 - 11 - 05)));
+    let t26 = tooth(&snap, 26);
+    assert_eq!(t26.problems_on, [date!(2026 - 09 - 30)]);
+    assert_eq!(t26.finding_on, Some(date!(2026 - 09 - 30)));
+    let t46 = tooth(&snap, 46);
+    assert_eq!(t46.problems_on, [VISIT]);
+    assert_eq!(
+        t46.recommended_on, None,
+        "a proposal without a day has none"
+    );
+
+    let json = serde_json::to_value(&snap).unwrap();
+    let j36 = json["teeth"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["tooth"] == 36)
+        .unwrap();
+    assert_eq!(j36["problems_on"], serde_json::json!(["2026-11-02"]));
+    assert_eq!(j36["finding_on"], "2026-11-02");
+    assert_eq!(j36["recommended_on"], "2026-11-05");
+}
+
+#[test]
+fn a_proposed_uncoded_item_is_recommended_by_its_name() {
+    let mut facts = input(Vec::new());
+    facts.recommended = vec![procedure(26, None, "Root canal treatment")];
+    let snap = snapshot(&facts);
+    let t = tooth(&snap, 26);
+    assert!(t.recommended);
+    assert!(!t.planned);
+    assert_eq!(t.treatments.len(), 1);
+    assert_eq!(t.treatments[0].model, "root_canal");
+    assert_eq!(t.treatments[0].state, "planned");
+    assert!(t.treatments[0].recommended);
+    let json = serde_json::to_string(&snap).unwrap();
+    assert!(
+        !json.contains("Root canal treatment"),
+        "typed name in {json}"
+    );
+    assert!(!json.to_ascii_lowercase().contains("canal treatment"));
+}
+
+#[test]
+fn an_accepted_item_stays_planned_and_wins_over_a_recommended_duplicate() {
+    let mut facts = input(Vec::new());
+    facts.planned = vec![procedure(26, None, "RCT 26")];
+    facts.recommended = vec![
+        procedure(26, Some("root_canal"), ""),
+        procedure(36, Some("crown"), ""),
+    ];
+    let snap = snapshot(&facts);
+    let t = tooth(&snap, 26);
+    assert!(t.planned);
+    assert_eq!(t.treatments.len(), 1, "one mark per model");
+    assert_eq!(t.treatments[0].model, "root_canal");
+    assert!(!t.treatments[0].recommended);
+    let crown = tooth(&snap, 36);
+    assert!(crown.recommended && !crown.planned);
+    let json = serde_json::to_string(&snap).unwrap();
+    assert!(!json.contains("RCT 26"), "typed name in {json}");
+    let planned_only = serde_json::to_value(t).unwrap();
+    assert!(
+        planned_only["treatments"][0].get("recommended").is_none(),
+        "skipped when false"
+    );
 }
 
 #[test]
@@ -264,6 +373,81 @@ fn any_permanent_tooth_rules_out_child() {
     assert_eq!(dentition(&charted(&[16]), Some(30)), "adult");
     assert_eq!(dentition(&charted(&[16]), None), "adult");
     assert_eq!(dentition(&charted(&[]), Some(8)), "mixed");
+}
+
+#[test]
+fn an_adult_without_a_birth_date_gets_adult_numbers() {
+    let mut adult = input(vec![entry(16, "caries"), entry(21, "filled")]);
+    adult.age = None;
+    let snap = snapshot(&adult);
+    assert_eq!(snap.dentition, "adult");
+    let numbers: Vec<u8> = snap.positions.iter().map(|p| p.tooth).collect();
+    assert_eq!(numbers.len(), 32);
+    assert!(numbers.iter().all(|n| *n < 50), "no milk-tooth numbers");
+    assert_eq!(&numbers[..8], &[11, 12, 13, 14, 15, 16, 17, 18]);
+}
+
+#[test]
+fn a_retained_milk_tooth_keeps_the_rest_of_an_adults_mouth_adult() {
+    // A charted 55 makes the layout mixed, but only 55 shows a milk number.
+    for age in [None, Some(30)] {
+        let mut adult = input(vec![entry(55, "caries"), entry(16, "caries")]);
+        adult.age = age;
+        let snap = snapshot(&adult);
+        assert_eq!(snap.dentition, "mixed");
+        let milk: Vec<u8> = snap
+            .positions
+            .iter()
+            .map(|p| p.tooth)
+            .filter(|n| *n > 50)
+            .collect();
+        assert_eq!(milk, vec![55], "age {age:?}");
+        assert_eq!(snap.positions.len(), 32);
+        assert!(
+            snap.positions.iter().all(|p| p.shown != "not_recorded"),
+            "uncharted adult teeth are sound, as in the adult layout"
+        );
+    }
+}
+
+#[test]
+fn found_today_comes_from_this_visits_findings_and_health() {
+    let mut old = entry(26, "caries");
+    old.today = false;
+    let mut facts = input(vec![
+        entry(36, "caries"),
+        entry(46, "fractured"),
+        entry(16, "missing"),
+        old,
+    ]);
+    let status = |tooth: u8, health: &str, today: bool| StatusRecord {
+        data: ToothStatusData {
+            tooth,
+            health: health.to_owned(),
+            note: None,
+            treat_within_months: None,
+        },
+        today,
+    };
+    facts.statuses = vec![
+        status(14, "needs_treatment", true),
+        status(24, "needs_treatment", false),
+    ];
+    let snap = snapshot(&facts);
+    for found in [36, 46, 16, 14] {
+        assert_eq!(
+            tooth(&snap, found).today.as_deref(),
+            Some("found"),
+            "{found}"
+        );
+    }
+    assert_eq!(tooth(&snap, 26).today, None, "recorded at an earlier visit");
+    assert_eq!(
+        tooth(&snap, 24).today,
+        None,
+        "health set at an earlier visit"
+    );
+    assert!(snap.focus.contains(&36) && snap.focus.contains(&14));
 }
 
 #[test]

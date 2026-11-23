@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="timeoff_title">सुट्टी</string>
+    <string name="timeoff_tile_sub">मागा किंवा मंजूर करा</string>
+    <string name="timeoff_request">सुट्टीची विनंती करा</string>
+    <string name="timeoff_mine">माझ्या विनंत्या</string>
+    <string name="timeoff_pending">तुमच्या निर्णयाची प्रतीक्षा</string>
+    <string name="timeoff_empty">अजून कोणतीही विनंती नाही</string>
+    <string name="timeoff_not_allowed">तुमची भूमिका सुट्टीची विनंती करू शकत नाही.</string>
+    <string name="timeoff_loading">सुट्टी लोड होत आहे</string>
+    <string name="timeoff_retry">पुन्हा प्रयत्न करा</string>
+    <string name="timeoff_kind">प्रकार</string>
+    <string name="timeoff_kind_vacation">सुट्टी</string>
+    <string name="timeoff_kind_sick">आजारपण</string>
+    <string name="timeoff_kind_personal">वैयक्तिक</string>
+    <string name="timeoff_kind_other">इतर</string>
+    <string name="timeoff_status_pending">प्रतीक्षेत</string>
+    <string name="timeoff_status_approved">मंजूर</string>
+    <string name="timeoff_status_declined">नाकारले</string>
+    <string name="timeoff_status_cancelled">रद्द</string>
+    <string name="timeoff_first_day">पहिला दिवस</string>
+    <string name="timeoff_last_day">शेवटचा दिवस</string>
+    <string name="timeoff_reason">कारण (ऐच्छिक)</string>
+    <string name="timeoff_send">विनंती पाठवा</string>
+    <string name="timeoff_withdraw">मागे घ्या</string>
+    <string name="timeoff_approve">मंजूर करा</string>
+    <string name="timeoff_decline">नाकारा</string>
+    <string name="timeoff_done">झाले</string>
+    <string name="timeoff_action_failed">हे होऊ शकले नाही. पुन्हा प्रयत्न करा.</string>
+    <string name="timeoff_decision_note">टीप: %1$s</string>
+    <string name="timeoff_range">%1$s ते %2$s</string>
+</resources>

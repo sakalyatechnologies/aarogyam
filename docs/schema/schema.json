@@ -2557,7 +2557,7 @@
    "partitioned": false,
    "lifecycle": "mutable",
    "schema": "aarogyam",
-   "notes": "Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and \"No known allergies\" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills. offers.give (migration 0744: owner and doctor, backfilled) gives patients offer and referral codes within the role's caps; a payments.collect holder without billing.write applies only the bill patient's own offer or reward.",
+   "notes": "Seeded by migrations from the Rust permission list; a test checks that they match. intake.write (migration 0310: owner, doctor, front desk, assistant) records patient-reported allergies and \"No known allergies\" at a walk-in and grants no clinical reading. payments.collect (migration 0679: owner, front desk, assistant, backfilled; migration 0681 adds doctor) takes payment against named, unpaid bills and reads GET /invoices/{id}/collect-summary; it opens no listing, creating or voiding of bills. offers.give (migration 0756: owner and doctor, backfilled) gives patients offer and referral codes within the role's caps; a payments.collect holder without billing.write applies only the bill patient's own offer or reward.",
    "cols": [
     {
      "name": "key",
@@ -2918,6 +2918,7 @@
     "medical_history_items.verified_by",
     "member_message_prefs.membership_id",
     "member_setup.membership_id",
+    "member_ui_prefs.membership_id",
     "membership_branches.membership_id",
     "note_addenda.author_id",
     "observations.verified_by",
@@ -3238,7 +3239,7 @@
      "type": "uuid",
      "nullable": true,
      "ref": "patients",
-     "note": "set once when a referral code's use becomes final (migration 0743), never overwritten"
+     "note": "set once when a referral code's use becomes final (migration 0755), never overwritten"
     },
     {
      "name": "tags",
@@ -3334,6 +3335,7 @@
     "encounters.patient_id",
     "family_links.patient_id",
     "family_links.related_patient_id",
+    "image_pins.patient_id",
     "import_rows.patient_id",
     "invoices.patient_id",
     "lab_orders.patient_id",
@@ -3356,6 +3358,7 @@
     "payment_allocations.patient_id",
     "payments.patient_id",
     "prescriptions.patient_id",
+    "present_discussions.patient_id",
     "procedures.patient_id",
     "promo_codes.patient_id",
     "promo_codes.source_patient_id",
@@ -4640,6 +4643,7 @@
     "lab_orders.encounter_id",
     "observations.encounter_id",
     "prescriptions.encounter_id",
+    "present_discussions.encounter_id",
     "procedures.encounter_id",
     "promo_codes.issued_encounter_id",
     "share_links.encounter_id",
@@ -5977,6 +5981,7 @@
     "consent_forms.pdf_attachment_id",
     "consent_forms.signature_attachment_id",
     "document_extractions.attachment_id",
+    "image_pins.attachment_id",
     "patient_consents.signature_attachment_id",
     "payments.attachment_id",
     "voice_notes.attachment_id"
@@ -6185,6 +6190,138 @@
    ],
    "sensitivity": "health",
    "offline": "read_write"
+  },
+  {
+   "name": "present_discussions",
+   "domain": "clinical",
+   "purpose": "What the doctor and patient discussed in Show patient: the usual options for one situation, and the one the patient prefers.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "finalizable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0753). Append-only: a save supersedes the current row for the visit, tooth and situation (one current, a partial unique index); a wrong row is marked entered in error with a reason; app.freeze_when() allows only current -> superseded or entered_in_error. Kept on erasure like specialty_records (only its change history is scrubbed).",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "encounter_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "encounters",
+     "note": "the visit; the key includes patient_id"
+    },
+    {
+     "name": "tooth",
+     "type": "smallint",
+     "nullable": true,
+     "ref": null,
+     "note": "FDI 11-48, 51-85; null for an example-arch topic"
+    },
+    {
+     "name": "situation",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "a key of specialties/dental/present/options.json, such as deep_decay"
+    },
+    {
+     "name": "options",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "[{key, material?, preferred, from_paise?}] up to 4 KB; keys validated in the domain against the data files (braces and aligner keys are refused until seeded); from_paise is frozen when saved with send_to_patient and prices on"
+    },
+    {
+     "name": "send_to_patient",
+     "type": "bool",
+     "nullable": false,
+     "ref": null,
+     "note": "the doctor's tick: it reaches the patient only when true (slice 2f)"
+    },
+    {
+     "name": "status",
+     "type": "record_status",
+     "nullable": false,
+     "ref": null,
+     "note": "current, superseded, entered_in_error"
+    },
+    {
+     "name": "supersedes_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "present_discussions",
+     "note": "the row this one replaced"
+    },
+    {
+     "name": "error_reason",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    }
+   ],
+   "referenced_by": [
+    "present_discussions.supersedes_id"
+   ],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "image_pins",
+   "domain": "clinical",
+   "purpose": "Where each tooth sits on an X-ray or photo in Show patient, placed once and kept for the next visit.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0754). A placement aid, not a clinical record: moving a pin updates the row, taking one off deletes it (hence ephemeral, not mutable), and PUT /attachments/{id}/pins replaces the attachment's set. Deleted on erasure.",
+   "cols": [
+    {
+     "name": "attachment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "attachments",
+     "note": "the key includes patient_id"
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "tooth",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": "FDI 11-48, 51-85; one pin per attachment and tooth"
+    },
+    {
+     "name": "x",
+     "type": "real",
+     "nullable": false,
+     "ref": null,
+     "note": "across the image as a fraction of its width, 0 to 1, in the image's own orientation (never flipped)"
+    },
+    {
+     "name": "y",
+     "type": "real",
+     "nullable": false,
+     "ref": null,
+     "note": "down the image as a fraction of its height, 0 to 1"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
   },
   {
    "name": "dental_terms",
@@ -8842,7 +8979,7 @@
      "type": "bigint",
      "nullable": false,
      "ref": null,
-     "note": "an offer or referral code's share (migration 0743): apart from discount_paise on a draft, folded into it at issue and kept as a breakdown"
+     "note": "an offer or referral code's share (migration 0755): apart from discount_paise on a draft, folded into it at issue and kept as a breakdown"
     },
     {
      "name": "tax_rate_bps",
@@ -9712,7 +9849,7 @@
      "type": "text",
      "nullable": false,
      "ref": null,
-     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, booking_conflict, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert, booking_conflict, plan_response"
+     "note": "booking_requested, booking_confirmed_auto, booking_cancelled_by_patient, booking_conflict, lab_overdue, arrival, payment_due, recall_due, patient_waiting, send_in, collect_payment, task_due, task_reminder, task_escalated, time_off_requested, time_off_decided, stock_alert, booking_conflict, plan_response, payment_collected"
     },
     {
      "name": "appointment_id",
@@ -9733,7 +9870,7 @@
      "type": "uuid",
      "nullable": true,
      "ref": "invoices",
-     "note": "payment_due and collect_payment"
+     "note": "payment_due, collect_payment and payment_collected"
     },
     {
      "name": "recall_id",
@@ -9776,6 +9913,13 @@
      "nullable": true,
      "ref": "encounters",
      "note": "plan_response, one per visit; exactly one of the nine subjects is set"
+    },
+    {
+     "name": "amount_paise",
+     "type": "bigint",
+     "nullable": true,
+     "ref": null,
+     "note": "payment_collected: the latest payment on the bill; ids and the amount only, seen by the visit's doctor"
     },
     {
      "name": "step_no",
@@ -9965,6 +10109,43 @@
      "nullable": true,
      "ref": null,
      "note": "1 to 40 characters, from the client"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
+   "name": "member_ui_prefs",
+   "domain": "notify",
+   "purpose": "A member's saved screen choices: the Show patient style (Make default) and the history view.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0745). Only PUT /me/ui-prefs writes it, and only the fields sent; GET returns defaults when there is no row or the stored value is unknown. Each member reads and writes only their own row. Support never reads it. No patient data, so no erasure step.",
+   "cols": [
+    {
+     "name": "membership_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": "unique per clinic"
+    },
+    {
+     "name": "present_style",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "story, painted, xray, smile3d, face; null = story"
+    },
+    {
+     "name": "history_view",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "page, popup, story; null = page"
     }
    ],
    "referenced_by": [],
@@ -10653,7 +10834,7 @@
   {
    "name": "promo_codes",
    "domain": "billing",
-   "purpose": "Offer, referral and reward codes given to patients (migration 0743; docs/plans/visit-story-v2-offers-design.md Part 2).",
+   "purpose": "Offer, referral and reward codes given to patients (migration 0755; docs/plans/visit-story-v2-offers-design.md Part 2).",
    "rls": "clinic",
    "star": false,
    "partitioned": false,

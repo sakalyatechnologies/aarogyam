@@ -18,6 +18,7 @@ import com.aarogyam.staff.api.model.NewChartEntries
 import com.aarogyam.staff.api.model.NewDentalTerm
 import com.aarogyam.staff.api.model.NewPayment
 import com.aarogyam.staff.api.model.Patient
+import com.aarogyam.staff.api.model.PatientHistory
 import com.aarogyam.staff.api.model.PatientList
 import com.aarogyam.staff.api.model.PatientNotes
 import com.aarogyam.staff.api.model.Payment
@@ -243,6 +244,21 @@ class ClinicApi(
     /** `GET /api/v1/patients/{id}/visits` (`listVisits`): newest first. */
     suspend fun visits(id: String): Outcome<VisitList, ApiError> =
         client.call { url("api/v1/patients/${id.encodeURLPathPart()}/visits") }
+
+    /**
+     * `GET /api/v1/patients/{id}/history` (`getPatientHistory`): visit cards newest first, a page at a
+     * time; [before] is the `next_cursor` of the page before. Needs `clinical.read`.
+     */
+    suspend fun patientHistory(
+        id: String,
+        before: String? = null,
+        limit: Int = 20,
+    ): Outcome<PatientHistory, ApiError> =
+        client.call {
+            url("api/v1/patients/${id.encodeURLPathPart()}/history")
+            if (before != null) parameter("before", before)
+            parameter("limit", limit)
+        }
 
     /** `GET /api/v1/patients/{id}/notes` (`getPatientNotes`): the summary note and the visit notes, newest first. */
     suspend fun patientNotes(id: String): Outcome<PatientNotes, ApiError> =

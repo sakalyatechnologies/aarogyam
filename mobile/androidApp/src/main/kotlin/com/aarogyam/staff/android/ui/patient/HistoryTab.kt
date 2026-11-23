@@ -63,6 +63,7 @@ internal fun HistoryTab(
                     val today = remember { Clock.System.todayIn(clinic.timeZone) }
                     current.rows.forEach { row -> HistoryCard(row, today) { onOpen(row.id) } }
                 }
+                if (current.hasMore) OlderVisitsButton(current.loadingMore, holder::loadMore)
             }
         }
     }
@@ -78,21 +79,59 @@ internal fun historyTitleText(title: HistoryTitle): String =
     }
 
 @Composable
-private fun HistoryChip.title(): String =
+private fun HistoryChip.title(photos: Int = 0): String =
     when (this) {
-        is HistoryChip.Tooth -> number.toString()
-        is HistoryChip.DueAmount -> stringResource(R.string.p9_chip_due_amount, text)
-        HistoryChip.Notes -> stringResource(R.string.p9_chip_notes)
-        HistoryChip.Rx -> stringResource(R.string.p9_chip_rx)
-        HistoryChip.Photos -> stringResource(R.string.p9_chip_photos)
-        HistoryChip.Paid -> stringResource(R.string.p9_chip_paid)
-        HistoryChip.Due -> stringResource(R.string.p9_chip_due)
-        HistoryChip.Open -> stringResource(R.string.p9_chip_open)
+        HistoryChip.Photos -> {
+            if (photos >
+                0
+            ) {
+                stringResource(R.string.p9_chip_photo_count, photos)
+            } else {
+                stringResource(R.string.p9_chip_photos)
+            }
+        }
+
+        is HistoryChip.Tooth -> {
+            number.toString()
+        }
+
+        is HistoryChip.DueAmount -> {
+            stringResource(R.string.p9_chip_due_amount, text)
+        }
+
+        HistoryChip.Notes -> {
+            stringResource(R.string.p9_chip_notes)
+        }
+
+        HistoryChip.Rx -> {
+            stringResource(R.string.p9_chip_rx)
+        }
+
+        HistoryChip.Paid -> {
+            stringResource(R.string.p9_chip_paid)
+        }
+
+        HistoryChip.Due -> {
+            stringResource(R.string.p9_chip_due)
+        }
+
+        HistoryChip.Open -> {
+            stringResource(R.string.p9_chip_open)
+        }
     }
 
 @Composable
-private fun HistoryChip.spoken(): String =
-    if (this is HistoryChip.Tooth) stringResource(R.string.p9_chip_tooth_a11y, number) else title()
+private fun HistoryChip.spoken(row: VisitRow): String =
+    when (this) {
+        is HistoryChip.Tooth -> {
+            val work = row.workOf(number)
+            stringResource(R.string.p9_chip_tooth_a11y, number) + (work?.let { ", " + workText(it) } ?: "")
+        }
+
+        else -> {
+            title(row.photoCount)
+        }
+    }
 
 /** A History card: the date badge, the title, the doctor, and chips for what the visit holds. */
 @Composable
@@ -115,7 +154,7 @@ private fun HistoryCard(
         )
     val title = historyTitleText(HistoryRowFormat.title(row.titleSource))
     val todayText = stringResource(R.string.p9_today)
-    val spokenChips = chips.map { it.spoken() }
+    val spokenChips = chips.map { it.spoken(row) } + historyDetailLines(row)
     val description = (listOf(row.at.date.display(), title, row.clinician) + spokenChips).joinToString(", ")
     V7Card(Modifier.clearAndSetSemantics { contentDescription = description }, onClick = onTap) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -138,7 +177,8 @@ private fun HistoryCard(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(title, style = v7(14.5f, FontWeight.Bold), color = p.onSurface.color)
                 Text(row.clinician, style = v7(12f), color = p.onSurfaceVariant.color)
-                if (chips.isNotEmpty()) Flow(Modifier.padding(top = 2.dp)) { chips.forEach { ChipView(it) } }
+                if (chips.isNotEmpty()) Flow(Modifier.padding(top = 2.dp)) { chips.forEach { ChipView(it, row) } }
+                HistoryDetails(row)
             }
             V7Icon("chev", p.onSurfaceVariant.color, 18.dp)
         }
@@ -146,14 +186,33 @@ private fun HistoryCard(
 }
 
 @Composable
-private fun ChipView(chip: HistoryChip) {
+private fun ChipView(
+    chip: HistoryChip,
+    row: VisitRow,
+) {
     val p = SkTheme.palette
     val (fill, ink) =
         when (chip) {
-            HistoryChip.Paid -> p.primaryContainer to p.onPrimaryContainer
-            HistoryChip.Due, is HistoryChip.DueAmount -> p.errorContainer to p.onErrorContainer
-            HistoryChip.Open -> p.tertiaryContainer to p.onTertiaryContainer
-            else -> p.surface2 to p.onSurfaceVariant
+            is HistoryChip.Tooth -> {
+                row.workOf(chip.number)?.let { workColors(it) }
+                    ?: (p.surface2 to p.onSurfaceVariant)
+            }
+
+            HistoryChip.Paid -> {
+                p.primaryContainer to p.onPrimaryContainer
+            }
+
+            HistoryChip.Due, is HistoryChip.DueAmount -> {
+                p.errorContainer to p.onErrorContainer
+            }
+
+            HistoryChip.Open -> {
+                p.tertiaryContainer to p.onTertiaryContainer
+            }
+
+            else -> {
+                p.surface2 to p.onSurfaceVariant
+            }
         }
     Row(
         Modifier.background(fill.color, CircleShape).padding(horizontal = 8.dp, vertical = 3.dp),
@@ -161,6 +220,6 @@ private fun ChipView(chip: HistoryChip) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (chip is HistoryChip.Tooth) V7Icon("tooth", ink.color, 11.dp)
-        Text(chip.title(), style = v7(11f, FontWeight.Bold), color = ink.color)
+        Text(chip.title(row.photoCount), style = v7(11f, FontWeight.Bold), color = ink.color)
     }
 }

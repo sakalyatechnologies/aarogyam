@@ -39,7 +39,7 @@ struct InitialsAvatar: View {
     }
 }
 
-/// A section heading with an optional action on the right (`.sec-h`).
+/// A section heading with an optional action on the right (Clear Glass `.h-sec`: small, bold, uppercase).
 struct TodaySectionHeader: View {
     let title: String
     var action: String?
@@ -48,19 +48,20 @@ struct TodaySectionHeader: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(title).font(.system(size: 14.5, weight: .heavy)).foregroundStyle(theme.roles.onSurface.color)
+            Text(title).font(.footnote.weight(.bold)).tracking(0.6).textCase(.uppercase)
+                .foregroundStyle(theme.roles.onSurfaceVariant.color)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: SkSpacing.s)
             if let action {
                 Button(action: onAction) {
-                    Text(action).font(.system(size: 12.5, weight: .bold)).foregroundStyle(theme.roles.primary.color)
-                        .padding(SkSpacing.xs)
+                    Text(action).font(.subheadline.weight(.semibold)).foregroundStyle(theme.roles.primary.color)
+                        .padding(.vertical, SkSpacing.xs).frame(minHeight: SkSpacing.minTouchTarget)
                 }
             }
         }
-        .padding(.horizontal, 2)
-        .padding(.top, 16)
-        .padding(.bottom, 7)
+        .padding(.horizontal, 4)
+        .padding(.top, 14)
+        .padding(.bottom, 4)
     }
 }
 

@@ -114,6 +114,45 @@ pub(crate) async fn search_drugs(
     }))
 }
 
+/// Query of the alternatives route.
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
+pub struct AlternativesQuery {
+    /// Most results, 1 to 50 (default 20).
+    pub limit: Option<i64>,
+}
+
+/// Medicines with the same generic name, strength and form as one, by brand.
+#[utoipa::path(
+    get,
+    path = "/api/v1/drugs/{id}/alternatives",
+    operation_id = "drugAlternatives",
+    tag = "prescriptions",
+    params(("id" = String, Path, description = "The medicine"), AlternativesQuery),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = Vec<Drug>),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks prescriptions.issue"),
+        (status = 404, description = "No such medicine")
+    )
+)]
+pub(crate) async fn drug_alternatives(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<PrescriptionsIssue>,
+    ApiPath(id): ApiPath<Uuid>,
+    axum::extract::Query(query): axum::extract::Query<AlternativesQuery>,
+) -> Result<Json<Vec<Drug>>, ApiFailure> {
+    let rows = app::drug_alternatives(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        aarogyam_domain::ids::DrugId::from_uuid(id),
+        query.limit.unwrap_or(20),
+    )
+    .await?;
+    Ok(Json(rows.into_iter().map(Drug::from).collect()))
+}
+
 /// A medicine on a prescription.
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct RxItem {

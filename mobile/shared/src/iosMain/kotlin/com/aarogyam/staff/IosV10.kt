@@ -6,6 +6,7 @@ import com.aarogyam.staff.desk.WaitTimerHolder
 import com.aarogyam.staff.live.LiveBannerHolder
 import com.aarogyam.staff.nav.HomeChoiceHolder
 import com.aarogyam.staff.tasks.MyTasksHolder
+import com.aarogyam.staff.timeoff.TimeOffHolder
 import com.aarogyam.staff.visit.FinishVisitHolder
 import com.aarogyam.staff.walkin.IntakeFormHolder
 
@@ -47,6 +48,12 @@ fun AppGraph.myTasks(
     clinic: ClinicContext,
     screen: ScreenScope,
 ): MyTasksHolder = myTasks(clinic, screen.scope)
+
+/** Time off: the signed-in person's requests, who is away, and the owner's pending list. */
+fun AppGraph.timeOff(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): TimeOffHolder = timeOff(clinic, screen.scope)
 
 /** The app-wide banner for a patient waiting, send in and collect payment. */
 fun AppGraph.liveBanners(

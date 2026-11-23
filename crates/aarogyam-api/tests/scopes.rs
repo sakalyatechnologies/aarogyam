@@ -249,6 +249,7 @@ fn colleague_reads(w: &World) -> Vec<String> {
         format!("/api/v1/patients/{p}/notes"),
         format!("/api/v1/visits/{}", w.visit_b),
         format!("/api/v1/visits/{}/mouth", w.visit_b),
+        format!("/api/v1/visits/{}/present", w.visit_b),
         format!("/api/v1/prescriptions/{}", w.rx_b),
     ]
 }

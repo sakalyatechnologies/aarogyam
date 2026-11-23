@@ -1,4 +1,4 @@
-//! Offer, referral and reward codes and their uses on bills (migration 0743). Everything here
+//! Offer, referral and reward codes and their uses on bills (migration 0755). Everything here
 //! runs in the caller's clinic transaction; the code text never leaves through logs.
 
 use sakalya_db::DbError;

@@ -5,6 +5,7 @@
  */
 import { ImagePlus, Presentation } from "lucide-react";
 import { useRef, useState } from "react";
+import { useNavigate } from "react-router";
 
 import { apiErrorOf, type Attachment, type PatientId, type VisitId } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate } from "@aarogyam/app-kit";
@@ -16,6 +17,7 @@ import { useAttachments, useUploadAttachment } from "../../../queries.js";
 import { FileThumb } from "../file-thumb.js";
 import { useAttachmentLink } from "./attachment-link.js";
 import { ExplainMode } from "./explain/explain-mode.js";
+import { useOptionalVisitSession } from "./visit-session.js";
 
 /** The tags offered on upload. Each one is stored as the file's label, with the kind that fits it. */
 export const IMAGE_TAGS = [
@@ -170,7 +172,7 @@ function Viewer({ file, onClose, onExplain }: { file: Attachment; onClose: () =>
         <>
           {isImage && onExplain !== undefined ? (
             <Button variant="secondary" icon={<Presentation aria-hidden="true" className="size-4" />} onClick={onExplain}>
-              Explain to patient
+              Show patient
             </Button>
           ) : null}
           <Button onClick={onClose}>Close</Button>
@@ -196,6 +198,8 @@ function Viewer({ file, onClose, onExplain }: { file: Attachment; onClose: () =>
 export function ImageGrid({ files, patientId }: { files: readonly Attachment[]; patientId?: PatientId | undefined }) {
   const [open, setOpen] = useState<Attachment | undefined>(undefined);
   const [explaining, setExplaining] = useState<Attachment | undefined>(undefined);
+  const navigate = useNavigate();
+  const visitId = useOptionalVisitSession()?.visit?.id;
   return (
     <>
       <ul aria-label="Images" className="p360-gallery m-0 list-none p-0">
@@ -227,8 +231,10 @@ export function ImageGrid({ files, patientId }: { files: readonly Attachment[]; 
             patientId === undefined
               ? undefined
               : () => {
-                  setExplaining(open);
                   setOpen(undefined);
+                  // one mode (§1.12): Show patient on its X-rays tab, or the X-rays alone without a visit
+                  if (visitId === undefined) setExplaining(open);
+                  else void navigate(`/visits/${visitId}/mouth?tab=xrays&image=${encodeURIComponent(open.id)}`);
                 }
           }
         />

@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.encounter_id, p.tooth, p.name, p.status\n           from aarogyam.procedures p\n           where p.encounter_id = any($1) and p.status <> 'entered_in_error'\n             and app.clinical_in_reach(p.clinician_id, p.created_by, p.encounter_id, $2)\n           order by p.encounter_id, p.created_at, p.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "encounter_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "encounter_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "tooth",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "tooth"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.procedures",
+            "name": "status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "9e1570afad7e9cd0e87afe8d03feb7018458f6ace724046d18f2d552dd439c25"
+}

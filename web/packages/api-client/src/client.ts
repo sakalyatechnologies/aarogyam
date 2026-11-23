@@ -26,8 +26,8 @@ import type {
   TimeOffPage,
 } from "./schemas.js";
 import type { AudienceFilter, NewAudience, NewCampaign, NewChatMessage, NewConversation, ScheduleCampaign, SendMessages } from "./contract.js";
-import type { HandOff, NewMessagePrefs, NewPatientMessage } from "./contract.js";
-import type { MessagePrefs, MessagePreview } from "./schemas.js";
+import type { HandOff, NewMessagePrefs, NewPatientMessage, NewUiPrefs } from "./contract.js";
+import type { MessagePrefs, MessagePreview, UiPrefs } from "./schemas.js";
 import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
 import type {
@@ -144,6 +144,14 @@ import type {
   ToothEruption,
   DetailInError,
   MouthSnapshot,
+  PresentSettings,
+  PresentStudio,
+  PresentDiscussion,
+  PresentDiscussionList,
+  ImagePins,
+  NewPresentDiscussion,
+  DiscussionInError,
+  VisitStory,
   NewDentalTerm,
   NewPlan,
   NewClinic,
@@ -270,6 +278,7 @@ import type {
   SummaryContent,
   SummaryNote,
   Timeline,
+  PatientHistory,
   TodayMoney,
   Analytics,
   AnalyticsBucket,
@@ -758,6 +767,8 @@ export interface ApiClient {
 
   /** Clinic host: a patient's visits, notes, procedures and files, newest first. Needs `clinical.read`. */
   getTimeline(id: PatientId, options?: RequestOptions): Promise<ApiResult<Timeline>>;
+  /** The full-page history: every visit as a card, newest first (`GET /patients/{id}/history`). */
+  getPatientHistory(id: PatientId, before?: string, options?: RequestOptions): Promise<ApiResult<PatientHistory>>;
   /** Clinic host: a patient's consent records (DPDP), newest first. Needs `patients.read`. */
   listConsents(id: PatientId, options?: RequestOptions): Promise<ApiResult<ConsentPage>>;
   /** Clinic host: records that the patient saw the clinic's notice and agreed. Needs `patients.write`. */
@@ -815,6 +826,10 @@ export interface ApiClient {
   getMessagePrefs(options?: RequestOptions): Promise<ApiResult<MessagePrefs>>;
   /** Clinic host: saves the caller's default ticks. Needs `clinical.read`. */
   saveMessagePrefs(input: NewMessagePrefs, options?: RequestOptions): Promise<ApiResult<MessagePrefs>>;
+  /** Clinic host: the caller's saved screen choices (Show patient style, history view); defaults until saved. Needs `clinical.read`. */
+  getUiPrefs(options?: RequestOptions): Promise<ApiResult<UiPrefs>>;
+  /** Clinic host: saves the fields sent and keeps the rest. An unknown value is a 400. Needs `clinical.read`. */
+  saveUiPrefs(input: NewUiPrefs, options?: RequestOptions): Promise<ApiResult<UiPrefs>>;
   /** Public: opens a visit summary link with its PIN. Five wrong PINs lock the link. */
   openSharedVisit(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<VisitSummary>>;
 
@@ -880,6 +895,22 @@ export interface ApiClient {
   markToothEruptionInError(id: PatientId, tooth: number, input: DetailInError, options?: RequestOptions): Promise<ApiResult<undefined>>;
   /** Clinic host: the visit's mouth snapshot for Present mode, the same JSON the patient's page shows. Needs `clinical.read`; works while the visit is open. */
   getVisitMouth(id: VisitId, options?: RequestOptions): Promise<ApiResult<MouthSnapshot>>;
+  /** Clinic host: the studio layer of Show patient, the usual options for each recorded situation (with prices only for `billing.read` when the clinic turned them on). Needs `clinical.read`; works while the visit is open. */
+  getVisitPresent(id: VisitId, options?: RequestOptions): Promise<ApiResult<PresentStudio>>;
+  /** Clinic host: the visit's current "What we discussed" rows. Needs `clinical.read`; works while the visit is closed. */
+  listImagePins(id: AttachmentId, options?: RequestOptions): Promise<ApiResult<ImagePins>>;
+  saveImagePins(id: AttachmentId, input: ImagePins, options?: RequestOptions): Promise<ApiResult<ImagePins>>;
+  listPresentDiscussions(id: VisitId, options?: RequestOptions): Promise<ApiResult<PresentDiscussionList>>;
+  /** Clinic host: saves what was discussed for one situation; it supersedes the current row for the tooth and situation. Needs `clinical.write`; 400 for an unknown key (braces and aligners until seeded), 409 when the visit is closed. */
+  savePresentDiscussion(id: VisitId, input: NewPresentDiscussion, options?: RequestOptions): Promise<ApiResult<PresentDiscussion>>;
+  /** Clinic host: marks a current discussion entered in error, with a reason. Needs `clinical.write`; 409 when the visit is closed. */
+  markPresentDiscussionInError(id: VisitId, discussionId: string, input: DiscussionInError, options?: RequestOptions): Promise<ApiResult<undefined>>;
+  /** Clinic host: Show patient settings (price mapping, show prices). Needs `settings.manage`. */
+  getPresentSettings(options?: RequestOptions): Promise<ApiResult<PresentSettings>>;
+  /** Clinic host: replaces the price mapping and show-prices switch; 400 for an unknown key or code. Needs `settings.manage`. */
+  updatePresentSettings(settings: PresentSettings, options?: RequestOptions): Promise<ApiResult<PresentSettings>>;
+  /** Clinic host: what the doctor's device renders the patient's video from (mouth snapshot, visit number, day, clinic name; no patient name). Needs `clinical.read` and `patients.contact`; the same refusals as Send (409). */
+  getVisitStory(id: VisitId, options?: RequestOptions): Promise<ApiResult<VisitStory>>;
   /** Clinic host: adds a procedure or material to the clinic's list; a label already there (or seeded) returns that term. Needs `clinical.write`. */
   addDentalTerm(input: NewDentalTerm, options?: RequestOptions): Promise<ApiResult<DentalTerm>>;
   /** Clinic host: the clinic's own terms, retired ones included, by kind then label. Needs `clinical.read` or `settings.manage`. */

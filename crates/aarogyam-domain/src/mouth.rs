@@ -17,6 +17,7 @@ use time::Date;
 use crate::dental::{CariesDepth, ChartData, Finding, Surface, Tooth, ToothStatusData};
 use crate::dental_details::{ToothConditionData, ToothEruptionData};
 use crate::dental_terms::{TermKind, TermRef};
+use crate::visit_message::model_of_name;
 
 /// The story contract the snapshot follows; bumped when the page or video must switch scenes.
 pub const STORY_VERSION: u32 = 1;
@@ -50,6 +51,25 @@ mod day_option {
         deserializer: D,
     ) -> Result<Option<Date>, D::Error> {
         Ok(Option::<Day>::deserialize(deserializer)?.map(|d| d.0))
+    }
+}
+
+mod day_list {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use time::Date;
+
+    #[derive(Serialize, Deserialize)]
+    struct Day(#[serde(with = "super::day")] Date);
+
+    pub fn serialize<S: Serializer>(value: &[Date], serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(value.iter().map(|d| Day(*d)))
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Date>, D::Error> {
+        Ok(Vec::<Day>::deserialize(deserializer)?
+            .into_iter()
+            .map(|d| d.0)
+            .collect())
     }
 }
 
@@ -139,6 +159,15 @@ pub fn model_of_code(code: &str, tooth: Tooth) -> Option<String> {
     Some(with_wisdom(model, tooth))
 }
 
+/// The model of a planned or done procedure: its code, or for an uncoded one its name through
+/// the message's keyword matcher. Only the model key comes back, never the name.
+fn model_of_record(record: &ProcedureRecord, tooth: Tooth) -> Option<String> {
+    match record.code.as_deref() {
+        Some(code) => model_of_code(code, tooth),
+        None => model_of_name(&record.name, Some(tooth)).map(str::to_owned),
+    }
+}
+
 /// How a stored material looks: a seeded id's appearance, or the finding's default for a
 /// clinic's own material.
 fn appearance(material: Option<&str>, finding: &str) -> Option<String> {
@@ -192,13 +221,20 @@ pub struct DetailRecord<T> {
     pub today: bool,
 }
 
-/// A planned or done procedure: its tooth and code (the typed name is never read).
+/// A planned, recommended or done procedure: its tooth, code and name. The name is only read to
+/// pick a model for an uncoded record; it never reaches the snapshot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcedureRecord {
     /// FDI tooth, when it concerns one.
     pub tooth: Option<u8>,
     /// The code or seeded id, when coded.
     pub code: Option<String>,
+    /// The name as typed.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub name: String,
+    /// The day it was planned or proposed, when known.
+    #[serde(default, with = "day_option", skip_serializing_if = "Option::is_none")]
+    pub on: Option<Date>,
 }
 
 /// Everything the snapshot is built from, already in this clinic's reach.
@@ -226,6 +262,9 @@ pub struct MouthInput {
     /// The plan: planned procedures and accepted plan items, de-duplicated.
     #[serde(default)]
     pub planned: Vec<ProcedureRecord>,
+    /// Proposed plan items not yet accepted: shown as recommended (decisions.md, 20 Nov 2026).
+    #[serde(default)]
+    pub recommended: Vec<ProcedureRecord>,
     /// The patient's next booked visit.
     #[serde(default, with = "day_option", skip_serializing_if = "Option::is_none")]
     pub next_visit: Option<Date>,
@@ -286,6 +325,9 @@ pub struct MouthTooth {
     /// The headline finding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub finding: Option<String>,
+    /// The day the headline finding was recorded.
+    #[serde(default, with = "day_option", skip_serializing_if = "Option::is_none")]
+    pub finding_on: Option<Date>,
     /// Surfaces of a caries or filled headline, as stored.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub surfaces: Vec<String>,
@@ -304,6 +346,12 @@ pub struct MouthTooth {
     /// Something is planned on it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub planned: bool,
+    /// Something is proposed on it and not yet accepted ("Recommended").
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub recommended: bool,
+    /// The day the latest recommendation on it was proposed.
+    #[serde(default, with = "day_option", skip_serializing_if = "Option::is_none")]
+    pub recommended_on: Option<Date>,
     /// The sitting of a treatment in progress.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sitting: Option<u8>,
@@ -313,6 +361,9 @@ pub struct MouthTooth {
     /// Recorded problem findings.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub problems: Vec<String>,
+    /// The day each problem was last recorded, one per entry of `problems`.
+    #[serde(default, with = "day_list", skip_serializing_if = "Vec::is_empty")]
+    pub problems_on: Vec<Date>,
     /// Recorded detail taps only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub details: Option<MouthDetails>,
@@ -386,6 +437,9 @@ pub struct MouthTreatment {
     pub model: String,
     /// `in_progress`, `done` or `planned`.
     pub state: String,
+    /// A planned treatment that is only proposed, not yet accepted ("Recommended").
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub recommended: bool,
     /// Visits it usually takes.
     pub typical_visits: u8,
     /// Its steps with their resolved state.
@@ -541,6 +595,7 @@ fn treatment(model_key: &str, state: &str, steps: Vec<MouthStep>) -> Option<Mout
     Some(MouthTreatment {
         model: model_key.to_owned(),
         state: state.to_owned(),
+        recommended: false,
         typical_visits: model.typical_visits,
         steps,
         recovery: model.recovery.clone(),
@@ -680,11 +735,17 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
             work.push(item);
         }
     }
-    let problems: Vec<String> = PROBLEMS
+    let last_on = |f: Finding| {
+        current
+            .iter()
+            .filter(|e| e.finding == f)
+            .map(|e| e.record.on)
+            .max()
+    };
+    let (problems, problems_on): (Vec<String>, Vec<Date>) = PROBLEMS
         .iter()
-        .filter(|f| current.iter().any(|e| e.finding == **f))
-        .map(|f| f.as_str().to_owned())
-        .collect();
+        .filter_map(|f| Some((f.as_str().to_owned(), last_on(*f)?)))
+        .unzip();
 
     let mut details = MouthDetails {
         caries_depth: current
@@ -731,7 +792,7 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
     }
     let on_tooth = |p: &&ProcedureRecord| p.tooth == Some(number);
     for done in input.done_today.iter().filter(on_tooth) {
-        let Some(model) = done.code.as_deref().and_then(|c| model_of_code(c, tooth)) else {
+        let Some(model) = model_of_record(done, tooth) else {
             continue;
         };
         if treatments.iter().any(|t| t.model == model) {
@@ -750,8 +811,14 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
         treatments.extend(treatment(&model, "done", steps));
     }
     let planned_here: Vec<&ProcedureRecord> = input.planned.iter().filter(on_tooth).collect();
-    for plan in &planned_here {
-        let Some(model) = plan.code.as_deref().and_then(|c| model_of_code(c, tooth)) else {
+    let recommended_here: Vec<&ProcedureRecord> =
+        input.recommended.iter().filter(on_tooth).collect();
+    let plans = planned_here
+        .iter()
+        .map(|p| (*p, false))
+        .chain(recommended_here.iter().map(|p| (*p, true)));
+    for (plan, recommended) in plans {
+        let Some(model) = model_of_record(plan, tooth) else {
             continue;
         };
         let duplicate = treatments
@@ -761,7 +828,10 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
             continue;
         }
         if let Some(stage) = stages().and_then(|s| s.models.get(&model)) {
-            treatments.extend(treatment(&model, "planned", usual_steps(stage)));
+            treatments.extend(
+                treatment(&model, "planned", usual_steps(stage))
+                    .map(|t| MouthTreatment { recommended, ..t }),
+            );
         }
     }
 
@@ -803,15 +873,19 @@ fn build_tooth(input: &MouthInput, all: &[Entry<'_>], tooth: Tooth) -> Built {
             finding: finding
                 .filter(|f| *f != Finding::Sound)
                 .map(|f| f.as_str().to_owned()),
+            finding_on: finding.filter(|f| *f != Finding::Sound).and_then(last_on),
             surfaces,
             material,
             health,
             treat_within_months: status.and_then(|s| s.data.treat_within_months),
             today: today.map(str::to_owned),
             planned: !planned_here.is_empty(),
+            recommended: !recommended_here.is_empty(),
+            recommended_on: recommended_here.iter().filter_map(|p| p.on).max(),
             sitting,
             work,
             problems,
+            problems_on,
             details: (!details.is_empty()).then_some(details),
             treatments,
         },
@@ -826,6 +900,7 @@ impl MouthTooth {
             || self.health.is_some()
             || self.today.is_some()
             || self.planned
+            || self.recommended
             || self.details.is_some()
             || !self.work.is_empty()
             || !self.treatments.is_empty()
@@ -877,8 +952,10 @@ fn headline_of(built: &Built) -> String {
 
 /// A mixed position 1 to 5: the permanent tooth when charted, else its primary predecessor;
 /// both charted → the present one, or the one with an active problem (DF1); neither →
-/// `not_recorded` (DF2).
-fn mixed_front(quadrant: u8, index: u8, built: &BTreeMap<u8, Built>) -> Position {
+/// `not_recorded` (DF2). For an adult (age 13 or over, or not known) a position with neither
+/// charted is the permanent tooth, as in the adult layout: an adult never shows a milk-tooth
+/// number that nobody charted.
+fn mixed_front(quadrant: u8, index: u8, built: &BTreeMap<u8, Built>, adult: bool) -> Position {
     let permanent = quadrant * 10 + index;
     let primary = (quadrant + 4) * 10 + index;
     let charted = |t: u8| built.get(&t).filter(|b| b.charted);
@@ -894,6 +971,7 @@ fn mixed_front(quadrant: u8, index: u8, built: &BTreeMap<u8, Built>) -> Position
         }
         (Some(_), None) => (permanent, None),
         (None, Some(_)) => (primary, None),
+        (None, None) if adult => return position(quadrant, index, built),
         (None, None) => {
             return Position {
                 quadrant: quadrant + 4,
@@ -912,7 +990,7 @@ fn mixed_front(quadrant: u8, index: u8, built: &BTreeMap<u8, Built>) -> Position
     drawn_position
 }
 
-fn positions(dentition: &str, built: &BTreeMap<u8, Built>) -> Vec<Position> {
+fn positions(dentition: &str, built: &BTreeMap<u8, Built>, adult: bool) -> Vec<Position> {
     let mut out = Vec::new();
     match dentition {
         "child" => {
@@ -925,11 +1003,11 @@ fn positions(dentition: &str, built: &BTreeMap<u8, Built>) -> Vec<Position> {
         "mixed" => {
             for quadrant in 1..=4 {
                 for index in 1..=5 {
-                    out.push(mixed_front(quadrant, index, built));
+                    out.push(mixed_front(quadrant, index, built, adult));
                 }
                 for index in 6..=8 {
                     let tooth = quadrant * 10 + index;
-                    let charted = built.get(&tooth).is_some_and(|b| b.charted);
+                    let charted = adult || built.get(&tooth).is_some_and(|b| b.charted);
                     if index == 8 && !charted {
                         continue;
                     }
@@ -964,6 +1042,7 @@ pub fn snapshot(input: &MouthInput) -> MouthSnapshot {
         input
             .planned
             .iter()
+            .chain(&input.recommended)
             .chain(&input.done_today)
             .filter_map(|p| p.tooth),
     );
@@ -978,7 +1057,9 @@ pub fn snapshot(input: &MouthInput) -> MouthSnapshot {
         .map(|(n, _)| *n)
         .collect();
     let dentition = dentition(&charted, input.age);
-    let positions = positions(dentition, &built);
+    // A retained milk tooth makes an adult's layout mixed; the rest of the mouth stays adult.
+    let adult = input.age.is_none_or(|a| a >= 13);
+    let positions = positions(dentition, &built, adult);
     let mut teeth: Vec<MouthTooth> = built
         .into_values()
         .map(|b| b.tooth)

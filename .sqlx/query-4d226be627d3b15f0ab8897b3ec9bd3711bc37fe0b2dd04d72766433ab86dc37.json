@@ -1,0 +1,89 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select i.id, i.name, i.code, i.tooth, i.estimate_paise as \"estimate_paise?\",\n                  i.created_at\n           from aarogyam.treatment_plan_items i\n           join aarogyam.treatment_plans p on p.org_id = i.org_id and p.id = i.plan_id\n           where p.patient_id = $1 and p.status in ('accepted', 'in_progress')\n             and i.status = 'accepted'\n             and not exists (select 1 from aarogyam.procedures c\n                             where c.treatment_plan_item_id = i.id\n                               and c.patient_id = i.patient_id\n                               and (c.status = 'done'\n                                    or (c.status = 'planned' and c.encounter_id = $2)))\n           order by p.created_at, i.phase, i.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "tooth",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "tooth"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "estimate_paise?",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "estimate_paise"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.treatment_plan_items",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "4d226be627d3b15f0ab8897b3ec9bd3711bc37fe0b2dd04d72766433ab86dc37"
+}

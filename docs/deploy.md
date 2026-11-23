@@ -462,6 +462,20 @@ live".
   goes through Cloudflare for SaaS to `aarogyam-site` (the custom domain step in Settings still
   only shows the records; its verification is not built yet).
 
+### Learn pages (WhatsApp preview picture)
+
+The public `/learn/<id>` pages (design: `docs/decisions.md`, "A public learn link comes first")
+are an assets-only Worker with no code, deployed by hand when the copy or stills change:
+
+1. `LEARN_ORIGIN=https://learn.<root> pnpm --filter @aarogyam/learn build`
+2. `cd deploy/cloudflare/learn && npx wrangler deploy`
+3. Set `ARO_HOSTS__LEARN_ORIGIN` on the API to the same origin. Until it is set, summaries carry
+   no learn link.
+
+After changing `specialties/dental/learn-pages.json` or the mouth art, rerun
+`pnpm --filter @aarogyam/learn stills` and commit the stills and `learn-topics.json`. Never
+change or reuse a topic id: sent messages point at it.
+
 ### Moving the domain to Cloudflare (the recommended path)
 
 `sakalyatechnologies.com` stays registered at GoDaddy; only its nameservers move to

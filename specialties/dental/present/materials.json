@@ -1,0 +1,99 @@
+{
+  "$comment": "Materials compared on a tooth in Show patient: 'Choose your cap' (docs/plans/present-studio-design.md sections 8.4 and 11.2, slice 2c). Keys are seeded vocabulary.json material ids. `look` only drives the illustration (paint is a material look in the art kit; translucency and opacity are low, medium or high). `outcome` is a key into outcomes.json; none means no usual figure is shown. `cost_tier` 1 to 4 is a relative guide a clinic may edit, never a price. `strength` and `best_for` stay empty: they show only if the clinic fills them, labelled 'Your clinic's guidance'. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "reviewed_by": "pending",
+  "groups": {
+    "crown": {
+      "title": "Choose your cap",
+      "intro": "A cap (crown) can be made from different materials. These are the usual ones.",
+      "overlay": "crown",
+      "materials": [
+        {
+          "key": "pfm", "label": "Metal and porcelain",
+          "summary": "A thin metal shell with porcelain baked over it.",
+          "looks_like": "Tooth-coloured. A thin dark line can show at the gum edge over the years.",
+          "look": { "paint": "pfm", "translucency": "low", "opacity": "high", "metal": true, "margin_line": "metal" },
+          "outcome": "crown_pfm", "cost_tier": 2, "strength": "", "best_for": ""
+        },
+        {
+          "key": "zirconia", "label": "Zirconia",
+          "summary": "A solid white ceramic cap with no metal.",
+          "looks_like": "Even white and solid. Less see-through than natural enamel.",
+          "look": { "paint": "zirconia", "translucency": "low", "opacity": "high", "metal": false, "margin_line": "none" },
+          "outcome": "crown_zirconia", "cost_tier": 3, "strength": "", "best_for": ""
+        },
+        {
+          "key": "layered_zirconia", "label": "Layered zirconia",
+          "summary": "A zirconia core with a thin layer of porcelain shaped on top.",
+          "looks_like": "Closer to natural enamel, with a see-through edge.",
+          "look": { "paint": "layered_zirconia", "translucency": "medium", "opacity": "medium", "metal": false, "margin_line": "none" },
+          "cost_tier": 4, "strength": "", "best_for": ""
+        },
+        {
+          "key": "emax", "label": "e.max glass ceramic",
+          "summary": "A glass ceramic that lets light through like natural enamel.",
+          "looks_like": "The most natural, see-through look.",
+          "look": { "paint": "emax", "translucency": "high", "opacity": "low", "metal": false, "margin_line": "none" },
+          "outcome": "crown_emax", "cost_tier": 4, "strength": "", "best_for": ""
+        }
+      ]
+    },
+    "implant_crown": {
+      "title": "Choose your cap on the implant",
+      "intro": "The cap that sits on an implant can be made from different materials too.",
+      "overlay": "implant",
+      "materials": [
+        {
+          "key": "pfm", "label": "Metal and porcelain",
+          "summary": "A thin metal shell with porcelain baked over it.",
+          "looks_like": "Tooth-coloured. A thin dark line can show at the gum edge over the years.",
+          "look": { "paint": "pfm", "translucency": "low", "opacity": "high", "metal": true, "margin_line": "metal" },
+          "cost_tier": 2, "strength": "", "best_for": ""
+        },
+        {
+          "key": "zirconia", "label": "Zirconia",
+          "summary": "A solid white ceramic cap with no metal.",
+          "looks_like": "Even white and solid. Less see-through than natural enamel.",
+          "look": { "paint": "zirconia", "translucency": "low", "opacity": "high", "metal": false, "margin_line": "none" },
+          "cost_tier": 3, "strength": "", "best_for": ""
+        },
+        {
+          "key": "emax", "label": "e.max glass ceramic",
+          "summary": "A glass ceramic that lets light through like natural enamel.",
+          "looks_like": "The most natural, see-through look.",
+          "look": { "paint": "emax", "translucency": "high", "opacity": "low", "metal": false, "margin_line": "none" },
+          "cost_tier": 4, "strength": "", "best_for": ""
+        }
+      ]
+    },
+    "filling": {
+      "title": "Choose your filling",
+      "intro": "A filling can be made from different materials. These are the usual ones.",
+      "overlay": "filled",
+      "materials": [
+        {
+          "key": "composite", "label": "Tooth-coloured filling",
+          "summary": "A tooth-coloured resin, set with a blue light.",
+          "looks_like": "Matches the tooth, so it is hard to see.",
+          "look": { "paint": "composite", "translucency": "medium", "opacity": "medium", "metal": false, "margin_line": "none" },
+          "outcome": "filling_composite", "cost_tier": 2, "strength": "", "best_for": ""
+        },
+        {
+          "key": "amalgam", "label": "Silver filling",
+          "summary": "A silver-grey metal mix.",
+          "looks_like": "Silver-grey, clearly visible.",
+          "look": { "paint": "amalgam", "translucency": "low", "opacity": "high", "metal": true, "margin_line": "metal" },
+          "outcome": "filling_amalgam", "cost_tier": 1, "strength": "", "best_for": ""
+        },
+        {
+          "key": "glass_ionomer", "label": "Glass ionomer filling",
+          "summary": "A tooth-coloured filling that releases a little fluoride.",
+          "looks_like": "Tooth-coloured, slightly more chalky than the tooth-coloured resin.",
+          "look": { "paint": "glass_ionomer", "translucency": "low", "opacity": "medium", "metal": false, "margin_line": "none" },
+          "outcome": "gic", "cost_tier": 1, "strength": "", "best_for": ""
+        }
+      ]
+    }
+  }
+}

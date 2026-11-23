@@ -3,6 +3,15 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
+}
+
+// Firebase reads androidApp/src/prod/google-services.json (git-ignored; registered for
+// com.aarogyam.android). Local and demo builds have none and run without Crashlytics or Analytics.
+googleServices {
+    missingGoogleServicesStrategy =
+        com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.IGNORE
 }
 
 // Supabase URL and publishable key: environment variables win, else the git-ignored
@@ -41,7 +50,7 @@ android {
             .get()
             .toInt()
     defaultConfig {
-        applicationId = "com.aarogyam.staff"
+        applicationId = "com.aarogyam.android"
         minSdk =
             libs.versions.android.minSdk
                 .get()
@@ -51,7 +60,7 @@ android {
                 .get()
                 .toInt()
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0"
         buildConfigField("String", "SUPABASE_URL", quoted(secret("supabase.url", "AAROGYAM_SUPABASE_URL")))
         buildConfigField("String", "SUPABASE_KEY", quoted(secret("supabase.key", "AAROGYAM_SUPABASE_KEY")))
         buildConfigField("String", "PROD_APP_HOST", quoted(secret("prod.app_host", "AAROGYAM_PROD_APP_HOST")))
@@ -86,6 +95,8 @@ android {
     // The development sign-in exists in the local flavour's debug build only; every other variant
     // gets an empty stand-in, and `checkNoDevSignIn` proves it.
     sourceSets {
+        // The story bundle (mobile/story-bundle), served at appassets.androidplatform.net/story/.
+        getByName("main").assets.directories.add("../story-bundle")
         for (name in listOf("demo", "prod", "localRelease")) {
             maybeCreate(name).kotlin.directories.add("src/noDevSignIn/kotlin")
         }
@@ -117,6 +128,10 @@ dependencies {
     // Per-app language (AppCompatDelegate.setApplicationLocales), back to API 26.
     implementation(libs.appcompat)
     implementation(libs.exifinterface)
+    implementation(libs.webkit)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.analytics)
     implementation(libs.zxing.core)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)

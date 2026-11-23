@@ -17,8 +17,20 @@ enum DeskPhone {
         return String(digits.prefix(length))
     }
 
-    /// `98765 43210`: the digits in two groups of five, as the field shows them.
+    /// True when the desk is typing a name rather than a number.
+    static func isName(_ typed: String) -> Bool { typed.contains { $0.isLetter } }
+
+    /// What the search gets: a name as typed (trimmed), else the number's digits.
+    static func query(_ typed: String) -> String {
+        isName(typed) ? String(typed.trimmingCharacters(in: .whitespaces).prefix(40)) : digits(typed)
+    }
+
+    /// The number a new patient starts with: the typed digits, or nothing for a name.
+    static func newPatientPhone(_ typed: String) -> String { isName(typed) ? "" : digits(typed) }
+
+    /// `98765 43210`: the digits in two groups of five, as the field shows them; a name stays as typed.
     static func format(_ typed: String) -> String {
+        if isName(typed) { return String(typed.prefix(40)) }
         let digits = digits(typed)
         guard digits.count > 5 else { return digits }
         return "\(digits.prefix(5)) \(digits.dropFirst(5))"

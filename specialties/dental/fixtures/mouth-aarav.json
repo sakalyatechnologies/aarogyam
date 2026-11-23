@@ -355,6 +355,7 @@
           "infection": "abscess"
         },
         "finding": "root_canal",
+        "finding_on": "2026-11-20",
         "planned": true,
         "sitting": 4,
         "today": "in_progress",
@@ -430,8 +431,12 @@
       },
       {
         "finding": "missing",
+        "finding_on": "2026-03-02",
         "problems": [
           "missing"
+        ],
+        "problems_on": [
+          "2026-03-02"
         ],
         "tooth": 51,
         "work": [
@@ -446,10 +451,14 @@
           "caries_depth": "dentin"
         },
         "finding": "caries",
+        "finding_on": "2026-11-20",
         "health": "needs_treatment",
         "planned": true,
         "problems": [
           "caries"
+        ],
+        "problems_on": [
+          "2026-11-20"
         ],
         "surfaces": [
           "O",
@@ -487,6 +496,7 @@
       },
       {
         "finding": "filled",
+        "finding_on": "2026-10-20",
         "material": "composite",
         "surfaces": [
           "O"
@@ -531,6 +541,7 @@
       },
       {
         "finding": "filled",
+        "finding_on": "2026-10-20",
         "material": "amalgam",
         "surfaces": [
           "O"

@@ -7,7 +7,7 @@ enum RoutesA {
     /// v7 Today: its state holder and the notifications holder behind the bell.
     @ViewBuilder static func today(
         graph: AppGraph, clinic: ClinicContext,
-        onOpenPatient: @escaping (String) -> Void, onOpenSchedule: @escaping () -> Void, onAddExpense: (() -> Void)?
+        onOpenPatient: @escaping (String) -> Void, onOpenSchedule: @escaping (Int) -> Void, onAddExpense: (() -> Void)?
     ) -> some View {
         ScreenHost(make: { graph.today(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
             ScreenHost(make: { graph.notifications(clinic: clinic, screen: $0) }, state: { $0.state }) { notifications, list in

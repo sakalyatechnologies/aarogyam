@@ -4,7 +4,7 @@ import SwiftUI
 
 /// What a Patient 360 sheet is open on.
 enum PatientSheet: String, Identifiable {
-    case book, share, photo
+    case book, share, photo, family
     var id: String { rawValue }
 }
 
@@ -24,6 +24,8 @@ struct Patient360Screen: View {
     @State private var toast: String?
     @State private var visit: VisitRoute?
     @State private var detail: VisitDetailRoute?
+    /// The visit Show patient is open on.
+    @State private var presenting: PresentRoute?
     @State private var overview: ScreenModel<PatientOverviewStateHolder, OverviewState>?
     @State private var history: ScreenModel<VisitHistoryStateHolder, VisitHistoryState>?
     @State private var consents: ScreenModel<ConsentsStateHolder, ConsentsState>?
@@ -61,12 +63,26 @@ struct Patient360Screen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                if loaded != nil, clinic.permissions.contains("patients.read"), ServerCaps.shared.family {
+                    Button { sheet = .family } label: { Label { Text("d9.family.section", tableName: "DeskV9") } icon: { Image(systemName: "person.2") } }
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                if clinic.permissions.contains("clinical.read"), let visit = PresentTargetKt.showPatientVisit(visits: loaded?.view.visits) {
+                    Button { presenting = PresentRoute(visitId: visit) } label: {
+                        Label { Text(CL("c.present.open")) } icon: { Image(systemName: "sparkles.rectangle.stack") }
+                    }
+                    .accessibilityIdentifier("patient.show")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 if loaded != nil {
                     Button { sheet = .share } label: { Label { Text(pv("pv.share")) } icon: { V7Icon(name: "share") } }
                 }
             }
         }
         .sheet(item: $sheet) { sheetContent($0) }
+        .fullScreenCover(item: $presenting) { PresentScreen(graph: graph, clinic: clinic, visitId: $0.visitId) }
         .navigationDestination(item: $visit) { VisitScreen(graph: graph, clinic: clinic, route: $0) }
         .navigationDestination(item: $detail) {
             V9VisitDetail(graph: graph, clinic: clinic, patientId: patientId, visitId: $0.visitId, phone: loaded?.view.phone, billing: billing, billingState: billingState)
@@ -192,6 +208,9 @@ struct Patient360Screen: View {
             PatientBookSheet(graph: graph, clinic: clinic, patientId: patientId, name: loaded?.view.name ?? "")
         case .photo:
             V9PhotoSheet(graph: graph, clinic: clinic, patientId: patientId) { self.sheet = nil }
+        case .family:
+            // Adding and removing need patients.write; the holder checks that.
+            DeskFamilySheet(graph: graph, clinic: clinic, target: DeskPayTarget(patientId: patientId, name: loaded?.view.name ?? ""))
         case .share:
             PatientShareSheet(graph: graph, clinic: clinic, patientId: patientId, preselected: nil)
         }
@@ -218,4 +237,10 @@ struct Patient360Screen: View {
             break
         }
     }
+}
+
+/// Which visit Show patient opens on.
+struct PresentRoute: Identifiable, Hashable {
+    let visitId: String
+    var id: String { visitId }
 }

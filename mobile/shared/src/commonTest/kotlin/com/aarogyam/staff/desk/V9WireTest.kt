@@ -270,6 +270,31 @@ class V9WireTest {
             assertTrue(shown.actionError is ScreenError)
         }
 
+    @Test
+    fun a_relation_is_changed_in_place() =
+        runTest {
+            ServerCaps.reset()
+            ServerCaps.markFamily()
+            val backend = FakeBackend()
+            val link =
+                """{"id":"l1","patient_id":"p5","number":"SD-1050","full_name":"Tara Shah",""" +
+                    """"relation":"child","is_primary_contact":false}"""
+            backend.on("$SUNRISE/api/v1/patients/p1/family", { json("""{"items":[$link]}""") })
+            backend.on("$SUNRISE/api/v1/patients/p1/family/l1", { json(link.replace("child", "spouse")) })
+            val holder = FamilyStateHolder(clinic(backend), "p1", backgroundScope)
+            holder.state.first { it is FamilyState.Loaded }
+            holder.changeRelation("l1", "spouse")
+            com.aarogyam.staff.desk
+                .until { backend.requests.any { it.method.value == "PATCH" } }
+            val patch = backend.requests.first { it.method.value == "PATCH" }
+            assertTrue(
+                patch.body
+                    .toByteArray()
+                    .decodeToString()
+                    .contains("\"relation\":\"spouse\""),
+            )
+        }
+
     // BE4: staff notifications.
 
     @Test

@@ -186,6 +186,40 @@ pub struct VisitSummary {
     #[schema(required = false)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chart: Option<super::mouth::MouthSnapshot>,
+    /// "Options we discussed": only rows the doctor ticked for the patient. A price appears
+    /// only when the clinic shows prices.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub discussed: Vec<VisitDiscussed>,
+}
+
+/// A ticked "Options we discussed" row.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct VisitDiscussed {
+    /// The tooth (FDI number); none for a general topic.
+    pub tooth: Option<u8>,
+    /// Words for the situation.
+    pub title: String,
+    /// The options discussed.
+    pub options: Vec<VisitDiscussedOption>,
+}
+
+/// One option discussed, in the patient's words.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct VisitDiscussedOption {
+    /// Short name.
+    pub label: String,
+    /// What is done.
+    pub summary: String,
+    /// How it looks afterwards.
+    pub looks_like: String,
+    /// How it feels.
+    pub comfort: String,
+    /// The compared material.
+    pub material: Option<String>,
+    /// The option the patient prefers.
+    pub preferred: bool,
+    /// "From" price in paise; only when the clinic shows prices.
+    pub from_paise: Option<i64>,
 }
 
 fn day(date: time::Date) -> String {
@@ -259,6 +293,27 @@ impl From<Summary> for VisitSummary {
             clinic_phone: summary.clinic_phone,
             practitioner_id: summary.practitioner_id,
             chart: summary.chart.map(super::mouth::MouthSnapshot::from),
+            discussed: summary
+                .discussed
+                .into_iter()
+                .map(|d| VisitDiscussed {
+                    tooth: d.tooth,
+                    title: d.title,
+                    options: d
+                        .options
+                        .into_iter()
+                        .map(|o| VisitDiscussedOption {
+                            label: o.label,
+                            summary: o.summary,
+                            looks_like: o.looks_like,
+                            comfort: o.comfort,
+                            material: o.material,
+                            preferred: o.preferred,
+                            from_paise: o.from_paise,
+                        })
+                        .collect(),
+                })
+                .collect(),
         }
     }
 }

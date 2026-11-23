@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.present_discussions set status = 'entered_in_error', error_reason = $3\n         where id = $1 and encounter_id = $2 and status = 'current'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cb2055a0fc9c7c2a514748d79bcc2d89214b091ed83f449a43cdcc404eaea582"
+}

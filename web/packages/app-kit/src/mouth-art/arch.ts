@@ -36,6 +36,8 @@ export interface ArchLayoutOptions {
   gapMm?: number;
   /** Space between the two arches in px. */
   between?: number;
+  /** Arch depth as a share of its half width (0.72 default; about 1 for the rounder U of the mouth view). */
+  depth?: number;
 }
 
 /** Lays out the given FDI teeth (any mix of permanent and milk) as an upper and a lower arch. */
@@ -60,7 +62,7 @@ export function archLayout(fdis: number[], opts: ArchLayoutOptions): { slots: Ar
   });
   const maxHalf = Math.max(...measured.map((m) => m.half));
   // half-ellipse arch: semi-axes chosen so the arc length of a quarter equals the longest side
-  const shape = { a: 1, b: 0.72 };
+  const shape = { a: 1, b: opts.depth ?? 0.72 };
   const quarter = arcLength(shape.a, shape.b, Math.PI / 2);
   const mmPerUnit = maxHalf / quarter;
   const depthMm = Math.max(...fdis.map((f) => { const t = toothTypeOf(f); return t ? TOOTH_DEPTH_MM[t] : 0; }));

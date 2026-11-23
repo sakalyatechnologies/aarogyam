@@ -461,7 +461,7 @@ pub struct InvoiceLineRow {
     /// Manual discount on a draft line; on an issued line, the whole discount (manual and the
     /// code's share, folded at issue).
     pub discount_paise: i64,
-    /// An offer or referral code's share of the line (migration 0743).
+    /// An offer or referral code's share of the line (migration 0755).
     pub promo_discount_paise: i64,
     /// GST rate.
     pub tax_rate_bps: i32,

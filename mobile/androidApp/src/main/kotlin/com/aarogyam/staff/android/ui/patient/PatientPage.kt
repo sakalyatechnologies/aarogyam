@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -29,16 +30,21 @@ import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
 import com.aarogyam.staff.android.ui.LoadingIndicator
 import com.aarogyam.staff.android.ui.StatusBarTone
+import com.aarogyam.staff.android.ui.desk.DeskFamilySheet
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.rememberHolder
+import com.aarogyam.staff.android.ui.story.PresentScreen
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.config.caps.ServerCaps
 import com.aarogyam.staff.consents.ConsentsStateHolder
+import com.aarogyam.staff.desk.FamilyStateHolder
 import com.aarogyam.staff.history.VisitHistoryState
 import com.aarogyam.staff.history.VisitHistoryStateHolder
 import com.aarogyam.staff.patients.OverviewState
 import com.aarogyam.staff.patients.Patient360State
 import com.aarogyam.staff.patients.Patient360StateHolder
 import com.aarogyam.staff.patients.PatientOverviewStateHolder
+import com.aarogyam.staff.story.showPatientVisit
 import com.aarogyam.staff.visit.RecallsStateHolder
 import com.sakalya.mobile.design.Spacing
 import com.sakalya.mobile.designcompose.SkEmptyState
@@ -48,7 +54,7 @@ import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTopBar
 import com.sakalya.mobile.designcompose.color
 
-private enum class PatientSheet { Book, Share, Photo }
+private enum class PatientSheet { Book, Share, Photo, Family }
 
 /**
  * The patient page: the tonal header (flags, quick actions, the money strip for roles with money),
@@ -85,6 +91,7 @@ fun PatientPage(
     val overviewState = overview?.state?.collectAsStateWithLifecycle()?.value
     var tab by rememberSaveable { mutableStateOf(PatientPageTab.Overview) }
     var sheet by remember { mutableStateOf<PatientSheet?>(null) }
+    var presenting by remember { mutableStateOf<String?>(null) }
     val loaded = state as? Patient360State.Loaded
     // A queued picture lands in the Overview tiles once the outbox has sent it.
     OutboxRefresh(graph) { overview?.refresh() }
@@ -104,6 +111,18 @@ fun PatientPage(
             title = loaded?.view?.name ?: stringResource(R.string.patient_title),
             navigation = { BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack) },
             actions = {
+                val showVisit = showPatientVisit(loaded?.view?.visits).takeIf { "clinical.read" in clinic.permissions }
+                if (loaded != null && "patients.read" in clinic.permissions && ServerCaps.family) {
+                    BarAction(stringResource(R.string.dk_d9_family_section), SkTheme.colors.onBrandDark.color, {
+                        sheet = PatientSheet.Family
+                    })
+                }
+                if (showVisit != null) {
+                    BarAction(stringResource(R.string.vv_present_open), SkTheme.colors.onBrandDark.color, {
+                        presenting =
+                            showVisit
+                    })
+                }
                 if (loaded !=
                     null
                 ) {
@@ -189,10 +208,29 @@ fun PatientPage(
         }
     }
     when (sheet) {
-        PatientSheet.Book -> BookSheet(graph, clinic, patientId, loaded?.view?.name.orEmpty()) { sheet = null }
-        PatientSheet.Photo -> PhotoSheet(graph, clinic, patientId) { sheet = null }
-        PatientSheet.Share -> ShareSheet(graph, clinic, patientId) { sheet = null }
-        null -> Unit
+        PatientSheet.Book -> {
+            BookSheet(graph, clinic, patientId, loaded?.view?.name.orEmpty()) { sheet = null }
+        }
+
+        PatientSheet.Photo -> {
+            PhotoSheet(graph, clinic, patientId) { sheet = null }
+        }
+
+        PatientSheet.Share -> {
+            ShareSheet(graph, clinic, patientId) { sheet = null }
+        }
+
+        PatientSheet.Family -> {
+            // Adding and removing need patients.write; the holder checks that.
+            val scope = rememberCoroutineScope()
+            val family = remember(patientId) { FamilyStateHolder(clinic, patientId, scope) }
+            DeskFamilySheet(family, loaded?.view?.name.orEmpty(), patientId) { sheet = null }
+        }
+
+        null -> {}
+    }
+    presenting?.let { visitId ->
+        PresentScreen(graph, clinic, visitId, onAddDepth = {}, onClose = { presenting = null })
     }
 }
 

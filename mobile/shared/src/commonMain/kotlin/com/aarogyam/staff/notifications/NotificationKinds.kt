@@ -65,6 +65,7 @@ object NotificationKinds {
             info("arrival", NotificationCategory.Queue, "clock", "v10.notif.arrival"),
             info("lab_overdue", NotificationCategory.Lab, "alert", "v10.notif.lab_overdue"),
             info("payment_due", NotificationCategory.Payment, "check", "v10.notif.payment_due"),
+            info("payment_collected", NotificationCategory.Payment, "check", "v10.notif.payment_collected"),
             info("recall_due", NotificationCategory.Recall, "bell", "v10.notif.recall_due"),
             info("plan_response", NotificationCategory.Patient, "msg", "v10.notif.plan_response"),
         ).associateBy { it.kind }

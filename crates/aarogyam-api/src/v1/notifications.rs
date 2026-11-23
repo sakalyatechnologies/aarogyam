@@ -115,7 +115,7 @@ pub struct Notification {
     /// `booking_requested`, `booking_confirmed_auto`, `booking_cancelled_by_patient`,
     /// `lab_overdue`, `arrival`, `payment_due`, `recall_due`, `patient_waiting`, `send_in`,
     /// `collect_payment`, `task_due`, `task_reminder`, `task_escalated`, `time_off_requested`,
-    /// `time_off_decided`, `stock_alert`, `booking_conflict` or `plan_response`. More kinds may
+    /// `time_off_decided`, `stock_alert`, `booking_conflict`, `plan_response` or `payment_collected`. More kinds may
     /// come: clients show an unknown kind as a generic row.
     pub kind: String,
     /// When it happened (RFC 3339).
@@ -167,6 +167,24 @@ pub struct Notification {
     /// The visit, for `plan_response`. An id only: `href` opens the patient.
     #[schema(value_type = Option<String>)]
     pub encounter_id: Option<Uuid>,
+    /// The payment, for `payment_collected`: ids and the amount only.
+    pub payment: Option<NotifiedPayment>,
+}
+
+/// What a `payment_collected` notification is about. No names, phone numbers or diagnoses.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NotifiedPayment {
+    /// The bill.
+    #[schema(value_type = String)]
+    pub invoice_id: Uuid,
+    /// The bill's visit; absent for a bill without one.
+    #[schema(value_type = Option<String>)]
+    pub visit_id: Option<Uuid>,
+    /// The patient.
+    #[schema(value_type = String)]
+    pub patient_id: Uuid,
+    /// What was paid, in paise.
+    pub amount_paise: i64,
 }
 
 impl From<NotificationView> for Notification {
@@ -199,6 +217,7 @@ impl From<NotificationView> for Notification {
             days_cover: None,
             time_off_request_id: None,
             encounter_id: None,
+            payment: None,
         };
         match view.subject {
             Subject::Appointment(appointment) => {
@@ -252,6 +271,14 @@ impl From<NotificationView> for Notification {
             }
             Subject::TimeOff(id) => out.time_off_request_id = Some(id),
             Subject::Visit(id) => out.encounter_id = Some(id),
+            Subject::Payment(payment) => {
+                out.payment = Some(NotifiedPayment {
+                    invoice_id: payment.invoice_id.uuid(),
+                    visit_id: payment.visit_id,
+                    patient_id: payment.patient_id,
+                    amount_paise: payment.amount_paise,
+                });
+            }
         }
         out
     }

@@ -1,6 +1,7 @@
 package com.aarogyam.staff.api
 
 import com.aarogyam.staff.api.model.FamilyLink
+import com.aarogyam.staff.api.model.FamilyLinkChange
 import com.aarogyam.staff.api.model.FamilyList
 import com.aarogyam.staff.api.model.NewFamilyLink
 import com.sakalya.mobile.core.ApiError
@@ -40,4 +41,17 @@ suspend fun ClinicApi.removeFamily(
     client.call {
         method = HttpMethod.Delete
         url("api/v1/patients/${patientId.encodeURLPathPart()}/family/${linkId.encodeURLPathPart()}")
+    }
+
+/** Changes a link in place (`PATCH /patients/{id}/family/{link_id}`): the relation, or who is the primary contact. */
+suspend fun ClinicApi.changeFamily(
+    patientId: String,
+    linkId: String,
+    change: FamilyLinkChange,
+): Outcome<FamilyLink, ApiError> =
+    client.call {
+        method = HttpMethod.Patch
+        url("api/v1/patients/${patientId.encodeURLPathPart()}/family/${linkId.encodeURLPathPart()}")
+        contentType(ContentType.Application.Json)
+        setBody(change)
     }

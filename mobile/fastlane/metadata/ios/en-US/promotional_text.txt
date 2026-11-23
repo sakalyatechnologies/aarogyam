@@ -1,1 +1,1 @@
-Check patients in, run the visit and collect the bill, all from your phone.
+For every doctor and clinic: check patients in, run the visit, prescribe and collect the bill, all from your phone.

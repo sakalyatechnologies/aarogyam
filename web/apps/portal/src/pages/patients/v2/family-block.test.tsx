@@ -39,7 +39,14 @@ function twoPatients(prepare: (fixtures: Fixtures, ids: { a: string; b: string }
 const RULES = { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } };
 
 async function familyBlock() {
-  const heading = await screen.findByRole("heading", { name: "Family" });
+  // Clinical members reach Details under its tab; others see it directly.
+  // Wait for the page (either the tabs or the block itself), then open the tab if there is one.
+  await waitFor(() => {
+    if (screen.queryByRole("tab", { name: "Details & flags" }) === null && screen.queryByRole("heading", { name: "Family" }) === null) throw new Error("page not ready");
+  }, { timeout: 10_000 });
+  const tab = screen.queryByRole("tab", { name: "Details & flags" });
+  if (tab !== null) await userEvent.click(tab);
+  const heading = await screen.findByRole("heading", { name: "Family" }, { timeout: 10_000 });
   const block = heading.closest("section");
   if (block === null) throw new Error("no family block");
   return block;

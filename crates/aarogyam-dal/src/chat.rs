@@ -751,11 +751,12 @@ pub async fn badges(
                   and (($6 and a.id is not null and app.practitioner_in_reach(a.practitioner_id, $4))
                        or ($7 and o.id is not null
                            and app.clinical_in_reach(o.doctor_id, o.created_by, o.encounter_id, $8))
-                       or ($9 and i.id is not null and n.kind <> 'collect_payment')
+                       or ($9 and i.id is not null and n.kind not in ('collect_payment', 'payment_collected'))
                        or ($10 and rc.id is not null and app.patient_in_reach(rc.patient_id, $11))
                        or app.staff_ops_notification_visible(n, $1, $13, $14, $15, $16)
                        or app.visit_notification_visible(n, $1, $17, $18)
-                       or app.plan_response_visible(n, $1, $6, $4))
+                       or app.plan_response_visible(n, $1, $6, $4)
+                       or app.payment_collected_visible(n, $1))
                   and app.staff_ops_notification_newest(n, $1, $13, $14)
                   and app.notification_counts_unread(n)
                   and not exists (select 1 from aarogyam.staff_notification_reads r

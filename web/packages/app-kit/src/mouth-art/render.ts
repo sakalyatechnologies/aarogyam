@@ -91,8 +91,10 @@ export interface CanvasDrawOptions {
   /** Pixels per scene unit; the scene's box is drawn from (0, 0). */
   scale: number;
   labelColor?: string;
-  /** Path2D constructor (injectable for tests). */
+  /** Path2D constructor (injectable for tests, or cached by a caller drawing many frames). */
   makePath?: (d: string) => PathLike;
+  /** Multiplies every node's opacity (a fading scene in the video story). */
+  alpha?: number;
 }
 
 /**
@@ -114,7 +116,7 @@ export function drawScene(ctx: Canvas2D, scene: Scene, opts: CanvasDrawOptions):
       if (c) ctx.clip(make(c.d));
     }
     if (node.m) ctx.transform(...node.m);
-    ctx.globalAlpha = node.opacity ?? 1;
+    ctx.globalAlpha = (node.opacity ?? 1) * (opts.alpha ?? 1);
     const path = make(node.d);
     const style = (p: ResolvedPaint) => {
       if ("color" in p) return { style: p.color };

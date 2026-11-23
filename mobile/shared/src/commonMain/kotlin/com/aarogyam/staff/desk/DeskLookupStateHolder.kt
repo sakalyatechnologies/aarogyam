@@ -20,8 +20,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Front-desk search by mobile number: debounced `POST /patients/lookup`, a profile picker and the
- * next actions. CheckIn reuses `POST /walk-ins` with the existing patient. Whether someone is
+ * Front-desk search while typing: a name (2 letters or more) or part of a number (4 digits or more)
+ * lists patients through `POST /patients/search`; a complete mobile number runs the family lookup
+ * (`POST /patients/lookup`) with a profile picker and the next actions. CheckIn reuses `POST /walk-ins` with the existing patient. Whether someone is
  * checked in today comes from the queue. The phone number is never logged.
  */
 class DeskLookupStateHolder(
@@ -40,14 +41,16 @@ class DeskLookupStateHolder(
     private var requested: String? = null
     private var checkingIn = false
 
-    /** The desk typed [typed]; a complete number is looked up after a pause. */
+    /** The desk typed [typed]; after a pause a complete number is looked up, anything else searched. */
     fun search(typed: String) {
         if (!allowed) return
         val phone = normaliseIndianPhone(typed)
-        if (phone != null && phone == requested) return
+        val partial = if (phone == null) partialQuery(typed) else null
+        val key = phone ?: partial?.let { "q:$it" }
+        if (key != null && key == requested) return
         job?.cancel()
-        requested = phone
-        if (phone == null) {
+        requested = key
+        if (key == null) {
             mutableState.value = DeskLookupState.Idle
             return
         }
@@ -55,8 +58,44 @@ class DeskLookupStateHolder(
         job =
             scope.launch {
                 delay(debounceMillis)
-                lookup(phone)
+                if (phone != null) lookup(phone) else partial?.let { find(it) }
             }
+    }
+
+    /** Patients whose name starts with [query], or whose file number or phone holds its digits. */
+    private suspend fun find(query: String) {
+        when (val found = clinic.api.searchPatients(query, PARTIAL_LIMIT)) {
+            is Outcome.Failure -> {
+                log.warn("desk.search_failed") { code("error", found.error.code.value) }
+                requested = null
+                mutableState.value = DeskLookupState.Failed(ScreenError.of(found.error))
+            }
+
+            is Outcome.Success -> {
+                if (found.value.items.isEmpty()) {
+                    mutableState.value = DeskLookupState.Idle
+                    return
+                }
+                val today = todaysStates()
+                val profiles =
+                    found.value.items.map {
+                        val state = today[it.id]
+                        DeskProfile(
+                            it.id,
+                            it.number,
+                            initialsOf(it.fullName),
+                            it.ageYears,
+                            sexOf(it.sex),
+                            null,
+                            state != null,
+                            state,
+                            name = it.fullName,
+                        )
+                    }
+                val actions = profiles.filter { !it.checkedInToday }.map { DeskAction.CheckIn(it.id) }
+                mutableState.value = DeskLookupState.Matches(query, profiles, actions, partial = true)
+            }
+        }
     }
 
     /** Checks in the registered patient [patientId]; a second tap while sending is ignored. */
@@ -153,6 +192,21 @@ class DeskLookupStateHolder(
 
     companion object {
         const val DEBOUNCE_MILLIS = 300L
+        private const val PARTIAL_LIMIT = 8L
+        private const val MIN_LETTERS = 2
+        private const val MIN_DIGITS = 4
+
+        /** What a partial search sends: a name from 2 letters, or 4 digits or more; else null. */
+        internal fun partialQuery(typed: String): String? {
+            val text = typed.trim()
+            val digitsOnly = text.isNotEmpty() && text.all { it.isDigit() || it == ' ' || it == '-' }
+            return when {
+                digitsOnly -> text.filter { it.isDigit() }.takeIf { it.length >= MIN_DIGITS }
+                text.count { it.isLetter() } >= MIN_LETTERS -> text
+                else -> null
+            }
+        }
+
         private val REQUIRED = listOf("patients.read", "appointments.read", "appointments.write", "intake.write")
     }
 }

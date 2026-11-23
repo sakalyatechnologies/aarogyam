@@ -1,0 +1,40 @@
+/* The pop-up and story overlays on the patient's page. Builds on history.css. */
+.hov-scrim { position: fixed; inset: 0; z-index: 60; background: color-mix(in srgb, #000 45%, transparent); display: flex; align-items: center; justify-content: center; padding: 2.5vh 2.5vw; }
+.hov-scrim.hov-story { justify-content: flex-end; align-items: stretch; padding: 0; }
+.hov { background: var(--bg); color: var(--ink); border-radius: 20px; box-shadow: 0 24px 60px rgba(0,0,0,.35); width: 100%; max-width: 1400px; height: 100%; padding: 16px 20px; overflow: hidden; display: flex; flex-direction: column; outline: none; }
+.hov-story .hov { max-width: 920px; width: min(920px, 100vw); border-radius: 20px 0 0 20px; overflow-y: auto; }
+.hov-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.hov-top h2 { margin: 0; font-size: 20px; font-weight: 750; }
+.hov .hist-tools { position: static; margin-bottom: 12px; }
+.hov-body { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 18px; min-height: 0; flex: 1; }
+.hov-listpane, .hov-visit { min-height: 0; overflow-y: auto; }
+.hov-list, .hov-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.hov-row { width: 100%; display: grid; gap: 2px; text-align: left; border: 1px solid transparent; background: var(--surface); color: var(--ink); border-radius: 12px; padding: 9px 12px; cursor: pointer; font: inherit; font-size: 13.5px; }
+.hov-row span { color: var(--muted); font-size: 12.5px; }
+.hov-row:hover { background: var(--hover); }
+.hov-row[aria-selected="true"], .hov-row[aria-expanded="true"] { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+.hov-row:focus-visible, .hov summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.hov-visit-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.hov-visit-bar h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.hov-backbtn { display: none; }
+.hov-read { background: var(--surface); border: 1px solid var(--rule); border-radius: 16px; padding: 14px 16px; margin-bottom: 14px; }
+.hov-read dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 18px; margin: 0; }
+.hov-fact dt { font-size: 11.5px; color: var(--muted); font-weight: 650; }
+.hov-fact dd { margin: 0; font-size: 14.5px; font-weight: 650; }
+.hov-fact.warn dd { color: var(--red); }
+.hov-open { background: var(--surface); border: 2px solid var(--brand); border-radius: 16px; padding: 14px 16px; margin-bottom: 14px; }
+.hov-sec { background: var(--surface); border: 1px solid var(--rule); border-radius: 16px; padding: 10px 14px; margin-bottom: 10px; }
+.hov-sec summary { cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 8px; list-style: none; }
+.hov-sec summary::-webkit-details-marker { display: none; }
+.hov-sec summary svg { width: 16px; height: 16px; transition: transform .15s; transform: rotate(-90deg); }
+.hov-sec[open] summary svg { transform: none; }
+.hov-sec .n { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+.hov-rows { margin-top: 8px; }
+@media (max-width: 760px) {
+  .hov-scrim { padding: 0; }
+  .hov { border-radius: 0; padding: 12px; }
+  .hov-body { grid-template-columns: 1fr; }
+  .hov[data-detail="visit"] .hov-listpane { display: none; }
+  .hov[data-detail="list"] .hov-visit { display: none; }
+  .hov-backbtn { display: inline-flex; }
+}

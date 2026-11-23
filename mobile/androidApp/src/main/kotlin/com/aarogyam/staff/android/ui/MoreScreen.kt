@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
@@ -50,6 +51,7 @@ import com.aarogyam.staff.android.ui.more.DeleteAccountSheet
 import com.aarogyam.staff.android.ui.more.MyAvatar
 import com.aarogyam.staff.android.ui.more.openHelp
 import com.aarogyam.staff.android.ui.more.openStock
+import com.aarogyam.staff.android.ui.more.openTimeOff
 import com.aarogyam.staff.android.ui.today.ClinicQrSheet
 import com.aarogyam.staff.android.ui.today.bookingUrl
 import com.aarogyam.staff.art.Icons
@@ -76,6 +78,7 @@ private val GRID =
         MoreTile.Stock,
         MoreTile.LabWork,
         MoreTile.Team,
+        MoreTile.TimeOff,
         MoreTile.ClinicQr,
         MoreTile.RxSets,
         MoreTile.Settings,
@@ -98,6 +101,8 @@ fun MoreScreen(
     onSwitchClinic: () -> Unit,
 ) {
     var language by rememberSaveable { mutableStateOf(false) }
+    var appearance by rememberSaveable { mutableStateOf(false) }
+    val currentAppearance by graph.appearance.state.collectAsStateWithLifecycle()
     var avatars by rememberSaveable { mutableStateOf(false) }
     var qr by rememberSaveable { mutableStateOf(false) }
     var deleting by rememberSaveable { mutableStateOf(false) }
@@ -131,6 +136,10 @@ fun MoreScreen(
                 nav.openTeam()
             }
 
+            MoreTile.TimeOff -> {
+                nav.openTimeOff()
+            }
+
             MoreTile.ClinicQr -> {
                 qr = true
             }
@@ -150,6 +159,10 @@ fun MoreScreen(
 
             MoreTile.Language -> {
                 language = true
+            }
+
+            MoreTile.Appearance -> {
+                appearance = true
             }
 
             MoreTile.Help -> {
@@ -236,6 +249,12 @@ fun MoreScreen(
         }
     }
     if (language) LanguageDialog(graph.voiceLanguage(), graph::setVoiceLanguage) { language = false }
+    if (appearance) {
+        AppearanceDialog(currentAppearance, {
+            graph.appearance.set(it)
+            applyAppearance(it)
+        }) { appearance = false }
+    }
     if (avatars) {
         AvatarPicker(graph, onChange = { avatar = AvatarChoice.current(graph) }) { avatars = false }
     }
@@ -366,6 +385,7 @@ private val MoreTile.subtitle: Int?
             MoreTile.Stock -> R.string.sh_v7_tile_stock_sub
             MoreTile.LabWork -> R.string.sh_v7_tile_lab_work_sub
             MoreTile.Team -> R.string.sh_v7_tile_team_sub
+            MoreTile.TimeOff -> R.string.timeoff_tile_sub
             MoreTile.ClinicQr -> R.string.sh_v7_tile_clinic_qr_sub
             MoreTile.RxSets -> R.string.sh_v7_tile_rx_sets_sub
             MoreTile.Settings -> R.string.sh_v7_tile_settings_sub
@@ -382,11 +402,13 @@ private val MoreTile.label: Int
             MoreTile.Stock -> R.string.v7_tile_stock
             MoreTile.LabWork -> R.string.v7_tile_lab_work
             MoreTile.Team -> R.string.v7_tile_team
+            MoreTile.TimeOff -> R.string.timeoff_title
             MoreTile.ClinicQr -> R.string.v7_tile_clinic_qr
             MoreTile.RxSets -> R.string.v7_tile_rx_sets
             MoreTile.Settings -> R.string.v7_tile_settings
             MoreTile.SwitchClinic -> R.string.v7_tile_switch_clinic
             MoreTile.Language -> R.string.v7_tile_language
+            MoreTile.Appearance -> R.string.appearance_title
             MoreTile.Help -> R.string.v7_tile_help
             MoreTile.SignOut -> R.string.v7_tile_sign_out
         }
@@ -401,11 +423,13 @@ private val MoreTile.icon: String
             MoreTile.Stock -> "box"
             MoreTile.LabWork -> "flask"
             MoreTile.Team -> "team"
+            MoreTile.TimeOff -> "cal"
             MoreTile.ClinicQr -> "qr"
             MoreTile.RxSets -> "rx"
             MoreTile.Settings -> "gear"
             MoreTile.SwitchClinic -> "swap"
             MoreTile.Language -> "globe"
+            MoreTile.Appearance -> "spark"
             MoreTile.Help -> "help"
             MoreTile.SignOut -> "out"
         }

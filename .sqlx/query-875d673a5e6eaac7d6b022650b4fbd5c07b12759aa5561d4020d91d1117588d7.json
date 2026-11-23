@@ -1,0 +1,137 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select d.id, d.generic_name, d.brand_name, d.strength, d.form, d.default_dose,\n                  d.default_frequency, d.default_timing, d.default_duration_days,\n                  d.allergy_classes\n           from aarogyam.drug_catalog d\n           join aarogyam.drug_catalog s\n             on lower(s.generic_name) = lower(d.generic_name)\n            and lower(s.strength) = lower(d.strength) and lower(s.form) = lower(d.form)\n           where s.id = $1 and d.id <> s.id and d.active\n           order by d.brand_name nulls last, d.id\n           limit $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "generic_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "generic_name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "brand_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "brand_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "strength",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "strength"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "form",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "form"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "default_dose",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "default_dose"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "default_frequency",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "default_frequency"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "default_timing",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "default_timing"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "default_duration_days",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "default_duration_days"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "allergy_classes",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.drug_catalog",
+            "name": "allergy_classes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "875d673a5e6eaac7d6b022650b4fbd5c07b12759aa5561d4020d91d1117588d7"
+}

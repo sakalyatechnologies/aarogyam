@@ -63,3 +63,75 @@ enum TasksV10 {
         return n
     }
 }
+
+/// A bell row's colour family (redesign A); the view maps each to a theme role.
+enum NotificationTint: Equatable {
+    case queue, money, booking, clinical, neutral
+}
+
+/// The bell's segmented filter.
+enum NotificationFilter: CaseIterable, Hashable {
+    case all, unread, queue, bookings
+}
+
+extension TasksV10 {
+    /// Queue rows teal, money warm, bookings indigo, clinical rose, the rest neutral.
+    static func notificationTint(kind: String) -> NotificationTint {
+        if kind == "collect_payment" { return .money }
+        switch NotificationKinds.shared.of(kind: kind).category {
+        case .queue: return .queue
+        case .payment: return .money
+        case .booking, .timeOff: return .booking
+        case .lab, .recall, .patient: return .clinical
+        default: return .neutral
+        }
+    }
+
+    static func matches(_ filter: NotificationFilter, kind: String, read: Bool) -> Bool {
+        switch filter {
+        case .all: true
+        case .unread: !read
+        case .queue: NotificationKinds.shared.of(kind: kind).category == .queue
+        case .bookings: NotificationKinds.shared.of(kind: kind).category == .booking
+        }
+    }
+
+    /// True when `iso` falls on the same calendar day as `now`; an unreadable time is Earlier.
+    static func isToday(_ iso: String, now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard let date = parse(iso) else { return false }
+        return calendar.isDate(date, inSameDayAs: now)
+    }
+
+    /// `5 min ago` today, `Yesterday`, a weekday within the week, else `12 Nov`; localized by the system.
+    static func notificationTime(_ iso: String, now: Date = Date(), calendar: Calendar = .current, locale: Locale = .current) -> String? {
+        guard let date = parse(iso) else { return nil }
+        if calendar.isDate(date, inSameDayAs: now) {
+            let f = RelativeDateTimeFormatter()
+            f.locale = locale
+            f.calendar = calendar
+            f.unitsStyle = .short
+            f.dateTimeStyle = .named
+            return f.localizedString(for: min(date, now), relativeTo: now)
+        }
+        let f = DateFormatter()
+        f.locale = locale
+        f.calendar = calendar
+        f.timeZone = calendar.timeZone
+        if isYesterday(date, now: now, calendar: calendar) {
+            f.dateStyle = .medium
+            f.timeStyle = .none
+            f.doesRelativeDateFormatting = true
+        } else if let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day,
+                  days >= 0, days < 7 {
+            f.setLocalizedDateFormatFromTemplate("EEE")
+        } else {
+            f.setLocalizedDateFormatFromTemplate("dMMM")
+        }
+        return f.string(from: date)
+    }
+
+    private static func isYesterday(_ date: Date, now: Date, calendar: Calendar) -> Bool {
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: now) else { return false }
+        return calendar.isDate(date, inSameDayAs: yesterday)
+    }
+}

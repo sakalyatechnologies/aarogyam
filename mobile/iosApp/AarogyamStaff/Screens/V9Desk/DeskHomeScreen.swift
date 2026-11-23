@@ -86,8 +86,8 @@ struct DeskHomeScreen: View {
     @ViewBuilder private var finder: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(dx("dx.home.number")).v7Text(13, .semibold).foregroundStyle(theme.roles.onSurfaceVariant.color)
-            TextField("98765 43210", text: Binding(get: { typed }, set: { change($0) }))
-                .keyboardType(.numberPad).textContentType(.telephoneNumber).focused($focused)
+            TextField(dv("d9.lookup.placeholder"), text: Binding(get: { typed }, set: { change($0) }))
+                .keyboardType(.namePhonePad).autocorrectionDisabled().focused($focused)
                 .font(.system(.title2, design: .rounded, weight: .bold))
                 .padding(.horizontal, 14).frame(minHeight: SkSpacing.minTouchTarget + 8)
                 .background(theme.roles.card.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -114,7 +114,7 @@ struct DeskHomeScreen: View {
         case .failed(let failure):
             VStack(alignment: .leading, spacing: 8) {
                 Text(failure.error.message).v7Text(12.5, .semibold).foregroundStyle(theme.roles.error.color)
-                SkPillButton(String(localized: "try_again"), variant: .tonal) { holder.search(typed: ""); holder.search(typed: DeskPhone.digits(typed)) }
+                SkPillButton(String(localized: "try_again"), variant: .tonal) { holder.search(typed: ""); holder.search(typed: DeskPhone.query(typed)) }
             }
         case .noMatch(let none):
             VStack(alignment: .leading, spacing: 10) {
@@ -158,7 +158,7 @@ struct DeskHomeScreen: View {
             .disabled(checkingIn)
         }
         SkPillButton(dx("dx.home.new"), variant: .warm, wide: true) {
-            newPatient(found.phone, family: profiles.filter { $0.familyOf == nil }.map { DeskFamilyAnchor(id: $0.id, name: $0.name) })
+            newPatient(DeskPhone.newPatientPhone(found.phone), family: found.partial ? [] : profiles.filter { $0.familyOf == nil }.map { DeskFamilyAnchor(id: $0.id, name: $0.name) })
         }
             .accessibilityLabel(dx("dx.home.new"))
     }
@@ -187,7 +187,7 @@ struct DeskHomeScreen: View {
         selected = nil
         chosenDoctor = nil
         failed = false
-        lookup?.holder.search(typed: DeskPhone.digits(formatted))
+        lookup?.holder.search(typed: DeskPhone.query(formatted))
     }
 
     private func reset() {

@@ -291,6 +291,7 @@ async fn serve(config: Config) -> anyhow::Result<()> {
             "http.edge_secret is required outside the local environment"
         ),
     }
+    let learn_origin = learn_origin(config.hosts.learn_origin)?;
     let hosts = Hosts {
         portal_host_template: config.hosts.portal_host_template,
         console: config.hosts.console,
@@ -333,13 +334,31 @@ async fn serve(config: Config) -> anyhow::Result<()> {
         .with_notifier(notifier)
         .with_files(files)
         .with_staff_mfa(config.auth.staff_mfa)
-        .with_website(website_links(config.website));
+        .with_website(website_links(config.website))
+        .with_learn_origin(learn_origin);
     sakalya_http::serve(
         aarogyam_api::router(with_error_reporting(state, local)),
         config.http.bind,
     )
     .await
     .context("the server stopped with an error")
+}
+
+/// The learn site's origin, checked: an http(s) origin with no path. Blank means none.
+fn learn_origin(raw: Option<String>) -> anyhow::Result<Option<String>> {
+    let Some(raw) = raw.filter(|value| !value.trim().is_empty()) else {
+        return Ok(None);
+    };
+    let origin = raw.trim().trim_end_matches('/');
+    let host = origin
+        .strip_prefix("https://")
+        .or_else(|| origin.strip_prefix("http://"))
+        .unwrap_or("");
+    anyhow::ensure!(
+        !host.is_empty() && !host.contains(['/', '?', '#', '@']),
+        "hosts.learn_origin must look like https://learn.example.com"
+    );
+    Ok(Some(origin.to_owned()))
 }
 
 /// Where the console's Insights page reads Cloud Run's metrics: Cloud Monitoring on Cloud Run
@@ -706,6 +725,7 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             Err(error) => tracing::warn!(error = %error, "could not flag staff alerts"),
         }
         record_recurring_expenses(&db).await;
+        refresh_review_demo(&db).await;
         push_staff(&notifier, &db).await;
         match notifier.drain(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) => tracing::info!(
@@ -735,6 +755,24 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             () = tokio::time::sleep(interval) => {}
             _ = tokio::signal::ctrl_c() => return Ok(()),
         }
+    }
+}
+
+/// The App Store review clinic: top up its patients, queue and appointments for today (India
+/// time). Idempotent, so it runs every pass; only the synthetic `review` clinic is touched.
+async fn refresh_review_demo(db: &Db) {
+    let today = aarogyam_app::clock::clinic_today("Asia/Kolkata", time::OffsetDateTime::now_utc());
+    match aarogyam_dal::review_demo::refresh(db.pool(), today).await {
+        Ok(Some(done)) if done.any() => tracing::info!(
+            org_id = %done.org_id,
+            patients = done.patients,
+            visits = done.visits,
+            tokens = done.tokens,
+            appointments = done.appointments,
+            "review demo refreshed"
+        ),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(error = %error, "could not refresh the review demo"),
     }
 }
 

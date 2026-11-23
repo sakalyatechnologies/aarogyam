@@ -33,7 +33,12 @@ class ClinicBrandingTest {
         val branding = ClinicBranding.of(clinic("""{"brand":"teal","mode":42}"""))
         assertEquals(BrandPreset.Tulsi.brand, branding.brand)
         assertEquals(BrandMode.System, branding.mode)
-        assertEquals(AppTheme.of(BrandPreset.Tulsi, ThemeMode.Dark), branding.theme(systemDark = true))
+        assertEquals(
+            AppTheme.of(BrandPreset.Tulsi, ThemeMode.Dark).let {
+                it.copy(palette = it.palette.refinedDark())
+            },
+            branding.theme(systemDark = true),
+        )
         assertEquals(ClinicBranding.Default, ClinicBranding.of(clinic("{}")))
     }
 }

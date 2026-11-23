@@ -81,7 +81,7 @@ pub enum DetailError {
     /// A mobility grade outside 0 to 3.
     #[error("mobility must be 0 to 3")]
     Mobility,
-    /// Nothing left after the merge.
+    /// Nothing to record: no current condition and nothing set.
     #[error("set at least one of infection, bleeding, pocket_mm or mobility")]
     Empty,
     /// Infection, pocket or mobility on a missing tooth.
@@ -174,17 +174,20 @@ pub struct ConditionChange<'a> {
 }
 
 /// Merges a change onto the tooth's current condition (none for the first) and validates the
-/// result: at least one field set, values in range, and no infection, pocket or mobility on a
-/// tooth whose current finding is `missing`. Mobility is allowed on primary teeth (DT5).
+/// result: values in range, and no infection, pocket or mobility on a tooth whose current
+/// finding is `missing`. Mobility is allowed on primary teeth (DT5). A merge that clears every
+/// field of the current condition ("Infection resolved" on its only field, or untapping the
+/// last chip) gives `None`: the current row is to be superseded with nothing after it.
 ///
 /// # Errors
-/// The [`DetailError`] that applies.
+/// The [`DetailError`] that applies; [`DetailError::Empty`] when there is no current condition
+/// and nothing is set.
 pub fn merge_condition(
     tooth: i64,
     current: Option<&ToothConditionData>,
     change: &ConditionChange<'_>,
     missing: bool,
-) -> Result<ToothConditionData, DetailError> {
+) -> Result<Option<ToothConditionData>, DetailError> {
     let tooth = Tooth::new(tooth)?;
     let infection = match change.infection {
         Change::Set(text) => Change::Set(
@@ -220,7 +223,10 @@ pub fn merge_condition(
         && merged.pocket_mm.is_none()
         && merged.mobility.is_none()
     {
-        return Err(DetailError::Empty);
+        return match current {
+            Some(_) => Ok(None),
+            None => Err(DetailError::Empty),
+        };
     }
     let touches_missing = matches!(change.infection, Change::Set(_))
         || matches!(pocket, Change::Set(_))
@@ -228,7 +234,7 @@ pub fn merge_condition(
     if missing && touches_missing {
         return Err(DetailError::MissingTooth);
     }
-    Ok(merged)
+    Ok(Some(merged))
 }
 
 /// The JSON shape of a tooth's eruption in `specialty_records.data`.
@@ -464,6 +470,7 @@ mod tests {
             },
             false,
         )
+        .unwrap()
         .unwrap();
         let second = merge_condition(
             36,
@@ -474,6 +481,7 @@ mod tests {
             },
             false,
         )
+        .unwrap()
         .unwrap();
         assert_eq!(second.bleeding, Some(true));
         assert_eq!(second.mobility, Some(2));
@@ -486,6 +494,7 @@ mod tests {
             },
             false,
         )
+        .unwrap()
         .unwrap();
         assert_eq!((cleared.bleeding, cleared.mobility), (None, Some(2)));
         let empty = merge_condition(
@@ -497,10 +506,45 @@ mod tests {
             },
             false,
         );
-        assert_eq!(empty, Err(DetailError::Empty));
+        assert_eq!(
+            empty,
+            Ok(None),
+            "untapping the last chip leaves no condition"
+        );
+        let resolved = merge_condition(
+            36,
+            Some(&ToothConditionData {
+                tooth: 36,
+                infection: Some("infection".to_owned()),
+                ..ToothConditionData::default()
+            }),
+            &ConditionChange {
+                infection: Change::Clear,
+                ..ConditionChange::default()
+            },
+            true,
+        );
+        assert_eq!(
+            resolved,
+            Ok(None),
+            "infection resolved, even on a missing tooth"
+        );
         assert_eq!(
             merge_condition(36, None, &ConditionChange::default(), false),
             Err(DetailError::Empty)
+        );
+        assert_eq!(
+            merge_condition(
+                36,
+                None,
+                &ConditionChange {
+                    mobility: Change::Clear,
+                    ..ConditionChange::default()
+                },
+                false
+            ),
+            Err(DetailError::Empty),
+            "nothing to clear"
         );
     }
 
@@ -532,7 +576,9 @@ mod tests {
             Err(DetailError::Infection)
         );
         // DT5: a loose milk tooth.
-        let loose = merge_condition(75, None, &change(Change::Keep, set(2)), false).unwrap();
+        let loose = merge_condition(75, None, &change(Change::Keep, set(2)), false)
+            .unwrap()
+            .unwrap();
         assert_eq!(loose.mobility, Some(2));
         assert_eq!(
             merge_condition(19, None, &change(Change::Keep, set(1)), false),

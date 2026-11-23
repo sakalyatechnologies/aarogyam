@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n             (select count(*) from aarogyam.appointments a\n               where a.practitioner_id = $1 and a.status = 'completed' and a.deleted_at is null\n                 and a.completed_at >= $3 and a.completed_at < $4) as \"patients_seen!\",\n             (select count(*) from aarogyam.procedures p\n               where p.clinician_id = $2 and p.status = 'done'\n                 and p.performed_at >= $3 and p.performed_at < $4) as \"procedures_done!\",\n             (select count(*) from aarogyam.prescriptions r\n               where r.issued_by = $2 and r.status = 'issued'\n                 and r.issued_at >= $3 and r.issued_at < $4) as \"prescriptions_issued!\",\n             (select coalesce(sum(al.amount_paise), 0)::bigint\n                from aarogyam.payment_allocations al\n                join aarogyam.payments m on m.org_id = al.org_id and m.id = al.payment_id\n                join aarogyam.invoices i on i.org_id = al.org_id and i.id = al.invoice_id\n                join aarogyam.encounters e on e.org_id = i.org_id and e.id = i.encounter_id\n               where e.clinician_id = $2 and m.status = 'received'\n                 and m.received_at >= $3 and m.received_at < $4) as \"collected_paise!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "patients_seen!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "procedures_done!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "prescriptions_issued!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "collected_paise!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "4dc68df04f0304e4b9dfc75a80a78639039cb99c799fc241abb64df0e780afc8"
+}

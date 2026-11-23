@@ -305,11 +305,9 @@ describe("Editing the notes of a past visit", () => {
     const user = userEvent.setup();
     const { path, backend } = visitedWithSignedNote();
     renderPortal(path, { as: PEOPLE.asha, backend });
-    const heading = await screen.findByRole("heading", { level: 2, name: "Records" });
-    const card = heading.closest("section");
-    if (card === null) throw new Error("no Records card");
-    await user.click(first(await within(card).findAllByRole("button", { name: /^Open visit / })));
-    const detail = await screen.findByRole("dialog", { name: /^Visit / });
+    await user.click(await screen.findByRole("button", { name: /^History/ }));
+    await user.click(first(await screen.findAllByRole("button", { name: /^Open visit / })));
+    const detail = await screen.findByRole("region", { name: /^Visit .* detail$/ });
     expect(await within(detail).findByText("Pain on the right side")).toBeTruthy();
     expect(within(detail).queryByText(/^See earlier versions/)).toBeNull();
 

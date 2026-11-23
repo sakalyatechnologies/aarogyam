@@ -2,8 +2,10 @@ package com.aarogyam.staff.desk
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.addFamily
+import com.aarogyam.staff.api.changeFamily
 import com.aarogyam.staff.api.family
 import com.aarogyam.staff.api.model.FamilyLink
+import com.aarogyam.staff.api.model.FamilyLinkChange
 import com.aarogyam.staff.api.model.NewFamilyLink
 import com.aarogyam.staff.api.removeFamily
 import com.aarogyam.staff.clinic.ClinicContext
@@ -173,6 +175,14 @@ class FamilyStateHolder(
     }
 
     fun remove(linkId: String) = change("family.remove_failed") { clinic.api.removeFamily(patientId, linkId) }
+
+    /** Changes what the relative is to this patient ([relation] is a wire value such as `child`), in place. */
+    fun changeRelation(
+        linkId: String,
+        relation: String,
+    ) = change(
+        "family.change_failed",
+    ) { clinic.api.changeFamily(patientId, linkId, FamilyLinkChange(relation = relation)) }
 
     private fun <T> change(
         event: String,

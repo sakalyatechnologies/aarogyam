@@ -64,6 +64,8 @@ import { EXPENSE_NAMES, buildAnalytics, daysInclusive, wireExpense, type FakeExp
 import { changeRecurring, isRefusal, newRecurring, recordDue, resumeRecurring, wireRecurring, type FakeRecurring } from "./recurring-expenses.js";
 import { DASHBOARD_CATALOGUE, builtInLayout, validateLayout } from "./dashboard-layout.js";
 import { clinicTerms, type FakeDentalTerm } from "./dental-terms.js";
+import { discussionProblem, type FakeDiscussion } from "./present-discussions.js";
+import { fakePresentStudio, presentSettingsProblem, withPrices } from "./present.js";
 import { ANGULATIONS, ERUPTIONS, FIXTURE_MOUTH, mergeCondition, wireCondition as wireToothCondition, wireDetails, wireEruption } from "./tooth-details.js";
 import { MAX_GRANT_MS, MIN_GRANT_MS, grantStatus, wireGrant, type FakeSupportGrant } from "./support-grants.js";
 import {
@@ -335,6 +337,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     }
   }
 
+  /** Tooth pins by image, shared by every client of this backend so a later visit sees them. */
+  const imagePins = new Map<string, S.ImagePins["pins"]>();
+
   function client(options: FakeClientOptions = {}): ApiClient {
     const clock = options.now ?? (() => new Date());
     const latency = options.latencyMs ?? 0;
@@ -580,6 +585,11 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
       }
       return { user, clinic, membership };
     }
+
+    /** Show patient settings by clinic (slice 2b). */
+    const presentByClinic = new Map<string, S.PresentSettings>();
+    /** "What we discussed" rows, oldest first (append-only). */
+    const discussions: FakeDiscussion[] = [];
 
     const isCaller = (value: Caller | Outcome): value is Caller => "clinic" in value;
 
@@ -4109,6 +4119,106 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ items: events } satisfies C.Timeline);
         }),
 
+      getPatientHistory: (id, before, opts) =>
+        respond(S.patientHistory, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          const clinic = caller.clinic.id;
+          const money = hasPermission(caller.membership.role.permissions, "billing.read");
+          const all = state.visits
+            .filter((v) => v.clinic_id === clinic && v.patient_id === id)
+            .sort((a, b) => (a.started_at === b.started_at ? b.id.localeCompare(a.id) : b.started_at.localeCompare(a.started_at)));
+          const [at, lastId] = before === undefined ? [undefined, undefined] : before.split("~");
+          const after = at === undefined ? all : all.filter((v) => v.started_at < at || (v.started_at === at && v.id < (lastId ?? "")));
+          const page = after.slice(0, 200);
+          const last = page.at(-1);
+          const firstLine = (sections: Partial<Record<string, string | null | undefined>>): string | null => {
+            for (const key of ["subjective", "objective", "assessment", "plan"]) {
+              for (const raw of (sections[key] ?? "").split("\n")) {
+                const line = raw.replace(/^\[\d{2}:\d{2}\]\s*/, "").replace(/^(?:[-*]|#{1,3})\s+/, "").trim();
+                if (line !== "") return line.length > 120 ? `${line.slice(0, 119).trimEnd()}…` : line;
+              }
+            }
+            return null;
+          };
+          const file = (a: FakeAttachment): C.HistoryFile => ({ id: a.id, kind: a.kind, mime_type: a.mime_type, label: a.label ?? null, created_at: a.created_at });
+          const visits = page.map((v): C.HistoryVisit => {
+            const notes = state.notes.filter((n) => n.visit_id === v.id && n.status === "signed" && !isReplaced(state, n.id));
+            const teeth: C.HistoryTooth[] = state.chartEntries
+              .filter((c) => c.visit_id === v.id && c.finding !== "sound")
+              .map((c) => {
+                const wired = wireChartEntry(c, state);
+                const work = wired.elsewhere ? "elsewhere" : wired.in_progress ? "in_progress" : wired.status === "planned" ? "planned" : c.procedure != null || ["filled", "crown", "root_canal", "implant"].includes(c.finding) ? "done" : "found";
+                return { tooth: c.tooth, finding: c.finding, procedure_key: c.procedure ?? null, label: wired.procedure?.label ?? null, work };
+              });
+            const procedures = state.procedures.filter((p) => p.visit_id === v.id && p.status !== "entered_in_error");
+            for (const p of procedures) {
+              if (p.tooth != null && !teeth.some((t) => t.tooth === p.tooth && t.label === p.name)) {
+                const twice = teeth.findIndex((t) => t.tooth === p.tooth && t.work === "done" && (t.label == null || p.name.toLowerCase().includes(t.label.toLowerCase())));
+                if (twice >= 0) teeth.splice(twice, 1);
+                teeth.push({ tooth: p.tooth, finding: null, procedure_key: null, label: p.name, work: p.status === "planned" ? "planned" : "done" });
+              }
+            }
+            const files = state.attachments.filter((a) => a.visit_id === v.id);
+            const images = files.filter((a) => a.kind === "photo" || a.kind === "xray");
+            const ended = v.ended_at ?? "9999";
+            const medicines = [
+              ...new Set(
+                state.prescriptions
+                  .filter((rx) => rx.patient_id === id && rx.status !== "cancelled")
+                  .filter((rx) => (rx.encounter_id != null ? rx.encounter_id === v.id : (rx.issued_at ?? rx.created_at) >= v.started_at && (rx.issued_at ?? rx.created_at) <= ended))
+                  .flatMap((rx) => rx.items.map((i) => i.drug_name ?? "")),
+              ),
+            ].filter((name) => name !== "");
+            const bills = state.invoices
+              .filter((i) => i.encounter_id === v.id && i.status === "issued")
+              .map((i) => {
+                const wired = wireInvoice(i, state, true);
+                return { id: i.id, number: i.number ?? null, status: i.status, total_paise: wired.total_paise, paid_paise: wired.paid_paise };
+              });
+            const clinician = memberRefOf(state, v.clinician_membership_id);
+            return {
+              id: v.id,
+              number: v.number,
+              status: v.status,
+              started_at: v.started_at,
+              ended_at: v.ended_at ?? null,
+              clinician: clinician ?? { id: v.clinician_membership_id, name: "" },
+              chief_complaint: v.chief_complaint ?? null,
+              teeth,
+              images: images.slice(0, 4).map(file),
+              image_count: images.length,
+              note_first_line: notes.length === 0 ? null : firstLine(notes[0]?.sections ?? {}),
+              medicines,
+              ...(money ? { bills } : {}),
+              plans: state.plans.filter((p) => p.visit_id === v.id).map((p) => ({ id: p.id, title: p.title, status: p.status })),
+              counts: {
+                notes: notes.length,
+                recordings: files.filter((a) => a.kind === "audio").length,
+                files: files.filter((a) => a.kind !== "audio" && a.kind !== "consent").length,
+                procedures: procedures.length,
+              },
+            };
+          });
+          const loose = before === undefined
+            ? state.attachments
+                .filter((a) => a.clinic_id === clinic && a.patient_id === id && a.visit_id == null && !["audio", "consent", "payment_proof"].includes(a.kind))
+                .sort((a, b) => b.created_at.localeCompare(a.created_at))
+                .slice(0, 50)
+                .map(file)
+            : [];
+          return reply({
+            visits,
+            loose_files: loose,
+            ...(after.length > page.length && last !== undefined ? { next_cursor: `${last.started_at}~${last.id}` } : {}),
+          } satisfies C.PatientHistory);
+        }),
+
       listVisits: (id, opts) =>
         respond(S.visitList, opts?.signal, async () => {
           const caller = await inClinic("clinical.read");
@@ -4443,6 +4553,34 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           const prefs = memberPrefs(state, caller.membership.id);
           prefs.sections = S.MESSAGE_SECTIONS.filter((s) => input.sections.includes(s));
           return reply(wirePrefs(prefs));
+        }),
+
+      getUiPrefs: (opts) =>
+        respond(S.uiPrefs, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(wireUiPrefs(state.uiPrefs?.[caller.membership.id]));
+        }),
+
+      saveUiPrefs: (input, opts) =>
+        respond(S.uiPrefs, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (input.present_style != null && !UI_STYLES.includes(input.present_style)) {
+            return invalid("present_style", "unknown style");
+          }
+          if (input.history_view != null && !UI_VIEWS.includes(input.history_view)) {
+            return invalid("history_view", "unknown view");
+          }
+          state.uiPrefs ??= {};
+          const row = (state.uiPrefs[caller.membership.id] ??= { present_style: null, history_view: null });
+          row.present_style = input.present_style ?? row.present_style;
+          row.history_view = input.history_view ?? row.history_view;
+          return reply(wireUiPrefs(row));
         }),
 
       prepareVisitPatientMessage: (id, opts, input) =>
@@ -5411,6 +5549,178 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return notFound;
           }
           return reply(FIXTURE_MOUTH);
+        }),
+
+      getVisitPresent: (id, opts) =>
+        respond(S.presentStudio, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!state.visits.some((v) => v.id === id && v.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          const studio = fakePresentStudio(FIXTURE_MOUTH);
+          const settings = presentByClinic.get(caller.clinic.id);
+          if (settings?.show_prices !== true || !hasPermission(caller.membership.role.permissions, "billing.read")) {
+            return reply(studio);
+          }
+          const list = state.priceItems
+            .filter((p) => p.clinic_id === caller.clinic.id && p.active && p.code != null)
+            .map((p) => ({ code: p.code ?? "", paise: p.price_paise }));
+          return reply(withPrices(studio, settings, list));
+        }),
+
+      listImagePins: (id, opts) =>
+        respond(S.imagePins, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!state.attachments.some((a) => a.id === id && a.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          return reply({ pins: imagePins.get(id) ?? [] });
+        }),
+
+      saveImagePins: (id, input, opts) =>
+        respond(S.imagePins, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!state.attachments.some((a) => a.id === id && a.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          const pins = input.pins.toSorted((a, b) => a.tooth - b.tooth);
+          imagePins.set(id, pins);
+          return reply({ pins });
+        }),
+
+      listPresentDiscussions: (id, opts) =>
+        respond(S.presentDiscussionList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!state.visits.some((v) => v.id === id && v.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          return reply({ discussions: discussions.filter((d) => d.visit_id === id && d.status === "current").map((d) => d.row) });
+        }),
+
+      savePresentDiscussion: (id, input, opts) =>
+        respond(S.presentDiscussion, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const visit = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (visit === undefined) {
+            return notFound;
+          }
+          if (visit.status === "closed") {
+            return refuse(409, "conflict", "That visit is already closed.");
+          }
+          const problem = discussionProblem(input);
+          if (problem !== undefined) {
+            return invalid("options", problem);
+          }
+          const before = discussions.find((d) => d.visit_id === id && d.status === "current" && (d.row.tooth ?? 0) === (input.tooth ?? 0) && d.row.situation === input.situation);
+          if (before !== undefined) before.status = "superseded";
+          const row: S.PresentDiscussion = {
+            id: fakeUuid(random, clock()),
+            ...(input.tooth == null ? {} : { tooth: input.tooth }),
+            situation: input.situation,
+            // a caller's price is never kept: the server freezes it
+            options: input.options.map((o) => ({ key: o.key, ...(o.material == null ? {} : { material: o.material }), preferred: o.preferred === true })),
+            send_to_patient: input.send_to_patient === true,
+            ...(before === undefined ? {} : { supersedes_id: before.row.id }),
+            created_at: new Date(clock()).toISOString(),
+          };
+          discussions.push({ clinic_id: caller.clinic.id, visit_id: id, status: "current", row });
+          return { ok: true, status: 201, body: row };
+        }),
+
+      markPresentDiscussionInError: (id, discussionId, input, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const visit = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          if (visit === undefined) {
+            return notFound;
+          }
+          if (visit.status === "closed") {
+            return refuse(409, "conflict", "That visit is already closed.");
+          }
+          const reason = input.reason.trim();
+          if (reason.length < 3 || reason.length > 500) {
+            return invalid("reason", "reason must be 3 to 500 characters");
+          }
+          const found = discussions.find((d) => d.visit_id === id && d.row.id === discussionId && d.status === "current");
+          if (found === undefined) {
+            return notFound;
+          }
+          found.status = "entered_in_error";
+          return { ok: true, body: undefined };
+        }),
+
+      getPresentSettings: (opts) =>
+        respond(S.presentSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(presentByClinic.get(caller.clinic.id) ?? { show_prices: false, price_map: {} });
+        }),
+
+      updatePresentSettings: (settings, opts) =>
+        respond(S.presentSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const codes = state.priceItems.filter((p) => p.clinic_id === caller.clinic.id && p.active && p.code != null).map((p) => p.code ?? "");
+          const problem = presentSettingsProblem(settings, codes);
+          if (problem !== undefined) {
+            return invalid("price_map", problem);
+          }
+          presentByClinic.set(caller.clinic.id, settings);
+          return reply(settings);
+        }),
+
+      getVisitStory: (id, opts) =>
+        respond(S.visitStory, opts?.signal, async () => {
+          const reader = await inClinic("clinical.read");
+          if (!isCaller(reader)) {
+            return reader;
+          }
+          const caller = await inClinic("patients.contact");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const found = state.visits.find((v) => v.id === id && v.clinic_id === caller.clinic.id);
+          const patient = found === undefined ? undefined : state.patients.find((p) => p.id === found.patient_id);
+          if (found === undefined || patient === undefined) {
+            return notFound;
+          }
+          if (found.status !== "closed") {
+            return refuse(409, "visit_open", "Finish the visit first.");
+          }
+          if (patient.phone == null) {
+            return refuse(409, "no_phone", "This patient has no mobile number.");
+          }
+          // The golden Aarav mouth for every visit; no patient name, phone, link or PIN.
+          return reply({
+            story_version: FIXTURE_MOUTH.story_version,
+            visit_number: found.number,
+            visited_on: localClock(new Date(found.started_at), caller.clinic.timezone).date,
+            clinic_name: caller.clinic.name,
+            ...(FIXTURE_MOUTH.next_visit === undefined ? {} : { next_visit: FIXTURE_MOUTH.next_visit }),
+            chart: FIXTURE_MOUTH,
+          } satisfies C.VisitStory);
         }),
 
       addDentalTerm: (input, opts) =>
@@ -12343,6 +12653,15 @@ const isSection = (name: string): boolean => S.MESSAGE_SECTIONS.some((section) =
 function memberPrefs(state: Fixtures, membershipId: string): FakeMessagePrefs {
   state.messagePrefs ??= {};
   return (state.messagePrefs[membershipId] ??= { sections: null, handoffs: 0, handoff_days: 0, last_handoff_on: null });
+}
+
+const UI_STYLES: readonly string[] = ["story", "painted", "xray", "smile3d", "face"];
+const UI_VIEWS: readonly string[] = ["page", "popup", "story"];
+
+/** The member's saved screen choices, defaults filled in (an unknown stored value reads as the default). */
+function wireUiPrefs(row: { present_style: string | null; history_view: string | null } | undefined): C.UiPrefs {
+  const pick = (options: readonly string[], value: string | null | undefined) => (value != null && options.includes(value) ? value : (options[0] ?? ""));
+  return { present_style: pick(UI_STYLES, row?.present_style), history_view: pick(UI_VIEWS, row?.history_view) };
 }
 
 function wirePrefs(prefs: FakeMessagePrefs): C.MessagePrefs {

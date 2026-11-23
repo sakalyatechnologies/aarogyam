@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id from aarogyam.present_discussions\n           where encounter_id = $1 and coalesce(tooth, 0) = coalesce($2::smallint, 0)\n             and situation = $3 and status = 'current'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.present_discussions",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1adda7ac81f3c84d3a444745c577670e36a8c68a2659bc5b88f2f2c3c563cbfa"
+}

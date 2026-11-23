@@ -53,6 +53,7 @@
         <item quantity="one">%1$d waiting</item>
         <item quantity="other">%1$d waiting</item>
     </plurals>
+    <string name="v7_stat_open_a11y">Opens today\'s queue</string>
     <string name="v7_stat_patients">patients today</string>
     <plurals name="v7_stat_hint">
         <item quantity="one">%1$d done · %2$d appointment to come</item>
@@ -86,4 +87,15 @@
     <string name="v7_notif_requested">Online booking request</string>
     <string name="v7_notif_confirmed">Booked online</string>
     <string name="v7_notif_cancelled">Cancelled by the patient</string>
+    <string name="v7_notif_read_all_short">Read all</string>
+    <string name="v7_notif_filter_all">All</string>
+    <string name="v7_notif_filter_unread">Unread</string>
+    <string name="v7_notif_filter_queue">Queue</string>
+    <string name="v7_notif_filter_bookings">Bookings</string>
+    <string name="v7_notif_today">Today</string>
+    <string name="v7_notif_earlier">Earlier</string>
+    <string name="v7_notif_filter_none">Nothing here for this filter.</string>
+    <string name="v7_plus_walk_in">Walk-in, check in now</string>
+    <string name="v7_plus_add_patient">Add patient only</string>
+    <string name="v7_plus_add_submit">Add patient</string>
 </resources>

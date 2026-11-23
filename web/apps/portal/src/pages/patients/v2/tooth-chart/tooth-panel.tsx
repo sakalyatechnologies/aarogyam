@@ -1,7 +1,7 @@
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Search } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { apiErrorOf, randomUuid, visitId as visitIdSchema, type ChartEntry, type DentalTerm, type ToothStatus, type ToothSurface, type PatientId, type PlanItem, type Procedure, type VisitId } from "@aarogyam/api-client";
+import { apiErrorOf, randomUuid, visitId as visitIdSchema, type ChartEntry, type DentalTerm, type ToothCondition, type ToothEruption, type ToothStatus, type ToothSurface, type PatientId, type PlanItem, type Procedure, type VisitId } from "@aarogyam/api-client";
 import { formatDate } from "@aarogyam/app-kit";
 import { Button, useToast } from "@sakalya/ui";
 
@@ -12,6 +12,8 @@ import { useToothHistory } from "../../../visits/queries.js";
 import { surfaceLabel } from "../../../visits/odontogram/model.js";
 import { PillButton } from "../kit.js";
 import { allowsSurfaces, blankDraft, buildEntries, defaultMaterial, buildPlan, correctionBatch, draftFromRow, historyRows, toothName, treatmentOf, type Draft, type HistoryRow, type RowStatus } from "./model.js";
+import { DetailChips } from "./detail-chips.js";
+import { FindingForm } from "./finding-form.js";
 import { HealthRow } from "./health-row.js";
 import { TreatmentForm } from "./treatment-form.js";
 
@@ -44,6 +46,9 @@ interface Props {
   entries?: readonly ChartEntry[];
   /** The doctor's current status of the tooth, if any. */
   status?: ToothStatus | undefined;
+  /** The tooth's current condition and eruption (§1.13 details), if any. */
+  condition?: ToothCondition | undefined;
+  eruption?: ToothEruption | undefined;
   /** Start dictating the tooth's note (a long press on it). */
   dictate?: boolean;
   onDictateStarted?: () => void;
@@ -52,7 +57,7 @@ interface Props {
 const NO_ENTRIES: readonly ChartEntry[] = [];
 const noop = () => undefined;
 
-/** The tooth's side panel: its history (each current row can be edited as a correction) and the Add treatment form. */
+/** The tooth's side panel: its history (each current row can be edited as a correction), the Add treatment form and Record a finding. */
 export function ToothPanel(props: Props) {
   const { tooth } = props;
   if (tooth === undefined) {
@@ -66,9 +71,9 @@ export function ToothPanel(props: Props) {
   return <SelectedTooth key={tooth} {...props} tooth={tooth} />;
 }
 
-function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, planItems, procedures, who, onClose, entries = NO_ENTRIES, status, dictate = false, onDictateStarted = noop }: Props & { tooth: number }) {
+function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, planItems, procedures, who, onClose, entries = NO_ENTRIES, status, condition, eruption, dictate = false, onDictateStarted = noop }: Props & { tooth: number }) {
   const history = useToothHistory(patientId, tooth);
-  const [mode, setMode] = useState<"view" | "form">("view");
+  const [mode, setMode] = useState<"view" | "form" | "finding">("view");
   const [editing, setEditing] = useState<HistoryRow | undefined>(undefined);
   const [draft, setDraft] = useState<Draft>(blankDraft());
   const [error, setError] = useState<string | undefined>(undefined);
@@ -153,6 +158,7 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, pl
       {mode === "view" ? (
         <>
           <HealthRow patientId={patientId} tooth={tooth} entries={entries} status={status} canWrite={canWrite} who={who} dictate={dictate} onDictateStarted={onDictateStarted} />
+          {canWrite ? <DetailChips patientId={patientId} tooth={tooth} entries={entries} procedures={procedures} condition={condition} eruption={eruption} /> : null}
           {history.isPending ? <p className="tc-meta">Loading history…</p> : null}
           {history.isError ? (
             <p role="alert" className="tc-meta">
@@ -220,12 +226,23 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, pl
               <PillButton icon={<Plus aria-hidden="true" className="size-4" />} onClick={startAdd}>
                 Add treatment
               </PillButton>
+              <PillButton
+                variant="ghost"
+                icon={<Search aria-hidden="true" className="size-4" />}
+                onClick={() => {
+                  setMode("finding");
+                }}
+              >
+                Record a finding
+              </PillButton>
               <Button variant="secondary" onClick={onClose}>
                 Close
               </Button>
             </div>
           )}
         </>
+      ) : mode === "finding" && visitId !== undefined ? (
+        <FindingForm patientId={patientId} tooth={tooth} visitId={visitId} surface={surface} onDone={back} onClose={onClose} />
       ) : (
         <TreatmentForm
           tooth={tooth}

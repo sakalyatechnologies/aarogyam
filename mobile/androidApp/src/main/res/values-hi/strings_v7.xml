@@ -52,6 +52,7 @@
         <item quantity="one">%1$d प्रतीक्षा में</item>
         <item quantity="other">%1$d प्रतीक्षा में</item>
     </plurals>
+    <string name="v7_stat_open_a11y">आज की कतार खोलता है</string>
     <string name="v7_stat_patients">आज के मरीज़</string>
     <plurals name="v7_stat_hint">
         <item quantity="one">%1$d पूरे · %2$d अपॉइंटमेंट बाकी</item>
@@ -85,4 +86,15 @@
     <string name="v7_notif_requested">ऑनलाइन बुकिंग अनुरोध</string>
     <string name="v7_notif_confirmed">ऑनलाइन बुक हुआ</string>
     <string name="v7_notif_cancelled">मरीज़ ने रद्द किया</string>
+    <string name="v7_notif_read_all_short">सब पढ़ा</string>
+    <string name="v7_notif_filter_all">सभी</string>
+    <string name="v7_notif_filter_unread">नई</string>
+    <string name="v7_notif_filter_queue">कतार</string>
+    <string name="v7_notif_filter_bookings">बुकिंग</string>
+    <string name="v7_notif_today">आज</string>
+    <string name="v7_notif_earlier">पहले</string>
+    <string name="v7_notif_filter_none">इस फ़िल्टर में कुछ नहीं।</string>
+    <string name="v7_plus_walk_in">वॉक-इन, अभी चेक-इन करें</string>
+    <string name="v7_plus_add_patient">सिर्फ़ मरीज़ जोड़ें</string>
+    <string name="v7_plus_add_submit">मरीज़ जोड़ें</string>
 </resources>

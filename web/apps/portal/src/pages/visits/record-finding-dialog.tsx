@@ -1,7 +1,9 @@
 import { useState } from "react";
 
-import { apiErrorOf, type ChartFinding, type DentalTerm, type PatientId, type ToothSurface, type VisitId } from "@aarogyam/api-client";
+import { apiErrorOf, type ChartFinding, type DentalTerm, type NewChartEntry, type PatientId, type ToothSurface, type VisitId } from "@aarogyam/api-client";
 import { Button, Dialog, Field, Select, TextInput, useToast } from "@sakalya/ui";
+
+import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
 
 import { useAddDentalTerm, useRecordChartEntries } from "../../queries.js";
 import { SURFACES, isWholeToothFinding, surfaceLabel } from "./odontogram/model.js";
@@ -28,6 +30,25 @@ const GENERIC_SURFACE: Readonly<Record<ToothSurface, string>> = {
   B: "Buccal / labial",
   L: "Lingual / palatal",
 };
+
+/** What one finding becomes: an entry per tooth, or per tooth and surface; the depth only on caries, nothing extra on sound. */
+export function findingEntries(
+  teeth: readonly number[],
+  f: { finding: ChartFinding; surfaces: readonly ToothSurface[]; depth?: string | undefined; note?: string | undefined; procedure?: DentalTerm | undefined; material?: DentalTerm | undefined },
+): NewChartEntry[] {
+  const sound = f.finding === "sound";
+  const note = f.note?.trim() ?? "";
+  const detail = {
+    finding: f.finding,
+    ...(sound || f.procedure === undefined ? {} : { procedure: f.procedure.id }),
+    ...(sound || f.material === undefined ? {} : { material: f.material.id }),
+    ...(note === "" ? {} : { note }),
+    ...(f.finding === "caries" && f.depth !== undefined ? { caries_depth: f.depth } : {}),
+  };
+  // Crown, root canal, missing, implant and bridge cover the whole tooth; the API refuses a surface for them.
+  const surfaces = isWholeToothFinding(f.finding) ? [] : f.surfaces;
+  return teeth.flatMap((tooth) => (surfaces.length === 0 ? [{ tooth, ...detail }] : surfaces.map((surface) => ({ tooth, surface, ...detail }))));
+}
 
 /**
  * Records a finding on one or several teeth, on the whole tooth or on chosen surfaces, with the procedure and material picked
@@ -57,6 +78,7 @@ export function RecordFindingDialog({
   const [procedure, setProcedure] = useState<DentalTerm | undefined>(undefined);
   const [material, setMaterial] = useState<DentalTerm | undefined>(undefined);
   const [note, setNote] = useState("");
+  const [depth, setDepth] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const record = useRecordChartEntries(patientId);
   const addTerm = useAddDentalTerm();
@@ -76,13 +98,7 @@ export function RecordFindingDialog({
       setMissingFinding(true);
       return;
     }
-    const detail = {
-      finding,
-      ...(sound || procedure === undefined ? {} : { procedure: procedure.id }),
-      ...(sound || material === undefined ? {} : { material: material.id }),
-      ...(note.trim() === "" ? {} : { note: note.trim() }),
-    };
-    const entries = teeth.flatMap((tooth) => (chosen.length === 0 ? [{ tooth, ...detail }] : chosen.map((surface) => ({ tooth, surface, ...detail }))));
+    const entries = findingEntries(teeth, { finding, surfaces: chosen, depth, note, procedure, material });
     record.mutate(
       { entries, ...(visitId === undefined ? {} : { visit_id: visitId }) },
       {
@@ -115,6 +131,18 @@ export function RecordFindingDialog({
         <Field label="Finding" required error={missingFinding && finding === "" ? "Choose a finding." : undefined}>
           <Select options={FINDINGS} value={finding} placeholder="Choose a finding" onValueChange={setFinding} />
         </Field>
+        {finding === "caries" ? (
+          <div role="group" aria-label="Depth (optional)">
+            <p className="mb-1.5 text-sm font-semibold">Depth <span className="font-normal text-muted">(optional)</span></p>
+            <div className="odo-surface-toggles">
+              {DETAIL_VALUES.caries_depth.map((d) => (
+                <button key={d} type="button" aria-pressed={depth === d} onClick={() => { setDepth(depth === d ? undefined : d); }}>
+                  {DETAIL_CHIPS.caries_depth[d]}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div role="group" aria-label="Surfaces">
           <p className="mb-1.5 text-sm font-semibold">Surfaces</p>
           <div className="odo-surface-toggles">

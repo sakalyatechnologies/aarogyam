@@ -543,3 +543,73 @@ async fn erasing_a_patient_deletes_their_files_bytes_and_retries_what_storage_re
     let _ = std::fs::remove_dir_all(refusing);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn present_discussions_are_kept_with_their_history_scrubbed() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let id = patient(&app, ALPHA, &owner, "Options Patient", "1960-01-01").await;
+    let visit = ok(
+        &app,
+        Method::POST,
+        &format!("/api/v1/patients/{id}/visits"),
+        &owner,
+        json!({}),
+    )
+    .await;
+    let path = format!(
+        "/api/v1/visits/{}/present-discussions",
+        visit["id"].as_str().unwrap()
+    );
+    let body = json!({ "tooth": 36, "situation": "deep_decay",
+        "options": [{ "key": "extract" }, { "key": "rct_crown", "preferred": true }] });
+    ok(&app, Method::POST, &path, &owner, body.clone()).await;
+    ok(&app, Method::POST, &path, &owner, body).await;
+    let action: String = sqlx::query_scalar(
+        "select action from audit.erasure_steps where table_name = 'aarogyam.present_discussions'",
+    )
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(action, "keep");
+    backdate(&app, &[&id]).await;
+    // The visit was today; the patient is past retention only without it.
+    sqlx::query("update aarogyam.patients set last_visit_at = now() - interval '9 years' where id = $1::uuid")
+        .bind(&id)
+        .execute(&app.owner)
+        .await
+        .unwrap();
+    let alpha = ClinicId::from_uuid(app.clinic_id("alpha").await);
+    let erased = erasure::apply(
+        &app.owner_db(),
+        OffsetDateTime::now_utc(),
+        alpha,
+        Uuid::now_v7(),
+        |_| Ok(()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(erased, 1);
+    // Both rows stay (statistics on what was offered), and their history holds no values.
+    assert_eq!(
+        count(
+            &app,
+            "select count(*) from aarogyam.present_discussions where patient_id = $1::uuid",
+            &id
+        )
+        .await,
+        2
+    );
+    assert_eq!(
+        count(
+            &app,
+            "select count(*) from audit.audit_events e join aarogyam.present_discussions d \
+             on d.id = e.row_id where d.patient_id = $1::uuid and e.changes is not null",
+            &id
+        )
+        .await,
+        0
+    );
+    app.finish().await;
+}

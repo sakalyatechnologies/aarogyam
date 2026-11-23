@@ -29,6 +29,8 @@ pub(crate) mod facts;
 pub(crate) mod family;
 pub(crate) mod files;
 pub(crate) mod health;
+pub(crate) mod history;
+pub(crate) mod image_pins;
 pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod inventory;
@@ -46,6 +48,7 @@ pub(crate) mod message_templates;
 pub(crate) mod messages;
 pub(crate) mod meta;
 pub(crate) mod mouth;
+pub(crate) mod my_stats;
 pub(crate) mod notices;
 pub(crate) mod notifications;
 pub(crate) mod offers;
@@ -60,6 +63,8 @@ pub(crate) mod patient_visits;
 pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
+pub(crate) mod present;
+pub(crate) mod present_discussions;
 pub(crate) mod public_booking;
 pub(crate) mod purchase_orders;
 pub(crate) mod quality;
@@ -86,6 +91,7 @@ pub(crate) mod time_off;
 pub(crate) mod today;
 pub(crate) mod tooth_details;
 pub(crate) mod treatment;
+pub(crate) mod ui_prefs;
 pub(crate) mod visit_summary;
 pub(crate) mod visits;
 pub(crate) mod vitals;
@@ -295,6 +301,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             get(visits::list).post(visits::start),
         )
         .route("/patients/{id}/timeline", get(visits::timeline))
+        .route("/patients/{id}/history", get(history::get))
         .route(
             "/patients/{id}/consents",
             get(consents::list).post(consents::record),
@@ -309,7 +316,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/consents/{id}/withdraw", post(consents::withdraw))
         .route("/patients/{id}/family", get(family::list).post(family::add))
-        .route("/patients/{id}/family/{link_id}", delete(family::remove))
+        .route(
+            "/patients/{id}/family/{link_id}",
+            delete(family::remove).patch(family::update),
+        )
         .route(
             "/patients/{id}/photo",
             get(patient_photos::get)
@@ -408,6 +418,24 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/visits/{id}/finish", post(visits::finish))
         .route("/visits/{id}/share", post(visit_summary::create))
         .route("/visits/{id}/mouth", get(mouth::get))
+        .route("/visits/{id}/present", get(present::get))
+        .route(
+            "/visits/{id}/present-discussions",
+            get(present_discussions::list).post(present_discussions::save),
+        )
+        .route(
+            "/visits/{id}/present-discussions/{did}/entered-in-error",
+            post(present_discussions::in_error),
+        )
+        .route(
+            "/attachments/{id}/pins",
+            get(image_pins::list).put(image_pins::save),
+        )
+        .route(
+            "/settings/present",
+            get(present::get_settings).put(present::put_settings),
+        )
+        .route("/visits/{id}/story", get(patient_message::story))
         .route(
             "/visits/{id}/patient-message",
             post(patient_message::prepare),
@@ -424,6 +452,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/me/message-prefs",
             get(patient_message::prefs).put(patient_message::save_prefs),
         )
+        .route(
+            "/me/ui-prefs",
+            get(ui_prefs::get_prefs).put(ui_prefs::save_prefs),
+        )
+        .route("/me/stats", get(my_stats::get_stats))
         .route("/visits/{id}/notes", post(visits::create_note))
         .route("/notes/{id}", patch(visits::edit_note))
         .route("/notes/{id}/sign", post(visits::sign_note))
@@ -858,6 +891,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/recalls/{id}/done", post(recalls::done))
         .route("/recalls/{id}/dismiss", post(recalls::dismiss))
         .route("/drugs/search", post(prescriptions::search_drugs))
+        .route(
+            "/drugs/{id}/alternatives",
+            get(prescriptions::drug_alternatives),
+        )
         .route(
             "/patients/{id}/prescriptions",
             get(prescriptions::for_patient).post(prescriptions::create),

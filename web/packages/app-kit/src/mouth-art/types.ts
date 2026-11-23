@@ -83,6 +83,19 @@ export interface ToothArt {
   mat: GradientSpec[];
 }
 
+/** One tooth type's front crown for the painted map: outline, its box and the shading paths. */
+export interface FrontCrown {
+  crown: string;
+  box: Box | Box[];
+  lobe0?: string;
+  lobe1?: string;
+  lobe2?: string;
+  specular?: string;
+  specular2?: string;
+  incisalHalo?: string;
+}
+export type FrontAtlas = Record<ToothType, FrontCrown>;
+
 export interface ShapeSet {
   d: Record<string, string>;
   g: GradientSpec[];
@@ -167,6 +180,8 @@ export interface SceneNode {
   group?: Matrix;
   /** Layer transform, applied inside the clip. */
   m?: Matrix;
+  /** Layer name, kept only for layers a caller asked to mark (callout anchors). */
+  n?: string;
 }
 
 export interface SceneLabel {

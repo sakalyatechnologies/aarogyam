@@ -5,6 +5,8 @@ import com.aarogyam.staff.SUNRISE
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.json
 import com.aarogyam.staff.openClinic
+import com.aarogyam.staff.patientJson
+import com.aarogyam.staff.patientListJson
 import com.aarogyam.staff.testGraph
 import com.aarogyam.staff.walkin.LOOKUP
 import com.aarogyam.staff.walkin.MATCHES_JSON
@@ -142,6 +144,47 @@ class DeskLookupStateHolderTest {
                     .decodeToString()
             assertTrue("\"patient_id\":\"p1\"" in sent)
             assertFalse(logs.records.any { "9876543210" in it.toString() })
+        }
+
+    @Test
+    fun a_name_or_four_digits_list_patients_while_typing_with_check_in_only() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(
+                "$SUNRISE/api/v1/patients/search",
+                {
+                    json(
+                        patientListJson(
+                            patientJson("p1", "Meera Shah"),
+                            patientJson("p9", "Meena Rao", number = "SD-9"),
+                        ),
+                    )
+                },
+                { json(patientListJson(patientJson("p9", "Meena Rao", number = "SD-9"))) },
+            )
+            val holder = holder(backend)
+            holder.search("M")
+            holder.search("987")
+            assertEquals(DeskLookupState.Idle, holder.state.value, "one letter or three digits wait")
+            holder.search("Mee")
+            val names = assertIs<DeskLookupState.Matches>(holder.settled())
+            assertTrue(names.partial)
+            assertEquals(listOf("Meera Shah", "Meena Rao"), names.profiles.map { it.name })
+            assertTrue(names.profiles.first().checkedInToday, "Meera is in today's queue")
+            assertEquals(
+                listOf<DeskAction>(DeskAction.CheckIn("p9")),
+                names.actions,
+                "no new patient or family from a partial",
+            )
+            holder.search("9876")
+            holder.state.first { it is DeskLookupState.Matches && it.phone == "9876" }
+            val bodies =
+                backend.requests
+                    .filter {
+                        it.url.encodedPath.endsWith("/patients/search")
+                    }.map { it.body.toByteArray().decodeToString() }
+            assertEquals(2, bodies.size)
+            assertTrue(""""q":"Mee"""" in bodies[0] && """"q":"9876"""" in bodies[1], bodies.toString())
         }
 
     private companion object {

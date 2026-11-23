@@ -13,8 +13,9 @@ struct DeskPayTarget: Identifiable, Hashable {
     var id: String { patientId }
 }
 
-/// The Walk-in action's sheet: the front desk's lookup by mobile number first, then the existing
-/// walk-in form (with the number filled in) for a new patient or a family member.
+/// The Walk-in action's sheet (Clear Glass): a glass sheet with Close or Back in its toolbar, the
+/// front desk's lookup by mobile number first, then the walk-in form (with the number filled in) for
+/// a new patient or a family member.
 struct DeskSheet: View {
     let graph: AppGraph
     let clinic: ClinicContext
@@ -26,6 +27,9 @@ struct DeskSheet: View {
 
     @State private var mode: Mode
     @State private var paying: DeskPayTarget? = DeskLaunch.firstPayTarget
+    @State private var booking: DeskPayTarget?
+    @State private var path: [PatientRoute] = []
+    @Environment(\.dismiss) private var dismiss
 
     init(graph: AppGraph, clinic: ClinicContext, start: Mode? = nil) {
         self.graph = graph
@@ -34,25 +38,56 @@ struct DeskSheet: View {
     }
 
     var body: some View {
-        Group {
-            switch mode {
-            case .lookup:
-                ScreenHost(make: { graph.deskLookup(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
-                    DeskLookupScreen(
-                        holder: holder, state: state, graph: graph, clinic: clinic,
-                        onNewPatient: { mode = .form(phone: $0, family: nil) },
-                        onFamily: { mode = .form(phone: $0, family: $1) },
-                        onCollect: { paying = $0 }
-                    )
+        NavigationStack(path: $path) {
+            Group {
+                switch mode {
+                case .lookup:
+                    ScreenHost(make: { graph.deskLookup(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
+                        DeskLookupScreen(
+                            holder: holder, state: state, graph: graph, clinic: clinic,
+                            onNewPatient: { mode = .form(phone: $0, family: nil) },
+                            onFamily: { mode = .form(phone: $0, family: $1) },
+                            onCollect: { paying = $0 },
+                            onOpen: { path.append(PatientRoute(id: $0)) },
+                            onBook: { booking = $0 }
+                        )
+                    }
+                case .form(let phone, let family):
+                    ScreenHost(make: { graph.walkIn(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
+                        DeskFormScreen(holder: holder, state: state, phone: phone, family: family)
+                    }
                 }
-            case .form(let phone, let family):
-                ScreenHost(make: { graph.walkIn(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
-                    DeskFormScreen(holder: holder, state: state, phone: phone, family: family) { mode = .lookup }
+            }
+            .safeAreaInset(edge: .top, alignment: .leading) { OutboxBadge(graph: graph).padding(.horizontal, SkSpacing.l) }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .patientDestination(graph: graph, clinic: clinic)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    if case .form = mode {
+                        Button { mode = .lookup } label: { Image(systemName: "chevron.left") }
+                            .accessibilityLabel(dv("d9.back"))
+                    } else {
+                        Button { dismiss() } label: { Image(systemName: "xmark") }
+                            .accessibilityLabel(a11("a11.close"))
+                            .accessibilityIdentifier("sheet.close")
+                    }
                 }
             }
         }
-        .safeAreaInset(edge: .top, alignment: .leading) { OutboxBadge(graph: graph).padding(.horizontal, SkSpacing.l) }
+        .skGlassSheet(large: true)
         .sheet(item: $paying) { target in DeskPaymentSheet(graph: graph, clinic: clinic, target: target) }
+        .sheet(item: $booking) { target in
+            PatientBookSheet(graph: graph, clinic: clinic, patientId: target.patientId, name: target.name)
+        }
+    }
+
+    /// Walk-in while looking up; Someone new or Adding a family member on the form.
+    private var title: String {
+        switch mode {
+        case .lookup: String(localized: "walk_in.title")
+        case .form(_, let family): family == nil ? String(localized: "walk_in.someone_new") : dv("d9.family.title")
+        }
     }
 }
 
@@ -64,7 +99,6 @@ private struct DeskFormScreen: View {
     let phone: String
     /// The people on the number the new relative can be linked to; nil for a plain new patient.
     let family: [DeskFamilyAnchor]?
-    let onBack: () -> Void
     @State private var relation: DeskRelation = .guardian
     @State private var anchor: DeskFamilyAnchor?
     @State private var filled = false
@@ -72,15 +106,6 @@ private struct DeskFormScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button(action: onBack) {
-                    Label { Text(dv("d9.back")) } icon: { V7Icon(name: "back", size: 18, tint: theme.roles.primary.color) }
-                        .labelStyle(.titleAndIcon).v7Text(14, .semibold).foregroundStyle(theme.roles.primary.color)
-                        .frame(minHeight: SkSpacing.minTouchTarget)
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 18).padding(.top, 14)
             if let family, ServerCaps.shared.family { familyBar(family) }
             WalkInScreen(holder: holder, state: state)
         }
@@ -102,20 +127,29 @@ private struct DeskFormScreen: View {
     }
 
     private func familyBar(_ people: [DeskFamilyAnchor]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(dv("d9.family.title")).v7Text(15, .bold).foregroundStyle(theme.roles.onSurface.color)
+        let r = theme.roles
+        return VStack(alignment: .leading, spacing: 0) {
             Text(dvf("d9.family.number", DeskPhone.format(String(phone.suffix(DeskPhone.length)))))
-                .v7Text(12).foregroundStyle(theme.roles.onSurfaceVariant.color)
+                .font(.footnote).foregroundStyle(r.onSurfaceVariant.color).padding(.horizontal, 4).padding(.top, 8)
             if people.count > 1 {
-                V7Label(text: dv("d9.family.of_whom"))
-                SkChoiceChips(people, selected: anchor.map { [$0] } ?? [], label: { $0.name }) { anchor = $0 }
+                GroupedHeader(dv("d9.family.of_whom"))
+                V7Flow(spacing: 8) {
+                    ForEach(people, id: \.self) { person in
+                        GlassChip(text: person.name, selected: anchor == person, check: true) { anchor = person }
+                    }
+                }
             } else if let only = people.first {
-                Text(dvf("d9.family.of", only.name)).v7Text(12.5, .semibold).foregroundStyle(theme.roles.primary.color)
+                Text(dvf("d9.family.of", only.name)).font(.subheadline.weight(.semibold)).foregroundStyle(r.primary.color)
+                    .padding(.horizontal, 4).padding(.top, 6)
             }
-            V7Label(text: dv("d9.family.relation"))
-            SkChoiceChips(DeskRelation.allCases, selected: [relation], label: { $0.title }) { relation = $0 }
+            GroupedHeader(dv("d9.family.relation"))
+            V7Flow(spacing: 8) {
+                ForEach(DeskRelation.allCases, id: \.self) { option in
+                    GlassChip(text: option.title, selected: relation == option, check: true) { relation = option }
+                }
+            }
         }
-        .padding(.horizontal, 18).padding(.vertical, 8)
+        .padding(.horizontal, SkSpacing.l).padding(.bottom, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -198,7 +232,19 @@ private struct DeskFamilyList: View {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(person.name).v7Text(15, .bold).foregroundStyle(r.onSurface.color)
-                                Text("\(DeskRelation.title(wire: person.relation)) · \(person.number)").v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
+                                if loaded.canEdit {
+                                    // Change the relation in place (PATCH): a menu on the relation word.
+                                    Menu {
+                                        ForEach(DeskRelation.allCases, id: \.self) { option in
+                                            Button(option.title) { holder.changeRelation(linkId: person.linkId, relation: option.wire) }
+                                        }
+                                    } label: {
+                                        Text("\(DeskRelation.title(wire: person.relation)) ▾ · \(person.number)").v7Text(12).foregroundStyle(r.primary.color)
+                                    }
+                                    .accessibilityLabel(dvf("d9.family.relation.change.a11y", person.name))
+                                } else {
+                                    Text("\(DeskRelation.title(wire: person.relation)) · \(person.number)").v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
+                                }
                             }
                             Spacer(minLength: 0)
                             if loaded.canEdit {

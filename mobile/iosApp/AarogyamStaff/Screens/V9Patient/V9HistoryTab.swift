@@ -25,6 +25,7 @@ struct V9HistoryTab: View {
                         HistoryCard(row: row, todayISO: today) { onOpen(row.id) }
                     }
                 }
+                if loaded.hasMore { OlderVisitsButton(loading: loaded.loadingMore, action: holder.loadMore) }
             }
         }
     }
@@ -64,6 +65,7 @@ struct HistoryCard: View {
                         }
                         .padding(.top, 2)
                     }
+                    HistoryDetails(row: row)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 V7Icon(name: "chev", size: 18, tint: r.onSurfaceVariant.color)
@@ -74,13 +76,26 @@ struct HistoryCard: View {
         }
         .buttonStyle(.skPressable)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(([ClinicFormat.date(iso: iso), title, row.clinician] + chips.map(\.spoken)).joined(separator: ", "))
+        .accessibilityLabel(([ClinicFormat.date(iso: iso), title, row.clinician] + chips.map(spoken) + HistoryWork.lines(row)).joined(separator: ", "))
         .accessibilityAddTraits(.isButton)
+    }
+
+    private func spoken(_ chip: HistoryRowFormat.Chip) -> String {
+        if case .tooth(let number) = chip, let work = HistoryWork.of(row, tooth: number) {
+            return chip.spoken + ", " + HistoryWork.text(work)
+        }
+        return chipTitle(chip)
+    }
+
+    private func chipTitle(_ chip: HistoryRowFormat.Chip) -> String {
+        if chip == .photos, row.photoCount > 0 { return p9f("p9.chip.photo_count", Int(row.photoCount)) }
+        return chip.title
     }
 
     private func chipView(_ chip: HistoryRowFormat.Chip) -> some View {
         let r = theme.roles
         let (fill, ink): (Color, Color) = switch chip {
+        case .tooth(let number): HistoryWork.of(row, tooth: number).map { HistoryWork.colors($0, r) } ?? (r.surface2.color, r.onSurfaceVariant.color)
         case .paid: (r.primaryContainer.color, r.onPrimaryContainer.color)
         case .due, .dueAmount: (r.errorContainer.color, r.onErrorContainer.color)
         case .open: (r.tertiaryContainer.color, r.onTertiaryContainer.color)
@@ -88,7 +103,7 @@ struct HistoryCard: View {
         }
         return HStack(spacing: 3) {
             if case .tooth = chip { V7Icon(name: "tooth", size: 11, tint: ink) }
-            Text(chip.title).v7Text(11, .bold)
+            Text(chipTitle(chip)).v7Text(11, .bold)
         }
         .foregroundStyle(ink)
         .padding(.horizontal, 8).padding(.vertical, 3)

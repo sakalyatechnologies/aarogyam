@@ -158,7 +158,14 @@ final class VisitE2ETests: XCTestCase {
             "AAROGYAM_DEV_SIGN_IN": person.rawValue,
             "AAROGYAM_DEV_CLINIC": "sunrise",
         ]
-        app.launch()
+        // A dev sign-in sometimes stops at the welcome screen on a first launch (as in StoreScreensTests): try again.
+        for _ in 0..<3 {
+            app.launch()
+            if app.tabBars.firstMatch.waitForExistence(timeout: 25) { break }
+            app.terminate()
+        }
+        let notNow = app.buttons["Not now"]
+        if notNow.waitForExistence(timeout: 5) { notNow.tap() }
     }
 
     private func step(_ name: String, _ body: () -> Void) {

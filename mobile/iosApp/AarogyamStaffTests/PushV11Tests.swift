@@ -7,6 +7,7 @@ final class PushV11Tests: XCTestCase {
         XCTAssertEqual(PushLogic.destination(href: "/queue"), .queue)
         XCTAssertEqual(PushLogic.destination(href: "/tasks"), .tasks)
         XCTAssertEqual(PushLogic.destination(href: "/labs"), .labs)
+        XCTAssertEqual(PushLogic.destination(href: "/time-off"), .timeOff)
         // A plan reply or a recall names its patient: the tap opens them.
         XCTAssertEqual(PushLogic.destination(href: "/patients/abc"), .patient("abc"))
         XCTAssertEqual(PushLogic.destination(href: nil), .today)

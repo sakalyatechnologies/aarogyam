@@ -74,6 +74,21 @@ pub struct NewFamilyLink {
     pub is_primary_contact: bool,
 }
 
+/// What to change on a family link; a field left out stays as it was.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FamilyLinkChange {
+    /// What the relative is to this patient: `guardian`, `child`, `spouse`, `parent`, `sibling`
+    /// or `other`. The inverse link changes with it.
+    #[serde(default)]
+    #[schema(required = false)]
+    pub relation: Option<String>,
+    /// Whether the relative is this patient's contact person.
+    #[serde(default)]
+    #[schema(required = false)]
+    pub is_primary_contact: Option<bool>,
+}
+
 /// The patient's relatives.
 #[utoipa::path(
     get,
@@ -151,6 +166,56 @@ pub(crate) async fn add(
         "family linked"
     );
     Ok((StatusCode::CREATED, Json(view.into())))
+}
+
+/// Changes a family link's relation or contact flag (its inverse follows).
+#[utoipa::path(
+    patch,
+    path = "/api/v1/patients/{id}/family/{link_id}",
+    operation_id = "updateFamilyLink",
+    tag = "patients",
+    params(
+        ("id" = String, Path, description = "The patient"),
+        ("link_id" = String, Path, description = "The link")
+    ),
+    request_body = FamilyLinkChange,
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = FamilyLink),
+        (status = 400, description = "Unknown relation"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks patients.write"),
+        (status = 404, description = "No such link in this clinic")
+    )
+)]
+pub(crate) async fn update(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<PatientsWrite>,
+    ApiPath((id, link_id)): ApiPath<(Uuid, Uuid)>,
+    ApiJson(body): ApiJson<FamilyLinkChange>,
+) -> Result<Json<FamilyLink>, ApiFailure> {
+    let relation = body
+        .relation
+        .as_deref()
+        .map(|r| Relation::parse(r).map_err(|_| bad("relation", "unknown value")))
+        .transpose()?;
+    let view = app::update(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        PatientId::from_uuid(id),
+        PatientRelationId::from_uuid(link_id),
+        relation,
+        body.is_primary_contact,
+    )
+    .await?;
+    tracing::info!(
+        event = Event::FamilyLinked.as_str(),
+        patient_id = %id,
+        link_id = %link_id,
+        "family link changed"
+    );
+    Ok(Json(view.into()))
 }
 
 /// Removes a family link and its inverse.

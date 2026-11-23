@@ -22,6 +22,7 @@ const MESSAGE_SOURCE: &str = include_str!("../../../specialties/dental/visit-mes
 const AFTERCARE_SOURCE: &str = include_str!("../../../specialties/dental/aftercare.json");
 const TREATMENT_SOURCE: &str = include_str!("../../../specialties/dental/treatment-words.json");
 const DIAGNOSIS_SOURCE: &str = include_str!("../../../specialties/dental/diagnosis-words.json");
+const LEARN_SOURCE: &str = include_str!("../../../specialties/dental/learn-topics.json");
 
 /// The age from which a patient gets their own summary.
 pub const ADULT_AGE: u16 = 18;
@@ -236,6 +237,29 @@ fn kind_of(work: &Work<'_>) -> Option<Kind> {
     })
 }
 
+/// The treatment model key (`treatment-stages.json`) a typed name points to, by the same keyword
+/// matcher the message uses: "Root canal treatment" → `root_canal`, an extraction on a third
+/// molar → `wisdom_extraction`. Only the key leaves; the name itself is never kept.
+#[must_use]
+pub fn model_of_name(name: &str, tooth: Option<Tooth>) -> Option<&'static str> {
+    let work = Work {
+        code: None,
+        name,
+        tooth,
+        in_progress: false,
+    };
+    Some(match kind_of(&work)? {
+        Kind::Extraction => "extraction",
+        Kind::Wisdom => "wisdom_extraction",
+        Kind::RootCanal => "root_canal",
+        Kind::Filling => "filling",
+        Kind::Crown => "crown",
+        Kind::Implant => "implant",
+        Kind::Scaling => "scaling",
+        Kind::Whitening => "whitening",
+    })
+}
+
 /// Whether two records are the same treatment on the same tooth: the same code, or the same kind.
 #[must_use]
 pub fn same_treatment(a: &Work<'_>, b: &Work<'_>) -> bool {
@@ -292,6 +316,86 @@ pub fn aftercare_keys(done: &[Work<'_>], planned: &[Work<'_>]) -> Vec<&'static s
         .copied()
         .filter(|key| found.contains(key))
         .collect()
+}
+
+/// A public learn page (design §1.9): a static page per treatment on the learn host, whose
+/// generic picture is `WhatsApp`'s link preview. The id is random, so the URL names no procedure
+/// (AGENTS.md rule 6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LearnTopic {
+    /// The opaque id in the page's address, such as `r3zxqv`.
+    pub id: &'static str,
+    /// The page's title, such as "How a root canal works"; also the message's learn line.
+    pub title: &'static str,
+}
+
+#[derive(Debug, Deserialize)]
+struct LearnTopics {
+    topics: BTreeMap<String, LearnEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LearnEntry {
+    topic: String,
+    title: String,
+}
+
+fn learn_topics() -> Option<&'static LearnTopics> {
+    static TOPICS: OnceLock<Option<LearnTopics>> = OnceLock::new();
+    TOPICS
+        .get_or_init(|| serde_json::from_str(LEARN_SOURCE).ok())
+        .as_ref()
+}
+
+fn learn_page(topic: &str) -> Option<LearnTopic> {
+    learn_topics()?
+        .topics
+        .iter()
+        .find(|(_, entry)| entry.topic == topic)
+        .map(|(id, entry)| LearnTopic {
+            id,
+            title: &entry.title,
+        })
+}
+
+/// The learn topic of one treatment; none for one without a page (whitening, a milk tooth's
+/// pulpotomy, anything unrecognised).
+fn learn_key(work: &Work<'_>) -> Option<&'static str> {
+    let code = work.code.unwrap_or("").to_ascii_lowercase();
+    let name = work.name.to_ascii_lowercase();
+    if code == "pulpotomy" || name.contains("pulpotomy") {
+        return None;
+    }
+    if code == "sealant" || name.contains("sealant") {
+        return Some("sealant");
+    }
+    Some(match kind_of(work)? {
+        Kind::Extraction => "extraction",
+        Kind::Wisdom => "wisdom_extraction",
+        Kind::RootCanal => "root_canal",
+        Kind::Filling => "filling",
+        Kind::Crown => "crown",
+        Kind::Implant => "implant",
+        Kind::Scaling => "scaling",
+        Kind::Whitening => return None,
+    })
+}
+
+/// The visit's learn page: that of the first treatment done today that has one (the order of
+/// the Done section), or everyday care when nothing was treated (a check-up or consultation);
+/// none when nothing done has a page.
+#[must_use]
+pub fn learn_topic(done: &[Work<'_>]) -> Option<LearnTopic> {
+    if done.is_empty() {
+        return learn_page("general_care");
+    }
+    done.iter().find_map(learn_key).and_then(learn_page)
+}
+
+/// The learn page's address on the learn host's origin (`https://learn.<root>`, no path).
+#[must_use]
+pub fn learn_url(origin: &str, topic: LearnTopic) -> String {
+    format!("{}/learn/{}", origin.trim_end_matches('/'), topic.id)
 }
 
 /// Where a patient's age puts them for care at home: which general hygiene steps fill the care
@@ -605,6 +709,15 @@ pub enum NextVisit {
     Due(Date),
 }
 
+/// The learn line's title and address.
+#[derive(Debug, Clone, Copy)]
+pub struct LearnLink<'a> {
+    /// The page's title, such as "How a root canal works".
+    pub title: &'a str,
+    /// The page's address ([`learn_url`]).
+    pub url: &'a str,
+}
+
 /// What the summary is made of. Every field is a recorded fact; free text from notes never
 /// reaches it.
 #[derive(Debug, Clone)]
@@ -639,8 +752,9 @@ pub struct MessageInput<'a> {
     pub medicines: &'a [MedicineLine],
     /// The clinic's phone, for the booking line.
     pub clinic_phone: Option<&'a str>,
-    /// A public page about today's treatment; none until the learn site exists.
-    pub learn_url: Option<&'a str>,
+    /// The public learn page about today's treatment ([`learn_topic`]): the message's first
+    /// URL, a fixed line under Done. None without a topic or a learn host.
+    pub learn: Option<LearnLink<'a>>,
     /// The link to the visit page.
     pub url: &'a str,
     /// The link's PIN.
@@ -1255,8 +1369,12 @@ fn sections_of(
             });
         }
     }
-    if let Some(url) = input.learn_url {
-        done.push(Line::tail(fill(&t.learn, &[("url", url)])));
+    // The learn link names the treatment, so it goes with the detail the doctor ticked.
+    if let Some(learn) = input.learn.filter(|_| ticked) {
+        done.push(Line::tail(fill(
+            &t.learn,
+            &[("title", learn.title), ("url", learn.url)],
+        )));
     }
     sections.push(Section {
         heading: t.done.clone(),
@@ -1631,6 +1749,8 @@ mod tests {
 
     const TOKEN_URL: &str =
         "https://smile.aarogyam.example/shared/abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
+    /// The longest learn title's page, for the length bounds.
+    const LEARN_URL: &str = "https://learn.aarogyam.example/learn/9gckrk";
 
     fn medicine(generic: &str, days: u16) -> MedicineLine {
         MedicineLine {
@@ -1662,7 +1782,7 @@ mod tests {
             advice: &[],
             medicines,
             clinic_phone: Some("+919876500010"),
-            learn_url: None,
+            learn: None,
             url: "https://sunrise.example/shared/tok3n",
             pin: "482913",
             sections: SectionSet::ALL,
@@ -2025,7 +2145,10 @@ mod tests {
             doctor_name: Some("Dr Venkatanarasimharajuvaripeta Subrahmanya Lakshminarayana"),
             patient_name: "Aaravkrishnamurthyswaminathanramachandran Shah",
             recommend: recs,
-            learn_url: Some("https://learn.aarogyam.example/l/q7m2xk"),
+            learn: Some(LearnLink {
+                title: "How a wisdom tooth is removed",
+                url: LEARN_URL,
+            }),
             ..worked(done, medicines, keys)
         }
     }
@@ -2068,7 +2191,7 @@ mod tests {
             "recommends: Ceramic crown",
             "+3 more on your page",
             "To book, reply here",
-            "https://learn.aarogyam.example/l/q7m2xk",
+            LEARN_URL,
             TOKEN_URL,
             "*482913*",
             "Please don't forward it.",
@@ -2112,7 +2235,7 @@ mod tests {
         let length = encoded_len(&desktop) + DESKTOP_PREFIX;
         assert!(length <= DESKTOP_URL_MAX, "{length}: {desktop}");
         for part in [
-            "https://learn.aarogyam.example/l/q7m2xk",
+            LEARN_URL,
             "recommends: Crown",
             "+1 more on your page",
             "*482913*",
@@ -2158,6 +2281,112 @@ mod tests {
         assert_eq!(SectionSet::parse::<&str>(&[]), Ok(SectionSet::NONE));
         assert_eq!(SectionSet::ALL.names().len(), MessageSection::ALL.len());
         assert_eq!(SectionSet::default(), SectionSet::ALL);
+    }
+
+    fn learn_work(code: Option<&'static str>, name: &'static str, n: i64) -> Work<'static> {
+        Work {
+            code,
+            name,
+            tooth: Some(tooth(n)),
+            in_progress: false,
+        }
+    }
+
+    #[test]
+    fn the_learn_topic_is_the_first_treatment_with_a_page() {
+        let topic = |done: &[Work<'_>]| learn_topic(done).map(|t| (t.id, t.title));
+        let whitening = learn_work(Some("whitening"), "Whitening", 11);
+        let rct = learn_work(Some("root_canal"), "Root canal treatment", 21);
+        assert_eq!(
+            topic(&[whitening, rct]),
+            Some(("r3zxqv", "How a root canal works"))
+        );
+        assert_eq!(
+            topic(&[learn_work(None, "Extraction", 38)]),
+            Some(("9gckrk", "How a wisdom tooth is removed"))
+        );
+        assert_eq!(
+            topic(&[learn_work(Some("sealant"), "Sealant", 36)]).map(|t| t.0),
+            Some("tb242q")
+        );
+        // A check-up gets everyday care; work with no page gets no link.
+        assert_eq!(
+            topic(&[]),
+            Some(("nzpzs8", "Caring for your teeth at home"))
+        );
+        assert_eq!(topic(&[whitening]), None);
+        assert_eq!(
+            topic(&[learn_work(Some("pulpotomy"), "Pulpotomy", 75)]),
+            None
+        );
+        // Every topic the rules can pick has a page.
+        let topics = learn_topics().expect("learn-topics.json parses");
+        assert_eq!(topics.topics.len(), 9);
+        for key in [
+            "root_canal",
+            "filling",
+            "extraction",
+            "wisdom_extraction",
+            "crown",
+            "scaling",
+            "implant",
+            "sealant",
+            "general_care",
+        ] {
+            assert!(learn_page(key).is_some(), "{key}");
+        }
+    }
+
+    #[test]
+    fn learn_urls_are_opaque_and_carry_no_name_or_health_word() {
+        let health = [
+            "root", "canal", "rct", "fill", "extract", "wisdom", "crown", "scal", "clean",
+            "implant", "seal", "care", "tooth", "teeth", "decay", "pain",
+        ];
+        for (id, entry) in &learn_topics().expect("parses").topics {
+            assert!(
+                id.len() == 6
+                    && id
+                        .chars()
+                        .all(|c| "bcdfghjkmnpqrstvwxz23456789".contains(c)),
+                "{id}"
+            );
+            let topic = learn_page(&entry.topic).expect("resolves");
+            let url = learn_url("https://learn.aarogyam.example/", topic);
+            assert_eq!(url, format!("https://learn.aarogyam.example/learn/{id}"));
+            let path = url.trim_start_matches("https://learn.aarogyam.example");
+            for word in health.iter().chain(&["aarav", "shah"]) {
+                assert!(!path.contains(word), "{url} has {word}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_learn_link_is_the_first_url_and_goes_with_done() {
+        let done = root_canal();
+        let medicines = [medicine("Amoxicillin", 5), medicine("Paracetamol", 3)];
+        let keys = ["root_canal_between_sittings"];
+        let topic = learn_topic(&[learn_work(Some("root_canal"), "Root canal treatment", 21)])
+            .expect("a page");
+        let url = learn_url("https://learn.aarogyam.example", topic);
+        let mut input = worked(&done, &medicines, &keys);
+        input.learn = Some(LearnLink {
+            title: topic.title,
+            url: &url,
+        });
+        let text = compose(&input).text;
+        let line = format!("📘 How a root canal works: {url}");
+        assert!(text.contains(&line), "{text}");
+        assert_eq!(text.find("https://"), text.find(&url));
+        assert!(text.find(&line) > text.find("Next: sitting 5"), "{text}");
+        assert!(text.find(&line) < text.find("*Your plan*"), "{text}");
+        assert!(!line.contains("Aarav"), "{line}");
+        // Unticking Done hides the treatment, so the link goes too; no topic, one link.
+        input.sections = SectionSet::ALL.with(MessageSection::Done, false);
+        assert!(!compose(&input).text.contains("learn."));
+        input.sections = SectionSet::ALL;
+        input.learn = None;
+        assert_eq!(compose(&input).text.matches("https://").count(), 1);
     }
 
     #[test]

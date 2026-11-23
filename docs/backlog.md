@@ -246,3 +246,10 @@ The staff apps build these screens fully but show "Preview: needs server support
 Port the look of `aarogyam-st` (Lovable) into the portal behind a "New look" switch; keep our data layer, routes and permission checks. Order: shell with expandable icon rail, Today (studio widgets, date picker that loads that day's queue and completed list), Settings (adopt its tabs; keep our website designer and letterhead; add its site templates), then the other tabs. Backend asks: per-user studio layout, edit own name and phone, booking auto-confirm and default visit length, notification switches, chair-occupancy heatmap, chair room and paused flag, GST on price items, chat clinic channel and attachments.
 
 - ~~Patient photo bytes are not deleted from storage when a patient is erased~~ (done 17 Nov: the erase job deletes every file of the patient, 0721). Consent links go out by email only; a WhatsApp consent template is not built.
+
+## Patient history: the other styles (21 Nov 2026)
+The full page (`/patients/:id/history`) shipped first; design in `docs/plans/history-views-design.md` (appendix B).
+- **Large pop-up** (`?history=1&visit=<id>` on the patient route): visit list left, `VisitDetailBody` right, Up and Down move between visits.
+- **Patient story** (side sheet): a fixed "30-second read" block, then folding Treatments, X-rays, Notes and voice, Medicines, Billing.
+- **Per-member choice:** `member_ui_prefs` (pattern of `member_message_prefs`, 0742), `GET/PUT /me/ui-prefs`, a "History opens as" choice in Settings and a switcher in the history header.
+- **Design note:** all three reuse `GET /patients/{id}/history`, `HistoryFilters`, `VisitDetailBody` and the tooth glyphs; only the layout differs.

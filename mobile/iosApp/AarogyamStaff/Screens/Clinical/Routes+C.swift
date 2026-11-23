@@ -33,7 +33,7 @@ enum ClinicalRoutes {
             .navigationBarTitleDisplayMode(.inline)
         case .help:
             HelpPage()
-        case .stock, .labs, .rxSets:
+        case .stock, .labs, .rxSets, .timeOff:
             PreviewPage(title: route.title)
         }
     }

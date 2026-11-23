@@ -36,6 +36,7 @@
     <string name="dk_d9_family_of_whom">कोणाच्या कुटुंबात</string>
     <string name="dk_d9_family_relation">क्रमांकधारकाशी नाते</string>
     <string name="dk_d9_family_remove">काढा</string>
+    <string name="dk_d9_family_relation_change">%1$s यांचे नाते बदला</string>
     <string name="dk_d9_family_remove_a11y">%s ला कुटुंबातून काढा</string>
     <string name="dk_d9_family_section">कुटुंब</string>
     <string name="dk_d9_family_title">कुटुंबातील सदस्य जोडत आहे</string>
@@ -43,13 +44,16 @@
     <string name="dk_d9_lookup_check_in">चेक-इन करा</string>
     <string name="dk_d9_lookup_check_in_a11y">%s चे चेक-इन करा</string>
     <string name="dk_d9_lookup_checked_in">चेक-इन झाले</string>
+    <string name="dk_d9_lookup_open">प्रोफाइल</string>
+    <string name="dk_d9_lookup_open_a11y">रुग्णाचे पान उघडते</string>
+    <string name="dk_d9_lookup_book">भेट बुक करा</string>
     <string name="dk_d9_lookup_collect">पेमेंट घ्या</string>
     <string name="dk_d9_lookup_done_message">ते आजच्या प्रतीक्षालयात आहेत.</string>
     <string name="dk_d9_lookup_done_title">चेक-इन झाले, टोकन #%d</string>
     <string name="dk_d9_lookup_family">कुटुंबातील सदस्य जोडा</string>
-    <string name="dk_d9_lookup_hint">१० अंकी क्रमांक टाका. त्यावरील सर्वजण दिसतील.</string>
+    <string name="dk_d9_lookup_hint">नाव किंवा नंबरचे काही अंक लिहा. लिहिताच जुळणारे रुग्ण दिसतील.</string>
+    <string name="dk_d9_lookup_placeholder">नाव किंवा मोबाइल नंबर</string>
     <string name="dk_d9_lookup_last_visit">मागील भेट %s</string>
-    <string name="dk_d9_lookup_last_visit_none">मागील भेट अजून दिसत नाही</string>
     <string name="dk_d9_lookup_looking">शोधत आहे…</string>
     <string name="dk_d9_lookup_mobile">मोबाइल क्रमांक</string>
     <string name="dk_d9_lookup_new">नवीन रुग्ण</string>

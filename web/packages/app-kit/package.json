@@ -7,7 +7,17 @@
   "exports": {
     ".": "./src/index.ts",
     "./mouth-art": "./src/mouth-art/index.ts",
-    "./real-teeth-3d": "./src/real-teeth-3d/index.ts"
+    "./real-teeth-3d": "./src/real-teeth-3d/index.ts",
+    "./mouth-view": "./src/mouth-view/index.ts",
+    "./mouth-view.css": "./src/mouth-view/mouth-view.css",
+    "./present": "./src/present/index.ts",
+    "./present.css": "./src/present/present.css",
+    "./story-2d": "./src/story-2d/index.ts",
+    "./story-video": "./src/story-video/index.ts",
+    "./story-video/support": "./src/story-video/support.ts",
+    "./present/brushing-panel": "./src/present/brushing-panel.tsx",
+    "./present/deck": "./src/present/deck.tsx",
+    "./hold-to-exit.css": "./src/present/hold-to-exit.css"
   },
   "scripts": {
     "typecheck": "tsc -p ."
@@ -22,6 +32,7 @@
     "@aarogyam/api-client": "workspace:*",
     "@sakalya/ui": "link:../../../../sakalya-web/packages/ui",
     "lucide-react": "^1.50.0",
+    "mediabunny": "1.65.2",
     "three": "0.160.0"
   },
   "devDependencies": {

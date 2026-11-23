@@ -12,7 +12,7 @@ export { overlayPart, materialPaint, viewsForSurface, MATERIAL_LOOKS, type Overl
 export { eruptionScene, eruptionKey, type Eruption, type Angulation, type EruptionOptions } from "./eruption.js";
 export { sceneToSvg, drawScene, type Canvas2D, type CanvasDrawOptions, type PathLike, type SvgStringOptions } from "./render.js";
 export { loadToothArt, loadStageArt, loadBrushingArt, loadShapes, toothTypeOf, neighborOf } from "./loaders.js";
-export { STAGE_STEPS, STAGE_MODELS, EXTRA_SCENES, BRUSHING_BANDS, DETAIL_VALUES, type StageModel, type BrushingBand } from "./stage-steps.js";
+export { STAGE_STEPS, STAGE_MODELS, EXTRA_SCENES, BRUSHING_BANDS, DETAIL_VALUES, DETAIL_CHIPS, SCENE_ART, STAGE_CALLOUTS, sceneArt, type StageModel, type BrushingBand } from "./stage-steps.js";
 export { BAND_INFO, PHASE_CAPTION, LOOP_MS, brushingPose, brushingScene, type BrushPose, type BrushPhase, type BandInfo } from "./brushing.js";
 export { resolveArt, ART_MAP, type ArtRef } from "./art-map.js";
 export { ArtSvg, BrushingAnimation, type ArtSvgProps, type BrushingAnimationProps } from "./react.js";

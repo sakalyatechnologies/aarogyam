@@ -1,0 +1,14 @@
+{
+  "name": "@aarogyam/learn",
+  "private": true,
+  "type": "module",
+  "description": "The public learn pages (/learn/<id>): one static page per treatment topic with a generic still for WhatsApp's link preview. Served by an assets-only Worker (deploy/cloudflare/learn).",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "stills": "node scripts/render-stills.mjs",
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "vite": "^8.3.2"
+  }
+}

@@ -20,6 +20,7 @@ import com.aarogyam.staff.desk.DeskLookupStateHolder
 import com.aarogyam.staff.desk.WaitTimerHolder
 import com.aarogyam.staff.desk.createAvailability
 import com.aarogyam.staff.desk.createWaitTimer
+import com.aarogyam.staff.device.AppearancePreference
 import com.aarogyam.staff.device.Dictation
 import com.aarogyam.staff.device.DictationLanguage
 import com.aarogyam.staff.device.MemoryPreferences
@@ -68,6 +69,7 @@ import com.aarogyam.staff.signin.DeleteAccountHolder
 import com.aarogyam.staff.signin.InviteStateHolder
 import com.aarogyam.staff.signin.RegistrationStateHolder
 import com.aarogyam.staff.signin.SignInStateHolder
+import com.aarogyam.staff.story.PresentStateHolder
 import com.aarogyam.staff.tasks.MyTasksHolder
 import com.aarogyam.staff.tasks.createMyTasks
 import com.aarogyam.staff.team.BadgesStateHolder
@@ -78,6 +80,8 @@ import com.aarogyam.staff.team.InviteStaffStateHolder
 import com.aarogyam.staff.team.NotificationsStateHolder
 import com.aarogyam.staff.team.StockStateHolder
 import com.aarogyam.staff.team.TeamStateHolder
+import com.aarogyam.staff.timeoff.TimeOffHolder
+import com.aarogyam.staff.timeoff.createTimeOff
 import com.aarogyam.staff.today.TodayStateHolder
 import com.aarogyam.staff.visit.FinishVisitHolder
 import com.aarogyam.staff.visit.VisitStateHolder
@@ -414,6 +418,13 @@ class AppGraph private constructor(
         scope: CoroutineScope,
     ): RecurringExpensesStateHolder = RecurringExpensesStateHolder(clinic, scope, logger("aarogyam.recurring"))
 
+    /** Show patient: the visit's mouth view in the story WebView. */
+    fun present(
+        clinic: ClinicContext,
+        visitId: String,
+        scope: CoroutineScope,
+    ): PresentStateHolder = PresentStateHolder(clinic, visitId, scope, logger("aarogyam.present"))
+
     /** The tooth sheet's Add treatment form over [chart]; inside [visitId] it also logs visit procedures. */
     fun toothSheet(
         clinic: ClinicContext,
@@ -424,6 +435,9 @@ class AppGraph private constructor(
         ToothSheetStateHolder(clinic, chart, visitId, scope, logger("aarogyam.toothsheet"), writes, dictation)
 
     private val voiceLanguages = VoiceLanguagePreference(preferences)
+
+    /** Light, dark or the phone's look (More, Appearance); kept on this device. */
+    val appearance: AppearancePreference = AppearancePreference(preferences)
 
     private val signedInUser: String?
         get() = (sessions.state.value as? SessionState.SignedIn)?.userId?.toString()
@@ -548,6 +562,11 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): MyTasksHolder = createMyTasks(clinic, scope)
+
+    fun timeOff(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): TimeOffHolder = createTimeOff(clinic, scope)
 
     /** The push token and language to the server, and the DELETE before sign-out ([PushRegistration]). */
     val push: PushRegistration =

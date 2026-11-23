@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select present as \"present!\" from aarogyam.org_settings\n           where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "present!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_settings",
+            "name": "present"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "71c3faa1c927edf37638c21374dbe4f87f87aebd8b97d26c2ff8cbf2b21f0656"
+}

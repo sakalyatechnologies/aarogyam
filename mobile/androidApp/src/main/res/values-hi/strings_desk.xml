@@ -36,6 +36,7 @@
     <string name="dk_d9_family_of_whom">किसके परिवार में</string>
     <string name="dk_d9_family_relation">नंबर के मालिक से रिश्ता</string>
     <string name="dk_d9_family_remove">हटाएँ</string>
+    <string name="dk_d9_family_relation_change">%1$s का रिश्ता बदलें</string>
     <string name="dk_d9_family_remove_a11y">%s को परिवार से हटाएँ</string>
     <string name="dk_d9_family_section">परिवार</string>
     <string name="dk_d9_family_title">परिवार का सदस्य जोड़ रहे हैं</string>
@@ -43,13 +44,16 @@
     <string name="dk_d9_lookup_check_in">चेक-इन करें</string>
     <string name="dk_d9_lookup_check_in_a11y">%s को चेक-इन करें</string>
     <string name="dk_d9_lookup_checked_in">चेक-इन हो चुका</string>
+    <string name="dk_d9_lookup_open">प्रोफ़ाइल</string>
+    <string name="dk_d9_lookup_open_a11y">मरीज़ का पेज खोलता है</string>
+    <string name="dk_d9_lookup_book">विज़िट बुक करें</string>
     <string name="dk_d9_lookup_collect">भुगतान लें</string>
     <string name="dk_d9_lookup_done_message">वे आज के प्रतीक्षालय में हैं।</string>
     <string name="dk_d9_lookup_done_title">चेक-इन हुआ, टोकन #%d</string>
     <string name="dk_d9_lookup_family">परिवार का सदस्य जोड़ें</string>
-    <string name="dk_d9_lookup_hint">10 अंकों का नंबर लिखें। उस नंबर के सभी लोग दिखेंगे।</string>
+    <string name="dk_d9_lookup_hint">नाम या नंबर के कुछ अंक लिखें। लिखते ही मिलते मरीज़ दिखेंगे।</string>
+    <string name="dk_d9_lookup_placeholder">नाम या मोबाइल नंबर</string>
     <string name="dk_d9_lookup_last_visit">पिछली विज़िट %s</string>
-    <string name="dk_d9_lookup_last_visit_none">पिछली विज़िट अभी नहीं दिख रही</string>
     <string name="dk_d9_lookup_looking">खोज रहे हैं…</string>
     <string name="dk_d9_lookup_mobile">मोबाइल नंबर</string>
     <string name="dk_d9_lookup_new">नया मरीज़</string>

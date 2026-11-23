@@ -39,7 +39,7 @@ where
 /// A tooth's current condition. Each field is present only when recorded.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ToothCondition {
-    /// Identifier of the current row.
+    /// Identifier of the current row; the cleared row when a change left no condition.
     #[schema(value_type = String)]
     pub id: Uuid,
     /// FDI tooth number (primary teeth included).
@@ -187,7 +187,10 @@ pub struct DetailInError {
 /// Sets a tooth's condition. Under a lock on the tooth's condition, the change merges onto the
 /// current row (an omitted field keeps its value, `null` clears it) and the merged row
 /// supersedes it, in the open visit when there is one; concurrent changes both land. Returns the
-/// condition.
+/// condition. A change that clears every field ("Infection resolved" on the only field, or
+/// untapping the last chip) supersedes the current row and leaves no current condition (history
+/// kept): the body then has no `infection`, `bleeding`, `pocket_mm` or `mobility`, and `id` is
+/// the cleared row.
 #[utoipa::path(
     put,
     path = "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/condition",
@@ -201,7 +204,7 @@ pub struct DetailInError {
     security(("bearer" = [])),
     responses(
         (status = 200, body = ToothCondition),
-        (status = 400, description = "A bad tooth or value, nothing left after the merge, or infection, pocket or mobility on a missing tooth"),
+        (status = 400, description = "A bad tooth or value, nothing to record on a tooth with no condition, or infection, pocket or mobility on a missing tooth"),
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such patient in this clinic"),

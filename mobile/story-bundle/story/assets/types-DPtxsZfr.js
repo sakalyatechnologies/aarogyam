@@ -1,0 +1,1 @@
+var e=`u1.u2.u3.u4.u5.u6.u7.u8.l1.l2.l3.l4.l5.l6.l7.l8.pu1.pu2.pu3.pu4.pu5.pl1.pl2.pl3.pl4.pl5`.split(`.`);export{e as t};

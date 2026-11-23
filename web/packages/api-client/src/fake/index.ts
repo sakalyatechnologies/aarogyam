@@ -14,3 +14,4 @@ export {
   type Fixtures,
 } from "./fixtures.js";
 export { freshSetup } from "./setup.js";
+export { fakePresentStudio, withPrices } from "./present.js";

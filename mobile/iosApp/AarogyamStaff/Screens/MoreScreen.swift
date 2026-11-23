@@ -5,7 +5,7 @@ import SwiftUI
 
 /// A More tile's destination.
 enum MoreRoute: Hashable {
-    case analytics, expenses, messages, stock, labs, team, rxSets, help
+    case analytics, expenses, messages, stock, labs, team, timeOff, rxSets, help
     /// Team chat, from Team or Messages, and one conversation in it (the other person's name or the group's title).
     case chats
     case thread(id: String, title: String)
@@ -23,6 +23,7 @@ struct MoreScreen: View {
     @State private var avatars = false
     @State private var deleting = false
     @State private var languages = false
+    @State private var appearance = false
     @State private var avatarRevision = 0
     @State private var unsent: Int?
     @Environment(\.skTheme) private var theme
@@ -71,6 +72,7 @@ struct MoreScreen: View {
         }
         .sheet(isPresented: $deleting) { DeleteAccountSheet(graph: graph) }
         .sheet(isPresented: $languages) { LanguageSheet(graph: graph).presentationDetents([.medium, .large]) }
+        .sheet(isPresented: $appearance) { AppearanceSheet(preference: graph.appearance).presentationDetents([.medium]) }
         .sheet(isPresented: $avatars) { AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large]) }
     }
 
@@ -107,10 +109,12 @@ struct MoreScreen: View {
         case .stock: path.append(.stock)
         case .labWork: path.append(.labs)
         case .team: path.append(.team)
+        case .timeOff: path.append(.timeOff)
         case .rxSets: path.append(.rxSets)
         case .settings: settingsURL = URL(string: clinic.api.origin + "/settings")
         case .switchClinic: onSwitchClinic()
         case .language: languages = true
+        case .appearance: appearance = true
         case .help: path.append(.help)
         case .signOut:
             // Writes not sent yet would be lost: ask first.
@@ -127,6 +131,8 @@ struct MoreScreen: View {
             }
         case .labs:
             LabsRoute(graph: graph, clinic: clinic)
+        case .timeOff:
+            RoutesV10TimeOff.screen(graph: graph, clinic: clinic)
         default:
             ClinicalRoutes.destination(route, graph: graph, clinic: clinic, path: $path)
         }
@@ -142,6 +148,7 @@ extension MoreRoute {
         case .stock: String(localized: "v7.tile.stock")
         case .labs: String(localized: "v7.tile.lab_work")
         case .team: String(localized: "v7.tile.team")
+        case .timeOff: TimeOffV10.t("timeoff.title")
         case .rxSets: String(localized: "v7.tile.rx_sets")
         case .help: String(localized: "v7.tile.help")
         case .chats: CL("c.chat.title")
@@ -172,7 +179,7 @@ enum MoreSizes {
 
 extension MoreTile {
     /// Grid tiles; the rest are list rows below.
-    var isGridTile: Bool { ![.switchClinic, .language, .help, .signOut].contains(self) }
+    var isGridTile: Bool { ![.switchClinic, .language, .appearance, .help, .signOut].contains(self) }
 
     var title: String {
         switch self {
@@ -182,11 +189,13 @@ extension MoreTile {
         case .stock: String(localized: "v7.tile.stock")
         case .labWork: String(localized: "v7.tile.lab_work")
         case .team: String(localized: "v7.tile.team")
+        case .timeOff: TimeOffV10.t("timeoff.title")
         case .clinicQr: String(localized: "v7.tile.clinic_qr")
         case .rxSets: String(localized: "v7.tile.rx_sets")
         case .settings: String(localized: "v7.tile.settings")
         case .switchClinic: String(localized: "v7.tile.switch_clinic")
         case .language: String(localized: "v7.tile.language")
+        case .appearance: String(localized: "v7.tile.appearance")
         case .help: String(localized: "v7.tile.help")
         case .signOut: String(localized: "v7.tile.sign_out")
         }
@@ -200,6 +209,7 @@ extension MoreTile {
         case .stock: String(localized: "v7.tile.stock.sub")
         case .labWork: String(localized: "v7.tile.lab_work.sub")
         case .team: String(localized: "v7.tile.team.sub")
+        case .timeOff: TimeOffV10.t("timeoff.tile_sub")
         case .clinicQr: String(localized: "v7.tile.clinic_qr.sub")
         case .rxSets: String(localized: "v7.tile.rx_sets.sub")
         case .settings: String(localized: "v7.tile.settings.sub")
@@ -218,11 +228,13 @@ extension MoreTile {
         case .stock: "box"
         case .labWork: "flask"
         case .team: "team"
+        case .timeOff: "cal"
         case .clinicQr: "qr"
         case .rxSets: "rx"
         case .settings: "gear"
         case .switchClinic: "swap"
         case .language: "globe"
+        case .appearance: "spark"
         case .help: "help"
         case .signOut: "out"
         }

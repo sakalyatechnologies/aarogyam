@@ -3,7 +3,7 @@ import Foundation
 
 /// Where a tapped push opens. `queue` is the desk board or the doctor's waiting list, both on Today.
 enum PushDestination: Equatable {
-    case today, queue, tasks, labs
+    case today, queue, tasks, labs, timeOff
     /// A plan reply: the patient its `/patients/{id}` path names (an id, never a name).
     case patient(String)
 }
@@ -30,6 +30,7 @@ enum PushLogic {
         case .queue: .queue
         case .tasks: .tasks
         case .labs: .labs
+        case .timeOff: .timeOff
         default: .today
         }
     }

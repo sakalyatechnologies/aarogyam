@@ -7,6 +7,8 @@ struct RootView: View {
     let app: AppModel
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
+    /// Light or dark as picked in More (nil follows the phone).
+    @State private var scheme: ColorScheme?
 
     var body: some View {
         let branding = app.clinic?.branding ?? ClinicBranding.companion.Default
@@ -16,8 +18,19 @@ struct RootView: View {
             .background(theme.palette.background.color.ignoresSafeArea())
             .tint(theme.palette.primaryText.color)
             .skTheme(theme)
+            .preferredColorScheme(scheme)
+            .task(id: graphID) {
+                guard case .ready(let graph) = app.phase else { return }
+                for await next in graph.appearance.state { scheme = next.colorScheme }
+            }
             // Polls run only while the app is in front (founder decision, 29 Oct 2026).
             .onChange(of: scenePhase, initial: true) { _, phase in AppForeground.shared.set(inFront: phase == .active) }
+    }
+
+    /// Restarts the appearance watch when the graph changes.
+    private var graphID: ObjectIdentifier? {
+        if case .ready(let graph) = app.phase { return ObjectIdentifier(graph) }
+        return nil
     }
 
     @ViewBuilder private var content: some View {

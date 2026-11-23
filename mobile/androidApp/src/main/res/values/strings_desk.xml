@@ -36,6 +36,7 @@
     <string name="dk_d9_family_of_whom">Family of</string>
     <string name="dk_d9_family_relation">Relation to the number\'s owner</string>
     <string name="dk_d9_family_remove">Remove</string>
+    <string name="dk_d9_family_relation_change">Change relation for %1$s</string>
     <string name="dk_d9_family_remove_a11y">Remove %s from the family</string>
     <string name="dk_d9_family_section">Family</string>
     <string name="dk_d9_family_title">Adding a family member</string>
@@ -43,13 +44,18 @@
     <string name="dk_d9_lookup_check_in">Check in</string>
     <string name="dk_d9_lookup_check_in_a11y">Check in %s</string>
     <string name="dk_d9_lookup_checked_in">Checked in</string>
+    <string name="dk_d9_lookup_open">Profile</string>
+    <string name="dk_d9_lookup_open_a11y">Opens the patient page</string>
+    <string name="dk_d9_lookup_book">Book visit</string>
     <string name="dk_d9_lookup_collect">Collect payment</string>
     <string name="dk_d9_lookup_done_message">They are in today\'s waiting room.</string>
     <string name="dk_d9_lookup_done_title">Checked in, token #%d</string>
     <string name="dk_d9_lookup_family">Add family member</string>
-    <string name="dk_d9_lookup_hint">Type the 10-digit number. Everyone on it shows up.</string>
+    <string name="dk_d9_lookup_hint">Type a name or a few digits of the number. Matches show as you type.</string>
+    <string name="dk_d9_lookup_placeholder">Name or mobile number</string>
+    <string name="dk_d9_lookup_letters" translatable="false">ABC</string>
+    <string name="dk_d9_lookup_digits" translatable="false">123</string>
     <string name="dk_d9_lookup_last_visit">Last visit %s</string>
-    <string name="dk_d9_lookup_last_visit_none">Last visit not shown yet</string>
     <string name="dk_d9_lookup_looking">Looking…</string>
     <string name="dk_d9_lookup_mobile">Mobile number</string>
     <string name="dk_d9_lookup_new">New patient</string>

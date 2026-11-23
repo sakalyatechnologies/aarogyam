@@ -13,6 +13,7 @@ import {
   type AppointmentId,
   type AppointmentStatus,
   type AttachmentId,
+  type ImagePins,
   type ClinicSettingsChanges,
   type ConditionFields,
   type DateRange,
@@ -23,6 +24,8 @@ import {
   type MembershipId,
   type NewAppointmentBody,
   type NewChartEntries,
+  type NewToothCondition,
+  type NewToothEruption,
   type NewToothStatus,
   type ToothStatus,
   type NewDentalTerm,
@@ -54,6 +57,8 @@ import {
   type SessionId,
   type StatusChange,
   type Today,
+  type NewUiPrefs,
+  type UiPrefs,
   type TokenStatusChange,
   type VisitId,
   type WalkInBody,
@@ -533,6 +538,7 @@ function invalidateSchedule(queryClient: ReturnType<typeof useQueryClient>, orgI
   void queryClient.invalidateQueries({ queryKey: ["appointments", orgId] });
   void queryClient.invalidateQueries({ queryKey: ["today", orgId] });
   void queryClient.invalidateQueries({ queryKey: ["queue", orgId] });
+  invalidateMouth(queryClient, orgId);
 }
 
 export function useBookAppointment() {
@@ -904,6 +910,7 @@ export function useRecordProcedure(visitId: VisitId, patientId: PatientId) {
       void queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
       void queryClient.invalidateQueries({ queryKey: ["procedures", access.org_id, patientId] });
       void queryClient.invalidateQueries({ queryKey: ["timeline", access.org_id, patientId] });
+      invalidateMouth(queryClient, access.org_id);
     },
   });
 }
@@ -913,7 +920,89 @@ export function useCompleteProcedure(visitId: VisitId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: ProcedureId) => unwrap(api.completeProcedure(id)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] }),
+    onSuccess: () => {
+      invalidateMouth(queryClient, access.org_id);
+      return queryClient.invalidateQueries({ queryKey: ["visit", access.org_id, visitId] });
+    },
+  });
+}
+
+/** Show patient's studio layer (slice 2a): the usual options for the recorded situations. Refetched with the mouth. */
+export function useVisitPresent(visitId: VisitId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["visit-mouth", access.org_id, visitId, "present"],
+    queryFn: ({ signal }) => (visitId === undefined ? Promise.reject(new Error("no visit")) : unwrap(api.getVisitPresent(visitId, { signal }))),
+    enabled: visitId !== undefined,
+  });
+}
+
+/** "What we discussed" for a visit (slice 2e): the current rows. */
+export function useVisitPresentDiscussions(visitId: VisitId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["present-discussions", access.org_id, visitId],
+    queryFn: ({ signal }) => (visitId === undefined ? Promise.reject(new Error("no visit")) : unwrap(api.listPresentDiscussions(visitId, { signal }))),
+    enabled: visitId !== undefined,
+  });
+}
+
+/** Saves what was discussed, one row per tooth and situation; each supersedes the one before. */
+export function useSavePresentDiscussions(visitId: VisitId | undefined) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (drafts: readonly { tooth: number; situation: string; options: { key: string; preferred: boolean }[]; send?: boolean }[]) => {
+      if (visitId === undefined) throw new Error("no visit");
+      for (const d of drafts) {
+        await unwrap(api.savePresentDiscussion(visitId, { tooth: d.tooth, situation: d.situation, options: d.options, send_to_patient: d.send === true }));
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["present-discussions", access.org_id, visitId] }),
+  });
+}
+
+/** Present mode's mouth snapshot (design §1.12): the same JSON the patient's page shows. */
+export function useVisitMouth(visitId: VisitId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["visit-mouth", access.org_id, visitId],
+    queryFn: ({ signal }) => (visitId === undefined ? Promise.reject(new Error("no visit")) : unwrap(api.getVisitMouth(visitId, { signal }))),
+    enabled: visitId !== undefined,
+  });
+}
+
+/**
+ * Refetches every open mouth view (DF6): after chart entries, tooth details, tooth-status saves, procedures, plan changes and
+ * bookings, which can each change a tooth or `next_visit`.
+ */
+export function invalidateMouth(queryClient: ReturnType<typeof useQueryClient>, orgId: string) {
+  void queryClient.invalidateQueries({ queryKey: ["visit-mouth", orgId] });
+}
+
+/** Merges a change into a tooth's condition (§1.13): omitted fields stay, `null` clears. */
+export function useSetToothCondition(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tooth, input }: { tooth: number; input: NewToothCondition }) => unwrap(api.setToothCondition(patientId, tooth, input)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] });
+      invalidateMouth(queryClient, access.org_id);
+    },
+  });
+}
+
+/** Sets a permanent tooth's eruption and angle (§1.13, VS1 B5). */
+export function useSetToothEruption(patientId: PatientId) {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tooth, input }: { tooth: number; input: NewToothEruption }) => unwrap(api.setToothEruption(patientId, tooth, input)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] });
+      invalidateMouth(queryClient, access.org_id);
+    },
   });
 }
 
@@ -946,7 +1035,10 @@ export function useRecordChartEntries(patientId: PatientId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: NewChartEntries) => unwrap(api.recordChartEntries(patientId, input)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] }),
+    onSuccess: () => {
+      invalidateMouth(queryClient, access.org_id);
+      return queryClient.invalidateQueries({ queryKey: ["dental-chart", access.org_id, patientId] });
+    },
   });
 }
 
@@ -980,6 +1072,7 @@ export function useSetToothStatus(patientId: PatientId) {
     },
     onSuccess: (saved, { tooth }) => {
       queryClient.setQueriesData<DentalChart>({ queryKey: key }, (chart) => withStatus(chart, tooth, saved));
+      invalidateMouth(queryClient, access.org_id);
     },
   });
 }
@@ -1000,6 +1093,9 @@ export function useClearToothStatus(patientId: PatientId) {
     onError: (_error, _tooth, context) => {
       for (const [queryKey, chart] of context?.before ?? []) queryClient.setQueryData(queryKey, chart);
     },
+    onSuccess: () => {
+      invalidateMouth(queryClient, access.org_id);
+    },
   });
 }
 
@@ -1009,6 +1105,28 @@ export function useAttachments(patientId: PatientId | undefined) {
     queryKey: ["attachments", access.org_id, patientId],
     queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.listAttachments(patientId, { signal }))),
     enabled: patientId !== undefined,
+  });
+}
+
+/** The tooth pins placed on an X-ray or photo, kept for the next visit (slice 2g). */
+export function useImagePins(imageId: AttachmentId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["image-pins", access.org_id, imageId],
+    queryFn: ({ signal }) => (imageId === undefined ? Promise.reject(new Error("no image")) : unwrap(api.listImagePins(imageId, { signal }))),
+    enabled: imageId !== undefined,
+  });
+}
+
+/** Saves the whole pin set of one image. */
+export function useSaveImagePins() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ imageId, pins }: { imageId: AttachmentId; pins: ImagePins }) => unwrap(api.saveImagePins(imageId, pins)),
+    onSuccess: (saved, { imageId }) => {
+      queryClient.setQueryData(["image-pins", access.org_id, imageId], saved);
+    },
   });
 }
 
@@ -1064,6 +1182,41 @@ export function useMergePatient() {
       refresh();
       invalidateSchedule(queryClient, access.org_id);
       void queryClient.invalidateQueries({ queryKey: ["patients", access.org_id] });
+    },
+  });
+}
+
+/** The caller's saved screen choices (Show patient style, history view); defaults until saved. */
+export function useUiPrefs() {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["ui-prefs", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.getUiPrefs({ signal })),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Saves screen choices; optimistic, and rolled back when the save fails. */
+export function useSaveUiPrefs() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  const key = ["ui-prefs", access.org_id];
+  return useMutation({
+    mutationFn: (input: NewUiPrefs) => unwrap(api.saveUiPrefs(input)),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const before = queryClient.getQueryData<UiPrefs>(key);
+      queryClient.setQueryData<UiPrefs>(key, {
+        present_style: input.present_style ?? before?.present_style ?? "story",
+        history_view: input.history_view ?? before?.history_view ?? "page",
+      });
+      return { before };
+    },
+    onError: (_error, _input, context) => {
+      queryClient.setQueryData(key, context?.before);
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
     },
   });
 }

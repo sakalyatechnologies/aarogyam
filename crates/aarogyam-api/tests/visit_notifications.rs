@@ -1782,3 +1782,135 @@ async fn a_reminded_notification_rises_to_the_top_and_paging_stays_whole() {
 
     app.finish().await;
 }
+
+fn collected(items: &[Value], bill: &str) -> Vec<Value> {
+    items
+        .iter()
+        .filter(|item| item["kind"] == "payment_collected" && item["payment"]["invoice_id"] == bill)
+        .cloned()
+        .collect()
+}
+
+async fn collected_rows(app: &TestApp, bill: &str) -> i64 {
+    sqlx::query_scalar(
+        "select count(*) from aarogyam.staff_notifications
+         where invoice_id = $1 and kind = 'payment_collected'",
+    )
+    .bind(uuid_of(bill))
+    .fetch_one(&app.owner)
+    .await
+    .unwrap()
+}
+
+/// Treats a visit and closes it with a fee, sent for payment; returns (visit, bill).
+async fn sent_for_payment(
+    app: &TestApp,
+    doctor: &str,
+    assistant: &str,
+    patient: &str,
+    practitioner: Uuid,
+) -> (String, String) {
+    let queued = walk_in(app, assistant, patient, Some(practitioner)).await;
+    let visit = start_visit(app, doctor, &queued).await;
+    let closed = post_ok(
+        app,
+        doctor,
+        &format!("/api/v1/visits/{visit}/close"),
+        Some(json!({ "fee_paise": 50_000, "queue_status": "ready_to_bill" })),
+    )
+    .await;
+    let bill = closed["invoice"]["id"].as_str().unwrap().to_owned();
+    (visit, bill)
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_doctor_hears_when_the_desk_collects_a_bill_they_sent() {
+    let app = TestApp::start().await;
+    let clinic = app.clinic_id("alpha").await;
+    let owner = app.token(ALPHA_OWNER);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let (doctor, member) = new_member(&app, clinic, "doctor").await;
+    let practitioner = on_rota(&app, clinic, member, branch(&app, clinic).await, "Dr Rao").await;
+    let patient = register(&app, &owner, "Meera Shah").await;
+
+    // Sent for payment, the desk takes part of it: the doctor is told, with the amount.
+    let (_visit, bill) = sent_for_payment(&app, &doctor, &assistant, &patient, practitioner).await;
+    assert_eq!(collected_rows(&app, &bill).await, 0);
+    let (status, paid) = pay(&app, &assistant, &patient, &bill, "collected-0001", 20_000).await;
+    assert_eq!(status, StatusCode::CREATED, "{paid}");
+    let items = collected(&feed(&app, &doctor).await, &bill);
+    assert_eq!(items.len(), 1, "{items:?}");
+    assert_eq!(items[0]["payment"]["amount_paise"], 20_000);
+    assert_eq!(items[0]["payment"]["patient_id"], patient);
+    // a tap opens the patient
+    assert_eq!(items[0]["href"], format!("/patients/{patient}"));
+    assert!(items[0]["payment"]["visit_id"].is_string());
+    assert_eq!(items[0]["audience"], "doctor");
+    // Ids and the amount only: no name appears anywhere in the row.
+    let text = items[0].to_string();
+    assert!(!text.contains("Meera") && !text.contains("Shah"), "{text}");
+    let columns: String = sqlx::query_scalar(
+        "select n::text from aarogyam.staff_notifications n
+         where invoice_id = $1 and kind = 'payment_collected'",
+    )
+    .bind(uuid_of(&bill))
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert!(
+        !columns.contains("Meera") && !columns.contains("Shah"),
+        "{columns}"
+    );
+
+    // A second payment renews the same row with its amount.
+    let (status, paid) = pay(&app, &assistant, &patient, &bill, "collected-0002", 30_000).await;
+    assert_eq!(status, StatusCode::CREATED, "{paid}");
+    assert_eq!(collected_rows(&app, &bill).await, 1);
+    let items = collected(&feed(&app, &doctor).await, &bill);
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["payment"]["amount_paise"], 30_000);
+
+    // Nobody else reads it: not the desk, not the owner.
+    assert_eq!(collected(&feed(&app, &assistant).await, &bill).len(), 0);
+    assert_eq!(collected(&feed(&app, &owner).await, &bill).len(), 0);
+
+    // The doctor recording the payment themselves is not told.
+    let other = register(&app, &owner, "Kavya Rao").await;
+    let (_visit, own_bill) =
+        sent_for_payment(&app, &doctor, &assistant, &other, practitioner).await;
+    let (status, paid) = pay(&app, &doctor, &other, &own_bill, "collected-0003", 50_000).await;
+    assert_eq!(status, StatusCode::CREATED, "{paid}");
+    assert_eq!(collected_rows(&app, &own_bill).await, 0);
+
+    // A visit never sent for payment has no collect_payment: no notification.
+    let third = register(&app, &owner, "Isha Nair").await;
+    let queued = walk_in(&app, &assistant, &third, Some(practitioner)).await;
+    let visit = start_visit(&app, &doctor, &queued).await;
+    let loose = collect_bill(&app, &owner, &third, &visit, 10_000).await;
+    assert_eq!(bill_rows(&app, &visit, "collect_payment").await, 0);
+    let (status, paid) = pay(&app, &assistant, &third, &loose, "collected-0004", 10_000).await;
+    assert_eq!(status, StatusCode::CREATED, "{paid}");
+    assert_eq!(collected_rows(&app, &loose).await, 0);
+
+    // Another clinic sees nothing of it.
+    let beta = app.token(BETA_OWNER);
+    let (status, body) = app
+        .send(
+            Method::GET,
+            BETA,
+            "/api/v1/notifications",
+            Some(&beta),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|item| item["kind"] != "payment_collected")
+    );
+    app.finish().await;
+}

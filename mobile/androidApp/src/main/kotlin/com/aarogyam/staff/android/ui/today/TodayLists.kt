@@ -3,13 +3,12 @@ package com.aarogyam.staff.android.ui.today
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
@@ -17,6 +16,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.glass.GroupGap
+import com.aarogyam.staff.android.ui.glass.GroupRow
+import com.aarogyam.staff.android.ui.glass.KindTile
 import com.aarogyam.staff.art.Icons
 import com.aarogyam.staff.today.AttentionKind
 import com.aarogyam.staff.today.AttentionView
@@ -35,6 +38,7 @@ import com.aarogyam.staff.today.ScheduleItem
 import com.aarogyam.staff.today.VisitStatus
 import com.sakalya.mobile.designcompose.SkIcon
 import com.sakalya.mobile.designcompose.SkTheme
+import com.sakalya.mobile.designcompose.SkTone
 import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
 
@@ -47,7 +51,7 @@ fun SectionHeader(
 ) {
     Row(
         Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, top = 16.dp, bottom = 7.dp),
-        verticalAlignment = Alignment.Bottom,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             title,
@@ -67,7 +71,11 @@ fun SectionHeader(
                 action,
                 style = SkTypography.callout.copy(fontWeight = FontWeight.Bold),
                 color = SkTheme.palette.primary.color,
-                modifier = Modifier.clickable(role = Role.Button, onClick = onAction).padding(4.dp),
+                modifier =
+                    Modifier
+                        .minimumInteractiveComponentSize()
+                        .clickable(role = Role.Button, onClick = onAction)
+                        .padding(horizontal = 4.dp),
             )
         }
     }
@@ -105,6 +113,7 @@ fun UpNextCarousel(
                     listOfNotNull(item.starts.short(), item.reason).joinToString(" · "),
                     style = SkTypography.caption,
                     color = ink.copy(alpha = 0.8f),
+                    minLines = 2,
                     maxLines = 2,
                 )
             }
@@ -118,14 +127,14 @@ fun ScheduleList(
     items: List<ScheduleItem>,
     onOpen: (ScheduleItem) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(GroupGap)) {
         items.forEachIndexed { i, item ->
             ListRow(i, items.size, { onOpen(item) }) {
                 Text(
                     item.starts.short(),
-                    style = Mono.copy(fontSize = 11.5.sp),
+                    style = Mono.copy(fontSize = 13.sp),
                     color = SkTheme.palette.onSurfaceVariant.color,
-                    modifier = Modifier.widthIn(min = 42.dp),
+                    modifier = Modifier.widthIn(min = 46.dp),
                 )
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -156,15 +165,10 @@ fun AttentionList(
     onOpen: (AttentionView) -> Unit,
 ) {
     val p = SkTheme.palette
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(GroupGap)) {
         items.forEachIndexed { i, item ->
             ListRow(i, items.size, { onOpen(item) }) {
-                Box(
-                    Modifier.size(LIST_SHAPE.dp).background(p.errorContainer.color, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("!", style = SkTypography.label, color = p.onErrorContainer.color)
-                }
+                KindTile("queue", SkTone.Warning)
                 Column(Modifier.weight(1f)) {
                     val title =
                         when (item.kind) {
@@ -185,26 +189,14 @@ fun AttentionList(
     }
 }
 
+/** A Clear Glass inset-group row (solid card, 20 dp ends, 4 dp joins, 56 dp tall). */
 @Composable
 private fun ListRow(
     index: Int,
     count: Int,
     onClick: () -> Unit,
-    content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
-) {
-    val top = if (index == 0) BIG else SMALL
-    val bottom = if (index == count - 1) BIG else SMALL
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(SkTheme.palette.surface1.color, RoundedCornerShape(top.dp, top.dp, bottom.dp, bottom.dp))
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 11.dp, vertical = 9.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        content = content,
-    )
-}
+    content: @Composable RowScope.() -> Unit,
+) = GroupRow(index, count, onClick = onClick, content = content)
 
 /** The mockup's pills: done (primary container), waiting/in chair (tertiary), missed (error), later (neutral). */
 @Composable
@@ -250,6 +242,3 @@ private const val CARD = 136
 private const val FIRST = 164
 private const val CAR_RADIUS = 20
 private const val CAR_AVATAR = 42
-private const val BIG = 22
-private const val SMALL = 8
-private const val LIST_SHAPE = 36

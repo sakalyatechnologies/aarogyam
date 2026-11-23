@@ -1,5 +1,31 @@
-Aarogyam Clinic is for staff of clinics that use Aarogyam. Accounts are created by a clinic owner's invitation.
+1. SCREEN RECORDING
+Attached to this submission. Recorded on a physical iPhone on the latest iOS. It starts at app launch and shows sign-in, the waiting list, patient search, a patient's history, a visit with notes and a prescription, payment, and account deletion (More > Delete account).
 
-To review: on the sign-in screen tap "Use a password" and sign in with the demo account above. It is the owner of a demo clinic that holds only made-up patients, so every feature is visible and no real patient data is shown.
+2. PURPOSE AND AUDIENCE
+Aarogyam is clinic software for doctors and their staff (front desk, assistants, clinic owners) at small and mid-size clinics in India. It replaces paper registers and files. Staff find or register a patient, see who is waiting, run the visit (notes, dictation, prescription, tooth chart for dental clinics), record payment, and look back at the patient's history. Each person sees only what their role allows.
+Aarogyam is a general product offered by Sakalya Technologies to any clinic, not an app built for a single company or its employees. Patients will join the same app in a later version.
 
-The camera is used for patient photos and X-rays, and the microphone and speech recognition for dictating visit notes. Recordings are never stored.
+3. HOW TO ACCESS
+On the sign-in screen tap "Use a password" and sign in with the demo account in the Sign-In Information fields. (Normal sign-in sends a one-time code by email, which reviewers can't receive.)
+The demo account owns a demo clinic that holds only made-up patients, so every feature is visible and no real patient data is shown. Try: Patients tab > search "98" or a name; open a patient > History; Waiting list > start a visit > add notes and a prescription > finish > collect payment.
+Accounts: staff accounts are created by a clinic owner's invitation; there is no public sign-up in the app. Any account can be deleted in the app at More > Delete account.
+There is no paid content and no purchase of any kind in the app. Clinics subscribe to Aarogyam directly with Sakalya Technologies as a business service.
+
+4. EXTERNAL SERVICES
+- Supabase: sign-in (email codes and passwords).
+- Google Cloud Run: hosts the Aarogyam API.
+- Cloudflare: web hosting and routing for the API.
+- Resend: sends the sign-in code emails.
+- Firebase Cloud Messaging with Apple Push Notification service: staff alerts, such as a patient waiting too long.
+- Firebase Crashlytics and Analytics: crash reports and usage counts. No advertising identifier; no patient data is sent.
+- Apple Speech framework: dictating visit notes. Recordings are never stored.
+No AI services, data brokers or payment processors are used. Payments are recorded by the clinic (cash, UPI or card done outside the app); the app does not process money.
+
+5. REGIONS
+The app works the same in every region. It is designed for Indian clinics (Indian Rupee amounts, Indian mobile numbers, UPI as a payment method), but no feature or content changes by region.
+
+6. REGULATED INDUSTRY
+Aarogyam is record-keeping and practice-management software for licensed clinics. It does not diagnose, treat or give medical advice, and it is not a medical device; every clinical entry is written by the clinic's own doctor. The clinics and doctors hold their own registrations with the relevant medical and dental councils. Sakalya Technologies provides the software and follows India's Digital Personal Data Protection Act; patient data is stored in India. We are happy to provide company registration documents on request.
+
+PERMISSIONS
+The camera is used for patient photos and X-rays, and the microphone and speech recognition for dictating visit notes.

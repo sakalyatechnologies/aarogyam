@@ -23,13 +23,24 @@ object DeskPhone {
         return digits.take(LENGTH)
     }
 
-    /** `98765 43210`: two groups of five, as the field shows them. */
+    /** True when the desk is typing a name rather than a number. */
+    fun isName(typed: String): Boolean = typed.any { it.isLetter() }
+
+    /** What the search gets: a name as typed (trimmed), else the number's digits. */
+    fun query(typed: String): String = if (isName(typed)) typed.trim().take(NAME_MAX) else digits(typed)
+
+    /** The number a new patient starts with: the typed digits, or nothing for a name. */
+    fun newPatientPhone(typed: String): String = if (isName(typed)) "" else digits(typed)
+
+    /** `98765 43210`: two groups of five, as the field shows them; a name stays as typed. */
     fun format(typed: String): String {
+        if (isName(typed)) return typed.take(NAME_MAX)
         val digits = digits(typed)
         return if (digits.length > GROUP) "${digits.take(GROUP)} ${digits.drop(GROUP)}" else digits
     }
 
     private const val GROUP = 5
+    private const val NAME_MAX = 40
 }
 
 enum class DeskPayProblem { Amount, Method }

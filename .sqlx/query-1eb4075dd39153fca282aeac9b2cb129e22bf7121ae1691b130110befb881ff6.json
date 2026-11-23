@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.member_ui_prefs (membership_id, present_style, history_view, language)\n           values ($1, $2, $3, $4)\n           on conflict (org_id, membership_id) do update set\n             present_style = coalesce(excluded.present_style, member_ui_prefs.present_style),\n             history_view = coalesce(excluded.history_view, member_ui_prefs.history_view),\n             language = case when $5 then excluded.language else member_ui_prefs.language end\n           returning present_style, history_view, language",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "present_style",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_ui_prefs",
+            "name": "present_style"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "history_view",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_ui_prefs",
+            "name": "history_view"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "language",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.member_ui_prefs",
+            "name": "language"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "1eb4075dd39153fca282aeac9b2cb129e22bf7121ae1691b130110befb881ff6"
+}

@@ -401,6 +401,16 @@ pub async fn record(
                 )
                 .await?;
             }
+            // The visit's doctor hears of a payment on a bill their visit sent for payment.
+            for (invoice, amount) in &input.allocations {
+                aarogyam_dal::notifications::write_payment_collected(
+                    tx.conn(),
+                    invoice.uuid(),
+                    *amount,
+                    actor.membership_id.uuid(),
+                )
+                .await?;
+            }
             // A bill paid in full finishes its visit's token (`ready_to_bill` -> `done`).
             let settled = dal::lock_invoices(tx.conn(), &ids).await?;
             for bill in settled.iter().filter(|b| b.total_paise - b.paid_paise <= 0) {

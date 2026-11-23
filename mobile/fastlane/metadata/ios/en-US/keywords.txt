@@ -1,1 +1,1 @@
-clinic,dental,doctor,patient,queue,prescription,appointment,dentist,practice,EMR,front desk
+doctor,clinic,EMR,EHR,OPD,prescription,appointment,queue,physician,pediatric,dental,practice,billing

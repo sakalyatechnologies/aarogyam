@@ -99,6 +99,8 @@ pub mod patient;
 pub mod patient_app;
 pub mod permission;
 pub mod prescription;
+pub mod present;
+pub mod present_discussion;
 pub mod promo;
 pub mod quick_picks;
 pub mod retention;

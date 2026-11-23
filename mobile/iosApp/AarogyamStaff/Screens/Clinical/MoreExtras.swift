@@ -81,6 +81,14 @@ struct LanguageSheet: View {
 
     private static let languages: [(code: String, name: String)] = [("en", "English"), ("hi", "हिन्दी"), ("mr", "मराठी")]
 
+    /// The language picked here; iOS applies an app's language when the app next starts.
+    @State private var picked: String?
+
+    private func choose(_ code: String) {
+        picked = code
+        UserDefaults.standard.set([code], forKey: "AppleLanguages")
+    }
+
     var body: some View {
         let r = theme.roles
         let current = Bundle.main.preferredLocalizations.first?.prefix(2).description ?? "en"
@@ -96,9 +104,14 @@ struct LanguageSheet: View {
                         }
                         .padding(.vertical, 13).padding(.horizontal, 14)
                         .background(r.card.color, in: UnevenRoundedRectangle(cornerRadii: MoreSizes.listRadii(index, of: 3), style: .continuous))
+                        .contentShape(Rectangle())
+                        .onTapGesture { choose(language.code) }
                         .accessibilityElement(children: .combine)
-                        .accessibilityAddTraits(language.code == current ? .isSelected : [])
+                        .accessibilityAddTraits(language.code == current ? [.isSelected, .isButton] : .isButton)
                     }
+                }
+                if let picked, picked != current {
+                    Text(CL("c.language.restart")).font(.footnote.weight(.semibold)).foregroundStyle(r.primary.color)
                 }
                 SkPillButton(CL("c.language.open"), wide: true) {
                     if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
@@ -117,5 +130,64 @@ struct LanguageSheet: View {
         }
         .skSheet()
         .onAppear { voice = graph?.voiceLanguage() }
+    }
+}
+
+/// Light, dark or the phone's look, kept on this phone; the whole app switches at once.
+struct AppearanceSheet: View {
+    let preference: AppearancePreference
+    @State private var current: Appearance = .system
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.skTheme) private var theme
+
+    var body: some View {
+        let r = theme.roles
+        let all = Array(Appearance.allCases)
+        VStack(alignment: .leading, spacing: SkSheetSizes.gap) {
+            SkSheetHeader(String(localized: "v7.tile.appearance"))
+            VStack(spacing: 3) {
+                ForEach(Array(all.enumerated()), id: \.element) { index, option in
+                    Button {
+                        preference.set(appearance: option)
+                        current = option
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Text(option.title).font(.system(size: 15, weight: .bold)).foregroundStyle(r.onSurface.color)
+                            Spacer(minLength: 0)
+                            if option == current { V7Icon(name: "check", size: 20, tint: r.primary.color) }
+                        }
+                        .padding(.vertical, 13).padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .background(r.card.color, in: UnevenRoundedRectangle(cornerRadii: MoreSizes.listRadii(index, of: all.count), style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(option == current ? .isSelected : [])
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, SkSheetSizes.paddingH)
+        .padding(.top, SkSheetSizes.paddingTop + SkSheetSizes.grabGap)
+        .task { current = preference.state.value }
+    }
+}
+
+extension Appearance {
+    var title: String {
+        switch self {
+        case .system: String(localized: "appearance.system")
+        case .light: String(localized: "appearance.light")
+        case .dark: String(localized: "appearance.dark")
+        }
+    }
+
+    /// What SwiftUI's `preferredColorScheme` takes: nil follows the phone.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
     }
 }

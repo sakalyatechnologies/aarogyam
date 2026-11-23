@@ -12,7 +12,8 @@ struct TodayV7Screen: View {
     let notifications: NotificationsStateHolder
     let notificationsState: ListState
     let onOpenPatient: (String) -> Void
-    let onOpenSchedule: () -> Void
+    /// Opens the Schedule tab on a segment: 0 Queue, 1 Day.
+    let onOpenSchedule: (Int) -> Void
     let onAddExpense: (() -> Void)?
     @State private var qr = false
     @State private var bell = false
@@ -30,6 +31,7 @@ struct TodayV7Screen: View {
             .padding(.bottom, SkSpacing.xxl)
         }
         .scrollIndicators(.hidden)
+        .skSoftScrollEdge()
         .refreshable { await refresh() }
         .task(id: scenePhase) {
             // Reloads every 20 s (shared PollingUpdates) while Today is on screen and the app is active.
@@ -55,7 +57,6 @@ struct TodayV7Screen: View {
                 bell = false
                 onOpenPatient(id)
             }
-            .closableSheet()
         }
         .sheet(isPresented: $avatars) {
             AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large])
@@ -138,7 +139,8 @@ private struct DayContent: View {
     let clinic: ClinicContext
     let state: TodayStateLoaded
     let onOpenPatient: (String) -> Void
-    let onOpenSchedule: () -> Void
+    /// Opens the Schedule tab on a segment: 0 Queue, 1 Day.
+    let onOpenSchedule: (Int) -> Void
     let onAddExpense: (() -> Void)?
     let onEditAvatar: () -> Void
     @Environment(\.skTheme) private var theme
@@ -158,7 +160,7 @@ private struct DayContent: View {
                 ) { onOpenPatient($0.patientId) }
                 .padding(.top, 8)
             }
-            TodayStats(counts: view.counts).padding(.top, 10)
+            TodayStats(counts: view.counts) { onOpenSchedule(0) }.padding(.top, 10)
             if let hero = view.hero, let kind = view.heroKind {
                 TodayHero(
                     kind: kind, item: hero, progress: Double(view.progress), done: Int(view.counts.done),
@@ -172,7 +174,7 @@ private struct DayContent: View {
                 TodaySectionHeader(
                     title: String(localized: "t7.up_next", table: "TodayV7"),
                     action: String(format: String(localized: "t7.up_next.all", table: "TodayV7"), Int(view.counts.visits)),
-                    onAction: onOpenSchedule
+                    onAction: { onOpenSchedule(1) }
                 )
                 .padding(.horizontal, SkSpacing.l)
                 UpNextCarousel(items: next) { onOpenPatient($0.patientId) }.padding(.horizontal, -SkSpacing.l)

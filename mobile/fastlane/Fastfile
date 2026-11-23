@@ -8,6 +8,7 @@
 # - Uploads land as TestFlight builds or Play drafts; submitting for review stays a person's click.
 
 require 'base64'
+require 'fileutils'
 require 'json'
 require 'shellwords'
 require 'tmpdir'
@@ -42,7 +43,7 @@ IOS_SCHEME = 'AarogyamStaff'.freeze
 # --------------------------------------------------------------------------- versions
 
 def ios_build_number = File.read(project_yml)[/^\s+CURRENT_PROJECT_VERSION: (\d+)$/, 1].to_i
-def ios_marketing_version = File.read(project_yml)[/^\s+MARKETING_VERSION: ([\d.]+)$/, 1]
+def ios_marketing_version = File.read(project_yml)[/^\s+MARKETING_VERSION: "?([\d.]+)"?$/, 1]
 def android_version_code = File.read(gradle_file)[/versionCode = (\d+)/, 1].to_i
 def android_version_name = File.read(gradle_file)[/versionName = "([^"]+)"/, 1]
 
@@ -67,6 +68,33 @@ def require_prod_settings
 
   UI.user_error!("Set #{missing.map { |env, key| "#{env} (or #{key} in mobile/local.secrets.properties)" }.join(', ')} " \
                  'to the production values before a release build.')
+end
+
+# The release folder outside git (docs/release.md): the ASC key ids, the Firebase configs and the
+# Android upload key live in ~/.aarogyam-release. AAROGYAM_RELEASE_DIR overrides it.
+def release_dir = ENV['AAROGYAM_RELEASE_DIR'].to_s.empty? ? File.join(Dir.home, '.aarogyam-release') : ENV['AAROGYAM_RELEASE_DIR']
+
+# KEY=value lines from fastlane/credentials/asc.env, else the release folder's asc.env, for any
+# variable not already set. Values are never printed.
+[File.join(credentials_dir, 'asc.env'), File.join(release_dir, 'asc.env')].find { |f| File.exist?(f) }&.then do |f|
+  File.readlines(f).each do |line|
+    key, value = line.strip.split('=', 2)
+    ENV[key] = value if key && value && !key.start_with?('#') && ENV[key].to_s.empty?
+  end
+end
+
+# Release builds report crashes and usage to Firebase, so the config must be there: the iOS build
+# phase reads it from the release folder, and Gradle from androidApp/src/prod (copied here).
+def require_firebase(platform)
+  if platform == :ios
+    src = ENV['AAROGYAM_FIREBASE_PLIST'].to_s.empty? ? File.join(release_dir, 'firebase', 'GoogleService-Info.plist') : ENV['AAROGYAM_FIREBASE_PLIST']
+    UI.user_error!("No Firebase config at #{src} (GoogleService-Info.plist for #{app_identifier}). See docs/release.md.") unless File.exist?(src)
+  else
+    dest = m('androidApp', 'src', 'prod', 'google-services.json')
+    src = File.join(release_dir, 'firebase', 'google-services.json')
+    FileUtils.cp(src, dest) if !File.exist?(dest) && File.exist?(src)
+    UI.user_error!("No Firebase config at #{dest} (google-services.json). See docs/release.md.") unless File.exist?(dest)
+  end
 end
 
 # --------------------------------------------------------------------------- credentials
@@ -133,6 +161,7 @@ platform :ios do
   desc 'Build the App Store-signed Release .ipa (talks to Prod)'
   lane :build do
     require_prod_settings
+    require_firebase(:ios)
     sh("cd #{m('iosApp').shellescape} && xcodegen generate --quiet")
     xcargs = ['-allowProvisioningUpdates', "DEVELOPMENT_TEAM=#{team_id}", 'CODE_SIGN_STYLE=Automatic']
     if (key = asc_key_material)
@@ -156,15 +185,18 @@ platform :ios do
   end
 
   desc 'Build and upload to TestFlight (internal testers)'
-  lane :beta do
+  # `ipa:` uploads an IPA exported elsewhere (for example signed with the Xcode account when the API key may not
+  # cloud-sign): `fastlane ios beta ipa:/path/AarogyamStaff.ipa`.
+  lane :beta do |options|
     latest = latest_testflight_build_number(api_key: app_store_api_key, app_identifier: app_identifier,
                                             version: ios_marketing_version, initial_build_number: 0)
     if ios_build_number <= latest
       UI.user_error!("Build #{ios_build_number} of #{ios_marketing_version} is already on TestFlight (latest #{latest}). " \
                      'Run `bundle exec fastlane ios bump_build_number` and commit it.')
     end
-    build
-    upload_to_testflight(api_key: app_store_api_key, ipa: ipa_path, distribute_external: false,
+    ipa = options[:ipa]
+    build unless ipa
+    upload_to_testflight(api_key: app_store_api_key, ipa: ipa || ipa_path, distribute_external: false,
                          skip_submission: true, skip_waiting_for_build_processing: true)
   end
 
@@ -198,6 +230,7 @@ platform :android do
   desc 'Build the signed prod release App Bundle (.aab)'
   lane :build do
     require_prod_settings
+    require_firebase(:android)
     upload_key = ENV['AAROGYAM_UPLOAD_STORE_FILE'].to_s.empty? ? m('androidApp', 'keystore.properties') : nil
     if upload_key && !File.exist?(upload_key)
       UI.user_error!('No upload key: add mobile/androidApp/keystore.properties (git-ignored) or the AAROGYAM_UPLOAD_* ' \

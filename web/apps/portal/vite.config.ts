@@ -29,6 +29,8 @@ export default defineConfig(({ mode }) => {
     // Two pages: the portal, and the small patient-link page (`shared.html`, served for
     // `/shared/*` by the portal Worker) that loads none of the portal's code.
     build: {
+      // The manifest feeds the patient page's lazy budgets (scripts/check-shared-size.mjs).
+      manifest: true,
       rollupOptions: {
         input: {
           index: fileURLToPath(new URL("./index.html", import.meta.url)),

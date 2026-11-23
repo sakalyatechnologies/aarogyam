@@ -4,6 +4,9 @@
  * the whole entry stays small (see `scripts/check-shared-size.mjs`). Public routes only; the
  * token and PIN are the only credentials.
  */
+import type { MouthSnapshot } from "@aarogyam/api-client";
+
+import { parseChart } from "./chart.js";
 
 /** What `GET /api/v1/shared/{token}` says about a link before the PIN. */
 export interface LinkPreview {
@@ -45,6 +48,24 @@ export interface Aftercare {
   readonly callIf?: string | null;
 }
 
+/** One option the doctor ticked to send. A price only when the clinic shows prices. */
+export interface DiscussedOption {
+  readonly label: string;
+  readonly summary: string;
+  readonly looksLike: string;
+  readonly comfort: string;
+  readonly material?: string | null;
+  readonly preferred: boolean;
+  readonly fromPaise?: number | null;
+}
+
+/** A ticked "Options we discussed" row. */
+export interface Discussed {
+  readonly tooth?: number | null;
+  readonly title: string;
+  readonly options: readonly DiscussedOption[];
+}
+
 /** The visit as the patient may see it. Fields after `expiresAt` arrive with newer servers. */
 export interface Visit {
   readonly clinicName: string;
@@ -63,6 +84,10 @@ export interface Visit {
   readonly aftercare: readonly Aftercare[];
   readonly clinicPhone?: string | null;
   readonly practitionerId?: string | null;
+  /** The mouth snapshot (design §1.12); older servers leave it out. */
+  readonly chart?: MouthSnapshot | undefined;
+  /** Options the doctor ticked for the patient; older servers leave it out. */
+  readonly discussed: readonly Discussed[];
 }
 
 /** Why a call failed, in the terms the page shows. */
@@ -128,6 +153,11 @@ export async function previewLink(token: string): Promise<Result<LinkPreview>> {
   };
 }
 
+function chartOf(body: unknown): { chart?: MouthSnapshot } {
+  const chart = parseChart(body);
+  return chart === undefined ? {} : { chart };
+}
+
 /** Reads a visit summary response; unknown or missing optional parts become empty. */
 export function parseVisit(body: unknown): Visit | undefined {
   if (!isObject(body)) return undefined;
@@ -152,6 +182,26 @@ export function parseVisit(body: unknown): Visit | undefined {
     chiefComplaint: optText(body["chief_complaint"]),
     clinicPhone: optText(body["clinic_phone"]),
     practitionerId: optText(body["practitioner_id"]),
+    ...chartOf(body["chart"]),
+    discussed: list(body["discussed"]).flatMap((row) => {
+      const title = text(row["title"]);
+      const options = list(row["options"]).flatMap((o) => {
+        const label = text(o["label"]);
+        if (label === undefined) return [];
+        return [
+          {
+            label,
+            summary: text(o["summary"]) ?? "",
+            looksLike: text(o["looks_like"]) ?? "",
+            comfort: text(o["comfort"]) ?? "",
+            material: optText(o["material"]),
+            preferred: o["preferred"] === true,
+            fromPaise: optNumber(o["from_paise"]),
+          },
+        ];
+      });
+      return title === undefined || options.length === 0 ? [] : [{ tooth: optNumber(row["tooth"]), title, options }];
+    }),
     treatments: list(body["treatments"]).flatMap((item) => {
       const name = text(item["name"]);
       return name === undefined ? [] : [{ name, tooth: optNumber(item["tooth"]) }];

@@ -16,6 +16,10 @@ spotless = "8.9.0"
 openapi-generator = "7.14.0"
 skie = "0.10.15"
 ktlint = "1.8.0"
+# Firebase Crashlytics and Analytics (release builds of the prod flavour only carry the config).
+firebase-bom = "35.1.0"
+google-services = "4.5.0"
+firebase-crashlytics-gradle = "3.0.8"
 android-compileSdk = "37"
 android-targetSdk = "37"
 android-minSdk = "26"
@@ -38,6 +42,10 @@ compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 exifinterface = { module = "androidx.exifinterface:exifinterface", version = "1.4.1" }
+webkit = { module = "androidx.webkit:webkit", version = "1.14.0" }
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
+firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
+firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
 zxing-core = { module = "com.google.zxing:core", version = "3.5.3" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
 appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
@@ -56,3 +64,5 @@ android-lint = { id = "com.android.lint", version.ref = "agp" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }
 skie = { id = "co.touchlab.skie", version.ref = "skie" }
+google-services = { id = "com.google.gms.google-services", version.ref = "google-services" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebase-crashlytics-gradle" }

@@ -209,6 +209,8 @@ pub enum Event {
     ConversationStarted,
     /// A staff chat message was posted.
     ChatMessagePosted,
+    /// A Show patient discussion was saved or marked entered in error.
+    PresentDiscussionSaved,
     /// A staff chat message was deleted by its author.
     ChatMessageDeleted,
     /// A file was attached to a staff chat message.
@@ -372,6 +374,7 @@ impl Event {
             Self::LegalHoldChanged => "legal_hold.changed",
             Self::ConversationStarted => "conversation.started",
             Self::ChatMessagePosted => "chat_message.posted",
+            Self::PresentDiscussionSaved => "present.discussion_saved",
             Self::ChatMessageDeleted => "chat_message.deleted",
             Self::ChatAttachmentPosted => "chat_attachment.posted",
             Self::ChatNoticePosted => "chat_notice.posted",

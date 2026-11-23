@@ -2339,6 +2339,7 @@ export const mouthStep = z.object({
 export const mouthTreatment = z.object({
   model: z.string(),
   state: z.string(),
+  recommended: z.boolean().exactOptional(),
   typical_visits: count,
   steps: z.array(mouthStep),
   recovery: z.array(z.string()),
@@ -2366,15 +2367,19 @@ export const mouthDetails = z.object({
 export const mouthTooth = z.object({
   tooth: count,
   finding: z.string().exactOptional(),
+  finding_on: day.exactOptional(),
   surfaces: z.array(z.string()).exactOptional(),
   material: z.string().exactOptional(),
   health: z.string().exactOptional(),
   treat_within_months: count.exactOptional(),
   today: z.string().exactOptional(),
   planned: z.boolean().exactOptional(),
+  recommended: z.boolean().exactOptional(),
+  recommended_on: day.exactOptional(),
   sitting: count.exactOptional(),
   work: z.array(mouthWork).exactOptional(),
   problems: z.array(z.string()).exactOptional(),
+  problems_on: z.array(day).exactOptional(),
   details: mouthDetails.exactOptional(),
   treatments: z.array(mouthTreatment).exactOptional(),
 }) satisfies z.ZodType<C.MouthTooth>;
@@ -2397,6 +2402,89 @@ export const mouthSnapshot = z.object({
   next_visit: day.exactOptional(),
 }) satisfies z.ZodType<C.MouthSnapshot>;
 export type MouthSnapshot = z.output<typeof mouthSnapshot>;
+
+export const presentLifespan = z.object({
+  words: z.string(),
+  why: z.string().exactOptional(),
+  source: z.string().exactOptional(),
+  source_quote: z.string().exactOptional(),
+}) satisfies z.ZodType<C.PresentLifespan>;
+
+export const presentOption = z.object({
+  key: z.string(),
+  label: z.string(),
+  summary: z.string(),
+  looks_like: z.string(),
+  visits: z.object({ min: count, max: count }) satisfies z.ZodType<C.PresentRange>,
+  finish: (z.object({ min: count, max: count, unit: z.string() }) satisfies z.ZodType<C.PresentFinish>).exactOptional(),
+  look: z.string(),
+  lifespan: presentLifespan.exactOptional(),
+  comfort: z.string(),
+}) satisfies z.ZodType<C.PresentOption>;
+
+export const presentSituation = z.object({
+  key: z.string(),
+  tooth: count,
+  title: z.string(),
+  options: z.array(presentOption),
+}) satisfies z.ZodType<C.PresentSituation>;
+
+/** `GET /api/v1/visits/{id}/present`: the studio layer (usual options for the recorded situations). */
+export const presentPrice = z.object({ option_key: z.string(), from_paise: z.number() }) satisfies z.ZodType<C.PresentPrice>;
+export const presentStudio = z.object({
+  situations: z.array(presentSituation),
+  prices: z.array(presentPrice).exactOptional(),
+}) satisfies z.ZodType<C.PresentStudio>;
+/** `GET/PUT /api/v1/settings/present`: whether prices may show and which price-list code each option part maps to. */
+export const presentSettings = z.object({
+  show_prices: z.boolean(),
+  price_map: z.record(z.string(), z.string()),
+}) satisfies z.ZodType<C.PresentSettingsBody>;
+export type PresentSettings = z.output<typeof presentSettings>;
+/** One option discussed, in `GET/POST /api/v1/visits/{id}/present-discussions`. */
+export const discussedOption = z.object({
+  key: z.string(),
+  material: z.string().nullable().exactOptional(),
+  preferred: z.boolean().exactOptional(),
+  from_paise: z.number().int().nullable().exactOptional(),
+}) satisfies z.ZodType<C.DiscussedOptionBody>;
+/** What the doctor and patient discussed for one situation (Show patient, "What we discussed"). */
+export const presentDiscussion = z.object({
+  id: z.string(),
+  tooth: z.number().int().nullable().exactOptional(),
+  situation: z.string(),
+  options: z.array(discussedOption),
+  send_to_patient: z.boolean(),
+  supersedes_id: z.string().nullable().exactOptional(),
+  created_at: timestamp,
+}) satisfies z.ZodType<C.Discussion>;
+export const presentDiscussionList = z.object({ discussions: z.array(presentDiscussion) }) satisfies z.ZodType<C.DiscussionList>;
+export type PresentDiscussion = z.output<typeof presentDiscussion>;
+export type PresentDiscussionList = z.output<typeof presentDiscussionList>;
+/** A tooth pinned on an X-ray or photo, as fractions of the image in its own orientation. */
+export const imagePin = z.object({ tooth: z.number().int(), x: z.number(), y: z.number() }) satisfies z.ZodType<C.ImagePin>;
+export const imagePins = z.object({ pins: z.array(imagePin) }) satisfies z.ZodType<C.ImagePins>;
+export type ImagePin = z.output<typeof imagePin>;
+export type ImagePins = z.output<typeof imagePins>;
+/** Body of `POST /api/v1/visits/{id}/present-discussions`. */
+export type NewPresentDiscussion = C.SaveDiscussionBody;
+/** Body of `POST .../present-discussions/{did}/entered-in-error`. */
+export type DiscussionInError = C.DiscussionInError;
+export type PresentPrice = z.output<typeof presentPrice>;
+export type PresentStudio = z.output<typeof presentStudio>;
+export type PresentSituation = z.output<typeof presentSituation>;
+export type PresentOption = z.output<typeof presentOption>;
+
+/** `GET /api/v1/visits/{id}/story`: the patient's video data (section 1.7). No patient name. */
+export const visitStory = z.object({
+  story_version: count,
+  visit_number: z.string(),
+  visited_on: day,
+  clinic_name: z.string(),
+  next_visit: day.exactOptional(),
+  chart: mouthSnapshot,
+}) satisfies z.ZodType<C.VisitStory>;
+export type VisitStory = z.output<typeof visitStory>;
 
 // Patient files (M4) ------------------------------------------------------------------------------
 
@@ -3241,6 +3329,13 @@ export const messagePrefs = z.object({
 }) satisfies z.ZodType<C.MessagePrefs>;
 export type MessagePrefs = z.output<typeof messagePrefs>;
 
+/** The caller's saved screen choices; values stay plain strings so an unknown one never breaks the client. */
+export const uiPrefs = z.object({
+  present_style: z.string(),
+  history_view: z.string(),
+}) satisfies z.ZodType<C.UiPrefs>;
+export type UiPrefs = z.output<typeof uiPrefs>;
+
 export const visitSummary = z.object({
   clinic_name: z.string(),
   patient_name: z.string(),
@@ -4035,6 +4130,7 @@ export const notificationKind = z.enum([
   "stock_alert",
   "booking_conflict",
   "plan_response",
+  "payment_collected",
 ]);
 /** The kinds this client knows. `Notification.kind` is any string: the server adds kinds without waiting for old apps. */
 export type NotificationKind = z.output<typeof notificationKind>;
@@ -4082,6 +4178,11 @@ export const notification = z.object({
   time_off_request_id: optionalText,
   /** `plan_response`: the visit, by id only; `href` opens the patient. */
   encounter_id: optionalText,
+  /** `payment_collected`: ids and the amount paid only. */
+  payment: z
+    .object({ invoice_id: z.string(), visit_id: optionalText, patient_id: z.string(), amount_paise: paise })
+    .nullable()
+    .exactOptional(),
 }) satisfies z.ZodType<C.Notification>;
 export type Notification = z.output<typeof notification>;
 
@@ -4546,3 +4647,69 @@ export type TaskPreview = z.output<typeof taskPreview>;
 
 export const taskHistory = z.object({ items: z.array(taskOccurrence) }) satisfies z.ZodType<C.TaskHistory>;
 export type TaskHistory = z.output<typeof taskHistory>;
+
+// ── Patient history (full page) ─────────────────────────────────────────────
+
+/** A tooth touched in a visit. `work` is parsed as text so a value added later doesn't break old clients. */
+export const historyTooth = z.object({
+  tooth: z.number().int(),
+  finding: optionalText,
+  procedure_key: optionalText,
+  label: optionalText,
+  work: z.string(),
+}) satisfies z.ZodType<C.HistoryTooth>;
+export type HistoryTooth = z.output<typeof historyTooth>;
+
+export const historyFile = z.object({
+  id: attachmentId,
+  kind: z.string(),
+  mime_type: z.string(),
+  label: optionalText,
+  created_at: timestamp,
+}) satisfies z.ZodType<C.HistoryFile>;
+export type HistoryFile = z.output<typeof historyFile>;
+
+export const historyBill = z.object({
+  id: invoiceId,
+  number: optionalText,
+  status: z.string(),
+  total_paise: paise,
+  paid_paise: paise,
+}) satisfies z.ZodType<C.HistoryBill>;
+export type HistoryBill = z.output<typeof historyBill>;
+
+export const historyPlan = z.object({ id: planId, title: z.string(), status: z.string() }) satisfies z.ZodType<C.HistoryPlan>;
+export type HistoryPlan = z.output<typeof historyPlan>;
+
+export const historyCounts = z.object({
+  notes: z.number().int(),
+  recordings: z.number().int(),
+  files: z.number().int(),
+  procedures: z.number().int(),
+}) satisfies z.ZodType<C.HistoryCounts>;
+
+export const historyVisit = z.object({
+  id: visitId,
+  number: z.string(),
+  status: z.string(),
+  started_at: timestamp,
+  ended_at: timestamp.nullable().exactOptional(),
+  clinician: memberRef,
+  chief_complaint: optionalText,
+  teeth: z.array(historyTooth),
+  images: z.array(historyFile),
+  image_count: z.number().int(),
+  note_first_line: optionalText,
+  medicines: z.array(z.string()),
+  bills: z.array(historyBill).exactOptional(),
+  plans: z.array(historyPlan),
+  counts: historyCounts,
+}) satisfies z.ZodType<C.HistoryVisit>;
+export type HistoryVisit = z.output<typeof historyVisit>;
+
+export const patientHistory = z.object({
+  visits: z.array(historyVisit),
+  loose_files: z.array(historyFile),
+  next_cursor: z.string().exactOptional(),
+}) satisfies z.ZodType<C.PatientHistory>;
+export type PatientHistory = z.output<typeof patientHistory>;

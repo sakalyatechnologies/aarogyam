@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.org_settings set present = $1 where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e5094d075bfbddb4eeca989a8398f03ebdc6d76749bcc8b75ec6afa1ca311d5b"
+}

@@ -60,7 +60,7 @@ open AarogyamStaff.xcodeproj                 # Debug talks to demo, Release to p
 xcodebuild -project AarogyamStaff.xcodeproj -scheme AarogyamStaff \
   -destination 'platform=iOS Simulator,name=iPhone 18 Pro' -derivedDataPath build/derived-data build
 xcrun simctl install booted build/derived-data/Build/Products/Debug-iphonesimulator/AarogyamStaff.app
-xcrun simctl launch booted com.aarogyam.staff.demo
+xcrun simctl launch booted com.aarogyam.ios.demo
 ```
 
 `AAROGYAM_ENVIRONMENT=Local` on the `xcodebuild` line points a debug build at the Vite dev server (the simulator shares the Mac's localhost) and adds the development sign-in. The app hides its content in the app switcher and while the screen is recorded; strings live in `iosApp/AarogyamStaff/Localizable.xcstrings`.

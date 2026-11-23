@@ -1,0 +1,13 @@
+{
+  "$comment": "The usual veneer case for Show patient (docs/plans/present-studio-design.md section 8.5, slice 2d-5). General guidance, never about this patient: no visit numbers, no dates, no prices. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "reviewed_by": "pending",
+  "key": "veneer",
+  "title": "How a veneer is usually placed",
+  "lead": "A veneer is a thin shell fixed to the front of a tooth to change its shape or colour.",
+  "steps": [
+    { "key": "prep", "label": "Prepare the tooth", "words": "A thin layer is taken off the front of the tooth, with the area numbed, to make room.", "art": "scene:crown.prep" },
+    { "key": "veneer", "label": "Fix the veneer", "words": "The shell is bonded on, then checked for colour, shape and bite.", "art": "overlay:veneer", "usual": { "min": 2, "max": 3, "unit": "weeks" } }
+  ]
+}

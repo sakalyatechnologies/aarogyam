@@ -188,7 +188,7 @@ private fun DeskFinderSection(
         selected = null
         chosenDoctor = null
         failed = false
-        lookup.search(DeskPhone.digits(typed))
+        lookup.search(DeskPhone.query(typed))
     }
     LaunchedEffect(state) { if (state is DeskLookupState.CheckedIn) tokenDone = state.tokenNumber }
     val done = tokenDone
@@ -246,7 +246,16 @@ private fun DeskFinderSection(
         stringResource(R.string.dk_dx_home_new),
         onClick = {
             val anchors = profiles.filter { it.familyOf == null }.map { DeskFamilyAnchor(it.id, it.name) }
-            nav.openDeskIntake(matches.phone, if (ServerCaps.family) anchors else emptyList())
+            nav.openDeskIntake(
+                DeskPhone.newPatientPhone(matches.phone),
+                if (ServerCaps.family &&
+                    !matches.partial
+                ) {
+                    anchors
+                } else {
+                    emptyList()
+                },
+            )
         },
         modifier = Modifier.fillMaxWidth(),
     )

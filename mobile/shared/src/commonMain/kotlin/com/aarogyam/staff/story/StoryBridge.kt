@@ -42,7 +42,20 @@ object StoryBridge {
     fun present(
         mouth: JsonObject,
         dark: Boolean,
-    ): String = "window.aarogyam.present(${call(mouth)}, ${call(buildJsonObject { put("dark", dark) })})"
+        style: String? = null,
+        present: JsonObject? = null,
+    ): String {
+        val options =
+            buildJsonObject {
+                put("dark", dark)
+                if (style != null) put("style", style)
+                if (present != null) put("present", present)
+            }
+        return "window.aarogyam.present(${call(mouth)}, ${call(options)})"
+    }
+
+    /** The Show patient looks the page knows; smile3d and face stay hidden until the server says they're live. */
+    val STYLES: Set<String> = setOf("story", "painted", "xray")
 
     /** Goes "Back to all teeth"; the page answers true, or false at the overview so the screen leaves. */
     const val BACK: String = "window.aarogyam.back()"
@@ -103,6 +116,10 @@ object StoryBridge {
                 int("tooth")?.let { PageMessage.AddDepth(it) }
             }
 
+            "make_default" -> {
+                str("style")?.takeIf { it in STYLES }?.let { PageMessage.MakeDefault(it) }
+            }
+
             else -> {
                 null
             }
@@ -144,5 +161,10 @@ sealed interface PageMessage {
     /** The doctor tapped "Add depth" on [tooth]. */
     data class AddDepth(
         val tooth: Int,
+    ) : PageMessage
+
+    /** "Make default" on a look: the app saves it as the doctor's own `present_style`. */
+    data class MakeDefault(
+        val style: String,
     ) : PageMessage
 }

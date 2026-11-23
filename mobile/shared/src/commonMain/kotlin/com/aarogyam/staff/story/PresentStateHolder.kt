@@ -1,11 +1,15 @@
 package com.aarogyam.staff.story
 
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.savePresentStyle
+import com.aarogyam.staff.api.uiPrefs
 import com.aarogyam.staff.api.visitMouth
+import com.aarogyam.staff.api.visitPresent
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +18,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 /** What the Show patient screen draws around its WebView. */
 sealed interface PresentState {
@@ -66,6 +72,8 @@ class PresentStateHolder(
     val events: Flow<PresentEvent> = eventQueue.receiveAsFlow()
 
     private var mouth: JsonObject? = null
+    private var present: JsonObject? = null
+    private var style: String? = null
     private var pageReady = false
     private var dark = false
     private var loading = false
@@ -95,6 +103,10 @@ class PresentStateHolder(
                 eventQueue.trySend(PresentEvent.AddDepth(message.tooth))
             }
 
+            is PageMessage.MakeDefault -> {
+                makeDefault(message.style)
+            }
+
             // Video messages belong to the Done screen's render.
             else -> {}
         }
@@ -119,7 +131,18 @@ class PresentStateHolder(
         loading = true
         if (mouth == null) mutableState.value = PresentState.Loading
         scope.launch {
-            when (val result = clinic.api.visitMouth(visitId)) {
+            // The plan and the saved look are extras: without them the page opens on the painted map.
+            val extras = async { clinic.api.visitPresent(visitId) }
+            val prefs = async { clinic.api.uiPrefs() }
+            val result = clinic.api.visitMouth(visitId)
+            present = (extras.await() as? Outcome.Success)?.value ?: present
+            style = (prefs.await() as? Outcome.Success)
+                ?.value
+                ?.get("present_style")
+                ?.let {
+                    (it as? JsonPrimitive)?.contentOrNull
+                }?.takeIf { it in StoryBridge.STYLES } ?: style
+            when (result) {
                 is Outcome.Success -> {
                     log.info("present.mouth_loaded") { id("visit", visitId) }
                     mouth = result.value
@@ -139,7 +162,18 @@ class PresentStateHolder(
     private fun show() {
         val snapshot = mouth ?: return
         if (!pageReady || mutableState.value == PresentState.Unsupported) return
-        scriptQueue.trySend(StoryBridge.present(snapshot, dark))
+        scriptQueue.trySend(StoryBridge.present(snapshot, dark, style, present))
         mutableState.value = PresentState.Showing
+    }
+
+    /** Saves [chosen] as the doctor's own default look; a change without it lasts only this session. */
+    private fun makeDefault(chosen: String) {
+        style = chosen
+        scope.launch {
+            when (val saved = clinic.api.savePresentStyle(chosen)) {
+                is Outcome.Success -> log.info("present.style_saved") { code("style", chosen) }
+                is Outcome.Failure -> log.warn("present.style_save_failed") { code("error", saved.error.code.value) }
+            }
+        }
     }
 }

@@ -1,1 +1,1 @@
-Clinic app for doctors and teams: front desk, visits, prescriptions, billing.
+Clinic app for every doctor: patients, visits, prescriptions and billing.

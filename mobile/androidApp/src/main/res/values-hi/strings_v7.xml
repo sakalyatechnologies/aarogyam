@@ -94,4 +94,7 @@
     <string name="v7_notif_today">आज</string>
     <string name="v7_notif_earlier">पहले</string>
     <string name="v7_notif_filter_none">इस फ़िल्टर में कुछ नहीं।</string>
+    <string name="v7_plus_walk_in">वॉक-इन, अभी चेक-इन करें</string>
+    <string name="v7_plus_add_patient">सिर्फ़ मरीज़ जोड़ें</string>
+    <string name="v7_plus_add_submit">मरीज़ जोड़ें</string>
 </resources>

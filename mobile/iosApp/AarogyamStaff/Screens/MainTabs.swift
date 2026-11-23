@@ -25,6 +25,7 @@ struct MainTabs: View {
     /// The Schedule segment Today asked for (0 Queue, 1 Day); the tab applies it and clears it.
     @State private var scheduleRequest: Int?
     @State private var walkIn = false
+    @State private var plus: PlusChoice?
     @State private var addExpense = false
     @State private var morePath: [MoreRoute] = []
     @State private var expenseRevision = 0
@@ -59,6 +60,9 @@ struct MainTabs: View {
         }
         .sheet(isPresented: $tasksOpen) { RoutesV10Tasks.screen(graph: graph, clinic: clinic) }
         .sheet(isPresented: $walkIn) { RoutesDesk.sheet(graph: graph, clinic: clinic) }
+        .sheet(item: $plus) { choice in
+            PlusSheets.content(choice, graph: graph, clinic: clinic) { openPatient($0) }
+        }
         .sheet(isPresented: $addExpense, onDismiss: { expenseRevision += 1 }) { ExpenseSheetHost(graph: graph, clinic: clinic) }
         .devClinicalHooks(graph: graph, clinic: clinic, selected: $selected, morePath: $morePath)
         .task { clinicCount = await countClinics() }
@@ -82,6 +86,18 @@ struct MainTabs: View {
             }
         }
         #endif
+    }
+
+    /// Opens a patient's page on the tab the person is on (after Add patient only).
+    private func openPatient(_ id: String) {
+        plus = nil
+        switch selected {
+        case .schedule: schedulePath.append(PatientRoute(id: id))
+        case .today: todayPath.append(PatientRoute(id: id))
+        default:
+            selected = .patients
+            patientsPath.append(PatientRoute(id: id))
+        }
     }
 
     @ViewBuilder private func content(_ tab: NavTab, nav: NavModel) -> some View {
@@ -120,7 +136,7 @@ struct MainTabs: View {
                         }
                     }
                 }
-                .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense)
+                .barAction(nav.action, walkIn: $walkIn, plus: $plus, addExpense: $addExpense, permissions: clinic.permissions)
                 .patientDestination(graph: graph, clinic: clinic)
                 .navigationDestination(item: $todayVisit) { VisitScreen(graph: graph, clinic: clinic, route: $0) }
             }
@@ -129,7 +145,7 @@ struct MainTabs: View {
                 ScreenHost(make: { graph.patients(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
                     PatientsScreen(holder: holder, state: state) { patientsPath.append(PatientRoute(id: $0)) }
                 }
-                .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense)
+                .barAction(nav.action, walkIn: $walkIn, plus: $plus, addExpense: $addExpense, permissions: clinic.permissions)
                 .patientDestination(graph: graph, clinic: clinic)
             }
         case .schedule:
@@ -138,14 +154,14 @@ struct MainTabs: View {
                     graph: graph, clinic: clinic, onOpenPatient: { schedulePath.append(PatientRoute(id: $0)) }, onWalkIn: { walkIn = true },
                     request: $scheduleRequest
                 )
-                    .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense)
+                    .barAction(nav.action, walkIn: $walkIn, plus: $plus, addExpense: $addExpense, permissions: clinic.permissions)
                     .patientDestination(graph: graph, clinic: clinic)
             }
         case .expenses:
             NavigationStack {
                 ClinicalRoutes.expensesPage(graph: graph, clinic: clinic, showsAdd: false)
                     .id(expenseRevision)
-                    .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense)
+                    .barAction(nav.action, walkIn: $walkIn, plus: $plus, addExpense: $addExpense, permissions: clinic.permissions)
             }
         case .more:
             NavigationStack(path: $morePath) {
@@ -209,14 +225,14 @@ extension NavTab {
 
 private extension View {
     /// The role's bar action as a glass toolbar button: New walk-in, or Add expense for finance.
-    @ViewBuilder func barAction(_ action: PrimaryAction?, walkIn: Binding<Bool>, addExpense: Binding<Bool>) -> some View {
+    @ViewBuilder func barAction(
+        _ action: PrimaryAction?, walkIn: Binding<Bool>, plus: Binding<PlusChoice?>, addExpense: Binding<Bool>, permissions: Set<String>
+    ) -> some View {
         switch action {
         case .walkIn:
             toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { walkIn.wrappedValue = true } label: {
-                        Label { Text("v7.action.walk_in") } icon: { V7Icon.image("plus") }
-                    }
+                    PlusMenu(permissions: permissions, walkIn: walkIn, plus: plus)
                 }
             }
         case .addExpense:

@@ -15,6 +15,7 @@ use aarogyam_domain::permission::Permission;
 use aarogyam_domain::promo::{
     self, Code, DiscountKind, OfferSettings, OfferTerms, Purpose, Refusal,
 };
+use aarogyam_domain::visit_message as message;
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::Paise;
 use serde_json::{Value, json};
@@ -60,6 +61,95 @@ impl IssuedCode {
             applies_to: row.applies_to.clone(),
         }
     }
+}
+
+impl IssuedCode {
+    /// What it gives, for the words ([`aarogyam_domain::visit_message::discount_words`]).
+    #[must_use]
+    pub fn discount(&self) -> message::Discount {
+        message::Discount {
+            kind: self.kind,
+            value: self.value,
+            max_discount_paise: self.max_discount_paise,
+        }
+    }
+
+    /// The treatment it is for, from `applies_to`; none means the next treatment.
+    #[must_use]
+    pub fn target(&self) -> Option<message::OfferTarget<'_>> {
+        let target = self.applies_to.as_ref()?;
+        Some(message::OfferTarget {
+            name: target.get("words")?.as_str()?,
+            tooth: target
+                .get("tooth")
+                .and_then(Value::as_u64)
+                .and_then(|n| u8::try_from(n).ok()),
+        })
+    }
+}
+
+/// A patient's live codes for the visit message and the visit page. Never read from a route
+/// that logs bodies; the code text only goes into the message and the page.
+#[derive(Debug, Clone, Default)]
+pub struct MessageCodes {
+    /// The patient's own offers and rewards that can still be used.
+    pub offers: Vec<IssuedCode>,
+    /// The patient's live referral code.
+    pub referral: Option<IssuedCode>,
+}
+
+/// The codes the visit's message states: the offer given in this visit, the patient's live
+/// rewards, and the live referral code given in this visit.
+///
+/// # Errors
+/// [`AppError`] on a database failure.
+pub(crate) async fn message_codes(
+    tx: &mut ScopedTx,
+    encounter_id: Uuid,
+    patient_id: Uuid,
+    today: Date,
+) -> Result<MessageCodes, AppError> {
+    let usable = |row: &&CodeRow| row.valid_to >= today && row.used_count < row.max_uses;
+    let visit = dal::visit_codes(tx.conn(), encounter_id).await?;
+    let mut offers: Vec<IssuedCode> = visit
+        .iter()
+        .filter(|row| row.purpose == Purpose::PatientOffer.as_str())
+        .filter(usable)
+        .map(IssuedCode::of)
+        .collect();
+    for row in dal::patient_codes(tx.conn(), patient_id, today).await? {
+        if row.purpose == Purpose::ReferrerReward.as_str() {
+            offers.push(IssuedCode::of(&row));
+        }
+    }
+    let referral = visit
+        .iter()
+        .filter(|row| row.purpose == Purpose::Referral.as_str())
+        .find(usable)
+        .map(IssuedCode::of);
+    Ok(MessageCodes { offers, referral })
+}
+
+/// The codes the visit page shows: every live offer and reward of the patient, and their
+/// referral code.
+///
+/// # Errors
+/// [`AppError`] on a database failure.
+pub(crate) async fn page_codes(
+    tx: &mut ScopedTx,
+    patient_id: Uuid,
+    today: Date,
+) -> Result<MessageCodes, AppError> {
+    let offers = dal::patient_codes(tx.conn(), patient_id, today)
+        .await?
+        .iter()
+        .map(IssuedCode::of)
+        .collect();
+    let referral = dal::referral_of(tx.conn(), patient_id)
+        .await?
+        .filter(|row| row.valid_to >= today && row.valid_from <= today)
+        .map(|row| IssuedCode::of(&row));
+    Ok(MessageCodes { offers, referral })
 }
 
 /// The clinic's presets, lowered to the caller's caps.

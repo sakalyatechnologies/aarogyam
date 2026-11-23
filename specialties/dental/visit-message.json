@@ -50,6 +50,17 @@
   "pin": "🔒 PIN: *{pin}*",
   "warning": "This link opens your health record. Please don't forward it.",
   "warning_minor": "This link opens {first_name}'s health record. Please don't forward it.",
+  "offer": "🎁 *Your offer*",
+  "offer_line": "• {value} on {target}. Show code *{code}* at the clinic, valid till {date}.",
+  "reward_line": "• Thank you for referring a friend: {value} on {target}. Show code *{code}* at the clinic, valid till {date}.",
+  "offer_next": "the next treatment",
+  "offer_target": "the {name}",
+  "offer_target_tooth": "the {name} on {tooth}",
+  "offer_percent": "{percent}% off",
+  "offer_fixed": "{amount} off",
+  "offer_cap": " (up to {amount})",
+  "referral_line": "• Friends and family get {value} on their first visit. Share your code from your page.",
+  "referral_share": "I go to {clinic}. Use my code {code} for {value} on your first visit, valid till {date}. Book here: {url}",
   "short": {
     "greeting": "Hello from *{clinic}*. Your visit summary is ready. 🙏",
     "link": "🔗 Full details: {url}"

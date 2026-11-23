@@ -179,4 +179,29 @@ describe("Visit page (patient link)", () => {
     expect(tokenFromPath(`/shared/${TOKEN}`)).toBe(TOKEN);
     expect(tokenFromPath("/book")).toBe("");
   });
+  it("shows the offers and shares the referral text without a link that carries the code", async () => {
+    const shareText = "I go to Sunrise Dental. Use my code K7QM-4XRD for 10% off on your first visit. Book here: https://sunrise.example/book";
+    const visit = {
+      ...VISIT,
+      offer: [{ code: "ABCD-2345", purpose: "patient_offer", kind: "percent_bps", value: 1000, words: "10% off (up to ₹2,000)", target: "the next treatment", valid_to: "2026-12-31" }],
+      referral: { code: "K7QM-4XRD", kind: "percent_bps", value: 1000, words: "10% off", valid_to: "2026-12-31", share_text: shareText },
+    };
+    const share = vi.fn(() => Promise.resolve());
+    vi.stubGlobal("navigator", { share });
+    const { user } = await openWith({}, visit);
+    expect(screen.getByText("10% off (up to ₹2,000)")).toBeTruthy();
+    expect(screen.getByText("ABCD-2345")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Share with a friend" }));
+    expect(share).toHaveBeenCalledWith({ text: shareText });
+    expect(document.body.innerHTML).not.toContain("wa.me/?text");
+  });
+
+  it("copies the message when the device has no share sheet", async () => {
+    const shareText = "Use my code K7QM-4XRD at Sunrise Dental";
+    const visit = { ...VISIT, referral: { code: "K7QM-4XRD", words: "10% off", valid_to: "2026-12-31", share_text: shareText } };
+    const { user } = await openWith({}, visit);
+    await user.click(screen.getByRole("button", { name: "Copy message" }));
+    expect(await navigator.clipboard.readText()).toBe(shareText);
+    expect(await screen.findByText("Message copied. Paste it to your friend.")).toBeTruthy();
+  });
 });

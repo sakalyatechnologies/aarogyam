@@ -16,6 +16,7 @@ use sakalya_types::Paise;
 
 use crate::dental::Tooth;
 use crate::patient::BirthDate;
+use crate::promo::DiscountKind;
 use crate::quick_picks::TextPick;
 
 const MESSAGE_SOURCE: &str = include_str!("../../../specialties/dental/visit-message.json");
@@ -634,6 +635,17 @@ struct Template {
     pin: String,
     warning: String,
     warning_minor: String,
+    offer: String,
+    offer_line: String,
+    reward_line: String,
+    offer_next: String,
+    offer_target: String,
+    offer_target_tooth: String,
+    offer_percent: String,
+    offer_fixed: String,
+    offer_cap: String,
+    referral_line: String,
+    referral_share: String,
     short: Short,
 }
 
@@ -761,6 +773,46 @@ pub struct MessageInput<'a> {
     pub pin: &'a str,
     /// The sections the doctor left ticked (spec 1.6).
     pub sections: SectionSet,
+    /// The patient's own offers and rewards: lines under the Offer tick.
+    pub offers: &'a [OfferLine<'a>],
+    /// The referral the patient may share: a line that points to the page, never the code.
+    /// None unless the recipient allows promotional messages (design D3).
+    pub referral: Option<Discount>,
+}
+
+/// What a code gives: a percentage (basis points) with its cap, or a fixed amount (paise).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Discount {
+    /// Percentage or fixed.
+    pub kind: DiscountKind,
+    /// Basis points or paise.
+    pub value: i64,
+    /// The cap on a percentage.
+    pub max_discount_paise: Option<i64>,
+}
+
+/// What an offer is for, when it targets a plan item.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OfferTarget<'a> {
+    /// The treatment's name.
+    pub name: &'a str,
+    /// The tooth (FDI number), when it concerns one.
+    pub tooth: Option<u8>,
+}
+
+/// One of the patient's codes, as the message states it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OfferLine<'a> {
+    /// A reward for referring a friend, not an offer from the doctor.
+    pub reward: bool,
+    /// What it gives.
+    pub discount: Discount,
+    /// The code, such as `K7QM-4XRD`.
+    pub code: &'a str,
+    /// The last day.
+    pub valid_to: Date,
+    /// The treatment it is for; none means the next treatment.
+    pub target: Option<OfferTarget<'a>>,
 }
 
 /// One of the doctor's tick boxes on the Done screen (spec 1.6). `Video` is the device's own
@@ -1324,6 +1376,7 @@ fn care_lines(input: &MessageInput<'_>, min: &Minimums) -> Vec<Line> {
 }
 
 /// The sections the visit has, before any are cut to fit.
+#[expect(clippy::too_many_lines, reason = "one block per message section")]
 fn sections_of(
     t: &Template,
     input: &MessageInput<'_>,
@@ -1438,8 +1491,129 @@ fn sections_of(
             keep: 4,
         });
     }
-
+    sections.extend(offer_section(t, input));
     sections
+}
+
+/// The offer section: the patient's own offers and the referral pointer, when ticked.
+fn offer_section(t: &Template, input: &MessageInput<'_>) -> Option<Section> {
+    if !input.sections.has(MessageSection::Offer) {
+        return None;
+    }
+    let mut lines: Vec<Line> = input
+        .offers
+        .iter()
+        .map(|offer| Line::free(offer_text(t, offer)))
+        .collect();
+    if let Some(referral) = input.referral {
+        lines.push(Line::free(fill(
+            &t.referral_line,
+            &[("value", &discount_text(t, referral))],
+        )));
+    }
+    (!lines.is_empty()).then(|| Section {
+        heading: t.offer.clone(),
+        lines,
+        dropped: 0,
+        keep: 6,
+    })
+}
+
+/// The words for a discount: "10% off (up to ₹2,000)" or "₹500 off".
+fn discount_text(t: &Template, discount: Discount) -> String {
+    let cap = discount
+        .max_discount_paise
+        .filter(|cap| *cap > 0)
+        .map_or_else(String::new, |cap| {
+            fill(&t.offer_cap, &[("amount", &rupees(Paise::new(cap)))])
+        });
+    match discount.kind {
+        DiscountKind::PercentBps => {
+            let (whole, part) = (discount.value / 100, discount.value % 100);
+            let percent = if part == 0 {
+                whole.to_string()
+            } else {
+                format!("{whole}.{part:02}")
+                    .trim_end_matches('0')
+                    .to_owned()
+            };
+            format!("{}{cap}", fill(&t.offer_percent, &[("percent", &percent)]))
+        }
+        DiscountKind::Fixed => fill(
+            &t.offer_fixed,
+            &[("amount", &rupees(Paise::new(discount.value)))],
+        ),
+    }
+}
+
+fn target_text(t: &Template, target: Option<OfferTarget<'_>>) -> String {
+    match target {
+        None => t.offer_next.clone(),
+        Some(target) => {
+            let name = clip(&target.name.to_lowercase(), 60);
+            match target.tooth {
+                Some(tooth) => fill(
+                    &t.offer_target_tooth,
+                    &[("name", &name), ("tooth", &tooth.to_string())],
+                ),
+                None => fill(&t.offer_target, &[("name", &name)]),
+            }
+        }
+    }
+}
+
+fn offer_text(t: &Template, offer: &OfferLine<'_>) -> String {
+    let line = if offer.reward {
+        &t.reward_line
+    } else {
+        &t.offer_line
+    };
+    fill(
+        line,
+        &[
+            ("value", &discount_text(t, offer.discount)),
+            ("target", &target_text(t, offer.target)),
+            ("code", offer.code),
+            ("date", &day_in_words(offer.valid_to)),
+        ],
+    )
+}
+
+/// A code's value in patient words, such as "10% off (up to ₹2,000)": the same words in the
+/// message, on the page and at the desk (R4). None when the words file did not load.
+#[must_use]
+pub fn discount_words(discount: Discount) -> Option<String> {
+    template().map(|t| discount_text(t, discount))
+}
+
+/// The treatment a code is for in words: "the next treatment" or "the crown on 21".
+#[must_use]
+pub fn offer_target_words(target: Option<OfferTarget<'_>>) -> Option<String> {
+    template().map(|t| target_text(t, target))
+}
+
+/// The text a patient shares with a friend: the clinic, what the friend gets, the code, the last
+/// day and the clinic's booking address. No patient name and no health data; the code is in the
+/// text and never in a URL. None when the words file did not load.
+#[must_use]
+pub fn referral_share_text(
+    clinic_name: &str,
+    friend: Discount,
+    code: &str,
+    valid_to: Date,
+    book_url: &str,
+) -> Option<String> {
+    let t = template()?;
+    Some(fill(
+        &t.referral_share,
+        &[
+            ("clinic", &clip(clinic_name, 80)),
+            ("value", &discount_text(t, friend)),
+            ("code", code),
+            ("date", &day_in_words(valid_to)),
+            ("url", book_url),
+        ],
+    ))
 }
 
 /// The message against one budget. Lines that don't fit go least important section first
@@ -1786,6 +1960,8 @@ mod tests {
             url: "https://sunrise.example/shared/tok3n",
             pin: "482913",
             sections: SectionSet::ALL,
+            offers: &[],
+            referral: None,
         }
     }
 
@@ -2452,5 +2628,83 @@ mod tests {
         assert_eq!(PREVIEW_PIN.len(), 6);
         let real = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
         assert_eq!(real.len(), PREVIEW_TOKEN.len());
+    }
+    fn percent(value: i64, cap: Option<i64>) -> Discount {
+        Discount {
+            kind: DiscountKind::PercentBps,
+            value,
+            max_discount_paise: cap,
+        }
+    }
+
+    #[test]
+    fn offer_lines_state_value_cap_target_and_last_day() {
+        let (done, medicines, keys) = (extraction(), Vec::new(), Vec::new());
+        let offers = [
+            OfferLine {
+                reward: false,
+                discount: percent(1000, Some(200_000)),
+                code: "K7QM-4XRD",
+                valid_to: date!(2026 - 12 - 31),
+                target: None,
+            },
+            OfferLine {
+                reward: true,
+                discount: Discount {
+                    kind: DiscountKind::Fixed,
+                    value: 50_000,
+                    max_discount_paise: None,
+                },
+                code: "ABCD-2345",
+                valid_to: date!(2026 - 12 - 31),
+                target: Some(OfferTarget {
+                    name: "Crown",
+                    tooth: Some(21),
+                }),
+            },
+        ];
+        let mut input = sample(&done, &medicines, &keys);
+        input.offers = &offers;
+        input.referral = Some(percent(500, None));
+        let text = compose(&input).text;
+        for part in [
+            "Your offer",
+            "10% off (up to ₹2,000) on the next treatment. Show code *K7QM-4XRD*",
+            "₹500 off on the crown on 21. Show code *ABCD-2345*",
+            "valid till 31 Dec 2026",
+            "Friends and family get 5% off on their first visit.",
+        ] {
+            assert!(text.contains(part), "missing {part}: {text}");
+        }
+        // Unticked, none of it is in the message.
+        input.sections = SectionSet::ALL.with(MessageSection::Offer, false);
+        let text = compose(&input).text;
+        assert!(!text.contains("K7QM-4XRD") && !text.contains("Friends and family"));
+    }
+
+    #[test]
+    fn the_share_text_has_the_code_value_and_booking_address_only() {
+        let text = referral_share_text(
+            "Sunrise Dental",
+            percent(1000, Some(100_000)),
+            "K7QM-4XRD",
+            date!(2026 - 12 - 31),
+            "https://sunrise.example/book",
+        )
+        .unwrap();
+        for part in [
+            "Sunrise Dental",
+            "10% off (up to ₹1,000)",
+            "K7QM-4XRD",
+            "31 Dec 2026",
+            "https://sunrise.example/book",
+        ] {
+            assert!(text.contains(part), "missing {part}: {text}");
+        }
+        assert!(!text.contains("wa.me"));
+        assert_eq!(
+            discount_words(percent(1250, None)).as_deref(),
+            Some("12.5% off")
+        );
     }
 }

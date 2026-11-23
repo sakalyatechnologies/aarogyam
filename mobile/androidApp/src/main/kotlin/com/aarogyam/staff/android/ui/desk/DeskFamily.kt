@@ -1,11 +1,15 @@
 package com.aarogyam.staff.android.ui.desk
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -15,6 +19,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
@@ -132,11 +138,17 @@ private fun RelativesList(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(person.name, style = SkTypography.bodyStrong, color = SkTheme.colors.text.color)
-                    Text(
-                        relationTitle(person.relation) + " · " + person.number,
-                        style = SkTypography.footnote,
-                        color = SkTheme.colors.textMuted.color,
-                    )
+                    if (loaded.canEdit) {
+                        RelationMenu(person.name, relationTitle(person.relation) + " ▾ · " + person.number) {
+                            holder.changeRelation(person.linkId, it.wire)
+                        }
+                    } else {
+                        Text(
+                            relationTitle(person.relation) + " · " + person.number,
+                            style = SkTypography.footnote,
+                            color = SkTheme.colors.textMuted.color,
+                        )
+                    }
                 }
                 if (loaded.canEdit) {
                     SkButton(
@@ -240,3 +252,30 @@ private fun linkProblemText(problem: LinkProblem): Int =
         LinkProblem.AlreadyLinked -> R.string.dk_d9_family_link_already
         LinkProblem.BadRelation -> R.string.dk_d9_family_link_need_relation
     }
+
+/** The relation word as a menu: picking one changes the link in place (PATCH). */
+@Composable
+private fun RelationMenu(
+    name: String,
+    text: String,
+    onPick: (DeskRelation) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val a11y = stringResource(R.string.dk_d9_family_relation_change, name)
+    Box {
+        Text(
+            text,
+            style = SkTypography.footnote,
+            color = SkTheme.colors.primary.color,
+            modifier = Modifier.clickable { open = true }.semantics { contentDescription = a11y },
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DeskRelation.entries.forEach { relation ->
+                DropdownMenuItem(text = { Text(relationTitle(relation.wire)) }, onClick = {
+                    open = false
+                    onPick(relation)
+                })
+            }
+        }
+    }
+}

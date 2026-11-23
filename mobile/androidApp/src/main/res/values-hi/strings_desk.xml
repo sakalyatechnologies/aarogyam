@@ -36,6 +36,7 @@
     <string name="dk_d9_family_of_whom">किसके परिवार में</string>
     <string name="dk_d9_family_relation">नंबर के मालिक से रिश्ता</string>
     <string name="dk_d9_family_remove">हटाएँ</string>
+    <string name="dk_d9_family_relation_change">%1$s का रिश्ता बदलें</string>
     <string name="dk_d9_family_remove_a11y">%s को परिवार से हटाएँ</string>
     <string name="dk_d9_family_section">परिवार</string>
     <string name="dk_d9_family_title">परिवार का सदस्य जोड़ रहे हैं</string>

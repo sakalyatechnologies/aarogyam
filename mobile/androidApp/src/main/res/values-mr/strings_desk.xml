@@ -36,6 +36,7 @@
     <string name="dk_d9_family_of_whom">कोणाच्या कुटुंबात</string>
     <string name="dk_d9_family_relation">क्रमांकधारकाशी नाते</string>
     <string name="dk_d9_family_remove">काढा</string>
+    <string name="dk_d9_family_relation_change">%1$s यांचे नाते बदला</string>
     <string name="dk_d9_family_remove_a11y">%s ला कुटुंबातून काढा</string>
     <string name="dk_d9_family_section">कुटुंब</string>
     <string name="dk_d9_family_title">कुटुंबातील सदस्य जोडत आहे</string>

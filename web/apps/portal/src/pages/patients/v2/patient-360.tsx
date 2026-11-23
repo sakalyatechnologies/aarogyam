@@ -1,5 +1,5 @@
 import { CalendarPlus, ChevronLeft, CircleCheck, History, MessageCircle, Pencil } from "lucide-react";
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { patientId, type Patient, type PatientId } from "@aarogyam/api-client";
@@ -173,12 +173,26 @@ function HistoryButton({ patientId: id }: { patientId: PatientId }) {
   const to = `${base}/history`;
   const overlayOpen = search.get("history") === "1";
   // The saved style: the full page navigates; the pop-up and the story open over this page.
-  const openHistory = () => {
+  // Other parameters on the patient page (such as ?tab=) are kept.
+  const openHistory = useCallback(() => {
     if (style === "page") void navigate(to);
-    else setSearch({ history: "1" });
-  };
+    else
+      setSearch((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("history", "1");
+        return next;
+      });
+  }, [style, navigate, to, setSearch]);
   const closeOverlay = () => {
-    setSearch({}, { replace: true });
+    setSearch(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("history");
+        next.delete("visit");
+        return next;
+      },
+      { replace: true },
+    );
   };
   // Back from the history, or closing the overlay, puts focus here again.
   const state: unknown = location.state;
@@ -197,14 +211,13 @@ function HistoryButton({ patientId: id }: { patientId: PatientId }) {
       if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented || typing(e.target)) return;
       if (document.querySelector(OPEN_DIALOG) !== null) return;
       e.preventDefault();
-      if (style === "page") void navigate(to);
-      else setSearch({ history: "1" });
+      openHistory();
     };
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
     };
-  }, [style, navigate, to, setSearch]);
+  }, [openHistory]);
   return (
     <>
     {overlayOpen ? (

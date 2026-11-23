@@ -50,7 +50,15 @@ export function HistoryOverlay({ patientId, style, onClose }: { patientId: Patie
   }, [found, history]);
 
   const open = (id: string | undefined) => {
-    setSearch(id === undefined ? { history: "1" } : { history: "1", visit: id }, { replace: true });
+    setSearch(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id === undefined) next.delete("visit");
+        else next.set("visit", id);
+        return next;
+      },
+      { replace: true },
+    );
   };
   const switchTo = (next: HistoryStyle) => {
     setSessionHistoryStyle(next);

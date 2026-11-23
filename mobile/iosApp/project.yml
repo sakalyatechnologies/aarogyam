@@ -32,6 +32,10 @@ targets:
     platform: iOS
     sources:
       - AarogyamStaff
+      # The story bundle for Show patient, copied as the `story` folder and served at aarostory://story/.
+      - path: ../story-bundle/story
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: SakalyaUI
       - package: Firebase

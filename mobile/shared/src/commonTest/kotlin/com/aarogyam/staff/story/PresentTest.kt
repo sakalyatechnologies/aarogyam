@@ -105,4 +105,45 @@ class PresentTest {
         assertFalse(StoryBridge.wentBack("false"))
         assertFalse(StoryBridge.wentBack(null))
     }
+
+    @Test
+    fun the_saved_look_and_the_plan_go_with_the_mouth_and_make_default_saves_the_look() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(route, { json(mouth) })
+            backend.on("$SUNRISE/api/v1/visits/v1/present", { json("""{"prices":[{"code":"rct","paise":450000}]}""") })
+            backend.on("$SUNRISE/api/v1/me/ui-prefs", { json("""{"present_style":"xray","history_view":null}""") })
+            val present = open(backend)
+            present.onPageMessage("""{"type":"ready","bundle_version":1}""")
+            val script = present.scripts.first()
+            assertTrue(script.contains(""""style":"xray""""), script)
+            assertTrue(script.contains(""""present":{"prices":[{"code":"rct","paise":450000}]}"""), script)
+            present.onPageMessage("""{"type":"make_default","style":"painted"}""")
+            com.aarogyam.staff.desk.until {
+                backend.requests.any {
+                    it.url.encodedPath == "/api/v1/me/ui-prefs" &&
+                        it.method.value == "PUT"
+                }
+            }
+            assertNull(StoryBridge.parse("""{"type":"make_default","style":"hologram"}"""), "unknown looks are ignored")
+        }
+
+    @Test
+    fun show_patient_opens_the_open_visit_else_the_newest() {
+        val at =
+            com.aarogyam.staff.patients.ClinicMoment(
+                kotlinx.datetime.LocalDate(2026, 11, 20),
+                kotlinx.datetime.LocalTime(10, 0),
+            )
+
+        fun visit(
+            id: String,
+            open: Boolean,
+        ) = com.aarogyam.staff.patients
+            .VisitView(id, "V-$id", at, "Dr A", null, open)
+        assertEquals("b", showPatientVisit(listOf(visit("a", false), visit("b", true))))
+        assertEquals("a", showPatientVisit(listOf(visit("a", false), visit("b", false))))
+        assertNull(showPatientVisit(emptyList()))
+        assertNull(showPatientVisit(null))
+    }
 }

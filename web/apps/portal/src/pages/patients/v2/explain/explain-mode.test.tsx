@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ApiClient } from "@aarogyam/api-client";
 import type { Fixtures } from "@aarogyam/api-client/fake";
 
 import { NEW_LOOK_KEY } from "../../../../lib/new-look.js";
@@ -155,6 +156,82 @@ describe("Explain mode", () => {
     const second = within(dialog).getByRole("group", { name: "Pin 2" });
     await user.click(within(chart).getByRole("button", { name: /^Tooth 21,/ }));
     expect(within(second).getByText(/^Tooth 21/)).toBeTruthy();
+  });
+
+  it("keeps pins for the next time: places one, saves the whole set after a pause, and shows it again on reopening", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = patient();
+    const saved: { imageId: string; pins: { tooth: number; x: number; y: number }[] }[] = [];
+    const wrap = (client: ApiClient): ApiClient => ({
+      ...client,
+      saveImagePins: (id, input, opts) => {
+        saved.push({ imageId: id, pins: input.pins });
+        return client.saveImagePins(id, input, opts);
+      },
+    });
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const dialog = await openExplain(user);
+    const stage = await within(dialog).findByTestId("explain-stage", undefined, WAIT);
+    const img = await within(stage).findByRole("img", undefined, WAIT);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const width = this.classList.contains("xp-stage") ? 800 : 0;
+      const height = this.classList.contains("xp-stage") ? 400 : 0;
+      return { x: 0, y: 0, left: 0, top: 0, width, height, right: width, bottom: height, toJSON: () => ({}) };
+    });
+    Object.defineProperty(img, "naturalWidth", { value: 1000, configurable: true });
+    Object.defineProperty(img, "naturalHeight", { value: 1000, configurable: true });
+    fireEvent.load(img);
+    expect(within(dialog).queryByRole("button", { name: /^Pin 1/ })).toBeNull();
+
+    fireEvent.click(stage, { clientX: 400, clientY: 200 });
+    const picker = within(dialog).getByRole("group", { name: "Pin 1" });
+    await user.click(within(picker).getByRole("button", { name: "Quadrant 3" }));
+    await user.click(within(picker).getByRole("button", { name: "Tooth 36" }));
+    await user.click(within(picker).getByRole("button", { name: "Place pin" }));
+    await waitFor(() => { expect(saved).toHaveLength(1); }, WAIT);
+    expect(saved[0]?.pins).toEqual([{ tooth: 36, x: 0.5, y: 0.5 }]);
+    expect(within(dialog).queryByText(/Pins not saved/)).toBeNull();
+
+    // Another visit: the same image opens with the pin already on it.
+    cleanup();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const again = await openExplain(userEvent.setup());
+    const next = await within(await within(again).findByTestId("explain-stage", undefined, WAIT)).findByRole("img", undefined, WAIT);
+    Object.defineProperty(next, "naturalWidth", { value: 1000, configurable: true });
+    Object.defineProperty(next, "naturalHeight", { value: 1000, configurable: true });
+    fireEvent.load(next);
+    await within(again).findByRole("button", { name: "Pin 1: tooth 36" }, WAIT);
+  });
+
+  it("says 'Pins not saved' quietly when saving fails, and saves on retry", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = patient();
+    let failing = true;
+    const wrap = (client: ApiClient): ApiClient => ({
+      ...client,
+      saveImagePins: (id, input, opts) => (failing ? Promise.resolve({ ok: false, error: { status: 500, code: "internal", message: "no" } }) : client.saveImagePins(id, input, opts)),
+    });
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const dialog = await openExplain(user);
+    const stage = await within(dialog).findByTestId("explain-stage", undefined, WAIT);
+    const img = await within(stage).findByRole("img", undefined, WAIT);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const width = this.classList.contains("xp-stage") ? 800 : 0;
+      const height = this.classList.contains("xp-stage") ? 400 : 0;
+      return { x: 0, y: 0, left: 0, top: 0, width, height, right: width, bottom: height, toJSON: () => ({}) };
+    });
+    Object.defineProperty(img, "naturalWidth", { value: 1000, configurable: true });
+    Object.defineProperty(img, "naturalHeight", { value: 1000, configurable: true });
+    fireEvent.load(img);
+    fireEvent.click(stage, { clientX: 400, clientY: 200 });
+    const picker = within(dialog).getByRole("group", { name: "Pin 1" });
+    await user.click(within(picker).getByRole("button", { name: "Quadrant 3" }));
+    await user.click(within(picker).getByRole("button", { name: "Tooth 36" }));
+    await user.click(within(picker).getByRole("button", { name: "Place pin" }));
+    const retry = await within(dialog).findByRole("button", { name: /Pins not saved/ }, WAIT);
+    failing = false;
+    await user.click(retry);
+    await waitFor(() => { expect(within(dialog).queryByRole("button", { name: /Pins not saved/ })).toBeNull(); }, WAIT);
   });
 
   it("needs a hold to exit: a tap does nothing, a one-second hold or Esc leaves", async () => {

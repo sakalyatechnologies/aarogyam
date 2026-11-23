@@ -3331,6 +3331,7 @@
     "encounters.patient_id",
     "family_links.patient_id",
     "family_links.related_patient_id",
+    "image_pins.patient_id",
     "import_rows.patient_id",
     "invoices.patient_id",
     "lab_orders.patient_id",
@@ -5973,6 +5974,7 @@
     "consent_forms.pdf_attachment_id",
     "consent_forms.signature_attachment_id",
     "document_extractions.attachment_id",
+    "image_pins.attachment_id",
     "patient_consents.signature_attachment_id",
     "payments.attachment_id",
     "voice_notes.attachment_id"
@@ -6260,6 +6262,57 @@
    "referenced_by": [
     "present_discussions.supersedes_id"
    ],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "image_pins",
+   "domain": "clinical",
+   "purpose": "Where each tooth sits on an X-ray or photo in Show patient, placed once and kept for the next visit.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0754). A placement aid, not a clinical record: moving a pin updates the row, taking one off deletes it (hence ephemeral, not mutable), and PUT /attachments/{id}/pins replaces the attachment's set. Deleted on erasure.",
+   "cols": [
+    {
+     "name": "attachment_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "attachments",
+     "note": "the key includes patient_id"
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "tooth",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": "FDI 11-48, 51-85; one pin per attachment and tooth"
+    },
+    {
+     "name": "x",
+     "type": "real",
+     "nullable": false,
+     "ref": null,
+     "note": "across the image as a fraction of its width, 0 to 1, in the image's own orientation (never flipped)"
+    },
+    {
+     "name": "y",
+     "type": "real",
+     "nullable": false,
+     "ref": null,
+     "note": "down the image as a fraction of its height, 0 to 1"
+    }
+   ],
+   "referenced_by": [],
    "sensitivity": "health",
    "offline": "server_only"
   },

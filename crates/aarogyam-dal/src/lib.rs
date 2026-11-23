@@ -39,6 +39,7 @@ pub mod family;
 pub mod handoff;
 pub mod history;
 pub mod identifiers;
+pub mod image_pins;
 pub mod import_sessions;
 pub mod imports;
 pub mod insights;

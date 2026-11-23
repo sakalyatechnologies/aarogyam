@@ -148,6 +148,7 @@ import type {
   PresentStudio,
   PresentDiscussion,
   PresentDiscussionList,
+  ImagePins,
   NewPresentDiscussion,
   DiscussionInError,
   VisitStory,
@@ -897,6 +898,8 @@ export interface ApiClient {
   /** Clinic host: the studio layer of Show patient, the usual options for each recorded situation (with prices only for `billing.read` when the clinic turned them on). Needs `clinical.read`; works while the visit is open. */
   getVisitPresent(id: VisitId, options?: RequestOptions): Promise<ApiResult<PresentStudio>>;
   /** Clinic host: the visit's current "What we discussed" rows. Needs `clinical.read`; works while the visit is closed. */
+  listImagePins(id: AttachmentId, options?: RequestOptions): Promise<ApiResult<ImagePins>>;
+  saveImagePins(id: AttachmentId, input: ImagePins, options?: RequestOptions): Promise<ApiResult<ImagePins>>;
   listPresentDiscussions(id: VisitId, options?: RequestOptions): Promise<ApiResult<PresentDiscussionList>>;
   /** Clinic host: saves what was discussed for one situation; it supersedes the current row for the tooth and situation. Needs `clinical.write`; 400 for an unknown key (braces and aligners until seeded), 409 when the visit is closed. */
   savePresentDiscussion(id: VisitId, input: NewPresentDiscussion, options?: RequestOptions): Promise<ApiResult<PresentDiscussion>>;

@@ -30,6 +30,7 @@ pub(crate) mod family;
 pub(crate) mod files;
 pub(crate) mod health;
 pub(crate) mod history;
+pub(crate) mod image_pins;
 pub(crate) mod imports;
 pub(crate) mod internal;
 pub(crate) mod inventory;
@@ -424,6 +425,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/visits/{id}/present-discussions/{did}/entered-in-error",
             post(present_discussions::in_error),
+        )
+        .route(
+            "/attachments/{id}/pins",
+            get(image_pins::list).put(image_pins::save),
         )
         .route(
             "/settings/present",

@@ -2420,6 +2420,16 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             format!("/api/v1/visits/{visit}/present-discussions/{discussion}/entered-in-error"),
             Some(json!({ "reason": "Wrong tooth" })),
         ),
+        (
+            Method::GET,
+            format!("/api/v1/attachments/{attachment}/pins"),
+            None,
+        ),
+        (
+            Method::PUT,
+            format!("/api/v1/attachments/{attachment}/pins"),
+            Some(json!({ "pins": [{ "tooth": 36, "x": 0.4, "y": 0.6 }] })),
+        ),
         (Method::GET, format!("/api/v1/visits/{visit}/story"), None),
         (
             Method::GET,
@@ -3160,5 +3170,70 @@ async fn plan_items_are_finished_one_by_one_and_then_frozen() {
         .await;
     assert_eq!(status, StatusCode::OK, "{after}");
     assert_eq!(after["status"], "completed");
+    app.finish().await;
+}
+
+/// Tooth pins on an X-ray: placed once, moved in place, one per tooth, kept for later visits,
+/// refused out of range, and another clinic gets 404 (slice 2g).
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn image_pins_are_placed_once_and_replaced_as_a_set() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let beta = app.token(BETA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+    png.extend_from_slice(&[7_u8; 512]);
+    let (status, file) = upload(&app, ALPHA, &owner, &patient, &png, &[("kind", "xray")]).await;
+    assert_eq!(status, StatusCode::CREATED, "{file}");
+    let path = format!("/api/v1/attachments/{}/pins", file["id"].as_str().unwrap());
+
+    let (status, none) = app
+        .send(Method::GET, ALPHA, &path, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(none["pins"], json!([]));
+
+    let two = json!({ "pins": [{ "tooth": 36, "x": 0.25, "y": 0.5 }, { "tooth": 46, "x": 0.75, "y": 0.5 }] });
+    let (status, saved) = app
+        .send(Method::PUT, ALPHA, &path, Some(&owner), Some(two))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(saved["pins"].as_array().unwrap().len(), 2);
+
+    // Moving 36 and leaving 46 out: one row moved, one removed.
+    let moved = json!({ "pins": [{ "tooth": 36, "x": 0.3, "y": 0.4 }] });
+    let (_, after) = app
+        .send(Method::PUT, ALPHA, &path, Some(&owner), Some(moved))
+        .await;
+    assert_eq!(after["pins"].as_array().unwrap().len(), 1);
+    assert_eq!(after["pins"][0]["tooth"], 36);
+    let (_, read) = app
+        .send(Method::GET, ALPHA, &path, Some(&owner), None)
+        .await;
+    assert_eq!(read, after);
+
+    for bad in [
+        json!({ "pins": [{ "tooth": 99, "x": 0.5, "y": 0.5 }] }),
+        json!({ "pins": [{ "tooth": 36, "x": 1.5, "y": 0.5 }] }),
+        json!({ "pins": [{ "tooth": 36, "x": 0.1, "y": 0.5 }, { "tooth": 36, "x": 0.2, "y": 0.5 }] }),
+    ] {
+        let (status, _) = app
+            .send(Method::PUT, ALPHA, &path, Some(&owner), Some(bad))
+            .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+    for method in [Method::GET, Method::PUT] {
+        let body = (method == Method::PUT).then(|| json!({ "pins": [] }));
+        let (status, _) = app.send(method, BETA, &path, Some(&beta), body).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+    let action: String = sqlx::query_scalar(
+        "select action from audit.erasure_steps where table_name = 'aarogyam.image_pins'",
+    )
+    .fetch_one(&app.owner)
+    .await
+    .unwrap();
+    assert_eq!(action, "delete");
     app.finish().await;
 }

@@ -337,6 +337,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
     }
   }
 
+  /** Tooth pins by image, shared by every client of this backend so a later visit sees them. */
+  const imagePins = new Map<string, S.ImagePins["pins"]>();
+
   function client(options: FakeClientOptions = {}): ApiClient {
     const clock = options.now ?? (() => new Date());
     const latency = options.latencyMs ?? 0;
@@ -5566,6 +5569,32 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             .filter((p) => p.clinic_id === caller.clinic.id && p.active && p.code != null)
             .map((p) => ({ code: p.code ?? "", paise: p.price_paise }));
           return reply(withPrices(studio, settings, list));
+        }),
+
+      listImagePins: (id, opts) =>
+        respond(S.imagePins, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!state.attachments.some((a) => a.id === id && a.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          return reply({ pins: imagePins.get(id) ?? [] });
+        }),
+
+      saveImagePins: (id, input, opts) =>
+        respond(S.imagePins, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!state.attachments.some((a) => a.id === id && a.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          const pins = input.pins.toSorted((a, b) => a.tooth - b.tooth);
+          imagePins.set(id, pins);
+          return reply({ pins });
         }),
 
       listPresentDiscussions: (id, opts) =>

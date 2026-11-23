@@ -223,7 +223,7 @@ describe("Present mode (§1.12)", () => {
     const names = within(shell).getAllByRole("option").map((o) => [o.textContent, o.getAttribute("aria-disabled")]);
     expect(names).toEqual([
       ["Story cardsDefault✓", null], ["Painted smile", null], ["Own X-rayNo X-ray yet", "true"],
-      ["3D smileBetaComing soon", "true"], ["Face to toothBetaComing soon", "true"], ["Chart", null],
+      ["3D smileBeta", null], ["Face to toothBeta", null], ["Chart", null],
     ]);
     fireEvent.click(within(shell).getByRole("option", { name: "Chart" }));
     expect(within(shell).getByRole("group", { name: "Chart look" })).toBeTruthy();

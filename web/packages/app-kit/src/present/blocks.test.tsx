@@ -22,29 +22,29 @@ describe("badges", () => {
 describe("style switcher", () => {
   const options = [...PRESENT_STYLES.map((s) => ({ id: s.id, label: s.label, beta: s.beta, disabled: isShipped(s.id) ? undefined : "Coming soon", note: s.id === DEFAULT_STYLE ? "Default" : undefined })), { id: "chart", label: "Chart", separate: true }];
 
-  it("lists the five styles in the ranking order, story, painted and own X-ray enabled, then the chart", () => {
+  it("lists the five styles in the ranking order, story, painted, own X-ray and 3D smile enabled, then the chart", () => {
     render(<StyleSwitcher options={options} value="painted" onChange={() => undefined} />);
     fireEvent.click(screen.getByRole("button", { name: /Style/ }));
     const opts = screen.getAllByRole("option");
     expect(opts.map((o) => o.textContent.replace(/Coming soon|Beta|Default|✓/g, ""))).toEqual(["Story cards", "Painted smile", "Own X-ray", "3D smile", "Face to tooth", "Chart"]);
-    expect(opts.filter((o) => o.getAttribute("aria-disabled") === "true").map((o) => o.id.split("-").pop())).toEqual(["smile3d", "face"]);
+    expect(opts.filter((o) => o.getAttribute("aria-disabled") === "true").map((o) => o.id.split("-").pop())).toEqual([]);
     expect(opts[0]?.textContent).toContain("Default");
     expect(opts[1]?.getAttribute("aria-selected")).toBe("true");
   });
 
-  it("a coming-soon style can't be chosen; the chart can; Esc closes", () => {
+  it("every style and the chart can be chosen; arrows move; Esc closes", () => {
     const onChange = vi.fn();
     render(<StyleSwitcher options={options} value="painted" onChange={onChange} />);
     fireEvent.click(screen.getByRole("button", { name: /Style/ }));
-    fireEvent.click(screen.getByRole("option", { name: /3D smile/ }));
-    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("option", { name: /Face to tooth/ }));
+    expect(onChange).toHaveBeenLastCalledWith("face");
+    fireEvent.click(screen.getByRole("button", { name: /Style/ }));
     fireEvent.click(screen.getByRole("option", { name: /Chart/ }));
     expect(onChange).toHaveBeenCalledWith("chart");
     expect(screen.queryByRole("listbox")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Style/ }));
     const list = screen.getByRole("listbox");
-    fireEvent.keyDown(list, { key: "ArrowDown" });
-    fireEvent.keyDown(list, { key: "ArrowDown" });
+    for (let i = 0; i < 4; i += 1) fireEvent.keyDown(list, { key: "ArrowDown" });
     fireEvent.keyDown(list, { key: "Enter" });
     expect(onChange).toHaveBeenLastCalledWith("chart");
     fireEvent.click(screen.getByRole("button", { name: /Style/ }));

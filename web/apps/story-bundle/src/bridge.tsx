@@ -3,15 +3,25 @@
 import { createRef } from "react";
 import { createRoot } from "react-dom/client";
 
-import type { MouthSnapshot } from "@aarogyam/api-client";
+import { presentStudio, type MouthSnapshot, type PresentStudio } from "@aarogyam/api-client";
 import { STORY_VERSIONS } from "@aarogyam/app-kit/story-2d";
 
 import { BUNDLE_VERSION, post, type PageMessage } from "./channel.js";
 import { PresentApp, type PresentControls } from "./present-app.js";
 
+export interface PresentOptions {
+  dark?: boolean;
+  /** The opening style: story (default when `present` is given) or painted (default otherwise). Own X-ray is portal-only and opens as the default. */
+  style?: "story" | "painted" | "xray";
+  /** The raw `GET /visits/{id}/present` JSON (object or text): options and compare. A bad payload opens without them. */
+  present?: unknown;
+  /** Beta style ids to list in the switcher. */
+  betas?: string[];
+}
+
 export interface AarogyamApi {
   /** Shows the `/visits/{id}/mouth` JSON in Present mode. */
-  present(mouth: unknown, options?: { dark?: boolean }): void;
+  present(mouth: unknown, options?: PresentOptions): void;
   /** "Back to all teeth": true when the page went back, false at the overview (the app then leaves). */
   back(): boolean;
   /** Draws and encodes the `/visits/{id}/story` JSON; answers with progress, chunks, done or failed. */
@@ -44,6 +54,20 @@ function asSnapshot(value: unknown): MouthSnapshot | undefined {
   return isSnapshot(v) ? v : undefined;
 }
 
+function asStudio(value: unknown): PresentStudio | undefined {
+  if (value === undefined || value === null) return undefined;
+  let v: unknown = value;
+  if (typeof v === "string") {
+    try {
+      v = JSON.parse(v);
+    } catch {
+      return undefined;
+    }
+  }
+  const parsed = presentStudio.safeParse(v);
+  return parsed.success ? parsed.data : undefined;
+}
+
 export interface BridgeDeps {
   /** Where Present draws. */
   container: HTMLElement;
@@ -57,6 +81,7 @@ export function installBridge({ container, send = (m) => { post(m); }, loadRende
   const root = createRoot(container);
   const controls = createRef<PresentControls>();
   let running: AbortController | undefined;
+  let opened = 0;
 
   const api: AarogyamApi = {
     present(mouth, options) {
@@ -68,7 +93,12 @@ export function installBridge({ container, send = (m) => { post(m); }, loadRende
         root.render(<p role="alert" className="sb-error">We couldn't show the teeth. Please go back and try again.</p>);
         return;
       }
-      root.render(<PresentApp snapshot={snapshot} dark={dark} send={send} controls={controls} />);
+      opened += 1;
+      const studio = asStudio(options?.present);
+      const asked = options?.style;
+      const style = asked === "painted" || asked === "story" ? asked : studio === undefined ? "painted" : "story";
+      const betas = Array.isArray(options?.betas) ? options.betas.filter((b) => typeof b === "string") : [];
+      root.render(<PresentApp key={opened} snapshot={snapshot} dark={dark} send={send} controls={controls} style={style} studio={studio} betas={betas} />);
     },
     back() {
       return controls.current?.back() ?? false;

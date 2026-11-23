@@ -6,9 +6,12 @@
 import { Brush } from "lucide-react";
 import { Suspense, lazy, useImperativeHandle, useMemo, useRef, useState, type ReactElement, type Ref } from "react";
 
-import type { MouthSnapshot } from "@aarogyam/api-client";
+import type { MouthSnapshot, PresentStudio } from "@aarogyam/api-client";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
-import { HoldToExit, PaintedSlot, presentFacts, type Orientation, type ShadeKnob } from "@aarogyam/app-kit/present";
+import {
+  HoldToExit, PRESENT_STYLES, PaintedSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts,
+  type Orientation, type PresentStyleId, type ShadeKnob, type SwitcherOption,
+} from "@aarogyam/app-kit/present";
 
 import type { PageMessage } from "./channel.js";
 
@@ -20,15 +23,31 @@ export interface PresentControls {
   back(): boolean;
 }
 
+export const isStyle = (v: unknown): v is PresentStyleId => PRESENT_STYLES.some((s) => s.id === v);
+
+/** Own X-ray needs the portal's attachments and signed links, so the phone offers story, painted and any beta the app lists. */
+export function styleOptions(betas: readonly string[], saved: PresentStyleId): SwitcherOption[] {
+  const ids = new Set<PresentStyleId>(["story", "painted"]);
+  for (const b of betas) if (isStyle(b) && b !== "xray") ids.add(b);
+  return PRESENT_STYLES.filter((x) => ids.has(x.id)).map((x) => ({
+    id: x.id, label: x.label, beta: x.beta, note: x.id === saved ? "Default" : undefined, disabled: isShipped(x.id) ? undefined : "Coming soon",
+  }));
+}
+
 /** Caries recorded without a depth: the app records it (§1.13), so the chip only names the tooth. */
 export function needsDepth(snapshot: MouthSnapshot, tooth: number): boolean {
   const t = snapshot.teeth.find((x) => x.tooth === tooth);
   return t !== undefined && (t.problems ?? []).includes("caries") && t.details?.caries_depth === undefined;
 }
 
-export function PresentApp({ snapshot, dark, send, controls }: {
+export function PresentApp({ snapshot, dark, send, controls, style, studio, betas = [] }: {
   snapshot: MouthSnapshot;
   dark: boolean;
+  /** The opening style, also the doctor's saved default. */
+  style: PresentStyleId;
+  /** The parsed `/visits/{id}/present` JSON; undefined opens without options. */
+  studio?: PresentStudio | undefined;
+  betas?: readonly string[];
   send: (m: PageMessage) => void;
   controls: Ref<PresentControls>;
 }): ReactElement {
@@ -37,6 +56,8 @@ export function PresentApp({ snapshot, dark, send, controls }: {
   const detail = useRef(false);
   const [orientation, setOrientation] = useState<Orientation>("mirror");
   const [shade, setShade] = useState<ShadeKnob>("natural");
+  const [view, setView] = useState<PresentStyleId>(style);
+  const options = useMemo(() => styleOptions(betas, style), [betas, style]);
   const model = useMemo(() => presentFacts(snapshot), [snapshot]);
   preloadArt(snapshot);
   useImperativeHandle(controls, () => ({
@@ -53,12 +74,19 @@ export function PresentApp({ snapshot, dark, send, controls }: {
     },
   }), [brushing]);
   return (
+    <StudioProvider studio={studio}>
     <div className="pm-shell mv-theme" data-mv-theme={dark ? "dark" : "light"} role="dialog" aria-modal="true" aria-label="Present mode">
       <header className="pm-bar">
         <div className="pm-who">
           Show patient
           <small>The same mouth view as the patient's page</small>
         </div>
+        <StyleSwitcher options={options} value={view} onChange={(v) => { if (isStyle(v) && isShipped(v)) setView(v); }} />
+        {view !== style && (view === "story" || view === "painted" || view === "smile3d" || view === "face") ? (
+          <button type="button" className="pm-chip" onClick={() => { send({ type: "make_default", style: view }); }}>
+            Make default
+          </button>
+        ) : null}
         <button type="button" className="pm-chip pm-today" aria-pressed={onlyToday} onClick={() => { setOnlyToday(!onlyToday); }}>
           Today
         </button>
@@ -75,7 +103,9 @@ export function PresentApp({ snapshot, dark, send, controls }: {
           filter={onlyToday ? "today" : undefined}
           load3d={load3d}
           onScreen={(s) => { detail.current = s === "detail"; }}
-          overview={(slot) => (
+          overview={view === "story" ? (slot) => (
+            <StorySlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={dark ? "dark" : "light"} load3d={load3d} />
+          ) : (slot) => (
             <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={dark ? "dark" : "light"} />
           )}
           toothExtras={(tooth) => (needsDepth(snapshot, tooth) ? (
@@ -91,5 +121,6 @@ export function PresentApp({ snapshot, dark, send, controls }: {
         </Suspense>
       ) : null}
     </div>
+    </StudioProvider>
   );
 }

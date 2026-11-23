@@ -20,7 +20,12 @@ export { ToothSheet, sheetContent, type ToothSheetProps, type SheetContent, type
 export { XrayStyle, XrayView, XrayEdges, XRAY_EDGES, type XrayProps } from "./xray.js";
 export { PaintedSlot } from "./painted-slot.js";
 export { StudioProvider, SituationOptions, ToothOptions, useStudio, situationsOf, visitsWords, finishWords } from "./options.js";
+export { Smile3dSlot } from "./smile3d-slot.js";
+export { smile3dAllowed, probePasses, SMILE3D_FALLBACK_LINE, type DeviceEnv } from "./smile3d-gate.js";
 export { StorySlot } from "./story-slot.js";
+export { FaceSlot } from "./face-slot.js";
+export { SMILE_ZONE, inSmileZone } from "./smile-zone.js";
+export type { FaceProps } from "./face.js";
 export type { StoryProps, StoryCard } from "./story.js";
 
 /** The painted style's chunk (painter, front atlas and Open wide). Show patient prefetches it. */

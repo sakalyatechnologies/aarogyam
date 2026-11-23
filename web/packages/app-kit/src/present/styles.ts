@@ -18,8 +18,8 @@ export const PRESENT_STYLES: readonly PresentStyleInfo[] = [
   { id: "face", label: "Face to tooth", beta: true },
 ];
 
-/** Styles built so far (story cards from slice 1d, painted from 1a). */
-export const SHIPPED_STYLES: ReadonlySet<PresentStyleId> = new Set<PresentStyleId>(["story", "painted", "xray"]);
+/** Styles built so far (story cards 1d, painted 1a, own X-ray 1e, 3D smile 3a, face 3b). */
+export const SHIPPED_STYLES: ReadonlySet<PresentStyleId> = new Set<PresentStyleId>(["story", "painted", "xray", "smile3d", "face"]);
 
 /** The style Show patient opens on until "Make default" (slice 1f). */
 export const DEFAULT_STYLE: PresentStyleId = "story";

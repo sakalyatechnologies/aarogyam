@@ -64,6 +64,7 @@ import { EXPENSE_NAMES, buildAnalytics, daysInclusive, wireExpense, type FakeExp
 import { changeRecurring, isRefusal, newRecurring, recordDue, resumeRecurring, wireRecurring, type FakeRecurring } from "./recurring-expenses.js";
 import { DASHBOARD_CATALOGUE, builtInLayout, validateLayout } from "./dashboard-layout.js";
 import { clinicTerms, type FakeDentalTerm } from "./dental-terms.js";
+import { fakePresentStudio } from "./present.js";
 import { ANGULATIONS, ERUPTIONS, FIXTURE_MOUTH, mergeCondition, wireCondition as wireToothCondition, wireDetails, wireEruption } from "./tooth-details.js";
 import { MAX_GRANT_MS, MIN_GRANT_MS, grantStatus, wireGrant, type FakeSupportGrant } from "./support-grants.js";
 import {
@@ -5539,6 +5540,18 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             return notFound;
           }
           return reply(FIXTURE_MOUTH);
+        }),
+
+      getVisitPresent: (id, opts) =>
+        respond(S.presentStudio, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!state.visits.some((v) => v.id === id && v.clinic_id === caller.clinic.id)) {
+            return notFound;
+          }
+          return reply(fakePresentStudio(FIXTURE_MOUTH));
         }),
 
       getVisitStory: (id, opts) =>

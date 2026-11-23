@@ -19,6 +19,7 @@ export { CompareSlider, sharedBox, type CompareSliderProps } from "./compare-sli
 export { ToothSheet, sheetContent, type ToothSheetProps, type SheetContent, type StateSpec } from "./tooth-sheet.js";
 export { XrayStyle, XrayView, XrayEdges, XRAY_EDGES, type XrayProps } from "./xray.js";
 export { PaintedSlot } from "./painted-slot.js";
+export { StudioProvider, SituationOptions, ToothOptions, useStudio, situationsOf, visitsWords, finishWords } from "./options.js";
 export { StorySlot } from "./story-slot.js";
 export type { StoryProps, StoryCard } from "./story.js";
 

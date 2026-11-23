@@ -319,6 +319,13 @@ val apiModels =
         "CompleteBody",
         "ProofUploaded",
         "UsageBody",
+        // Show patient studio layer (slice 2a): usual options for the recorded situations.
+        "PresentStudio",
+        "PresentSituation",
+        "PresentOption",
+        "PresentRange",
+        "PresentFinish",
+        "PresentLifespan",
     )
 val generatedApi = layout.buildDirectory.dir("generated/openapi")
 

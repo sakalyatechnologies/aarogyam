@@ -60,6 +60,7 @@ pub(crate) mod patient_visits;
 pub(crate) mod patients;
 pub(crate) mod payments;
 pub(crate) mod prescriptions;
+pub(crate) mod present;
 pub(crate) mod public_booking;
 pub(crate) mod purchase_orders;
 pub(crate) mod quality;
@@ -410,6 +411,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/visits/{id}/finish", post(visits::finish))
         .route("/visits/{id}/share", post(visit_summary::create))
         .route("/visits/{id}/mouth", get(mouth::get))
+        .route("/visits/{id}/present", get(present::get))
         .route("/visits/{id}/story", get(patient_message::story))
         .route(
             "/visits/{id}/patient-message",

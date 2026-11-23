@@ -16,7 +16,7 @@ import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import "@aarogyam/app-kit/mouth-view.css";
 import {
-  DEFAULT_STYLE, HoldToExit, PRESENT_STYLES, PaintedSlot, StorySlot, StyleSwitcher, isShipped, presentFacts,
+  DEFAULT_STYLE, HoldToExit, PRESENT_STYLES, PaintedSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts,
   type Orientation, type PaintedView, type PresentStyleId, type ShadeKnob, type SwitcherOption,
 } from "@aarogyam/app-kit/present";
 import "@aarogyam/app-kit/hold-to-exit.css";
@@ -24,7 +24,7 @@ import "@aarogyam/app-kit/present.css";
 import { useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
-import { useDentalChart, usePatient, useRecordChartEntries, useSaveUiPrefs, useUiPrefs, useVisit, useVisitMouth } from "../../../queries.js";
+import { useDentalChart, usePatient, useRecordChartEntries, useSaveUiPrefs, useUiPrefs, useVisit, useVisitMouth, useVisitPresent } from "../../../queries.js";
 import { DENTITIONS, LOOKS } from "../../patients/v2/tooth-chart/tooth-chart.js";
 import { useChartPrefs, type ChartDentition, type ChartLook } from "../../patients/v2/tooth-chart/use-chart-prefs.js";
 import { usePlans } from "../../treatment-plans/queries.js";
@@ -62,6 +62,7 @@ export function PresentPage() {
   };
   const visit = useVisit(visitId);
   const mouth = useVisitMouth(visitId);
+  const present = useVisitPresent(visitId);
   const patientId = visit.data?.visit.patient_id;
   const patient = usePatient(patientId);
   const [brushing, setBrushing] = useState(false);
@@ -101,6 +102,7 @@ export function PresentPage() {
   // all art chunks start together the moment the snapshot is here (a no-op when Show patient prefetched them)
   if (mouth.data !== undefined) preloadArt(mouth.data);
   return (
+    <StudioProvider studio={present.data}>
     <div className="pm-shell mv-theme" data-mv-theme={theme} role="dialog" aria-modal="true" aria-label="Present mode">
       <header className="pm-bar">
         <div className="pm-who">
@@ -208,6 +210,7 @@ export function PresentPage() {
         </Suspense>
       ) : null}
     </div>
+    </StudioProvider>
   );
 }
 

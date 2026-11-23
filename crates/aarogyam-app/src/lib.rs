@@ -67,6 +67,7 @@ pub mod patient_visits;
 pub mod patients;
 pub mod payments;
 pub mod prescriptions;
+pub mod present;
 pub mod profile;
 pub mod purchase_orders;
 pub mod push;

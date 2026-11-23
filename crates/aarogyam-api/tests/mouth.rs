@@ -750,3 +750,58 @@ async fn the_message_says_a_detail_only_when_recorded() {
     assert!(!text.contains("pocket"), "{text}");
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn present_studio_lists_usual_options_for_recorded_situations_only() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let (patient, visit) = patient_with_visit(&app, &owner, 35).await;
+    let path = format!("/api/v1/visits/{visit}/present");
+    // Nothing recorded: no situations.
+    let (status, empty) = call(&app, Method::GET, &owner, &path, None).await;
+    assert_eq!(status, StatusCode::OK, "{empty}");
+    assert_eq!(empty["situations"], json!([]));
+    chart(
+        &app,
+        &owner,
+        &patient,
+        &visit,
+        json!([
+            { "tooth": 36, "surface": "O", "finding": "caries", "caries_depth": "near_pulp",
+              "note": "Patient anxious" },
+            { "tooth": 46, "finding": "missing" },
+            { "tooth": 17, "surface": "O", "finding": "caries", "caries_depth": "dentin" }
+        ]),
+    )
+    .await;
+    // The visit is still open.
+    let (status, headers, studio) = app
+        .send_full(Method::GET, ALPHA, &path, Some(&owner), None, &[])
+        .await;
+    assert_eq!(status, StatusCode::OK, "{studio}");
+    assert_eq!(headers["cache-control"], "no-store");
+    let found: Vec<(u64, &str)> = studio["situations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| (s["tooth"].as_u64().unwrap(), s["key"].as_str().unwrap()))
+        .collect();
+    assert_eq!(found, [(36, "deep_decay"), (46, "missing")]);
+    let options = studio["situations"][0]["options"].as_array().unwrap();
+    assert_eq!(options.len(), 5);
+    assert_eq!(options[1]["key"], "rct_crown");
+    assert_eq!(options[1]["visits"], json!({ "min": 2, "max": 3 }));
+    let text = studio.to_string();
+    for leaked in ["anxious", "price", "₹"] {
+        assert!(!text.contains(leaked), "{leaked}: {text}");
+    }
+    // Another clinic gets 404, a role without clinical.read 403.
+    let beta = app.token(BETA_OWNER);
+    let (status, _) = app.send(Method::GET, BETA, &path, Some(&beta), None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let (status, _) = call(&app, Method::GET, &desk, &path, None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    app.finish().await;
+}

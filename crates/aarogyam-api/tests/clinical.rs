@@ -2396,6 +2396,7 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             Some(json!({ "reason": "Wrong tooth" })),
         ),
         (Method::GET, format!("/api/v1/visits/{visit}/mouth"), None),
+        (Method::GET, format!("/api/v1/visits/{visit}/present"), None),
         (Method::GET, format!("/api/v1/visits/{visit}/story"), None),
         (
             Method::GET,

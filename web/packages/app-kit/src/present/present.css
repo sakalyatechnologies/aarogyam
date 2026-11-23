@@ -242,3 +242,19 @@ div.ps-found-item { cursor: default; }
 .ps-xr-edge[data-side="left"] { left: 8px; }
 .ps-xr-edge[data-side="right"] { right: 8px; }
 .ps-xr-card { display: grid; gap: 8px; }
+/* Usual options (slice 2a): cards or a side-by-side compare; every figure is general guidance */
+.ps-opts { display: grid; gap: 10px; min-width: 0; }
+.ps-opts .ps-h { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0; }
+.ps-opt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.ps-opt { display: grid; gap: 8px; align-content: start; min-width: 0; padding: 12px; border-radius: 16px; border: 1.5px dashed var(--mv-line); background: var(--mv-card); }
+.ps-opt-h { font-size: 17px; }
+.ps-opt-facts { display: grid; gap: 6px; margin: 0; }
+.ps-opt-facts dt { font-size: 12px; font-weight: 700; color: var(--mv-muted); text-transform: uppercase; letter-spacing: .04em; }
+.ps-opt-facts dd { margin: 0; font-size: 15px; line-height: 1.4; }
+.ps-opt-life { display: grid; gap: 3px; }
+.ps-opt-life small, .ps-opt-life details { font-size: 13px; color: var(--mv-muted); }
+.ps-opt-life q { display: block; font-style: italic; }
+.ps-opt-scroll { overflow-x: auto; display: grid; gap: 8px; }
+.ps-opt-table { border-collapse: collapse; min-width: 560px; width: 100%; font-size: 14px; }
+.ps-opt-table th, .ps-opt-table td { text-align: left; vertical-align: top; padding: 8px 10px; border: 1px dashed var(--mv-line); }
+.ps-opt-table th[scope="row"] { font-size: 12px; color: var(--mv-muted); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }

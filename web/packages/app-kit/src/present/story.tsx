@@ -11,9 +11,11 @@ import type { FactItem, Orientation, PresentModel } from "./model.js";
 import { OpenWide, bitingSideProblems, frontHidesAllProblems } from "./open-wide.js";
 import { PaintedMap, type PaintedView } from "./painted.js";
 import { ToothSheet, type ToothSheetProps } from "./tooth-sheet.js";
+import { SituationOptions, useStudio } from "./options.js";
+import type { PresentStudio } from "@aarogyam/api-client";
 
-export type StoryCardKind = "mouth" | "found" | "tooth" | "plan" | "discussed" | "xray";
-export interface StoryCard { id: string; kind: StoryCardKind; title: string; tooth?: number }
+export type StoryCardKind = "mouth" | "found" | "tooth" | "options" | "plan" | "discussed" | "xray";
+export interface StoryCard { id: string; kind: StoryCardKind; title: string; tooth?: number; situation?: string }
 
 const PLAN_KINDS = new Set<FactItem["kind"]>(["recommended", "plan", "in_progress"]);
 export const planFacts = (m: PresentModel): FactItem[] => m.facts.filter((f) => PLAN_KINDS.has(f.kind));
@@ -25,7 +27,7 @@ export const discussRows = (m: PresentModel): { id: string; words: string; where
 const problemTeeth = (m: PresentModel): number[] => [...new Set(m.facts.flatMap((f) => (f.kind === "problem" && f.tooth !== undefined ? [f.tooth] : [])))];
 
 /** The cards, from the facts only. Pure: no fact, no card. */
-export function storyCards(m: PresentModel, hasXray = false): StoryCard[] {
+export function storyCards(m: PresentModel, hasXray = false, studio?: PresentStudio): StoryCard[] {
   const cards: StoryCard[] = [{ id: "mouth", kind: "mouth", title: "Here is your mouth" }];
   if (m.facts.length > 0) cards.push({ id: "found", kind: "found", title: "What we found" });
   if (hasXray) cards.push({ id: "xray", kind: "xray", title: "Your X-ray" });
@@ -33,6 +35,7 @@ export function storyCards(m: PresentModel, hasXray = false): StoryCard[] {
     const where = m.facts.find((f) => f.tooth === t)?.where;
     cards.push({ id: `tooth:${String(t)}`, kind: "tooth", tooth: t, title: `${where ?? "Tooth"} · ${String(t)}` });
   }
+  for (const s of studio?.situations ?? []) cards.push({ id: `options:${String(s.tooth)}:${s.key}`, kind: "options", tooth: s.tooth, situation: s.key, title: `Usual options · ${s.title}` });
   if (planFacts(m).length > 0) cards.push({ id: "plan", kind: "plan", title: "What is planned" });
   if (discussRows(m).length > 0) cards.push({ id: "discussed", kind: "discussed", title: "What we discussed" });
   return cards;
@@ -59,7 +62,8 @@ const owned = (el: EventTarget | null): boolean => el instanceof Element && el.c
 export function StoryStyle(props: StoryProps): ReactElement {
   const { model, onOrientation, stacked = false } = props;
   const hasXray = props.xray !== undefined;
-  const cards = useMemo(() => storyCards(model, hasXray), [model, hasXray]);
+  const studio = useStudio();
+  const cards = useMemo(() => storyCards(model, hasXray, studio), [model, hasXray, studio]);
   const [at, setAt] = useState(0);
   const [index, setIndex] = useState(false);
   const [sheet, setSheet] = useState<number | undefined>(undefined);
@@ -118,6 +122,7 @@ export function StoryStyle(props: StoryProps): ReactElement {
             {c.kind === "found" ? <FactList model={model} onOpen={open} onBitingSide={view === "front" ? () => { setView("wide"); go(0); } : undefined} /> : null}
             {c.kind === "xray" ? <div className="ps-xr-card">{props.xray}<ProvenanceFooter recorded={["The image is your own X-ray, as it was taken."]} illustration={[]} /></div> : null}
             {c.kind === "tooth" && c.tooth !== undefined ? <ToothSheet embedded model={model} tooth={c.tooth} load3d={props.load3d} /> : null}
+            {c.kind === "options" ? <OptionsCard studio={studio} card={c} /> : null}
             {c.kind === "plan" ? <PlanCard model={model} /> : null}
             {c.kind === "discussed" ? (
               <ul className="ps-discuss" aria-label="Tick what we talked about">
@@ -208,3 +213,8 @@ function PlanCard({ model }: { model: PresentModel }): ReactElement {
 
 /** The style module's shape (§6). */
 export const storyStyle = { id: "story" as const, label: "Story cards", Component: StoryStyle };
+
+function OptionsCard({ studio, card }: { studio: PresentStudio | undefined; card: StoryCard }): ReactElement | null {
+  const situation = studio?.situations.find((s) => s.tooth === card.tooth && s.key === card.situation);
+  return situation === undefined ? null : <SituationOptions situation={situation} titled={false} />;
+}

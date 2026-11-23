@@ -926,6 +926,16 @@ export function useCompleteProcedure(visitId: VisitId) {
   });
 }
 
+/** Show patient's studio layer (slice 2a): the usual options for the recorded situations. Refetched with the mouth. */
+export function useVisitPresent(visitId: VisitId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["visit-mouth", access.org_id, visitId, "present"],
+    queryFn: ({ signal }) => (visitId === undefined ? Promise.reject(new Error("no visit")) : unwrap(api.getVisitPresent(visitId, { signal }))),
+    enabled: visitId !== undefined,
+  });
+}
+
 /** Present mode's mouth snapshot (design §1.12): the same JSON the patient's page shows. */
 export function useVisitMouth(visitId: VisitId | undefined) {
   const { api, access } = useClinic();

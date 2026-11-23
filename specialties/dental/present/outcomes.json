@@ -1,0 +1,48 @@
+{
+  "$comment": "Outcome words for Show patient (docs/plans/present-studio-design.md section 11.2). Every `why` or `words` with a number carries `source` and `source_quote` (checked by a domain test). `follow_up_years` is the longest follow-up the source reports: words never name a longer period. Entries with no words stay hidden unless the clinic writes its own guidance. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "reviewed_by": "pending",
+  "outcomes": {
+    "crown_pfm": {
+      "words": "Most are still working after 5 years",
+      "why": "About 95 in 100 metal-ceramic crowns were still working at 5 years.",
+      "follow_up_years": 5,
+      "source": "Sailer et al., Dent Mater 2015;31(6):603-23, pubmed.ncbi.nlm.nih.gov/25842099",
+      "source_quote": "estimated survival rate of metal-ceramic SCs of 94.7% (95% CI: 94.1-96.9%) after 5 years"
+    },
+    "crown_emax": {
+      "words": "Most are still working after 5 years",
+      "why": "About 97 in 100 lithium-disilicate crowns were still working at 5 years.",
+      "follow_up_years": 5,
+      "source": "Sailer et al., Dent Mater 2015;31(6):603-23, pubmed.ncbi.nlm.nih.gov/25842099",
+      "source_quote": "leucit or lithium-disilicate reinforced glass ceramic SCs (96.6%; 95% CI: 94.9-96.7%)"
+    },
+    "crown_zirconia": {
+      "words": "Most are still working after 5 years",
+      "why": "About 92 in 100 zirconia crowns were still working at 5 years (studies range widely), with more technical problems than metal-ceramic crowns.",
+      "follow_up_years": 5,
+      "source": "Sailer et al., Dent Mater 2015;31(6):603-23, pubmed.ncbi.nlm.nih.gov/25842099",
+      "source_quote": "92.1%; 95% CI: 82.8-95.6%"
+    },
+    "implant": {
+      "words": "Most are still working after 10 years",
+      "why": "About 93 to 96 in 100 implants were still working at 10 years, depending on how the studies were analysed.",
+      "follow_up_years": 10,
+      "source": "Howe, Keys, Richards, J Dent 2019;84:9-21, pubmed.ncbi.nlm.nih.gov/30904559",
+      "source_quote": "The summary estimate for 10-year survival at the implant level was 96.4% (95% CI 95.2%-97.5%). The sensitivity meta-analysis summary estimate of survival was 93.2% (95% CI 90.1% to 95.8%)"
+    },
+    "filling_composite": { "words": "Usually lasts several years", "why": "Fillings wear and can need replacing." },
+    "filling_amalgam": { "words": "Usually lasts several years", "why": "Fillings wear and can need replacing." },
+    "braces": {
+      "words": "On average about 20 months, with regular visits",
+      "why": "Fixed braces took 19.9 months on average, with about 18 visits.",
+      "source": "Tsichlaki et al., AJODO 2016;149(3):308-18, pubmed.ncbi.nlm.nih.gov/26926017",
+      "source_quote": "The mean treatment duration derived from the 22 included studies involving 1089 participants was 19.9 months. The mean number of required visits derived from 5 studies was 17.81"
+    },
+    "aligners": {},
+    "bridge": {},
+    "gic": {},
+    "veneer": {}
+  }
+}

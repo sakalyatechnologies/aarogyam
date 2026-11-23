@@ -20325,6 +20325,52 @@
         ]
       }
     },
+    "/api/v1/visits/{id}/present": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The studio layer of a visit for Show patient: the usual options for each recorded situation\n(deep decay, a missing tooth, a wisdom tooth not fully out). It works while the visit is open.",
+        "operationId": "getVisitPresent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The visit",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The studio layer; `Cache-Control: no-store`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentStudio"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such visit in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/visits/{id}/procedures": {
       "post": {
         "tags": [
@@ -38128,6 +38174,203 @@
               "$ref": "#/components/schemas/Prescription"
             },
             "description": "Newest first."
+          }
+        }
+      },
+      "PresentFinish": {
+        "type": "object",
+        "description": "How long an option takes to finish.",
+        "required": [
+          "min",
+          "max",
+          "unit"
+        ],
+        "properties": {
+          "max": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Longest.",
+            "minimum": 0
+          },
+          "min": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Shortest.",
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "description": "`days`, `weeks` or `months`."
+          }
+        }
+      },
+      "PresentLifespan": {
+        "type": "object",
+        "description": "Outcome words: \"General guidance, not a promise. Your dentist will advise.\"",
+        "required": [
+          "words"
+        ],
+        "properties": {
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The paper; present whenever the words carry a number."
+          },
+          "source_quote": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The exact sentence the number comes from."
+          },
+          "why": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why we say it."
+          },
+          "words": {
+            "type": "string",
+            "description": "What the patient reads."
+          }
+        }
+      },
+      "PresentOption": {
+        "type": "object",
+        "description": "One usual option for a situation.",
+        "required": [
+          "key",
+          "label",
+          "summary",
+          "looks_like",
+          "visits",
+          "look",
+          "comfort"
+        ],
+        "properties": {
+          "comfort": {
+            "type": "string",
+            "description": "How it feels, in words."
+          },
+          "finish": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PresentFinish",
+                "description": "Usual time to finish; absent when nothing is done."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "type": "string",
+            "description": "Stable key, such as `rct_crown`."
+          },
+          "label": {
+            "type": "string",
+            "description": "Short name."
+          },
+          "lifespan": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PresentLifespan",
+                "description": "Typical lifespan words; absent unless the guidance has some."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "look": {
+            "type": "string",
+            "description": "An art key for the illustration (an `art-map.json` value)."
+          },
+          "looks_like": {
+            "type": "string",
+            "description": "How it looks afterwards, in words."
+          },
+          "summary": {
+            "type": "string",
+            "description": "What is done."
+          },
+          "visits": {
+            "$ref": "#/components/schemas/PresentRange",
+            "description": "Usual visits."
+          }
+        }
+      },
+      "PresentRange": {
+        "type": "object",
+        "description": "A range of whole numbers.",
+        "required": [
+          "min",
+          "max"
+        ],
+        "properties": {
+          "max": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Most.",
+            "minimum": 0
+          },
+          "min": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Fewest.",
+            "minimum": 0
+          }
+        }
+      },
+      "PresentSituation": {
+        "type": "object",
+        "description": "A recorded situation on one tooth.",
+        "required": [
+          "key",
+          "tooth",
+          "title",
+          "options"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "`deep_decay`, `missing` or `impacted_wisdom` (a plain string; more may come)."
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PresentOption"
+            },
+            "description": "The usual options. General guidance: show \"Usual options · general guidance\"."
+          },
+          "title": {
+            "type": "string",
+            "description": "Words for the situation."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth.",
+            "minimum": 0
+          }
+        }
+      },
+      "PresentStudio": {
+        "type": "object",
+        "description": "The studio layer of a visit.",
+        "required": [
+          "situations"
+        ],
+        "properties": {
+          "situations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PresentSituation"
+            },
+            "description": "The recorded situations, by tooth, each with its usual options."
           }
         }
       },

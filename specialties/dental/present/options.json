@@ -1,0 +1,106 @@
+{
+  "$comment": "The usual options compared for a recorded situation (docs/plans/present-studio-design.md section 8.3, slice 2a). General guidance, never about this patient: visits and time are typical ranges, `outcome` is a key into outcomes.json, `comfort` a key into `comfort` below, `look` an art key from art-map.json, `price_parts` seeded vocabulary.json procedures (priced in slice 2b; never served in 2a). Situations are decided on the server from recorded snapshot fields only. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "reviewed_by": "pending",
+  "comfort": {
+    "none": "Nothing is done, so there is nothing to feel today.",
+    "numbed": "Done with the tooth numbed. Some soreness afterwards is usual.",
+    "numbed_longer": "Done with the area numbed over a few visits. Some soreness afterwards is usual.",
+    "surgical": "Done with the area numbed. Swelling and soreness for a few days are usual, and we give you aftercare."
+  },
+  "situations": {
+    "deep_decay": {
+      "title": "Decay close to the nerve",
+      "options": [
+        {
+          "key": "wait", "label": "Wait and watch",
+          "summary": "Leave it for now and look again at the next visit.",
+          "looks_like": "The decay stays where it is.",
+          "visits": { "min": 0, "max": 0 }, "look": "overlay:caries.near_pulp", "comfort": "none",
+          "price_parts": []
+        },
+        {
+          "key": "rct_crown", "label": "Root canal and cap",
+          "summary": "Clean the inside of the tooth, seal it, then cover it with a cap (crown).",
+          "looks_like": "Your own tooth is kept, with a cap on top.",
+          "visits": { "min": 2, "max": 3 }, "finish": { "min": 2, "max": 4, "unit": "weeks" },
+          "look": "scene:root_canal", "comfort": "numbed_longer",
+          "price_parts": [{ "procedure": "root_canal" }, { "procedure": "crown" }]
+        },
+        {
+          "key": "extract_implant", "label": "Remove the tooth, then an implant",
+          "summary": "Take the tooth out, let the area heal, then place an implant and a crown on it.",
+          "looks_like": "A new tooth on an implant fills the gap.",
+          "visits": { "min": 4, "max": 6 }, "finish": { "min": 3, "max": 6, "unit": "months" },
+          "look": "scene:implant", "outcome": "implant", "comfort": "surgical",
+          "price_parts": [{ "procedure": "extraction" }, { "procedure": "implant" }, { "procedure": "crown" }]
+        },
+        {
+          "key": "extract_bridge", "label": "Remove the tooth, then a bridge",
+          "summary": "Take the tooth out, then join a new tooth to the teeth either side of the gap.",
+          "looks_like": "A new tooth held by the neighbouring teeth fills the gap.",
+          "visits": { "min": 3, "max": 4 }, "finish": { "min": 4, "max": 8, "unit": "weeks" },
+          "look": "overlay:bridge_pontic", "comfort": "numbed_longer",
+          "price_parts": [{ "procedure": "extraction" }, { "procedure": "bridge" }]
+        },
+        {
+          "key": "extract", "label": "Remove the tooth only",
+          "summary": "Take the tooth out and leave the gap.",
+          "looks_like": "A gap where the tooth was.",
+          "visits": { "min": 1, "max": 1 }, "finish": { "min": 1, "max": 2, "unit": "weeks" },
+          "look": "scene:extraction", "comfort": "surgical",
+          "price_parts": [{ "procedure": "extraction" }]
+        }
+      ]
+    },
+    "missing": {
+      "title": "A missing tooth",
+      "options": [
+        {
+          "key": "implant", "label": "Implant",
+          "summary": "A small post is placed in the jaw. Once it has healed, a crown goes on top.",
+          "looks_like": "A new tooth that stands on its own.",
+          "visits": { "min": 3, "max": 5 }, "finish": { "min": 3, "max": 6, "unit": "months" },
+          "look": "scene:implant", "outcome": "implant", "comfort": "surgical",
+          "price_parts": [{ "procedure": "implant" }, { "procedure": "crown" }]
+        },
+        {
+          "key": "bridge", "label": "Bridge",
+          "summary": "A new tooth is joined to the teeth either side of the gap.",
+          "looks_like": "A new tooth held by the neighbouring teeth.",
+          "visits": { "min": 2, "max": 3 }, "finish": { "min": 2, "max": 4, "unit": "weeks" },
+          "look": "overlay:bridge_pontic", "comfort": "numbed_longer",
+          "price_parts": [{ "procedure": "bridge" }]
+        },
+        {
+          "key": "leave_gap", "label": "Leave the gap",
+          "summary": "Do nothing for now. We keep an eye on the neighbouring teeth.",
+          "looks_like": "The gap stays.",
+          "visits": { "min": 0, "max": 0 }, "look": "overlay:missing", "comfort": "none",
+          "price_parts": []
+        }
+      ]
+    },
+    "impacted_wisdom": {
+      "title": "A wisdom tooth that is not fully out",
+      "options": [
+        {
+          "key": "remove", "label": "Remove it",
+          "summary": "A small procedure to take the wisdom tooth out.",
+          "looks_like": "The tooth is gone and the gum heals over.",
+          "visits": { "min": 1, "max": 2 }, "finish": { "min": 1, "max": 2, "unit": "weeks" },
+          "look": "scene:wisdom_extraction", "comfort": "surgical",
+          "price_parts": [{ "procedure": "extraction" }]
+        },
+        {
+          "key": "monitor", "label": "Keep watching it",
+          "summary": "Leave it for now and look at it again, usually with an X-ray.",
+          "looks_like": "The tooth stays as it is.",
+          "visits": { "min": 0, "max": 0 }, "look": "scene:wisdom_extraction.position.impacted_vertical", "comfort": "none",
+          "price_parts": []
+        }
+      ]
+    }
+  }
+}

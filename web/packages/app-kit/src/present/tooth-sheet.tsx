@@ -17,6 +17,7 @@ import {
 import type { Tooth3dHandle, Tooth3dOptions } from "../real-teeth-3d/index.js";
 import { IllustrationBadge, ProvenanceFooter, RecordBadge } from "./blocks.js";
 import { CompareSlider } from "./compare-slider.js";
+import { ToothOptions } from "./options.js";
 import type { FactItem, PresentModel, ToothFacts } from "./model.js";
 
 /** What a state of the tooth is drawn from: the record as charted, or one stage picture. */
@@ -276,6 +277,7 @@ export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: T
           <IllustrationBadge>Illustration · general guidance</IllustrationBadge>
         </section>
       )}
+      {embedded ? null : <ToothOptions tooth={tooth} />}
       <ProvenanceFooter recorded={recordedWords} illustration={["Tooth shapes and colours are a painting based on your record, not a photo."]} />
     </section>
   );

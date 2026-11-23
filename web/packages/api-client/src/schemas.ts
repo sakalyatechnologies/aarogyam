@@ -2403,6 +2403,38 @@ export const mouthSnapshot = z.object({
 }) satisfies z.ZodType<C.MouthSnapshot>;
 export type MouthSnapshot = z.output<typeof mouthSnapshot>;
 
+export const presentLifespan = z.object({
+  words: z.string(),
+  why: z.string().exactOptional(),
+  source: z.string().exactOptional(),
+  source_quote: z.string().exactOptional(),
+}) satisfies z.ZodType<C.PresentLifespan>;
+
+export const presentOption = z.object({
+  key: z.string(),
+  label: z.string(),
+  summary: z.string(),
+  looks_like: z.string(),
+  visits: z.object({ min: count, max: count }) satisfies z.ZodType<C.PresentRange>,
+  finish: (z.object({ min: count, max: count, unit: z.string() }) satisfies z.ZodType<C.PresentFinish>).exactOptional(),
+  look: z.string(),
+  lifespan: presentLifespan.exactOptional(),
+  comfort: z.string(),
+}) satisfies z.ZodType<C.PresentOption>;
+
+export const presentSituation = z.object({
+  key: z.string(),
+  tooth: count,
+  title: z.string(),
+  options: z.array(presentOption),
+}) satisfies z.ZodType<C.PresentSituation>;
+
+/** `GET /api/v1/visits/{id}/present`: the studio layer (usual options for the recorded situations). */
+export const presentStudio = z.object({ situations: z.array(presentSituation) }) satisfies z.ZodType<C.PresentStudio>;
+export type PresentStudio = z.output<typeof presentStudio>;
+export type PresentSituation = z.output<typeof presentSituation>;
+export type PresentOption = z.output<typeof presentOption>;
+
 /** `GET /api/v1/visits/{id}/story`: the patient's video data (section 1.7). No patient name. */
 export const visitStory = z.object({
   story_version: count,

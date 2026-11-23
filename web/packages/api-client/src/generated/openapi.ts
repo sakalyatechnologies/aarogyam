@@ -6349,6 +6349,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visits/{id}/present": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The studio layer of a visit for Show patient: the usual options for each recorded situation
+         *     (deep decay, a missing tooth, a wisdom tooth not fully out). It works while the visit is open.
+         */
+        get: operations["getVisitPresent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/visits/{id}/procedures": {
         parameters: {
             query?: never;
@@ -13765,6 +13785,83 @@ export interface components {
         PrescriptionList: {
             /** @description Newest first. */
             items: components["schemas"]["Prescription"][];
+        };
+        /** @description How long an option takes to finish. */
+        PresentFinish: {
+            /**
+             * Format: int32
+             * @description Longest.
+             */
+            max: number;
+            /**
+             * Format: int32
+             * @description Shortest.
+             */
+            min: number;
+            /** @description `days`, `weeks` or `months`. */
+            unit: string;
+        };
+        /** @description Outcome words: "General guidance, not a promise. Your dentist will advise." */
+        PresentLifespan: {
+            /** @description The paper; present whenever the words carry a number. */
+            source?: string | null;
+            /** @description The exact sentence the number comes from. */
+            source_quote?: string | null;
+            /** @description Why we say it. */
+            why?: string | null;
+            /** @description What the patient reads. */
+            words: string;
+        };
+        /** @description One usual option for a situation. */
+        PresentOption: {
+            /** @description How it feels, in words. */
+            comfort: string;
+            finish?: components["schemas"]["PresentFinish"] | null;
+            /** @description Stable key, such as `rct_crown`. */
+            key: string;
+            /** @description Short name. */
+            label: string;
+            lifespan?: components["schemas"]["PresentLifespan"] | null;
+            /** @description An art key for the illustration (an `art-map.json` value). */
+            look: string;
+            /** @description How it looks afterwards, in words. */
+            looks_like: string;
+            /** @description What is done. */
+            summary: string;
+            /** @description Usual visits. */
+            visits: components["schemas"]["PresentRange"];
+        };
+        /** @description A range of whole numbers. */
+        PresentRange: {
+            /**
+             * Format: int32
+             * @description Most.
+             */
+            max: number;
+            /**
+             * Format: int32
+             * @description Fewest.
+             */
+            min: number;
+        };
+        /** @description A recorded situation on one tooth. */
+        PresentSituation: {
+            /** @description `deep_decay`, `missing` or `impacted_wisdom` (a plain string; more may come). */
+            key: string;
+            /** @description The usual options. General guidance: show "Usual options · general guidance". */
+            options: components["schemas"]["PresentOption"][];
+            /** @description Words for the situation. */
+            title: string;
+            /**
+             * Format: int32
+             * @description FDI tooth.
+             */
+            tooth: number;
+        };
+        /** @description The studio layer of a visit. */
+        PresentStudio: {
+            /** @description The recorded situations, by tooth, each with its usual options. */
+            situations: components["schemas"]["PresentSituation"][];
         };
         /** @description A filter to count. */
         PreviewAudience: {
@@ -37536,6 +37633,50 @@ export interface operations {
             };
             /** @description `visit_open`, `no_phone`, `no_consent` or `opted_out` */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getVisitPresent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The studio layer; `Cache-Control: no-store` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresentStudio"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such visit in this clinic or the caller's reach */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1,6 +1,7 @@
 // The conformance suite (present-studio-design §14.1): one set of rules, run over every shipped style and
 // the fixtures (Aarav, the adult, an empty mouth). Slice 1a starts it with the painted style; each new
 // style adds itself to STYLES and must pass unchanged.
+import { fakePresentStudio } from "@aarogyam/api-client/fake";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,6 +10,7 @@ import adultFixture from "../../../../../specialties/dental/fixtures/mouth-adult
 import aaravFixture from "../../../../../specialties/dental/fixtures/mouth-aarav.json" with { type: "json" };
 import type { Snapshot } from "../mouth-view/model.js";
 import { dottedTeeth, presentFacts, type PresentModel } from "./model.js";
+import { StudioProvider } from "./options.js";
 import { PaintedStyle } from "./painted.js";
 import { StoryStyle } from "./story.js";
 import { ToothSheet } from "./tooth-sheet.js";
@@ -60,7 +62,7 @@ describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conforman
   describe.each(Object.entries(FIXTURES))("%s", (_name, snap) => {
     const setup = () => {
       const model = presentFacts(snap());
-      const { container } = render(draw(model));
+      const { container } = render(<StudioProvider studio={fakePresentStudio(snap())}>{draw(model)}</StudioProvider>);
       return { model, container, text: container.textContent };
     };
 
@@ -117,6 +119,33 @@ describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conforman
   });
 });
 
+/** Usual options (slice 2a): one story card per recorded situation, with every option; general guidance only. */
+describe.each(Object.entries(FIXTURES))("conformance: usual options in the story, %s", (_name, snap) => {
+  const studio = () => fakePresentStudio(snap());
+  const story = (withStudio: boolean) => render(
+    <StudioProvider studio={withStudio ? studio() : undefined}>
+      <StoryStyle model={presentFacts(snap())} orientation="mirror" onOrientation={() => undefined} theme="light" stacked />
+    </StudioProvider>,
+  );
+
+  it("has one options card per situation, each with every option and an Illustration badge", () => {
+    const { container } = story(true);
+    expect(container.querySelectorAll('[data-story-card^="options:"]').length).toBe(studio().situations.length);
+    for (const s of studio().situations) {
+      const card = container.querySelector(`[data-story-card="options:${String(s.tooth)}:${s.key}"]`);
+      expect(card, s.key).not.toBeNull();
+      expect([...(card?.querySelectorAll("[data-option]") ?? [])].map((o) => o.getAttribute("data-option"))).toEqual(s.options.map((o) => o.key));
+      expect([...(card?.querySelectorAll(".ps-badge-ill") ?? [])].map((b) => b.textContent)).toContain("Illustration · general guidance");
+      expect(card?.textContent).toContain("Usual options · general guidance");
+      expect(card?.textContent).not.toMatch(/₹|Visit \d|\b\d{4}-\d\d-\d\d\b/);
+    }
+  });
+
+  it("has none without a studio layer", () => {
+    expect(story(false).container.querySelector('[data-story-card^="options:"]')).toBeNull();
+  });
+});
+
 /** X-ray (§14.1): no negative scale on the image or its overlays; edge labels on the radiograph's convention sides; a provenance footer, and no illustration claimed. */
 describe.each(Object.entries(FIXTURES))("conformance: X-ray orientation and provenance, %s", (_name, snap) => {
   it("is never transformed and reads Your right on the left edge", () => {
@@ -160,6 +189,21 @@ describe.each(Object.entries(FIXTURES))("conformance: tooth sheet, %s", (_name, 
         expect(badge, f.id).toMatch(f.recorded_on === undefined ? /^Recorded$/ : /^Recorded \d{1,2} [A-Z][a-z]{2}$/);
       }
       if (container.querySelector("[data-pair] svg") !== null) expect([...container.querySelectorAll(".ps-badge-ill")].map((b) => b.textContent)).toContain("Painting based on your record");
+      unmount();
+    }
+  });
+
+  it("usual options in the sheet: dashed, general guidance, no price, date or unbacked visit number", async () => {
+    const model = presentFacts(snap());
+    const studio = fakePresentStudio(snap());
+    for (const s of studio.situations.filter((x) => teethOf().includes(x.tooth))) {
+      const { container, unmount } = render(<StudioProvider studio={studio}><ToothSheet model={model} tooth={s.tooth} onBack={() => undefined} /></StudioProvider>);
+      await waitFor(() => { expect(container.querySelector("[data-pair] svg, [data-art-failed]")).not.toBeNull(); });
+      const block = container.querySelector(`[data-situation="${s.key}:${String(s.tooth)}"]`);
+      expect(block, s.key).not.toBeNull();
+      expect(block?.querySelectorAll("[data-option]").length).toBe(s.options.length);
+      expect(block?.querySelector(".ps-badge-ill")?.textContent).toBe("Illustration · general guidance");
+      expect(block?.textContent).not.toMatch(/₹|Visit \d|\b\d{4}-\d\d-\d\d\b/);
       unmount();
     }
   });

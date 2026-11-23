@@ -276,7 +276,20 @@ describe("Present mode (§1.12)", () => {
     const withIt = present(true);
     renderPortal(withIt.path, { as: PEOPLE.asha, backend: withIt.backend, wrap: withIt.wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    await waitFor(() => { expect(within(shell).getByRole("button", { name: /Card \d+ of \d+: Usual options/ })).toBeTruthy(); }, WAIT);
     await waitFor(() => { expect(within(shell).getByRole("button", { name: /Card \d+ of \d+: Your X-ray/ })).toBeTruthy(); }, WAIT);
+  });
+
+  it("story cards add a usual-options card for the recorded situation (Aarav's infected 21), general guidance only", async () => {
+    const { path, backend, wrap } = present();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    const card = await within(shell).findByRole("button", { name: /Card \d+ of \d+: Usual options · Decay close to the nerve/ }, WAIT);
+    fireEvent.click(card);
+    const block = await within(shell).findByRole("region", { name: /Usual options: Decay close to the nerve/ }, WAIT);
+    expect(within(block).getByText("Usual options · general guidance")).toBeTruthy();
+    expect(block.querySelectorAll("[data-option]").length).toBe(5);
+    expect(block.textContent).not.toMatch(/₹|Visit \d/);
   });
 });
 

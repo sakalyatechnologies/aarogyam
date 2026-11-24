@@ -185,6 +185,7 @@ describe("the whole visit, on the fake API", () => {
     const as = (who: string): ApiClient => backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: who }), now: () => NOW });
     const made = await as(PEOPLE.farah).registerWalkIn({ patient: { full_name: "Neha Rao" }, practitioner_id: practitionerId.parse(doctor) });
     if (!made.ok) throw new Error("expected a walk-in");
+    if (made.value.token === undefined) throw new Error("expected a queue token");
 
     // The doctor's bell: who is waiting, then Call in.
     const first = userEvent.setup();

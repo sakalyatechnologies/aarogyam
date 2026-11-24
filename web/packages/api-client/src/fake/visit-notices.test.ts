@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ApiClient, ApiResult } from "../index.js";
 import { appointmentId, invoiceId, unwrap } from "../index.js";
 import { ROLES, createFakeBackend, createFixtures, fakeTokenFor } from "./index.js";
+import { tokenOf } from "./token-of.js";
 import type { Fixtures } from "./index.js";
 
 const NOW = new Date("2026-10-03T05:30:00Z"); // a Saturday, 11:00 in India
@@ -44,7 +45,7 @@ async function expectBadgeMatchesList(api: ApiClient) {
 
 async function walkIn(api: ApiClient, name: string, practitionerId?: string) {
   const made = await unwrap(api.registerWalkIn({ patient: { full_name: name }, ...(practitionerId === undefined ? {} : { practitioner_id: practitionerId }) }));
-  return made.token;
+  return tokenOf(made);
 }
 
 function practitionerOf(fixtures: Fixtures, userId: string): string {

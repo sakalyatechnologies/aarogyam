@@ -591,3 +591,70 @@ async fn the_desk_and_the_doctor_read_the_quick_picks() {
     assert_eq!(status, StatusCode::FORBIDDEN);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn check_in_false_registers_without_queueing() {
+    let app = TestApp::start().await;
+    let desk = app.token(ALPHA_FRONT_DESK);
+    let owner = app.token(ALPHA_OWNER);
+    let count = |sql: &'static str| {
+        let pool = app.owner.clone();
+        async move {
+            sqlx::query_scalar::<_, i64>(sql)
+                .fetch_one(&pool)
+                .await
+                .unwrap()
+        }
+    };
+
+    let (status, mother) = post(
+        &app,
+        ALPHA,
+        &desk,
+        "/api/v1/walk-ins",
+        json!({ "patient": { "full_name": "Meera Shah", "age_years": 33, "sex": "female",
+                             "phone": "+919820000077" },
+                "no_known_allergies": true, "check_in": false }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{mother}");
+    assert!(mother.get("token").is_none(), "{mother}");
+    assert_eq!(count("select count(*) from aarogyam.queue_tokens").await, 0);
+
+    let mut body = new_walk_in("Aarav Shah", "+919820000077");
+    body["check_in"] = json!(false);
+    body["family_of"] = json!({ "patient_id": mother["patient"]["id"], "relation": "child" });
+    let (status, walk_in) = post(&app, ALPHA, &desk, "/api/v1/walk-ins", body).await;
+    assert_eq!(status, StatusCode::CREATED, "{walk_in}");
+    assert_eq!(walk_in["registered"], true);
+    assert!(walk_in.get("token").is_none(), "{walk_in}");
+    assert!(walk_in["family_link_id"].is_string());
+    assert_eq!(walk_in["allergies_recorded"], 2);
+    assert_eq!(walk_in["consents_recorded"], json!(["care", "reminders"]));
+    let patient = walk_in["patient"]["id"].as_str().unwrap();
+    let (_, allergies) = get(
+        &app,
+        ALPHA,
+        &owner,
+        &format!("/api/v1/patients/{patient}/allergies"),
+    )
+    .await;
+    assert_eq!(allergies["items"].as_array().unwrap().len(), 2);
+    assert_eq!(count("select count(*) from aarogyam.queue_tokens").await, 0);
+    assert_eq!(count("select count(*) from aarogyam.messages").await, 0);
+    assert_eq!(count("select count(*) from aarogyam.encounters").await, 0);
+
+    // Checking in later (an existing patient, `check_in` absent) issues the token as before.
+    let (status, again) = post(
+        &app,
+        ALPHA,
+        &desk,
+        "/api/v1/walk-ins",
+        json!({ "patient_id": patient }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{again}");
+    assert_eq!(again["token"]["status"], "waiting");
+    assert_eq!(count("select count(*) from aarogyam.queue_tokens").await, 1);
+}

@@ -68,6 +68,7 @@ pub mod patient_app;
 pub mod patient_notes;
 pub mod patient_photos;
 pub mod patient_sessions;
+pub mod patient_smile_shades;
 pub mod patient_visits;
 pub mod patients;
 pub mod prescriptions;

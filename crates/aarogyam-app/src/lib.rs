@@ -93,6 +93,7 @@ pub mod settings;
 pub mod setup;
 pub mod share;
 pub mod smart_import;
+pub mod smile_shade;
 pub mod staff;
 pub mod staff_ops;
 pub mod stock_import;

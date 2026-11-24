@@ -151,6 +151,7 @@ import type {
   PresentDiscussion,
   PresentDiscussionList,
   ImagePins,
+  SmileShade,
   NewPresentDiscussion,
   DiscussionInError,
   VisitStory,
@@ -920,6 +921,10 @@ export interface ApiClient {
   /** Clinic host: the visit's current "What we discussed" rows. Needs `clinical.read`; works while the visit is closed. */
   listImagePins(id: AttachmentId, options?: RequestOptions): Promise<ApiResult<ImagePins>>;
   saveImagePins(id: AttachmentId, input: ImagePins, options?: RequestOptions): Promise<ApiResult<ImagePins>>;
+  /** Clinic host: the tooth colour saved for the patient's Painted smile in Show patient (`shade` null when never saved). Needs `clinical.read`. */
+  getSmileShade(id: PatientId, options?: RequestOptions): Promise<ApiResult<SmileShade>>;
+  /** Clinic host: saves the patient's tooth colour, 0 (lightest) to 100 (deepest). Needs `clinical.write`; 400 outside the range. */
+  saveSmileShade(id: PatientId, input: { shade: number }, options?: RequestOptions): Promise<ApiResult<SmileShade>>;
   listPresentDiscussions(id: VisitId, options?: RequestOptions): Promise<ApiResult<PresentDiscussionList>>;
   /** Clinic host: saves what was discussed for one situation; it supersedes the current row for the tooth and situation. Needs `clinical.write`; 400 for an unknown key, 409 when the visit is closed. */
   savePresentDiscussion(id: VisitId, input: NewPresentDiscussion, options?: RequestOptions): Promise<ApiResult<PresentDiscussion>>;

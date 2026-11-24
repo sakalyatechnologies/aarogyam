@@ -74,6 +74,16 @@
 .ps-seg button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--mv-muted); font-weight: 700; font-size: 14px; cursor: pointer; }
 .ps-seg button[aria-pressed="true"] { background: var(--mv-brand-soft); color: var(--mv-brand); }
 .ps-shades { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ps-shade-end { font-size: 13px; font-weight: 700; color: var(--mv-muted); }
+.ps-shade { -webkit-appearance: none; appearance: none; width: 180px; max-width: 100%; height: 44px; margin: 0; background: transparent; cursor: pointer; }
+.ps-shade::-webkit-slider-runnable-track { height: 14px; border-radius: 999px; border: 1px solid var(--mv-line); background: var(--ps-track); }
+.ps-shade::-moz-range-track { height: 14px; border-radius: 999px; border: 1px solid var(--mv-line); background: var(--ps-track); }
+.ps-shade::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; margin-top: -9px; border-radius: 50%; border: 3px solid var(--mv-brand); background: var(--ps-thumb); box-shadow: 0 1px 4px rgba(0, 0, 0, .3); }
+.ps-shade::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; border: 3px solid var(--mv-brand); background: var(--ps-thumb); box-shadow: 0 1px 4px rgba(0, 0, 0, .3); }
+.ps-shade:focus-visible { outline: 3px solid var(--mv-brand); outline-offset: 2px; }
+.ps-save-shade { min-height: 44px; padding: 0 16px; border: 1px solid var(--mv-brand); border-radius: 999px; background: var(--mv-brand-soft); color: var(--mv-brand); font-weight: 700; font-size: 14px; cursor: pointer; }
+.ps-save-shade:disabled { opacity: .6; cursor: default; }
+.ps-save-shade:focus-visible { outline: 3px solid var(--mv-brand); outline-offset: 2px; }
 .ps-swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--mv-line); cursor: pointer; padding: 0; box-shadow: inset 0 -6px 10px rgba(150, 110, 60, .25); }
 .ps-swatch[aria-pressed="true"] { border-color: var(--mv-brand); box-shadow: 0 0 0 3px var(--mv-brand-soft), inset 0 -6px 10px rgba(150, 110, 60, .25); }
 .ps-seg button:focus-visible, .ps-swatch:focus-visible, .ps-retry:focus-visible, .ps-note-link:focus-visible, .ps-prompt:focus-visible { outline: 3px solid var(--mv-brand); outline-offset: 2px; }

@@ -341,6 +341,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 
   /** Tooth pins by image, shared by every client of this backend so a later visit sees them. */
   const imagePins = new Map<string, S.ImagePins["pins"]>();
+  /** Saved tooth colours by patient, shared by every client of this backend. */
+  const smileShades = new Map<string, number>();
 
   function client(options: FakeClientOptions = {}): ApiClient {
     const clock = options.now ?? (() => new Date());
@@ -5811,6 +5813,34 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             .toSorted((a, b) => a.tooth - b.tooth);
           imagePins.set(id, pins);
           return reply({ pins });
+        }),
+
+      getSmileShade: (id, opts) =>
+        respond(S.smileShade, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          return reply({ shade: smileShades.get(id) ?? null });
+        }),
+
+      saveSmileShade: (id, input, opts) =>
+        respond(S.smileShade, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (!Number.isInteger(input.shade) || input.shade < 0 || input.shade > 100) {
+            return invalid("shade", "between 0 and 100");
+          }
+          smileShades.set(id, input.shade);
+          return reply({ shade: input.shade });
         }),
 
       listPresentDiscussions: (id, opts) =>

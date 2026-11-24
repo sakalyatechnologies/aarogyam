@@ -4064,6 +4064,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/smile-shade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's saved tooth colour for Show patient; `shade` is null when never saved. */
+        get: operations["getSmileShade"];
+        /** Saves the patient's tooth colour, replacing an earlier one. 400 outside 0 to 100. */
+        put: operations["saveSmileShade"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/summary-note": {
         parameters: {
             query?: never;
@@ -16301,6 +16319,14 @@ export interface components {
             };
             /** @description Values left empty because they couldn't be read, as `field: problem`. */
             warnings: string[];
+        };
+        /** @description A patient's tooth colour in the Painted smile. */
+        SmileShade: {
+            /**
+             * Format: int32
+             * @description 0 (lightest) to 100 (deepest); null when never saved. Required on a save.
+             */
+            shade?: number | null;
         };
         /** @description The clinic's staff. */
         Staff: {
@@ -30913,6 +30939,103 @@ export interface operations {
                 content?: never;
             };
             /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getSmileShade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmileShade"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic or the caller's reach */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    saveSmileShade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SmileShade"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmileShade"];
+                };
+            };
+            /** @description Invalid input; the message says what */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic or the caller's reach */
             404: {
                 headers: {
                     [name: string]: unknown;

@@ -12,7 +12,8 @@ export {
   RecordBadge, IllustrationBadge, FactList, ProvenanceFooter, TextFallback, StyleSwitcher, StyleBoundary, useChunk, dotsOf, toneOf,
   type SwitcherOption, type DotTone,
 } from "./blocks.js";
-export type { ShadeKnob } from "./painter.js";
+export type { Shade } from "./painter.js";
+export { DEFAULT_SHADE } from "./painter.js";
 export type { PaintedProps, PaintedView } from "./painted.js";
 export type { OpenWideProps, WideArt } from "./open-wide.js";
 export { CompareSlider, sharedBox, type CompareSliderProps } from "./compare-slider.js";

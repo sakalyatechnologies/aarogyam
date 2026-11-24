@@ -24,15 +24,15 @@ afterEach(cleanup);
 
 const STYLES: Partial<Record<PresentStyleId, (m: PresentModel) => ReactElement>> = {
   story: (m) => <StoryStyle model={m} orientation="mirror" onOrientation={() => undefined} theme="light" stacked />,
-  painted: (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" onOpen={() => undefined} />,
-  face: (m) => <FaceStyle model={m} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" start="face" />,
+  painted: (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" onOpen={() => undefined} />,
+  face: (m) => <FaceStyle model={m} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" start="face" />,
   smile3d: (m) => <Smile3d model={m} orientation="mirror" onOrientation={() => undefined} theme="light" onOpen={() => undefined} />,
   xray: (m) => <XrayStyle model={m} image={{ src: "data:image/gif;base64,R0lGODlhAQABAAAAACw=", alt: "X-ray" }} />,
 };
 /** Shared blocks a style can switch to; each must pass the same rules (slice 1b: Open wide, inside painted). */
 const BLOCKS: Record<string, (m: PresentModel) => ReactElement> = {
-  "painted, open wide": (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" onOpen={() => undefined} view="wide" />,
-  "face, painted map": (m) => <FaceStyle model={m} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" start="map" />,
+  "painted, open wide": (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" onOpen={() => undefined} view="wide" />,
+  "face, painted map": (m) => <FaceStyle model={m} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" start="map" />,
 };
 
 const empty = (): Snapshot => ({ ...structuredClone(aaravFixture.snapshot), teeth: [] });
@@ -130,7 +130,7 @@ describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conforman
 
 /** Face to tooth (slice 3b): a neutral example face, the smile-zone rule, and the degrade to the painted map. */
 describe.each(Object.entries(FIXTURES))("conformance: face to tooth, %s", (_name, snap) => {
-  const face = (model: PresentModel) => render(<FaceStyle model={model} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" />);
+  const face = (model: PresentModel) => render(<FaceStyle model={model} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" />);
   it("labels the example face, files everything else under Further back, or opens at the map", () => {
     const model = presentFacts(snap());
     const { container } = face(model);

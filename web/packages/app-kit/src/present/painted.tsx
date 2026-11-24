@@ -9,14 +9,18 @@ import { FactList, IllustrationBadge, ProvenanceFooter, dotsOf } from "./blocks.
 import type { Orientation, PresentModel } from "./model.js";
 import { OpenWide, bitingSideProblems, frontHidesAllProblems } from "./open-wide.js";
 import { ToothSheet, type ToothSheetProps } from "./tooth-sheet.js";
-import { SHADE_KNOBS, dotAt, paintSmile, smileScene, spread, toothRect, type ShadeKnob } from "./painter.js";
+import { SHADE_TRACK, dotAt, paintSmile, shadeSwatch, smileScene, spread, toothRect, type Shade } from "./painter.js";
 
 export interface PaintedProps {
   model: PresentModel;
   orientation: Orientation;
   onOrientation: (o: Orientation) => void;
-  shade: ShadeKnob;
-  onShade: (s: ShadeKnob) => void;
+  shade: Shade;
+  onShade: (s: Shade) => void;
+  /** The colour differs from the one saved for the patient: offers "Save colour" (with `onSaveShade`). */
+  shadeDirty?: boolean | undefined;
+  onSaveShade?: (() => void) | undefined;
+  savingShade?: boolean | undefined;
   theme: "light" | "dark";
   /** Opens the tooth's detail (MouthView's tooth screen). */
   onOpen: (tooth: number) => void;
@@ -133,9 +137,16 @@ export function PaintedStyle(props: PaintedProps): ReactElement {
           </div>
           {view === "front" ? (
             <div className="ps-shades" role="group" aria-label="Tooth colour">
-              {SHADE_KNOBS.map((s) => (
-                <button key={s.key} type="button" className="ps-swatch" style={{ background: s.swatch }} aria-pressed={shade === s.key} aria-label={s.label} title={s.label} onClick={() => { onShade(s.key); }} />
-              ))}
+              <span className="ps-shade-end">Lighter</span>
+              <input
+                type="range" className="ps-shade" min={0} max={100} step={1} value={shade} aria-label="Tooth colour"
+                ref={(el) => { el?.style.setProperty("--ps-track", SHADE_TRACK); el?.style.setProperty("--ps-thumb", shadeSwatch(shade)); }}
+                onChange={(e) => { onShade(e.currentTarget.valueAsNumber); }}
+              />
+              <span className="ps-shade-end">Deeper</span>
+              {props.shadeDirty === true && props.onSaveShade !== undefined ? (
+                <button type="button" className="ps-save-shade" disabled={props.savingShade === true} onClick={props.onSaveShade}>Save colour</button>
+              ) : null}
               <IllustrationBadge>Colour chosen to look like you</IllustrationBadge>
             </div>
           ) : null}

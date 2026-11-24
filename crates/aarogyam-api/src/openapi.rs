@@ -196,6 +196,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::present::put_settings,
         crate::v1::image_pins::list,
         crate::v1::image_pins::save,
+        crate::v1::smile_shade::get,
+        crate::v1::smile_shade::save,
         crate::v1::present_discussions::list,
         crate::v1::present_discussions::save,
         crate::v1::present_discussions::in_error,

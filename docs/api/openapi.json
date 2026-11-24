@@ -13025,6 +13025,107 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/smile-shade": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "The patient's saved tooth colour for Show patient; `shade` is null when never saved.",
+        "operationId": "getSmileShade",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmileShade"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Saves the patient's tooth colour, replacing an earlier one. 400 outside 0 to 100.",
+        "operationId": "saveSmileShade",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmileShade"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmileShade"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message says what"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic or the caller's reach"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/summary-note": {
       "put": {
         "tags": [
@@ -44523,6 +44624,20 @@
               "type": "string"
             },
             "description": "Values left empty because they couldn't be read, as `field: problem`."
+          }
+        }
+      },
+      "SmileShade": {
+        "type": "object",
+        "description": "A patient's tooth colour in the Painted smile.",
+        "properties": {
+          "shade": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "0 (lightest) to 100 (deepest); null when never saved. Required on a save."
           }
         }
       },

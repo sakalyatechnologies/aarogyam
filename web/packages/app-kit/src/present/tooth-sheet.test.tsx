@@ -134,7 +134,7 @@ describe("ToothSheet", () => {
 });
 
 describe("tapping a tooth in the painted style", () => {
-  const painted = () => <PaintedStyle model={adultModel()} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" onOpen={() => undefined} toothSheet />;
+  const painted = () => <PaintedStyle model={adultModel()} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" onOpen={() => undefined} toothSheet />;
 
   it("opens the tooth sheet from a dot and Back shows the map again, on the same view", async () => {
     const { container } = render(painted());

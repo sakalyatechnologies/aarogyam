@@ -16,6 +16,7 @@ plugins {
 val apiModels =
     listOf(
         "Me",
+        "SmileShade",
         "MyClinic",
         "Session",
         "SessionClinic",

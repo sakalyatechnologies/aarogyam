@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select shade from aarogyam.patient_smile_shades where patient_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "shade",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_smile_shades",
+            "name": "shade"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6d66de573c101f62afc2b34c9a73391af5dc529a57da2f93b7004d9ae6a57180"
+}

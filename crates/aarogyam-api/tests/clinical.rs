@@ -2430,6 +2430,16 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             format!("/api/v1/attachments/{attachment}/pins"),
             Some(json!({ "pins": [{ "tooth": 36, "x": 0.4, "y": 0.6 }] })),
         ),
+        (
+            Method::GET,
+            format!("/api/v1/patients/{patient}/smile-shade"),
+            None,
+        ),
+        (
+            Method::PUT,
+            format!("/api/v1/patients/{patient}/smile-shade"),
+            Some(json!({ "shade": 40 })),
+        ),
         (Method::GET, format!("/api/v1/visits/{visit}/story"), None),
         (
             Method::GET,
@@ -3263,5 +3273,57 @@ async fn image_pins_are_placed_once_and_replaced_as_a_set() {
     .await
     .unwrap();
     assert_eq!(action, "delete");
+    app.finish().await;
+}
+
+/// The tooth colour saved for Show patient: none until saved, replaced on a second save, refused
+/// outside 0 to 100, and another clinic gets 404.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn smile_shade_is_saved_per_patient() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let beta = app.token(BETA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let path = format!("/api/v1/patients/{patient}/smile-shade");
+
+    let (status, none) = app
+        .send(Method::GET, ALPHA, &path, Some(&owner), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(none["shade"].is_null());
+
+    let (status, saved) = app
+        .send(
+            Method::PUT,
+            ALPHA,
+            &path,
+            Some(&owner),
+            Some(json!({ "shade": 70 })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(saved["shade"], 70);
+    let (_, read) = app
+        .send(Method::GET, ALPHA, &path, Some(&owner), None)
+        .await;
+    assert_eq!(read["shade"], 70);
+
+    for bad in [json!({ "shade": 101 }), json!({ "shade": -1 }), json!({})] {
+        let (status, _) = app
+            .send(Method::PUT, ALPHA, &path, Some(&owner), Some(bad))
+            .await;
+        assert!(status.is_client_error(), "{status}");
+    }
+    let (_, still) = app
+        .send(Method::GET, ALPHA, &path, Some(&owner), None)
+        .await;
+    assert_eq!(still["shade"], 70);
+
+    for method in [Method::GET, Method::PUT] {
+        let body = (method == Method::PUT).then(|| json!({ "shade": 10 }));
+        let (status, _) = app.send(method, BETA, &path, Some(&beta), body).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
     app.finish().await;
 }

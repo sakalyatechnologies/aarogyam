@@ -9,19 +9,38 @@ import { TOOTH_WIDTH_MM } from "../mouth-art/arch.js";
 import type { Box, FrontAtlas, FrontCrown, ToothType } from "../mouth-art/types.js";
 import type { Orientation, PresentModel, ToothFacts } from "./model.js";
 
-export type ShadeKnob = "lighter" | "natural" | "warmer" | "deeper";
-/** The colour knob (§9): four swatches; the shade code is never shown. */
-export const SHADE_KNOBS: readonly { key: ShadeKnob; label: string; swatch: string }[] = [
-  { key: "lighter", label: "Lighter", swatch: "#f3ede0" },
-  { key: "natural", label: "Natural", swatch: "#efe6d2" },
-  { key: "warmer", label: "Warmer", swatch: "#ebdfc6" },
-  { key: "deeper", label: "Deeper", swatch: "#e5d6b8" },
-];
+/** The tooth colour: 0 is the lightest, 100 the deepest (the shade code is never shown). */
+export type Shade = number;
+/** Where the doctor's slider starts when nothing is saved: the old "natural". */
+export const DEFAULT_SHADE: Shade = 33;
 type Ramp = readonly [string, string, string];
-const SHADE: Readonly<Record<ShadeKnob, Ramp>> = {
-  lighter: ["#f4efe4", "#ebe1cc", "#dccaa8"], natural: ["#f0e8d7", "#e6d7ba", "#d4bc92"],
-  warmer: ["#ece1ca", "#dfcca7", "#cbad7d"], deeper: ["#e6d8bd", "#d6c096", "#c0a06e"],
-};
+/** The four ramps of the earlier knob, now the stops of the slider at 0, 33, 67 and 100. */
+type Stop = { at: number; swatch: string; ramp: Ramp };
+const STOPS: readonly [Stop, Stop, Stop, Stop] = [
+  { at: 0, swatch: "#f3ede0", ramp: ["#f4efe4", "#ebe1cc", "#dccaa8"] },
+  { at: 33, swatch: "#efe6d2", ramp: ["#f0e8d7", "#e6d7ba", "#d4bc92"] },
+  { at: 67, swatch: "#ebdfc6", ramp: ["#ece1ca", "#dfcca7", "#cbad7d"] },
+  { at: 100, swatch: "#e5d6b8", ramp: ["#e6d8bd", "#d6c096", "#c0a06e"] },
+];
+/** The two stops around `n` (clamped to 0..100) and how far between them. */
+function between(n: number): { a: Stop; b: Stop; t: number } {
+  const v = Math.min(100, Math.max(0, Number.isFinite(n) ? n : DEFAULT_SHADE));
+  const [s0, s1, s2, s3] = STOPS;
+  const [a, b] = v <= s1.at ? [s0, s1] : v <= s2.at ? [s1, s2] : [s2, s3];
+  return { a, b, t: (v - a.at) / (b.at - a.at) };
+}
+/** The three tooth colours for a shade, interpolated between the stops. */
+export function shadeRamp(n: Shade): Ramp {
+  const { a, b, t } = between(n);
+  return [mix(a.ramp[0], b.ramp[0], t), mix(a.ramp[1], b.ramp[1], t), mix(a.ramp[2], b.ramp[2], t)];
+}
+/** One swatch colour for the slider's track and thumb. */
+export function shadeSwatch(n: Shade): string {
+  const { a, b, t } = between(n);
+  return mix(a.swatch, b.swatch, t);
+}
+/** The slider's track: the stop swatches, light to deep. */
+export const SHADE_TRACK = `linear-gradient(to right, ${STOPS.map((s) => `${s.swatch} ${String(s.at)}%`).join(", ")})`;
 const MILK: Ramp = ["#f7f5ef", "#eeeadf", "#dcd4c2"];
 /** Nothing recorded at the position: a quiet grey tooth, so the recorded ones stand out. */
 const FADED: Ramp = ["#e4e2dd", "#d3d0c9", "#bdb9b0"];
@@ -187,7 +206,7 @@ export function toothRect(scene: SmileScene, t: PaintTooth): { x: number; y: num
 
 /* ---------- canvas painting ---------- */
 export interface PaintOptions {
-  shade: ShadeKnob;
+  shade: Shade;
   theme: "light" | "dark";
 }
 
@@ -216,7 +235,7 @@ function toothXf(ctx: CanvasRenderingContext2D, t: PaintTooth, base: DOMMatrix, 
 
 function paintTooth(ctx: CanvasRenderingContext2D, base: DOMMatrix, t: PaintTooth, atlas: FrontAtlas, o: PaintOptions) {
   const c = atlas[t.type];
-  const cols = t.faded ? FADED : t.primary ? MILK : SHADE[o.shade];
+  const cols = t.faded ? FADED : t.primary ? MILK : shadeRamp(o.shade);
   const ant = t.n <= 2;
   const crownP = path(c.crown);
   ctx.save();

@@ -87,11 +87,35 @@ describe("text fallback (§13)", () => {
   });
 });
 
+describe("painted style, tooth colour slider", () => {
+  const render1 = (extra: Record<string, unknown>) =>
+    render(<PaintedStyle model={model()} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" onOpen={() => undefined} {...extra} />);
+  it("offers Save colour only when the colour differs from the saved one and saving is wired", () => {
+    const onSave = vi.fn();
+    const { unmount } = render1({});
+    expect(screen.queryByRole("button", { name: "Save colour" })).toBeNull();
+    unmount();
+    const clean = render1({ shadeDirty: false, onSaveShade: onSave });
+    expect(screen.queryByRole("button", { name: "Save colour" })).toBeNull();
+    clean.unmount();
+    const noSave = render1({ shadeDirty: true });
+    expect(screen.queryByRole("button", { name: "Save colour" })).toBeNull();
+    noSave.unmount();
+    render1({ shadeDirty: true, onSaveShade: onSave });
+    fireEvent.click(screen.getByRole("button", { name: "Save colour" }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+  it("disables Save colour while saving", () => {
+    render1({ shadeDirty: true, onSaveShade: () => undefined, savingShade: true });
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Save colour" }).disabled).toBe(true);
+  });
+});
+
 describe("painted style", () => {
   it("a dot or a list row opens that tooth; the knobs change no fact", () => {
     const onOpen = vi.fn(), onShade = vi.fn(), onOrientation = vi.fn();
     const m = model();
-    const { container } = render(<PaintedStyle model={m} orientation="mirror" onOrientation={onOrientation} shade="natural" onShade={onShade} theme="light" onOpen={onOpen} />);
+    const { container } = render(<PaintedStyle model={m} orientation="mirror" onOrientation={onOrientation} shade={33} onShade={onShade} theme="light" onOpen={onOpen} />);
     const dot = container.querySelector('.ps-dot[data-tooth="21"]');
     if (dot === null) throw new Error("no dot on 21");
     fireEvent.click(dot);
@@ -102,8 +126,8 @@ describe("painted style", () => {
     expect(rows.map((r) => r.tagName)).toEqual(["g", "BUTTON"]);
     fireEvent.click(rows[1] ?? dot);
     expect(onOpen).toHaveBeenLastCalledWith(55);
-    fireEvent.click(screen.getByRole("button", { name: "Deeper" }));
-    expect(onShade).toHaveBeenCalledWith("deeper");
+    fireEvent.change(screen.getByRole("slider", { name: "Tooth colour" }), { target: { value: "80" } });
+    expect(onShade).toHaveBeenCalledWith(80);
     fireEvent.click(screen.getByRole("button", { name: "As in a photo" }));
     expect(onOrientation).toHaveBeenCalledWith("photo");
     expect(container.textContent).toContain("Colour chosen to look like you");

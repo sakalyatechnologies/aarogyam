@@ -30,7 +30,7 @@ const bitingOnly = (): Snapshot => {
 };
 
 const painted = (m: PresentModel, extra: Partial<Parameters<typeof PaintedStyle>[0]> = {}) => (
-  <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade="natural" onShade={() => undefined} theme="light" onOpen={() => undefined} {...extra} />
+  <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" onOpen={() => undefined} {...extra} />
 );
 
 describe("Open wide scene", () => {

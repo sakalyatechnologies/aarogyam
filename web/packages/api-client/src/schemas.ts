@@ -2466,6 +2466,9 @@ export const imagePin = z.object({ tooth: z.number().int(), x: z.number(), y: z.
 export const imagePins = z.object({ pins: z.array(imagePin) }) satisfies z.ZodType<C.ImagePins>;
 export type ImagePin = z.output<typeof imagePin>;
 export type ImagePins = z.output<typeof imagePins>;
+/** A patient's saved tooth colour in the Painted smile, 0 (lightest) to 100 (deepest); null when never saved. */
+export const smileShade = z.object({ shade: z.number().int().nullable() }) satisfies z.ZodType<C.SmileShade>;
+export type SmileShade = z.output<typeof smileShade>;
 /** Body of `POST /api/v1/visits/{id}/present-discussions`. */
 export type NewPresentDiscussion = C.SaveDiscussionBody;
 /** Body of `POST .../present-discussions/{did}/entered-in-error`. */

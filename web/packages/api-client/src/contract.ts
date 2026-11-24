@@ -552,6 +552,7 @@ export type Discussion = Schemas["Discussion"];
 export type DiscussionList = Schemas["DiscussionList"];
 export type ImagePin = Schemas["ImagePin"];
 export type ImagePins = Schemas["ImagePins"];
+export type SmileShade = Schemas["SmileShade"];
 export type DiscussionInError = Schemas["DiscussionInError"];
 export type SaveDiscussionBody = Schemas["SaveDiscussionBody"];
 export type PresentSettingsBody = Schemas["PresentSettingsBody"];

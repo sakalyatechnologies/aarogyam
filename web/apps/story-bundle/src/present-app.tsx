@@ -9,8 +9,8 @@ import { Suspense, lazy, useImperativeHandle, useMemo, useRef, useState, type Re
 import type { MouthSnapshot, PresentStudio } from "@aarogyam/api-client";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import {
-  HoldToExit, PRESENT_STYLES, PaintedSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts,
-  type Orientation, type PresentStyleId, type ShadeKnob, type SwitcherOption,
+  DEFAULT_SHADE, HoldToExit, PRESENT_STYLES, PaintedSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts,
+  type Orientation, type PresentStyleId, type Shade, type SwitcherOption,
 } from "@aarogyam/app-kit/present";
 
 import type { PageMessage } from "./channel.js";
@@ -55,7 +55,7 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
   const [onlyToday, setOnlyToday] = useState(false);
   const detail = useRef(false);
   const [orientation, setOrientation] = useState<Orientation>("mirror");
-  const [shade, setShade] = useState<ShadeKnob>("natural");
+  const [shade, setShade] = useState<Shade>(DEFAULT_SHADE);
   const [view, setView] = useState<PresentStyleId>(style);
   const options = useMemo(() => styleOptions(betas, style), [betas, style]);
   const model = useMemo(() => presentFacts(snapshot), [snapshot]);

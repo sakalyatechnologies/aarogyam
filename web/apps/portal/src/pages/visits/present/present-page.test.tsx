@@ -381,3 +381,43 @@ describe("Show patient's saved style (slice 1f)", () => {
     expect(within(shell).getByRole("option", { name: /Story cards/ }).textContent).toContain("Default");
   });
 });
+
+describe("Show patient's saved tooth colour", () => {
+  const openPainted = async (saved: number | undefined) => {
+    const base = present();
+    const puts: number[] = [];
+    const wrap = (client: ApiClient): ApiClient => {
+      const inner = base.wrap(client);
+      return {
+        ...inner,
+        getSmileShade: async (id, o) => (saved === undefined ? inner.getSmileShade(id, o) : { ok: true, value: { shade: saved } }),
+        saveSmileShade: async (id, input, o) => {
+          puts.push(input.shade);
+          return inner.saveSmileShade(id, input, o);
+        },
+      };
+    };
+    renderPortal(base.path, { as: PEOPLE.asha, backend: base.backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
+    fireEvent.click(within(shell).getByRole("option", { name: /Painted smile/ }));
+    const slider = await within(shell).findByRole<HTMLInputElement>("slider", { name: "Tooth colour" }, WAIT);
+    return { shell, slider, puts };
+  };
+
+  it("opens on the colour saved for the patient and offers no Save until it moves", async () => {
+    const { shell, slider } = await openPainted(70);
+    await waitFor(() => { expect(slider.value).toBe("70"); }, WAIT);
+    expect(within(shell).queryByRole("button", { name: "Save colour" })).toBeNull();
+  });
+
+  it("opens on the usual colour when none is saved, and Save colour stores the doctor's choice", async () => {
+    const { shell, slider, puts } = await openPainted(undefined);
+    expect(slider.value).toBe("33");
+    fireEvent.change(slider, { target: { value: "20" } });
+    fireEvent.click(await within(shell).findByRole("button", { name: "Save colour" }, WAIT));
+    await waitFor(() => { expect(puts).toEqual([20]); }, WAIT);
+    await waitFor(() => { expect(within(shell).queryByRole("button", { name: "Save colour" })).toBeNull(); }, WAIT);
+    expect(slider.value).toBe("20");
+  });
+});

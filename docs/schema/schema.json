@@ -3353,6 +3353,7 @@
     "patient_photos.patient_id",
     "patient_relations.patient_id",
     "patient_relations.related_patient_id",
+    "patient_smile_shades.patient_id",
     "patients.merged_into_id",
     "patients.referred_by_patient_id",
     "payment_allocations.patient_id",
@@ -6324,6 +6325,36 @@
      "nullable": true,
      "ref": null,
      "note": "the doctor's short note on the pin, at most 80 characters (migration 0757)"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "patient_smile_shades",
+   "domain": "clinical",
+   "purpose": "The tooth colour a doctor settled on in Show patient (Painted smile), kept for the patient's next visit.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0758). A display preference, not a clinical record: PUT /patients/{id}/smile-shade replaces the row. Deleted on erasure.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "one row per patient"
+    },
+    {
+     "name": "shade",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": "0 (lightest) to 100 (deepest)"
     }
    ],
    "referenced_by": [],

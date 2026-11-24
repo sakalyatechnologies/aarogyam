@@ -1130,6 +1130,28 @@ export function useSaveImagePins() {
   });
 }
 
+/** The tooth colour saved for the patient's Painted smile (`shade` null when never saved). */
+export function useSmileShade(patientId: PatientId | undefined) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["smile-shade", access.org_id, patientId],
+    queryFn: ({ signal }) => (patientId === undefined ? Promise.reject(new Error("no patient")) : unwrap(api.getSmileShade(patientId, { signal }))),
+    enabled: patientId !== undefined,
+  });
+}
+
+/** Saves the patient's tooth colour. */
+export function useSaveSmileShade() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ patientId, shade }: { patientId: PatientId; shade: number }) => unwrap(api.saveSmileShade(patientId, { shade })),
+    onSuccess: (saved, { patientId }) => {
+      queryClient.setQueryData(["smile-shade", access.org_id, patientId], saved);
+    },
+  });
+}
+
 export function useUploadAttachment(patientId: PatientId) {
   const { api, access } = useClinic();
   const queryClient = useQueryClient();

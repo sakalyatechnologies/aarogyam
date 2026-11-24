@@ -16,15 +16,15 @@ import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import "@aarogyam/app-kit/mouth-view.css";
 import {
-  DEFAULT_STYLE, FaceSlot, HoldToExit, PRESENT_STYLES, PaintedSlot, PinsProvider, Smile3dSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts, usePins,
-  type Orientation, type PaintedView, type PresentStyleId, type ShadeKnob, type SwitcherOption,
+  DEFAULT_SHADE, DEFAULT_STYLE, FaceSlot, HoldToExit, PRESENT_STYLES, PaintedSlot, PinsProvider, Smile3dSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts, usePins,
+  type Orientation, type PaintedView, type PresentStyleId, type Shade, type SwitcherOption,
 } from "@aarogyam/app-kit/present";
 import "@aarogyam/app-kit/hold-to-exit.css";
 import "@aarogyam/app-kit/present.css";
 import { useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../../clinic.js";
-import { useDentalChart, usePatient, useRecordChartEntries, useSaveUiPrefs, useUiPrefs, useVisit, useVisitMouth, useVisitPresent } from "../../../queries.js";
+import { useDentalChart, usePatient, useRecordChartEntries, useSaveSmileShade, useSaveUiPrefs, useSmileShade, useUiPrefs, useVisit, useVisitMouth, useVisitPresent } from "../../../queries.js";
 import { DENTITIONS, LOOKS } from "../../patients/v2/tooth-chart/tooth-chart.js";
 import { useChartPrefs, type ChartDentition, type ChartLook } from "../../patients/v2/tooth-chart/use-chart-prefs.js";
 import { usePlans } from "../../treatment-plans/queries.js";
@@ -82,7 +82,24 @@ export function PresentPage() {
   const saved: PresentStyleId = isStyle(savedPref) ? savedPref : DEFAULT_STYLE;
   const [picked, setView] = useState<View | undefined>(undefined);
   const [orientation, setOrientation] = useState<Orientation>("mirror");
-  const [shade, setShade] = useState<ShadeKnob>("natural");
+  // The tooth colour: opens on the one saved for this patient; the doctor's live change is never clobbered.
+  const savedShade = useSmileShade(patientId);
+  const saveShade = useSaveSmileShade();
+  const [pickedShade, setShade] = useState<Shade | undefined>(undefined);
+  const savedShadeValue = savedShade.data?.shade ?? undefined;
+  const shade: Shade = pickedShade ?? savedShadeValue ?? DEFAULT_SHADE;
+  const shadeDirty = pickedShade !== undefined && pickedShade !== (savedShadeValue ?? DEFAULT_SHADE);
+  const { can: canDo } = useClinic();
+  const shadeSave = {
+    shadeDirty,
+    savingShade: saveShade.isPending,
+    onSaveShade: !canDo("clinical.write") || patientId === undefined ? undefined : () => {
+      saveShade.mutate({ patientId, shade }, {
+        onSuccess: () => { setShade(undefined); toast.show({ title: "Colour saved", tone: "success" }); },
+        onError: () => { toast.show({ title: "Couldn't save the colour. Please try again.", tone: "danger" }); },
+      });
+    },
+  };
   // front map or Open wide; undefined until the doctor picks, so the painted style applies its §6.2 rule
   const [paintedView, setPaintedView] = useState<PaintedView | undefined>(undefined);
   const xrays = useOwnXrays(patientId, visitId);
@@ -199,9 +216,9 @@ export function PresentPage() {
                   ) : undefined}
                 />
               ) : view === "smile3d" ? (slot) => (
-                <Smile3dSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} toothSheet />
+                <Smile3dSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} {...shadeSave} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} toothSheet />
               ) : (slot) => (
-                <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} toothSheet />
+                <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} {...shadeSave} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} toothSheet />
               )}
           />
         )}

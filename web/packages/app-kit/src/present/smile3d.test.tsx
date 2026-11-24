@@ -11,7 +11,7 @@ afterEach(cleanup);
 const model = () => presentFacts(structuredClone(aaravFixture.snapshot));
 const slotProps = () => ({
   model: model(), slot: { open: () => undefined, stateOf: (): never => { throw new Error("unused"); }, was: undefined, filter: undefined }, orientation: "mirror" as const, onOrientation: () => undefined,
-  shade: "natural" as const, onShade: () => undefined, theme: "light" as const,
+  shade: 33, onShade: () => undefined, theme: "light" as const,
 });
 
 describe("3D smile gate (§6.4)", () => {

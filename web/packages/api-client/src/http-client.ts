@@ -53,6 +53,7 @@ import {
   presentDiscussion,
   presentDiscussionList,
   imagePins,
+  smileShade,
   visitStory,
   dashboardLayoutView,
   dentalTerm,
@@ -731,6 +732,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     getVisitMouth: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}/mouth`, schema: mouthSnapshot, signal: opts?.signal }),
     listImagePins: (id, opts) => call({ method: "GET", path: `/api/v1/attachments/${encodeURIComponent(id)}/pins`, schema: imagePins, signal: opts?.signal }),
     saveImagePins: (id, input, opts) => call({ method: "PUT", path: `/api/v1/attachments/${encodeURIComponent(id)}/pins`, schema: imagePins, body: input, signal: opts?.signal }),
+    getSmileShade: (id, opts) => call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/smile-shade`, schema: smileShade, signal: opts?.signal }),
+    saveSmileShade: (id, input, opts) => call({ method: "PUT", path: `/api/v1/patients/${encodeURIComponent(id)}/smile-shade`, schema: smileShade, body: input, signal: opts?.signal }),
     listPresentDiscussions: (id, opts) => call({ method: "GET", path: `/api/v1/visits/${encodeURIComponent(id)}/present-discussions`, schema: presentDiscussionList, signal: opts?.signal }),
     savePresentDiscussion: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/present-discussions`, schema: presentDiscussion, body: input, signal: opts?.signal }),

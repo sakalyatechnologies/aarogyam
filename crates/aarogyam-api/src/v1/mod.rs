@@ -80,6 +80,7 @@ pub(crate) mod schedule;
 pub(crate) mod settings;
 pub(crate) mod setup;
 pub(crate) mod smart_import;
+pub(crate) mod smile_shade;
 pub(crate) mod staff;
 pub(crate) mod staff_ops;
 pub(crate) mod stock_import;
@@ -302,6 +303,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         )
         .route("/patients/{id}/timeline", get(visits::timeline))
         .route("/patients/{id}/history", get(history::get))
+        .route(
+            "/patients/{id}/smile-shade",
+            get(smile_shade::get).put(smile_shade::save),
+        )
         .route(
             "/patients/{id}/consents",
             get(consents::list).post(consents::record),

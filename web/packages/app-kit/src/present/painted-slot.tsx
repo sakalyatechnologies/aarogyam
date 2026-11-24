@@ -6,13 +6,15 @@ import type { OverviewSlot } from "../mouth-view/mouth-view.js";
 import { StyleBoundary, TextFallback, useChunk } from "./blocks.js";
 import type { Orientation, PresentModel } from "./model.js";
 import type { PaintedProps, PaintedView } from "./painted.js";
-import type { ShadeKnob } from "./painter.js";
+import type { Shade } from "./painter.js";
 
 const loadPainted = () => import("./painted.js").then((m) => m.paintedStyle);
 
 export function PaintedSlot({ model, slot, ...knobs }: {
   model: PresentModel; slot: OverviewSlot; orientation: Orientation; onOrientation: (o: Orientation) => void;
-  shade: ShadeKnob; onShade: (s: ShadeKnob) => void; theme: "light" | "dark";
+  shade: Shade; onShade: (s: Shade) => void; theme: "light" | "dark";
+  /** Offers "Save colour" beside the slider while the colour differs from the saved one. */
+  shadeDirty?: boolean | undefined; onSaveShade?: (() => void) | undefined; savingShade?: boolean | undefined;
   /** Front or Open wide; undefined lets the painted style pick (Open wide when the front hides every problem). */
   view?: PaintedView | undefined; onView?: ((v: PaintedView) => void) | undefined;
   /** Lazy 3D module for the tooth sheet's "See in 3D". */

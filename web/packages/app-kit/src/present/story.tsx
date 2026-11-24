@@ -10,6 +10,7 @@ import { FactList, ProvenanceFooter, RecordBadge } from "./blocks.js";
 import type { FactItem, Orientation, PresentModel } from "./model.js";
 import { OpenWide, bitingSideProblems, frontHidesAllProblems } from "./open-wide.js";
 import { PaintedMap, type PaintedView } from "./painted.js";
+import { DEFAULT_SHADE } from "./painter.js";
 import { ToothSheet, type ToothSheetProps } from "./tooth-sheet.js";
 import { SituationOptions, useStudio } from "./options.js";
 import type { PresentStudio } from "@aarogyam/api-client";
@@ -186,7 +187,7 @@ function MouthCard({ model, orientation, onOrientation, theme, view, setView, op
           <b>Open wide to see {hidden.length === 1 ? "it" : "them"}</b>
         </button>
       ) : null}
-      {view === "wide" ? <OpenWide model={model} orientation={orientation} theme={theme} onOpen={open} /> : <PaintedMap model={model} orientation={orientation} shade="natural" theme={theme} onOpen={open} />}
+      {view === "wide" ? <OpenWide model={model} orientation={orientation} theme={theme} onOpen={open} /> : <PaintedMap model={model} orientation={orientation} shade={DEFAULT_SHADE} theme={theme} onOpen={open} />}
       <ProvenanceFooter recorded={["The dots come from this visit's record."]} illustration={["Tooth shapes and colours are a painting based on your record, not a photo."]} />
     </>
   );

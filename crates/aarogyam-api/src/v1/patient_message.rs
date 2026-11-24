@@ -360,6 +360,11 @@ pub struct VisitStory {
     pub next_visit: Option<String>,
     /// The same snapshot as `GET /visits/{id}/mouth`.
     pub chart: super::mouth::MouthSnapshot,
+    /// "Options we discussed": only rows the doctor ticked for the patient, as on the visit page.
+    /// A price appears only when it was frozen and the clinic shows prices.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub discussed: Vec<super::visit_summary::VisitDiscussed>,
 }
 
 impl From<app::VisitStory> for VisitStory {
@@ -371,6 +376,7 @@ impl From<app::VisitStory> for VisitStory {
             clinic_name: story.clinic_name,
             next_visit: story.mouth.next_visit.map(super::mouth::day),
             chart: story.mouth.into(),
+            discussed: story.discussed.into_iter().map(Into::into).collect(),
         }
     }
 }

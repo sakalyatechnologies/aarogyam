@@ -7,7 +7,7 @@ import type { PathLike } from "../mouth-art/render.js";
 import { canShareVideo, pickVideoPath, recorderType, videoFileName, type VideoEnv } from "../story-video/support.js";
 import { drawFrame, type StoryCtx } from "./draw.js";
 import { prepareStory } from "./prepare.js";
-import { sectionOf, storyboard, storyFacts, type SectionName } from "./storyboard.js";
+import { MAX_MS, sectionOf, storyboard, storyFacts, type SectionName } from "./storyboard.js";
 
 const aarav = (): VisitStory => ({
   story_version: 1,
@@ -117,6 +117,47 @@ describe("story storyboard", () => {
     story.chart = { ...story.chart, focus: [], teeth: story.chart.teeth.filter((t) => t.tooth === 75) };
     const board = storyboard(storyFacts(story));
     expect(board.map(sectionOf)).toEqual(["title", "overview", "end"]);
+  });
+});
+
+describe("options we discussed", () => {
+  const withRows = (rows: number, price: number | undefined): VisitStory => ({
+    ...aarav(),
+    discussed: Array.from({ length: rows }, (_, i) => ({
+      title: `Missing tooth ${String(i)}`,
+      tooth: 36,
+      options: [{ label: "Implant", summary: "A new root and crown.", looks_like: "Like a natural tooth.", comfort: "Mild soreness.", preferred: true, ...(price === undefined ? {} : { from_paise: price }) }],
+    })),
+  });
+  const wordsAt = async (story: VisitStory, kind: string) => {
+    const prepared = await prepareStory(story);
+    const seg = prepared.board.find((s) => s.kind === kind);
+    const { ctx, texts } = recorder();
+    if (seg !== undefined) drawFrame(ctx, prepared, (seg.start + seg.end) / 2 + 400, { makePath });
+    return texts.join(" ");
+  };
+
+  it("adds a scene per row before the end card, and none when empty", () => {
+    expect(storyboard(storyFacts(aarav())).some((s) => s.kind === "discussed")).toBe(false);
+    expect(storyboard(storyFacts({ ...aarav(), discussed: [] })).some((s) => s.kind === "discussed")).toBe(false);
+    const board = storyboard(storyFacts(withRows(2, undefined)));
+    expect(board.map((s) => s.kind).slice(-3)).toEqual(["discussed", "discussed", "end"]);
+  });
+
+  it("caps rows at 3 and keeps the video within the length budget", () => {
+    const board = storyboard(storyFacts(withRows(6, undefined)));
+    expect(board.filter((s) => s.kind === "discussed")).toHaveLength(3);
+    expect(board.at(-1)?.end ?? 0).toBeLessThanOrEqual(MAX_MS);
+    const base = storyboard(storyFacts(aarav()));
+    expect(board.filter((s) => s.kind !== "discussed")).toEqual(base.map((s) => (s.kind === "end" ? { ...s, start: board.at(-1)?.start ?? 0, end: board.at(-1)?.end ?? 0 } : s)));
+  });
+
+  it("draws a price only when the payload has one", async () => {
+    const without = await wordsAt(withRows(1, undefined), "discussed");
+    expect(without).toContain("Implant");
+    expect(without).toContain("Missing tooth 0");
+    expect(without).not.toContain("₹");
+    expect(await wordsAt(withRows(1, 1250000), "discussed")).toContain("From ₹12,500");
   });
 });
 

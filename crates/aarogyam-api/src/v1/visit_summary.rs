@@ -283,7 +283,6 @@ fn day(date: time::Date) -> String {
 }
 
 impl From<Summary> for VisitSummary {
-    #[expect(clippy::too_many_lines, reason = "one field per line of the payload")]
     fn from(summary: Summary) -> Self {
         Self {
             clinic_name: summary.clinic_name,
@@ -368,25 +367,27 @@ impl From<Summary> for VisitSummary {
             }),
             practitioner_id: summary.practitioner_id,
             chart: summary.chart.map(super::mouth::MouthSnapshot::from),
-            discussed: summary
-                .discussed
+            discussed: summary.discussed.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<aarogyam_domain::present_discussion::SharedDiscussion> for VisitDiscussed {
+    fn from(d: aarogyam_domain::present_discussion::SharedDiscussion) -> Self {
+        Self {
+            tooth: d.tooth,
+            title: d.title,
+            options: d
+                .options
                 .into_iter()
-                .map(|d| VisitDiscussed {
-                    tooth: d.tooth,
-                    title: d.title,
-                    options: d
-                        .options
-                        .into_iter()
-                        .map(|o| VisitDiscussedOption {
-                            label: o.label,
-                            summary: o.summary,
-                            looks_like: o.looks_like,
-                            comfort: o.comfort,
-                            material: o.material,
-                            preferred: o.preferred,
-                            from_paise: o.from_paise,
-                        })
-                        .collect(),
+                .map(|o| VisitDiscussedOption {
+                    label: o.label,
+                    summary: o.summary,
+                    looks_like: o.looks_like,
+                    comfort: o.comfort,
+                    material: o.material,
+                    preferred: o.preferred,
+                    from_paise: o.from_paise,
                 })
                 .collect(),
         }

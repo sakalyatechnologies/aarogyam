@@ -1030,6 +1030,8 @@ pub struct VisitStory {
     pub clinic_name: String,
     /// The same snapshot as `GET /visits/{id}/mouth`, with `story_version` and `next_visit`.
     pub mouth: MouthSnapshot,
+    /// The ticked "Options we discussed" rows, as the shared visit page shows them.
+    pub discussed: Vec<aarogyam_domain::present_discussion::SharedDiscussion>,
 }
 
 /// The video story of a closed visit. Runs the same refusals as [`prepare`], so a video is made
@@ -1049,7 +1051,9 @@ pub async fn story(
     db.scoped(&staff_scope(actor, request_id), async |tx| {
         let checked = checked_in(tx, actor, visit_id, now).await?;
         let mouth = crate::mouth::of_visit(tx, &checked.visit, now).await?;
+        let discussed = visit_summary::shared_discussed(tx, checked.visit.id).await?;
         Ok(VisitStory {
+            discussed,
             visited_on: clinic_today(&checked.timezone, checked.visit.started_at),
             visit_number: checked.visit.number,
             clinic_name: checked.clinic_name,

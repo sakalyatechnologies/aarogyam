@@ -457,25 +457,7 @@ pub async fn open(
             .map(|(name, _)| name);
         let extras = extras_in(tx, visit.id, visit.patient_id).await?;
         let chart = crate::mouth::of_visit(tx, &visit, now).await?;
-        let show_prices = aarogyam_domain::present::PresentSettings::from_stored(
-            &aarogyam_dal::present_settings::get(tx.conn()).await?,
-        )
-        .show_prices;
-        let discussed = aarogyam_dal::present_discussions::current_of_visit(tx.conn(), visit.id)
-            .await?
-            .into_iter()
-            .filter(|row| row.send_to_patient)
-            .filter_map(|row| {
-                let options: Vec<aarogyam_domain::present_discussion::DiscussedOption> =
-                    serde_json::from_value(row.options).ok()?;
-                aarogyam_domain::present_discussion::shared_view(
-                    row.tooth.and_then(|t| u8::try_from(t).ok()),
-                    &row.situation,
-                    &options,
-                    show_prices,
-                )
-            })
-            .collect();
+        let discussed = shared_discussed(tx, visit.id).await?;
         let visited_on = clinic_today(&timezone, visit.started_at);
         let follow_up_on = dal::next_follow_up(tx.conn(), visit.patient_id, visited_on).await?;
         let booking_host = aarogyam_dal::staff::portal_host(tx.conn()).await?;
@@ -602,4 +584,33 @@ pub async fn answer(
         }))
     })
     .await
+}
+
+/// The visit's ticked "Options we discussed" rows in the patient's words; a price only when frozen
+/// and the clinic shows prices. Shared by the visit page and the video story.
+pub(crate) async fn shared_discussed(
+    tx: &mut ScopedTx,
+    visit_id: Uuid,
+) -> Result<Vec<aarogyam_domain::present_discussion::SharedDiscussion>, AppError> {
+    let show_prices = aarogyam_domain::present::PresentSettings::from_stored(
+        &aarogyam_dal::present_settings::get(tx.conn()).await?,
+    )
+    .show_prices;
+    Ok(
+        aarogyam_dal::present_discussions::current_of_visit(tx.conn(), visit_id)
+            .await?
+            .into_iter()
+            .filter(|row| row.send_to_patient)
+            .filter_map(|row| {
+                let options: Vec<aarogyam_domain::present_discussion::DiscussedOption> =
+                    serde_json::from_value(row.options).ok()?;
+                aarogyam_domain::present_discussion::shared_view(
+                    row.tooth.and_then(|t| u8::try_from(t).ok()),
+                    &row.situation,
+                    &options,
+                    show_prices,
+                )
+            })
+            .collect(),
+    )
 }

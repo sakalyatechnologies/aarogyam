@@ -17740,6 +17740,11 @@ export interface components {
             chart: components["schemas"]["MouthSnapshot"];
             /** @description The clinic's name, for the title and end cards. */
             clinic_name: string;
+            /**
+             * @description "Options we discussed": only rows the doctor ticked for the patient, as on the visit page.
+             *     A price appears only when it was frozen and the clinic shows prices.
+             */
+            discussed?: components["schemas"]["VisitDiscussed"][];
             /** @description The patient's next booked visit (`YYYY-MM-DD`), for the end card. */
             next_visit?: string | null;
             /**

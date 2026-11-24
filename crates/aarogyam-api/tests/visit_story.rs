@@ -257,3 +257,92 @@ async fn the_story_refuses_as_send_does() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_story_carries_ticked_options_and_a_price_only_with_show_prices() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(
+        &app,
+        &owner,
+        json!({ "full_name": "Meera Rao", "sex": "female", "age_years": 40,
+                "phone": "98765 40003" }),
+    )
+    .await;
+    let visit = start_visit(&app, &owner, &patient).await;
+    let (status, body) = call(
+        &app,
+        Method::POST,
+        &owner,
+        &format!("/api/v1/patients/{patient}/dental-chart"),
+        Some(json!({ "visit_id": visit, "entries": [
+            { "tooth": 36, "surface": "O", "finding": "caries", "caries_depth": "near_pulp" }] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, item) = call(
+        &app,
+        Method::POST,
+        &owner,
+        "/api/v1/price-items",
+        Some(json!({ "name": "RCT", "code": "RCT", "price_paise": 600_000 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{item}");
+    let present = |show: bool| {
+        let map = if show {
+            json!({ "root_canal": "RCT" })
+        } else {
+            json!({})
+        };
+        json!({ "show_prices": show, "price_map": map })
+    };
+    let (status, saved) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        "/api/v1/settings/present",
+        Some(present(true)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    let path = format!("/api/v1/visits/{visit}/present-discussions");
+    for (tooth, situation, tick, key) in [
+        (Some(36), "deep_decay", true, "rct_crown"),
+        (None, "implant", false, "implant"),
+    ] {
+        let mut row = json!({ "situation": situation, "send_to_patient": tick,
+                              "options": [{ "key": key }] });
+        if let Some(t) = tooth {
+            row["tooth"] = json!(t);
+        }
+        let (status, saved) = call(&app, Method::POST, &owner, &path, Some(row)).await;
+        assert_eq!(status, StatusCode::CREATED, "{saved}");
+    }
+    close(&app, &owner, &visit).await;
+
+    let (status, story) = call(&app, Method::GET, &owner, &story_path(&visit), None).await;
+    assert_eq!(status, StatusCode::OK, "{story}");
+    let rows = story["discussed"].as_array().unwrap();
+    assert_eq!(rows.len(), 1, "only the ticked row: {story}");
+    assert_eq!(rows[0]["tooth"], 36);
+    assert!(!rows[0].to_string().contains("rct_crown"), "{story}");
+
+    let (status, off) = call(
+        &app,
+        Method::PUT,
+        &owner,
+        "/api/v1/settings/present",
+        Some(present(false)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{off}");
+    let (status, story) = call(&app, Method::GET, &owner, &story_path(&visit), None).await;
+    assert_eq!(status, StatusCode::OK, "{story}");
+    assert!(
+        story["discussed"][0]["options"][0]["from_paise"].is_null(),
+        "{story}"
+    );
+    app.finish().await;
+}

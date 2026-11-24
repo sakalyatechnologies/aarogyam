@@ -47939,6 +47939,13 @@
             "type": "string",
             "description": "The clinic's name, for the title and end cards."
           },
+          "discussed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitDiscussed"
+            },
+            "description": "\"Options we discussed\": only rows the doctor ticked for the patient, as on the visit page.\nA price appears only when it was frozen and the clinic shows prices."
+          },
           "next_visit": {
             "type": [
               "string",

@@ -2475,6 +2475,23 @@ export type PresentStudio = z.output<typeof presentStudio>;
 export type PresentSituation = z.output<typeof presentSituation>;
 export type PresentOption = z.output<typeof presentOption>;
 
+/** One option of a ticked "Options we discussed" row, in the patient's words; a price only when the clinic shows prices. */
+export const storyDiscussedOption = z.object({
+  label: z.string(),
+  summary: z.string(),
+  looks_like: z.string(),
+  comfort: z.string(),
+  material: z.string().nullable().exactOptional(),
+  preferred: z.boolean(),
+  from_paise: z.number().int().nullable().exactOptional(),
+});
+export const storyDiscussed = z.object({
+  title: z.string(),
+  tooth: z.number().int().nullable().exactOptional(),
+  options: z.array(storyDiscussedOption),
+});
+export type StoryDiscussed = z.output<typeof storyDiscussed>;
+
 /** `GET /api/v1/visits/{id}/story`: the patient's video data (section 1.7). No patient name. */
 export const visitStory = z.object({
   story_version: count,
@@ -2483,6 +2500,8 @@ export const visitStory = z.object({
   clinic_name: z.string(),
   next_visit: day.exactOptional(),
   chart: mouthSnapshot,
+  /** The ticked "Options we discussed" rows, same as the visit page's; the video draws them when present. */
+  discussed: z.array(storyDiscussed).exactOptional(),
 }) satisfies z.ZodType<C.VisitStory>;
 export type VisitStory = z.output<typeof visitStory>;
 

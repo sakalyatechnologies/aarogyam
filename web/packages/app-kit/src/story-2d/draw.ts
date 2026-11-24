@@ -155,7 +155,7 @@ function medallion(d: D, scene: Scene | undefined, cx: number, cy: number, r: nu
 
 // ---------- background and progress ----------
 
-const SECTIONS: readonly SectionName[] = ["title", "overview", "zoom", "stepper", "back", "findings", "end"];
+const SECTIONS: readonly SectionName[] = ["title", "overview", "zoom", "stepper", "back", "findings", "discussed", "end"];
 
 function background(d: D): void {
   const { ctx } = d;
@@ -593,6 +593,31 @@ function oneFinding(d: D, story: PreparedStory, item: Finding, t: number): void 
 }
 const appearAt = (t: number, delay: number) => easeOut((t - delay) / 450);
 
+/** One ticked "Options we discussed" row: the situation, then each option's name, short words and any price. */
+function discussedCard(d: D, story: PreparedStory, index: number, t: number): void {
+  const row = story.facts.discussed[index];
+  if (row === undefined) return;
+  const h = easeOut(t / 400);
+  text(d, "OPTIONS WE DISCUSSED", 40, 128, { size: 28, weight: 800, color: C.brand, alpha: h });
+  const end = paragraph(d, row.title, 40, 204, 640, 70, { size: 58, weight: 800, alpha: h }, 2);
+  if (row.tooth !== undefined) text(d, `Tooth ${String(row.tooth)} · ${toothInfo(row.tooth).name}`, 40, end + 14, { size: 32, weight: 700, color: C.muted, alpha: h });
+  const rowH = 250, gap = 28, top = end + 90;
+  const a = d.alpha;
+  row.options.forEach((o, i) => {
+    const e = easeOut((t - 200 - i * 180) / 450);
+    const y = top + i * (rowH + gap);
+    d.alpha = a * e;
+    const dx = 60 * (1 - e);
+    fillD(d, rrD(40 + dx, y, 640, rowH, 32), C.card);
+    strokeD(d, rrD(40 + dx, y, 640, rowH, 32), o.preferred ? C.brand : C.line, o.preferred ? 4 : 2);
+    const lend = paragraph(d, o.label, 72 + dx, y + 62, 576, 52, { size: 44, weight: 800 }, 1);
+    const send = o.summary === undefined ? lend : paragraph(d, o.summary, 72 + dx, lend + 6, 576, 40, { size: 30, color: C.muted }, 2);
+    if (o.price !== undefined) pill(d, o.price, 72 + dx, Math.min(send + 4, y + rowH - 62), { size: 28, weight: 700, color: C.amber, bg: C.amberSoft, align: "left" });
+    if (o.preferred) pill(d, "You prefer this", 648 + dx, y + 8, { size: 24, weight: 700, color: C.brand, bg: C.brandSoft, align: "right" });
+  });
+  d.alpha = a;
+}
+
 function endCard(d: D, story: PreparedStory, t: number): void {
   const { facts, hero } = story;
   const appear = (delay: number) => easeOut((t - delay) / 450);
@@ -629,12 +654,13 @@ function segment(d: D, story: PreparedStory, seg: Segment, t: number): void {
     }
     case "back": back(d, story, seg.fdi, local); break;
     case "findings": findings(d, story, local); break;
+    case "discussed": discussedCard(d, story, seg.index, local); break;
     case "end": endCard(d, story, local); break;
   }
 }
 
 /** Segments that cross-fade in from the one before (the zoom and the stepper move instead). */
-const FADES = new Set<Segment["kind"]>(["overview", "findings", "end"]);
+const FADES = new Set<Segment["kind"]>(["overview", "findings", "discussed", "end"]);
 const FADE_MS = 380;
 
 /** Paints the frame at `t` ms. Pure: it reads only `story` and `t`. */

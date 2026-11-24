@@ -86,6 +86,14 @@
     },
     "bridge": {
       "art": "overlay:bridge_abutment"
+    },
+    "orthodontic_fixed": {
+      "text_only": true,
+      "label": "Braces"
+    },
+    "aligners": {
+      "text_only": true,
+      "label": "Aligners"
     }
   },
   "materials": {

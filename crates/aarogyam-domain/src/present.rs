@@ -19,6 +19,8 @@ const CASE_WISDOM: &str = include_str!("../../../specialties/dental/present/case
 const CASE_BRIDGE: &str = include_str!("../../../specialties/dental/present/cases/bridge.json");
 const CASE_SCALING: &str = include_str!("../../../specialties/dental/present/cases/scaling.json");
 const CASE_VENEER: &str = include_str!("../../../specialties/dental/present/cases/veneer.json");
+const CASE_BRACES: &str = include_str!("../../../specialties/dental/present/cases/braces.json");
+const CASE_ALIGNERS: &str = include_str!("../../../specialties/dental/present/cases/aligners.json");
 
 /// A range of whole numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -213,19 +215,23 @@ pub struct Case {
     pub steps: Vec<CaseStep>,
 }
 
-/// A usual case by key (`implant`, `wisdom`, `bridge`, `scaling`, `veneer`), compiled in.
+/// A usual case by key (`implant`, `wisdom`, `bridge`, `scaling`, `veneer`, `braces`, `aligners`), compiled in.
 pub fn usual_case(key: &str) -> Option<&'static Case> {
     static IMPLANT: OnceLock<Option<Case>> = OnceLock::new();
     static WISDOM: OnceLock<Option<Case>> = OnceLock::new();
     static BRIDGE: OnceLock<Option<Case>> = OnceLock::new();
     static SCALING: OnceLock<Option<Case>> = OnceLock::new();
     static VENEER: OnceLock<Option<Case>> = OnceLock::new();
+    static BRACES: OnceLock<Option<Case>> = OnceLock::new();
+    static ALIGNERS: OnceLock<Option<Case>> = OnceLock::new();
     match key {
         "implant" => IMPLANT.get_or_init(|| parse(CASE_IMPLANT)).as_ref(),
         "wisdom" => WISDOM.get_or_init(|| parse(CASE_WISDOM)).as_ref(),
         "bridge" => BRIDGE.get_or_init(|| parse(CASE_BRIDGE)).as_ref(),
         "scaling" => SCALING.get_or_init(|| parse(CASE_SCALING)).as_ref(),
         "veneer" => VENEER.get_or_init(|| parse(CASE_VENEER)).as_ref(),
+        "braces" => BRACES.get_or_init(|| parse(CASE_BRACES)).as_ref(),
+        "aligners" => ALIGNERS.get_or_init(|| parse(CASE_ALIGNERS)).as_ref(),
         _ => None,
     }
 }

@@ -103,8 +103,8 @@ pub async fn list(
 /// the row, so the patient page never shows a later price-list change.
 ///
 /// # Errors
-/// [`AppError::Invalid`] for an unknown situation, option or material (braces and aligners until
-/// seeded); [`AppError::NotFound`] when the visit isn't in this clinic or reach;
+/// [`AppError::Invalid`] for an unknown situation, option or material;
+/// [`AppError::NotFound`] when the visit isn't in this clinic or reach;
 /// [`AppError::Conflict`] when the visit is closed.
 pub async fn save(
     db: &Db,

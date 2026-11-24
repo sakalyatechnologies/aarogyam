@@ -6,20 +6,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::dental::Tooth;
-use crate::dental_terms::{TermKind, seeded_match};
 use crate::present::{materials, options, usual_case};
 
 /// Most options one row may hold.
 pub const MAX_OPTIONS: usize = 12;
-
-/// Option keys that need a seeded procedure before they may be recorded (F8): braces and
-/// aligners are an example-arch case only until `orthodontic_fixed` and `aligners` exist in
-/// `vocabulary.json`. Pairs of (option key, vocabulary procedure id).
-const NEEDS_SEEDED: [(&str, &str); 3] = [
-    ("braces", "orthodontic_fixed"),
-    ("orthodontic_fixed", "orthodontic_fixed"),
-    ("aligners", "aligners"),
-];
 
 /// One option the doctor and patient discussed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -82,21 +72,21 @@ pub fn error_reason(reason: &str) -> Result<String, DiscussionError> {
     }
 }
 
-fn seeded_procedure(id: &str) -> bool {
-    seeded_match(TermKind::Procedure, id).is_some_and(|t| t.id == id)
-}
-
 fn known_situation(situation: &str) -> bool {
     options().is_some_and(|o| o.situations.contains_key(situation))
         || usual_case(situation).is_some()
 }
 
+/// Options of the example-arch "Straighter teeth" cases (F8); they have no card in `options.json`.
+const ORTHODONTIC_KEYS: [&str; 3] = ["braces", "orthodontic_fixed", "aligners"];
+
 fn known_option(key: &str) -> bool {
-    options().is_some_and(|o| {
-        o.situations
-            .values()
-            .any(|s| s.options.iter().any(|option| option.key == key))
-    })
+    ORTHODONTIC_KEYS.contains(&key)
+        || options().is_some_and(|o| {
+            o.situations
+                .values()
+                .any(|s| s.options.iter().any(|option| option.key == key))
+        })
 }
 
 fn known_material(key: &str) -> bool {
@@ -205,11 +195,6 @@ pub fn validate(
         return Err(DiscussionError::Count);
     }
     for (index, option) in discussed.iter().enumerate() {
-        if let Some((_, procedure)) = NEEDS_SEEDED.iter().find(|(key, _)| *key == option.key)
-            && !seeded_procedure(procedure)
-        {
-            return Err(DiscussionError::NotSeeded);
-        }
         if !known_option(&option.key) {
             return Err(DiscussionError::Option);
         }
@@ -236,6 +221,7 @@ pub fn validate(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dental_terms::{TermKind, seeded_match};
 
     fn opt(key: &str) -> DiscussedOption {
         DiscussedOption {
@@ -310,13 +296,12 @@ mod tests {
     }
 
     #[test]
-    fn braces_and_aligners_wait_for_their_procedures() {
-        assert!(
-            !seeded_procedure("orthodontic_fixed"),
-            "seed them, then lift the block (F8)"
-        );
-        for key in ["braces", "aligners", "orthodontic_fixed"] {
-            assert_eq!(
+    fn braces_and_aligners_are_seeded_and_no_longer_refused() {
+        for key in ["orthodontic_fixed", "aligners"] {
+            assert!(seeded_match(TermKind::Procedure, key).is_some_and(|t| t.id == key));
+        }
+        for key in ["orthodontic_fixed", "aligners"] {
+            assert_ne!(
                 validate(None, "implant", &[opt(key)]),
                 Err(DiscussionError::NotSeeded)
             );

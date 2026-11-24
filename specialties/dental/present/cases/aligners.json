@@ -1,0 +1,46 @@
+{
+  "$comment": "The usual aligners case for Show patient (docs/plans/present-studio-design.md section 8.5, slice 3c), drawn on an example arch, never this patient's teeth. General guidance: no visit numbers, no dates, no prices. English only; reviewed by: pending (founder).",
+  "schema_version": 1,
+  "language": "en",
+  "reviewed_by": "pending",
+  "key": "aligners",
+  "title": "Straighter teeth with aligners",
+  "lead": "Example teeth, not yours. Clear aligners move teeth a little at a time; how long it takes depends on the person.",
+  "steps": [
+    {
+      "key": "today",
+      "label": "Start",
+      "words": "Clear trays made for the teeth are worn most of the day and night.",
+      "art": "tooth"
+    },
+    {
+      "key": "month3",
+      "label": "Around month 3",
+      "words": "Each new set of trays moves the teeth a little further.",
+      "art": "tooth"
+    },
+    {
+      "key": "month9",
+      "label": "Around month 9",
+      "words": "The teeth are lining up and the gaps are closing.",
+      "art": "tooth"
+    },
+    {
+      "key": "finish",
+      "label": "Finishing",
+      "words": "The trays stop once the teeth and bite are where planned.",
+      "art": "tooth",
+      "usual": {
+        "min": 12,
+        "max": 18,
+        "unit": "months"
+      }
+    },
+    {
+      "key": "retainer",
+      "label": "Retainer",
+      "words": "A retainer keeps the teeth in their new place.",
+      "art": "tooth"
+    }
+  ]
+}

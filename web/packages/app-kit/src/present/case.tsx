@@ -7,6 +7,8 @@ import wisdom from "../../../../../specialties/dental/present/cases/wisdom.json"
 import bridge from "../../../../../specialties/dental/present/cases/bridge.json" with { type: "json" };
 import scaling from "../../../../../specialties/dental/present/cases/scaling.json" with { type: "json" };
 import veneer from "../../../../../specialties/dental/present/cases/veneer.json" with { type: "json" };
+import braces from "../../../../../specialties/dental/present/cases/braces.json" with { type: "json" };
+import aligners from "../../../../../specialties/dental/present/cases/aligners.json" with { type: "json" };
 
 export interface CaseData {
   key: string;
@@ -20,6 +22,8 @@ export const WISDOM_CASE: CaseData = wisdom;
 export const BRIDGE_CASE: CaseData = bridge;
 export const SCALING_CASE: CaseData = scaling;
 export const VENEER_CASE: CaseData = veneer;
+export const BRACES_CASE: CaseData = braces;
+export const ALIGNERS_CASE: CaseData = aligners;
 
 /** Option keys whose card offers the implant case. */
 export const IMPLANT_OPTION_KEYS: readonly string[] = ["implant", "extract_implant"];

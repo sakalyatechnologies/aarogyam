@@ -6,9 +6,9 @@ import materialsFile from "../../../../../specialties/dental/present/materials.j
 import optionsFile from "../../../../../specialties/dental/present/options.json" with { type: "json" };
 import type { NewPresentDiscussion, PresentDiscussion } from "../schemas.js";
 
-const TOPICS = ["implant", "wisdom", "bridge", "scaling", "veneer"];
-// braces and aligners are an example-arch case only until their procedures are seeded (F8)
-const BLOCKED = ["braces", "aligners", "orthodontic_fixed"];
+const TOPICS = ["implant", "wisdom", "bridge", "scaling", "veneer", "braces", "aligners"];
+// the example-arch cases (F8, seeded in slice 3c) have no card in options.json
+const ORTHODONTIC_KEYS = ["braces", "orthodontic_fixed", "aligners"];
 
 const situations: Record<string, { options: { key: string }[] }> = optionsFile.situations;
 const groups: Record<string, { materials: { key: string }[] }> = materialsFile.groups;
@@ -30,8 +30,7 @@ export function discussionProblem(input: NewPresentDiscussion): string | undefin
   if (input.options.length < 1 || input.options.length > 12) return "record between 1 and 12 options";
   const seen = new Set<string>();
   for (const o of input.options) {
-    if (BLOCKED.includes(o.key)) return "this option is not available yet";
-    if (!optionKeys.has(o.key)) return "unknown option";
+    if (!optionKeys.has(o.key) && !ORTHODONTIC_KEYS.includes(o.key)) return "unknown option";
     if (o.material != null && !materialKeys.has(o.material)) return "unknown material";
     if (seen.has(o.key)) return "each option once, and at most one preferred";
     seen.add(o.key);

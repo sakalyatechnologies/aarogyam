@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import adultFixture from "../../../../../specialties/dental/fixtures/mouth-adult.json" with { type: "json" };
 import { ART_KEYS } from "../mouth-art/art-map.js";
-import { BRIDGE_CASE, IMPLANT_CASE, SCALING_CASE, UsualCase, VENEER_CASE, WISDOM_CASE } from "./case.js";
+import { ALIGNERS_CASE, BRACES_CASE, BRIDGE_CASE, IMPLANT_CASE, SCALING_CASE, UsualCase, VENEER_CASE, WISDOM_CASE } from "./case.js";
 import { SituationOptions } from "./options.js";
 
 afterEach(cleanup);
@@ -52,6 +52,8 @@ describe.each([
   ["bridge", BRIDGE_CASE, ["bridge_prep", "bridge_fit"]],
   ["scaling", SCALING_CASE, ["scale", "polish", "recheck"]],
   ["veneer", VENEER_CASE, ["prep", "veneer"]],
+  ["braces", BRACES_CASE, ["today", "month3", "month9", "finish", "retainer"]],
+  ["aligners", ALIGNERS_CASE, ["today", "month3", "month9", "finish", "retainer"]],
 ])("the %s case", (_name, data, keys) => {
   it("has its steps and every art key resolves to 2D art", () => {
     expect(data.steps.map((s) => s.key)).toEqual(keys);

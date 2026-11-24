@@ -921,7 +921,7 @@ export interface ApiClient {
   listImagePins(id: AttachmentId, options?: RequestOptions): Promise<ApiResult<ImagePins>>;
   saveImagePins(id: AttachmentId, input: ImagePins, options?: RequestOptions): Promise<ApiResult<ImagePins>>;
   listPresentDiscussions(id: VisitId, options?: RequestOptions): Promise<ApiResult<PresentDiscussionList>>;
-  /** Clinic host: saves what was discussed for one situation; it supersedes the current row for the tooth and situation. Needs `clinical.write`; 400 for an unknown key (braces and aligners until seeded), 409 when the visit is closed. */
+  /** Clinic host: saves what was discussed for one situation; it supersedes the current row for the tooth and situation. Needs `clinical.write`; 400 for an unknown key, 409 when the visit is closed. */
   savePresentDiscussion(id: VisitId, input: NewPresentDiscussion, options?: RequestOptions): Promise<ApiResult<PresentDiscussion>>;
   /** Clinic host: marks a current discussion entered in error, with a reason. Needs `clinical.write`; 409 when the visit is closed. */
   markPresentDiscussionInError(id: VisitId, discussionId: string, input: DiscussionInError, options?: RequestOptions): Promise<ApiResult<undefined>>;

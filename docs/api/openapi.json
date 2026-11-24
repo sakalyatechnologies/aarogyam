@@ -21237,7 +21237,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Saves what was discussed for one situation. It supersedes the current row for the same\nvisit, tooth and situation (append-only). 400 for an unknown situation, option or material,\nand for braces and aligners until they are seeded; 409 when the visit is closed.",
+        "summary": "Saves what was discussed for one situation. It supersedes the current row for the same\nvisit, tooth and situation (append-only). 400 for an unknown situation, option or material,\nand 409 when the visit is closed.",
         "operationId": "savePresentDiscussion",
         "parameters": [
           {

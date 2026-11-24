@@ -146,7 +146,7 @@ async fn saves_supersede_and_keep_history_and_errors_are_marked() {
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
-async fn keys_are_checked_and_braces_and_aligners_are_refused() {
+async fn keys_are_checked() {
     let app = TestApp::start().await;
     let owner = app.token(ALPHA_OWNER);
     let visit = visit_of(&app, &owner).await;
@@ -158,14 +158,27 @@ async fn keys_are_checked_and_braces_and_aligners_are_refused() {
         json!({ "tooth": 36, "situation": "deep_decay", "options": [{ "key": "magic" }] }),
         json!({ "tooth": 36, "situation": "deep_decay",
                 "options": [{ "key": "extract", "material": "gold_leaf" }] }),
-        json!({ "situation": "implant", "options": [{ "key": "braces" }] }),
-        json!({ "situation": "implant", "options": [{ "key": "aligners" }] }),
-        json!({ "situation": "implant", "options": [{ "key": "orthodontic_fixed" }] }),
     ] {
         let (status, error) = call(&app, Method::POST, &owner, &path, Some(body.clone())).await;
         assert_eq!(status, StatusCode::BAD_REQUEST, "{body}: {error}");
     }
     assert_eq!(rows(&app, &visit).await.len(), 0);
+    app.finish().await;
+}
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn braces_and_aligners_can_be_saved_now_they_are_seeded() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let visit = visit_of(&app, &owner).await;
+    let path = format!("/api/v1/visits/{visit}/present-discussions");
+    for (situation, key) in [("braces", "orthodontic_fixed"), ("aligners", "aligners")] {
+        let body = json!({ "situation": situation, "options": [{ "key": key }] });
+        let (status, saved) = call(&app, Method::POST, &owner, &path, Some(body)).await;
+        assert_eq!(status, StatusCode::CREATED, "{saved}");
+    }
+    assert_eq!(rows(&app, &visit).await.len(), 2);
     app.finish().await;
 }
 

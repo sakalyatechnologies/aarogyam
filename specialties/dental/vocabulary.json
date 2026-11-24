@@ -17,7 +17,9 @@
     { "id": "extraction", "label": "Extraction" },
     { "id": "sealant", "label": "Pit and fissure sealant" },
     { "id": "scaling", "label": "Scaling" },
-    { "id": "bridge", "label": "Bridge" }
+    { "id": "bridge", "label": "Bridge" },
+    { "id": "orthodontic_fixed", "label": "Braces (fixed)" },
+    { "id": "aligners", "label": "Aligners" }
   ],
   "materials": [
     { "id": "zirconia", "label": "Zirconia" },

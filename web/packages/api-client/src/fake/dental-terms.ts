@@ -33,6 +33,8 @@ export const SEEDED_TERMS: readonly C.DentalTerm[] = [
     ["sealant", "Pit and fissure sealant"],
     ["scaling", "Scaling"],
     ["bridge", "Bridge"],
+    ["orthodontic_fixed", "Braces (fixed)"],
+    ["aligners", "Aligners"],
   ]),
   ...seed("material", [
     ["zirconia", "Zirconia"],

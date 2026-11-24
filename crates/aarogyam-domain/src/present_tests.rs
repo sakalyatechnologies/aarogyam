@@ -184,6 +184,8 @@ fn the_lint_over_every_present_file() {
         CASE_BRIDGE,
         CASE_SCALING,
         CASE_VENEER,
+        CASE_BRACES,
+        CASE_ALIGNERS,
         MATERIALS,
     ] {
         let lower = text.to_lowercase();
@@ -327,6 +329,25 @@ fn the_veneer_case_has_its_steps_and_no_patient_facts() {
     let body = body.split_once("\"schema_version\"").unwrap().1;
     for word in ["₹", "price", "visit 1", "visit 2"] {
         assert!(!body.contains(word), "{word}");
+    }
+}
+
+#[test]
+fn the_braces_and_aligners_cases_are_example_arch_guidance() {
+    for (key, text) in [("braces", CASE_BRACES), ("aligners", CASE_ALIGNERS)] {
+        let case = usual_case(key).unwrap();
+        let keys: Vec<&str> = case.steps.iter().map(|s| s.key.as_str()).collect();
+        assert_eq!(keys, ["today", "month3", "month9", "finish", "retainer"]);
+        let v: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert_eq!(v["schema_version"], 1);
+        assert_eq!(v["language"], "en");
+        assert_eq!(v["reviewed_by"], "pending");
+        let body = text.to_lowercase();
+        let body = body.split_once("\"schema_version\"").unwrap().1;
+        for word in ["₹", "price", "visit 1", "visit 2", "visit 3"] {
+            assert!(!body.contains(word), "{word}");
+        }
+        assert!(body.contains("example"));
     }
 }
 

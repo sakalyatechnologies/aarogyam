@@ -6577,7 +6577,7 @@ export interface paths {
         /**
          * Saves what was discussed for one situation. It supersedes the current row for the same
          *     visit, tooth and situation (append-only). 400 for an unknown situation, option or material,
-         *     and for braces and aligners until they are seeded; 409 when the visit is closed.
+         *     and 409 when the visit is closed.
          */
         post: operations["savePresentDiscussion"];
         delete?: never;

@@ -5,7 +5,7 @@ import { Avatar, Button, Field, TextInput, useFieldControl } from "@sakalya/ui";
 
 import { AuthSteps } from "./auth-shell.js";
 import { clearPasswordReset, markPasswordReset, MAX_PASSWORD_LENGTH } from "./password.js";
-import { AUTH_MESSAGES, type AuthClient, type DevAuthClient, type EmailCodeAuthClient } from "./auth-client.js";
+import { AUTH_MESSAGES, type AuthClient, type DevAuthClient, type EmailCodeAuthClient, type OAuthProvider } from "./auth-client.js";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_LENGTH = 6;
@@ -172,6 +172,25 @@ export function CodeInput({ value, onValueChange, length = CODE_LENGTH, disabled
   );
 }
 
+function GoogleLogo() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4">
+      <path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.67-.22-2.45H12v4.63h6.45a5.51 5.51 0 0 1-2.39 3.62v3h3.87c2.27-2.09 3.57-5.17 3.57-8.8Z" />
+      <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.91l-3.87-3c-1.07.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.27v3.1A12 12 0 0 0 12 24Z" />
+      <path fill="#FBBC05" d="M5.27 14.28A7.2 7.2 0 0 1 4.9 12c0-.79.14-1.56.37-2.28v-3.1H1.27A12 12 0 0 0 0 12c0 1.94.46 3.77 1.27 5.38l4-3.1Z" />
+      <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.43-3.43C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.27 6.62l4 3.1C6.22 6.86 8.87 4.75 12 4.75Z" />
+    </svg>
+  );
+}
+
+function AppleLogo() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4" fill="currentColor">
+      <path d="M16.37 12.63c-.03-2.83 2.31-4.19 2.41-4.26-1.31-1.92-3.35-2.18-4.08-2.21-1.74-.18-3.39 1.02-4.27 1.02-.88 0-2.24-1-3.68-.97-1.89.03-3.64 1.1-4.61 2.8-1.97 3.41-.5 8.46 1.41 11.23.94 1.35 2.05 2.88 3.51 2.82 1.41-.06 1.94-.91 3.65-.91 1.7 0 2.18.91 3.67.88 1.52-.03 2.48-1.38 3.41-2.74 1.07-1.57 1.51-3.09 1.54-3.17-.03-.01-2.95-1.13-2.98-4.49ZM13.57 4.3c.78-.94 1.3-2.25 1.16-3.55-1.12.05-2.47.75-3.27 1.69-.72.83-1.35 2.16-1.18 3.44 1.25.1 2.52-.64 3.29-1.58Z" />
+    </svg>
+  );
+}
+
 const SIGN_IN_STEPS = ["Your email", "Your code"] as const;
 const PASSWORD_STEPS = ["Your email", "Your password"] as const;
 
@@ -201,6 +220,41 @@ export function EmailCodeSignIn({ auth, cooldownSeconds = 60, emailLabel = "Work
   const [sentTo, setSentTo] = useState("");
   const [password, setPassword] = useState("");
   const cooldown = useCooldown();
+  const [socialProviders, setSocialProviders] = useState<readonly OAuthProvider[]>([]);
+  const { oauthProviders, signInWithOAuth } = auth;
+
+  // Hidden until the auth service says a provider is on, so switching one on needs no redeploy.
+  useEffect(() => {
+    if (oauthProviders === undefined || signInWithOAuth === undefined) {
+      return;
+    }
+    let live = true;
+    void oauthProviders().then(
+      (found) => {
+        if (live) {
+          setSocialProviders(found);
+        }
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [oauthProviders, signInWithOAuth]);
+
+  const continueWith = async (provider: OAuthProvider) => {
+    if (busy || signInWithOAuth === undefined) {
+      return;
+    }
+    setProblem(undefined);
+    setBusy(true);
+    const outcome = await signInWithOAuth(provider);
+    // On success the browser is already leaving for the provider; keep the buttons disabled until it does.
+    if (!outcome.ok) {
+      setBusy(false);
+      setProblem(outcome.message);
+    }
+  };
 
   const sendCode = async (address: string, again: boolean, forgot = false) => {
     setBusy(true);
@@ -327,6 +381,28 @@ export function EmailCodeSignIn({ auth, cooldownSeconds = 60, emailLabel = "Work
     return (
       <div>
         {showSteps ? <AuthSteps steps={SIGN_IN_STEPS} current={0} label="Sign-in steps" /> : null}
+        {socialProviders.length === 0 ? null : (
+          <div className="mb-4 flex flex-col gap-3">
+            {socialProviders.map((provider) => (
+              <Button
+                key={provider}
+                variant="secondary"
+                disabled={busy}
+                icon={provider === "google" ? <GoogleLogo /> : <AppleLogo />}
+                onClick={() => {
+                  void continueWith(provider);
+                }}
+              >
+                {provider === "google" ? "Continue with Google" : "Continue with Apple"}
+              </Button>
+            ))}
+            <div role="separator" className="flex items-center gap-3 text-xs font-medium text-muted">
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </div>
+        )}
         <form noValidate onSubmit={onEmailSubmit} className="flex flex-col gap-4">
           <Field label={emailLabel} error={fieldError} hint="We'll email you a six-digit code, or you can use a password if you've set one." required>
             <TextInput

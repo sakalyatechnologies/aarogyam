@@ -36,6 +36,7 @@ describe("central sign-in handoff", () => {
       verifyOtp,
       exchangeCodeForSession: none,
       setSession: none,
+      signInWithOAuth: () => Promise.resolve({ error: null }),
       getSession: () => Promise.resolve({ data: { session: null } }),
       getUser: () => Promise.resolve({ data: { user: null }, error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => undefined } } }),
